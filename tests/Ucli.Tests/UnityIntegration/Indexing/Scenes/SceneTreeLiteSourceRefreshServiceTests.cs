@@ -16,8 +16,8 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
         var reader = new StubSceneTreeLiteSnapshotReader();
         var response = CreateResponse("Assets/Scenes/Main.unity", "Root");
         reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Success(response));
-        var store = new StubSceneTreeLiteStore();
-        var calculator = new StubSceneTreeLiteSourceHashCalculator();
+        var store = new StubReadIndexArtifactWriter();
+        var calculator = new StubReadIndexSceneSourceHashProvider();
         calculator.Enqueue("hash-1");
         calculator.Enqueue("hash-1");
         var service = new SceneTreeLiteSourceRefreshService(reader, store, calculator);
@@ -52,8 +52,8 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
         var firstResponse = CreateResponse("Assets/Scenes/Main.unity", "First");
         reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Success(firstResponse));
         reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Failure("retry read timed out", IpcErrorCodes.InternalError));
-        var store = new StubSceneTreeLiteStore();
-        var calculator = new StubSceneTreeLiteSourceHashCalculator();
+        var store = new StubReadIndexArtifactWriter();
+        var calculator = new StubReadIndexSceneSourceHashProvider();
         calculator.Enqueue("hash-1");
         calculator.Enqueue("hash-2");
         calculator.Enqueue("hash-2");
@@ -88,8 +88,8 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
         var reader = new StubSceneTreeLiteSnapshotReader();
         var response = CreateResponse("Packages/com.example/Scenes/Main.unity", "PackageRoot");
         reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Success(response));
-        var store = new StubSceneTreeLiteStore();
-        var calculator = new StubSceneTreeLiteSourceHashCalculator();
+        var store = new StubReadIndexArtifactWriter();
+        var calculator = new StubReadIndexSceneSourceHashProvider();
         var service = new SceneTreeLiteSourceRefreshService(reader, store, calculator);
 
         var result = await service.Refresh(
@@ -170,7 +170,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
         }
     }
 
-    private sealed class StubSceneTreeLiteStore : IReadIndexArtifactWriter
+    private sealed class StubReadIndexArtifactWriter : IReadIndexArtifactWriter
     {
         public int CallCount { get; private set; }
 
@@ -216,7 +216,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
         }
     }
 
-    private sealed class StubSceneTreeLiteSourceHashCalculator : IReadIndexSceneSourceHashProvider
+    private sealed class StubReadIndexSceneSourceHashProvider : IReadIndexSceneSourceHashProvider
     {
         private readonly Queue<string?> results = new();
 

@@ -1,8 +1,6 @@
-using MackySoft.Ucli.Contracts.Configuration;
-
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 
-/// <summary> Evaluates read-index freshness and applies mode-specific freshness constraints. </summary>
+/// <summary> Observes read-index freshness from persisted and current input fingerprints. </summary>
 internal sealed class ReadIndexFreshnessEvaluator : IReadIndexFreshnessEvaluator
 {
     private readonly IReadIndexInputFingerprintProvider inputFingerprintProvider;
@@ -16,29 +14,6 @@ internal sealed class ReadIndexFreshnessEvaluator : IReadIndexFreshnessEvaluator
     {
         this.inputFingerprintProvider = inputFingerprintProvider ?? throw new ArgumentNullException(nameof(inputFingerprintProvider));
         this.sceneSourceHashProvider = sceneSourceHashProvider ?? throw new ArgumentNullException(nameof(sceneSourceHashProvider));
-    }
-
-    /// <inheritdoc />
-    public async ValueTask<IndexFreshnessEvaluationResult> Evaluate (
-        ResolvedUnityProjectContext unityProject,
-        IndexFreshnessTarget target,
-        string? persistedSourceInputsHash,
-        ReadIndexMode mode,
-        CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (mode == ReadIndexMode.Disabled)
-        {
-            return IndexFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
-        }
-
-        var observedResult = await Observe(unityProject, target, persistedSourceInputsHash, cancellationToken).ConfigureAwait(false);
-        if (!observedResult.IsSuccess)
-        {
-            return observedResult;
-        }
-
-        return IndexFreshnessPolicy.ApplyModeConstraint(mode, observedResult.Freshness);
     }
 
     /// <inheritdoc />
@@ -75,29 +50,6 @@ internal sealed class ReadIndexFreshnessEvaluator : IReadIndexFreshnessEvaluator
 
         var freshness = IndexHashFreshnessPolicy.EvaluateFreshness(persistedSourceInputsHash, currentSnapshot, target);
         return IndexFreshnessEvaluationResult.Success(freshness);
-    }
-
-    /// <inheritdoc />
-    public async ValueTask<IndexFreshnessEvaluationResult> EvaluateSceneTreeLite (
-        ResolvedUnityProjectContext unityProject,
-        string scenePath,
-        string? persistedSourceInputsHash,
-        ReadIndexMode mode,
-        CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (mode == ReadIndexMode.Disabled)
-        {
-            return IndexFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
-        }
-
-        var observedResult = await ObserveSceneTreeLite(unityProject, scenePath, persistedSourceInputsHash, cancellationToken).ConfigureAwait(false);
-        if (!observedResult.IsSuccess)
-        {
-            return observedResult;
-        }
-
-        return IndexFreshnessPolicy.ApplyModeConstraint(mode, observedResult.Freshness);
     }
 
     /// <inheritdoc />

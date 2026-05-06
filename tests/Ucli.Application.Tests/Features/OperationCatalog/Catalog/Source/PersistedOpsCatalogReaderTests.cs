@@ -1,73 +1,69 @@
-using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
-namespace MackySoft.Ucli.Tests;
+namespace MackySoft.Ucli.Application.Tests.Ops.Source;
 
-public sealed class PersistedOpsCatalogSnapshotLoaderTests
+public sealed class PersistedOpsCatalogReaderTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Load_WhenOpsCatalogReadFails_ReturnsFailure ()
+    public async Task Read_WhenOpsCatalogReadFails_ReturnsFailure ()
     {
         var error = new IndexServiceError(
             IpcErrorCodes.ReadIndexBootstrapFailed,
             "Index contract file was not found: ops.catalog.json.");
-        var loader = new PersistedOpsCatalogSnapshotLoader(
+        var reader = new PersistedOpsCatalogReader(
             new StubReadIndexArtifactReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Failure(error)),
             new StubIndexFreshnessEvaluator(IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh)));
 
-        var result = await loader.Load(CreateUnityProject(), CancellationToken.None);
+        var result = await reader.Read(CreateUnityProject(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Same(error, result.Error);
-        Assert.Null(result.Snapshot);
+        Assert.Equal(error.Code, result.ErrorCode);
+        Assert.Equal(error.Message, result.ErrorMessage);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Load_WhenFreshnessEvaluationFails_ReturnsFailure ()
+    public async Task Read_WhenFreshnessObservationFails_ReturnsFailure ()
     {
         var error = new IndexServiceError(
             IpcErrorCodes.ReadIndexFreshRequired,
             "readIndexMode=requireFresh requires index freshness 'fresh'.");
         var freshnessEvaluator = new StubIndexFreshnessEvaluator(
             IndexFreshnessEvaluationResult.Failure(IndexFreshness.Stale, error));
-        var loader = new PersistedOpsCatalogSnapshotLoader(
+        var reader = new PersistedOpsCatalogReader(
             new StubReadIndexArtifactReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Success(CreateCatalog())),
             freshnessEvaluator);
-        var unityProject = CreateUnityProject();
 
-        var result = await loader.Load(unityProject, CancellationToken.None);
+        var result = await reader.Read(CreateUnityProject(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Same(error, result.Error);
-        Assert.Null(result.Snapshot);
+        Assert.Equal(error.Code, result.ErrorCode);
+        Assert.Equal(error.Message, result.ErrorMessage);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Load_WhenDependenciesSucceed_ReturnsSnapshotAndObservesFreshness ()
+    public async Task Read_WhenDependenciesSucceed_ReturnsCatalogAndObservesFreshness ()
     {
         var freshnessEvaluator = new StubIndexFreshnessEvaluator(
             IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable));
-        var loader = new PersistedOpsCatalogSnapshotLoader(
+        var reader = new PersistedOpsCatalogReader(
             new StubReadIndexArtifactReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Success(CreateCatalog())),
             freshnessEvaluator);
         var unityProject = CreateUnityProject();
 
-        var result = await loader.Load(unityProject, CancellationToken.None);
+        var result = await reader.Read(unityProject, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.NotNull(result.Snapshot);
-        Assert.Equal(IndexFreshness.Probable, result.Snapshot!.Freshness);
-        Assert.Equal(DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"), result.Snapshot.GeneratedAtUtc);
-        Assert.Single(result.Snapshot.Entries);
+        Assert.Equal(IndexFreshness.Probable, result.Freshness);
+        Assert.Equal(DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"), result.GeneratedAtUtc);
+        Assert.Single(result.Entries!);
         Assert.Same(unityProject, freshnessEvaluator.LastUnityProject);
         Assert.Equal(IndexFreshnessTarget.OpsCatalog, freshnessEvaluator.LastTarget);
         Assert.Equal("source-hash", freshnessEvaluator.LastPersistedSourceInputsHash);
         Assert.Equal(1, freshnessEvaluator.ObserveCallCount);
-        Assert.Equal(0, freshnessEvaluator.EvaluateCallCount);
     }
 
     private static ResolvedUnityProjectContext CreateUnityProject ()
@@ -173,20 +169,6 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
 
         public int ObserveCallCount { get; private set; }
 
-        public int EvaluateCallCount { get; private set; }
-
-        public ValueTask<IndexFreshnessEvaluationResult> Evaluate (
-            ResolvedUnityProjectContext unityProject,
-            IndexFreshnessTarget target,
-            string? persistedSourceInputsHash,
-            ReadIndexMode mode,
-            CancellationToken cancellationToken = default)
-        {
-            EvaluateCallCount++;
-            cancellationToken.ThrowIfCancellationRequested();
-            throw new NotSupportedException();
-        }
-
         public ValueTask<IndexFreshnessEvaluationResult> Observe (
             ResolvedUnityProjectContext unityProject,
             IndexFreshnessTarget target,
@@ -199,16 +181,6 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
             ObserveCallCount++;
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(result);
-        }
-
-        public ValueTask<IndexFreshnessEvaluationResult> EvaluateSceneTreeLite (
-            ResolvedUnityProjectContext unityProject,
-            string scenePath,
-            string? persistedSourceInputsHash,
-            ReadIndexMode mode,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
         }
 
         public ValueTask<IndexFreshnessEvaluationResult> ObserveSceneTreeLite (

@@ -142,7 +142,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                 mode,
                 timeout,
                 normalizedQuery,
-                $"Existing asset-search index freshness is '{AssetLookupAccessUtilities.DescribeFreshness(freshnessResult.Freshness)}'.",
+                $"Existing asset-search index freshness is '{ReadIndexAccessUtilities.DescribeFreshness(freshnessResult.Freshness)}'.",
                 failFast,
                 cancellationToken)
             .ConfigureAwait(false);

@@ -186,11 +186,16 @@ public sealed class OpsCatalogAccessServiceTests
             = OpsCatalogSourceRefreshResult.Failure("not configured", IpcErrorCodes.InternalError);
 
         public ValueTask<OpsCatalogSourceRefreshResult> Refresh (
-            OpsPreflightContext context,
+            ResolvedUnityProjectContext project,
+            UcliConfig config,
+            UnityExecutionMode mode,
+            TimeSpan timeout,
+            bool failFast,
             string fallbackReason,
             CancellationToken cancellationToken = default)
         {
-            ArgumentNullException.ThrowIfNull(context);
+            ArgumentNullException.ThrowIfNull(project);
+            ArgumentNullException.ThrowIfNull(config);
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
             LastFallbackReason = fallbackReason;

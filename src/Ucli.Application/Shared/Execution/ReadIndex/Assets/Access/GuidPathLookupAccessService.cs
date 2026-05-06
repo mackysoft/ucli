@@ -185,7 +185,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
                 "GUID-path lookup read completed.");
         }
 
-        fallbackReason = $"Existing guid-path index freshness is '{AssetLookupAccessUtilities.DescribeFreshness(freshnessResult.Freshness)}'.";
+        fallbackReason = $"Existing guid-path index freshness is '{ReadIndexAccessUtilities.DescribeFreshness(freshnessResult.Freshness)}'.";
         return await ReadFromSource(
                 project,
                 config,

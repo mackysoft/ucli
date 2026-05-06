@@ -1,19 +1,16 @@
-using MackySoft.Ucli.Application.Shared.Context.Project;
-using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
+namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 
-namespace MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
-
-/// <summary> Loads persisted ops-catalog data and computes observed freshness without applying caller-specific policy. </summary>
-internal sealed class PersistedOpsCatalogSnapshotLoader : IPersistedOpsCatalogSnapshotLoader
+/// <summary> Reads persisted ops-catalog data and observes its freshness for application policy. </summary>
+internal sealed class PersistedOpsCatalogReader : IPersistedOpsCatalogReader
 {
     private readonly IReadIndexArtifactReader artifactReader;
 
     private readonly IReadIndexFreshnessEvaluator freshnessEvaluator;
 
-    /// <summary> Initializes a new instance of the <see cref="PersistedOpsCatalogSnapshotLoader" /> class. </summary>
+    /// <summary> Initializes a new instance of the <see cref="PersistedOpsCatalogReader" /> class. </summary>
     /// <param name="artifactReader"> The persisted read-index artifact reader dependency. </param>
     /// <param name="freshnessEvaluator"> The read-index freshness evaluator dependency. </param>
-    public PersistedOpsCatalogSnapshotLoader (
+    public PersistedOpsCatalogReader (
         IReadIndexArtifactReader artifactReader,
         IReadIndexFreshnessEvaluator freshnessEvaluator)
     {
@@ -22,7 +19,7 @@ internal sealed class PersistedOpsCatalogSnapshotLoader : IPersistedOpsCatalogSn
     }
 
     /// <inheritdoc />
-    public async ValueTask<PersistedOpsCatalogSnapshotLoadResult> Load (
+    public async ValueTask<PersistedOpsCatalogReadResult> Read (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
@@ -35,7 +32,9 @@ internal sealed class PersistedOpsCatalogSnapshotLoader : IPersistedOpsCatalogSn
             .ConfigureAwait(false);
         if (!opsCatalogResult.IsSuccess)
         {
-            return PersistedOpsCatalogSnapshotLoadResult.Failure(opsCatalogResult.Error!);
+            return PersistedOpsCatalogReadResult.Failure(
+                opsCatalogResult.Error!.Code,
+                opsCatalogResult.Error.Message);
         }
 
         var opsCatalog = opsCatalogResult.Value!;
@@ -47,13 +46,14 @@ internal sealed class PersistedOpsCatalogSnapshotLoader : IPersistedOpsCatalogSn
             .ConfigureAwait(false);
         if (!freshnessResult.IsSuccess)
         {
-            return PersistedOpsCatalogSnapshotLoadResult.Failure(freshnessResult.Error!);
+            return PersistedOpsCatalogReadResult.Failure(
+                freshnessResult.Error!.Code,
+                freshnessResult.Error.Message);
         }
 
-        return PersistedOpsCatalogSnapshotLoadResult.Success(
-            new PersistedOpsCatalogSnapshot(
-                Entries: opsCatalog.Entries!,
-                GeneratedAtUtc: opsCatalog.GeneratedAtUtc,
-                Freshness: freshnessResult.Freshness));
+        return PersistedOpsCatalogReadResult.Success(
+            opsCatalog.Entries!,
+            opsCatalog.GeneratedAtUtc,
+            freshnessResult.Freshness);
     }
 }

@@ -16,6 +16,7 @@ using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Stop;
 using MackySoft.Ucli.Application.Features.Init.UseCases.Init;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
+using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Preflight;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
@@ -111,6 +112,7 @@ public static class UcliApplicationServiceCollectionExtensions
     private static IServiceCollection AddUcliApplicationOperationCatalogServices (this IServiceCollection services)
     {
         services.AddSingleton<IOpsPreflightService, OpsPreflightService>();
+        services.AddSingleton<IPersistedOpsCatalogReader, PersistedOpsCatalogReader>();
         services.AddSingleton<IOpsCatalogAccessService, OpsCatalogAccessService>();
         services.AddSingleton<OpsReadIndexInfoMapper>();
         services.AddSingleton<IOpsListResultMapper, OpsListResultMapper>();

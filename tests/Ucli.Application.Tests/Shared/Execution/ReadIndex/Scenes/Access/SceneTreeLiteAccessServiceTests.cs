@@ -53,7 +53,6 @@ public sealed class SceneTreeLiteAccessServiceTests
         Assert.Single(result.Output.Roots[0].Children!);
         Assert.Empty(result.Output.Roots[0].Children![0].Children!);
         Assert.Equal(0, refreshService.CallCount);
-        Assert.Equal(0, freshnessEvaluator.EvaluateSceneTreeLiteCallCount);
         Assert.Equal(1, freshnessEvaluator.ObserveSceneTreeLiteCallCount);
         Assert.Same(project, freshnessEvaluator.LastUnityProject);
         Assert.Equal("Assets/Scenes/Main.unity", freshnessEvaluator.LastScenePath);
@@ -631,8 +630,6 @@ public sealed class SceneTreeLiteAccessServiceTests
         public IndexFreshnessEvaluationResult Result { get; set; }
             = IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh);
 
-        public int EvaluateSceneTreeLiteCallCount { get; private set; }
-
         public int ObserveSceneTreeLiteCallCount { get; private set; }
 
         public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
@@ -640,28 +637,6 @@ public sealed class SceneTreeLiteAccessServiceTests
         public string? LastScenePath { get; private set; }
 
         public string? LastPersistedSourceInputsHash { get; private set; }
-
-        public ValueTask<IndexFreshnessEvaluationResult> Evaluate (
-            ResolvedUnityProjectContext unityProject,
-            IndexFreshnessTarget target,
-            string? persistedSourceInputsHash,
-            ReadIndexMode mode,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<IndexFreshnessEvaluationResult> EvaluateSceneTreeLite (
-            ResolvedUnityProjectContext unityProject,
-            string scenePath,
-            string? persistedSourceInputsHash,
-            ReadIndexMode mode,
-            CancellationToken cancellationToken = default)
-        {
-            EvaluateSceneTreeLiteCallCount++;
-            cancellationToken.ThrowIfCancellationRequested();
-            throw new NotSupportedException();
-        }
 
         public ValueTask<IndexFreshnessEvaluationResult> Observe (
             ResolvedUnityProjectContext unityProject,

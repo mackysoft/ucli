@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
+using MackySoft.Ucli.Application.Shared.Configuration;
 
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 
@@ -7,7 +7,11 @@ internal interface IOpsCatalogSourceRefreshService
 {
     /// <summary> Reads the ops catalog from source and attempts to persist refreshed read-index artifacts. </summary>
     ValueTask<OpsCatalogSourceRefreshResult> Refresh (
-        OpsPreflightContext context,
+        ResolvedUnityProjectContext project,
+        UcliConfig config,
+        UnityExecutionMode mode,
+        TimeSpan timeout,
+        bool failFast,
         string fallbackReason,
         CancellationToken cancellationToken = default);
 }

@@ -99,7 +99,7 @@ Application code は次を直接扱わない。
 | --- | --- | --- |
 | Unity IPC request 実行 | `Ucli.Application` | `Ucli` の adapter 領域、または将来の専用 adapter project |
 | project context 解決 | policy interface は `Ucli.Application` | filesystem / git / Unity project 判定は `Ucli.Infrastructure` または adapter 側 |
-| readIndex / catalog 参照 | use case が必要とする reader interface は `Ucli.Application` | file store、snapshot loader、Unity fallback client は adapter 側 |
+| readIndex / catalog 参照 | use case が必要とする reader interface と freshness policy は `Ucli.Application` | file artifact reader / writer、Unity fallback client は adapter 側 |
 | process 実行 | 必要なら能力 interface は `Ucli.Application` | `Ucli.Infrastructure` の process 実装 |
 | filesystem 永続化 | 必要なら repository / store interface は `Ucli.Application` | `Ucli.Infrastructure` または adapter 側の file store |
 
@@ -109,7 +109,7 @@ Adapter 側は Application の interface を実装してよい。Application 側
 
 readIndex は、公開 JSON contract、Application policy、adapter 実装を分離する。`index` JSON 形式と CLI 出力、Unity plugin 側の index 生成処理は `Ucli.Contracts` の既存 contract を正本とし、Application の都合で変更しない。
 
-`Ucli.Application` は read model の access policy を持つ。具体的には、readIndex mode、freshness policy、fallback 判断、mutation read postcondition 判定、persisted artifact の read 成否に基づく source fallback の判断を行う。ops catalog、asset-search、guid-path、scene-tree-lite は同じ流れで扱い、persisted snapshot load、freshness 判定、read postcondition 判定、source fallback、best-effort persistence の結果反映を揃える。Application は `IReadIndexArtifactReader`、`IReadIndexFreshnessEvaluator`、source refresh port、scene source probe などの port だけを呼び、filesystem、storage path、hash 計算、Unity IPC の具体実装を持たない。
+`Ucli.Application` は read model の access policy を持つ。具体的には、readIndex mode、freshness policy、fallback 判断、persisted artifact の read 成否に基づく source fallback の判断を行う。asset-search、guid-path、scene-tree-lite は mutation read postcondition 判定も Application で行う。ops catalog、asset-search、guid-path、scene-tree-lite は persisted artifact read、freshness 判定、source fallback、best-effort persistence の結果反映を同じ責務境界で扱う。Application は `IReadIndexArtifactReader`、`IReadIndexFreshnessEvaluator`、source refresh port、scene source probe などの port だけを呼び、filesystem、storage path、hash 計算、Unity IPC の具体実装を持たない。
 
 `Ucli` adapter は read model の技術実装を持つ。具体的には、`.ucli/local/.../index/` 配下の storage path 解決、artifact JSON の file read / atomic write、input fingerprint と scene source hash の計算、Unity IPC による source read、refresh 後の best-effort persistence を実装する。source refresh adapter は source result を失敗させず、永続化失敗を fallback reason に含める。
 

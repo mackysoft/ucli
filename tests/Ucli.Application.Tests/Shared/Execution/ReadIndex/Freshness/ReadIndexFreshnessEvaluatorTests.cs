@@ -1,22 +1,18 @@
-using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
-
 namespace MackySoft.Ucli.Application.Tests.Execution.ReadIndex;
 
 public sealed class ReadIndexFreshnessEvaluatorTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Evaluate_ReturnsProbable_WhenPersistedHashIsMissing ()
+    public async Task Observe_ReturnsProbable_WhenPersistedHashIsMissing ()
     {
         var inputProvider = new StubReadIndexInputFingerprintProvider();
         var evaluator = new ReadIndexFreshnessEvaluator(inputProvider, new StubReadIndexSceneSourceHashProvider());
 
-        var result = await evaluator.Evaluate(
+        var result = await evaluator.Observe(
             CreateProject(),
             IndexFreshnessTarget.OpsCatalog,
             persistedSourceInputsHash: null,
-            ReadIndexMode.AllowStale,
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -27,7 +23,7 @@ public sealed class ReadIndexFreshnessEvaluatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Evaluate_ReturnsFresh_WhenCoreHashMatchesOpsCatalogHash ()
+    public async Task Observe_ReturnsFresh_WhenCoreHashMatchesOpsCatalogHash ()
     {
         var inputProvider = new StubReadIndexInputFingerprintProvider
         {
@@ -35,11 +31,10 @@ public sealed class ReadIndexFreshnessEvaluatorTests
         };
         var evaluator = new ReadIndexFreshnessEvaluator(inputProvider, new StubReadIndexSceneSourceHashProvider());
 
-        var result = await evaluator.Evaluate(
+        var result = await evaluator.Observe(
             CreateProject(),
             IndexFreshnessTarget.OpsCatalog,
             "combined-hash",
-            ReadIndexMode.AllowStale,
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -50,7 +45,7 @@ public sealed class ReadIndexFreshnessEvaluatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Evaluate_ReturnsStale_WhenAssetLookupHashDiffers ()
+    public async Task Observe_ReturnsStale_WhenAssetLookupHashDiffers ()
     {
         var inputProvider = new StubReadIndexInputFingerprintProvider
         {
@@ -58,11 +53,10 @@ public sealed class ReadIndexFreshnessEvaluatorTests
         };
         var evaluator = new ReadIndexFreshnessEvaluator(inputProvider, new StubReadIndexSceneSourceHashProvider());
 
-        var result = await evaluator.Evaluate(
+        var result = await evaluator.Observe(
             CreateProject(),
             IndexFreshnessTarget.AssetSearchLookup,
             "old-asset-search-hash",
-            ReadIndexMode.AllowStale,
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -73,28 +67,7 @@ public sealed class ReadIndexFreshnessEvaluatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Evaluate_ReturnsFreshRequired_WhenRequireFreshAndProviderCannotCompute ()
-    {
-        var evaluator = new ReadIndexFreshnessEvaluator(
-            new StubReadIndexInputFingerprintProvider(),
-            new StubReadIndexSceneSourceHashProvider());
-
-        var result = await evaluator.Evaluate(
-            CreateProject(),
-            IndexFreshnessTarget.OpsCatalog,
-            "persisted-hash",
-            ReadIndexMode.RequireFresh,
-            CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(IndexFreshness.Probable, result.Freshness);
-        Assert.NotNull(result.Error);
-        Assert.Equal(IpcErrorCodes.ReadIndexFreshRequired, result.Error!.Code);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task EvaluateSceneTreeLite_ReturnsFresh_WhenSceneSourceHashMatches ()
+    public async Task ObserveSceneTreeLite_ReturnsFresh_WhenSceneSourceHashMatches ()
     {
         var sceneHashProvider = new StubReadIndexSceneSourceHashProvider
         {
@@ -102,39 +75,15 @@ public sealed class ReadIndexFreshnessEvaluatorTests
         };
         var evaluator = new ReadIndexFreshnessEvaluator(new StubReadIndexInputFingerprintProvider(), sceneHashProvider);
 
-        var result = await evaluator.EvaluateSceneTreeLite(
+        var result = await evaluator.ObserveSceneTreeLite(
             CreateProject(),
             "Assets/Scenes/Main.unity",
             "scene-hash",
-            ReadIndexMode.AllowStale,
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(IndexFreshness.Fresh, result.Freshness);
         Assert.Equal(1, sceneHashProvider.CallCount);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task EvaluateSceneTreeLite_ReturnsFreshRequired_WhenRequireFreshAndHashDiffers ()
-    {
-        var sceneHashProvider = new StubReadIndexSceneSourceHashProvider
-        {
-            SourceHash = "current-scene-hash",
-        };
-        var evaluator = new ReadIndexFreshnessEvaluator(new StubReadIndexInputFingerprintProvider(), sceneHashProvider);
-
-        var result = await evaluator.EvaluateSceneTreeLite(
-            CreateProject(),
-            "Assets/Scenes/Main.unity",
-            "persisted-scene-hash",
-            ReadIndexMode.RequireFresh,
-            CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(IndexFreshness.Stale, result.Freshness);
-        Assert.NotNull(result.Error);
-        Assert.Equal(IpcErrorCodes.ReadIndexFreshRequired, result.Error!.Code);
     }
 
     private static ResolvedUnityProjectContext CreateProject ()

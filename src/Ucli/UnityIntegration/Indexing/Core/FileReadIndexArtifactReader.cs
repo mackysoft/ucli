@@ -8,7 +8,7 @@ using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
-/// <summary> Provides filesystem-backed access to index catalog contract files. </summary>
+/// <summary> Provides filesystem-backed access to read-index artifact contract files. </summary>
 internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
 {
     /// <summary> Reads one <c>ops.catalog.json</c> contract. </summary>

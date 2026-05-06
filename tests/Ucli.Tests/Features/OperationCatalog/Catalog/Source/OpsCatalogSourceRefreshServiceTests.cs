@@ -1,9 +1,6 @@
-using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Shared.Configuration;
-using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
@@ -33,13 +30,20 @@ public sealed class OpsCatalogSourceRefreshServiceTests
             fingerprintProvider,
             artifactWriter);
 
-        var result = await service.Refresh(CreatePreflightContext(), "readIndex stale.", CancellationToken.None);
+        var result = await service.Refresh(
+            CreateProjectContext(),
+            UcliConfig.CreateDefault(),
+            UnityExecutionMode.Auto,
+            TimeSpan.FromMilliseconds(1200),
+            failFast: true,
+            "readIndex stale.",
+            CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal("readIndex stale.", result.FallbackReason);
         Assert.Equal(1, reader.CallCount);
         Assert.True(reader.LastRequireReadinessGate);
-        Assert.Equal(1, fingerprintProvider.CoreCallCount);
+        Assert.Equal(2, fingerprintProvider.CoreCallCount);
         Assert.Equal(1, fingerprintProvider.FullCallCount);
         Assert.Equal(1, artifactWriter.OpsCatalogCallCount);
         Assert.Equal("combined", artifactWriter.LastSourceInputsHash);
@@ -82,10 +86,17 @@ public sealed class OpsCatalogSourceRefreshServiceTests
         var artifactWriter = new StubReadIndexArtifactWriter();
         var service = new OpsCatalogSourceRefreshService(reader, persistedArtifactsReader, fingerprintProvider, artifactWriter);
 
-        var result = await service.Refresh(CreatePreflightContext(), "readIndex stale.", CancellationToken.None);
+        var result = await service.Refresh(
+            CreateProjectContext(),
+            UcliConfig.CreateDefault(),
+            UnityExecutionMode.Auto,
+            TimeSpan.FromMilliseconds(1200),
+            failFast: true,
+            "readIndex stale.",
+            CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(1, fingerprintProvider.CoreCallCount);
+        Assert.Equal(2, fingerprintProvider.CoreCallCount);
         Assert.Equal(0, fingerprintProvider.FullCallCount);
         Assert.Equal("new-combined", artifactWriter.LastSourceInputsHash);
         Assert.NotNull(artifactWriter.LastManifestInputSnapshot);
@@ -120,7 +131,14 @@ public sealed class OpsCatalogSourceRefreshServiceTests
             },
             artifactWriter);
 
-        var result = await service.Refresh(CreatePreflightContext(), "readIndex disabled by mode.", CancellationToken.None);
+        var result = await service.Refresh(
+            CreateProjectContext(),
+            UcliConfig.CreateDefault(),
+            UnityExecutionMode.Auto,
+            TimeSpan.FromMilliseconds(1200),
+            failFast: true,
+            "readIndex disabled by mode.",
+            CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.FallbackReason);
@@ -128,21 +146,59 @@ public sealed class OpsCatalogSourceRefreshServiceTests
         Assert.Contains("Failed to persist refreshed ops readIndex. disk full", result.FallbackReason!, StringComparison.Ordinal);
     }
 
-    private static OpsPreflightContext CreatePreflightContext ()
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Refresh_RetriesAndPersists_WhenCoreInputsChangeDuringFirstCatalogRead ()
     {
-        return new OpsPreflightContext(
-            new ProjectContext(
-                new ResolvedUnityProjectContext(
-                    UnityProjectRoot: "/repo/UnityProject",
-                    RepositoryRoot: "/repo",
-                    ProjectFingerprint: "project-fingerprint",
-                    PathSource: UnityProjectPathSource.CommandOption),
-                UcliConfig.CreateDefault(),
-                ConfigSource.Default),
-            ReadIndexMode.AllowStale,
+        var reader = new StubOpsCatalogReader();
+        reader.Enqueue(OpsCatalogFetchResult.Success(
+            new IpcOpsReadResponse(
+                DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
+                [CreateGoDescribeEntry()])));
+        reader.Enqueue(OpsCatalogFetchResult.Success(
+            new IpcOpsReadResponse(
+                DateTimeOffset.Parse("2026-03-07T00:01:00+00:00"),
+                [CreateSceneSaveEntry()])));
+        var fingerprintProvider = new StubReadIndexInputFingerprintProvider
+        {
+            Snapshot = CreateSnapshot("asset-search", "guid-path", "combined-2"),
+        };
+        fingerprintProvider.EnqueueCore(CreateCoreSnapshot("combined-1"));
+        fingerprintProvider.EnqueueCore(CreateCoreSnapshot("combined-2"));
+        fingerprintProvider.EnqueueCore(CreateCoreSnapshot("combined-2"));
+        fingerprintProvider.EnqueueCore(CreateCoreSnapshot("combined-2"));
+        var artifactWriter = new StubReadIndexArtifactWriter();
+        var service = new OpsCatalogSourceRefreshService(
+            reader,
+            new StubPersistedOpsCatalogPersistenceArtifactsReader(),
+            fingerprintProvider,
+            artifactWriter);
+
+        var result = await service.Refresh(
+            CreateProjectContext(),
+            UcliConfig.CreateDefault(),
             UnityExecutionMode.Auto,
             TimeSpan.FromMilliseconds(1200),
-            true);
+            failFast: true,
+            "readIndex stale.",
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Single(result.Operations!);
+        Assert.Equal(UcliPrimitiveOperationNames.SceneSave, result.Operations![0].Name);
+        Assert.Equal(2, reader.CallCount);
+        Assert.Equal(4, fingerprintProvider.CoreCallCount);
+        Assert.Equal(1, artifactWriter.OpsCatalogCallCount);
+        Assert.Equal("combined-2", artifactWriter.LastSourceInputsHash);
+    }
+
+    private static ResolvedUnityProjectContext CreateProjectContext ()
+    {
+        return new ResolvedUnityProjectContext(
+            UnityProjectRoot: "/repo/UnityProject",
+            RepositoryRoot: "/repo",
+            ProjectFingerprint: "project-fingerprint",
+            PathSource: UnityProjectPathSource.CommandOption);
     }
 
     private static IndexOpEntryJsonContract CreateGoDescribeEntry ()
@@ -161,6 +217,27 @@ public sealed class OpsCatalogSourceRefreshServiceTests
                 Array.Empty<string>(),
                 mayDirty: false,
                 mayPersist: false,
+                Array.Empty<string>(),
+                UcliOperationPlanModeValues.ObservesLiveUnity),
+        };
+    }
+
+    private static IndexOpEntryJsonContract CreateSceneSaveEntry ()
+    {
+        return new IndexOpEntryJsonContract(
+            Name: UcliPrimitiveOperationNames.SceneSave,
+            Kind: "mutation",
+            Policy: "advanced",
+            ArgsSchemaJson: """{"type":"object"}""",
+            ResultSchemaJson: """{"type":"object"}""")
+        {
+            Description = "Saves a Unity scene asset.",
+            Inputs = Array.Empty<UcliOperationInputContract>(),
+            ResultContract = UcliOperationResultContract.NoResult("No operation-specific result is emitted."),
+            Assurance = new UcliOperationAssuranceContract(
+                Array.Empty<string>(),
+                mayDirty: false,
+                mayPersist: true,
                 Array.Empty<string>(),
                 UcliOperationPlanModeValues.ObservesLiveUnity),
         };
@@ -194,12 +271,19 @@ public sealed class OpsCatalogSourceRefreshServiceTests
 
     private sealed class StubOpsCatalogReader : IOpsCatalogReader
     {
+        private readonly Queue<OpsCatalogFetchResult> results = new();
+
         public int CallCount { get; private set; }
 
         public bool LastRequireReadinessGate { get; private set; }
 
         public OpsCatalogFetchResult Result { get; set; }
             = OpsCatalogFetchResult.Failure("not configured", IpcErrorCodes.InternalError);
+
+        public void Enqueue (OpsCatalogFetchResult result)
+        {
+            results.Enqueue(result);
+        }
 
         public ValueTask<OpsCatalogFetchResult> Read (
             ResolvedUnityProjectContext project,
@@ -213,6 +297,11 @@ public sealed class OpsCatalogSourceRefreshServiceTests
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
             LastRequireReadinessGate = requireReadinessGate;
+            if (results.TryDequeue(out var result))
+            {
+                return ValueTask.FromResult(result);
+            }
+
             return ValueTask.FromResult(Result);
         }
     }
@@ -233,6 +322,8 @@ public sealed class OpsCatalogSourceRefreshServiceTests
 
     private sealed class StubReadIndexInputFingerprintProvider : IReadIndexInputFingerprintProvider
     {
+        private readonly Queue<ReadIndexCoreInputHashSnapshot?> coreSnapshots = new();
+
         public int CoreCallCount { get; private set; }
 
         public int FullCallCount { get; private set; }
@@ -243,12 +334,22 @@ public sealed class OpsCatalogSourceRefreshServiceTests
 
         public bool ThrowOnTryCompute { get; set; }
 
+        public void EnqueueCore (ReadIndexCoreInputHashSnapshot? snapshot)
+        {
+            coreSnapshots.Enqueue(snapshot);
+        }
+
         public ValueTask<ReadIndexCoreInputHashSnapshot?> TryComputeCore (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             CoreCallCount++;
+            if (coreSnapshots.TryDequeue(out var snapshot))
+            {
+                return ValueTask.FromResult(snapshot);
+            }
+
             return ValueTask.FromResult(CoreSnapshot);
         }
 

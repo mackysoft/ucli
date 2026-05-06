@@ -41,7 +41,7 @@ internal sealed class ReadIndexValidationCatalogResolver : IReadIndexValidationC
             .ConfigureAwait(false);
         if (!persistedCatalogResult.IsSuccess)
         {
-            return HandleSnapshotReadFailure(
+            return HandlePersistedCatalogReadFailure(
                 persistedCatalogResult.ErrorCode!,
                 persistedCatalogResult.ErrorMessage!,
                 readIndexMode);
@@ -83,7 +83,7 @@ internal sealed class ReadIndexValidationCatalogResolver : IReadIndexValidationC
                 fallbackReason: null));
     }
 
-    private static ReadIndexValidationCatalogResolutionResult HandleSnapshotReadFailure (
+    private static ReadIndexValidationCatalogResolutionResult HandlePersistedCatalogReadFailure (
         string errorCode,
         string errorMessage,
         ReadIndexMode readIndexMode)

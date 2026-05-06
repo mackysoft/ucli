@@ -52,7 +52,6 @@ public sealed class AssetSearchLookupAccessServiceTests
         Assert.Equal(AssetLookupSource.Index, result.Output.AccessInfo.Source);
         Assert.True(result.Output.AccessInfo.Used);
         Assert.Equal(0, refreshService.CallCount);
-        Assert.Equal(0, freshnessEvaluator.EvaluateCallCount);
         Assert.Equal(1, freshnessEvaluator.ObserveCallCount);
         Assert.Same(project, freshnessEvaluator.LastUnityProject);
         Assert.Equal(IndexFreshnessTarget.AssetSearchLookup, freshnessEvaluator.LastTarget);
@@ -251,8 +250,6 @@ public sealed class AssetSearchLookupAccessServiceTests
         public IndexFreshnessEvaluationResult Result { get; set; }
             = IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh);
 
-        public int EvaluateCallCount { get; private set; }
-
         public int ObserveCallCount { get; private set; }
 
         public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
@@ -260,28 +257,6 @@ public sealed class AssetSearchLookupAccessServiceTests
         public IndexFreshnessTarget LastTarget { get; private set; }
 
         public string? LastPersistedSourceInputsHash { get; private set; }
-
-        public ValueTask<IndexFreshnessEvaluationResult> Evaluate (
-            ResolvedUnityProjectContext unityProject,
-            IndexFreshnessTarget target,
-            string? persistedSourceInputsHash,
-            ReadIndexMode mode,
-            CancellationToken cancellationToken = default)
-        {
-            EvaluateCallCount++;
-            cancellationToken.ThrowIfCancellationRequested();
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<IndexFreshnessEvaluationResult> EvaluateSceneTreeLite (
-            ResolvedUnityProjectContext unityProject,
-            string scenePath,
-            string? persistedSourceInputsHash,
-            ReadIndexMode mode,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
 
         public ValueTask<IndexFreshnessEvaluationResult> Observe (
             ResolvedUnityProjectContext unityProject,

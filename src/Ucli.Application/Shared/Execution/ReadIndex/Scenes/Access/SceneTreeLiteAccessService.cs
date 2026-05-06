@@ -187,7 +187,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                 timeout,
                 normalizedScenePath,
                 depth,
-                $"Existing scene-tree-lite index freshness is '{SceneTreeLiteAccessUtilities.DescribeFreshness(freshnessResult.Freshness)}'.",
+                $"Existing scene-tree-lite index freshness is '{ReadIndexAccessUtilities.DescribeFreshness(freshnessResult.Freshness)}'.",
                 failFast,
                 cancellationToken)
             .ConfigureAwait(false);

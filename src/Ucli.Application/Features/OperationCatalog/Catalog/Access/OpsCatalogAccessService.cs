@@ -78,7 +78,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
 
         return await ReadCatalogFromSource(
                 context,
-                $"Existing ops index freshness is '{DescribeFreshness(persistedFreshness)}'.",
+                $"Existing ops index freshness is '{ReadIndexAccessUtilities.DescribeFreshness(persistedFreshness)}'.",
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -89,7 +89,11 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
         CancellationToken cancellationToken)
     {
         var refreshResult = await sourceRefreshService.Refresh(
-                context,
+                context.Context.UnityProject,
+                context.Context.Config,
+                context.Mode,
+                context.Timeout,
+                context.FailFast,
                 fallbackReason,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -113,14 +117,4 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
             "Ops catalog read completed.");
     }
 
-    private static string DescribeFreshness (IndexFreshness freshness)
-    {
-        return freshness switch
-        {
-            IndexFreshness.Fresh => "fresh",
-            IndexFreshness.Probable => "probable",
-            IndexFreshness.Stale => "stale",
-            _ => throw new ArgumentOutOfRangeException(nameof(freshness), freshness, "Unsupported index freshness."),
-        };
-    }
 }

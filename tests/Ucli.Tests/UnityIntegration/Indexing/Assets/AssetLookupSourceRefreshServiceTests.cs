@@ -16,9 +16,9 @@ public sealed class AssetLookupSourceRefreshServiceTests
         var reader = new StubAssetLookupSnapshotReader();
         var response = CreateResponse("2026-03-08T00:00:00+00:00", "Assets/Data/Stable.asset");
         reader.Enqueue(AssetLookupSnapshotFetchResult.Success(response));
-        var store = new StubAssetLookupStore();
+        var store = new StubReadIndexArtifactWriter();
         var stableSnapshot = CreateSnapshot("asset-search-1", "guid-path-1", "combined-1");
-        var calculator = new StubIndexInputFingerprintCalculator();
+        var calculator = new StubReadIndexInputFingerprintProvider();
         calculator.Enqueue(stableSnapshot);
         calculator.Enqueue(stableSnapshot);
         var service = new AssetLookupSourceRefreshService(reader, store, calculator);
@@ -52,10 +52,10 @@ public sealed class AssetLookupSourceRefreshServiceTests
         reader.Enqueue(AssetLookupSnapshotFetchResult.Success(CreateResponse("2026-03-08T00:00:00+00:00", "Assets/Data/First.asset")));
         var stableResponse = CreateResponse("2026-03-08T00:01:00+00:00", "Assets/Data/Second.asset");
         reader.Enqueue(AssetLookupSnapshotFetchResult.Success(stableResponse));
-        var store = new StubAssetLookupStore();
+        var store = new StubReadIndexArtifactWriter();
         var snapshot1 = CreateSnapshot("asset-search-1", "guid-path-1", "combined-1");
         var snapshot2 = CreateSnapshot("asset-search-2", "guid-path-2", "combined-2");
-        var calculator = new StubIndexInputFingerprintCalculator();
+        var calculator = new StubReadIndexInputFingerprintProvider();
         calculator.Enqueue(snapshot1);
         calculator.Enqueue(snapshot2);
         calculator.Enqueue(snapshot2);
@@ -89,10 +89,10 @@ public sealed class AssetLookupSourceRefreshServiceTests
         var firstResponse = CreateResponse("2026-03-08T00:00:00+00:00", "Assets/Data/First.asset");
         reader.Enqueue(AssetLookupSnapshotFetchResult.Success(firstResponse));
         reader.Enqueue(AssetLookupSnapshotFetchResult.Failure("retry read timed out", IpcErrorCodes.InternalError));
-        var store = new StubAssetLookupStore();
+        var store = new StubReadIndexArtifactWriter();
         var snapshot1 = CreateSnapshot("asset-search-1", "guid-path-1", "combined-1");
         var snapshot2 = CreateSnapshot("asset-search-2", "guid-path-2", "combined-2");
-        var calculator = new StubIndexInputFingerprintCalculator();
+        var calculator = new StubReadIndexInputFingerprintProvider();
         calculator.Enqueue(snapshot1);
         calculator.Enqueue(snapshot2);
         calculator.Enqueue(snapshot2);
@@ -126,11 +126,11 @@ public sealed class AssetLookupSourceRefreshServiceTests
         reader.Enqueue(AssetLookupSnapshotFetchResult.Success(CreateResponse("2026-03-08T00:00:00+00:00", "Assets/Data/First.asset")));
         var lastResponse = CreateResponse("2026-03-08T00:01:00+00:00", "Assets/Data/Second.asset");
         reader.Enqueue(AssetLookupSnapshotFetchResult.Success(lastResponse));
-        var store = new StubAssetLookupStore();
+        var store = new StubReadIndexArtifactWriter();
         var snapshot1 = CreateSnapshot("asset-search-1", "guid-path-1", "combined-1");
         var snapshot2 = CreateSnapshot("asset-search-2", "guid-path-2", "combined-2");
         var snapshot3 = CreateSnapshot("asset-search-3", "guid-path-3", "combined-3");
-        var calculator = new StubIndexInputFingerprintCalculator();
+        var calculator = new StubReadIndexInputFingerprintProvider();
         calculator.Enqueue(snapshot1);
         calculator.Enqueue(snapshot2);
         calculator.Enqueue(snapshot2);
@@ -242,7 +242,7 @@ public sealed class AssetLookupSourceRefreshServiceTests
         }
     }
 
-    private sealed class StubAssetLookupStore : IReadIndexArtifactWriter
+    private sealed class StubReadIndexArtifactWriter : IReadIndexArtifactWriter
     {
         public int CallCount { get; private set; }
 
@@ -294,7 +294,7 @@ public sealed class AssetLookupSourceRefreshServiceTests
         }
     }
 
-    private sealed class StubIndexInputFingerprintCalculator : IReadIndexInputFingerprintProvider
+    private sealed class StubReadIndexInputFingerprintProvider : IReadIndexInputFingerprintProvider
     {
         private readonly Queue<ReadIndexInputHashSnapshot?> snapshots = new();
 

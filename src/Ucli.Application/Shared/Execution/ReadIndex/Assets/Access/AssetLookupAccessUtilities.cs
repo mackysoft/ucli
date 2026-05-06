@@ -8,20 +8,6 @@ internal static class AssetLookupAccessUtilities
     private const string AssetsRootPath = "Assets";
     private const string AssetsRootPrefix = "Assets/";
 
-    /// <summary> Combines two fallback reason fragments into one user-facing sentence. </summary>
-    public static string? CombineFallbackReasons (
-        string? first,
-        string? second)
-    {
-        return ReadIndexAccessUtilities.CombineFallbackReasons(first, second);
-    }
-
-    /// <summary> Converts one freshness value to its wire-format literal. </summary>
-    public static string DescribeFreshness (IndexFreshness freshness)
-    {
-        return ReadIndexAccessUtilities.DescribeFreshness(freshness);
-    }
-
     /// <summary> Normalizes and validates one assets.find-style query. </summary>
     public static bool TryNormalizeSearchQuery (
         AssetSearchLookupQuery query,
