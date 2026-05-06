@@ -1,8 +1,7 @@
-using System.Text.Json;
 using MackySoft.Ucli.Application.Shared.Context.Project;
-using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -46,10 +45,12 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     }
 
     /// <inheritdoc />
+    public UnityExecutionTarget Target => UnityExecutionTarget.Oneshot;
+
+    /// <inheritdoc />
     public async ValueTask<UnityRequestExecutionResult> SendAsync (
         ResolvedUnityProjectContext unityProject,
-        string method,
-        JsonElement payload,
+        UnityIpcDispatchRequest dispatchRequest,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
@@ -57,7 +58,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         ArgumentException.ThrowIfNullOrWhiteSpace(unityProject.UnityProjectRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(unityProject.RepositoryRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(unityProject.ProjectFingerprint);
-        ArgumentException.ThrowIfNullOrWhiteSpace(method);
+        ArgumentNullException.ThrowIfNull(dispatchRequest);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -73,7 +74,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         {
             if (!deadline.TryGetRemainingTimeout(out var lockTimeout))
             {
-                return CreateTimeoutFailure(timeout);
+                return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(timeout));
             }
 
             await using var lifecycleLock = await lifecycleLockProvider.Acquire(
@@ -91,7 +92,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
             if (!deadline.TryGetRemainingTimeout(out _))
             {
-                return CreateTimeoutFailure(timeout);
+                return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(timeout));
             }
 
             var sessionToken = CreateSessionToken();
@@ -108,8 +109,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             if (!launchResult.IsSuccess)
             {
                 return UnityRequestExecutionResult.Failure(
-                    launchResult.Error!.Message,
-                    ExecutionErrorCodeMapper.ToCode(launchResult.Error.Kind));
+                    UnityIpcFailureClassifier.FromExecutionError(launchResult.Error!));
             }
 
             await using var processHandle = launchResult.ProcessHandle!;
@@ -127,33 +127,34 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 if (startupProbeError != null)
                 {
                     return UnityRequestExecutionResult.Failure(
-                        startupProbeError.Message,
-                        ExecutionErrorCodeMapper.ToCode(startupProbeError.Kind));
+                        UnityIpcFailureClassifier.FromExecutionError(startupProbeError));
                 }
 
                 if (!deadline.TryGetRemainingTimeout(out var requestTimeout))
                 {
-                    return CreateTimeoutFailure(timeout);
+                    return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(timeout));
                 }
 
                 var response = await transportClient.SendAsync(
                         unityProject.RepositoryRoot,
                         unityProject.ProjectFingerprint,
-                        UnityIpcRequestFactory.Create(sessionToken, method, payload),
+                        UnityIpcRequestFactory.Create(
+                            sessionToken,
+                            dispatchRequest.Method,
+                            dispatchRequest.Payload),
                         requestTimeout,
                         cancellationToken)
                     .ConfigureAwait(false);
                 if (!deadline.TryGetRemainingTimeout(out var exitTimeout))
                 {
-                    return CreateTimeoutFailure(timeout);
+                    return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(timeout));
                 }
 
                 var exitWaitError = await WaitForExit(processHandle, exitTimeout, cancellationToken).ConfigureAwait(false);
                 if (exitWaitError != null)
                 {
                     return UnityRequestExecutionResult.Failure(
-                        exitWaitError.Message,
-                        ExecutionErrorCodeMapper.ToCode(exitWaitError.Kind));
+                        UnityIpcFailureClassifier.FromExecutionError(exitWaitError));
                 }
 
                 shouldTerminateProcess = false;
@@ -174,23 +175,11 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         {
             throw;
         }
-        catch (TimeoutException)
-        {
-            return CreateTimeoutFailure(timeout);
-        }
         catch (Exception exception)
         {
             return UnityRequestExecutionResult.Failure(
-                $"Failed to execute Unity oneshot IPC request. {exception.Message}",
-                IpcErrorCodes.InternalError);
+                UnityIpcFailureClassifier.FromOneshotDispatchException(exception, timeout));
         }
-    }
-
-    private static UnityRequestExecutionResult CreateTimeoutFailure (TimeSpan timeout)
-    {
-        return UnityRequestExecutionResult.Failure(
-            $"Unity oneshot IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds.",
-            ExecutionErrorCodes.IpcTimeout);
     }
 
     private async ValueTask<ExecutionError?> WaitUntilReachable (

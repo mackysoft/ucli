@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
+using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Ipc;
@@ -21,8 +22,7 @@ public sealed class UnityDaemonIpcClientTests
 
         var result = await client.SendAsync(
             CreateContext(),
-            IpcMethodNames.OpsRead,
-            EmptyPayload(),
+            CreateDispatchRequest(),
             TimeSpan.FromSeconds(30),
             CancellationToken.None);
 
@@ -61,8 +61,7 @@ public sealed class UnityDaemonIpcClientTests
 
         var result = await client.SendAsync(
             CreateContext(),
-            IpcMethodNames.OpsRead,
-            EmptyPayload(),
+            CreateDispatchRequest(),
             TimeSpan.FromSeconds(30),
             CancellationToken.None);
 
@@ -86,8 +85,7 @@ public sealed class UnityDaemonIpcClientTests
 
         var result = await client.SendAsync(
             CreateContext(),
-            IpcMethodNames.OpsRead,
-            EmptyPayload(),
+            CreateDispatchRequest(),
             TimeSpan.FromMilliseconds(500),
             CancellationToken.None);
 
@@ -107,6 +105,11 @@ public sealed class UnityDaemonIpcClientTests
     private static JsonElement EmptyPayload ()
     {
         return JsonDocument.Parse("{}").RootElement.Clone();
+    }
+
+    private static UnityIpcDispatchRequest CreateDispatchRequest ()
+    {
+        return new UnityIpcDispatchRequest(IpcMethodNames.OpsRead, EmptyPayload());
     }
 
     private static IpcResponse CreateResponse (string requestId)

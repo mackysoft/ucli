@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
+using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
@@ -38,8 +39,7 @@ public sealed class UnityOneshotIpcClientTests
 
         var result = await client.SendAsync(
             unityProject,
-            IpcMethodNames.OpsRead,
-            EmptyPayload(),
+            CreateDispatchRequest(),
             TimeSpan.FromSeconds(30),
             CancellationToken.None);
 
@@ -96,8 +96,7 @@ public sealed class UnityOneshotIpcClientTests
 
         var result = await client.SendAsync(
             unityProject,
-            IpcMethodNames.OpsRead,
-            EmptyPayload(),
+            CreateDispatchRequest(),
             TimeSpan.FromSeconds(30),
             CancellationToken.None);
 
@@ -125,8 +124,7 @@ public sealed class UnityOneshotIpcClientTests
 
         var result = await client.SendAsync(
             CreateUnityProject(scope),
-            IpcMethodNames.OpsRead,
-            EmptyPayload(),
+            CreateDispatchRequest(),
             TimeSpan.FromSeconds(1),
             CancellationToken.None);
 
@@ -161,8 +159,7 @@ public sealed class UnityOneshotIpcClientTests
 
         var result = await client.SendAsync(
             unityProject,
-            IpcMethodNames.OpsRead,
-            EmptyPayload(),
+            CreateDispatchRequest(),
             TimeSpan.FromSeconds(30),
             CancellationToken.None);
 
@@ -184,6 +181,11 @@ public sealed class UnityOneshotIpcClientTests
     private static JsonElement EmptyPayload ()
     {
         return JsonDocument.Parse("{}").RootElement.Clone();
+    }
+
+    private static UnityIpcDispatchRequest CreateDispatchRequest ()
+    {
+        return new UnityIpcDispatchRequest(IpcMethodNames.OpsRead, EmptyPayload());
     }
 
     private static IpcResponse CreateSuccessResponse (string requestId)

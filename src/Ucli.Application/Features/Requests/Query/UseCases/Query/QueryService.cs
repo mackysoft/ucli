@@ -240,9 +240,10 @@ internal sealed class QueryService : IQueryService
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
+            var failure = executionResult.FailureInfo!;
             var error = RequestServiceResultPolicy.FromTransportFailure(
-                executionResult.ErrorCode,
-                executionResult.Message);
+                failure.Code,
+                failure.Message);
             return QueryServiceResultFactory.Failure(
                 operation.CommandName,
                 requestId,
@@ -250,7 +251,7 @@ internal sealed class QueryService : IQueryService
                 [
                     error,
                 ],
-                RequestServiceResultPolicy.ResolveOutcome(error.Code),
+                failure.Outcome,
                 error.Message,
                 readIndex);
         }
