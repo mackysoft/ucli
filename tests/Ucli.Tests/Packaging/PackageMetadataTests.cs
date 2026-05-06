@@ -246,10 +246,7 @@ public sealed class PackageMetadataTests
         }
         finally
         {
-            if (Directory.Exists(tempDirectory))
-            {
-                Directory.Delete(tempDirectory, recursive: true);
-            }
+            DeleteDirectoryBestEffort(tempDirectory);
         }
     }
 
@@ -398,6 +395,43 @@ public sealed class PackageMetadataTests
         }
 
         return values;
+    }
+
+    private static void DeleteDirectoryBestEffort (string directoryPath)
+    {
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            try
+            {
+                if (!Directory.Exists(directoryPath))
+                {
+                    return;
+                }
+
+                ClearReadOnlyAttributes(directoryPath);
+                Directory.Delete(directoryPath, recursive: true);
+                return;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                Thread.Sleep(TimeSpan.FromMilliseconds(50));
+            }
+        }
+    }
+
+    private static void ClearReadOnlyAttributes (string directoryPath)
+    {
+        foreach (string filePath in Directory.EnumerateFiles(directoryPath, "*", SearchOption.AllDirectories))
+        {
+            File.SetAttributes(filePath, File.GetAttributes(filePath) & ~FileAttributes.ReadOnly);
+        }
+
+        foreach (string childDirectoryPath in Directory.EnumerateDirectories(directoryPath, "*", SearchOption.AllDirectories))
+        {
+            File.SetAttributes(childDirectoryPath, File.GetAttributes(childDirectoryPath) & ~FileAttributes.ReadOnly);
+        }
+
+        File.SetAttributes(directoryPath, File.GetAttributes(directoryPath) & ~FileAttributes.ReadOnly);
     }
 
     private static async Task<ProcessResult> RunProcessAsync (
