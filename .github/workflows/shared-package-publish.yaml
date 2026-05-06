@@ -117,7 +117,7 @@ jobs:
           cat > "${pr_body_file}" <<EOF
           ## Summary
           - Sync shared package versions to \`${PACKAGE_VERSION}\` after \`${RELEASE_TAG}\` publish.
-          - Update \`src/Ucli.Contracts/Ucli.Contracts.csproj\`, \`src/Ucli.Infrastructure/Ucli.Infrastructure.csproj\`, \`src/Ucli.Unity/Assets/packages.config\`, and \`src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec\`.
+          - Update \`Directory.Build.props\`, \`src/Ucli.Unity/Assets/packages.config\`, and \`src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec\`.
 
           ## Verification
           - \`shared-package-publish\` packed and published \`${RELEASE_TAG}\` before creating this PR.
@@ -132,7 +132,6 @@ jobs:
             --pr-title "chore(shared): sync package version to ${PACKAGE_VERSION}" \
             --pr-body-file "${pr_body_file}" \
             --verify-workflow verify.yaml \
-            --changed-path "src/Ucli.Contracts/Ucli.Contracts.csproj" \
-            --changed-path "src/Ucli.Infrastructure/Ucli.Infrastructure.csproj" \
+            --changed-path "Directory.Build.props" \
             --changed-path "src/Ucli.Unity/Assets/packages.config" \
             --changed-path "src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec"
