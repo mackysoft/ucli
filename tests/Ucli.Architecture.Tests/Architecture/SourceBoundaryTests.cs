@@ -2,6 +2,19 @@ namespace MackySoft.Ucli.Architecture.Tests.Architecture;
 
 public sealed class SourceBoundaryTests
 {
+    private static readonly string[] NonContractUcliBoundaryMarkers =
+    [
+        "MackySoft.Ucli.Application",
+        "MackySoft.Ucli.Features",
+        "MackySoft.Ucli.Hosting",
+        "MackySoft.Ucli.Infrastructure",
+        "MackySoft.Ucli.Shared",
+        "MackySoft.Ucli.Skills",
+        "MackySoft.Ucli.UnityIntegration",
+        "UnityEditor",
+        "UnityEngine",
+    ];
+
     private static readonly string[] HostResourceAndCliOutputApiMarkers =
     [
         "System.Diagnostics.Process",
@@ -33,20 +46,9 @@ public sealed class SourceBoundaryTests
     [Trait("Size", "Small")]
     public void Contracts_source_does_not_reference_non_contract_ucli_boundaries ()
     {
-        var forbiddenMarkers = new[]
-        {
-            "MackySoft.Ucli.Application",
-            "MackySoft.Ucli.Features",
-            "MackySoft.Ucli.Hosting",
-            "MackySoft.Ucli.Infrastructure",
-            "MackySoft.Ucli.Shared",
-            "MackySoft.Ucli.Skills",
-            "MackySoft.Ucli.UnityIntegration",
-        };
-
         SourceBoundaryAssertions.AssertNoMarkersInCode(
             ArchitectureTestRepository.EnumerateCSharpSourceFiles("src/Ucli.Contracts"),
-            forbiddenMarkers);
+            NonContractUcliBoundaryMarkers);
     }
 
     [Fact]
@@ -56,6 +58,61 @@ public sealed class SourceBoundaryTests
         SourceBoundaryAssertions.AssertNoMarkersInCode(
             ArchitectureTestRepository.EnumerateCSharpSourceFiles("src/Ucli.Contracts"),
             HostResourceAndCliOutputApiMarkers);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Contracts_ipc_validation_directory_does_not_own_csharp_source ()
+    {
+        var validationDirectory = ArchitectureTestRepository.ToFullPath("src/Ucli.Contracts/Ipc/Validation");
+        var violations = Directory.Exists(validationDirectory)
+            ? Directory
+                .EnumerateFiles(validationDirectory, "*.cs", SearchOption.AllDirectories)
+                .Select(ArchitectureTestRepository.NormalizeRepositoryRelativePath)
+                .ToArray()
+            : Array.Empty<string>();
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Contracts_legacy_validation_namespace_is_limited_to_public_compatibility_types ()
+    {
+        var expectedPaths = new[]
+        {
+            "src/Ucli.Contracts/Ipc/Compatibility/JsonStringReadErrorKind.cs",
+        };
+        var actualPaths = ArchitectureTestRepository
+            .EnumerateCSharpSourceFiles("src/Ucli.Contracts")
+            .Where(static sourceFile => CSharpSourceFileReader
+                .ReadWithoutCommentsAndStringLiterals(sourceFile)
+                .Contains("namespace MackySoft.Ucli.Contracts.Ipc.Validation", StringComparison.Ordinal))
+            .Select(ArchitectureTestRepository.NormalizeRepositoryRelativePath)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(expectedPaths, actualPaths);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Contracts_contract_reading_schema_and_validation_helpers_stay_contract_pure ()
+    {
+        var sourceFiles = new[]
+            {
+                "src/Ucli.Contracts/Ipc/ContractReading",
+                "src/Ucli.Contracts/Ipc/Operations/Contracts/Schema",
+                "src/Ucli.Contracts/Ipc/Operations/Contracts/Validation",
+                "src/Ucli.Contracts/Ipc/Operations/Metadata/Generation",
+                "src/Ucli.Contracts/Ipc/Operations/Metadata/Validation",
+            }
+            .SelectMany(ArchitectureTestRepository.EnumerateCSharpSourceFiles);
+        var forbiddenMarkers = NonContractUcliBoundaryMarkers
+            .Concat(HostResourceAndCliOutputApiMarkers)
+            .ToArray();
+
+        SourceBoundaryAssertions.AssertNoMarkersInCode(sourceFiles, forbiddenMarkers);
     }
 
     [Fact]
