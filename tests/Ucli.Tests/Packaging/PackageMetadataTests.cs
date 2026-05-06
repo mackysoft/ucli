@@ -58,6 +58,7 @@ public sealed class PackageMetadataTests
     [Trait("Size", "Medium")]
     public async Task Packable_projects_evaluate_expected_nuget_metadata ()
     {
+        IReadOnlyDictionary<string, string> centralProperties = ReadDirectoryBuildProperties();
         var expectedMetadataByProject = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal)
         {
             ["src/Ucli/Ucli.csproj"] = new(StringComparer.Ordinal)
@@ -97,15 +98,15 @@ public sealed class PackageMetadataTests
                 "Description",
                 "PackageTags");
 
-            AssertEvaluatedProperty(properties, projectPath, "Version", "0.18.0");
-            AssertEvaluatedProperty(properties, projectPath, "PackageVersion", "0.18.0");
-            AssertEvaluatedProperty(properties, projectPath, "Authors", "Hiroya Aramaki");
-            AssertEvaluatedProperty(properties, projectPath, "Company", "MackySoft");
-            AssertEvaluatedProperty(properties, projectPath, "RepositoryUrl", "https://github.com/mackysoft/ucli");
-            AssertEvaluatedProperty(properties, projectPath, "RepositoryType", "git");
-            AssertEvaluatedProperty(properties, projectPath, "PackageLicenseFile", "LICENSE");
-            AssertEvaluatedProperty(properties, projectPath, "PackageReadmeFile", "README.md");
-            AssertEvaluatedProperty(properties, projectPath, "Copyright", "Copyright (c) 2026 Hiroya Aramaki");
+            AssertEvaluatedProperty(properties, projectPath, "Version", centralProperties["Version"]);
+            AssertEvaluatedProperty(properties, projectPath, "PackageVersion", centralProperties["Version"]);
+            AssertEvaluatedProperty(properties, projectPath, "Authors", centralProperties["Authors"]);
+            AssertEvaluatedProperty(properties, projectPath, "Company", centralProperties["Company"]);
+            AssertEvaluatedProperty(properties, projectPath, "RepositoryUrl", centralProperties["RepositoryUrl"]);
+            AssertEvaluatedProperty(properties, projectPath, "RepositoryType", centralProperties["RepositoryType"]);
+            AssertEvaluatedProperty(properties, projectPath, "PackageLicenseFile", centralProperties["PackageLicenseFile"]);
+            AssertEvaluatedProperty(properties, projectPath, "PackageReadmeFile", centralProperties["PackageReadmeFile"]);
+            AssertEvaluatedProperty(properties, projectPath, "Copyright", centralProperties["Copyright"]);
 
             foreach ((string propertyName, string expectedValue) in projectMetadata)
             {
@@ -230,6 +231,7 @@ public sealed class PackageMetadataTests
                 new Dictionary<string, string>(StringComparer.Ordinal)
                 {
                     ["EVENT_NAME"] = "pull_request",
+                    ["GITHUB_OUTPUT"] = string.Empty,
                     ["PR_BASE_SHA"] = baseSha,
                     ["PR_HEAD_SHA"] = headSha,
                 });
@@ -310,6 +312,7 @@ public sealed class PackageMetadataTests
             "RepositoryType",
             "PackageLicenseFile",
             "PackageReadmeFile",
+            "Copyright",
         };
 
         return requiredProperties.ToDictionary(
@@ -382,8 +385,8 @@ public sealed class PackageMetadataTests
         ArgumentNullException.ThrowIfNull(output);
 
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
-        string[] lines = output.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
-        foreach (string line in lines)
+        using var reader = new StringReader(output);
+        while (reader.ReadLine() is { } line)
         {
             int separatorIndex = line.IndexOf('=');
             if (separatorIndex <= 0)
