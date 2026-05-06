@@ -30,9 +30,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             var generatedAtUtc = DateTimeOffset.UtcNow;
-            var operations = registrations
-                .OrderBy(static registration => registration.Metadata.OperationName, StringComparer.Ordinal)
-                .Select(static registration =>
+            var operations = IndexJsonOrderingPolicy.OrderOpsEntries(registrations.Select(static registration =>
                 {
                     var describeContract = registration.Metadata.DescribeContract;
                     return new IndexOpEntryJsonContract(
@@ -47,8 +45,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         ResultContract = describeContract.ResultContract,
                         Assurance = describeContract.Assurance,
                     };
-                })
-                .ToArray();
+                }));
 
             return new UcliOperationCatalogSnapshot(
                 Registrations: registrations,

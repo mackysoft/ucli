@@ -12,19 +12,23 @@ internal sealed class SkillsExportCommand
     private readonly OfficialSkillPackageProvider packageProvider;
     private readonly SkillHostAdapterSet hostAdapters;
     private readonly SkillExportService exportService;
+    private readonly ICommandResultWriter commandResultWriter;
 
     /// <summary> Initializes a new instance of the <see cref="SkillsExportCommand" /> class. </summary>
     /// <param name="packageProvider"> The official SKILL package provider. </param>
     /// <param name="hostAdapters"> The supported host adapter set. </param>
     /// <param name="exportService"> The SKILL export service. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     public SkillsExportCommand (
         OfficialSkillPackageProvider packageProvider,
         SkillHostAdapterSet hostAdapters,
-        SkillExportService exportService)
+        SkillExportService exportService,
+        ICommandResultWriter? commandResultWriter = null)
     {
         this.packageProvider = packageProvider ?? throw new ArgumentNullException(nameof(packageProvider));
         this.hostAdapters = hostAdapters ?? throw new ArgumentNullException(nameof(hostAdapters));
         this.exportService = exportService ?? throw new ArgumentNullException(nameof(exportService));
+        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
     }
 
     /// <summary> Executes the skills export command and emits the JSON result contract. </summary>
@@ -48,7 +52,7 @@ internal sealed class SkillsExportCommand
             out var errorResult);
         if (errorResult is not null)
         {
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -59,7 +63,7 @@ internal sealed class SkillsExportCommand
             out errorResult);
         if (errorResult is not null)
         {
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -67,7 +71,7 @@ internal sealed class SkillsExportCommand
         if (!packagesResult.IsSuccess)
         {
             var packageErrorResult = SkillsCommandResultFactory.CreateSkillFailure(UcliCommandNames.SkillsExport, packagesResult.Failure!);
-            CommandResultWriter.WriteToStandardOutput(packageErrorResult);
+            commandResultWriter.WriteToStandardOutput(packageErrorResult);
             return packageErrorResult.ExitCode;
         }
 
@@ -78,7 +82,7 @@ internal sealed class SkillsExportCommand
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = SkillsCommandResultFactory.CreateExport(exportResult, packagesResult.Value!, normalizedHost!);
-        CommandResultWriter.WriteToStandardOutput(commandResult);
+        commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }
 }

@@ -92,9 +92,7 @@ namespace MackySoft.Ucli.Unity.Index
                 return IndexSchemaPropertyCollectionResult.Empty();
             }
 
-            var properties = propertyMap.Values
-                .OrderBy(static property => property.Path ?? string.Empty, StringComparer.Ordinal)
-                .ToArray();
+            var properties = IndexJsonOrderingPolicy.OrderSchemaProperties(propertyMap.Values);
             return new IndexSchemaPropertyCollectionResult(properties, referencedTypes);
         }
     }

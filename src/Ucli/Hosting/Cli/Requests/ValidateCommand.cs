@@ -14,15 +14,20 @@ internal sealed class ValidateCommand
 
     private readonly IRequestInputReader requestInputReader;
 
+    private readonly ICommandResultWriter commandResultWriter;
+
     /// <summary> Initializes a new instance of the ValidateCommand class. </summary>
     /// <param name="validateService"> The validate workflow service dependency. </param>
     /// <param name="requestInputReader"> The CLI request-input reader dependency. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     public ValidateCommand (
         IValidateService validateService,
-        IRequestInputReader requestInputReader)
+        IRequestInputReader requestInputReader,
+        ICommandResultWriter? commandResultWriter = null)
     {
         this.validateService = validateService ?? throw new ArgumentNullException(nameof(validateService));
         this.requestInputReader = requestInputReader ?? throw new ArgumentNullException(nameof(requestInputReader));
+        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
     }
 
     /// <summary> Executes the validate command and emits the JSON result contract. </summary>
@@ -43,7 +48,7 @@ internal sealed class ValidateCommand
         if (!normalizedReadIndexModeResult.IsSuccess)
         {
             var errorResult = ValidateCommandResultFactory.CreateExecutionError(normalizedReadIndexModeResult.Error!);
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -51,7 +56,7 @@ internal sealed class ValidateCommand
         if (!requestInputReadResult.IsSuccess)
         {
             var errorResult = ValidateCommandResultFactory.CreateExecutionError(requestInputReadResult.Error!);
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -63,7 +68,7 @@ internal sealed class ValidateCommand
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = ValidateCommandResultFactory.Create(serviceResult);
-        CommandResultWriter.WriteToStandardOutput(commandResult);
+        commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }
 }

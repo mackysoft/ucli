@@ -10,12 +10,18 @@ internal sealed class InitCommand
 {
     private readonly IInitService initService;
 
+    private readonly ICommandResultWriter commandResultWriter;
+
     /// <summary> Initializes a new instance of the InitCommand class. </summary>
     /// <param name="initService"> The init service dependency. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when initService is null. </exception>
-    public InitCommand (IInitService initService)
+    public InitCommand (
+        IInitService initService,
+        ICommandResultWriter? commandResultWriter = null)
     {
         this.initService = initService ?? throw new ArgumentNullException(nameof(initService));
+        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
     }
 
     /// <summary> Executes the init command and emits the JSON result contract. </summary>
@@ -34,7 +40,7 @@ internal sealed class InitCommand
         var input = new InitCommandInput(force);
         var executionResult = await initService.ExecuteAsync(input, cancellationToken).ConfigureAwait(false);
         var result = InitCommandResultFactory.Create(executionResult);
-        CommandResultWriter.WriteToStandardOutput(result);
+        commandResultWriter.WriteToStandardOutput(result);
         return result.ExitCode;
     }
 }

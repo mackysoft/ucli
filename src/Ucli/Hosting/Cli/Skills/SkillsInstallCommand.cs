@@ -13,19 +13,23 @@ internal sealed class SkillsInstallCommand
     private readonly OfficialSkillPackageProvider packageProvider;
     private readonly SkillHostAdapterSet hostAdapters;
     private readonly SkillInstallService installService;
+    private readonly ICommandResultWriter commandResultWriter;
 
     /// <summary> Initializes a new instance of the <see cref="SkillsInstallCommand" /> class. </summary>
     /// <param name="packageProvider"> The official SKILL package provider. </param>
     /// <param name="hostAdapters"> The supported host adapter set. </param>
     /// <param name="installService"> The SKILL install service. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     public SkillsInstallCommand (
         OfficialSkillPackageProvider packageProvider,
         SkillHostAdapterSet hostAdapters,
-        SkillInstallService installService)
+        SkillInstallService installService,
+        ICommandResultWriter? commandResultWriter = null)
     {
         this.packageProvider = packageProvider ?? throw new ArgumentNullException(nameof(packageProvider));
         this.hostAdapters = hostAdapters ?? throw new ArgumentNullException(nameof(hostAdapters));
         this.installService = installService ?? throw new ArgumentNullException(nameof(installService));
+        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
     }
 
     /// <summary> Executes the skills install command and emits the JSON result contract. </summary>
@@ -53,7 +57,7 @@ internal sealed class SkillsInstallCommand
             out var errorResult);
         if (errorResult is not null)
         {
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -63,7 +67,7 @@ internal sealed class SkillsInstallCommand
             out errorResult);
         if (errorResult is not null)
         {
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -74,7 +78,7 @@ internal sealed class SkillsInstallCommand
             out errorResult);
         if (errorResult is not null)
         {
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -82,7 +86,7 @@ internal sealed class SkillsInstallCommand
         if (!packagesResult.IsSuccess)
         {
             var packageErrorResult = SkillsCommandResultFactory.CreateSkillFailure(UcliCommandNames.SkillsInstall, packagesResult.Failure!);
-            CommandResultWriter.WriteToStandardOutput(packageErrorResult);
+            commandResultWriter.WriteToStandardOutput(packageErrorResult);
             return packageErrorResult.ExitCode;
         }
 
@@ -92,7 +96,7 @@ internal sealed class SkillsInstallCommand
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = SkillsCommandResultFactory.CreateInstall(installResult, normalizedHost!, repositoryRoot!);
-        CommandResultWriter.WriteToStandardOutput(commandResult);
+        commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }
 }

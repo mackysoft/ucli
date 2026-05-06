@@ -11,12 +11,18 @@ internal sealed class StatusCommand
 {
     private readonly IStatusService statusService;
 
+    private readonly ICommandResultWriter commandResultWriter;
+
     /// <summary> Initializes a new instance of the StatusCommand class. </summary>
     /// <param name="statusService"> The status service dependency. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when statusService is null. </exception>
-    public StatusCommand (IStatusService statusService)
+    public StatusCommand (
+        IStatusService statusService,
+        ICommandResultWriter? commandResultWriter = null)
     {
         this.statusService = statusService ?? throw new ArgumentNullException(nameof(statusService));
+        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
     }
 
     /// <summary> Executes the status command and emits the JSON result contract. </summary>
@@ -40,7 +46,7 @@ internal sealed class StatusCommand
             var invalidTimeoutResult = CommandResultFactory.FromExecutionError(
                 UcliCommandNames.Status,
                 timeoutNormalizationResult.Error!);
-            CommandResultWriter.WriteToStandardOutput(invalidTimeoutResult);
+            commandResultWriter.WriteToStandardOutput(invalidTimeoutResult);
             return invalidTimeoutResult.ExitCode;
         }
 
@@ -49,7 +55,7 @@ internal sealed class StatusCommand
             TimeoutMilliseconds: timeoutNormalizationResult.TimeoutMilliseconds);
         var executionResult = await statusService.Execute(input, cancellationToken).ConfigureAwait(false);
         var result = StatusCommandResultFactory.Create(executionResult);
-        CommandResultWriter.WriteToStandardOutput(result);
+        commandResultWriter.WriteToStandardOutput(result);
         return result.ExitCode;
     }
 }

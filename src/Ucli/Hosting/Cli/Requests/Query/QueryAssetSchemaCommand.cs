@@ -14,10 +14,17 @@ internal sealed class QueryAssetSchemaCommand
 
     private readonly IQueryService queryService;
 
+    private readonly ICommandResultWriter commandResultWriter;
+
     /// <summary> Initializes a new instance of the <see cref="QueryAssetSchemaCommand" /> class. </summary>
-    public QueryAssetSchemaCommand (IQueryService queryService)
+    /// <param name="queryService"> The query workflow service dependency. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
+    public QueryAssetSchemaCommand (
+        IQueryService queryService,
+        ICommandResultWriter? commandResultWriter = null)
     {
         this.queryService = queryService ?? throw new ArgumentNullException(nameof(queryService));
+        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
     }
 
     /// <summary> Executes <c>query asset schema</c> and emits the JSON result contract. </summary>
@@ -53,12 +60,12 @@ internal sealed class QueryAssetSchemaCommand
         var commonOptionsResult = QueryCommonOptionsNormalizer.Normalize(projectPath, mode, timeout, readIndexMode, failFast);
         if (!commonOptionsResult.IsSuccess)
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(UcliCommandNames.QueryAssetSchema, commonOptionsResult.Error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QueryAssetSchema, commonOptionsResult.Error!);
         }
 
         if (!TryCreateArgs(type, globalObjectId, assetGuid, assetPath, projectAssetPath, out var args, out var error))
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(UcliCommandNames.QueryAssetSchema, error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QueryAssetSchema, error!);
         }
 
         return await QueryCommandExecutionHelper.Execute(
@@ -69,6 +76,7 @@ internal sealed class QueryAssetSchemaCommand
                     OperationId: OperationId,
                     OperationName: UcliPrimitiveOperationNames.AssetSchema,
                     Args: args),
+                commandResultWriter,
                 cancellationToken)
             .ConfigureAwait(false);
     }

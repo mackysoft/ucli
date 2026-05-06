@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Index;
+using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -8,6 +9,15 @@ namespace MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 internal sealed class FileSceneTreeLiteStore : ISceneTreeLiteStore
 {
     private const int SchemaVersion = 1;
+
+    private readonly IJsonContractWriter<IndexSceneTreeLiteLookupJsonContract> sceneTreeLiteLookupWriter;
+
+    /// <summary> Initializes a new instance of the <see cref="FileSceneTreeLiteStore" /> class. </summary>
+    /// <param name="sceneTreeLiteLookupWriter"> The writer for scene-tree-lite lookup JSON. </param>
+    public FileSceneTreeLiteStore (IJsonContractWriter<IndexSceneTreeLiteLookupJsonContract> sceneTreeLiteLookupWriter)
+    {
+        this.sceneTreeLiteLookupWriter = sceneTreeLiteLookupWriter ?? throw new ArgumentNullException(nameof(sceneTreeLiteLookupWriter));
+    }
 
     /// <inheritdoc />
     public async ValueTask Write (
@@ -39,7 +49,7 @@ internal sealed class FileSceneTreeLiteStore : ISceneTreeLiteStore
 
         await FileUtilities.WriteAllTextAtomically(
                 lookupPath,
-                IndexSceneTreeLiteLookupJsonContractSerializer.Serialize(lookup) + Environment.NewLine,
+                sceneTreeLiteLookupWriter.Write(lookup),
                 cancellationToken)
             .ConfigureAwait(false);
     }

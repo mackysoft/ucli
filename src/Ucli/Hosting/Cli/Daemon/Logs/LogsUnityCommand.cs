@@ -19,11 +19,17 @@ internal sealed class LogsUnityCommand
 
     private readonly ILogsUnityService logsUnityService;
 
+    private readonly ICommandResultWriter commandResultWriter;
+
     /// <summary> Initializes a new instance of the LogsUnityCommand class. </summary>
     /// <param name="logsUnityService"> The Unity-log orchestration service dependency. </param>
-    public LogsUnityCommand (ILogsUnityService logsUnityService)
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
+    public LogsUnityCommand (
+        ILogsUnityService logsUnityService,
+        ICommandResultWriter? commandResultWriter = null)
     {
         this.logsUnityService = logsUnityService ?? throw new ArgumentNullException(nameof(logsUnityService));
+        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
     }
 
     /// <summary> Executes the logs unity command. </summary>
@@ -73,7 +79,7 @@ internal sealed class LogsUnityCommand
             if (!LogsOutputFormatCodec.TryParse(format, out var outputFormat, out var formatErrorMessage))
             {
                 var invalidFormatResult = CommandResult.InvalidArgument(UcliCommandNames.LogsUnity, formatErrorMessage!);
-                CommandResultWriter.WriteToStandardOutput(invalidFormatResult);
+                commandResultWriter.WriteToStandardOutput(invalidFormatResult);
                 return invalidFormatResult.ExitCode;
             }
 
@@ -105,7 +111,7 @@ internal sealed class LogsUnityCommand
             if (!serviceResult.IsSuccess)
             {
                 var commandResult = CommandResultFactory.FromExecutionError(UcliCommandNames.LogsUnity, serviceResult.Error!);
-                CommandResultWriter.WriteToStandardOutput(commandResult);
+                commandResultWriter.WriteToStandardOutput(commandResult);
                 return commandResult.ExitCode;
             }
 

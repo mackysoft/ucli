@@ -2,6 +2,8 @@ using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.EnvironmentVariables;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Git;
+using MackySoft.Ucli.Contracts.Index;
+using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.EnvironmentVariables;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
@@ -28,6 +30,13 @@ internal static class SharedServiceCollectionExtensions
         services.AddSingleton<IGitCommandClient, GitCommandClient>();
         services.AddSingleton<IGitWorktreeListPorcelainParser, GitWorktreeListPorcelainParser>();
         services.AddSingleton<IGitWorktreeQueryService, GitWorktreeQueryService>();
+        services.AddSingleton<IJsonContractWriter<IndexOpsCatalogJsonContract>, IndexOpsCatalogJsonContractWriter>();
+        services.AddSingleton<IJsonContractWriter<IndexTypesCatalogJsonContract>, IndexTypesCatalogJsonContractWriter>();
+        services.AddSingleton<IJsonContractWriter<IndexSchemasCatalogJsonContract>, IndexSchemasCatalogJsonContractWriter>();
+        services.AddSingleton<IJsonContractWriter<IndexInputsManifestJsonContract>, IndexInputsManifestJsonContractWriter>();
+        services.AddSingleton<IJsonContractWriter<IndexAssetSearchLookupJsonContract>, IndexAssetSearchLookupJsonContractWriter>();
+        services.AddSingleton<IJsonContractWriter<IndexGuidPathLookupJsonContract>, IndexGuidPathLookupJsonContractWriter>();
+        services.AddSingleton<IJsonContractWriter<IndexSceneTreeLiteLookupJsonContract>, IndexSceneTreeLiteLookupJsonContractWriter>();
         return services;
     }
 }

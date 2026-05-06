@@ -11,16 +11,20 @@ internal sealed class SkillsListCommand
 {
     private readonly OfficialSkillPackageProvider packageProvider;
     private readonly SkillHostAdapterSet hostAdapters;
+    private readonly ICommandResultWriter commandResultWriter;
 
     /// <summary> Initializes a new instance of the <see cref="SkillsListCommand" /> class. </summary>
     /// <param name="packageProvider"> The official SKILL package provider. </param>
     /// <param name="hostAdapters"> The supported host adapter set. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     public SkillsListCommand (
         OfficialSkillPackageProvider packageProvider,
-        SkillHostAdapterSet hostAdapters)
+        SkillHostAdapterSet hostAdapters,
+        ICommandResultWriter? commandResultWriter = null)
     {
         this.packageProvider = packageProvider ?? throw new ArgumentNullException(nameof(packageProvider));
         this.hostAdapters = hostAdapters ?? throw new ArgumentNullException(nameof(hostAdapters));
+        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
     }
 
     /// <summary> Executes the skills list command and emits the JSON result contract. </summary>
@@ -36,7 +40,7 @@ internal sealed class SkillsListCommand
         var commandResult = packagesResult.IsSuccess
             ? SkillsCommandResultFactory.CreateList(packagesResult.Value!, hostAdapters)
             : SkillsCommandResultFactory.CreateSkillFailure(UcliCommandNames.SkillsList, packagesResult.Failure!);
-        CommandResultWriter.WriteToStandardOutput(commandResult);
+        commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }
 }

@@ -11,12 +11,18 @@ internal sealed class DaemonCleanupCommand
 {
     private readonly IDaemonCleanupService daemonCleanupService;
 
+    private readonly ICommandResultWriter commandResultWriter;
+
     /// <summary> Initializes a new instance of the DaemonCleanupCommand class. </summary>
     /// <param name="daemonCleanupService"> The daemon-cleanup service dependency. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when daemonCleanupService is null. </exception>
-    public DaemonCleanupCommand (IDaemonCleanupService daemonCleanupService)
+    public DaemonCleanupCommand (
+        IDaemonCleanupService daemonCleanupService,
+        ICommandResultWriter? commandResultWriter = null)
     {
         this.daemonCleanupService = daemonCleanupService ?? throw new ArgumentNullException(nameof(daemonCleanupService));
+        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
     }
 
     /// <summary> Executes the daemon cleanup command and emits the JSON result contract. </summary>
@@ -39,7 +45,7 @@ internal sealed class DaemonCleanupCommand
             var errorResult = CommandResultFactory.FromExecutionError(
                 UcliCommandNames.DaemonCleanup,
                 normalizedTimeoutResult.Error!);
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -49,7 +55,7 @@ internal sealed class DaemonCleanupCommand
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = CreateCommandResult(executionResult);
-        CommandResultWriter.WriteToStandardOutput(commandResult);
+        commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }
 

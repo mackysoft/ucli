@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace MackySoft.Ucli.Contracts.Index;
 
-/// <summary> Provides shared serializer settings for <c>types.catalog.json</c> contracts. </summary>
+/// <summary> Deserializes <c>types.catalog.json</c> contracts. </summary>
 internal static class IndexTypesCatalogJsonContractSerializer
 {
     private static readonly JsonSerializerOptions DeserializeOptions = new()
@@ -10,13 +10,6 @@ internal static class IndexTypesCatalogJsonContractSerializer
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true,
         WriteIndented = false,
-    };
-
-    private static readonly JsonSerializerOptions SerializeOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-        WriteIndented = true,
     };
 
     /// <summary> Deserializes one types-catalog JSON text to contract. </summary>
@@ -32,19 +25,5 @@ internal static class IndexTypesCatalogJsonContractSerializer
         }
 
         return JsonSerializer.Deserialize<IndexTypesCatalogJsonContract>(json, DeserializeOptions);
-    }
-
-    /// <summary> Serializes one types-catalog contract to JSON text. </summary>
-    /// <param name="contract"> The types-catalog contract. </param>
-    /// <returns> The serialized JSON text. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="contract" /> is <see langword="null" />. </exception>
-    public static string Serialize (IndexTypesCatalogJsonContract contract)
-    {
-        if (contract == null)
-        {
-            throw new ArgumentNullException(nameof(contract));
-        }
-
-        return JsonSerializer.Serialize(contract, SerializeOptions);
     }
 }

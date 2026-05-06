@@ -11,12 +11,18 @@ internal sealed class DaemonStatusCommand
 {
     private readonly IDaemonStatusService daemonStatusService;
 
+    private readonly ICommandResultWriter commandResultWriter;
+
     /// <summary> Initializes a new instance of the DaemonStatusCommand class. </summary>
     /// <param name="daemonStatusService"> The daemon-status service dependency. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when daemonStatusService is null. </exception>
-    public DaemonStatusCommand (IDaemonStatusService daemonStatusService)
+    public DaemonStatusCommand (
+        IDaemonStatusService daemonStatusService,
+        ICommandResultWriter? commandResultWriter = null)
     {
         this.daemonStatusService = daemonStatusService ?? throw new ArgumentNullException(nameof(daemonStatusService));
+        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
     }
 
     /// <summary> Executes the daemon status command and emits the JSON result contract. </summary>
@@ -39,7 +45,7 @@ internal sealed class DaemonStatusCommand
             var errorResult = CommandResultFactory.FromExecutionError(
                 UcliCommandNames.DaemonStatus,
                 normalizedTimeoutResult.Error!);
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -49,7 +55,7 @@ internal sealed class DaemonStatusCommand
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = CreateCommandResult(executionResult);
-        CommandResultWriter.WriteToStandardOutput(commandResult);
+        commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }
 

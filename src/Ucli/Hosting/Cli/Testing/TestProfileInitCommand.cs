@@ -10,12 +10,18 @@ internal sealed class TestProfileInitCommand
 {
     private readonly ITestProfileInitService testProfileInitService;
 
+    private readonly ICommandResultWriter commandResultWriter;
+
     /// <summary> Initializes a new instance of the TestProfileInitCommand class. </summary>
     /// <param name="testProfileInitService"> The test-profile init service dependency. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when testProfileInitService is null. </exception>
-    public TestProfileInitCommand (ITestProfileInitService testProfileInitService)
+    public TestProfileInitCommand (
+        ITestProfileInitService testProfileInitService,
+        ICommandResultWriter? commandResultWriter = null)
     {
         this.testProfileInitService = testProfileInitService ?? throw new ArgumentNullException(nameof(testProfileInitService));
+        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
     }
 
     /// <summary> Executes the test profile init command and emits the JSON result contract. </summary>
@@ -38,7 +44,7 @@ internal sealed class TestProfileInitCommand
             Force: force);
         var executionResult = await testProfileInitService.ExecuteAsync(input, cancellationToken).ConfigureAwait(false);
         var result = TestProfileInitCommandResultFactory.Create(executionResult);
-        CommandResultWriter.WriteToStandardOutput(result);
+        commandResultWriter.WriteToStandardOutput(result);
         return result.ExitCode;
     }
 }

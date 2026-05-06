@@ -13,10 +13,17 @@ internal sealed class QueryCompSchemaCommand
 
     private readonly IQueryService queryService;
 
+    private readonly ICommandResultWriter commandResultWriter;
+
     /// <summary> Initializes a new instance of the <see cref="QueryCompSchemaCommand" /> class. </summary>
-    public QueryCompSchemaCommand (IQueryService queryService)
+    /// <param name="queryService"> The query workflow service dependency. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
+    public QueryCompSchemaCommand (
+        IQueryService queryService,
+        ICommandResultWriter? commandResultWriter = null)
     {
         this.queryService = queryService ?? throw new ArgumentNullException(nameof(queryService));
+        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
     }
 
     /// <summary> Executes <c>query comp schema</c> and emits the JSON result contract. </summary>
@@ -44,12 +51,12 @@ internal sealed class QueryCompSchemaCommand
         var commonOptionsResult = QueryCommonOptionsNormalizer.Normalize(projectPath, mode, timeout, readIndexMode, failFast);
         if (!commonOptionsResult.IsSuccess)
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(UcliCommandNames.QueryCompSchema, commonOptionsResult.Error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QueryCompSchema, commonOptionsResult.Error!);
         }
 
         if (!QueryOptionValueNormalizer.TryNormalizeRequired(type, "type", out var normalizedType, out var error))
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(UcliCommandNames.QueryCompSchema, error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QueryCompSchema, error!);
         }
 
         return await QueryCommandExecutionHelper.Execute(
@@ -60,6 +67,7 @@ internal sealed class QueryCompSchemaCommand
                     OperationId: OperationId,
                     OperationName: UcliPrimitiveOperationNames.CompSchema,
                     Args: QueryOperationArgsFactory.CreateCompSchema(normalizedType)),
+                commandResultWriter,
                 cancellationToken)
             .ConfigureAwait(false);
     }

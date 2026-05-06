@@ -11,12 +11,18 @@ internal sealed class DaemonStopCommand
 {
     private readonly IDaemonStopService daemonStopService;
 
+    private readonly ICommandResultWriter commandResultWriter;
+
     /// <summary> Initializes a new instance of the DaemonStopCommand class. </summary>
     /// <param name="daemonStopService"> The daemon-stop service dependency. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when daemonStopService is null. </exception>
-    public DaemonStopCommand (IDaemonStopService daemonStopService)
+    public DaemonStopCommand (
+        IDaemonStopService daemonStopService,
+        ICommandResultWriter? commandResultWriter = null)
     {
         this.daemonStopService = daemonStopService ?? throw new ArgumentNullException(nameof(daemonStopService));
+        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
     }
 
     /// <summary> Executes the daemon stop command and emits the JSON result contract. </summary>
@@ -39,7 +45,7 @@ internal sealed class DaemonStopCommand
             var errorResult = CommandResultFactory.FromExecutionError(
                 UcliCommandNames.DaemonStop,
                 normalizedTimeoutResult.Error!);
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -49,7 +55,7 @@ internal sealed class DaemonStopCommand
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = CreateCommandResult(executionResult);
-        CommandResultWriter.WriteToStandardOutput(commandResult);
+        commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }
 
