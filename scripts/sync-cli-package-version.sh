@@ -13,6 +13,6 @@ EOF
 }
 
 package_version="$(parse_package_version_arg usage "$@")"
-csproj_path="src/Ucli/Ucli.csproj"
+props_path="Directory.Build.props"
 
-update_xml_element_value "${csproj_path}" "Version" "${package_version}" "CLI csproj version"
+update_xml_element_value "${props_path}" "Version" "${package_version}" "central package version"

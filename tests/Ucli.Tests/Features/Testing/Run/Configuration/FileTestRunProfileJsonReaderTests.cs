@@ -20,4 +20,19 @@ public sealed class FileTestRunProfileJsonReaderTests
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Contains("profilePath does not exist", error.Message, StringComparison.Ordinal);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadTextAsync_WithInvalidProfilePathFormat_ReturnsInvalidArgument ()
+    {
+        var reader = new FileTestRunProfileJsonReader();
+
+        var result = await reader.ReadTextAsync("invalid\0path", CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("profilePath is invalid", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("\0", error.Message, StringComparison.Ordinal);
+    }
 }

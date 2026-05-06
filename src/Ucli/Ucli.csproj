@@ -12,15 +12,8 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>ucli</ToolCommandName>
     <PackageId>MackySoft.Ucli</PackageId>
-    <Version>0.18.0</Version>
-    <Authors>Hiroya Aramaki</Authors>
-    <Company>MackySoft</Company>
     <Description>CLI workflow for Unity automation.</Description>
-    <RepositoryUrl>https://github.com/mackysoft/ucli</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
     <PackageTags>ucli;unity;cli;automation</PackageTags>
-    <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
