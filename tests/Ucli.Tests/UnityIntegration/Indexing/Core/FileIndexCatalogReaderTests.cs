@@ -38,7 +38,7 @@ public sealed class FileIndexCatalogReaderTests
                         UcliOperationPlanModeValues.ObservesLiveUnity),
                 },
             ]);
-        WriteText(UcliStoragePathResolver.ResolveOpsCatalogPath(scope.FullPath, fingerprint), IndexOpsCatalogJsonContractSerializer.Serialize(contract));
+        WriteText(UcliStoragePathResolver.ResolveOpsCatalogPath(scope.FullPath, fingerprint), Write(contract));
 
         var result = await reader.ReadOpsCatalog(scope.FullPath, fingerprint, CancellationToken.None);
 
@@ -77,7 +77,7 @@ public sealed class FileIndexCatalogReaderTests
                         IsScriptableObject: false,
                         IsSerializeReferenceCandidate: false)),
             ]);
-        WriteText(UcliStoragePathResolver.ResolveTypesCatalogPath(scope.FullPath, fingerprint), IndexTypesCatalogJsonContractSerializer.Serialize(contract));
+        WriteText(UcliStoragePathResolver.ResolveTypesCatalogPath(scope.FullPath, fingerprint), Write(contract));
 
         var result = await reader.ReadTypesCatalog(scope.FullPath, fingerprint, CancellationToken.None);
 
@@ -146,7 +146,7 @@ public sealed class FileIndexCatalogReaderTests
                         "UnityEngine.Object, UnityEngine.CoreModule",
                     ]),
             ]);
-        WriteText(UcliStoragePathResolver.ResolveAssetSearchLookupPath(scope.FullPath, fingerprint), IndexAssetSearchLookupJsonContractSerializer.Serialize(contract));
+        WriteText(UcliStoragePathResolver.ResolveAssetSearchLookupPath(scope.FullPath, fingerprint), Write(contract));
 
         var result = await reader.ReadAssetSearchLookup(scope.FullPath, fingerprint, CancellationToken.None);
 
@@ -194,7 +194,7 @@ public sealed class FileIndexCatalogReaderTests
                     GlobalObjectId: "GlobalObjectId_V1-2-3-4-5-6",
                     Children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
             ]);
-        WriteText(UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(scope.FullPath, fingerprint, scenePath), IndexSceneTreeLiteLookupJsonContractSerializer.Serialize(contract));
+        WriteText(UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(scope.FullPath, fingerprint, scenePath), Write(contract));
 
         var result = await reader.ReadSceneTreeLiteLookup(scope.FullPath, fingerprint, scenePath, CancellationToken.None);
 
@@ -226,7 +226,7 @@ public sealed class FileIndexCatalogReaderTests
                     GlobalObjectId: "GlobalObjectId_V1-2-3-4-5-6",
                     Children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
             ]);
-        WriteText(UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(scope.FullPath, fingerprint, requestedScenePath), IndexSceneTreeLiteLookupJsonContractSerializer.Serialize(contract));
+        WriteText(UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(scope.FullPath, fingerprint, requestedScenePath), Write(contract));
 
         var result = await reader.ReadSceneTreeLiteLookup(scope.FullPath, fingerprint, requestedScenePath, CancellationToken.None);
 
@@ -276,5 +276,25 @@ public sealed class FileIndexCatalogReaderTests
             ?? throw new InvalidOperationException($"Directory path could not be resolved: {path}");
         Directory.CreateDirectory(directoryPath);
         File.WriteAllText(path, contents);
+    }
+
+    private static string Write (IndexOpsCatalogJsonContract contract)
+    {
+        return new IndexOpsCatalogJsonContractWriter().Write(contract);
+    }
+
+    private static string Write (IndexTypesCatalogJsonContract contract)
+    {
+        return new IndexTypesCatalogJsonContractWriter().Write(contract);
+    }
+
+    private static string Write (IndexAssetSearchLookupJsonContract contract)
+    {
+        return new IndexAssetSearchLookupJsonContractWriter().Write(contract);
+    }
+
+    private static string Write (IndexSceneTreeLiteLookupJsonContract contract)
+    {
+        return new IndexSceneTreeLiteLookupJsonContractWriter().Write(contract);
     }
 }

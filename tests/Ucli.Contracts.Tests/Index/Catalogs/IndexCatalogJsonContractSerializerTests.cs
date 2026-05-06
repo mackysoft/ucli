@@ -32,7 +32,7 @@ public sealed class IndexCatalogJsonContractSerializerTests
                         IsSerializeReferenceCandidate: false)),
             ]);
 
-        var json = IndexTypesCatalogJsonContractSerializer.Serialize(contract);
+        var json = Write(contract);
         var deserialized = IndexTypesCatalogJsonContractSerializer.Deserialize(json);
 
         Assert.NotNull(deserialized);
@@ -70,7 +70,7 @@ public sealed class IndexCatalogJsonContractSerializerTests
                     ]),
             ]);
 
-        var json = IndexSchemasCatalogJsonContractSerializer.Serialize(contract);
+        var json = Write(contract);
         var deserialized = IndexSchemasCatalogJsonContractSerializer.Deserialize(json);
 
         Assert.NotNull(deserialized);
@@ -103,7 +103,7 @@ public sealed class IndexCatalogJsonContractSerializerTests
             GuidPathHash: "guid-path-hash",
             CombinedHash: "combined-hash");
 
-        var json = IndexInputsManifestJsonContractSerializer.Serialize(contract);
+        var json = Write(contract);
         var deserialized = IndexInputsManifestJsonContractSerializer.Deserialize(json);
 
         Assert.NotNull(deserialized);
@@ -141,7 +141,7 @@ public sealed class IndexCatalogJsonContractSerializerTests
                     ]),
             ]);
 
-        var json = IndexAssetSearchLookupJsonContractSerializer.Serialize(contract);
+        var json = Write(contract);
         var deserialized = IndexAssetSearchLookupJsonContractSerializer.Deserialize(json);
 
         Assert.NotNull(deserialized);
@@ -169,7 +169,7 @@ public sealed class IndexCatalogJsonContractSerializerTests
                     AssetPath: "Assets/Data/Spawner.asset"),
             ]);
 
-        var json = IndexGuidPathLookupJsonContractSerializer.Serialize(contract);
+        var json = Write(contract);
         var deserialized = IndexGuidPathLookupJsonContractSerializer.Deserialize(json);
 
         Assert.NotNull(deserialized);
@@ -203,7 +203,7 @@ public sealed class IndexCatalogJsonContractSerializerTests
                     ]),
             ]);
 
-        var json = IndexSceneTreeLiteLookupJsonContractSerializer.Serialize(contract);
+        var json = Write(contract);
         var deserialized = IndexSceneTreeLiteLookupJsonContractSerializer.Deserialize(json);
 
         Assert.NotNull(deserialized);
@@ -241,7 +241,7 @@ public sealed class IndexCatalogJsonContractSerializerTests
                 },
             ]);
 
-        var json = IndexOpsCatalogJsonContractSerializer.Serialize(contract);
+        var json = Write(contract);
         var deserialized = IndexOpsCatalogJsonContractSerializer.Deserialize(json);
 
         Assert.NotNull(deserialized);
@@ -308,24 +308,24 @@ public sealed class IndexCatalogJsonContractSerializerTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IndexCatalogSerializers_UseCamelCaseContractFields ()
+    public void IndexJsonContractWriters_UseCamelCaseContractFields ()
     {
-        var typesCatalogJson = IndexTypesCatalogJsonContractSerializer.Serialize(new IndexTypesCatalogJsonContract(
+        var typesCatalogJson = Write(new IndexTypesCatalogJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
             SourceInputsHash: "hash",
             Entries: Array.Empty<IndexTypeEntryJsonContract>()));
-        var schemasCatalogJson = IndexSchemasCatalogJsonContractSerializer.Serialize(new IndexSchemasCatalogJsonContract(
+        var schemasCatalogJson = Write(new IndexSchemasCatalogJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
             SourceInputsHash: "hash",
             Entries: Array.Empty<IndexSchemaEntryJsonContract>()));
-        var opsCatalogJson = IndexOpsCatalogJsonContractSerializer.Serialize(new IndexOpsCatalogJsonContract(
+        var opsCatalogJson = Write(new IndexOpsCatalogJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
             SourceInputsHash: "hash",
             Entries: Array.Empty<IndexOpEntryJsonContract>()));
-        var inputsManifestJson = IndexInputsManifestJsonContractSerializer.Serialize(new IndexInputsManifestJsonContract(
+        var inputsManifestJson = Write(new IndexInputsManifestJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
             ScriptAssembliesHash: "a",
@@ -336,17 +336,17 @@ public sealed class IndexCatalogJsonContractSerializerTests
             AssetSearchHash: "f",
             GuidPathHash: "g",
             CombinedHash: "h"));
-        var assetSearchLookupJson = IndexAssetSearchLookupJsonContractSerializer.Serialize(new IndexAssetSearchLookupJsonContract(
+        var assetSearchLookupJson = Write(new IndexAssetSearchLookupJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
             SourceInputsHash: "hash",
             Entries: Array.Empty<IndexAssetSearchEntryJsonContract>()));
-        var guidPathLookupJson = IndexGuidPathLookupJsonContractSerializer.Serialize(new IndexGuidPathLookupJsonContract(
+        var guidPathLookupJson = Write(new IndexGuidPathLookupJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
             SourceInputsHash: "hash",
             Entries: Array.Empty<IndexGuidPathEntryJsonContract>()));
-        var sceneTreeLiteLookupJson = IndexSceneTreeLiteLookupJsonContractSerializer.Serialize(new IndexSceneTreeLiteLookupJsonContract(
+        var sceneTreeLiteLookupJson = Write(new IndexSceneTreeLiteLookupJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
             ScenePath: "Assets/Scenes/Sample.unity",
@@ -395,6 +395,472 @@ public sealed class IndexCatalogJsonContractSerializerTests
         Assert.True(sceneTreeLiteDocument.RootElement.TryGetProperty("sourceInputsHash", out _));
         Assert.True(sceneTreeLiteDocument.RootElement.TryGetProperty("roots", out _));
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IndexTypesCatalogJsonContractWriter_WritesFixedOrderJson ()
+    {
+        var contract = new IndexTypesCatalogJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "hash",
+            Entries:
+            [
+                new IndexTypeEntryJsonContract(
+                    TypeId: "Z.Type, Assembly-CSharp",
+                    DisplayName: "Z",
+                    Namespace: null,
+                    AssemblyName: "Assembly-CSharp",
+                    BaseTypeId: null,
+                    Flags: new IndexTypeFlagsJsonContract(
+                        IsAbstract: true,
+                        IsGenericDefinition: false,
+                        IsUnityObject: false,
+                        IsComponent: false,
+                        IsScriptableObject: false,
+                        IsSerializeReferenceCandidate: false)),
+                new IndexTypeEntryJsonContract(
+                    TypeId: "A.Type, Assembly-CSharp",
+                    DisplayName: "A",
+                    Namespace: "Game",
+                    AssemblyName: "Assembly-CSharp",
+                    BaseTypeId: "UnityEngine.Object, UnityEngine.CoreModule",
+                    Flags: new IndexTypeFlagsJsonContract(
+                        IsAbstract: false,
+                        IsGenericDefinition: false,
+                        IsUnityObject: true,
+                        IsComponent: false,
+                        IsScriptableObject: true,
+                        IsSerializeReferenceCandidate: false)),
+            ]);
+
+        var json = Write(contract);
+
+        AssertExactJson(
+            ExpectedJson(
+                """
+                {
+                  "schemaVersion": 1,
+                  "generatedAtUtc": "2026-03-03T00:00:00+00:00",
+                  "sourceInputsHash": "hash",
+                  "entries": [
+                    {
+                      "typeId": "A.Type, Assembly-CSharp",
+                      "displayName": "A",
+                      "namespace": "Game",
+                      "assemblyName": "Assembly-CSharp",
+                      "baseTypeId": "UnityEngine.Object, UnityEngine.CoreModule",
+                      "flags": {
+                        "isAbstract": false,
+                        "isGenericDefinition": false,
+                        "isUnityObject": true,
+                        "isComponent": false,
+                        "isScriptableObject": true,
+                        "isSerializeReferenceCandidate": false
+                      }
+                    },
+                    {
+                      "typeId": "Z.Type, Assembly-CSharp",
+                      "displayName": "Z",
+                      "namespace": null,
+                      "assemblyName": "Assembly-CSharp",
+                      "baseTypeId": null,
+                      "flags": {
+                        "isAbstract": true,
+                        "isGenericDefinition": false,
+                        "isUnityObject": false,
+                        "isComponent": false,
+                        "isScriptableObject": false,
+                        "isSerializeReferenceCandidate": false
+                      }
+                    }
+                  ]
+                }
+                """),
+            json);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IndexSchemasCatalogJsonContractWriter_WritesFixedOrderJson ()
+    {
+        var contract = new IndexSchemasCatalogJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "hash",
+            Entries:
+            [
+                new IndexSchemaEntryJsonContract(
+                    SchemaKey: "schema:z",
+                    Kind: IndexSchemaKindValues.Asset,
+                    TypeId: "Z.Type, Assembly-CSharp",
+                    DisplayName: "Z",
+                    Properties: Array.Empty<IndexSchemaPropertyEntryJsonContract>()),
+                new IndexSchemaEntryJsonContract(
+                    SchemaKey: "schema:a",
+                    Kind: IndexSchemaKindValues.Comp,
+                    TypeId: "A.Type, Assembly-CSharp",
+                    DisplayName: "A",
+                    Properties:
+                    [
+                        new IndexSchemaPropertyEntryJsonContract(
+                            Path: "z",
+                            PropertyType: IndexPropertyTypeValues.String,
+                            DeclaredTypeId: "System.String, mscorlib",
+                            IsArray: false,
+                            ElementTypeId: null,
+                            IsReadOnly: true),
+                        new IndexSchemaPropertyEntryJsonContract(
+                            Path: "a",
+                            PropertyType: IndexPropertyTypeValues.Float,
+                            DeclaredTypeId: "System.Single, mscorlib",
+                            IsArray: true,
+                            ElementTypeId: "System.Single, mscorlib",
+                            IsReadOnly: false),
+                    ]),
+            ]);
+
+        var json = Write(contract);
+
+        AssertExactJson(
+            ExpectedJson(
+                """
+                {
+                  "schemaVersion": 1,
+                  "generatedAtUtc": "2026-03-03T00:00:00+00:00",
+                  "sourceInputsHash": "hash",
+                  "entries": [
+                    {
+                      "schemaKey": "schema:a",
+                      "kind": "comp",
+                      "typeId": "A.Type, Assembly-CSharp",
+                      "displayName": "A",
+                      "properties": [
+                        {
+                          "path": "a",
+                          "propertyType": "float",
+                          "declaredTypeId": "System.Single, mscorlib",
+                          "isArray": true,
+                          "elementTypeId": "System.Single, mscorlib",
+                          "isReadOnly": false
+                        },
+                        {
+                          "path": "z",
+                          "propertyType": "string",
+                          "declaredTypeId": "System.String, mscorlib",
+                          "isArray": false,
+                          "elementTypeId": null,
+                          "isReadOnly": true
+                        }
+                      ]
+                    },
+                    {
+                      "schemaKey": "schema:z",
+                      "kind": "asset",
+                      "typeId": "Z.Type, Assembly-CSharp",
+                      "displayName": "Z",
+                      "properties": []
+                    }
+                  ]
+                }
+                """),
+            json);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IndexOpsCatalogJsonContractWriter_WritesFixedOrderJsonAndOmitPolicy ()
+    {
+        var contract = new IndexOpsCatalogJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "hash",
+            Entries:
+            [
+                new IndexOpEntryJsonContract(
+                    Name: "z.op",
+                    Kind: "mutation",
+                    Policy: "dangerous",
+                    ArgsSchemaJson: """{"type":"object"}""",
+                    ResultSchemaJson: """{"type":"object"}"""),
+                new IndexOpEntryJsonContract(
+                    Name: "a.op",
+                    Kind: "query",
+                    Policy: "safe",
+                    ArgsSchemaJson: """{"type":"object"}""")
+                {
+                    Description = "A operation.",
+                    Inputs =
+                    [
+                        new UcliOperationInputContract(
+                            name: "target",
+                            valueType: "object",
+                            description: "Target input.",
+                            constraints:
+                            [
+                                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.AssetExists),
+                            ]),
+                    ],
+                },
+            ]);
+
+        var json = Write(contract);
+
+        AssertExactJson(
+            ExpectedJson(
+                """
+                {
+                  "schemaVersion": 1,
+                  "generatedAtUtc": "2026-03-03T00:00:00+00:00",
+                  "sourceInputsHash": "hash",
+                  "entries": [
+                    {
+                      "name": "a.op",
+                      "kind": "query",
+                      "policy": "safe",
+                      "argsSchemaJson": "{\u0022type\u0022:\u0022object\u0022}",
+                      "description": "A operation.",
+                      "inputs": [
+                        {
+                          "name": "target",
+                          "description": "Target input.",
+                          "valueType": "object",
+                          "constraints": [
+                            {
+                              "kind": "assetExists"
+                            }
+                          ]
+                        }
+                      ],
+                      "resultContract": null,
+                      "assurance": null
+                    },
+                    {
+                      "name": "z.op",
+                      "kind": "mutation",
+                      "policy": "dangerous",
+                      "argsSchemaJson": "{\u0022type\u0022:\u0022object\u0022}",
+                      "resultSchemaJson": "{\u0022type\u0022:\u0022object\u0022}",
+                      "description": null,
+                      "inputs": null,
+                      "resultContract": null,
+                      "assurance": null
+                    }
+                  ]
+                }
+                """),
+            json);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IndexLookupAndManifestJsonContractWriters_WriteFixedOrderJson ()
+    {
+        var generatedAtUtc = DateTimeOffset.Parse("2026-03-03T00:00:00+00:00");
+        var assetSearchLookup = new IndexAssetSearchLookupJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: generatedAtUtc,
+            SourceInputsHash: "asset-hash",
+            Entries:
+            [
+                new IndexAssetSearchEntryJsonContract(
+                    AssetPath: "Assets/Z.asset",
+                    AssetGuid: "z-guid",
+                    Name: "Z",
+                    TypeId: "Z.Type, Assembly-CSharp",
+                    SearchTypeIds: ["Z.Type, Assembly-CSharp"]),
+                new IndexAssetSearchEntryJsonContract(
+                    AssetPath: "Assets/A.asset",
+                    AssetGuid: "a-guid",
+                    Name: "A",
+                    TypeId: "A.Type, Assembly-CSharp",
+                    SearchTypeIds: ["A.Type, Assembly-CSharp"]),
+            ]);
+        var guidPathLookup = new IndexGuidPathLookupJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: generatedAtUtc,
+            SourceInputsHash: "guid-hash",
+            Entries:
+            [
+                new IndexGuidPathEntryJsonContract(
+                    AssetGuid: "z-guid",
+                    AssetPath: "Assets/Z.asset"),
+                new IndexGuidPathEntryJsonContract(
+                    AssetGuid: "a-guid",
+                    AssetPath: "Assets/A.asset"),
+            ]);
+        var sceneTreeLiteLookup = new IndexSceneTreeLiteLookupJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: generatedAtUtc,
+            ScenePath: "Assets/Scenes/Main.unity",
+            SourceInputsHash: "scene-hash",
+            Roots:
+            [
+                new IndexSceneTreeLiteNodeJsonContract(
+                    Name: "RootZ",
+                    GlobalObjectId: "z",
+                    Children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+                new IndexSceneTreeLiteNodeJsonContract(
+                    Name: "RootA",
+                    GlobalObjectId: "a",
+                    Children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+            ]);
+        var inputsManifest = new IndexInputsManifestJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: generatedAtUtc,
+            ScriptAssembliesHash: "script",
+            PackagesManifestHash: "manifest",
+            PackagesLockHash: "lock",
+            AssemblyDefinitionHash: "asmdef",
+            AssetsContentHash: "assets",
+            AssetSearchHash: "asset",
+            GuidPathHash: "guid",
+            CombinedHash: "combined");
+
+        AssertExactJson(
+            ExpectedJson(
+                """
+                {
+                  "schemaVersion": 1,
+                  "generatedAtUtc": "2026-03-03T00:00:00+00:00",
+                  "sourceInputsHash": "asset-hash",
+                  "entries": [
+                    {
+                      "assetPath": "Assets/A.asset",
+                      "assetGuid": "a-guid",
+                      "name": "A",
+                      "typeId": "A.Type, Assembly-CSharp",
+                      "searchTypeIds": [
+                        "A.Type, Assembly-CSharp"
+                      ]
+                    },
+                    {
+                      "assetPath": "Assets/Z.asset",
+                      "assetGuid": "z-guid",
+                      "name": "Z",
+                      "typeId": "Z.Type, Assembly-CSharp",
+                      "searchTypeIds": [
+                        "Z.Type, Assembly-CSharp"
+                      ]
+                    }
+                  ]
+                }
+                """),
+            Write(assetSearchLookup));
+        AssertExactJson(
+            ExpectedJson(
+                """
+                {
+                  "schemaVersion": 1,
+                  "generatedAtUtc": "2026-03-03T00:00:00+00:00",
+                  "sourceInputsHash": "guid-hash",
+                  "entries": [
+                    {
+                      "assetGuid": "a-guid",
+                      "assetPath": "Assets/A.asset"
+                    },
+                    {
+                      "assetGuid": "z-guid",
+                      "assetPath": "Assets/Z.asset"
+                    }
+                  ]
+                }
+                """),
+            Write(guidPathLookup));
+        AssertExactJson(
+            ExpectedJson(
+                """
+                {
+                  "schemaVersion": 1,
+                  "generatedAtUtc": "2026-03-03T00:00:00+00:00",
+                  "scenePath": "Assets/Scenes/Main.unity",
+                  "sourceInputsHash": "scene-hash",
+                  "roots": [
+                    {
+                      "name": "RootZ",
+                      "globalObjectId": "z",
+                      "children": []
+                    },
+                    {
+                      "name": "RootA",
+                      "globalObjectId": "a",
+                      "children": []
+                    }
+                  ]
+                }
+                """),
+            Write(sceneTreeLiteLookup));
+        AssertExactJson(
+            ExpectedJson(
+                """
+                {
+                  "schemaVersion": 1,
+                  "generatedAtUtc": "2026-03-03T00:00:00+00:00",
+                  "scriptAssembliesHash": "script",
+                  "packagesManifestHash": "manifest",
+                  "packagesLockHash": "lock",
+                  "assemblyDefinitionHash": "asmdef",
+                  "assetsContentHash": "assets",
+                  "assetSearchHash": "asset",
+                  "guidPathHash": "guid",
+                  "combinedHash": "combined"
+                }
+                """),
+            Write(inputsManifest));
+    }
+
+    private static string Write (IndexTypesCatalogJsonContract contract)
+    {
+        return new IndexTypesCatalogJsonContractWriter().Write(contract);
+    }
+
+    private static string Write (IndexSchemasCatalogJsonContract contract)
+    {
+        return new IndexSchemasCatalogJsonContractWriter().Write(contract);
+    }
+
+    private static string Write (IndexOpsCatalogJsonContract contract)
+    {
+        return new IndexOpsCatalogJsonContractWriter().Write(contract);
+    }
+
+    private static string Write (IndexInputsManifestJsonContract contract)
+    {
+        return new IndexInputsManifestJsonContractWriter().Write(contract);
+    }
+
+    private static string Write (IndexAssetSearchLookupJsonContract contract)
+    {
+        return new IndexAssetSearchLookupJsonContractWriter().Write(contract);
+    }
+
+    private static string Write (IndexGuidPathLookupJsonContract contract)
+    {
+        return new IndexGuidPathLookupJsonContractWriter().Write(contract);
+    }
+
+    private static string Write (IndexSceneTreeLiteLookupJsonContract contract)
+    {
+        return new IndexSceneTreeLiteLookupJsonContractWriter().Write(contract);
+    }
+
+    private static string ExpectedJson (string json)
+    {
+        return json
+            .Replace("\r\n", "\n")
+            .Replace("\r", "\n")
+            + "\n";
+    }
+
+    private static void AssertExactJson (
+        string expected,
+        string actual)
+    {
+        Assert.DoesNotContain("\r", actual);
+        Assert.EndsWith("\n", actual);
+        Assert.Equal(expected, actual);
+    }
+
     private static UcliOperationDescribeContract CreateGoDescribeContract ()
     {
         return UcliOperationDescribeContractBuilder.Create<GoDescribeArgs, GameObjectDescriptionResult>(
