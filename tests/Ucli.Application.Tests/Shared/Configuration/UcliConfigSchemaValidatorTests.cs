@@ -65,12 +65,12 @@ public sealed class UcliConfigSchemaValidatorTests
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Document);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.SchemaVersion);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.OperationPolicy);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.PlanTokenMode);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "operationAllowlist[1]");
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "ipcTimeoutMillisecondsByCommand.status");
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "unexpectedProperty");
+        AssertDiagnostic(result.Diagnostics, "config.schema.propertyTypeMismatch", UcliConfigJsonPropertyNames.SchemaVersion);
+        AssertDiagnostic(result.Diagnostics, "config.schema.missingProperty", UcliConfigJsonPropertyNames.OperationPolicy);
+        AssertDiagnostic(result.Diagnostics, "config.schema.missingProperty", UcliConfigJsonPropertyNames.PlanTokenMode);
+        AssertDiagnostic(result.Diagnostics, "config.schema.arrayElementTypeMismatch", "operationAllowlist[1]");
+        AssertDiagnostic(result.Diagnostics, "config.schema.objectPropertyTypeMismatch", "ipcTimeoutMillisecondsByCommand.status");
+        AssertDiagnostic(result.Diagnostics, "config.schema.unknownProperty", "unexpectedProperty");
     }
 
     [Fact]
@@ -97,8 +97,8 @@ public sealed class UcliConfigSchemaValidatorTests
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Document);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.OperationPolicy);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "ipcTimeoutMillisecondsByCommand.status");
+        AssertDiagnostic(result.Diagnostics, "config.schema.duplicateProperty", UcliConfigJsonPropertyNames.OperationPolicy);
+        AssertDiagnostic(result.Diagnostics, "config.schema.duplicateProperty", "ipcTimeoutMillisecondsByCommand.status");
     }
 
     [Fact]
@@ -141,7 +141,18 @@ public sealed class UcliConfigSchemaValidatorTests
         Assert.False(result.IsSuccess);
         Assert.Null(result.Document);
         var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal("config.schema.rootTypeMismatch", diagnostic.Code);
         Assert.Null(diagnostic.PropertyPath);
-        Assert.Contains("root", diagnostic.Code, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void AssertDiagnostic (
+        IReadOnlyList<UcliConfigDiagnostic> diagnostics,
+        string expectedCode,
+        string expectedPropertyPath)
+    {
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Code == expectedCode
+                && diagnostic.PropertyPath == expectedPropertyPath);
     }
 }

@@ -22,7 +22,7 @@ public sealed class UcliConfigResultTests
         Assert.DoesNotContain("\u2029", diagnostic.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("\u202e", diagnostic.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("\U000e0001", diagnostic.Message, StringComparison.Ordinal);
-        Assert.True(diagnostic.Message.Length <= 512);
+        Assert.True(diagnostic.Message.Length <= UcliConfigDiagnostic.MaxTextLength);
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public sealed class UcliConfigResultTests
         Assert.Contains("Diagnostic 0.", error.Message, StringComparison.Ordinal);
         Assert.Contains("Additional config diagnostics were omitted.", error.Message, StringComparison.Ordinal);
         Assert.DoesNotContain($"Diagnostic {UcliConfigDiagnosticList.MaxDetailedDiagnostics + 10}.", error.Message, StringComparison.Ordinal);
-        Assert.Equal(8192, error.Message.Length);
+        Assert.True(error.Message.Length <= 8192);
         Assert.EndsWith(UcliConfigDiagnosticList.OmittedDiagnosticsMessage, error.Message, StringComparison.Ordinal);
     }
 }

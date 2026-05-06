@@ -44,16 +44,9 @@ internal static class UcliConfigDiagnosticErrorMapper
     }
 
     private static ExecutionError ToInvalidArgument (
-        IReadOnlyList<UcliConfigDiagnostic> diagnostics,
-        string fallbackMessage)
+        IReadOnlyList<UcliConfigDiagnostic> diagnostics)
     {
         ArgumentNullException.ThrowIfNull(diagnostics);
-        ArgumentException.ThrowIfNullOrWhiteSpace(fallbackMessage);
-
-        if (diagnostics.Count == 0)
-        {
-            return ExecutionError.InvalidArgument(fallbackMessage);
-        }
 
         return ExecutionError.InvalidArgument(LimitMessageLength(
             FormatDiagnostics(diagnostics),
@@ -70,7 +63,7 @@ internal static class UcliConfigDiagnosticErrorMapper
 
         if (diagnostics.Count > 0)
         {
-            return ToInvalidArgument(diagnostics, diagnosticFallbackMessage);
+            return ToInvalidArgument(diagnostics);
         }
 
         return error ?? ExecutionError.InvalidArgument(diagnosticFallbackMessage);

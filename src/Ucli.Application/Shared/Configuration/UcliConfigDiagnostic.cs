@@ -79,7 +79,6 @@ internal sealed record UcliConfigDiagnostic
         StringBuilder? builder = null;
         for (var i = 0; i < value.Length; i++)
         {
-            var current = value[i];
             var scalarCharLength = GetScalarCharLength(value, i);
             var category = CharUnicodeInfo.GetUnicodeCategory(value, i);
             if (!ShouldEscape(category))

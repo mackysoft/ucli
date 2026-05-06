@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Shared.Configuration;
 
@@ -108,41 +107,12 @@ internal sealed class UcliEffectiveConfigBuilder
             return IpcTimeoutDefaults.CreateDefaultTimeoutOverrides();
         }
 
-        var timeoutsByCommand = new Dictionary<string, int?>(StringComparer.Ordinal);
-        foreach (var entry in source)
-        {
-            var commandKey = UcliConfigDiagnostic.FormatFragment(entry.Key);
-            var propertyPath = $"{UcliConfigJsonPropertyNames.IpcTimeoutMillisecondsByCommand}.{commandKey}";
-            if (!IpcTimeoutConfigValidator.TryNormalizeSupportedCommandName(entry.Key, out var commandName))
-            {
-                var supportedCommands = IpcTimeoutConfigValidator.GetSupportedCommandNamesDescription();
-                if (!AddDiagnostic(diagnostics, CreateDiagnostic(
-                    UnsupportedTimeoutCommandCode,
-                    propertyPath,
-                    sourcePath,
-                    $"Config ipcTimeoutMillisecondsByCommand contains unsupported command key: {commandKey}. Supported: {supportedCommands}.")))
-                {
-                    break;
-                }
-
-                continue;
-            }
-
-            if (entry.Value.HasValue
-                && !IpcTimeoutConfigValidator.TryParseTimeoutMilliseconds(entry.Value.Value, out _))
-            {
-                if (!AddDiagnostic(diagnostics, CreateInvalidTimeoutDiagnostic(propertyPath, entry.Value.Value, sourcePath)))
-                {
-                    break;
-                }
-
-                continue;
-            }
-
-            timeoutsByCommand[commandName] = entry.Value;
-        }
-
-        return timeoutsByCommand;
+        return UcliConfigCommandTimeoutValidator.BuildNormalizedOverrides(
+            source,
+            sourcePath,
+            UnsupportedTimeoutCommandCode,
+            InvalidTimeoutCode,
+            diagnostics);
     }
 
     private static List<string> BuildOperationAllowlist (
@@ -150,44 +120,12 @@ internal sealed class UcliEffectiveConfigBuilder
         string sourcePath,
         List<UcliConfigDiagnostic> diagnostics)
     {
-        var normalizedAllowlist = new List<string>(source.Count);
-        for (var i = 0; i < source.Count; i++)
-        {
-            var propertyPath = $"{UcliConfigJsonPropertyNames.OperationAllowlist}[{i}]";
-            if (!StringValueNormalizer.TryTrimToNonEmpty(source[i], out var normalizedPattern))
-            {
-                if (!AddDiagnostic(diagnostics, CreateDiagnostic(
-                    EmptyAllowlistPatternCode,
-                    propertyPath,
-                    sourcePath,
-                    "Config operationAllowlist contains an empty pattern.")))
-                {
-                    break;
-                }
-
-                continue;
-            }
-
-            if (!RegexPatternUtilities.TryValidatePattern(normalizedPattern, out var patternErrorMessage))
-            {
-                var displayPattern = UcliConfigDiagnostic.FormatFragment(normalizedPattern);
-                var displayPatternErrorMessage = UcliConfigDiagnostic.FormatFragment(patternErrorMessage);
-                if (!AddDiagnostic(diagnostics, CreateDiagnostic(
-                    InvalidRegexPatternCode,
-                    propertyPath,
-                    sourcePath,
-                    $"Config operationAllowlist contains an invalid regex pattern: {displayPattern}. {displayPatternErrorMessage}")))
-                {
-                    break;
-                }
-
-                continue;
-            }
-
-            normalizedAllowlist.Add(normalizedPattern);
-        }
-
-        return normalizedAllowlist;
+        return UcliConfigOperationAllowlistValidator.BuildNormalizedPatterns(
+            source,
+            sourcePath,
+            EmptyAllowlistPatternCode,
+            InvalidRegexPatternCode,
+            diagnostics);
     }
 
     private static UcliConfigDiagnostic CreateUnsupportedLiteralDiagnostic (

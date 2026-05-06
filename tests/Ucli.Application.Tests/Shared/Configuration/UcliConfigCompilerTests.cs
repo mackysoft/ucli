@@ -21,7 +21,7 @@ public sealed class UcliConfigCompilerTests
 
         var result = Compile(json);
 
-        var diagnostic = AssertSingleDiagnostic(result.Diagnostics);
+        var diagnostic = AssertSingleDiagnostic(result.Diagnostics, "config.semantic.unsupportedLiteral");
         Assert.Equal(UcliConfigJsonPropertyNames.OperationPolicy, diagnostic.PropertyPath);
         Assert.Contains("operationPolicy", diagnostic.Message, StringComparison.Ordinal);
         Assert.Contains("unsupported", diagnostic.Message, StringComparison.Ordinal);
@@ -42,7 +42,7 @@ public sealed class UcliConfigCompilerTests
 
         var result = Compile(json);
 
-        var diagnostic = AssertSingleDiagnostic(result.Diagnostics);
+        var diagnostic = AssertSingleDiagnostic(result.Diagnostics, "config.semantic.emptyAllowlistPattern");
         Assert.Equal("operationAllowlist[0]", diagnostic.PropertyPath);
         Assert.Contains("empty pattern", diagnostic.Message, StringComparison.Ordinal);
     }
@@ -62,7 +62,7 @@ public sealed class UcliConfigCompilerTests
 
         var result = Compile(json);
 
-        var diagnostic = AssertSingleDiagnostic(result.Diagnostics);
+        var diagnostic = AssertSingleDiagnostic(result.Diagnostics, "config.semantic.invalidRegexPattern");
         Assert.Equal("operationAllowlist[0]", diagnostic.PropertyPath);
         Assert.Contains("regex", diagnostic.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -83,7 +83,7 @@ public sealed class UcliConfigCompilerTests
 
         var result = Compile(json);
 
-        var diagnostic = AssertSingleDiagnostic(result.Diagnostics);
+        var diagnostic = AssertSingleDiagnostic(result.Diagnostics, "config.semantic.invalidTimeout");
         Assert.Equal(UcliConfigJsonPropertyNames.IpcDefaultTimeoutMilliseconds, diagnostic.PropertyPath);
         Assert.Contains("ipcDefaultTimeoutMilliseconds", diagnostic.Message, StringComparison.Ordinal);
     }
@@ -111,15 +111,15 @@ public sealed class UcliConfigCompilerTests
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Config);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.SchemaVersion);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.OperationPolicy);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.PlanTokenMode);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.ReadIndexDefaultMode);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.IpcDefaultTimeoutMilliseconds);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "ipcTimeoutMillisecondsByCommand.status");
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "ipcTimeoutMillisecondsByCommand.unknown");
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "operationAllowlist[0]");
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "operationAllowlist[1]");
+        AssertDiagnostic(result.Diagnostics, "config.semantic.unsupportedSchemaVersion", UcliConfigJsonPropertyNames.SchemaVersion);
+        AssertDiagnostic(result.Diagnostics, "config.semantic.unsupportedLiteral", UcliConfigJsonPropertyNames.OperationPolicy);
+        AssertDiagnostic(result.Diagnostics, "config.semantic.unsupportedLiteral", UcliConfigJsonPropertyNames.PlanTokenMode);
+        AssertDiagnostic(result.Diagnostics, "config.semantic.unsupportedLiteral", UcliConfigJsonPropertyNames.ReadIndexDefaultMode);
+        AssertDiagnostic(result.Diagnostics, "config.semantic.invalidTimeout", UcliConfigJsonPropertyNames.IpcDefaultTimeoutMilliseconds);
+        AssertDiagnostic(result.Diagnostics, "config.semantic.invalidTimeout", "ipcTimeoutMillisecondsByCommand.status");
+        AssertDiagnostic(result.Diagnostics, "config.semantic.unsupportedTimeoutCommand", "ipcTimeoutMillisecondsByCommand.unknown");
+        AssertDiagnostic(result.Diagnostics, "config.semantic.emptyAllowlistPattern", "operationAllowlist[0]");
+        AssertDiagnostic(result.Diagnostics, "config.semantic.invalidRegexPattern", "operationAllowlist[1]");
     }
 
     [Fact]
@@ -214,15 +214,15 @@ public sealed class UcliConfigCompilerTests
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Document);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.SchemaVersion);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.OperationPolicy);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.PlanTokenMode);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.ReadIndexDefaultMode);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "operationAllowlist[0]");
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "operationAllowlist[1]");
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.IpcDefaultTimeoutMilliseconds);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "ipcTimeoutMillisecondsByCommand.status");
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "ipcTimeoutMillisecondsByCommand.unknown");
+        AssertDiagnostic(result.Diagnostics, "config.save.unsupportedSchemaVersion", UcliConfigJsonPropertyNames.SchemaVersion);
+        AssertDiagnostic(result.Diagnostics, "config.save.unsupportedEnum", UcliConfigJsonPropertyNames.OperationPolicy);
+        AssertDiagnostic(result.Diagnostics, "config.save.unsupportedEnum", UcliConfigJsonPropertyNames.PlanTokenMode);
+        AssertDiagnostic(result.Diagnostics, "config.save.unsupportedEnum", UcliConfigJsonPropertyNames.ReadIndexDefaultMode);
+        AssertDiagnostic(result.Diagnostics, "config.save.emptyAllowlistPattern", "operationAllowlist[0]");
+        AssertDiagnostic(result.Diagnostics, "config.save.invalidRegexPattern", "operationAllowlist[1]");
+        AssertDiagnostic(result.Diagnostics, "config.save.invalidTimeout", UcliConfigJsonPropertyNames.IpcDefaultTimeoutMilliseconds);
+        AssertDiagnostic(result.Diagnostics, "config.save.invalidTimeout", "ipcTimeoutMillisecondsByCommand.status");
+        AssertDiagnostic(result.Diagnostics, "config.save.unsupportedTimeoutCommand", "ipcTimeoutMillisecondsByCommand.unknown");
     }
 
     private static UcliConfigBuildResult Compile (string json)
@@ -231,10 +231,23 @@ public sealed class UcliConfigCompilerTests
         return UcliConfigCompiler.CreateDefault().Compile(document.RootElement, "config.json");
     }
 
-    private static UcliConfigDiagnostic AssertSingleDiagnostic (IReadOnlyList<UcliConfigDiagnostic> diagnostics)
+    private static UcliConfigDiagnostic AssertSingleDiagnostic (
+        IReadOnlyList<UcliConfigDiagnostic> diagnostics,
+        string expectedCode)
     {
         var diagnostic = Assert.Single(diagnostics);
-        Assert.False(string.IsNullOrWhiteSpace(diagnostic.Code));
+        Assert.Equal(expectedCode, diagnostic.Code);
         return diagnostic;
+    }
+
+    private static void AssertDiagnostic (
+        IReadOnlyList<UcliConfigDiagnostic> diagnostics,
+        string expectedCode,
+        string expectedPropertyPath)
+    {
+        Assert.Contains(
+            diagnostics,
+            diagnostic => diagnostic.Code == expectedCode
+                && diagnostic.PropertyPath == expectedPropertyPath);
     }
 }
