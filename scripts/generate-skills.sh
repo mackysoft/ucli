@@ -33,6 +33,8 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+output_root="$(dotnet_to_bash_path "$output_root")"
+
 case "$output_root" in
   /*)
     ;;

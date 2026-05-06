@@ -5,7 +5,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/dotnet-common.sh
 source "$script_dir/dotnet-common.sh"
 
-temp_root="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
+temp_root="$(dotnet_to_bash_path "${RUNNER_TEMP:-${TMPDIR:-/tmp}}")"
 mkdir -p "$temp_root"
 work_dir="$(mktemp -d "${temp_root%/}/ucli-skills-verify.XXXXXX")"
 trap 'rm -rf "$work_dir"' EXIT

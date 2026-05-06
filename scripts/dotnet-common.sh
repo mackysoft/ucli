@@ -2,6 +2,21 @@
 
 DOTNET_REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+dotnet_to_bash_path() {
+  local path="$1"
+
+  if command -v cygpath >/dev/null 2>&1; then
+    case "$path" in
+      [A-Za-z]:*)
+        cygpath -u "$path"
+        return
+        ;;
+    esac
+  fi
+
+  printf '%s\n' "$path"
+}
+
 dotnet_resolve_solution() {
   local requested="${1:-}"
   local candidate
