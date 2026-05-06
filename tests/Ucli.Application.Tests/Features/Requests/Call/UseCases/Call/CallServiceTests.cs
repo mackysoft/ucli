@@ -15,7 +15,7 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Ipc.Validation;
+using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using static MackySoft.Ucli.Application.Tests.Helpers.ApplicationCommandInputTestHelper;
 
 namespace MackySoft.Ucli.Application.Tests;
