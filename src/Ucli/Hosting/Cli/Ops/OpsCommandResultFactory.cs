@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
+using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Requests;
@@ -76,6 +77,7 @@ internal static class OpsCommandResultFactory
     private static CliExitCode ResolveExitCode (string? errorCode)
     {
         return string.Equals(errorCode, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal)
+            || ProjectContextErrorCodes.Contains(errorCode)
             ? CliExitCode.InvalidArgument
             : CliExitCode.ToolError;
     }

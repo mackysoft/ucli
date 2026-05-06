@@ -1,7 +1,7 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Phase;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc.Validation;
+using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call;

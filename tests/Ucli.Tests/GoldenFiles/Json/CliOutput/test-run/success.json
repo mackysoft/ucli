@@ -1,0 +1,15 @@
+{
+  "protocolVersion": 1,
+  "command": "test.run",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "Unity test execution completed.",
+  "payload": {
+    "result": "pass",
+    "errorKind": null,
+    "runId": "run-id",
+    "artifactsDir": "<artifacts>",
+    "summaryJsonPath": "<artifacts>/summary.json"
+  },
+  "errors": []
+}

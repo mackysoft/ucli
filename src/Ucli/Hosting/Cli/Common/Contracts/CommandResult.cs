@@ -61,14 +61,18 @@ internal sealed record CommandResult (
     /// <summary> Creates an error result for invalid command arguments. </summary>
     /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="UcliCommandNames.Root" />. </param>
     /// <param name="message"> The argument validation message written to the result. <see langword="null" />, empty, and whitespace values are replaced by a fallback message. </param>
+    /// <param name="errorCode"> The optional machine-readable error code. When omitted, <c>INVALID_ARGUMENT</c> is used. </param>
     /// <returns> A command result with <c>error</c> status and the invalid-argument exit code. </returns>
-    public static CommandResult InvalidArgument (string command, string message)
+    public static CommandResult InvalidArgument (
+        string command,
+        string message,
+        string? errorCode = null)
     {
         return CreateError(
             command: command,
             message: message,
             exitCode: CliExitCode.InvalidArgument,
-            errorCode: IpcErrorCodes.InvalidArgument);
+            errorCode: string.IsNullOrWhiteSpace(errorCode) ? IpcErrorCodes.InvalidArgument : errorCode);
     }
 
     /// <summary> Creates an error result for command cancellation. </summary>
@@ -87,27 +91,35 @@ internal sealed record CommandResult (
     /// <summary> Creates an error result for infrastructure timeouts. </summary>
     /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="UcliCommandNames.Root" />. </param>
     /// <param name="message"> The timeout message written to the result. <see langword="null" />, empty, and whitespace values are replaced by a fallback message. </param>
+    /// <param name="errorCode"> The optional machine-readable error code. When omitted, <c>IPC_TIMEOUT</c> is used. </param>
     /// <returns> A command result with <c>error</c> status and the tool-error exit code. </returns>
-    public static CommandResult Timeout (string command, string message)
+    public static CommandResult Timeout (
+        string command,
+        string message,
+        string? errorCode = null)
     {
         return CreateError(
             command: command,
             message: message,
             exitCode: CliExitCode.ToolError,
-            errorCode: ExecutionErrorCodes.IpcTimeout);
+            errorCode: string.IsNullOrWhiteSpace(errorCode) ? ExecutionErrorCodes.IpcTimeout : errorCode);
     }
 
     /// <summary> Creates an error result for unexpected runtime failures. </summary>
     /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="UcliCommandNames.Root" />. </param>
     /// <param name="message"> The failure message written to the result. <see langword="null" />, empty, and whitespace values are replaced by a fallback message. </param>
+    /// <param name="errorCode"> The optional machine-readable error code. When omitted, <c>INTERNAL_ERROR</c> is used. </param>
     /// <returns> A command result with <c>error</c> status and the tool-error exit code. </returns>
-    public static CommandResult InternalError (string command, string message)
+    public static CommandResult InternalError (
+        string command,
+        string message,
+        string? errorCode = null)
     {
         return CreateError(
             command: command,
             message: message,
             exitCode: CliExitCode.ToolError,
-            errorCode: IpcErrorCodes.InternalError);
+            errorCode: string.IsNullOrWhiteSpace(errorCode) ? IpcErrorCodes.InternalError : errorCode);
     }
 
     /// <summary> Creates a normalized error result with a single error entry. </summary>

@@ -18,10 +18,10 @@ public sealed class CanonicalSkillPackageReaderTests
 
         Assert.True(generatedPackages.IsSuccess, generatedPackages.Failure?.Message);
         var actualPackages = generatedPackages.Value!;
-        Assert.Equal(SkillTestData.ExpectedSkillNames, actualPackages.Select(static package => package.SkillName).ToArray());
+        Assert.Equal(SkillTestData.ExpectedSkillNames, actualPackages.Select(static package => package.Manifest.SkillName).ToArray());
         Assert.Equal(
-            sourcePackages.SelectMany(static package => package.Files.Select(file => $"{package.SkillName}/{file.RelativePath}={file.Content}")).Order(StringComparer.Ordinal).ToArray(),
-            actualPackages.SelectMany(static package => package.Files.Select(file => $"{package.SkillName}/{file.RelativePath}={file.Content}")).Order(StringComparer.Ordinal).ToArray());
+            sourcePackages.SelectMany(static package => package.Files.Select(file => $"{package.Manifest.SkillName}/{file.RelativePath}={file.Content}")).Order(StringComparer.Ordinal).ToArray(),
+            actualPackages.SelectMany(static package => package.Files.Select(file => $"{package.Manifest.SkillName}/{file.RelativePath}={file.Content}")).Order(StringComparer.Ordinal).ToArray());
     }
 
     [Fact]
@@ -110,6 +110,94 @@ public sealed class CanonicalSkillPackageReaderTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(SkillFailureCodes.ManifestInvalid, result.Failure!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadAllAsync_RejectsUnsafePackageRelativePathWithoutThrowing ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "generated-unsafe-path");
+        var skillsRoot = CopyGeneratedSkills(scope);
+        var unsafePath = Path.Combine(skillsRoot, SkillTestData.ExpectedSkillNames[0], "bad\\name.md");
+        await File.WriteAllTextAsync(unsafePath, "unsafe path");
+        var reader = SkillTestData.CreatePackageReader();
+
+        var result = await reader.ReadAllAsync(skillsRoot, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.ManifestInvalid, result.Failure!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadAllAsync_RejectsPackageFileSymlinkBeforeReading ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "generated-file-symlink");
+        var skillsRoot = CopyGeneratedSkills(scope);
+        var outsideFile = scope.WriteFile("outside.md", "outside content");
+        var linkPath = Path.Combine(skillsRoot, SkillTestData.ExpectedSkillNames[0], "references", "linked.md");
+        File.CreateSymbolicLink(linkPath, outsideFile);
+        var reader = SkillTestData.CreatePackageReader();
+
+        var result = await reader.ReadAllAsync(skillsRoot, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.ManifestInvalid, result.Failure!.Code);
+        Assert.Contains("non-regular file", result.Failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadAllAsync_PreservesPathUnsafeFromPackageDirectoryBoundary ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "generated-directory-symlink");
+        var skillsRoot = scope.CreateDirectory("skills");
+        var outsideDirectory = scope.CreateDirectory("outside");
+        Directory.CreateSymbolicLink(Path.Combine(skillsRoot, "linked-skill"), outsideDirectory);
+        var reader = SkillTestData.CreatePackageReader();
+
+        var result = await reader.ReadAllAsync(skillsRoot, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.PathUnsafe, result.Failure!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadAllAsync_RejectsNestedPackageDirectorySymlinkBeforeRecursing ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "generated-nested-directory-symlink");
+        var skillsRoot = CopyGeneratedSkills(scope);
+        var outsideDirectory = scope.CreateDirectory("outside");
+        var linkPath = Path.Combine(skillsRoot, SkillTestData.ExpectedSkillNames[0], "references", "linked-directory");
+        Directory.CreateSymbolicLink(linkPath, outsideDirectory);
+        var reader = SkillTestData.CreatePackageReader();
+
+        var result = await reader.ReadAllAsync(skillsRoot, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.ManifestInvalid, result.Failure!.Code);
+        Assert.Contains("non-regular directory", result.Failure.Message, StringComparison.Ordinal);
     }
 
     private static string CopyGeneratedSkills (TestDirectoryScope scope)

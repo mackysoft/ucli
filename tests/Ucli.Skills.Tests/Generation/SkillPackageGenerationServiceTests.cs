@@ -1,8 +1,10 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Skills.Digests;
 using MackySoft.Ucli.Skills.Hosts.Claude;
 using MackySoft.Ucli.Skills.Hosts.Copilot;
 using MackySoft.Ucli.Skills.Hosts.OpenAi;
 using MackySoft.Ucli.Skills.Manifests;
+using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Skills.Tests.Generation;
 
@@ -15,7 +17,7 @@ public sealed class SkillPackageGenerationServiceTests
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
         var validator = SkillTestData.CreateManifestValidator();
 
-        Assert.Equal(SkillTestData.ExpectedSkillNames, packages.Select(static package => package.SkillName).ToArray());
+        Assert.Equal(SkillTestData.ExpectedSkillNames, packages.Select(static package => package.Manifest.SkillName).ToArray());
         foreach (var package in packages)
         {
             Assert.Contains(package.Files, static file => string.Equals(file.RelativePath, "SKILL.md", StringComparison.Ordinal));
@@ -60,11 +62,27 @@ public sealed class SkillPackageGenerationServiceTests
             var manifestFile = package.Files.Single(static file => string.Equals(file.RelativePath, "ucli-skill.json", StringComparison.Ordinal));
             var manifest = serializer.Deserialize(manifestFile.Content);
 
-            Assert.Equal(package.Manifest.SchemaVersion, manifest.SchemaVersion);
+            Assert.Equal(SkillManifest.CurrentSchemaVersion, package.Manifest.SchemaVersion);
+            Assert.Equal(SkillManifest.CurrentSchemaVersion, manifest.SchemaVersion);
             Assert.Equal(package.Manifest.SkillName, manifest.SkillName);
+            Assert.Equal(package.Manifest.DisplayName, manifest.DisplayName);
+            Assert.Equal(package.Manifest.Description, manifest.Description);
             Assert.Equal(package.Manifest.ContentDigest, manifest.ContentDigest);
             Assert.Equal(package.Manifest.HostArtifacts, manifest.HostArtifacts);
             Assert.Equal(manifestFile.Content, serializer.Serialize(manifest));
         }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task GenerateAllAsync_RejectsEmptyDefinitionsRoot ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "empty-definitions");
+        var service = SkillTestData.CreatePackageGenerationService();
+
+        var result = await service.GenerateAllAsync(scope.CreateDirectory("SkillDefinitions"), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.SourceInvalid, result.Failure!.Code);
     }
 }

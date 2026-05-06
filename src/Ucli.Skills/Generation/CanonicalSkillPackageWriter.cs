@@ -22,7 +22,14 @@ public sealed class CanonicalSkillPackageWriter
         ArgumentException.ThrowIfNullOrWhiteSpace(outputRoot);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var fullOutputRoot = Path.GetFullPath(outputRoot);
+        if (packages.Count == 0)
+        {
+            return SkillOperationResult<string>.FailureResult(
+                SkillFailureCodes.ManifestInvalid,
+                "Generated SKILL package set must not be empty.");
+        }
+
+        var fullOutputRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(outputRoot));
         if (cleanOutputRoot)
         {
             var cleanResult = CleanOutputRoot(fullOutputRoot);
@@ -33,11 +40,11 @@ public sealed class CanonicalSkillPackageWriter
         }
 
         Directory.CreateDirectory(fullOutputRoot);
-        foreach (var package in packages.OrderBy(static package => package.SkillName, StringComparer.Ordinal))
+        foreach (var package in packages.OrderBy(static package => package.Manifest.SkillName, StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var skillDirectoryResult = SkillPackagePathBoundary.ResolvePackageDirectory(fullOutputRoot, package.SkillName);
+            var skillDirectoryResult = SkillPackagePathBoundary.ResolvePackageDirectory(fullOutputRoot, package.Manifest.SkillName);
             if (!skillDirectoryResult.IsSuccess)
             {
                 return SkillOperationResult<string>.FailureResult(skillDirectoryResult.Failure!.Code, skillDirectoryResult.Failure.Message);

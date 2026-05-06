@@ -94,7 +94,7 @@ public sealed class OpsCliOutputContractTests
             exitCode: (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(
             outputJson.RootElement,
-            expectedCode: "INVALID_ARGUMENT");
+            expectedCode: ProjectContextErrorCodes.UnityProjectMarkerMissing);
     }
 
     [Fact]
@@ -141,27 +141,11 @@ public sealed class OpsCliOutputContractTests
             UcliContractConstants.CliOption.ReadIndexMode,
             UcliContractConstants.Config.ReadIndexModeAllowStale);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            command: UcliCommandNames.OpsList,
-            status: "ok",
-            exitCode: (int)CliExitCode.Success);
-        CommandResultAssert.HasNoErrors(outputJson.RootElement);
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("payload", payload => payload
-                .HasArrayLength("operations", 2)
-                .HasProperty("operations", 0, operation => operation
-                    .HasString("name", UcliPrimitiveOperationNames.GoDescribe)
-                    .HasString("kind", "query")
-                    .HasString("policy", "safe"))
-                .HasProperty("readIndex", readIndex => readIndex
-                    .HasBoolean("used", true)
-                    .HasBoolean("hit", true)
-                    .HasString("source", "index")
-                    .HasString("freshness", "probable")
-                    .IsNull("fallbackReason")));
+        JsonGoldenFileAssert.Matches(
+            CliOutputGoldenFiles.GetPath("ops", "list-success.json"),
+            result.StdOut,
+            CliOutputGoldenFiles.NormalizeGeneratedAtUtc());
     }
 
     [Fact]
@@ -403,17 +387,8 @@ public sealed class OpsCliOutputContractTests
             UcliContractConstants.CliOption.Mode,
             "unsupported");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            command: UcliCommandNames.OpsList,
-            status: "error",
-            exitCode: (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(
-            outputJson.RootElement,
-            expectedCode: "INVALID_ARGUMENT");
-        Assert.Contains("Mode must be auto, daemon, or oneshot.", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
+        JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("ops", "list-invalid-mode.json"), result.StdOut);
     }
 
     [Fact]
@@ -539,4 +514,5 @@ public sealed class OpsCliOutputContractTests
                 Array.Empty<string>(),
                 UcliOperationPlanMode.ObservesLiveUnity));
     }
+
 }

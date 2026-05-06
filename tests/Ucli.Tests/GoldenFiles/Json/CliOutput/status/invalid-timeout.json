@@ -1,0 +1,15 @@
+{
+  "protocolVersion": 1,
+  "command": "status",
+  "status": "error",
+  "exitCode": 3,
+  "message": "timeout must be a positive integer milliseconds value. Actual: abc.",
+  "payload": {},
+  "errors": [
+    {
+      "code": "INVALID_ARGUMENT",
+      "message": "timeout must be a positive integer milliseconds value. Actual: abc.",
+      "opId": null
+    }
+  ]
+}

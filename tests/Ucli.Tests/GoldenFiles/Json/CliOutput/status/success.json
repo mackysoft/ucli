@@ -1,0 +1,21 @@
+{
+  "protocolVersion": 1,
+  "command": "status",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "uCLI status retrieval completed.",
+  "payload": {
+    "daemonStatus": "notRunning",
+    "unityVersion": "6000.1.4f1",
+    "serverVersion": null,
+    "lifecycleState": null,
+    "blockingReason": null,
+    "compileState": null,
+    "compileGeneration": null,
+    "domainReloadGeneration": null,
+    "canAcceptExecutionRequests": false,
+    "runtime": null,
+    "timeoutMilliseconds": 5000
+  },
+  "errors": []
+}

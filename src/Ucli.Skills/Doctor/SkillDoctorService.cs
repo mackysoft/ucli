@@ -58,7 +58,7 @@ public sealed class SkillDoctorService
             return new SkillDoctorResult(hostKey, fullTargetRoot, diagnostics);
         }
 
-        foreach (var package in packages.OrderBy(static package => package.SkillName, StringComparer.Ordinal))
+        foreach (var package in packages.OrderBy(static package => package.Manifest.SkillName, StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();
             await DiagnosePackageAsync(package, hostKey, fullTargetRoot, diagnostics, cancellationToken).ConfigureAwait(false);
@@ -81,24 +81,24 @@ public sealed class SkillDoctorService
         List<SkillDoctorDiagnostic> diagnostics,
         CancellationToken cancellationToken)
     {
-        var skillDirectoryResult = SkillPackagePathBoundary.ResolvePackageDirectory(targetRoot, package.SkillName);
+        var skillDirectoryResult = SkillPackagePathBoundary.ResolvePackageDirectory(targetRoot, package.Manifest.SkillName);
         if (!skillDirectoryResult.IsSuccess)
         {
-            diagnostics.Add(SkillDoctorDiagnostic.Error(skillDirectoryResult.Failure!.Code, skillDirectoryResult.Failure.Message, package.SkillName));
+            diagnostics.Add(SkillDoctorDiagnostic.Error(skillDirectoryResult.Failure!.Code, skillDirectoryResult.Failure.Message, package.Manifest.SkillName));
             return;
         }
 
         var skillDirectory = skillDirectoryResult.Value!;
         if (!Directory.Exists(skillDirectory))
         {
-            diagnostics.Add(SkillDoctorDiagnostic.Error(SkillFailureCodes.InstallTargetUnmanaged, "Skill directory is missing.", package.SkillName));
+            diagnostics.Add(SkillDoctorDiagnostic.Error(SkillFailureCodes.InstallTargetUnmanaged, "Skill directory is missing.", package.Manifest.SkillName));
             return;
         }
 
         var validationResult = await installedPackageValidator.ValidateAsync(package, skillDirectory, host, cancellationToken).ConfigureAwait(false);
         if (!validationResult.IsSuccess)
         {
-            diagnostics.Add(SkillDoctorDiagnostic.Error(validationResult.Failure!.Code, validationResult.Failure.Message, package.SkillName));
+            diagnostics.Add(SkillDoctorDiagnostic.Error(validationResult.Failure!.Code, validationResult.Failure.Message, package.Manifest.SkillName));
         }
     }
 }

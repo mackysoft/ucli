@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Contracts.Ipc.Validation;
 
 namespace MackySoft.Ucli.Contracts.Ipc.Authorization;

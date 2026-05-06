@@ -30,12 +30,12 @@ internal static class SkillsCommandResultFactory
             payload: new
             {
                 skills = packages
-                    .OrderBy(static package => package.SkillName, StringComparer.Ordinal)
+                    .OrderBy(static package => package.Manifest.SkillName, StringComparer.Ordinal)
                     .Select(static package => new
                     {
-                        package.SkillName,
-                        package.DisplayName,
-                        package.Description,
+                        package.Manifest.SkillName,
+                        package.Manifest.DisplayName,
+                        package.Manifest.Description,
                         package.Manifest.ContentDigest,
                         package.Manifest.HostArtifacts,
                     })
@@ -301,7 +301,7 @@ internal static class SkillsCommandResultFactory
     private static string[] CreateSkillNameList (IReadOnlyList<CanonicalSkillPackage> packages)
     {
         return packages
-            .Select(static package => package.SkillName)
+            .Select(static package => package.Manifest.SkillName)
             .Order(StringComparer.Ordinal)
             .ToArray();
     }

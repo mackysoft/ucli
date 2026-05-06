@@ -65,7 +65,7 @@ public sealed class SkillInstalledPackageValidator
         {
             return SkillOperationResult<SkillManifest>.FailureResult(
                 SkillFailureCodes.InstallTargetDigestMismatch,
-                $"Installed SKILL contentDigest does not match canonical package: {package.SkillName}");
+                $"Installed SKILL contentDigest does not match canonical package: {package.Manifest.SkillName}");
         }
 
         var canonicalManifestText = package.Files.Single(static file => file.RelativePath == "ucli-skill.json").Content;
@@ -73,7 +73,7 @@ public sealed class SkillInstalledPackageValidator
         {
             return SkillOperationResult<SkillManifest>.FailureResult(
                 SkillFailureCodes.ManifestInvalid,
-                $"ucli-skill.json does not match the canonical manifest: {package.SkillName}");
+                $"ucli-skill.json does not match the canonical manifest: {package.Manifest.SkillName}");
         }
 
         var materializedResult = materializationService.Materialize(package, host);
@@ -108,7 +108,7 @@ public sealed class SkillInstalledPackageValidator
         {
             return SkillOperationResult<SkillManifest>.FailureResult(
                 SkillFailureCodes.InstallTargetDigestMismatch,
-                $"Installed SKILL files do not match canonical package contentDigest: {package.SkillName}");
+                $"Installed SKILL files do not match canonical package contentDigest: {package.Manifest.SkillName}");
         }
 
         var hostMatchResult = await hostInspector.MatchesHostAsync(skillDirectory, package.Manifest, host, cancellationToken).ConfigureAwait(false);
@@ -134,6 +134,6 @@ public sealed class SkillInstalledPackageValidator
             ? SkillOperationResult<SkillManifest>.Success(manifest)
             : SkillOperationResult<SkillManifest>.FailureResult(
                 SkillFailureCodes.InstallTargetDigestMismatch,
-                $"Installed SKILL file set does not match materialized package: {package.SkillName}");
+                $"Installed SKILL file set does not match materialized package: {package.Manifest.SkillName}");
     }
 }

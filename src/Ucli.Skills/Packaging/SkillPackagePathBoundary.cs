@@ -40,7 +40,7 @@ internal static class SkillPackagePathBoundary
         ArgumentException.ThrowIfNullOrWhiteSpace(targetDirectory);
         ArgumentException.ThrowIfNullOrWhiteSpace(relativePath);
 
-        if (!IsSafePackageRelativePath(relativePath))
+        if (!SkillRelativePath.IsSafeFilePath(relativePath))
         {
             return SkillOperationResult<string>.FailureResult(
                 SkillFailureCodes.PathUnsafe,
@@ -61,7 +61,7 @@ internal static class SkillPackagePathBoundary
         ArgumentException.ThrowIfNullOrWhiteSpace(rootDirectory);
         ArgumentException.ThrowIfNullOrWhiteSpace(directoryName);
 
-        if (!IsSafePathSegment(directoryName))
+        if (!SkillRelativePath.IsSafePathSegment(directoryName))
         {
             return SkillOperationResult<string>.FailureResult(
                 SkillFailureCodes.PathUnsafe,
@@ -157,19 +157,4 @@ internal static class SkillPackagePathBoundary
             : path + Path.DirectorySeparatorChar;
     }
 
-    private static bool IsSafePackageRelativePath (string relativePath)
-    {
-        return !Path.IsPathRooted(relativePath)
-            && !relativePath.Contains('\\', StringComparison.Ordinal)
-            && relativePath.Split('/').All(static segment => IsSafePathSegment(segment));
-    }
-
-    private static bool IsSafePathSegment (string segment)
-    {
-        return !string.IsNullOrWhiteSpace(segment)
-            && segment is not "." and not ".."
-            && !Path.IsPathRooted(segment)
-            && !segment.Contains('/', StringComparison.Ordinal)
-            && !segment.Contains('\\', StringComparison.Ordinal);
-    }
 }

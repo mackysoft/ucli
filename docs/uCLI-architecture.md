@@ -79,10 +79,10 @@ Application code は次を直接扱わない。
 | `Features/**/UseCases/**ServiceResult.cs` | `Ucli.Application` | CLI JSON へ投影する前の application result を表す |
 | `Features/**/Common/Contracts/*ExecutionOutput.cs` | 原則 `Ucli.Application` | use case が返す report model。公開 JSON writer そのものではない |
 | `Features/Requests/Shared/Preparation/**` | `Ucli.Application` | request preparation、resolved request、readIndex preflight の application policy を担う |
-| `Shared/Context/**` | policy は `Ucli.Application`、具体実装は adapter 側 | project context resolution は use case 入力解決だが、filesystem / git detail は境界外へ分ける |
+| `Shared/Context/**` | policy は `Ucli.Application`、具体実装は adapter 側 | project context resolution は未解決入力の優先順位、候補 source、resolved context 型境界を持つ。filesystem / git detail は境界外へ分ける |
 | `Shared/Execution/UnityRequest/IUnityRequestExecutor.cs` | `Ucli.Application` | Unity 実行要求という外部境界 interface を表す |
 | `UnityIntegration/Ipc/Execution/UnityIpcRequestExecutor.cs` | adapter 側または `Ucli` | IPC transport を使う具体実装であり Application には置かない |
-| `UnityIntegration/Project/Resolution/**` | interface / policy は `Ucli.Application`、Unity project 判定実装は adapter 側 | project 解決 policy と filesystem / Unity project detail を分ける |
+| `UnityIntegration/Project/Resolution/**` | interface / policy は `Ucli.Application`、Unity project 判定実装は adapter 側 | path normalization、directory existence、Unity project marker 判定、storage root / fingerprint 計算を扱う。入力優先順位 policy は持たない |
 | `Shared/Execution/Process/ProcessRunner.cs` | `Ucli.Infrastructure` または adapter 側 | process 実行の具体実装であり Application には置かない |
 | `Features/**/Persistence/File*Store.cs` | `Ucli.Infrastructure` または adapter 側 | file 永続化の具体実装であり Application には置かない |
 | `Features/Requests/**/Projection/*ExecutionOutputFactory.cs` | 内容で分ける | application report 生成なら `Ucli.Application`、公開 JSON shape 生成なら `Ucli` |
@@ -98,7 +98,7 @@ Application code は次を直接扱わない。
 | 能力 | Interface の配置 | 具体実装の配置 |
 | --- | --- | --- |
 | Unity IPC request 実行 | `Ucli.Application` | `Ucli` の adapter 領域、または将来の専用 adapter project |
-| project context 解決 | policy interface は `Ucli.Application` | filesystem / git / Unity project 判定は `Ucli.Infrastructure` または adapter 側 |
+| project context 解決 | 未解決入力型、入力優先順位 policy、resolved context / error code は `Ucli.Application` | filesystem / git / Unity project 判定は `Ucli.Infrastructure` または adapter 側 |
 | readIndex / catalog 参照 | use case が必要とする reader interface は `Ucli.Application` | file store、snapshot loader、Unity fallback client は adapter 側 |
 | process 実行 | 必要なら能力 interface は `Ucli.Application` | `Ucli.Infrastructure` の process 実装 |
 | filesystem 永続化 | 必要なら repository / store interface は `Ucli.Application` | `Ucli.Infrastructure` または adapter 側の file store |
@@ -150,6 +150,34 @@ Filesystem、path normalization、hash、process liveness、storage path、IPC f
 UnityEngine / UnityEditor 依存コード、operation handler、Unity object 解決、AssetDatabase / Scene / Prefab / SerializedObject 操作、Unity IPC server は `Ucli.Unity` に閉じる。Unity plugin は CLI host と application orchestration を持たない。
 
 SKILL template、manifest、digest、host adapter、materialization、install / export / doctor のロジックは `Ucli.Skills` に置く。SKILL は operation contract の正本ではなく、operation args、result、assurance は実行時の `ucli ops describe` を正本にする。
+
+## Ucli.Contracts 内の配置基準
+
+`Ucli.Contracts` は公開 contract の正本であり、実行 host や use case の都合を持たない。ここに置いてよい処理は、共有 contract 型だけで完結し、CLI、Application、Infrastructure、Unity 実装へ依存しないものに限る。
+
+`Ucli.Contracts` に残すものは次の通り。
+
+- IPC wire DTO、operation Args / Result contract、protocol constants
+- semantic value type、contract attribute、contract metadata DTO
+- public schema generator、contract attribute に基づく structural validation
+- JSON を共有 contract model へ読む internal contract reader
+- edit step contract を primitive operation contract へ対応づける共有 structural lowering helper
+- 公開 JSON 構造を維持するための最小 contract helper
+
+`Ucli.Contracts` に置かないものは次の通り。
+
+- project context、operation catalog 取得、readIndex freshness、config allowlist などの application policy
+- user-facing error、CLI JSON envelope、標準入出力、終了コード
+- filesystem、process、socket、hash、storage path などの infrastructure 実装
+- UnityEngine / UnityEditor、Unity object 解決、operation handler、Unity lifecycle
+
+contract reader は `MackySoft.Ucli.Contracts.Ipc.ContractReading` に置く。reader は JSON の構造を contract model へ読む責務だけを持ち、application validation の判断、CLI 向け文言、Unity 実体解決を持たない。
+
+edit step lowering helper は `MackySoft.Ucli.Contracts.Ipc.EditSteps` に置く。helper は validated edit step contract から primitive operation name、structural target category、implicit save operation を導出する責務だけを持ち、operation catalog、readIndex、Unity object 解決、実行 lifecycle を持たない。
+
+既存の public 型が `MackySoft.Ucli.Contracts.Ipc.Validation` namespace で公開されている場合は、公開 API 維持のため旧 namespace に残す。新規 internal reader 型を旧 namespace へ追加してはならない。
+
+operation schema generator と operation contract validator は公開 helper として `MackySoft.Ucli.Contracts.Ipc` に残す。ただし責務は operation Args / Result contract の JSON Schema subset 生成と contract attribute / semantic value に基づく structural validation に限定する。
 
 ## Package Visibility
 

@@ -16,16 +16,18 @@ public sealed class TestRunCommandTests
     [Trait("Size", "Small")]
     public async Task Run_MapsOptionsToServiceInputAndCancellationToken ()
     {
+        var artifactsDir = Path.Combine(Path.GetTempPath(), "ucli-test-run-artifacts");
+        var summaryJsonPath = Path.Combine(artifactsDir, "summary.json");
         var service = new StubTestRunService(
             (_, _) => ValueTask.FromResult(TestRunServiceResult.Pass(
                 message: "Unity test execution completed.",
                 runId: "run-id",
-                artifactsDir: "/tmp/artifacts",
-                summaryJsonPath: "/tmp/artifacts/summary.json")));
+                artifactsDir: artifactsDir,
+                summaryJsonPath: summaryJsonPath)));
         var command = new TestRunCommand(service, CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        await StandardOutputCapture.Execute(() => command.Run(
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Run(
             projectPath: "/repo/UnityProject",
             profilePath: "/repo/test.profile.json",
             executionMode: "oneshot",
@@ -40,6 +42,7 @@ public sealed class TestRunCommandTests
             failFast: true,
             cancellationToken: cancellationTokenSource.Token));
 
+        Assert.Equal((int)CliExitCode.Success, exitCode);
         Assert.Equal(cancellationTokenSource.Token, service.CapturedCancellationToken);
 
         var input = Assert.IsType<TestRunCommandInput>(service.CapturedInput);
@@ -57,6 +60,10 @@ public sealed class TestRunCommandTests
         Assert.Equal("/repo/UnityProject/ProjectSettings/TestSettings.json", input.TestSettingsPath);
         Assert.Equal(120, input.TimeoutMilliseconds);
         Assert.True(input.FailFast);
+        JsonGoldenFileAssert.Matches(
+            CliOutputGoldenFiles.GetPath("test-run", "success.json"),
+            standardOutput,
+            new JsonGoldenFileNormalization().NormalizePathPrefix(artifactsDir, "<artifacts>"));
     }
 
     [Fact]

@@ -57,6 +57,12 @@ internal static class ArchitectureTestRepository
             .Select(NormalizeRepositoryRelativePath);
     }
 
+    internal static IEnumerable<string> EnumerateToolProjectFiles ()
+    {
+        return EnumerateRepositoryFiles(ToFullPath("tools"), "*.csproj")
+            .Select(NormalizeRepositoryRelativePath);
+    }
+
     internal static IEnumerable<string> EnumerateMsBuildImportFiles ()
     {
         return EnumerateRepositoryFiles(RepositoryRoot, "*.*")

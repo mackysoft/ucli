@@ -169,6 +169,7 @@ public sealed class PhaseExecutionPreflightServiceTests
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, result.Error!.Kind);
+        Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.Error.Code);
         Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.ErrorCode);
         Assert.Contains("Static validation could not load operation metadata.", result.Error.Message, StringComparison.Ordinal);
         Assert.NotNull(result.PreparedRequest);
@@ -244,7 +245,7 @@ public sealed class PhaseExecutionPreflightServiceTests
                 Steps:
                 [
                     new ValidateRequestStep(
-                        Kind: MackySoft.Ucli.Contracts.Ipc.Validation.IpcRequestStepKind.Op,
+                        Kind: MackySoft.Ucli.Contracts.Ipc.ContractReading.IpcRequestStepKind.Op,
                         StepId: "step-1",
                         Op: "ucli.scene.open",
                         Element: System.Text.Json.JsonSerializer.SerializeToElement(new

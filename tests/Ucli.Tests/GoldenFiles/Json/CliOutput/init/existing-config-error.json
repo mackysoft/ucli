@@ -1,0 +1,15 @@
+{
+  "protocolVersion": 1,
+  "command": "init",
+  "status": "error",
+  "exitCode": 3,
+  "message": "Initialization failed because template files already exist. Use --force to overwrite: <workspace>/.ucli/config.json",
+  "payload": {},
+  "errors": [
+    {
+      "code": "INVALID_ARGUMENT",
+      "message": "Initialization failed because template files already exist. Use --force to overwrite: <workspace>/.ucli/config.json",
+      "opId": null
+    }
+  ]
+}
