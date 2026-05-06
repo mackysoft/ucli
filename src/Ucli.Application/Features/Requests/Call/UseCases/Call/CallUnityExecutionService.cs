@@ -49,8 +49,9 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             if (!deadline.TryGetRemainingTimeout(out var planTimeout))
             {
                 return CreateFailure(
-                    "Timed out before Unity IPC plan request could begin.",
-                    ExecutionErrorCodes.IpcTimeout,
+                    RequestServiceResultPolicy.FromTransportFailure(
+                        ExecutionErrorCodes.IpcTimeout,
+                        "Timed out before Unity IPC plan request could begin."),
                     ApplicationOutcome.ToolError,
                     baseOutput);
             }
@@ -69,11 +70,12 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                 .ConfigureAwait(false);
             if (!planExecutionResult.IsSuccess)
             {
-                var errorCode = ResolveErrorCode(planExecutionResult.ErrorCode);
+                var error = RequestServiceResultPolicy.FromTransportFailure(
+                    planExecutionResult.ErrorCode,
+                    planExecutionResult.Message);
                 return CreateFailure(
-                    planExecutionResult.Message,
-                    errorCode,
-                    ExecuteResponseConverter.ResolveOutcome(errorCode),
+                    error,
+                    RequestServiceResultPolicy.ResolveOutcome(error.Code),
                     baseOutput);
             }
 
@@ -87,7 +89,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             if (!convertedPlanResponse.IsSuccess)
             {
                 return CallServiceResult.Failure(
-                    ResolveFailureMessage(convertedPlanResponse.Errors, "uCLI call pre-plan failed."),
+                    RequestServiceResultPolicy.ResolveFailureMessage(convertedPlanResponse.Errors, "uCLI call pre-plan failed."),
                     convertedPlanResponse.Errors,
                     convertedPlanResponse.Outcome,
                     baseOutput);
@@ -96,8 +98,9 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             if (string.IsNullOrWhiteSpace(convertedPlanResponse.PlanToken))
             {
                 return CreateFailure(
-                    "Execute response payload is invalid. The 'planToken' field is missing.",
-                    IpcErrorCodes.InternalError,
+                    RequestServiceResultPolicy.FromTransportFailure(
+                        IpcErrorCodes.InternalError,
+                        "Execute response payload is invalid. The 'planToken' field is missing."),
                     ApplicationOutcome.ToolError,
                     baseOutput);
             }
@@ -111,8 +114,9 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         if (!deadline.TryGetRemainingTimeout(out var callTimeout))
         {
             return CreateFailure(
-                "Timed out before Unity IPC call request could begin.",
-                ExecutionErrorCodes.IpcTimeout,
+                RequestServiceResultPolicy.FromTransportFailure(
+                    ExecutionErrorCodes.IpcTimeout,
+                    "Timed out before Unity IPC call request could begin."),
                 ApplicationOutcome.ToolError,
                 baseOutput);
         }
@@ -132,11 +136,12 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             .ConfigureAwait(false);
         if (!callExecutionResult.IsSuccess)
         {
-            var errorCode = ResolveErrorCode(callExecutionResult.ErrorCode);
+            var error = RequestServiceResultPolicy.FromTransportFailure(
+                callExecutionResult.ErrorCode,
+                callExecutionResult.Message);
             return CreateFailure(
-                callExecutionResult.Message,
-                errorCode,
-                ExecuteResponseConverter.ResolveOutcome(errorCode),
+                error,
+                RequestServiceResultPolicy.ResolveOutcome(error.Code),
                 baseOutput);
         }
 
@@ -166,7 +171,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         if (!convertedCallResponse.IsSuccess)
         {
             return CallServiceResult.Failure(
-                ResolveFailureMessage(convertedCallResponse.Errors, "uCLI call failed."),
+                RequestServiceResultPolicy.ResolveFailureMessage(convertedCallResponse.Errors, "uCLI call failed."),
                 convertedCallResponse.Errors,
                 convertedCallResponse.Outcome,
                 executionOutput);
@@ -194,46 +199,19 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
     }
 
     private static CallServiceResult CreateFailure (
-        string message,
-        string errorCode,
+        OperationExecutionError error,
         ApplicationOutcome outcome,
         CallExecutionOutput? output = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(errorCode);
+        ArgumentNullException.ThrowIfNull(error);
 
         return CallServiceResult.Failure(
-            message,
+            error.Message,
             [
-                new OperationExecutionError(errorCode, message, null),
+                error,
             ],
             outcome,
             output);
-    }
-
-    private static string ResolveErrorCode (string? errorCode)
-    {
-        return string.IsNullOrWhiteSpace(errorCode)
-            ? IpcErrorCodes.InternalError
-            : errorCode;
-    }
-
-    private static string ResolveFailureMessage (
-        IReadOnlyList<OperationExecutionError> errors,
-        string fallbackMessage)
-    {
-        ArgumentNullException.ThrowIfNull(errors);
-        ArgumentException.ThrowIfNullOrWhiteSpace(fallbackMessage);
-
-        for (var i = 0; i < errors.Count; i++)
-        {
-            var error = errors[i];
-            if (!string.IsNullOrWhiteSpace(error.Message))
-            {
-                return error.Message;
-            }
-        }
-
-        return fallbackMessage;
     }
 
 }

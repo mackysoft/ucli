@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -43,11 +42,12 @@ internal static class ResolveServiceResultFactory
         ReadIndexInfo readIndex)
     {
         ArgumentNullException.ThrowIfNull(error);
+        var normalizedError = RequestServiceResultPolicy.NormalizeError(error, "uCLI resolve failed.");
         return Failure(
             requestId,
             [],
-            [error],
-            ExecuteResponseConverter.ResolveOutcome(error.Code),
+            [normalizedError],
+            RequestServiceResultPolicy.ResolveOutcome(normalizedError.Code),
             readIndex);
     }
 

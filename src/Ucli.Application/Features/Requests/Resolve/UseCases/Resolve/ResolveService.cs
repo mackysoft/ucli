@@ -186,14 +186,16 @@ internal sealed class ResolveService : IResolveService
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
-            var errorCode = ResolveErrorCode(executionResult.ErrorCode);
+            var error = RequestServiceResultPolicy.FromTransportFailure(
+                executionResult.ErrorCode,
+                executionResult.Message);
             return ResolveServiceResultFactory.Failure(
                 requestId,
                 [],
                 [
-                    new OperationExecutionError(errorCode, executionResult.Message, null),
+                    error,
                 ],
-                ExecuteResponseConverter.ResolveOutcome(errorCode),
+                RequestServiceResultPolicy.ResolveOutcome(error.Code),
                 readIndex);
         }
 
@@ -249,13 +251,6 @@ internal sealed class ResolveService : IResolveService
         }
 
         return "selector requires live Unity resolution.";
-    }
-
-    private static string ResolveErrorCode (string? errorCode)
-    {
-        return string.IsNullOrWhiteSpace(errorCode)
-            ? IpcErrorCodes.InternalError
-            : errorCode;
     }
 
     private sealed record ResolveOperationResult (string GlobalObjectId);

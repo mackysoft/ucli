@@ -7,7 +7,7 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 /// <summary> Provides invariant checks for request service result models. </summary>
 internal static class RequestServiceResultPolicy
 {
-    private static readonly IReadOnlyList<OperationExecutionError> EmptyErrorList = Array.Empty<OperationExecutionError>();
+    private static readonly IReadOnlyList<OperationExecutionError> EmptyErrorList = Array.AsReadOnly(Array.Empty<OperationExecutionError>());
 
     /// <summary> Gets the canonical empty error collection for successful results. </summary>
     public static IReadOnlyList<OperationExecutionError> EmptyErrors => EmptyErrorList;
@@ -16,6 +16,32 @@ internal static class RequestServiceResultPolicy
     public static void ValidateSuccessMessage (string message)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
+    }
+
+    /// <summary> Validates one failure message. </summary>
+    public static void ValidateFailureMessage (string message)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+    }
+
+    /// <summary> Resolves one failure message from errors and a fallback message. </summary>
+    public static string ResolveFailureMessage (
+        IReadOnlyList<OperationExecutionError> errors,
+        string fallbackMessage)
+    {
+        ArgumentNullException.ThrowIfNull(errors);
+        ValidateFailureMessage(fallbackMessage);
+
+        for (var i = 0; i < errors.Count; i++)
+        {
+            var error = errors[i];
+            if (error != null && !string.IsNullOrWhiteSpace(error.Message))
+            {
+                return error.Message;
+            }
+        }
+
+        return fallbackMessage;
     }
 
     /// <summary> Validates and returns one required success output payload. </summary>
@@ -30,11 +56,9 @@ internal static class RequestServiceResultPolicy
 
     /// <summary> Validates one failure result and returns an immutable error snapshot. </summary>
     public static IReadOnlyList<OperationExecutionError> RequireFailureErrors (
-        string message,
         IReadOnlyList<OperationExecutionError> errors,
         ApplicationOutcome outcome)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(message);
         ArgumentNullException.ThrowIfNull(errors);
         if (outcome == ApplicationOutcome.Success)
         {
@@ -60,7 +84,7 @@ internal static class RequestServiceResultPolicy
             snapshot[i] = error;
         }
 
-        return snapshot;
+        return Array.AsReadOnly(snapshot);
     }
 
     /// <summary> Creates one operation execution error from a structured execution error. </summary>
@@ -72,11 +96,43 @@ internal static class RequestServiceResultPolicy
         ArgumentException.ThrowIfNullOrWhiteSpace(error.Message, nameof(error));
 
         return new OperationExecutionError(
-            string.IsNullOrWhiteSpace(errorCode)
+            ResolveErrorCode(string.IsNullOrWhiteSpace(errorCode)
                 ? ExecutionErrorCodeMapper.ToCode(error.Kind)
-                : errorCode,
+                : errorCode),
             error.Message,
             null);
+    }
+
+    /// <summary> Creates one operation execution error from a transport failure. </summary>
+    public static OperationExecutionError FromTransportFailure (
+        string? errorCode,
+        string message,
+        string? opId = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+
+        return new OperationExecutionError(
+            ResolveErrorCode(errorCode),
+            message,
+            opId);
+    }
+
+    /// <summary> Normalizes one operation execution error from an external result boundary. </summary>
+    public static OperationExecutionError NormalizeError (
+        OperationExecutionError error,
+        string fallbackMessage)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+
+        var message = string.IsNullOrWhiteSpace(error.Message)
+            ? fallbackMessage
+            : error.Message;
+        ArgumentException.ThrowIfNullOrWhiteSpace(message, nameof(fallbackMessage));
+
+        return new OperationExecutionError(
+            ResolveErrorCode(error.Code),
+            message,
+            error.OpId);
     }
 
     /// <summary> Converts static validation errors into operation execution errors. </summary>
@@ -107,11 +163,32 @@ internal static class RequestServiceResultPolicy
     }
 
     /// <summary> Resolves the application outcome for one structured execution error. </summary>
-    public static ApplicationOutcome ResolveOutcome (ExecutionError error)
+    public static ApplicationOutcome ResolveOutcome (
+        ExecutionError error,
+        string? errorCode = null)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return error.Kind == ExecutionErrorKind.InvalidArgument
+        return ResolveOutcome(string.IsNullOrWhiteSpace(errorCode)
+            ? ExecutionErrorCodeMapper.ToCode(error.Kind)
+            : errorCode);
+    }
+
+    /// <summary> Resolves the application outcome for one machine-readable error code. </summary>
+    public static ApplicationOutcome ResolveOutcome (string errorCode)
+    {
+        return string.Equals(
+                ResolveErrorCode(errorCode),
+                ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.InvalidArgument),
+                StringComparison.Ordinal)
             ? ApplicationOutcome.InvalidArgument
             : ApplicationOutcome.ToolError;
+    }
+
+    /// <summary> Resolves the machine-readable error code used for request failures. </summary>
+    public static string ResolveErrorCode (string? errorCode)
+    {
+        return string.IsNullOrWhiteSpace(errorCode)
+            ? ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.InternalError)
+            : errorCode;
     }
 }

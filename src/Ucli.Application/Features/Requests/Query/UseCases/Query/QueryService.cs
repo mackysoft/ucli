@@ -151,7 +151,7 @@ internal sealed class QueryService : IQueryService
             return QueryServiceResultFactory.FromIpcError(
                 operation.CommandName,
                 requestId,
-                new OperationExecutionError(ResolveErrorCode(readResult.ErrorCode), readResult.Message, null),
+                new OperationExecutionError(readResult.ErrorCode!, readResult.Message, null),
                 ReadIndexInfoFactory.Unity(readResult.Message));
         }
 
@@ -195,7 +195,7 @@ internal sealed class QueryService : IQueryService
             return QueryServiceResultFactory.FromIpcError(
                 operation.CommandName,
                 requestId,
-                new OperationExecutionError(ResolveErrorCode(readResult.ErrorCode), readResult.Message, null),
+                new OperationExecutionError(readResult.ErrorCode!, readResult.Message, null),
                 ReadIndexInfoFactory.Unity(readResult.Message));
         }
 
@@ -240,15 +240,17 @@ internal sealed class QueryService : IQueryService
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
-            var errorCode = ResolveErrorCode(executionResult.ErrorCode);
+            var error = RequestServiceResultPolicy.FromTransportFailure(
+                executionResult.ErrorCode,
+                executionResult.Message);
             return QueryServiceResultFactory.Failure(
                 operation.CommandName,
                 requestId,
                 [],
                 [
-                    new OperationExecutionError(errorCode, executionResult.Message, null),
+                    error,
                 ],
-                ExecuteResponseConverter.ResolveOutcome(errorCode),
+                RequestServiceResultPolicy.ResolveOutcome(error.Code),
                 executionResult.Message,
                 readIndex);
         }
@@ -269,7 +271,7 @@ internal sealed class QueryService : IQueryService
             convertedResponse.OpResults,
             convertedResponse.Errors,
             convertedResponse.Outcome,
-            ResolveFailureMessage(convertedResponse.Errors),
+            RequestServiceResultPolicy.ResolveFailureMessage(convertedResponse.Errors, "uCLI query failed."),
             readIndex);
     }
 
@@ -317,27 +319,6 @@ internal sealed class QueryService : IQueryService
         return readIndexMode == ReadIndexMode.Disabled
             ? "readIndex disabled by mode."
             : "query operation is not backed by readIndex.";
-    }
-
-    private static string ResolveErrorCode (string? errorCode)
-    {
-        return string.IsNullOrWhiteSpace(errorCode)
-            ? IpcErrorCodes.InternalError
-            : errorCode;
-    }
-
-    private static string ResolveFailureMessage (IReadOnlyList<OperationExecutionError> errors)
-    {
-        for (var i = 0; i < errors.Count; i++)
-        {
-            var error = errors[i];
-            if (!string.IsNullOrWhiteSpace(error.Message))
-            {
-                return error.Message;
-            }
-        }
-
-        return "uCLI query failed.";
     }
 
     private sealed record AssetsFindResult (

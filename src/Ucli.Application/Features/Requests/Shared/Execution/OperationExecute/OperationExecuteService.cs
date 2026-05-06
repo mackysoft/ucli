@@ -147,14 +147,16 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
-            var errorCode = ResolveErrorCode(executionResult.ErrorCode);
+            var error = RequestServiceResultPolicy.FromTransportFailure(
+                executionResult.ErrorCode,
+                executionResult.Message);
             return OperationExecuteResultFactory.Failure(
                 requestId,
                 [],
                 [
-                    new OperationExecutionError(errorCode, executionResult.Message, null),
+                    error,
                 ],
-                ResolveOutcome(errorCode));
+                RequestServiceResultPolicy.ResolveOutcome(error.Code));
         }
 
         var postprocessedResponse = await ExecuteResponseReadPostconditionProcessor.Persist(
@@ -225,16 +227,18 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
-            var errorCode = ResolveErrorCode(executionResult.ErrorCode);
+            var error = RequestServiceResultPolicy.FromTransportFailure(
+                executionResult.ErrorCode,
+                executionResult.Message);
             return (
                 null,
                 OperationExecuteResultFactory.Failure(
                     requestId,
                     [],
                     [
-                        new OperationExecutionError(errorCode, executionResult.Message, null),
+                        error,
                     ],
-                    ResolveOutcome(errorCode)));
+                    RequestServiceResultPolicy.ResolveOutcome(error.Code)));
         }
 
         var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
@@ -257,45 +261,14 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                     requestId,
                     convertedResponse.OpResults,
                     [
-                        new OperationExecutionError(
+                        RequestServiceResultPolicy.FromTransportFailure(
                             IpcErrorCodes.InternalError,
-                            "Execute response payload is invalid. The 'planToken' field is missing.",
-                            null),
+                            "Execute response payload is invalid. The 'planToken' field is missing."),
                     ],
                     ApplicationOutcome.ToolError));
         }
 
         return (convertedResponse.PlanToken, null);
-    }
-
-    /// <summary> Resolves the machine-readable error code used for transport-level failures. </summary>
-    /// <param name="errorCode"> The raw error code. </param>
-    /// <returns> The normalized error code. </returns>
-    private static string ResolveErrorCode (string? errorCode)
-    {
-        return string.IsNullOrWhiteSpace(errorCode)
-            ? IpcErrorCodes.InternalError
-            : errorCode;
-    }
-
-    /// <summary> Resolves the application outcome from one transport-level error code. </summary>
-    /// <param name="errorCode"> The raw error code. </param>
-    /// <returns> The associated application outcome. </returns>
-    private static ApplicationOutcome ResolveOutcome (string errorCode)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(errorCode);
-
-        return ExecuteResponseConverter.ResolveOutcome(errorCode);
-    }
-
-    /// <summary> Resolves the application outcome from one machine-readable error collection. </summary>
-    /// <param name="errors"> The machine-readable error collection. </param>
-    /// <returns> The associated application outcome. </returns>
-    private static ApplicationOutcome ResolveOutcome (IReadOnlyList<OperationExecutionError> errors)
-    {
-        ArgumentNullException.ThrowIfNull(errors);
-
-        return ExecuteResponseConverter.ResolveOutcome(errors);
     }
 
 }

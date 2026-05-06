@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Execution;
@@ -62,10 +61,11 @@ internal sealed record ValidateServiceResult
         IReadOnlyList<ValidationError> validationErrors)
     {
         var errors = RequestServiceResultPolicy.FromValidationErrors(validationErrors);
+        RequestServiceResultPolicy.ValidateFailureMessage(message);
         return new ValidateServiceResult(
             output,
             message,
-            RequestServiceResultPolicy.RequireFailureErrors(message, errors, ApplicationOutcome.InvalidArgument),
+            RequestServiceResultPolicy.RequireFailureErrors(errors, ApplicationOutcome.InvalidArgument),
             ApplicationOutcome.InvalidArgument);
     }
 
@@ -79,17 +79,13 @@ internal sealed record ValidateServiceResult
         string errorCode,
         ValidateExecutionOutput? output = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(errorCode);
-        var outcome = ExecuteResponseConverter.ResolveOutcome(errorCode);
+        RequestServiceResultPolicy.ValidateFailureMessage(message);
+        var error = RequestServiceResultPolicy.FromTransportFailure(errorCode, message);
+        var outcome = RequestServiceResultPolicy.ResolveOutcome(error.Code);
         return new ValidateServiceResult(
             output,
             message,
-            RequestServiceResultPolicy.RequireFailureErrors(
-                message,
-                [
-                    new OperationExecutionError(errorCode, message, null),
-                ],
-                outcome),
+            RequestServiceResultPolicy.RequireFailureErrors([error], outcome),
             outcome);
     }
 }

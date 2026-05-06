@@ -27,7 +27,7 @@ internal static class PlanFailureResultFactory
             [
                 executionError,
             ],
-            RequestServiceResultPolicy.ResolveOutcome(error),
+            RequestServiceResultPolicy.ResolveOutcome(error, errorCode),
             output);
     }
 

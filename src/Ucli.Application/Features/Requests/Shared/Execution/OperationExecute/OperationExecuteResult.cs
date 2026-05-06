@@ -69,27 +69,8 @@ internal sealed record OperationExecuteResult
         return new OperationExecuteResult(
             requestId,
             opResults,
-            RequestServiceResultPolicy.RequireFailureErrors(
-                ResolveFailureMessage(errors),
-                errors,
-                outcome),
+            RequestServiceResultPolicy.RequireFailureErrors(errors, outcome),
             outcome,
             readPostcondition);
-    }
-
-    private static string ResolveFailureMessage (IReadOnlyList<OperationExecutionError> errors)
-    {
-        ArgumentNullException.ThrowIfNull(errors);
-
-        for (var i = 0; i < errors.Count; i++)
-        {
-            var error = errors[i];
-            if (error != null && !string.IsNullOrWhiteSpace(error.Message))
-            {
-                return error.Message;
-            }
-        }
-
-        return "uCLI operation failed.";
     }
 }

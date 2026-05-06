@@ -61,10 +61,11 @@ internal sealed record PlanServiceResult
         ApplicationOutcome outcome,
         PlanExecutionOutput? output = null)
     {
+        RequestServiceResultPolicy.ValidateFailureMessage(message);
         return new PlanServiceResult(
             output,
             message,
-            RequestServiceResultPolicy.RequireFailureErrors(message, errors, outcome),
+            RequestServiceResultPolicy.RequireFailureErrors(errors, outcome),
             outcome);
     }
 }

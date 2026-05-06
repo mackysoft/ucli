@@ -27,7 +27,7 @@ internal static class CallFailureResultFactory
             [
                 executionError,
             ],
-            RequestServiceResultPolicy.ResolveOutcome(error),
+            RequestServiceResultPolicy.ResolveOutcome(error, errorCode),
             output);
     }
 

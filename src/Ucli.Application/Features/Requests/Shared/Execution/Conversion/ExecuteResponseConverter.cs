@@ -45,18 +45,6 @@ internal static class ExecuteResponseConverter
             ReadPostcondition: OperationExecutionModelMapper.MapReadPostcondition(validatedPayload.ReadPostcondition));
     }
 
-    /// <summary> Resolves the application outcome from one machine-readable error code. </summary>
-    /// <param name="errorCode"> The raw error code. </param>
-    /// <returns> The associated application outcome. </returns>
-    public static ApplicationOutcome ResolveOutcome (string errorCode)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(errorCode);
-
-        return string.Equals(errorCode, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal)
-            ? ApplicationOutcome.InvalidArgument
-            : ApplicationOutcome.ToolError;
-    }
-
     /// <summary> Resolves the application outcome from one machine-readable error collection. </summary>
     /// <param name="errors"> The machine-readable error collection. </param>
     /// <returns> The associated application outcome. </returns>
@@ -69,7 +57,7 @@ internal static class ExecuteResponseConverter
             return ApplicationOutcome.Success;
         }
 
-        return errors.All(static error => string.Equals(error.Code, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal))
+        return errors.All(static error => RequestServiceResultPolicy.ResolveOutcome(error.Code) == ApplicationOutcome.InvalidArgument)
             ? ApplicationOutcome.InvalidArgument
             : ApplicationOutcome.ToolError;
     }

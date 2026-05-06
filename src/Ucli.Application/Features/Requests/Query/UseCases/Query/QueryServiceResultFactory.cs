@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -57,14 +56,14 @@ internal static class QueryServiceResultFactory
         ReadIndexInfo readIndex)
     {
         ArgumentNullException.ThrowIfNull(error);
-        var message = string.IsNullOrWhiteSpace(error.Message) ? FailureMessage : error.Message;
+        var normalizedError = RequestServiceResultPolicy.NormalizeError(error, FailureMessage);
         return Failure(
             commandName,
             requestId,
             [],
-            [error],
-            ExecuteResponseConverter.ResolveOutcome(error.Code),
-            message,
+            [normalizedError],
+            RequestServiceResultPolicy.ResolveOutcome(normalizedError.Code),
+            normalizedError.Message,
             readIndex);
     }
 

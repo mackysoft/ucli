@@ -86,12 +86,13 @@ internal sealed record QueryServiceResult
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
         ArgumentNullException.ThrowIfNull(readIndex);
+        RequestServiceResultPolicy.ValidateFailureMessage(message);
 
         return new QueryServiceResult(
             commandName,
             requestId,
             opResults,
-            RequestServiceResultPolicy.RequireFailureErrors(message, errors, outcome),
+            RequestServiceResultPolicy.RequireFailureErrors(errors, outcome),
             outcome,
             message,
             readIndex);

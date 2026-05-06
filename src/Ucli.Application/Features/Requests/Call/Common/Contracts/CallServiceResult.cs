@@ -61,10 +61,11 @@ internal sealed record CallServiceResult
         ApplicationOutcome outcome,
         CallExecutionOutput? output = null)
     {
+        RequestServiceResultPolicy.ValidateFailureMessage(message);
         return new CallServiceResult(
             output,
             message,
-            RequestServiceResultPolicy.RequireFailureErrors(message, errors, outcome),
+            RequestServiceResultPolicy.RequireFailureErrors(errors, outcome),
             outcome);
     }
 }
