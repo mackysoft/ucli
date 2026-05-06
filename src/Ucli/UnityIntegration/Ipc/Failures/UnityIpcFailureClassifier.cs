@@ -5,7 +5,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 
-namespace MackySoft.Ucli.UnityIntegration.Ipc.Execution;
+namespace MackySoft.Ucli.UnityIntegration.Ipc.Failures;
 
 /// <summary> Converts IPC adapter failures into application-level Unity request failures. </summary>
 internal static class UnityIpcFailureClassifier
@@ -132,13 +132,6 @@ internal static class UnityIpcFailureClassifier
         return new UnityRequestFailure(
             code,
             message,
-            ResolveOutcome(code));
-    }
-
-    private static ApplicationOutcome ResolveOutcome (string code)
-    {
-        return string.Equals(code, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal)
-            ? ApplicationOutcome.InvalidArgument
-            : ApplicationOutcome.ToolError;
+            ApplicationFailureOutcomeResolver.Resolve(code));
     }
 }

@@ -7,16 +7,6 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 /// <summary> Provides invariant checks for request service result models. </summary>
 internal static class RequestServiceResultPolicy
 {
-    private const string PlanTokenRequiredCode = "PLAN_TOKEN_REQUIRED";
-
-    private const string PlanTokenInvalidCode = "PLAN_TOKEN_INVALID";
-
-    private const string PlanTokenExpiredCode = "PLAN_TOKEN_EXPIRED";
-
-    private const string PlanTokenRequestMismatchCode = "PLAN_TOKEN_REQUEST_MISMATCH";
-
-    private const string StateChangedSincePlanCode = "STATE_CHANGED_SINCE_PLAN";
-
     private static readonly IReadOnlyList<OperationExecutionError> EmptyErrorList = Array.AsReadOnly(Array.Empty<OperationExecutionError>());
 
     /// <summary> Gets the canonical empty error collection for successful results. </summary>
@@ -237,21 +227,7 @@ internal static class RequestServiceResultPolicy
 
     private static bool IsInvalidArgumentErrorCode (string errorCode)
     {
-        if (string.Equals(errorCode, ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.InvalidArgument), StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        return ValidationErrorCodes.Contains(errorCode)
-            || IsPlanTokenValidationErrorCode(errorCode);
-    }
-
-    private static bool IsPlanTokenValidationErrorCode (string errorCode)
-    {
-        return errorCode is PlanTokenRequiredCode
-            or PlanTokenInvalidCode
-            or PlanTokenExpiredCode
-            or PlanTokenRequestMismatchCode
-            or StateChangedSincePlanCode;
+        return ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(errorCode)
+            || ValidationErrorCodes.Contains(errorCode);
     }
 }

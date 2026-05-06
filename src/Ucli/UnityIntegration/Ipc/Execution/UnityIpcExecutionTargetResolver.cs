@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.UnityIntegration.Ipc.Failures;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 

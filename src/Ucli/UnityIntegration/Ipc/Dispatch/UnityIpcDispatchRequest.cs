@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace MackySoft.Ucli.UnityIntegration.Ipc.Execution;
+namespace MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 
 /// <summary> Represents one IPC method dispatch request after application payload conversion. </summary>
 internal sealed record UnityIpcDispatchRequest

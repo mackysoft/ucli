@@ -72,18 +72,6 @@ internal sealed record UnityRequestExecutionResult
         return Failure(new UnityRequestFailure(
             normalizedErrorCode,
             normalizedMessage,
-            ResolveOutcome(normalizedErrorCode)));
-    }
-
-    private static ApplicationOutcome ResolveOutcome (string errorCode)
-    {
-        return errorCode is IpcErrorCodes.InvalidArgument
-            or IpcErrorCodes.PlanTokenRequired
-            or IpcErrorCodes.PlanTokenInvalid
-            or IpcErrorCodes.PlanTokenExpired
-            or IpcErrorCodes.PlanTokenRequestMismatch
-            or IpcErrorCodes.StateChangedSincePlan
-            ? ApplicationOutcome.InvalidArgument
-            : ApplicationOutcome.ToolError;
+            ApplicationFailureOutcomeResolver.Resolve(normalizedErrorCode)));
     }
 }
