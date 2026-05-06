@@ -10,6 +10,8 @@ public sealed class PublicSurfaceBoundaryTests
         {
             "MackySoft.Ucli.Application.Features",
             "MackySoft.Ucli.Application.Shared",
+            "MackySoft.Ucli.Contracts.Ipc.ContractReading",
+            "MackySoft.Ucli.Contracts.Ipc.EditSteps",
             "MackySoft.Ucli.Features",
             "MackySoft.Ucli.Hosting",
             "MackySoft.Ucli.Shared",

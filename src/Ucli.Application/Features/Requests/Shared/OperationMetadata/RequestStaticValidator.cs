@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
@@ -122,7 +123,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
 
             switch (step.Kind)
             {
-                case Contracts.Ipc.Validation.IpcRequestStepKind.Op:
+                case IpcRequestStepKind.Op:
                     if (!StringValueNormalizer.TryTrimToNonEmpty(step.Op, out var normalizedOperationName))
                     {
                         errors.Add(new ValidationError(
@@ -161,7 +162,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                     }
                     break;
 
-                case Contracts.Ipc.Validation.IpcRequestStepKind.Edit:
+                case IpcRequestStepKind.Edit:
                     if (!RequestEditStepLowerPreviewBuilder.TryBuild(
                         step.Element,
                         out var operationNames,
