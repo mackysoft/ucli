@@ -11,8 +11,7 @@ internal sealed class IndexGuidPathLookupJsonContractWriter : IndexJsonContractW
         IndexGuidPathLookupJsonContract contract)
     {
         writer.WriteStartObject();
-        writer.WriteNumber("schemaVersion", contract.SchemaVersion);
-        writer.WriteString("generatedAtUtc", contract.GeneratedAtUtc);
+        WriteRootHeader(writer, contract.SchemaVersion, contract.GeneratedAtUtc);
         WriteNullableString(writer, "sourceInputsHash", contract.SourceInputsHash);
         WriteArray(writer, "entries", OrderEntriesOrNull(contract.Entries), WriteGuidPathEntry);
         writer.WriteEndObject();

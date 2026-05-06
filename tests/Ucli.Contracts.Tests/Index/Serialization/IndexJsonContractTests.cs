@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using static MackySoft.Tests.JsonTextAssert;
 
 namespace MackySoft.Ucli.Contracts.Tests.Index;
 
@@ -1017,23 +1018,6 @@ public sealed class IndexJsonContractTests
     private static string Write (IndexSceneTreeLiteLookupJsonContract contract)
     {
         return new IndexSceneTreeLiteLookupJsonContractWriter().Write(contract);
-    }
-
-    private static string ExpectedJson (string json)
-    {
-        return json
-            .Replace("\r\n", "\n")
-            .Replace("\r", "\n")
-            + "\n";
-    }
-
-    private static void AssertExactJson (
-        string expected,
-        string actual)
-    {
-        Assert.DoesNotContain("\r", actual);
-        Assert.EndsWith("\n", actual);
-        Assert.Equal(expected, actual);
     }
 
     private static UcliOperationDescribeContract CreateGoDescribeContract ()

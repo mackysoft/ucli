@@ -5,13 +5,6 @@ namespace MackySoft.Ucli.Contracts.Index;
 /// <summary> Deserializes <c>asset-search.lookup.json</c> contracts. </summary>
 internal static class IndexAssetSearchLookupJsonContractSerializer
 {
-    private static readonly JsonSerializerOptions DeserializeOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-        WriteIndented = false,
-    };
-
     /// <summary> Deserializes one asset-search lookup JSON text to contract. </summary>
     /// <param name="json"> The asset-search lookup JSON text. </param>
     /// <returns> The deserialized contract; or <see langword="null" /> when JSON root is <c>null</c>. </returns>
@@ -24,6 +17,6 @@ internal static class IndexAssetSearchLookupJsonContractSerializer
             throw new ArgumentException("JSON text must not be empty.", nameof(json));
         }
 
-        return JsonSerializer.Deserialize<IndexAssetSearchLookupJsonContract>(json, DeserializeOptions);
+        return JsonSerializer.Deserialize<IndexAssetSearchLookupJsonContract>(json, IndexJsonContractSerializerOptions.Deserialize);
     }
 }

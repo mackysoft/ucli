@@ -7,6 +7,15 @@ namespace MackySoft.Ucli.Contracts.Index;
 /// <typeparam name="TContract"> The read-index contract type. </typeparam>
 internal abstract class IndexJsonContractWriterBase<TContract> : JsonContractWriter<TContract>
 {
+    protected static void WriteRootHeader (
+        Utf8JsonWriter writer,
+        int schemaVersion,
+        DateTimeOffset generatedAtUtc)
+    {
+        writer.WriteNumber("schemaVersion", schemaVersion);
+        writer.WriteString("generatedAtUtc", generatedAtUtc);
+    }
+
     protected static void WriteArray<TItem> (
         Utf8JsonWriter writer,
         string propertyName,

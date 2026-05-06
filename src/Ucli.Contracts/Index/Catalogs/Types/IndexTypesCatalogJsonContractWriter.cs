@@ -11,8 +11,7 @@ internal sealed class IndexTypesCatalogJsonContractWriter : IndexJsonContractWri
         IndexTypesCatalogJsonContract contract)
     {
         writer.WriteStartObject();
-        writer.WriteNumber("schemaVersion", contract.SchemaVersion);
-        writer.WriteString("generatedAtUtc", contract.GeneratedAtUtc);
+        WriteRootHeader(writer, contract.SchemaVersion, contract.GeneratedAtUtc);
         WriteNullableString(writer, "sourceInputsHash", contract.SourceInputsHash);
         WriteArray(writer, "entries", OrderEntriesOrNull(contract.Entries), WriteTypeEntry);
         writer.WriteEndObject();

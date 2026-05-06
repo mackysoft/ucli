@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using static MackySoft.Tests.JsonTextAssert;
 
 namespace MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
@@ -47,20 +48,4 @@ public sealed class CommandResultJsonContractWriterTests
             json);
     }
 
-    private static string ExpectedJson (string json)
-    {
-        return json
-            .Replace("\r\n", "\n")
-            .Replace("\r", "\n")
-            + "\n";
-    }
-
-    private static void AssertExactJson (
-        string expected,
-        string actual)
-    {
-        Assert.DoesNotContain("\r", actual);
-        Assert.EndsWith("\n", actual);
-        Assert.Equal(expected, actual);
-    }
 }

@@ -6,70 +6,42 @@ internal static class IndexJsonOrderingPolicy
     /// <summary> Orders operation entries by operation name. </summary>
     public static IReadOnlyList<IndexOpEntryJsonContract> OrderOpsEntries (IEnumerable<IndexOpEntryJsonContract> entries)
     {
-        if (entries == null)
-        {
-            throw new ArgumentNullException(nameof(entries));
-        }
-
-        return entries
-            .OrderBy(static entry => entry.Name ?? string.Empty, StringComparer.Ordinal)
-            .ToArray();
+        return OrderByOrdinalKey(entries, static entry => entry.Name);
     }
 
     /// <summary> Orders type entries by type identifier. </summary>
     public static IReadOnlyList<IndexTypeEntryJsonContract> OrderTypeEntries (IEnumerable<IndexTypeEntryJsonContract> entries)
     {
-        if (entries == null)
-        {
-            throw new ArgumentNullException(nameof(entries));
-        }
-
-        return entries
-            .OrderBy(static entry => entry.TypeId ?? string.Empty, StringComparer.Ordinal)
-            .ToArray();
+        return OrderByOrdinalKey(entries, static entry => entry.TypeId);
     }
 
     /// <summary> Orders schema entries by schema key. </summary>
     public static IReadOnlyList<IndexSchemaEntryJsonContract> OrderSchemaEntries (IEnumerable<IndexSchemaEntryJsonContract> entries)
     {
-        if (entries == null)
-        {
-            throw new ArgumentNullException(nameof(entries));
-        }
-
-        return entries
-            .OrderBy(static entry => entry.SchemaKey ?? string.Empty, StringComparer.Ordinal)
-            .ToArray();
+        return OrderByOrdinalKey(entries, static entry => entry.SchemaKey);
     }
 
     /// <summary> Orders schema property entries by serialized property path. </summary>
     public static IReadOnlyList<IndexSchemaPropertyEntryJsonContract> OrderSchemaProperties (IEnumerable<IndexSchemaPropertyEntryJsonContract> properties)
     {
-        if (properties == null)
-        {
-            throw new ArgumentNullException(nameof(properties));
-        }
-
-        return properties
-            .OrderBy(static property => property.Path ?? string.Empty, StringComparer.Ordinal)
-            .ToArray();
+        return OrderByOrdinalKey(properties, static property => property.Path);
     }
 
     /// <summary> Orders asset-search lookup entries by asset path. </summary>
     public static IReadOnlyList<IndexAssetSearchEntryJsonContract> OrderAssetSearchEntries (IEnumerable<IndexAssetSearchEntryJsonContract> entries)
     {
-        if (entries == null)
-        {
-            throw new ArgumentNullException(nameof(entries));
-        }
-
-        return entries
-            .OrderBy(static entry => entry.AssetPath ?? string.Empty, StringComparer.Ordinal)
-            .ToArray();
+        return OrderByOrdinalKey(entries, static entry => entry.AssetPath);
     }
 
     /// <summary> Orders GUID-path lookup entries by asset path. </summary>
     public static IReadOnlyList<IndexGuidPathEntryJsonContract> OrderGuidPathEntries (IEnumerable<IndexGuidPathEntryJsonContract> entries)
+    {
+        return OrderByOrdinalKey(entries, static entry => entry.AssetPath);
+    }
+
+    private static IReadOnlyList<TEntry> OrderByOrdinalKey<TEntry> (
+        IEnumerable<TEntry> entries,
+        Func<TEntry, string?> keySelector)
     {
         if (entries == null)
         {
@@ -77,7 +49,7 @@ internal static class IndexJsonOrderingPolicy
         }
 
         return entries
-            .OrderBy(static entry => entry.AssetPath ?? string.Empty, StringComparer.Ordinal)
+            .OrderBy(entry => keySelector(entry) ?? string.Empty, StringComparer.Ordinal)
             .ToArray();
     }
 }

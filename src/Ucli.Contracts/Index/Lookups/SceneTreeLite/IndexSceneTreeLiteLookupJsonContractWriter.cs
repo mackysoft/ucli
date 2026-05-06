@@ -11,8 +11,7 @@ internal sealed class IndexSceneTreeLiteLookupJsonContractWriter : IndexJsonCont
         IndexSceneTreeLiteLookupJsonContract contract)
     {
         writer.WriteStartObject();
-        writer.WriteNumber("schemaVersion", contract.SchemaVersion);
-        writer.WriteString("generatedAtUtc", contract.GeneratedAtUtc);
+        WriteRootHeader(writer, contract.SchemaVersion, contract.GeneratedAtUtc);
         WriteNullableString(writer, "scenePath", contract.ScenePath);
         WriteNullableString(writer, "sourceInputsHash", contract.SourceInputsHash);
         WriteArray(writer, "roots", contract.Roots, WriteSceneTreeLiteNode);

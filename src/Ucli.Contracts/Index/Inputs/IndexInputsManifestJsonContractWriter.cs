@@ -11,8 +11,7 @@ internal sealed class IndexInputsManifestJsonContractWriter : IndexJsonContractW
         IndexInputsManifestJsonContract contract)
     {
         writer.WriteStartObject();
-        writer.WriteNumber("schemaVersion", contract.SchemaVersion);
-        writer.WriteString("generatedAtUtc", contract.GeneratedAtUtc);
+        WriteRootHeader(writer, contract.SchemaVersion, contract.GeneratedAtUtc);
         WriteNullableString(writer, "scriptAssembliesHash", contract.ScriptAssembliesHash);
         WriteNullableString(writer, "packagesManifestHash", contract.PackagesManifestHash);
         WriteNullableString(writer, "packagesLockHash", contract.PackagesLockHash);
