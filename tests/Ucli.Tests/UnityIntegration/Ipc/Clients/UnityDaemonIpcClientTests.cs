@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
+using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Ipc;
@@ -21,8 +22,7 @@ public sealed class UnityDaemonIpcClientTests
 
         var result = await client.SendAsync(
             CreateContext(),
-            IpcMethodNames.OpsRead,
-            EmptyPayload(),
+            CreateDispatchRequest(),
             TimeSpan.FromSeconds(30),
             CancellationToken.None);
 
@@ -32,6 +32,7 @@ public sealed class UnityDaemonIpcClientTests
         Assert.Equal(1, transportClient.CallCount);
         Assert.Equal("daemon-token", transportClient.LastRequest!.SessionToken);
         Assert.Equal(IpcMethodNames.OpsRead, transportClient.LastRequest.Method);
+        Assert.Equal(CreateDispatchPayload().GetRawText(), transportClient.LastRequest.Payload.GetRawText());
     }
 
     private static void AssertUnityResponse (
@@ -61,8 +62,7 @@ public sealed class UnityDaemonIpcClientTests
 
         var result = await client.SendAsync(
             CreateContext(),
-            IpcMethodNames.OpsRead,
-            EmptyPayload(),
+            CreateDispatchRequest(),
             TimeSpan.FromSeconds(30),
             CancellationToken.None);
 
@@ -86,8 +86,7 @@ public sealed class UnityDaemonIpcClientTests
 
         var result = await client.SendAsync(
             CreateContext(),
-            IpcMethodNames.OpsRead,
-            EmptyPayload(),
+            CreateDispatchRequest(),
             TimeSpan.FromMilliseconds(500),
             CancellationToken.None);
 
@@ -107,6 +106,16 @@ public sealed class UnityDaemonIpcClientTests
     private static JsonElement EmptyPayload ()
     {
         return JsonDocument.Parse("{}").RootElement.Clone();
+    }
+
+    private static JsonElement CreateDispatchPayload ()
+    {
+        return JsonDocument.Parse("""{"sentinel":"daemon-payload"}""").RootElement.Clone();
+    }
+
+    private static UnityIpcDispatchRequest CreateDispatchRequest ()
+    {
+        return new UnityIpcDispatchRequest(IpcMethodNames.OpsRead, CreateDispatchPayload());
     }
 
     private static IpcResponse CreateResponse (string requestId)
