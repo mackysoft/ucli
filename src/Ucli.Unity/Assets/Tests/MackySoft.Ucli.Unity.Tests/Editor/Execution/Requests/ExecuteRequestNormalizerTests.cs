@@ -1,8 +1,10 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
+using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Validation;
@@ -13,6 +15,7 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -509,9 +512,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 .HasMessageContaining("cardinality 'one' requires exactly one target.");
         }
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public void Normalize_WhenSelectFromSceneTargetsDirtyLoadedScene_RuntimeCompileAndPlanSucceed ()
+        public IEnumerator Normalize_WhenSelectFromSceneTargetsDirtyLoadedScene_RuntimeCompileAndPlanSucceed () => UniTask.ToCoroutine(async () =>
         {
             using var scope = new EditorTestScope();
             var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
@@ -575,10 +578,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 temporaryScene.GetRootGameObjects(),
                 Has.Some.Matches<GameObject>(gameObject => gameObject.name == "Renamed"));
 
-            var ensureResult = new CompEnsureOperation().Plan(compiledOperations[0], executionContext, CancellationToken.None).GetAwaiter().GetResult();
+            var ensureResult = await new CompEnsureOperation().Plan(compiledOperations[0], executionContext, CancellationToken.None);
 
             Assert.That(ensureResult.IsSuccess, Is.True, ensureResult.Failure?.Message);
-        }
+        });
 
         [Test]
         [Category("Size.Small")]
@@ -684,9 +687,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 .HasMessageContaining("Add 'ucli.scene.open' before this step.");
         }
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public void Normalize_WhenSceneOpenPrecedesClosedSceneEditCommitContext_RuntimeCompileSucceeds ()
+        public IEnumerator Normalize_WhenSceneOpenPrecedesClosedSceneEditCommitContext_RuntimeCompileSucceeds () => UniTask.ToCoroutine(async () =>
         {
             using var scope = new EditorTestScope();
             var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
@@ -747,7 +750,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Is.True,
                 openError?.Message);
             var openOperation = new SceneOpenOperation();
-            var openPlanResult = openOperation.Plan(openOperations[0], executionContext, CancellationToken.None).GetAwaiter().GetResult();
+            var openPlanResult = await openOperation.Plan(openOperations[0], executionContext, CancellationToken.None);
 
             Assert.That(openPlanResult.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request, 1, executionContext);
@@ -757,11 +760,11 @@ namespace MackySoft.Ucli.Unity.Tests
                     "edit",
                     UcliPrimitiveOperationNames.GoDelete,
                     UcliPrimitiveOperationNames.SceneSave);
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public void Normalize_WhenSceneEditTargetsLoadedScene_RuntimeCompileAndPlanSucceed ()
+        public IEnumerator Normalize_WhenSceneEditTargetsLoadedScene_RuntimeCompileAndPlanSucceed () => UniTask.ToCoroutine(async () =>
         {
             using var scope = new EditorTestScope();
             var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
@@ -815,10 +818,10 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(executionContext.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
             Assert.That(EditorSceneManager.IsPreviewScene(temporaryScene), Is.True);
 
-            var deleteResult = new GoDeleteOperation().Plan(compiledOperations[0], executionContext, CancellationToken.None).GetAwaiter().GetResult();
+            var deleteResult = await new GoDeleteOperation().Plan(compiledOperations[0], executionContext, CancellationToken.None);
 
             Assert.That(deleteResult.IsSuccess, Is.True, deleteResult.Failure?.Message);
-        }
+        });
 
         [Test]
         [Category("Size.Small")]
@@ -975,9 +978,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 .HasMessageContaining("Add 'ucli.prefab.open' before this step.");
         }
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public void Normalize_WhenPrefabEditTargetsDirtyOpenedPrefabStage_RuntimeCompileAndPlanSucceed ()
+        public IEnumerator Normalize_WhenPrefabEditTargetsDirtyOpenedPrefabStage_RuntimeCompileAndPlanSucceed () => UniTask.ToCoroutine(async () =>
         {
             using var scope = new EditorTestScope()
                 .EnablePrefabStageCleanup();
@@ -1034,14 +1037,14 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(temporaryPrefabRoot, Is.Not.SameAs(prefabStage.prefabContentsRoot));
             Assert.That(temporaryPrefabRoot!.transform.GetChild(0).name, Is.EqualTo("Renamed"));
 
-            var ensureResult = new CompEnsureOperation().Plan(compiledOperations[0], executionContext, CancellationToken.None).GetAwaiter().GetResult();
+            var ensureResult = await new CompEnsureOperation().Plan(compiledOperations[0], executionContext, CancellationToken.None);
 
             Assert.That(ensureResult.IsSuccess, Is.True, ensureResult.Failure?.Message);
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public void Normalize_WhenPrefabOpenPrecedesClosedPrefabEdit_RuntimeCompileSucceeds ()
+        public IEnumerator Normalize_WhenPrefabOpenPrecedesClosedPrefabEdit_RuntimeCompileSucceeds () => UniTask.ToCoroutine(async () =>
         {
             using var scope = new EditorTestScope()
                 .EnablePrefabStageCleanup();
@@ -1102,7 +1105,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Is.True,
                 openError?.Message);
             var openOperation = new PrefabOpenOperation();
-            var openPlanResult = openOperation.Plan(openOperations[0], executionContext, CancellationToken.None).GetAwaiter().GetResult();
+            var openPlanResult = await openOperation.Plan(openOperations[0], executionContext, CancellationToken.None);
 
             Assert.That(openPlanResult.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request, 1, executionContext);
@@ -1110,11 +1113,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 .HasLoweredOperations(IpcRequestStepKind.Edit, "edit", UcliPrimitiveOperationNames.CompEnsure)
                 .AllHavePublicId("closedPrefabEnsureAfterOpen")
                 .HaveDistinctInternalExecutionKeys();
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public void Normalize_WhenPrefabOpenPrecedesClosedPrefabCreateAssetWithContextCommit_RuntimeCompileSucceeds ()
+        public IEnumerator Normalize_WhenPrefabOpenPrecedesClosedPrefabCreateAssetWithContextCommit_RuntimeCompileSucceeds () => UniTask.ToCoroutine(async () =>
         {
             using var scope = new EditorTestScope()
                 .EnablePrefabStageCleanup();
@@ -1175,7 +1178,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out var openError),
                 Is.True,
                 openError?.Message);
-            var openPlanResult = new PrefabOpenOperation().Plan(openOperations[0], executionContext, CancellationToken.None).GetAwaiter().GetResult();
+            var openPlanResult = await new PrefabOpenOperation().Plan(openOperations[0], executionContext, CancellationToken.None);
 
             Assert.That(openPlanResult.IsSuccess, Is.True, openPlanResult.Failure?.Message);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request, 1, executionContext);
@@ -1187,11 +1190,11 @@ namespace MackySoft.Ucli.Unity.Tests
                     UcliPrimitiveOperationNames.PrefabSave)
                 .AllHavePublicId("closedPrefabCreateAssetAfterOpen")
                 .HaveDistinctInternalExecutionKeys();
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public void Normalize_WhenOpenedPrefabOptionalSelectionDoesNotResolveAndCommitIsContext_RuntimeCompileLowersPrefabSaveOnly ()
+        public IEnumerator Normalize_WhenOpenedPrefabOptionalSelectionDoesNotResolveAndCommitIsContext_RuntimeCompileLowersPrefabSaveOnly () => UniTask.ToCoroutine(async () =>
         {
             using var scope = new EditorTestScope()
                 .EnablePrefabStageCleanup();
@@ -1250,7 +1253,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out var openError),
                 Is.True,
                 openError?.Message);
-            var openPlanResult = new PrefabOpenOperation().Plan(openOperations[0], executionContext, CancellationToken.None).GetAwaiter().GetResult();
+            var openPlanResult = await new PrefabOpenOperation().Plan(openOperations[0], executionContext, CancellationToken.None);
 
             Assert.That(openPlanResult.IsSuccess, Is.True, openPlanResult.Failure?.Message);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request, 1, executionContext);
@@ -1261,7 +1264,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     UcliPrimitiveOperationNames.PrefabSave)
                 .AllHavePublicId("openedPrefabOptionalCommit")
                 .HaveDistinctInternalExecutionKeys();
-        }
+        });
 
         [Test]
         [Category("Size.Small")]

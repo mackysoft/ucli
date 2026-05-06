@@ -8,6 +8,9 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly TaskCompletionSource<bool> completionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
+        /// <summary> Gets whether the oneshot request-response exchange has completed. </summary>
+        internal bool IsCompleted => completionSource.Task.IsCompleted;
+
         /// <summary> Signals that the oneshot request-response exchange has completed. </summary>
         internal void Signal ()
         {
