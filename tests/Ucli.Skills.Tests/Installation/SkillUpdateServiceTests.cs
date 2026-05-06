@@ -20,8 +20,8 @@ public sealed class SkillUpdateServiceTests
         var service = SkillTestData.CreateUpdateService();
         var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
 
-        var created = await service.UpdateAsync(packages, request, CancellationToken.None);
-        var noOp = await service.UpdateAsync(packages, request, CancellationToken.None);
+        var created = await service.UpdateAsync(new SkillUpdateInput(packages, request), CancellationToken.None);
+        var noOp = await service.UpdateAsync(new SkillUpdateInput(packages, request), CancellationToken.None);
 
         Assert.True(created.IsSuccess, created.Failure?.Message);
         Assert.True(noOp.IsSuccess, noOp.Failure?.Message);
@@ -29,8 +29,8 @@ public sealed class SkillUpdateServiceTests
         Assert.All(noOp.Value!.Actions, static action => Assert.Equal(SkillUpdateActionKind.NoOp, action.ActionKind));
         foreach (var package in packages)
         {
-            Assert.True(File.Exists(Path.Combine(created.Value.TargetRoot, package.SkillName, "SKILL.md")), package.SkillName);
-            Assert.True(File.Exists(Path.Combine(created.Value.TargetRoot, package.SkillName, "ucli-skill.json")), package.SkillName);
+            Assert.True(File.Exists(Path.Combine(created.Value.TargetRoot, package.Manifest.SkillName, "SKILL.md")), package.Manifest.SkillName);
+            Assert.True(File.Exists(Path.Combine(created.Value.TargetRoot, package.Manifest.SkillName, "ucli-skill.json")), package.Manifest.SkillName);
         }
     }
 
@@ -47,15 +47,15 @@ public sealed class SkillUpdateServiceTests
         Assert.True(install.IsSuccess, install.Failure?.Message);
         var updatedPackages = ReplacePackage(packages, CreatePackageWithUpdatedBody(packages[0]));
 
-        var result = await updateService.UpdateAsync(updatedPackages, request, CancellationToken.None);
+        var result = await updateService.UpdateAsync(new SkillUpdateInput(updatedPackages, request), CancellationToken.None);
 
         Assert.True(result.IsSuccess, result.Failure?.Message);
-        Assert.Equal(SkillUpdateActionKind.Updated, result.Value!.Actions.Single(action => action.Identity.SkillName == packages[0].SkillName).ActionKind);
-        Assert.All(result.Value.Actions.Where(action => action.Identity.SkillName != packages[0].SkillName), static action =>
+        Assert.Equal(SkillUpdateActionKind.Updated, result.Value!.Actions.Single(action => action.Identity.SkillName == packages[0].Manifest.SkillName).ActionKind);
+        Assert.All(result.Value.Actions.Where(action => action.Identity.SkillName != packages[0].Manifest.SkillName), static action =>
             Assert.Equal(SkillUpdateActionKind.NoOp, action.ActionKind));
 
         var expectedManifest = updatedPackages[0].Files.Single(static file => file.RelativePath == "ucli-skill.json").Content;
-        var actualManifest = File.ReadAllText(Path.Combine(result.Value.TargetRoot, packages[0].SkillName, "ucli-skill.json"));
+        var actualManifest = File.ReadAllText(Path.Combine(result.Value.TargetRoot, packages[0].Manifest.SkillName, "ucli-skill.json"));
         Assert.Equal(expectedManifest, actualManifest);
     }
 
@@ -66,11 +66,12 @@ public sealed class SkillUpdateServiceTests
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-unmanaged");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
         var service = SkillTestData.CreateUpdateService();
-        scope.WriteFile(Path.Combine(".agents", "skills", packages[0].SkillName, "SKILL.md"), "# Existing\n");
+        scope.WriteFile(Path.Combine(".agents", "skills", packages[0].Manifest.SkillName, "SKILL.md"), "# Existing\n");
 
         var result = await service.UpdateAsync(
-            packages,
-            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
+            new SkillUpdateInput(
+                packages,
+                new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath)),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -88,9 +89,9 @@ public sealed class SkillUpdateServiceTests
         var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
         var install = await installService.InstallAsync(packages, request, CancellationToken.None);
         Assert.True(install.IsSuccess, install.Failure?.Message);
-        File.AppendAllText(Path.Combine(install.Value!.TargetRoot, packages[0].SkillName, "SKILL.md"), "\nInjected instruction.\n");
+        File.AppendAllText(Path.Combine(install.Value!.TargetRoot, packages[0].Manifest.SkillName, "SKILL.md"), "\nInjected instruction.\n");
 
-        var result = await updateService.UpdateAsync(packages, request, CancellationToken.None);
+        var result = await updateService.UpdateAsync(new SkillUpdateInput(packages, request), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, result.Failure!.Code);
@@ -111,8 +112,9 @@ public sealed class SkillUpdateServiceTests
         Assert.True(install.IsSuccess, install.Failure?.Message);
 
         var result = await updateService.UpdateAsync(
-            packages,
-            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath, "shared-skills"),
+            new SkillUpdateInput(
+                packages,
+                new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath, "shared-skills")),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -124,15 +126,20 @@ public sealed class SkillUpdateServiceTests
     public async Task UpdateAsync_RejectsUnsafePackageName ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-unsafe-package");
-        var package = (await SkillTestData.GenerateOfficialPackagesAsync()).First() with
+        var generatedPackage = (await SkillTestData.GenerateOfficialPackagesAsync()).First();
+        var package = generatedPackage with
         {
-            SkillName = "../escape",
+            Manifest = generatedPackage.Manifest with
+            {
+                SkillName = "../escape",
+            },
         };
         var service = SkillTestData.CreateUpdateService();
 
         var result = await service.UpdateAsync(
-            [package],
-            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
+            new SkillUpdateInput(
+                [package],
+                new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath)),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -144,7 +151,7 @@ public sealed class SkillUpdateServiceTests
         CanonicalSkillPackage replacement)
     {
         return packages
-            .Select(package => string.Equals(package.SkillName, replacement.SkillName, StringComparison.Ordinal) ? replacement : package)
+            .Select(package => string.Equals(package.Manifest.SkillName, replacement.Manifest.SkillName, StringComparison.Ordinal) ? replacement : package)
             .ToArray();
     }
 

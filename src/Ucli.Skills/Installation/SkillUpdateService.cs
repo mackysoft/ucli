@@ -31,20 +31,20 @@ public sealed class SkillUpdateService
     }
 
     /// <summary> Updates official SKILL packages. </summary>
-    /// <param name="packages"> The canonical packages. </param>
-    /// <param name="request"> The update request. </param>
+    /// <param name="input"> The update input. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The update result or failure. </returns>
     public async ValueTask<SkillOperationResult<SkillUpdateResult>> UpdateAsync (
-        IReadOnlyList<CanonicalSkillPackage> packages,
-        SkillInstallRequest request,
+        SkillUpdateInput input,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(packages);
-        ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(input);
+        ArgumentNullException.ThrowIfNull(input.Packages);
+        ArgumentNullException.ThrowIfNull(input.TargetRequest);
 
-        var targetResult = targetResolver.ResolveTarget(request);
+        var targetRequest = input.TargetRequest;
+        var targetResult = targetResolver.ResolveTarget(targetRequest);
         if (!targetResult.IsSuccess)
         {
             return SkillOperationResult<SkillUpdateResult>.FailureResult(targetResult.Failure!.Code, targetResult.Failure.Message);
@@ -53,18 +53,19 @@ public sealed class SkillUpdateService
         var target = targetResult.Value!;
         var targetRoot = target.TargetRoot;
         var actions = new List<SkillUpdateAction>();
-        foreach (var package in packages.OrderBy(static package => package.SkillName, StringComparer.Ordinal))
+        foreach (var package in input.Packages.OrderBy(static package => package.Manifest.SkillName, StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var skillDirectoryResult = SkillPackagePathBoundary.ResolvePackageDirectory(targetRoot, package.SkillName);
+            var skillName = package.Manifest.SkillName;
+            var skillDirectoryResult = SkillPackagePathBoundary.ResolvePackageDirectory(targetRoot, skillName);
             if (!skillDirectoryResult.IsSuccess)
             {
                 return SkillOperationResult<SkillUpdateResult>.FailureResult(skillDirectoryResult.Failure!.Code, skillDirectoryResult.Failure.Message);
             }
 
             var skillDirectory = skillDirectoryResult.Value!;
-            var identity = new SkillInstallIdentity(target.Host, request.Scope, targetRoot, package.SkillName);
+            var identity = new SkillInstallIdentity(target.Host, targetRequest.Scope, targetRoot, skillName);
             if (!Directory.Exists(skillDirectory))
             {
                 var createResult = await WritePackageAsync(package, target.Host, targetRoot, skillDirectory, cancellationToken).ConfigureAwait(false);

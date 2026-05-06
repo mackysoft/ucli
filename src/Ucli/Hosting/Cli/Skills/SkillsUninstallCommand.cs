@@ -91,8 +91,9 @@ internal sealed class SkillsUninstallCommand
         }
 
         var uninstallResult = await uninstallService.UninstallAsync(
-                packagesResult.Value!,
-                new SkillInstallRequest(normalizedHost!, normalizedScope!.Value, repositoryRoot!, targetDir),
+                new SkillUninstallInput(
+                    packagesResult.Value!,
+                    new SkillInstallRequest(normalizedHost!, normalizedScope!.Value, repositoryRoot!, targetDir)),
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = SkillsCommandResultFactory.CreateUninstall(uninstallResult, normalizedHost!, repositoryRoot!);

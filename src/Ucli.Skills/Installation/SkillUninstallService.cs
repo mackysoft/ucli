@@ -22,20 +22,20 @@ public sealed class SkillUninstallService
     }
 
     /// <summary> Uninstalls official SKILL packages. </summary>
-    /// <param name="packages"> The canonical packages. </param>
-    /// <param name="request"> The uninstall request. </param>
+    /// <param name="input"> The uninstall input. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The uninstall result or failure. </returns>
     public async ValueTask<SkillOperationResult<SkillUninstallResult>> UninstallAsync (
-        IReadOnlyList<CanonicalSkillPackage> packages,
-        SkillInstallRequest request,
+        SkillUninstallInput input,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(packages);
-        ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(input);
+        ArgumentNullException.ThrowIfNull(input.Packages);
+        ArgumentNullException.ThrowIfNull(input.TargetRequest);
 
-        var targetResult = targetResolver.ResolveTarget(request);
+        var targetRequest = input.TargetRequest;
+        var targetResult = targetResolver.ResolveTarget(targetRequest);
         if (!targetResult.IsSuccess)
         {
             return SkillOperationResult<SkillUninstallResult>.FailureResult(targetResult.Failure!.Code, targetResult.Failure.Message);
@@ -44,18 +44,19 @@ public sealed class SkillUninstallService
         var target = targetResult.Value!;
         var targetRoot = target.TargetRoot;
         var actions = new List<SkillUninstallAction>();
-        foreach (var package in packages.OrderBy(static package => package.SkillName, StringComparer.Ordinal))
+        foreach (var package in input.Packages.OrderBy(static package => package.Manifest.SkillName, StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var skillDirectoryResult = SkillPackagePathBoundary.ResolvePackageDirectory(targetRoot, package.SkillName);
+            var skillName = package.Manifest.SkillName;
+            var skillDirectoryResult = SkillPackagePathBoundary.ResolvePackageDirectory(targetRoot, skillName);
             if (!skillDirectoryResult.IsSuccess)
             {
                 return SkillOperationResult<SkillUninstallResult>.FailureResult(skillDirectoryResult.Failure!.Code, skillDirectoryResult.Failure.Message);
             }
 
             var skillDirectory = skillDirectoryResult.Value!;
-            var identity = new SkillInstallIdentity(target.Host, request.Scope, targetRoot, package.SkillName);
+            var identity = new SkillInstallIdentity(target.Host, targetRequest.Scope, targetRoot, skillName);
             if (!Directory.Exists(skillDirectory))
             {
                 actions.Add(new SkillUninstallAction(identity, SkillUninstallActionKind.NoOp));

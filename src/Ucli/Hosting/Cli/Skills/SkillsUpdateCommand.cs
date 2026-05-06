@@ -91,8 +91,9 @@ internal sealed class SkillsUpdateCommand
         }
 
         var updateResult = await updateService.UpdateAsync(
-                packagesResult.Value!,
-                new SkillInstallRequest(normalizedHost!, normalizedScope!.Value, repositoryRoot!, targetDir),
+                new SkillUpdateInput(
+                    packagesResult.Value!,
+                    new SkillInstallRequest(normalizedHost!, normalizedScope!.Value, repositoryRoot!, targetDir)),
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = SkillsCommandResultFactory.CreateUpdate(updateResult, normalizedHost!, repositoryRoot!);
