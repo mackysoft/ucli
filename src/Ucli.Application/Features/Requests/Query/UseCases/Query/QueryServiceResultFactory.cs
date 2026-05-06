@@ -45,7 +45,7 @@ internal static class QueryServiceResultFactory
             ],
             RequestServiceResultPolicy.ResolveOutcome(error),
             error.Message,
-            readIndex ?? CreateUnityReadIndexInfo(fallbackReason: null));
+            readIndex ?? ReadIndexInfoFactory.Unity(fallbackReason: null));
     }
 
     /// <summary> Creates one failure result from one IPC error. </summary>
@@ -90,16 +90,5 @@ internal static class QueryServiceResultFactory
             outcome,
             message,
             readIndex);
-    }
-
-    private static ReadIndexInfo CreateUnityReadIndexInfo (string? fallbackReason)
-    {
-        return new ReadIndexInfo(
-            Used: false,
-            Hit: false,
-            Source: ReadIndexInfoSource.Unity,
-            Freshness: IndexFreshness.Fresh,
-            GeneratedAtUtc: null,
-            FallbackReason: fallbackReason);
     }
 }

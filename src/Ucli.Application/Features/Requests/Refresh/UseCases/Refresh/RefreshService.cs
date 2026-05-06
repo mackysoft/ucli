@@ -19,7 +19,9 @@ internal sealed class RefreshService : IRefreshService
             Policy: OperationPolicy.Advanced,
             ArgsSchemaJson: UcliOperationJsonSchemaGenerator.CreateArgsSchemaJson(typeof(UcliEmptyArgs)),
             ResultSchemaJson: null),
-        Args: JsonSerializer.SerializeToElement(new UcliEmptyArgs(), IpcJsonSerializerOptions.Default));
+        Args: JsonSerializer.SerializeToElement(new UcliEmptyArgs(), IpcJsonSerializerOptions.Default),
+        SuccessMessage: "uCLI refresh completed.",
+        FailureMessage: "uCLI refresh failed.");
 
     private readonly IOperationExecuteService operationExecuteService;
 

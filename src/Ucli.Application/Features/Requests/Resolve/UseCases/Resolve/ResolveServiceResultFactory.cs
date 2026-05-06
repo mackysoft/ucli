@@ -7,13 +7,17 @@ namespace MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
 /// <summary> Creates normalized resolve service results. </summary>
 internal static class ResolveServiceResultFactory
 {
+    private const string SuccessMessage = "uCLI resolve completed.";
+
+    private const string FailureMessage = "uCLI resolve failed.";
+
     /// <summary> Creates one successful resolve result. </summary>
     public static ResolveServiceResult Success (
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         ReadIndexInfo readIndex)
     {
-        return ResolveServiceResult.Success(requestId, opResults, readIndex);
+        return ResolveServiceResult.Success(requestId, opResults, SuccessMessage, readIndex);
     }
 
     /// <summary> Creates one failure result from a structured execution error. </summary>
@@ -32,7 +36,7 @@ internal static class ResolveServiceResultFactory
                 executionError,
             ],
             RequestServiceResultPolicy.ResolveOutcome(error),
-            readIndex ?? CreateUnityReadIndexInfo(fallbackReason: null));
+            readIndex ?? ReadIndexInfoFactory.Unity(fallbackReason: null));
     }
 
     /// <summary> Creates one failure result from one IPC error. </summary>
@@ -68,17 +72,7 @@ internal static class ResolveServiceResultFactory
             opResults,
             errors,
             outcome,
+            RequestServiceResultPolicy.ResolveFailureMessage(errors, FailureMessage),
             readIndex);
-    }
-
-    private static ReadIndexInfo CreateUnityReadIndexInfo (string? fallbackReason)
-    {
-        return new ReadIndexInfo(
-            Used: false,
-            Hit: false,
-            Source: ReadIndexInfoSource.Unity,
-            Freshness: IndexFreshness.Fresh,
-            GeneratedAtUtc: null,
-            FallbackReason: fallbackReason);
     }
 }

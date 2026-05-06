@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
@@ -26,7 +25,7 @@ internal static class ResolveCommandResultFactory
         {
             return CommandResult.Success(
                 command: UcliCommandNames.Resolve,
-                message: "uCLI resolve completed.",
+                message: serviceResult.Message,
                 payload: payload);
         }
 
@@ -42,7 +41,7 @@ internal static class ResolveCommandResultFactory
             Command: UcliCommandNames.Resolve,
             Status: IpcProtocol.StatusError,
             ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(serviceResult.Outcome),
-            Message: ResolveFailureMessage(serviceResult.Errors),
+            Message: serviceResult.Message,
             Payload: payload,
             Errors: errors);
     }
@@ -52,21 +51,5 @@ internal static class ResolveCommandResultFactory
     {
         ArgumentNullException.ThrowIfNull(error);
         return Create(ResolveServiceResultFactory.FromExecutionError(Guid.NewGuid().ToString("D"), error));
-    }
-
-    private static string ResolveFailureMessage (IReadOnlyList<OperationExecutionError> errors)
-    {
-        ArgumentNullException.ThrowIfNull(errors);
-
-        for (var i = 0; i < errors.Count; i++)
-        {
-            var error = errors[i];
-            if (!string.IsNullOrWhiteSpace(error.Message))
-            {
-                return error.Message;
-            }
-        }
-
-        return "uCLI resolve failed.";
     }
 }

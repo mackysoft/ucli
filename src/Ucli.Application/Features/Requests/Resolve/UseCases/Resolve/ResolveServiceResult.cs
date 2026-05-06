@@ -11,12 +11,14 @@ internal sealed record ResolveServiceResult
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<OperationExecutionError> errors,
         ApplicationOutcome outcome,
+        string message,
         ReadIndexInfo readIndex)
     {
         RequestId = requestId;
         OpResults = opResults;
         Errors = errors;
         Outcome = outcome;
+        Message = message;
         ReadIndex = readIndex;
     }
 
@@ -32,6 +34,9 @@ internal sealed record ResolveServiceResult
     /// <summary> Gets the application outcome associated with this result. </summary>
     public ApplicationOutcome Outcome { get; }
 
+    /// <summary> Gets the user-facing result message. </summary>
+    public string Message { get; }
+
     /// <summary> Gets the read-index metadata associated with this result. </summary>
     public ReadIndexInfo ReadIndex { get; }
 
@@ -42,17 +47,20 @@ internal sealed record ResolveServiceResult
     internal static ResolveServiceResult Success (
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
+        string message,
         ReadIndexInfo readIndex)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
         ArgumentNullException.ThrowIfNull(readIndex);
+        RequestServiceResultPolicy.ValidateSuccessMessage(message);
 
         return new ResolveServiceResult(
             requestId,
             opResults,
             RequestServiceResultPolicy.EmptyErrors,
             ApplicationOutcome.Success,
+            message,
             readIndex);
     }
 
@@ -62,17 +70,20 @@ internal sealed record ResolveServiceResult
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<OperationExecutionError> errors,
         ApplicationOutcome outcome,
+        string message,
         ReadIndexInfo readIndex)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
         ArgumentNullException.ThrowIfNull(readIndex);
+        RequestServiceResultPolicy.ValidateFailureMessage(message);
 
         return new ResolveServiceResult(
             requestId,
             opResults,
             RequestServiceResultPolicy.RequireFailureErrors(errors, outcome),
             outcome,
+            message,
             readIndex);
     }
 }

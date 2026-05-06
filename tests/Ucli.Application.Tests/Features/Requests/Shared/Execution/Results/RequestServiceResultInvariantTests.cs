@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
+using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Validate.Common.Contracts;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -82,6 +83,19 @@ public sealed class RequestServiceResultInvariantTests
         Assert.ThrowsAny<ArgumentException>(() => OperationExecuteResultFactory.Failure(RequestId, [], errors, ApplicationOutcome.Success));
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Failure_WhenOutcomeDoesNotMatchErrorCodes_Throws ()
+    {
+        var readIndex = CreateReadIndexInfo();
+
+        AssertOutcomeMismatchThrows((errors, outcome) => PlanServiceResult.Failure("Plan failed.", errors, outcome));
+        AssertOutcomeMismatchThrows((errors, outcome) => CallServiceResult.Failure("Call failed.", errors, outcome));
+        AssertOutcomeMismatchThrows((errors, outcome) => QueryServiceResultFactory.Failure("query assets find", RequestId, [], errors, outcome, "Query failed.", readIndex));
+        AssertOutcomeMismatchThrows((errors, outcome) => ResolveServiceResultFactory.Failure(RequestId, [], errors, outcome, readIndex));
+        AssertOutcomeMismatchThrows((errors, outcome) => OperationExecuteResultFactory.Failure(RequestId, [], errors, outcome));
+    }
+
     [Theory]
     [Trait("Size", "Small")]
     [InlineData("", "Failure message.")]
@@ -114,6 +128,8 @@ public sealed class RequestServiceResultInvariantTests
         Assert.ThrowsAny<ArgumentException>(() => PlanServiceResult.Failure("", errors, ApplicationOutcome.ToolError));
         Assert.ThrowsAny<ArgumentException>(() => CallServiceResult.Failure("", errors, ApplicationOutcome.ToolError));
         Assert.ThrowsAny<ArgumentException>(() => QueryServiceResultFactory.Failure("query assets find", RequestId, [], errors, ApplicationOutcome.ToolError, "", readIndex));
+        Assert.ThrowsAny<ArgumentException>(() => ResolveServiceResult.Failure(RequestId, [], errors, ApplicationOutcome.ToolError, "", readIndex));
+        Assert.ThrowsAny<ArgumentException>(() => OperationExecuteResult.Failure(RequestId, [], errors, ApplicationOutcome.ToolError, ""));
         Assert.ThrowsAny<ArgumentException>(() => ValidateServiceResult.Failure("", IpcErrorCodes.InternalError, validateOutput));
     }
 
@@ -134,15 +150,54 @@ public sealed class RequestServiceResultInvariantTests
     [Trait("Size", "Small")]
     public void Failure_FromExternalOperationError_NormalizesFallbackMessage ()
     {
-        var result = QueryServiceResultFactory.FromIpcError(
+        var queryResult = QueryServiceResultFactory.FromIpcError(
             "query assets find",
             RequestId,
             new OperationExecutionError("", "", null),
             CreateReadIndexInfo());
 
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
-        Assert.Equal("uCLI query failed.", error.Message);
+        var queryError = Assert.Single(queryResult.Errors);
+        Assert.Equal(IpcErrorCodes.InternalError, queryError.Code);
+        Assert.Equal("uCLI query failed.", queryError.Message);
+        Assert.Equal(ApplicationOutcome.ToolError, queryResult.Outcome);
+
+        var resolveResult = ResolveServiceResultFactory.FromIpcError(
+            RequestId,
+            new OperationExecutionError("", "", null),
+            CreateReadIndexInfo());
+
+        var resolveError = Assert.Single(resolveResult.Errors);
+        Assert.Equal(IpcErrorCodes.InternalError, resolveError.Code);
+        Assert.Equal("uCLI resolve failed.", resolveError.Message);
+        Assert.Equal("uCLI resolve failed.", resolveResult.Message);
+        Assert.Equal(ApplicationOutcome.ToolError, resolveResult.Outcome);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [MemberData(nameof(ValidationErrorCodeValues))]
+    public void ValidationErrorCodes_MapToInvalidArgumentOutcome (string errorCode)
+    {
+        var validationError = new ValidationError(errorCode, "Validation failed.", "step-1");
+
+        Assert.Equal(ApplicationOutcome.InvalidArgument, RequestServiceResultPolicy.ResolveOutcome(errorCode));
+
+        var operationResult = OperationExecuteResultFactory.FromValidationErrors(
+            RequestId,
+            [
+                validationError,
+            ]);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, operationResult.Outcome);
+        Assert.Equal(errorCode, Assert.Single(operationResult.Errors).Code);
+
+        var validateResult = ValidateServiceResult.ValidationFailure(
+            new ValidateExecutionOutput(CreateReadIndexInfo()),
+            "Static validation failed.",
+            [
+                validationError,
+            ]);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, validateResult.Outcome);
+        Assert.Equal(errorCode, Assert.Single(validateResult.Errors).Code);
     }
 
     [Fact]
@@ -169,6 +224,38 @@ public sealed class RequestServiceResultInvariantTests
         [
             new OperationExecutionError(IpcErrorCodes.InternalError, "Failure message.", null),
         ];
+    }
+
+    public static TheoryData<string> ValidationErrorCodeValues ()
+    {
+        var data = new TheoryData<string>();
+        var fields = typeof(ValidationErrorCodes).GetFields(BindingFlags.Public | BindingFlags.Static);
+        for (var i = 0; i < fields.Length; i++)
+        {
+            var field = fields[i];
+            if (field is { IsLiteral: true, IsInitOnly: false, FieldType: var fieldType } && fieldType == typeof(string))
+            {
+                data.Add((string)field.GetRawConstantValue()!);
+            }
+        }
+
+        return data;
+    }
+
+    private static void AssertOutcomeMismatchThrows (
+        Action<IReadOnlyList<OperationExecutionError>, ApplicationOutcome> createFailure)
+    {
+        OperationExecutionError[] invalidArgumentErrors =
+        [
+            new OperationExecutionError(IpcErrorCodes.InvalidArgument, "Invalid argument.", null),
+        ];
+        OperationExecutionError[] internalErrors =
+        [
+            new OperationExecutionError(IpcErrorCodes.InternalError, "Internal error.", null),
+        ];
+
+        Assert.ThrowsAny<ArgumentException>(() => createFailure(invalidArgumentErrors, ApplicationOutcome.ToolError));
+        Assert.ThrowsAny<ArgumentException>(() => createFailure(internalErrors, ApplicationOutcome.InvalidArgument));
     }
 
     private static ReadIndexInfo CreateReadIndexInfo ()

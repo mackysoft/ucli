@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
-using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
@@ -40,26 +39,9 @@ internal static class ExecuteResponseConverter
         return new ExecuteResponseConversionResult(
             OpResults: OperationExecutionModelMapper.MapOpResults(validatedPayload.OpResults),
             Errors: normalizedErrors,
-            Outcome: ResolveOutcome(normalizedErrors),
+            Outcome: RequestServiceResultPolicy.ResolveOutcome(normalizedErrors),
             PlanToken: validatedPayload.PlanToken,
             ReadPostcondition: OperationExecutionModelMapper.MapReadPostcondition(validatedPayload.ReadPostcondition));
-    }
-
-    /// <summary> Resolves the application outcome from one machine-readable error collection. </summary>
-    /// <param name="errors"> The machine-readable error collection. </param>
-    /// <returns> The associated application outcome. </returns>
-    public static ApplicationOutcome ResolveOutcome (IReadOnlyList<OperationExecutionError> errors)
-    {
-        ArgumentNullException.ThrowIfNull(errors);
-
-        if (errors.Count == 0)
-        {
-            return ApplicationOutcome.Success;
-        }
-
-        return errors.All(static error => RequestServiceResultPolicy.ResolveOutcome(error.Code) == ApplicationOutcome.InvalidArgument)
-            ? ApplicationOutcome.InvalidArgument
-            : ApplicationOutcome.ToolError;
     }
 
     private static IReadOnlyList<OperationExecutionError> NormalizeErrors (
@@ -286,7 +268,7 @@ internal static class ExecuteResponseConverter
         return new ExecuteResponseConversionResult(
             OpResults: [],
             Errors: errors,
-            Outcome: ResolveOutcome(errors),
+            Outcome: RequestServiceResultPolicy.ResolveOutcome(errors),
             PlanToken: null,
             ReadPostcondition: null);
     }

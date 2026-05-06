@@ -11,12 +11,14 @@ internal sealed record OperationExecuteResult
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<OperationExecutionError> errors,
         ApplicationOutcome outcome,
+        string message,
         OperationExecutionReadPostcondition? readPostcondition)
     {
         RequestId = requestId;
         OpResults = opResults;
         Errors = errors;
         Outcome = outcome;
+        Message = message;
         ReadPostcondition = readPostcondition;
     }
 
@@ -32,6 +34,9 @@ internal sealed record OperationExecuteResult
     /// <summary> Gets the application outcome associated with this response. </summary>
     public ApplicationOutcome Outcome { get; }
 
+    /// <summary> Gets the user-facing result message. </summary>
+    public string Message { get; }
+
     /// <summary> Gets the read postcondition emitted by mutation execution, when available. </summary>
     public OperationExecutionReadPostcondition? ReadPostcondition { get; }
 
@@ -42,16 +47,19 @@ internal sealed record OperationExecuteResult
     internal static OperationExecuteResult Success (
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
+        string message,
         OperationExecutionReadPostcondition? readPostcondition = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
+        RequestServiceResultPolicy.ValidateSuccessMessage(message);
 
         return new OperationExecuteResult(
             requestId,
             opResults,
             RequestServiceResultPolicy.EmptyErrors,
             ApplicationOutcome.Success,
+            message,
             readPostcondition);
     }
 
@@ -61,16 +69,19 @@ internal sealed record OperationExecuteResult
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<OperationExecutionError> errors,
         ApplicationOutcome outcome,
+        string message,
         OperationExecutionReadPostcondition? readPostcondition = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
+        RequestServiceResultPolicy.ValidateFailureMessage(message);
 
         return new OperationExecuteResult(
             requestId,
             opResults,
             RequestServiceResultPolicy.RequireFailureErrors(errors, outcome),
             outcome,
+            message,
             readPostcondition);
     }
 }

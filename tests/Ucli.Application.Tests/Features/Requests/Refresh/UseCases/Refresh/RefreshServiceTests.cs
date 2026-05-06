@@ -33,6 +33,8 @@ public sealed class RefreshServiceTests
         Assert.Equal(UcliOperationKind.Command, operationExecuteService.CapturedDefinition.Descriptor.Kind);
         Assert.Equal(OperationPolicy.Advanced, operationExecuteService.CapturedDefinition.Descriptor.Policy);
         Assert.Equal(JsonValueKind.Object, operationExecuteService.CapturedDefinition.Args.ValueKind);
+        Assert.Equal("uCLI refresh completed.", operationExecuteService.CapturedDefinition.SuccessMessage);
+        Assert.Equal("uCLI refresh failed.", operationExecuteService.CapturedDefinition.FailureMessage);
         Assert.NotNull(operationExecuteService.CapturedInput);
         Assert.Equal("/repo/UnityProject", operationExecuteService.CapturedInput!.ProjectPath);
         Assert.Equal(UnityExecutionMode.Oneshot, operationExecuteService.CapturedInput.Mode);
@@ -71,7 +73,8 @@ public sealed class RefreshServiceTests
         {
             return OperationExecuteResultFactory.Success(
                 "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-                []);
+                [],
+                "uCLI refresh completed.");
         }
     }
 }

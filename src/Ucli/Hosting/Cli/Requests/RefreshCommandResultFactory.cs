@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
@@ -31,7 +30,7 @@ internal static class RefreshCommandResultFactory
         {
             return CommandResult.Success(
                 command: UcliCommandNames.Refresh,
-                message: "uCLI refresh completed.",
+                message: executionResult.Message,
                 payload: payload);
         }
 
@@ -47,7 +46,7 @@ internal static class RefreshCommandResultFactory
             Command: UcliCommandNames.Refresh,
             Status: IpcProtocol.StatusError,
             ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(executionResult.Outcome),
-            Message: ResolveFailureMessage(executionResult.Errors),
+            Message: executionResult.Message,
             Payload: payload,
             Errors: errors);
     }
@@ -59,21 +58,5 @@ internal static class RefreshCommandResultFactory
     {
         ArgumentNullException.ThrowIfNull(error);
         return Create(OperationExecuteResultFactory.FromExecutionError(error));
-    }
-
-    private static string ResolveFailureMessage (IReadOnlyList<OperationExecutionError> errors)
-    {
-        ArgumentNullException.ThrowIfNull(errors);
-
-        for (var i = 0; i < errors.Count; i++)
-        {
-            var error = errors[i];
-            if (!string.IsNullOrWhiteSpace(error.Message))
-            {
-                return error.Message;
-            }
-        }
-
-        return "uCLI refresh failed.";
     }
 }

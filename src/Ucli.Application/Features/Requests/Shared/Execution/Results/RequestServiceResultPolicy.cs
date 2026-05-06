@@ -84,6 +84,12 @@ internal static class RequestServiceResultPolicy
             snapshot[i] = error;
         }
 
+        var resolvedOutcome = ResolveOutcome(snapshot);
+        if (outcome != resolvedOutcome)
+        {
+            throw new ArgumentException("Failure outcome must match the failure error codes.", nameof(outcome));
+        }
+
         return Array.AsReadOnly(snapshot);
     }
 
@@ -162,6 +168,29 @@ internal static class RequestServiceResultPolicy
         return errors;
     }
 
+    /// <summary> Resolves the application outcome for one machine-readable error collection. </summary>
+    public static ApplicationOutcome ResolveOutcome (IReadOnlyList<OperationExecutionError> errors)
+    {
+        ArgumentNullException.ThrowIfNull(errors);
+
+        if (errors.Count == 0)
+        {
+            return ApplicationOutcome.Success;
+        }
+
+        for (var i = 0; i < errors.Count; i++)
+        {
+            if (errors[i] == null)
+            {
+                throw new ArgumentException("Failure errors must not contain null entries.", nameof(errors));
+            }
+        }
+
+        return errors.All(static error => ResolveOutcome(error.Code) == ApplicationOutcome.InvalidArgument)
+            ? ApplicationOutcome.InvalidArgument
+            : ApplicationOutcome.ToolError;
+    }
+
     /// <summary> Resolves the application outcome for one structured execution error. </summary>
     public static ApplicationOutcome ResolveOutcome (
         ExecutionError error,
@@ -176,10 +205,7 @@ internal static class RequestServiceResultPolicy
     /// <summary> Resolves the application outcome for one machine-readable error code. </summary>
     public static ApplicationOutcome ResolveOutcome (string errorCode)
     {
-        return string.Equals(
-                ResolveErrorCode(errorCode),
-                ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.InvalidArgument),
-                StringComparison.Ordinal)
+        return IsInvalidArgumentErrorCode(ResolveErrorCode(errorCode))
             ? ApplicationOutcome.InvalidArgument
             : ApplicationOutcome.ToolError;
     }
@@ -190,5 +216,15 @@ internal static class RequestServiceResultPolicy
         return string.IsNullOrWhiteSpace(errorCode)
             ? ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.InternalError)
             : errorCode;
+    }
+
+    private static bool IsInvalidArgumentErrorCode (string errorCode)
+    {
+        if (string.Equals(errorCode, ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.InvalidArgument), StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return ValidationErrorCodes.Contains(errorCode);
     }
 }
