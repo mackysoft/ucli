@@ -203,30 +203,31 @@ public sealed class PackageMetadataTests
 
         try
         {
-            await RunProcessAsync("git", ["init"], tempDirectory);
-            await RunProcessAsync("git", ["config", "user.email", "ucli-tests@example.invalid"], tempDirectory);
-            await RunProcessAsync("git", ["config", "user.name", "uCLI Tests"], tempDirectory);
+            await RunRequiredProcessAsync("git", ["init"], tempDirectory);
+            await RunRequiredProcessAsync("git", ["config", "user.email", "ucli-tests@example.invalid"], tempDirectory);
+            await RunRequiredProcessAsync("git", ["config", "user.name", "uCLI Tests"], tempDirectory);
 
             string propsPath = Path.Combine(tempDirectory, "Directory.Build.props");
             await File.WriteAllTextAsync(
                 propsPath,
                 "<Project><PropertyGroup><Version>0.18.0</Version></PropertyGroup></Project>",
                 Encoding.UTF8);
-            await RunProcessAsync("git", ["add", "Directory.Build.props"], tempDirectory);
-            await RunProcessAsync("git", ["commit", "-m", "initial"], tempDirectory);
-            string baseSha = (await RunProcessAsync("git", ["rev-parse", "HEAD"], tempDirectory)).StdOut.Trim();
+            await RunRequiredProcessAsync("git", ["add", "Directory.Build.props"], tempDirectory);
+            await RunRequiredProcessAsync("git", ["commit", "-m", "initial"], tempDirectory);
+            string baseSha = (await RunRequiredProcessAsync("git", ["rev-parse", "HEAD"], tempDirectory)).StdOut.Trim();
 
             await File.WriteAllTextAsync(
                 propsPath,
                 "<Project><PropertyGroup><Version>0.18.1</Version></PropertyGroup></Project>",
                 Encoding.UTF8);
-            await RunProcessAsync("git", ["add", "Directory.Build.props"], tempDirectory);
-            await RunProcessAsync("git", ["commit", "-m", "change props"], tempDirectory);
-            string headSha = (await RunProcessAsync("git", ["rev-parse", "HEAD"], tempDirectory)).StdOut.Trim();
+            await RunRequiredProcessAsync("git", ["add", "Directory.Build.props"], tempDirectory);
+            await RunRequiredProcessAsync("git", ["commit", "-m", "change props"], tempDirectory);
+            string headSha = (await RunRequiredProcessAsync("git", ["rev-parse", "HEAD"], tempDirectory)).StdOut.Trim();
 
-            ProcessResult result = await RunProcessAsync(
+            string detectorScriptPath = ToBashPath(Path.Combine(RepositoryRoot, "scripts", "detect-verify-scopes.sh"));
+            ProcessResult result = await RunRequiredProcessAsync(
                 "bash",
-                [Path.Combine(RepositoryRoot, "scripts", "detect-verify-scopes.sh")],
+                [detectorScriptPath],
                 tempDirectory,
                 new Dictionary<string, string>(StringComparer.Ordinal)
                 {
@@ -236,7 +237,6 @@ public sealed class PackageMetadataTests
                     ["PR_HEAD_SHA"] = headSha,
                 });
 
-            Assert.Equal(0, result.ExitCode);
             IReadOnlyDictionary<string, string> outputs = ParseDetectorOutputs(result.StdOut);
             Assert.Equal("true", outputs["needs_dotnet"]);
             Assert.Equal("true", outputs["needs_shared_pack"]);
@@ -432,6 +432,46 @@ public sealed class PackageMetadataTests
         }
 
         File.SetAttributes(directoryPath, File.GetAttributes(directoryPath) & ~FileAttributes.ReadOnly);
+    }
+
+    private static string ToBashPath (string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        string fullPath = Path.GetFullPath(path).Replace('\\', '/');
+        if (!OperatingSystem.IsWindows())
+        {
+            return fullPath;
+        }
+
+        if (fullPath.Length >= 2 && fullPath[1] == ':')
+        {
+            char driveLetter = char.ToLowerInvariant(fullPath[0]);
+            return "/" + driveLetter + fullPath[2..];
+        }
+
+        return fullPath;
+    }
+
+    private static async Task<ProcessResult> RunRequiredProcessAsync (
+        string fileName,
+        IReadOnlyList<string> arguments,
+        string workingDirectory,
+        IReadOnlyDictionary<string, string>? environment = null,
+        CancellationToken cancellationToken = default)
+    {
+        ProcessResult result = await RunProcessAsync(
+            fileName,
+            arguments,
+            workingDirectory,
+            environment,
+            cancellationToken);
+        Assert.True(
+            result.ExitCode == 0,
+            $"{fileName} {string.Join(" ", arguments)} failed in {workingDirectory} with exit code {result.ExitCode}." +
+            $"{Environment.NewLine}StdOut:{Environment.NewLine}{result.StdOut}" +
+            $"{Environment.NewLine}StdErr:{Environment.NewLine}{result.StdErr}");
+        return result;
     }
 
     private static async Task<ProcessResult> RunProcessAsync (
