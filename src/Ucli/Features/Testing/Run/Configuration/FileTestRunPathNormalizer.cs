@@ -1,5 +1,5 @@
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
-using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Configuration;
 
@@ -7,7 +7,8 @@ namespace MackySoft.Ucli.Features.Testing.Run.Configuration;
 internal sealed class FileTestRunPathNormalizer : ITestRunPathNormalizer
 {
     /// <inheritdoc />
-    public bool TryNormalizeFullPath (
+    public bool TryNormalizeRepositoryPath (
+        string repositoryRoot,
         string path,
         out string? normalizedPath,
         out string? errorMessage)
@@ -15,21 +16,19 @@ internal sealed class FileTestRunPathNormalizer : ITestRunPathNormalizer
         normalizedPath = null;
         errorMessage = null;
 
-        if (string.IsNullOrWhiteSpace(path))
+        var result = RepositoryPathNormalizer.TryNormalize(repositoryRoot, path);
+        if (result.IsSuccess)
         {
-            errorMessage = "Path value is empty.";
-            return false;
-        }
-
-        try
-        {
-            normalizedPath = Path.GetFullPath(path);
+            normalizedPath = result.FullPath;
             return true;
         }
-        catch (Exception exception) when (ApplicationPathExceptionClassifier.IsPathFormatException(exception))
+
+        errorMessage = result.FailureKind switch
         {
-            errorMessage = exception.Message;
-            return false;
-        }
+            PathNormalizationFailureKind.EmptyPath => "Path value is empty.",
+            PathNormalizationFailureKind.OutsideRepositoryRoot => "Path must be under the repository root.",
+            _ => result.DiagnosticMessage,
+        };
+        return false;
     }
 }

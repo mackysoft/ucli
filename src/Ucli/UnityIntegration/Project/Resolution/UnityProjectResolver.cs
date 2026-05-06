@@ -33,13 +33,14 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
         var pathCandidate = pathSource == UnityProjectPathSource.CurrentDirectory
             ? Environment.CurrentDirectory
             : resolvedProjectPath!;
-        var fullPathResult = TryNormalizePath(pathCandidate);
+        var fullPathResult = PathNormalizer.TryNormalizeFullPath(pathCandidate);
         if (!fullPathResult.IsSuccess)
         {
-            return UnityProjectResolutionResult.Failure(fullPathResult.Error!);
+            return UnityProjectResolutionResult.Failure(ExecutionError.InvalidArgument(
+                $"UnityProject path is invalid: {pathCandidate}"));
         }
 
-        var unityProjectRoot = fullPathResult.Path!;
+        var unityProjectRoot = fullPathResult.FullPath!;
         if (!Directory.Exists(unityProjectRoot))
         {
             return UnityProjectResolutionResult.Failure(ExecutionError.InvalidArgument(
@@ -63,53 +64,5 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
             RepositoryRoot: repositoryRoot,
             ProjectFingerprint: projectFingerprint,
             PathSource: pathSource));
-    }
-
-    /// <summary> Attempts to normalize a path into an absolute path while converting path format errors to structured output. </summary>
-    /// <param name="pathValue"> The input path value. </param>
-    /// <returns> The normalization result. </returns>
-    private static PathNormalizationResult TryNormalizePath (string pathValue)
-    {
-        try
-        {
-            var fullPath = Path.GetFullPath(pathValue);
-            return PathNormalizationResult.Success(fullPath);
-        }
-        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
-        {
-            return PathNormalizationResult.Failure(ExecutionError.InvalidArgument(
-                $"UnityProject path is invalid: {pathValue}"));
-        }
-    }
-
-    /// <summary> Represents the result of path normalization. </summary>
-    /// <param name="Path"> The normalized absolute path. </param>
-    /// <param name="Error"> The structured error when normalization fails. </param>
-    private readonly record struct PathNormalizationResult (
-        string? Path,
-        ExecutionError? Error)
-    {
-        /// <summary> Gets a value indicating whether path normalization succeeded. </summary>
-        public bool IsSuccess => !string.IsNullOrWhiteSpace(Path) && Error is null;
-
-        /// <summary> Creates a successful path normalization result. </summary>
-        /// <param name="path"> The normalized absolute path. </param>
-        /// <returns> The successful result. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="path" /> is <see langword="null" />. </exception>
-        public static PathNormalizationResult Success (string path)
-        {
-            ArgumentNullException.ThrowIfNull(path);
-            return new PathNormalizationResult(path, null);
-        }
-
-        /// <summary> Creates a failed path normalization result. </summary>
-        /// <param name="error"> The structured error. </param>
-        /// <returns> The failed result. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="error" /> is <see langword="null" />. </exception>
-        public static PathNormalizationResult Failure (ExecutionError error)
-        {
-            ArgumentNullException.ThrowIfNull(error);
-            return new PathNormalizationResult(null, error);
-        }
     }
 }

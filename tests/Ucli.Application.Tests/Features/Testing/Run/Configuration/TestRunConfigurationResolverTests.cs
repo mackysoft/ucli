@@ -311,11 +311,11 @@ public sealed class TestRunConfigurationResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Resolve_WithRelativeTestSettingsPath_ReturnsNormalizedFullPath ()
+    public async Task Resolve_WithRelativeTestSettingsPath_ReturnsRepositoryRootBasedFullPath ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", "relative-test-settings");
         var relativeTestSettingsPath = Path.Combine("ProjectSettings", "TestSettings.json");
-        var normalizedTestSettingsPath = Path.GetFullPath(relativeTestSettingsPath);
+        var normalizedTestSettingsPath = Path.GetFullPath(Path.Combine(scope.FullPath, relativeTestSettingsPath));
 
         var resolver = CreateResolverWithSuccessfulDependencies(scope, new StubPathExistenceProbe(normalizedTestSettingsPath));
         var input = new TestRunConfigurationRequest(
@@ -430,12 +430,13 @@ public sealed class TestRunConfigurationResolverTests
 
     private sealed class StubPathNormalizer : ITestRunPathNormalizer
     {
-        public bool TryNormalizeFullPath (
+        public bool TryNormalizeRepositoryPath (
+            string repositoryRoot,
             string path,
             out string? normalizedPath,
             out string? errorMessage)
         {
-            normalizedPath = Path.GetFullPath(path);
+            normalizedPath = Path.GetFullPath(Path.Combine(repositoryRoot, path));
             errorMessage = null;
             return true;
         }
