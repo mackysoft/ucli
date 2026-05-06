@@ -8,6 +8,8 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class ValidateCliOutputContractTests
 {
+    private const string GoldenRoot = "tests/Ucli.Tests/GoldenFiles/Json/CliOutput";
+
     private const string UnknownOptionMessage = "Argument '--unknown' is not recognized.";
 
     [Fact]
@@ -69,6 +71,10 @@ public sealed class ValidateCliOutputContractTests
                     .HasString("source", "index")
                     .HasString("freshness", "probable")
                     .IsNull("fallbackReason")));
+        JsonGoldenFileAssert.Matches(
+            Path.Combine(GoldenRoot, "validate", "success.json"),
+            result.StdOut,
+            CreateGeneratedAtNormalization());
     }
 
     [Fact]
@@ -110,6 +116,10 @@ public sealed class ValidateCliOutputContractTests
                 .HasArrayLength(1)
                 .HasIndex(0, error => error
                     .HasString("code", "OPERATION_ARGS_INVALID")));
+        JsonGoldenFileAssert.Matches(
+            Path.Combine(GoldenRoot, "validate", "static-validation-error.json"),
+            result.StdOut,
+            CreateGeneratedAtNormalization());
     }
 
     [Fact]
@@ -206,6 +216,15 @@ public sealed class ValidateCliOutputContractTests
             ?? throw new InvalidOperationException($"Directory path could not be resolved: {catalogPath}");
         Directory.CreateDirectory(directoryPath);
         File.WriteAllText(catalogPath, new IndexOpsCatalogJsonContractWriter().Write(contract));
+    }
+
+    private static JsonGoldenFileNormalization CreateGeneratedAtNormalization ()
+    {
+        return JsonGoldenFileNormalization.Create().NormalizeStringProperty(
+            "generatedAtUtc",
+            "<timestamp>",
+            static value => DateTimeOffset.TryParse(value, out _),
+            "an ISO-8601 timestamp");
     }
 
 }

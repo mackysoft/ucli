@@ -8,6 +8,8 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class PlanCliOutputContractTests
 {
+    private const string GoldenRoot = "tests/Ucli.Tests/GoldenFiles/Json/CliOutput";
+
     private const string UnknownOptionMessage = "Argument '--unknown' is not recognized.";
 
     [Fact]
@@ -169,6 +171,10 @@ public sealed class PlanCliOutputContractTests
                     .HasBoolean("hit", false)
                     .HasString("fallbackReason", "readIndex disabled by mode.")));
         Assert.False(outputJson.RootElement.GetProperty("payload").TryGetProperty("planToken", out _));
+        JsonGoldenFileAssert.Matches(
+            Path.Combine(GoldenRoot, "plan", "invalid-mode.json"),
+            result.StdOut,
+            JsonGoldenFileNormalization.Create().NormalizeRequestIds());
     }
 
     [Fact]

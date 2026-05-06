@@ -8,6 +8,8 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class CallCliOutputContractTests
 {
+    private const string GoldenRoot = "tests/Ucli.Tests/GoldenFiles/Json/CliOutput";
+
     private const string UnknownOptionMessage = "Argument '--unknown' is not recognized.";
 
     [Fact]
@@ -168,6 +170,10 @@ public sealed class CallCliOutputContractTests
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
                 .HasArrayLength("opResults", 0));
+        JsonGoldenFileAssert.Matches(
+            Path.Combine(GoldenRoot, "call", "invalid-mode.json"),
+            result.StdOut,
+            JsonGoldenFileNormalization.Create().NormalizeRequestIds());
     }
 
     private static string CreateRequestJson ()

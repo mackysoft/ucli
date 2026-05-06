@@ -6,6 +6,8 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class CliOutputContractTests
 {
+    private const string GoldenRoot = "tests/Ucli.Tests/GoldenFiles/Json/CliOutput";
+
     private const string ConfigFileName = "config.json";
 
     private const string GitIgnoreFileName = ".gitignore";
@@ -58,6 +60,7 @@ public sealed class CliOutputContractTests
                 .HasBoolean("canAcceptExecutionRequests", false)
                 .IsNull("runtime")
                 .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcTimeoutDefaultStatusMilliseconds));
+        JsonGoldenFileAssert.Matches(Path.Combine(GoldenRoot, "status", "success.json"), result.StdOut);
         FileSystemAssert.ForDirectory(ucliDirectoryPath).DoesNotExist();
     }
 
@@ -115,6 +118,10 @@ public sealed class CliOutputContractTests
             .GetProperty("gitignorePath")
             .GetString()!)
             .Exists();
+        JsonGoldenFileAssert.Matches(
+            Path.Combine(GoldenRoot, "init", "success.json"),
+            result.StdOut,
+            JsonGoldenFileNormalization.Create().NormalizePathPrefix(workingDirectoryPath, "<workspace>"));
 
         FileSystemAssert.ForDirectory(localDirectoryPath).DoesNotExist();
         FileSystemAssert.ForFile(configPath).Exists();
@@ -200,6 +207,13 @@ public sealed class CliOutputContractTests
         CommandResultAssert.HasSingleError(
             outputJson.RootElement,
             expectedCode: "INVALID_ARGUMENT");
+        if (isConfigFile)
+        {
+            JsonGoldenFileAssert.Matches(
+                Path.Combine(GoldenRoot, "init", "existing-config-error.json"),
+                result.StdOut,
+                JsonGoldenFileNormalization.Create().NormalizePathPrefix(workingDirectoryPath, "<workspace>"));
+        }
     }
 
     [Fact]
@@ -271,6 +285,7 @@ public sealed class CliOutputContractTests
             outputJson.RootElement,
             expectedCode: "INVALID_ARGUMENT");
         Assert.Contains("timeout", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
+        JsonGoldenFileAssert.Matches(Path.Combine(GoldenRoot, "status", "invalid-timeout.json"), result.StdOut);
     }
 
     [Fact]

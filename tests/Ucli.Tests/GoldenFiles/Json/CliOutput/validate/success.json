@@ -1,0 +1,18 @@
+{
+  "protocolVersion": 1,
+  "command": "validate",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "Static validation passed.",
+  "payload": {
+    "readIndex": {
+      "used": true,
+      "hit": true,
+      "source": "index",
+      "freshness": "probable",
+      "generatedAtUtc": "<timestamp>",
+      "fallbackReason": null
+    }
+  },
+  "errors": []
+}

@@ -9,6 +9,8 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class OpsCliOutputContractTests
 {
+    private const string GoldenRoot = "tests/Ucli.Tests/GoldenFiles/Json/CliOutput";
+
     private const string UnknownOptionMessage = "Argument '--unknown' is not recognized.";
 
     [Fact]
@@ -162,6 +164,10 @@ public sealed class OpsCliOutputContractTests
                     .HasString("source", "index")
                     .HasString("freshness", "probable")
                     .IsNull("fallbackReason")));
+        JsonGoldenFileAssert.Matches(
+            Path.Combine(GoldenRoot, "ops", "list-success.json"),
+            result.StdOut,
+            CreateGeneratedAtNormalization());
     }
 
     [Fact]
@@ -414,6 +420,7 @@ public sealed class OpsCliOutputContractTests
             outputJson.RootElement,
             expectedCode: "INVALID_ARGUMENT");
         Assert.Contains("Mode must be auto, daemon, or oneshot.", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
+        JsonGoldenFileAssert.Matches(Path.Combine(GoldenRoot, "ops", "list-invalid-mode.json"), result.StdOut);
     }
 
     [Fact]
@@ -538,5 +545,14 @@ public sealed class OpsCliOutputContractTests
                 mayPersist: false,
                 Array.Empty<string>(),
                 UcliOperationPlanMode.ObservesLiveUnity));
+    }
+
+    private static JsonGoldenFileNormalization CreateGeneratedAtNormalization ()
+    {
+        return JsonGoldenFileNormalization.Create().NormalizeStringProperty(
+            "generatedAtUtc",
+            "<timestamp>",
+            static value => DateTimeOffset.TryParse(value, out _),
+            "an ISO-8601 timestamp");
     }
 }

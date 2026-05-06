@@ -12,6 +12,8 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class TestRunCommandTests
 {
+    private const string GoldenRoot = "tests/Ucli.Tests/GoldenFiles/Json/CliOutput";
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Run_MapsOptionsToServiceInputAndCancellationToken ()
@@ -25,7 +27,7 @@ public sealed class TestRunCommandTests
         var command = new TestRunCommand(service, CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        await StandardOutputCapture.Execute(() => command.Run(
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Run(
             projectPath: "/repo/UnityProject",
             profilePath: "/repo/test.profile.json",
             executionMode: "oneshot",
@@ -40,6 +42,7 @@ public sealed class TestRunCommandTests
             failFast: true,
             cancellationToken: cancellationTokenSource.Token));
 
+        Assert.Equal((int)CliExitCode.Success, exitCode);
         Assert.Equal(cancellationTokenSource.Token, service.CapturedCancellationToken);
 
         var input = Assert.IsType<TestRunCommandInput>(service.CapturedInput);
@@ -57,6 +60,10 @@ public sealed class TestRunCommandTests
         Assert.Equal("/repo/UnityProject/ProjectSettings/TestSettings.json", input.TestSettingsPath);
         Assert.Equal(120, input.TimeoutMilliseconds);
         Assert.True(input.FailFast);
+        JsonGoldenFileAssert.Matches(
+            Path.Combine(GoldenRoot, "test-run", "success.json"),
+            standardOutput,
+            JsonGoldenFileNormalization.Create().NormalizePathPrefix("/tmp/artifacts", "<artifacts>"));
     }
 
     [Fact]
