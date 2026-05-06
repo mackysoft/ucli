@@ -2,7 +2,7 @@ using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Contracts.Ipc;
 
-namespace MackySoft.Ucli.UnityIntegration.Ipc.Execution;
+namespace MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 
 /// <summary> Converts Unity IPC response envelopes into application-level request responses. </summary>
 internal static class UnityRequestResponseFactory

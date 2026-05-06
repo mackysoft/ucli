@@ -1,31 +1,32 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 
-/// <summary> Converts application Unity requests into IPC method payloads. </summary>
-internal static class UnityIpcRequestPayloadFactory
+/// <summary> Converts application Unity request payloads into IPC method dispatch requests. </summary>
+internal sealed class UnityIpcRequestBuilder
 {
     /// <summary> Converts one application request into the IPC method and serialized payload. </summary>
     /// <param name="request"> The application request payload. </param>
-    /// <returns> The IPC method name and payload JSON. </returns>
+    /// <returns> The IPC dispatch request. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> is <see langword="null" />. </exception>
-    public static (string Method, JsonElement Payload) Create (UnityRequestPayload request)
+    public UnityIpcDispatchRequest Build (UnityRequestPayload request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
         return request switch
         {
-            UnityRequestPayload.Raw raw => (raw.Method, raw.Payload),
-            UnityRequestPayload.ExecuteJson executeJson => (
+            UnityRequestPayload.Raw raw => new UnityIpcDispatchRequest(raw.Method, raw.Payload),
+            UnityRequestPayload.ExecuteJson executeJson => new UnityIpcDispatchRequest(
                 IpcMethodNames.Execute,
                 CreateExecutePayload(
                     executeJson.Command,
                     executeJson.ExecuteArguments,
                     executeJson.FailFast,
                     executeJson.PlanToken)),
-            UnityRequestPayload.ExecuteOperation executeOperation => (
+            UnityRequestPayload.ExecuteOperation executeOperation => new UnityIpcDispatchRequest(
                 IpcMethodNames.Execute,
                 CreateExecutePayload(
                     executeOperation.Command,

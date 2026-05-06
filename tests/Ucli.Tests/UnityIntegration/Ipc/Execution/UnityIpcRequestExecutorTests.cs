@@ -27,7 +27,7 @@ public sealed class UnityIpcRequestExecutorTests
         var daemonTransportClient = new StubUnityIpcTransportClient(_ => CreateResponse("unused"));
         var oneshotTransportClient = new StubUnityIpcTransportClient(_ => CreateResponse("unused"));
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
-        var executor = new UnityIpcRequestExecutor(
+        var executor = CreateExecutor(
             new StubModeDecisionService(
                 UnityExecutionModeDecisionResult.ContractFailure(
                     new UnityExecutionModeDecisionContractError(
@@ -56,6 +56,48 @@ public sealed class UnityIpcRequestExecutorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenModeDecisionThrows_ReturnsInternalErrorWithoutCallingClients ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "mode-decision-exception");
+        var daemonTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Daemon transport must not be called."));
+        var oneshotTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
+        var pluginLocator = new StubUnityUcliPluginLocator();
+        var executor = CreateExecutor(
+            new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(
+                    UnityExecutionMode.Auto,
+                    true,
+                    UnityExecutionTarget.Daemon,
+                    DefaultTimeout)))
+            {
+                OnDecide = static _ => throw new InvalidOperationException("mode decision failed"),
+            },
+            new StubDaemonPingInfoClient(),
+            pluginLocator,
+            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
+
+        var result = await executor.Execute(
+            UcliCommandIds.Ops,
+            UnityExecutionMode.Auto,
+            DefaultTimeout,
+            UcliConfig.CreateDefault(),
+            CreateContext(scope),
+            new UnityRequestPayload.Raw(
+                IpcMethodNames.OpsRead,
+                EmptyPayload()));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.Contains("Failed to decide Unity execution mode.", result.Message, StringComparison.Ordinal);
+        Assert.Equal(0, pluginLocator.CallCount);
+        Assert.Equal(0, daemonTransportClient.CallCount);
+        Assert.Equal(0, oneshotTransportClient.CallCount);
+        Assert.Equal(0, launcher.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenTargetIsDaemon_UsesDaemonClient ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "daemon");
@@ -72,7 +114,7 @@ public sealed class UnityIpcRequestExecutorTests
             Result = UnityUcliPluginLocateResult.NotFound(ExecutionError.InvalidArgument(
                 "Unity project does not contain the uCLI Unity plugin.")),
         };
-        var executor = new UnityIpcRequestExecutor(
+        var executor = CreateExecutor(
             new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(
                     UnityExecutionMode.Auto,
@@ -119,7 +161,7 @@ public sealed class UnityIpcRequestExecutorTests
             CreatePingPayload(IpcEditorLifecycleStateCodec.Busy, false),
             CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true));
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
-        var executor = new UnityIpcRequestExecutor(
+        var executor = CreateExecutor(
             new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(
                     UnityExecutionMode.Auto,
@@ -179,7 +221,7 @@ public sealed class UnityIpcRequestExecutorTests
             CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true),
             CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true));
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
-        var executor = new UnityIpcRequestExecutor(
+        var executor = CreateExecutor(
             new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(
                     UnityExecutionMode.Auto,
@@ -229,7 +271,7 @@ public sealed class UnityIpcRequestExecutorTests
         var readinessProbe = new StubDaemonPingInfoClient(
             CreatePingPayload(IpcEditorLifecycleStateCodec.Busy, false));
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
-        var executor = new UnityIpcRequestExecutor(
+        var executor = CreateExecutor(
             new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(
                     UnityExecutionMode.Auto,
@@ -278,7 +320,7 @@ public sealed class UnityIpcRequestExecutorTests
             };
         });
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
-        var executor = new UnityIpcRequestExecutor(
+        var executor = CreateExecutor(
             new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(
                     UnityExecutionMode.Auto,
@@ -319,7 +361,7 @@ public sealed class UnityIpcRequestExecutorTests
             Result = UnityUcliPluginLocateResult.NotFound(ExecutionError.InvalidArgument(
                 "Unity project does not contain the uCLI Unity plugin.")),
         };
-        var executor = new UnityIpcRequestExecutor(
+        var executor = CreateExecutor(
             new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(
                     UnityExecutionMode.Auto,
@@ -361,7 +403,7 @@ public sealed class UnityIpcRequestExecutorTests
             Result = UnityUcliPluginLocateResult.NotFound(ExecutionError.InvalidArgument(
                 "Unity project does not contain the uCLI Unity plugin.")),
         };
-        var executor = new UnityIpcRequestExecutor(
+        var executor = CreateExecutor(
             new StubModeDecisionService(
                 UnityExecutionModeDecisionResult.ContractFailure(
                     new UnityExecutionModeDecisionContractError(
@@ -407,7 +449,7 @@ public sealed class UnityIpcRequestExecutorTests
                     UnityUcliPluginLocator.ExpectedProtocolVersion);
             },
         };
-        var executor = new UnityIpcRequestExecutor(
+        var executor = CreateExecutor(
             new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(
                     UnityExecutionMode.Auto,
@@ -458,7 +500,7 @@ public sealed class UnityIpcRequestExecutorTests
                 ((ManualTimeProvider)context.TimeProvider).Advance(TimeSpan.FromMilliseconds(120));
             },
         };
-        var executor = new UnityIpcRequestExecutor(
+        var executor = CreateExecutor(
             modeDecisionService,
             new StubDaemonPingInfoClient(),
             new StubUnityUcliPluginLocator(),
@@ -498,6 +540,23 @@ public sealed class UnityIpcRequestExecutorTests
                 oneshotTransportClient,
                 new StubProjectLifecycleLockProvider()),
         ];
+    }
+
+    private static UnityIpcRequestExecutor CreateExecutor (
+        StubModeDecisionService modeDecisionService,
+        StubDaemonPingInfoClient daemonPingInfoClient,
+        StubUnityUcliPluginLocator pluginLocator,
+        IUnityIpcClient[] clients,
+        TimeProvider? timeProvider = null)
+    {
+        return new UnityIpcRequestExecutor(
+            new UnityIpcRequestBuilder(),
+            new UnityIpcExecutionTargetResolver(
+                modeDecisionService,
+                new UnityIpcPluginVerifier(pluginLocator)),
+            new UnityIpcClientSelector(clients),
+            new UnityDaemonReadinessGate(daemonPingInfoClient, timeProvider),
+            timeProvider);
     }
 
     private static ResolvedUnityProjectContext CreateContext (TestDirectoryScope scope)

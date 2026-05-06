@@ -5,8 +5,10 @@ namespace MackySoft.Ucli.Application.Shared.Context.Project;
 /// <param name="RepositoryRoot"> The normalized absolute repository root path used for <c>.ucli</c> storage. </param>
 /// <param name="ProjectFingerprint"> The deterministic fingerprint for project identity checks. </param>
 /// <param name="PathSource"> The path source used during resolution. </param>
+/// <param name="PathSourceLabel"> The optional label for the source used during resolution. </param>
 internal sealed record ResolvedUnityProjectContext (
     string UnityProjectRoot,
     string RepositoryRoot,
     string ProjectFingerprint,
-    UnityProjectPathSource PathSource);
+    UnityProjectPathSource PathSource,
+    string? PathSourceLabel = null);

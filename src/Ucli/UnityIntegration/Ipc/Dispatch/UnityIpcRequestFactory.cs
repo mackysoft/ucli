@@ -1,7 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 
-namespace MackySoft.Ucli.UnityIntegration.Ipc.Execution;
+namespace MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 
 /// <summary> Creates IPC request envelopes for Unity request execution clients. </summary>
 internal static class UnityIpcRequestFactory

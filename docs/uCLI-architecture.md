@@ -79,10 +79,10 @@ Application code は次を直接扱わない。
 | `Features/**/UseCases/**ServiceResult.cs` | `Ucli.Application` | CLI JSON へ投影する前の application result を表す |
 | `Features/**/Common/Contracts/*ExecutionOutput.cs` | 原則 `Ucli.Application` | use case が返す report model。公開 JSON writer そのものではない |
 | `Features/Requests/Shared/Preparation/**` | `Ucli.Application` | request preparation、resolved request、readIndex preflight の application policy を担う |
-| `Shared/Context/**` | policy は `Ucli.Application`、具体実装は adapter 側 | project context resolution は use case 入力解決だが、filesystem / git detail は境界外へ分ける |
+| `Shared/Context/**` | policy は `Ucli.Application`、具体実装は adapter 側 | project context resolution は未解決入力の優先順位、候補 source、resolved context 型境界を持つ。filesystem / git detail は境界外へ分ける |
 | `Shared/Execution/UnityRequest/IUnityRequestExecutor.cs` | `Ucli.Application` | Unity 実行要求という外部境界 interface を表す |
 | `UnityIntegration/Ipc/Execution/UnityIpcRequestExecutor.cs` | adapter 側または `Ucli` | IPC transport を使う具体実装であり Application には置かない |
-| `UnityIntegration/Project/Resolution/**` | interface / policy は `Ucli.Application`、Unity project 判定実装は adapter 側 | project 解決 policy と filesystem / Unity project detail を分ける |
+| `UnityIntegration/Project/Resolution/**` | interface / policy は `Ucli.Application`、Unity project 判定実装は adapter 側 | path normalization、directory existence、Unity project marker 判定、storage root / fingerprint 計算を扱う。入力優先順位 policy は持たない |
 | `Shared/Execution/Process/ProcessRunner.cs` | `Ucli.Infrastructure` または adapter 側 | process 実行の具体実装であり Application には置かない |
 | `Features/**/Persistence/File*Store.cs` | `Ucli.Infrastructure` または adapter 側 | file 永続化の具体実装であり Application には置かない |
 | `Features/Requests/**/Projection/*ExecutionOutputFactory.cs` | 内容で分ける | application report 生成なら `Ucli.Application`、公開 JSON shape 生成なら `Ucli` |
@@ -98,7 +98,7 @@ Application code は次を直接扱わない。
 | 能力 | Interface の配置 | 具体実装の配置 |
 | --- | --- | --- |
 | Unity IPC request 実行 | `Ucli.Application` | `Ucli` の adapter 領域、または将来の専用 adapter project |
-| project context 解決 | policy interface は `Ucli.Application` | filesystem / git / Unity project 判定は `Ucli.Infrastructure` または adapter 側 |
+| project context 解決 | 未解決入力型、入力優先順位 policy、resolved context / error code は `Ucli.Application` | filesystem / git / Unity project 判定は `Ucli.Infrastructure` または adapter 側 |
 | readIndex / catalog 参照 | use case が必要とする reader interface は `Ucli.Application` | file store、snapshot loader、Unity fallback client は adapter 側 |
 | process 実行 | 必要なら能力 interface は `Ucli.Application` | `Ucli.Infrastructure` の process 実装 |
 | filesystem 永続化 | 必要なら repository / store interface は `Ucli.Application` | `Ucli.Infrastructure` または adapter 側の file store |

@@ -45,7 +45,7 @@ internal sealed class ValidateService : IValidateService
                 var error = parsedRequestResult.Error!;
                 return ValidateServiceResult.Failure(
                     error.Message,
-                    ExecutionErrorCodeMapper.ToCode(error.Kind),
+                    ExecutionErrorCodeMapper.ToCode(error),
                     output: null);
             }
 
@@ -60,7 +60,7 @@ internal sealed class ValidateService : IValidateService
             {
                 return ValidateServiceResult.Failure(
                     disabledValidationResult.Error.Message,
-                    ExecutionErrorCodeMapper.ToCode(disabledValidationResult.Error.Kind),
+                    ExecutionErrorCodeMapper.ToCode(disabledValidationResult.Error),
                     disabledOutput);
             }
 
@@ -85,7 +85,7 @@ internal sealed class ValidateService : IValidateService
             var error = requestPreparationResult.Error!;
             return ValidateServiceResult.Failure(
                 error.Message,
-                ExecutionErrorCodeMapper.ToCode(error.Kind),
+                ExecutionErrorCodeMapper.ToCode(error),
                 output: null);
         }
 

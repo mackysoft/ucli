@@ -148,16 +148,14 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
-            var error = RequestServiceResultPolicy.FromTransportFailure(
-                executionResult.ErrorCode,
-                executionResult.Message);
+            var failure = RequestServiceResultPolicy.FromUnityRequestFailure(executionResult.FailureInfo!);
             return OperationExecuteResultFactory.Failure(
                 requestId,
                 [],
                 [
-                    error,
+                    failure.Error,
                 ],
-                RequestServiceResultPolicy.ResolveOutcome(error.Code),
+                failure.Outcome,
                 definition.FailureMessage);
         }
 
@@ -231,18 +229,16 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
-            var error = RequestServiceResultPolicy.FromTransportFailure(
-                executionResult.ErrorCode,
-                executionResult.Message);
+            var failure = RequestServiceResultPolicy.FromUnityRequestFailure(executionResult.FailureInfo!);
             return (
                 null,
                 OperationExecuteResultFactory.Failure(
                     requestId,
                     [],
                     [
-                        error,
+                        failure.Error,
                     ],
-                    RequestServiceResultPolicy.ResolveOutcome(error.Code),
+                    failure.Outcome,
                     definition.FailureMessage));
         }
 

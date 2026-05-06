@@ -25,19 +25,19 @@ internal static class TestRunServiceErrorMapper
         {
             ExecutionErrorKind.InvalidArgument => TestRunServiceResult.InvalidInput(
                 error.Message,
-                UcliCoreErrorCodes.InvalidArgument,
+                ExecutionErrorCodeMapper.ToCode(error),
                 runId,
                 artifactsDir,
                 summaryJsonPath),
             ExecutionErrorKind.Timeout => TestRunServiceResult.ToolError(
                 error.Message,
-                ExecutionErrorCodes.IpcTimeout,
+                ExecutionErrorCodeMapper.ToCode(error),
                 runId,
                 artifactsDir,
                 summaryJsonPath),
             _ => TestRunServiceResult.InfraError(
                 error.Message,
-                UcliCoreErrorCodes.InternalError,
+                ExecutionErrorCodeMapper.ToCode(error),
                 runId,
                 artifactsDir,
                 summaryJsonPath),
@@ -59,13 +59,25 @@ internal static class TestRunServiceErrorMapper
         }
 
         var hasInternalError = errors.Any(static error => error.Kind == ExecutionErrorKind.InternalError);
-        var errorCode = hasInternalError
-            ? UcliCoreErrorCodes.InternalError
-            : UcliCoreErrorCodes.InvalidArgument;
+        var errorCode = ResolveConfigurationErrorCode(errors, hasInternalError);
         var message = string.Join(" | ", errors.Select(static error => error.Message));
 
         return hasInternalError
             ? TestRunServiceResult.InfraError(message, errorCode)
             : TestRunServiceResult.InvalidInput(message, errorCode);
+    }
+
+    private static UcliErrorCode ResolveConfigurationErrorCode (
+        IReadOnlyList<ExecutionError> errors,
+        bool hasInternalError)
+    {
+        if (hasInternalError)
+        {
+            return UcliCoreErrorCodes.InternalError;
+        }
+
+        return errors.Count == 1
+            ? ExecutionErrorCodeMapper.ToCode(errors[0])
+            : UcliCoreErrorCodes.InvalidArgument;
     }
 }

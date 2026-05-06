@@ -446,9 +446,9 @@ public sealed class OperationExecuteServiceTests
     {
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
         var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
-        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Failure(
-            message: "execution failed",
-            errorCode: errorCode));
+        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResultTestFactory.Failure(
+            "execution failed",
+            errorCode));
         var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore());
 
         var result = await service.Execute(
@@ -470,33 +470,7 @@ public sealed class OperationExecuteServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenTransportExecutionFailsWithBlankMessage_UsesFallbackMessage ()
-    {
-        var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
-        var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
-        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Failure(
-            message: "",
-            errorCode: UcliCoreErrorCodes.InternalError));
-        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore());
-
-        var result = await service.Execute(
-            RefreshOperation,
-            CreateInput(
-                projectPath: "/repo/UnityProject",
-                mode: null,
-                timeoutMilliseconds: null,
-                failFast: false),
-            cancellationToken: CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Equal("Request execution failed.", error.Message);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenRequiredPlanTokenExecutionFailsWithMissingErrorCode_NormalizesInternalError ()
+    public async Task Execute_WhenRequiredPlanTokenExecutionFails_ReturnsPlanFailure ()
     {
         var config = UcliConfig.CreateDefault() with
         {
@@ -504,9 +478,9 @@ public sealed class OperationExecuteServiceTests
         };
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext(config)));
         var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
-        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Failure(
-            message: "execution failed",
-            errorCode: null));
+        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResultTestFactory.Failure(
+            "execution failed",
+            UcliCoreErrorCodes.InternalError));
         var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore());
 
         var result = await service.Execute(

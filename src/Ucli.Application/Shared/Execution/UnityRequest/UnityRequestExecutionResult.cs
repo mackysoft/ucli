@@ -1,16 +1,32 @@
 namespace MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 
 /// <summary> Represents one Unity request execution result. </summary>
-/// <param name="Response"> The host-decoded response on success; otherwise <see langword="null" />. </param>
-/// <param name="Message"> The user-facing result message. </param>
-/// <param name="ErrorCode"> The machine-readable error code on failure; otherwise <see langword="null" />. </param>
-internal sealed record UnityRequestExecutionResult (
-    UnityRequestResponse? Response,
-    string Message,
-    UcliErrorCode? ErrorCode)
+internal sealed record UnityRequestExecutionResult
 {
+    private const string SuccessMessage = "Unity IPC request execution completed.";
+
+    private UnityRequestExecutionResult (
+        UnityRequestResponse? response,
+        UnityRequestFailure? failure)
+    {
+        Response = response;
+        FailureInfo = failure;
+    }
+
+    /// <summary> Gets the host-decoded response on success; otherwise <see langword="null" />. </summary>
+    public UnityRequestResponse? Response { get; }
+
+    /// <summary> Gets the classified failure on failure; otherwise <see langword="null" />. </summary>
+    public UnityRequestFailure? FailureInfo { get; }
+
+    /// <summary> Gets the user-facing result message. </summary>
+    public string Message => FailureInfo?.Message ?? SuccessMessage;
+
+    /// <summary> Gets the machine-readable error code on failure; otherwise <see langword="null" />. </summary>
+    public UcliErrorCode? ErrorCode => FailureInfo?.Code;
+
     /// <summary> Gets a value indicating whether request execution succeeded. </summary>
-    public bool IsSuccess => Response is not null && ErrorCode is null;
+    public bool IsSuccess => Response is not null && FailureInfo is null;
 
     /// <summary> Creates a successful request-execution result. </summary>
     /// <param name="response"> The host-decoded response returned from Unity. </param>
@@ -20,22 +36,19 @@ internal sealed record UnityRequestExecutionResult (
         ArgumentNullException.ThrowIfNull(response);
 
         return new UnityRequestExecutionResult(
-            Response: response,
-            Message: "Unity IPC request execution completed.",
-            ErrorCode: null);
+            response,
+            failure: null);
     }
 
     /// <summary> Creates a failed request-execution result. </summary>
-    /// <param name="message"> The user-facing failure message. </param>
-    /// <param name="errorCode"> The machine-readable failure code. </param>
+    /// <param name="failure"> The classified request failure. </param>
     /// <returns> The failed request-execution result. </returns>
-    public static UnityRequestExecutionResult Failure (
-        string message,
-        UcliErrorCode? errorCode)
+    public static UnityRequestExecutionResult Failure (UnityRequestFailure failure)
     {
+        ArgumentNullException.ThrowIfNull(failure);
+
         return new UnityRequestExecutionResult(
-            Response: null,
-            Message: message,
-            ErrorCode: errorCode);
+            response: null,
+            failure);
     }
 }

@@ -29,4 +29,20 @@ public sealed class CommandResultFactoryTests
         Assert.Equal(expectedErrorCode, result.Errors[0].Code.Value);
         Assert.Equal(message, result.Errors[0].Message);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void FromExecutionError_WithCustomCode_PreservesCodeAndKindExitCode ()
+    {
+        const string command = "test";
+        const string message = "project path does not exist";
+        var error = ExecutionError.InvalidArgument(
+            message,
+            ProjectContextErrorCodes.ProjectPathNotFound);
+
+        var result = CommandResultFactory.FromExecutionError(command, error);
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        Assert.Equal(ProjectContextErrorCodes.ProjectPathNotFound, Assert.Single(result.Errors).Code);
+    }
 }

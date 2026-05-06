@@ -108,7 +108,7 @@ internal static class RequestServiceResultPolicy
         return new OperationExecutionError(
             errorCode.HasValue && errorCode.Value.IsValid
                 ? errorCode.Value
-                : ExecutionErrorCodeMapper.ToCode(error.Kind),
+                : ExecutionErrorCodeMapper.ToCode(error),
             error.Message,
             null);
     }
@@ -132,6 +132,18 @@ internal static class RequestServiceResultPolicy
             ResolveErrorCode(errorCode),
             normalizedMessage,
             opId);
+    }
+
+    /// <summary> Converts one Unity request boundary failure into a request-service failure. </summary>
+    public static RequestServiceFailure FromUnityRequestFailure (UnityRequestFailure failure)
+    {
+        ArgumentNullException.ThrowIfNull(failure);
+
+        return new RequestServiceFailure(
+            FromTransportFailure(
+                failure.Code,
+                failure.Message),
+            failure.Outcome);
     }
 
     /// <summary> Normalizes one operation execution error from an external result boundary. </summary>
@@ -214,7 +226,7 @@ internal static class RequestServiceResultPolicy
         ArgumentNullException.ThrowIfNull(error);
         return ResolveOutcome(errorCode.HasValue && errorCode.Value.IsValid
             ? errorCode.Value
-            : ExecutionErrorCodeMapper.ToCode(error.Kind));
+            : ExecutionErrorCodeMapper.ToCode(error));
     }
 
     /// <summary> Resolves the application outcome for one machine-readable error code. </summary>
@@ -243,21 +255,6 @@ internal static class RequestServiceResultPolicy
 
     private static bool IsInvalidArgumentErrorCode (UcliErrorCode errorCode)
     {
-        if (errorCode == ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.InvalidArgument))
-        {
-            return true;
-        }
-
-        return ValidationErrorCodes.Contains(errorCode)
-            || IsPlanTokenValidationErrorCode(errorCode);
-    }
-
-    private static bool IsPlanTokenValidationErrorCode (UcliErrorCode errorCode)
-    {
-        return errorCode == PlanTokenErrorCodes.PlanTokenRequired
-            || errorCode == PlanTokenErrorCodes.PlanTokenInvalid
-            || errorCode == PlanTokenErrorCodes.PlanTokenExpired
-            || errorCode == PlanTokenErrorCodes.PlanTokenRequestMismatch
-            || errorCode == PlanTokenErrorCodes.StateChangedSincePlan;
+        return ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(errorCode);
     }
 }

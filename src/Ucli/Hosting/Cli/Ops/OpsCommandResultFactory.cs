@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
+using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Requests;
@@ -75,7 +76,9 @@ internal static class OpsCommandResultFactory
 
     private static CliExitCode ResolveExitCode (UcliErrorCode? errorCode)
     {
-        return errorCode == UcliCoreErrorCodes.InvalidArgument
+        return errorCode.HasValue
+            && errorCode.Value.IsValid
+            && ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(errorCode.Value)
             ? CliExitCode.InvalidArgument
             : CliExitCode.ToolError;
     }

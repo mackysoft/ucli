@@ -74,6 +74,6 @@ internal sealed record PhaseExecutionPreflightResult (
             Error: error,
             ErrorCode: errorCode.HasValue && errorCode.Value.IsValid
                 ? errorCode.Value
-                : ExecutionErrorCodeMapper.ToCode(error.Kind));
+                : ExecutionErrorCodeMapper.ToCode(error));
     }
 }

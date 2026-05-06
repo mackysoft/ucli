@@ -211,7 +211,7 @@ public sealed class QueryCommandTests
             UcliCommandNames.QueryAssetsFind,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, ProjectContextErrorCodes.ProjectPathNotFound);
     }
 
     private static QueryServiceResult CreateSuccessResult (string commandName)
