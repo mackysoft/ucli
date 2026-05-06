@@ -22,7 +22,13 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
             throw new ArgumentException("Project root path must not be empty.", nameof(projectRootPath));
         }
 
-        return TryComputeCoreInternal(Path.GetFullPath(projectRootPath), cancellationToken);
+        var normalizedProjectRoot = TryNormalizeProjectRoot(projectRootPath);
+        if (normalizedProjectRoot is null)
+        {
+            return new ValueTask<IndexCoreInputHashSnapshot?>((IndexCoreInputHashSnapshot?)null);
+        }
+
+        return TryComputeCoreInternal(normalizedProjectRoot, cancellationToken);
     }
 
     /// <summary> Tries to compute one input fingerprint snapshot from project files. </summary>
@@ -40,7 +46,12 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
             throw new ArgumentException("Project root path must not be empty.", nameof(projectRootPath));
         }
 
-        var normalizedProjectRoot = Path.GetFullPath(projectRootPath);
+        var normalizedProjectRoot = TryNormalizeProjectRoot(projectRootPath);
+        if (normalizedProjectRoot is null)
+        {
+            return null;
+        }
+
         var coreSnapshot = await TryComputeCoreInternal(normalizedProjectRoot, cancellationToken).ConfigureAwait(false);
         if (coreSnapshot == null)
         {
@@ -120,6 +131,12 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
             PackagesLockHash: packagesLockHash,
             AssemblyDefinitionHash: assemblyDefinitionHash,
             CombinedHash: combinedHash);
+    }
+
+    private static string? TryNormalizeProjectRoot (string projectRootPath)
+    {
+        var pathResult = PathNormalizer.TryNormalizeFullPath(projectRootPath);
+        return pathResult.IsSuccess ? pathResult.FullPath : null;
     }
 
     private static async ValueTask<string?> TryHashAssemblyDefinitionFiles (

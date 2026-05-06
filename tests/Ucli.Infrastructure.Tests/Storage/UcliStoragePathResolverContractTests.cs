@@ -110,6 +110,23 @@ public sealed class UcliStoragePathResolverContractTests
             resolvedPath);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(".")]
+    [InlineData("..")]
+    [InlineData("abc/def")]
+    [InlineData("abc\\def")]
+    [InlineData("abc:def")]
+    public void ResolveFingerprintDirectory_WithUnsafeProjectFingerprint_ThrowsArgumentException (string projectFingerprint)
+    {
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
+
+        Assert.Throws<ArgumentException>(() =>
+        {
+            UcliStoragePathResolver.ResolveFingerprintDirectory(storageRoot, projectFingerprint);
+        });
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void ResolveUnityUcliPluginMarkerCachePath_ReturnsFingerprintScopedPath ()

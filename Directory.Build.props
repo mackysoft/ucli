@@ -1,0 +1,15 @@
+<Project>
+
+  <PropertyGroup>
+    <Version>0.18.0</Version>
+    <PackageVersion>$(Version)</PackageVersion>
+    <Authors>Hiroya Aramaki</Authors>
+    <Company>MackySoft</Company>
+    <RepositoryUrl>https://github.com/mackysoft/ucli</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Copyright>Copyright (c) 2026 Hiroya Aramaki</Copyright>
+  </PropertyGroup>
+
+</Project>

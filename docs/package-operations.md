@@ -84,7 +84,7 @@ dotnet tool install --global MackySoft.Ucli --version <version>
 dotnet tool update --global MackySoft.Ucli --version <version>
 ```
 
-CLI パッケージは `src/Ucli/Ucli.csproj` を正として `dotnet pack` で生成する。公開 workflow は release tag の version を `Version` / `PackageVersion` に渡し、`ucli --version` が公開 version と一致することを検証してから nuget.org へ公開し、同じ `.nupkg` を GitHub Releases へミラーする。
+CLI パッケージは `src/Ucli/Ucli.csproj` と root の `Directory.Build.props` を正として `dotnet pack` で生成する。公開 workflow は release tag の version を `Version` / `PackageVersion` に渡し、`ucli --version` が公開 version と一致することを検証してから nuget.org へ公開し、同じ `.nupkg` を GitHub Releases へミラーする。
 
 ```bash
 dotnet pack "src/Ucli/Ucli.csproj" \
@@ -194,12 +194,12 @@ done
 - `push` to `master` では変更差分を判定しつつ、実行 OS は `Linux` のみに絞って post-merge 検証を軽量化する。
 - `workflow_dispatch` は差分判定を使わず、`.NET`、Unity、shared pack、CLI pack、Unity package pack をフル検証する。`.NET` と Unity は `Linux`、`Windows`、`macOS` の 3 OS で実行し、package 検証は `Linux` で実行する。
 - Unity 検証は `src/Ucli`、`src/Ucli.Application`、`src/Ucli.Unity`、`src/Ucli.Contracts`、`src/Ucli.Infrastructure`、`scripts/test-unity.sh`、`scripts/update-local-shared-packages.sh`、`verify` 自体の変更時に動く。`buildalon/unity-setup` と `buildalon/activate-unity-license` で各 OS の Unity Editor を用意した後、CI とローカル共通の `scripts/test-unity.sh` から `ucli test run --mode oneshot` を使って `EditMode` テストアセンブリを明示指定して実行する。workflow はプロセス終了コードだけでなく `command-result.json` の `status` / `exitCode` / `payload.result` も検証し、`pass` 以外を失敗として扱う。
-- CLI pack 検証は `src/Ucli`、`src/Ucli.Contracts`、`src/Ucli.Infrastructure`、`README.md`、`LICENSE`、`cli-package-publish`、`verify` 自体の変更時に動く。`dotnet pack` 後にローカル tool install、`ucli --version`、`ucli --help`、nupkg 内の `DotnetToolSettings.xml` / `README.md` / `LICENSE` を検証する。
+- CLI pack 検証は `Directory.Build.props`、`src/Ucli`、`src/Ucli.Contracts`、`src/Ucli.Infrastructure`、`README.md`、`LICENSE`、`cli-package-publish`、`verify` 自体の変更時に動く。`dotnet pack` 後にローカル tool install、`ucli --version`、`ucli --help`、nupkg 内の `DotnetToolSettings.xml` / `README.md` / `LICENSE` を検証する。
 - Unity package pack 検証は `scripts/pack-unity-plugin.sh` で `MackySoft.Ucli.Unity` nupkg を作成し、`scripts/verify-unity-plugin-package.sh` で必須ファイル、依存定義、ローカル復元後の `ucli-plugin.json` 配置を検証する。
 - `shared-package-publish`: `shared/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、その同一 workflow run の中で nuget.org publish / GitHub Release mirror / repository version sync PR 作成まで継続する。
-- `shared-package-publish` は公開後に `chore/shared-sync-<version>` ブランチを作成し、`src/Ucli.Contracts/Ucli.Contracts.csproj`、`src/Ucli.Infrastructure/Ucli.Infrastructure.csproj`、`src/Ucli.Unity/Assets/packages.config`、`src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec` の shared package version を同一値へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
+- `shared-package-publish` は公開後に `chore/shared-sync-<version>` ブランチを作成し、`Directory.Build.props`、`src/Ucli.Unity/Assets/packages.config`、`src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec` の shared package version を同一値へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
 - `cli-package-publish`: `cli/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、同一 workflow run の中で pack / smoke test / nuget.org publish / GitHub Release mirror まで継続する。
-- `cli-package-publish` は公開後に `chore/cli-sync-<version>` ブランチを作成し、`src/Ucli/Ucli.csproj` の `MackySoft.Ucli` バージョンを公開 version へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
+- `cli-package-publish` は公開後に `chore/cli-sync-<version>` ブランチを作成し、`Directory.Build.props` の `MackySoft.Ucli` バージョンを公開 version へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
 - `unity-package-publish`: `unity/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、同一 workflow run の中で pack / package verify / nuget.org publish / GitHub Release mirror / repository version sync PR 作成まで継続する。
 - `unity-package-publish` は公開後に `chore/unity-sync-<version>` ブランチを作成し、`src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec` の `MackySoft.Ucli.Unity` バージョンを公開 version へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
 - タグは `v` プレフィックスを付けない（例: `shared/x.y.z`、`cli/x.y.z`、`unity/x.y.z`）。

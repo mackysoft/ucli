@@ -311,11 +311,11 @@ public sealed class TestRunConfigurationResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Resolve_WithRelativeTestSettingsPath_ReturnsNormalizedFullPath ()
+    public async Task Resolve_WithRelativeTestSettingsPath_ReturnsRepositoryRootBasedFullPath ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", "relative-test-settings");
         var relativeTestSettingsPath = Path.Combine("ProjectSettings", "TestSettings.json");
-        var normalizedTestSettingsPath = Path.GetFullPath(relativeTestSettingsPath);
+        var normalizedTestSettingsPath = Path.GetFullPath(Path.Combine(scope.FullPath, relativeTestSettingsPath));
 
         var resolver = CreateResolverWithSuccessfulDependencies(scope, new StubPathExistenceProbe(normalizedTestSettingsPath));
         var input = new TestRunConfigurationRequest(
@@ -335,6 +335,43 @@ public sealed class TestRunConfigurationResolverTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(normalizedTestSettingsPath, result.Configuration!.TestSettingsPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Resolve_WithInvalidTestSettingsPathFormat_ReturnsInvalidArgumentWithoutDiagnosticLeak ()
+    {
+        using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", "invalid-test-settings-format");
+        var resolver = new TestRunConfigurationResolver(
+            new StubProfileLoader(TestRunProfileLoadResult.Success(new TestRunProfile())),
+            new StubProjectPathInputResolver(static (commandOptionProjectPath, fallbackProjectPath) => commandOptionProjectPath ?? fallbackProjectPath),
+            new StubUnityProjectResolver(UnityProjectResolutionResult.Success(CreateUnityProjectContext(scope, "Unity"))),
+            new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1")),
+            new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))),
+            new StubPathNormalizer(TestRunPathNormalizationResult.Failure(
+                TestRunPathNormalizationFailureKind.InvalidFormat,
+                "diagnostic path details")),
+            new StubPathExistenceProbe());
+        var input = new TestRunConfigurationRequest(
+            ProjectPath: scope.GetPath("Unity"),
+            ProfilePath: null,
+            Mode: UnityExecutionMode.Auto,
+            UnityVersion: null,
+            UnityEditorPath: null,
+            TestPlatform: TestRunPlatform.EditMode,
+            TestFilter: null,
+            TestCategory: null,
+            AssemblyName: null,
+            TestSettingsPath: "invalid\0path",
+            TimeoutMilliseconds: 30);
+
+        var result = await resolver.ResolveAsync(input, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("testSettingsPath is invalid: Path format is invalid.", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("diagnostic path details", error.Message, StringComparison.Ordinal);
     }
 
     private static TestRunConfigurationResolver CreateResolverWithSuccessfulDependencies (TestDirectoryScope scope)
@@ -430,14 +467,22 @@ public sealed class TestRunConfigurationResolverTests
 
     private sealed class StubPathNormalizer : ITestRunPathNormalizer
     {
-        public bool TryNormalizeFullPath (
-            string path,
-            out string? normalizedPath,
-            out string? errorMessage)
+        private readonly TestRunPathNormalizationResult? result;
+
+        public StubPathNormalizer ()
         {
-            normalizedPath = Path.GetFullPath(path);
-            errorMessage = null;
-            return true;
+        }
+
+        public StubPathNormalizer (TestRunPathNormalizationResult result)
+        {
+            this.result = result;
+        }
+
+        public TestRunPathNormalizationResult TryNormalizeRepositoryPath (
+            string repositoryRoot,
+            string path)
+        {
+            return result ?? TestRunPathNormalizationResult.Success(Path.GetFullPath(Path.Combine(repositoryRoot, path)));
         }
     }
 
