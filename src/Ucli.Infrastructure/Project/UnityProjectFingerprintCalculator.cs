@@ -51,7 +51,7 @@ public static class UnityProjectFingerprintCalculator
             return ".";
         }
 
-        if (IsUnderDirectory(normalizedUnityProjectRoot, normalizedStorageRoot))
+        if (RepositoryPathNormalizer.TryNormalize(normalizedStorageRoot, normalizedUnityProjectRoot).IsSuccess)
         {
             var relativePath = Path.GetRelativePath(normalizedStorageRoot, normalizedUnityProjectRoot);
             return NormalizeRelativePath(relativePath);
@@ -68,7 +68,13 @@ public static class UnityProjectFingerprintCalculator
     /// <returns> The normalized path value. </returns>
     private static string NormalizePath (string pathValue)
     {
-        var fullPath = Path.GetFullPath(pathValue);
+        var fullPathResult = PathNormalizer.TryNormalizeFullPath(pathValue);
+        if (!fullPathResult.IsSuccess)
+        {
+            throw new ArgumentException(fullPathResult.DiagnosticMessage, nameof(pathValue));
+        }
+
+        var fullPath = fullPathResult.FullPath!;
         fullPath = PathStringNormalizer.ReplaceAltSeparatorWithPlatformSeparator(fullPath);
         var pathRoot = Path.GetPathRoot(fullPath);
         if (!string.IsNullOrEmpty(pathRoot) && string.Equals(fullPath, pathRoot, PathComparison))
@@ -92,26 +98,6 @@ public static class UnityProjectFingerprintCalculator
         }
 
         return PathStringNormalizer.TrimTrailingDirectorySeparators(normalizedPath);
-    }
-
-    /// <summary> Determines whether <paramref name="path" /> is located under <paramref name="directoryPath" />. </summary>
-    /// <param name="path"> The candidate absolute path. </param>
-    /// <param name="directoryPath"> The parent directory absolute path. </param>
-    /// <returns> <see langword="true" /> when <paramref name="path" /> is under <paramref name="directoryPath" />; otherwise <see langword="false" />. </returns>
-    private static bool IsUnderDirectory (
-        string path,
-        string directoryPath)
-    {
-        if (!path.StartsWith(directoryPath, PathComparison))
-        {
-            return false;
-        }
-
-        var trailingDirectoryPath = directoryPath.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
-            || directoryPath.EndsWith(Path.AltDirectorySeparatorChar.ToString(), StringComparison.Ordinal)
-            ? directoryPath
-            : directoryPath + Path.DirectorySeparatorChar;
-        return path.StartsWith(trailingDirectoryPath, PathComparison);
     }
 
     /// <summary> Gets the path comparison mode for the current operating system. </summary>

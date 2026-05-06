@@ -9,12 +9,8 @@
     <Nullable>enable</Nullable>
     <IsPackable>true</IsPackable>
     <PackageId>MackySoft.Ucli.Infrastructure</PackageId>
-    <Version>0.18.0</Version>
     <Description>Shared infrastructure services for uCLI runtime components.</Description>
-    <RepositoryUrl>https://github.com/mackysoft/ucli</RepositoryUrl>
     <PackageTags>ucli;unity;infrastructure</PackageTags>
-    <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>

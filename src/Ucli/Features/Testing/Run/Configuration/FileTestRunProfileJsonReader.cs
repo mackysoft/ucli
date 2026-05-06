@@ -19,17 +19,14 @@ internal sealed class FileTestRunProfileJsonReader : ITestRunProfileJsonReader
             return TestRunProfileJsonReadResult.Failure(ExecutionError.InvalidArgument("profilePath is empty."));
         }
 
-        var normalizedProfilePath = profilePath;
-        try
-        {
-            normalizedProfilePath = Path.GetFullPath(normalizedProfilePath);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        var normalizedProfilePathResult = PathNormalizer.TryNormalizeFullPath(profilePath);
+        if (!normalizedProfilePathResult.IsSuccess)
         {
             return TestRunProfileJsonReadResult.Failure(ExecutionError.InvalidArgument(
-                $"profilePath is invalid: {profilePath}."));
+                "profilePath is invalid: Path format is invalid."));
         }
 
+        var normalizedProfilePath = normalizedProfilePathResult.FullPath!;
         if (!File.Exists(normalizedProfilePath))
         {
             return TestRunProfileJsonReadResult.Failure(ExecutionError.InvalidArgument(

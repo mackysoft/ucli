@@ -69,27 +69,9 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
             profile = profileLoadResult.Profile;
         }
 
-        MergedTestRunConfiguration mergedConfiguration;
-        try
-        {
-            var resolvedProjectPath = ResolveProjectPath(input, profile);
-            mergedConfiguration = TestRunConfigurationMerger.Merge(input, profile, resolvedProjectPath);
-        }
-        catch (Exception exception) when (ApplicationPathExceptionClassifier.IsPathFormatException(exception))
-        {
-            return TestRunConfigurationResolutionResult.Failure(
-            [
-                ExecutionError.InvalidArgument($"Path value is invalid. {exception.Message}"),
-            ]);
-        }
-
-        var testSettingsPathNormalizationError = NormalizeTestSettingsPath(ref mergedConfiguration, pathNormalizer);
-        if (testSettingsPathNormalizationError is not null)
-        {
-            return TestRunConfigurationResolutionResult.Failure([testSettingsPathNormalizationError]);
-        }
-
-        var validationErrors = ValidateMergedConfiguration(mergedConfiguration, pathExistenceProbe);
+        var resolvedProjectPath = ResolveProjectPath(input, profile);
+        var mergedConfiguration = TestRunConfigurationMerger.Merge(input, profile, resolvedProjectPath);
+        var validationErrors = ValidateMergedConfigurationValues(mergedConfiguration);
         if (validationErrors.Count > 0)
         {
             return TestRunConfigurationResolutionResult.Failure(validationErrors);
@@ -103,6 +85,21 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
         }
 
         var unityProject = unityProjectResolutionResult.Context!;
+        var testSettingsPathNormalizationError = NormalizeTestSettingsPath(
+            ref mergedConfiguration,
+            unityProject.RepositoryRoot,
+            pathNormalizer);
+        if (testSettingsPathNormalizationError is not null)
+        {
+            return TestRunConfigurationResolutionResult.Failure([testSettingsPathNormalizationError]);
+        }
+
+        var testSettingsPathExistenceError = ValidateTestSettingsPath(mergedConfiguration, pathExistenceProbe);
+        if (testSettingsPathExistenceError is not null)
+        {
+            return TestRunConfigurationResolutionResult.Failure([testSettingsPathExistenceError]);
+        }
+
         cancellationToken.ThrowIfCancellationRequested();
         var unityVersionResolutionResult = unityVersionResolver.Resolve(
             unityProject.UnityProjectRoot,
@@ -153,9 +150,11 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
 
     private static ExecutionError? NormalizeTestSettingsPath (
         ref MergedTestRunConfiguration configuration,
+        string repositoryRoot,
         ITestRunPathNormalizer pathNormalizer)
     {
         ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
         ArgumentNullException.ThrowIfNull(pathNormalizer);
 
         if (configuration.TestSettingsPath is null)
@@ -163,30 +162,27 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
             return null;
         }
 
-        if (pathNormalizer.TryNormalizeFullPath(
-                configuration.TestSettingsPath,
-                out var normalizedPath,
-                out var errorMessage))
+        var pathNormalizationResult = pathNormalizer.TryNormalizeRepositoryPath(
+            repositoryRoot,
+            configuration.TestSettingsPath);
+        if (pathNormalizationResult.IsSuccess)
         {
             configuration = configuration with
             {
-                TestSettingsPath = normalizedPath,
+                TestSettingsPath = pathNormalizationResult.FullPath,
             };
             return null;
         }
 
-        return ExecutionError.InvalidArgument($"testSettingsPath is invalid: {errorMessage}");
+        return ExecutionError.InvalidArgument(CreateTestSettingsPathErrorMessage(pathNormalizationResult));
     }
 
     /// <summary> Validates merged configuration values before project and editor resolution. </summary>
     /// <param name="configuration"> The merged configuration values. </param>
     /// <returns> The structured validation errors. </returns>
-    private static IReadOnlyList<ExecutionError> ValidateMergedConfiguration (
-        MergedTestRunConfiguration configuration,
-        ITestRunPathExistenceProbe pathExistenceProbe)
+    private static IReadOnlyList<ExecutionError> ValidateMergedConfigurationValues (MergedTestRunConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(configuration);
-        ArgumentNullException.ThrowIfNull(pathExistenceProbe);
 
         var errors = new List<ExecutionError>();
 
@@ -202,12 +198,38 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
                 $"timeout must be in range {MinTimeoutMilliseconds}..{int.MaxValue}. Actual: {configuration.TimeoutMilliseconds.Value}"));
         }
 
-        if (!string.IsNullOrWhiteSpace(configuration.TestSettingsPath) && !pathExistenceProbe.FileExists(configuration.TestSettingsPath))
+        return errors;
+    }
+
+    private static string CreateTestSettingsPathErrorMessage (TestRunPathNormalizationResult pathNormalizationResult)
+    {
+        if (pathNormalizationResult.IsSuccess)
         {
-            errors.Add(ExecutionError.InvalidArgument(
-                $"testSettingsPath does not exist: {configuration.TestSettingsPath}"));
+            throw new ArgumentException("Successful path normalization result does not have an error message.", nameof(pathNormalizationResult));
         }
 
-        return errors;
+        var reason = pathNormalizationResult.FailureKind switch
+        {
+            TestRunPathNormalizationFailureKind.EmptyPath => "Path value is empty.",
+            TestRunPathNormalizationFailureKind.InvalidFormat => "Path format is invalid.",
+            TestRunPathNormalizationFailureKind.OutsideRepositoryRoot => "Path must be under the repository root.",
+            _ => "Path is invalid.",
+        };
+        return $"testSettingsPath is invalid: {reason}";
+    }
+
+    private static ExecutionError? ValidateTestSettingsPath (
+        MergedTestRunConfiguration configuration,
+        ITestRunPathExistenceProbe pathExistenceProbe)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(pathExistenceProbe);
+
+        if (!string.IsNullOrWhiteSpace(configuration.TestSettingsPath) && !pathExistenceProbe.FileExists(configuration.TestSettingsPath))
+        {
+            return ExecutionError.InvalidArgument($"testSettingsPath does not exist: {configuration.TestSettingsPath}");
+        }
+
+        return null;
     }
 }

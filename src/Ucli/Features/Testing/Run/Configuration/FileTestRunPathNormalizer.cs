@@ -1,5 +1,5 @@
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
-using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Configuration;
 
@@ -7,29 +7,29 @@ namespace MackySoft.Ucli.Features.Testing.Run.Configuration;
 internal sealed class FileTestRunPathNormalizer : ITestRunPathNormalizer
 {
     /// <inheritdoc />
-    public bool TryNormalizeFullPath (
-        string path,
-        out string? normalizedPath,
-        out string? errorMessage)
+    public TestRunPathNormalizationResult TryNormalizeRepositoryPath (
+        string repositoryRoot,
+        string path)
     {
-        normalizedPath = null;
-        errorMessage = null;
-
-        if (string.IsNullOrWhiteSpace(path))
+        var result = RepositoryPathNormalizer.TryNormalize(repositoryRoot, path);
+        if (result.IsSuccess)
         {
-            errorMessage = "Path value is empty.";
-            return false;
+            return TestRunPathNormalizationResult.Success(result.FullPath!);
         }
 
-        try
+        return TestRunPathNormalizationResult.Failure(
+            MapFailureKind(result.FailureKind),
+            result.DiagnosticMessage);
+    }
+
+    private static TestRunPathNormalizationFailureKind MapFailureKind (PathNormalizationFailureKind failureKind)
+    {
+        return failureKind switch
         {
-            normalizedPath = Path.GetFullPath(path);
-            return true;
-        }
-        catch (Exception exception) when (ApplicationPathExceptionClassifier.IsPathFormatException(exception))
-        {
-            errorMessage = exception.Message;
-            return false;
-        }
+            PathNormalizationFailureKind.EmptyPath => TestRunPathNormalizationFailureKind.EmptyPath,
+            PathNormalizationFailureKind.InvalidFormat => TestRunPathNormalizationFailureKind.InvalidFormat,
+            PathNormalizationFailureKind.OutsideRepositoryRoot => TestRunPathNormalizationFailureKind.OutsideRepositoryRoot,
+            _ => throw new ArgumentOutOfRangeException(nameof(failureKind), failureKind, "Unsupported path normalization failure kind."),
+        };
     }
 }
