@@ -36,9 +36,7 @@ internal static class UnityIntegrationServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton<IProjectPathInputResolver, ProjectPathInputResolver>();
-        services.AddSingleton<IUnityProjectResolver>(provider => new UnityProjectResolver(
-            provider.GetRequiredService<IProjectPathInputResolver>()));
+        services.AddSingleton<IUnityProjectResolver, UnityProjectResolver>();
         services.AddSingleton<UnityUcliPluginMarkerDiscovery>();
         services.AddSingleton<UnityUcliPluginMarkerValidator>();
         services.AddSingleton<UnityUcliPluginMarkerCacheStore>();

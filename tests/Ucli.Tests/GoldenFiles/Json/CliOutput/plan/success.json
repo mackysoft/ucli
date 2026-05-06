@@ -1,0 +1,30 @@
+{
+  "protocolVersion": 1,
+  "command": "plan",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "uCLI plan completed.",
+  "payload": {
+    "requestId": "<requestId>",
+    "opResults": [
+      {
+        "opId": "step-1",
+        "op": "ucli.go.describe",
+        "phase": "plan",
+        "applied": false,
+        "changed": false,
+        "touched": []
+      }
+    ],
+    "readIndex": {
+      "used": false,
+      "hit": false,
+      "source": "index",
+      "freshness": "probable",
+      "generatedAtUtc": null,
+      "fallbackReason": "readIndex disabled by mode."
+    },
+    "planToken": "plan-token-1"
+  },
+  "errors": []
+}

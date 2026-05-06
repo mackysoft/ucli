@@ -152,23 +152,11 @@ public sealed class PlanCliOutputContractTests
             UcliContractConstants.CliOption.Mode,
             "unsupported");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            UcliCommandNames.Plan,
-            IpcProtocol.StatusError,
-            (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
-        AssertPayloadHasGeneratedRequestId(outputJson.RootElement);
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("payload", payload => payload
-                .HasArrayLength("opResults", 0)
-                .HasProperty("readIndex", readIndex => readIndex
-                    .HasBoolean("used", false)
-                    .HasBoolean("hit", false)
-                    .HasString("fallbackReason", "readIndex disabled by mode.")));
-        Assert.False(outputJson.RootElement.GetProperty("payload").TryGetProperty("planToken", out _));
+        JsonGoldenFileAssert.Matches(
+            CliOutputGoldenFiles.GetPath("plan", "invalid-mode.json"),
+            result.StdOut,
+            CliOutputGoldenFiles.NormalizeRequestIds());
     }
 
     [Fact]

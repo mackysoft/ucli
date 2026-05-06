@@ -8,6 +8,7 @@ using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExe
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Validate.Common.Contracts;
+using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -330,6 +331,9 @@ public sealed class RequestServiceResultInvariantTests
             IpcErrorCodes.PlanTokenExpired,
             IpcErrorCodes.PlanTokenRequestMismatch,
             IpcErrorCodes.StateChangedSincePlan,
+            ProjectContextErrorCodes.ProjectPathInvalidFormat,
+            ProjectContextErrorCodes.ProjectPathNotFound,
+            ProjectContextErrorCodes.UnityProjectMarkerMissing,
             ValidationErrorCodes.ProtocolVersionMismatch,
             ValidationErrorCodes.RequestIdInvalid,
             ValidationErrorCodes.StepsRequired,

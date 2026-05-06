@@ -57,7 +57,9 @@ public sealed class CanonicalSkillPackageReader
             var result = await ReadOneAsync(fullPackageRoot, skillDirectory, cancellationToken).ConfigureAwait(false);
             if (!result.IsSuccess)
             {
-                return Failure(result.Failure!.Message);
+                return SkillOperationResult<IReadOnlyList<CanonicalSkillPackage>>.FailureResult(
+                    result.Failure!.Code,
+                    result.Failure.Message);
             }
 
             packages.Add(result.Value!);
@@ -69,7 +71,7 @@ public sealed class CanonicalSkillPackageReader
         }
 
         return SkillOperationResult<IReadOnlyList<CanonicalSkillPackage>>.Success(packages
-            .OrderBy(static package => package.SkillName, StringComparer.Ordinal)
+            .OrderBy(static package => package.Manifest.SkillName, StringComparer.Ordinal)
             .ToArray());
     }
 
@@ -133,9 +135,6 @@ public sealed class CanonicalSkillPackageReader
         }
 
         return SkillOperationResult<CanonicalSkillPackage>.Success(new CanonicalSkillPackage(
-            manifest.SkillName,
-            manifest.DisplayName,
-            manifest.Description,
             manifest,
             files));
     }
@@ -145,19 +144,12 @@ public sealed class CanonicalSkillPackageReader
         CancellationToken cancellationToken)
     {
         var files = new List<SkillPackageFile>();
-        foreach (var filePath in Directory.EnumerateFiles(skillDirectory, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
+        var readResult = await ReadDirectoryEntriesAsync(skillDirectory, skillDirectory, files, cancellationToken).ConfigureAwait(false);
+        if (!readResult.IsSuccess)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var pathResult = SkillPackagePathBoundary.ResolveUnderRoot(skillDirectory, filePath);
-            if (!pathResult.IsSuccess)
-            {
-                return SkillOperationResult<IReadOnlyList<SkillPackageFile>>.FailureResult(pathResult.Failure!.Code, pathResult.Failure.Message);
-            }
-
-            var relativePath = Path.GetRelativePath(skillDirectory, pathResult.Value!).Replace(Path.DirectorySeparatorChar, '/');
-            var content = SkillTextNormalizer.NormalizeToLf(await File.ReadAllTextAsync(pathResult.Value!, cancellationToken).ConfigureAwait(false));
-            files.Add(SkillPackageFile.Create(relativePath, content));
+            return SkillOperationResult<IReadOnlyList<SkillPackageFile>>.FailureResult(
+                readResult.Failure!.Code,
+                readResult.Failure.Message);
         }
 
         return SkillOperationResult<IReadOnlyList<SkillPackageFile>>.Success(files
@@ -165,6 +157,70 @@ public sealed class CanonicalSkillPackageReader
             .ToArray());
     }
 
+    private async ValueTask<SkillOperationResult<bool>> ReadDirectoryEntriesAsync (
+        string skillDirectory,
+        string directoryPath,
+        List<SkillPackageFile> files,
+        CancellationToken cancellationToken)
+    {
+        foreach (var entryPath in Directory.EnumerateFileSystemEntries(directoryPath).Order(StringComparer.Ordinal))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var relativePath = Path.GetRelativePath(skillDirectory, entryPath).Replace(Path.DirectorySeparatorChar, '/');
+            if (!SkillRelativePath.IsSafeFilePath(relativePath))
+            {
+                return BoolFailure(
+                    $"Generated SKILL package contains an unsafe path: {relativePath}");
+            }
+
+            if (Directory.Exists(entryPath))
+            {
+                if (!SkillPackageFileSystemEntryGuard.IsDirectory(entryPath))
+                {
+                    return BoolFailure(
+                        $"Generated SKILL package contains an unsupported non-regular directory: {relativePath}");
+                }
+
+                var directoryResult = SkillPackagePathBoundary.ResolveUnderRoot(skillDirectory, entryPath);
+                if (!directoryResult.IsSuccess)
+                {
+                    return SkillOperationResult<bool>.FailureResult(directoryResult.Failure!.Code, directoryResult.Failure.Message);
+                }
+
+                var result = await ReadDirectoryEntriesAsync(skillDirectory, directoryResult.Value!, files, cancellationToken).ConfigureAwait(false);
+                if (!result.IsSuccess)
+                {
+                    return result;
+                }
+
+                continue;
+            }
+
+            if (!File.Exists(entryPath))
+            {
+                return BoolFailure(
+                    $"Generated SKILL package contains an unsupported non-regular path: {relativePath}");
+            }
+
+            if (!SkillPackageFileSystemEntryGuard.IsRegularFile(entryPath))
+            {
+                return BoolFailure(
+                    $"Generated SKILL package contains an unsupported non-regular file: {relativePath}");
+            }
+
+            var pathResult = SkillPackagePathBoundary.ResolveUnderRoot(skillDirectory, entryPath);
+            if (!pathResult.IsSuccess)
+            {
+                return SkillOperationResult<bool>.FailureResult(pathResult.Failure!.Code, pathResult.Failure.Message);
+            }
+
+            var content = SkillTextNormalizer.NormalizeToLf(await File.ReadAllTextAsync(pathResult.Value!, cancellationToken).ConfigureAwait(false));
+            files.Add(SkillPackageFile.Create(relativePath, content));
+        }
+
+        return SkillOperationResult<bool>.Success(true);
+    }
     private SkillOperationResult<bool> ValidateFiles (
         IReadOnlyList<SkillPackageFile> files,
         SkillManifest manifest)

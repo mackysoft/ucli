@@ -53,22 +53,11 @@ public sealed class ValidateCliOutputContractTests
             UcliContractConstants.CliOption.ReadIndexMode,
             UcliContractConstants.Config.ReadIndexModeAllowStale);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            command: UcliCommandNames.Validate,
-            status: "ok",
-            exitCode: (int)CliExitCode.Success);
-        CommandResultAssert.HasNoErrors(outputJson.RootElement);
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("payload", payload => payload
-                .HasProperty("readIndex", readIndex => readIndex
-                    .HasBoolean("used", true)
-                    .HasBoolean("hit", true)
-                    .HasString("source", "index")
-                    .HasString("freshness", "probable")
-                    .IsNull("fallbackReason")));
+        JsonGoldenFileAssert.Matches(
+            CliOutputGoldenFiles.GetPath("validate", "success.json"),
+            result.StdOut,
+            CliOutputGoldenFiles.NormalizeGeneratedAtUtc());
     }
 
     [Fact]
@@ -93,23 +82,11 @@ public sealed class ValidateCliOutputContractTests
             UcliContractConstants.CliOption.ReadIndexMode,
             UcliContractConstants.Config.ReadIndexModeAllowStale);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            command: UcliCommandNames.Validate,
-            status: "error",
-            exitCode: (int)CliExitCode.InvalidArgument);
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("payload", payload => payload
-                .HasProperty("readIndex", readIndex => readIndex
-                    .HasBoolean("used", true)
-                    .HasBoolean("hit", true)
-                    .HasString("source", "index")))
-            .HasProperty("errors", errors => errors
-                .HasArrayLength(1)
-                .HasIndex(0, error => error
-                    .HasString("code", "OPERATION_ARGS_INVALID")));
+        JsonGoldenFileAssert.Matches(
+            CliOutputGoldenFiles.GetPath("validate", "static-validation-error.json"),
+            result.StdOut,
+            CliOutputGoldenFiles.NormalizeGeneratedAtUtc());
     }
 
     [Fact]

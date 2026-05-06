@@ -29,7 +29,7 @@ public sealed class SkillMaterializationServiceTests
                 var materializedFiles = first.Value.Files;
                 var skillText = materializedFiles.Single(static file => file.RelativePath == "SKILL.md").Content;
                 Assert.StartsWith("---\n", skillText, StringComparison.Ordinal);
-                Assert.Contains($"name: \"{package.SkillName}\"", skillText, StringComparison.Ordinal);
+                Assert.Contains($"name: \"{package.Manifest.SkillName}\"", skillText, StringComparison.Ordinal);
                 Assert.True(SkillHostMaterializationInspector.TryExtractFrontmatter(skillText, out var frontmatter));
                 Assert.False(string.IsNullOrWhiteSpace(frontmatter));
                 Assert.Equal(package.Files.Single(static file => file.RelativePath == "SKILL.md").Content, GetBodyWithoutFrontmatter(skillText, frontmatter));
