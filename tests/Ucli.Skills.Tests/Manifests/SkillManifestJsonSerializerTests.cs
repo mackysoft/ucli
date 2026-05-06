@@ -13,6 +13,8 @@ public sealed class SkillManifestJsonSerializerTests
         var manifest = new SkillManifest(
             SkillManifest.CurrentSchemaVersion,
             "sample-skill",
+            "Sample Skill",
+            "Use this sample skill for tests.",
             "sha256:" + new string('0', 64),
             [
                 new SkillHostArtifactManifest("openai", "agents/openai.yaml", "sha256:" + new string('1', 64), "sha256:" + new string('2', 64)),

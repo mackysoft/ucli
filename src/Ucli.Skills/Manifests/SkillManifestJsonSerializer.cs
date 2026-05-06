@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using MackySoft.Ucli.Skills.Shared;
 
@@ -9,6 +10,7 @@ public sealed class SkillManifestJsonSerializer
 {
     private static readonly JsonWriterOptions WriterOptions = new()
     {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         Indented = true,
     };
 
@@ -25,6 +27,8 @@ public sealed class SkillManifestJsonSerializer
             writer.WriteStartObject();
             writer.WriteNumber("schemaVersion", manifest.SchemaVersion);
             writer.WriteString("skillName", manifest.SkillName);
+            writer.WriteString("displayName", manifest.DisplayName);
+            writer.WriteString("description", manifest.Description);
             writer.WriteString("contentDigest", manifest.ContentDigest);
             writer.WritePropertyName("hostArtifacts");
             writer.WriteStartArray();
@@ -77,6 +81,8 @@ public sealed class SkillManifestJsonSerializer
         return new SkillManifest(
             SchemaVersion: root.GetProperty("schemaVersion").GetInt32(),
             SkillName: root.GetProperty("skillName").GetString() ?? string.Empty,
+            DisplayName: root.GetProperty("displayName").GetString() ?? string.Empty,
+            Description: root.GetProperty("description").GetString() ?? string.Empty,
             ContentDigest: root.GetProperty("contentDigest").GetString() ?? string.Empty,
             HostArtifacts: artifacts);
     }

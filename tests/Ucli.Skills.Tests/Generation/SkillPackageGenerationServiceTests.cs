@@ -20,8 +20,10 @@ public sealed class SkillPackageGenerationServiceTests
         {
             Assert.Contains(package.Files, static file => string.Equals(file.RelativePath, "SKILL.md", StringComparison.Ordinal));
             Assert.Contains(package.Files, static file => string.Equals(file.RelativePath, "ucli-skill.json", StringComparison.Ordinal));
-            Assert.DoesNotContain(package.Files, static file => string.Equals(file.RelativePath, "agents/openai.yaml", StringComparison.Ordinal));
+            Assert.Contains(package.Files, static file => string.Equals(file.RelativePath, "agents/openai.yaml", StringComparison.Ordinal));
             Assert.True(validator.Validate(package.Manifest).IsSuccess);
+            Assert.False(string.IsNullOrWhiteSpace(package.Manifest.DisplayName));
+            Assert.False(string.IsNullOrWhiteSpace(package.Manifest.Description));
             Assert.Equal(
                 new[] { ClaudeSkillHostAdapter.HostKey, CopilotSkillHostAdapter.HostKey, OpenAiSkillHostAdapter.HostKey },
                 package.Manifest.HostArtifacts.Select(static artifact => artifact.Host).ToArray());

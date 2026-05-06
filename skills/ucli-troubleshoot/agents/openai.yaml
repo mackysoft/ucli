@@ -1,0 +1,7 @@
+interface:
+  display_name: "uCLI Troubleshoot"
+  short_description: "Use when diagnosing uCLI daemon, lifecycle, readIndex freshness, timeout, compile or domain reload, logs, IPC, and Unity execution failures."
+  default_prompt: "Use $ucli-troubleshoot to follow the uCLI Troubleshoot workflow."
+
+policy:
+  allow_implicit_invocation: true

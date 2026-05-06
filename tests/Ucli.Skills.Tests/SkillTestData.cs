@@ -2,14 +2,13 @@ using MackySoft.Ucli.Skills.Digests;
 using MackySoft.Ucli.Skills.Distribution;
 using MackySoft.Ucli.Skills.Doctor;
 using MackySoft.Ucli.Skills.Generation;
-using MackySoft.Ucli.Skills.Hosts.Claude;
-using MackySoft.Ucli.Skills.Hosts.Copilot;
-using MackySoft.Ucli.Skills.Hosts.OpenAi;
+using MackySoft.Ucli.Skills.Hosts.Official;
 using MackySoft.Ucli.Skills.Hosts.Registration;
 using MackySoft.Ucli.Skills.Installation;
 using MackySoft.Ucli.Skills.Installation.Validation;
 using MackySoft.Ucli.Skills.Manifests;
 using MackySoft.Ucli.Skills.Materialization;
+using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Sources;
 
 namespace MackySoft.Ucli.Skills.Tests;
@@ -26,6 +25,16 @@ internal static class SkillTestData
 
     internal static string GetDefinitionsRoot ()
     {
+        return Path.Combine(GetRepositoryRoot(), "src", "Ucli.Skills", "SkillDefinitions");
+    }
+
+    internal static string GetGeneratedSkillsRoot ()
+    {
+        return Path.Combine(GetRepositoryRoot(), "skills");
+    }
+
+    internal static string GetRepositoryRoot ()
+    {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
 
         while (directory is not null)
@@ -34,7 +43,7 @@ internal static class SkillTestData
 
             if (Directory.Exists(candidate))
             {
-                return candidate;
+                return directory.FullName;
             }
 
             directory = directory.Parent;
@@ -53,12 +62,7 @@ internal static class SkillTestData
 
     internal static SkillHostAdapterSet CreateOfficialHostAdapterSet ()
     {
-        return new SkillHostAdapterSet(
-        [
-            new ClaudeSkillHostAdapter(),
-            new CopilotSkillHostAdapter(),
-            new OpenAiSkillHostAdapter(),
-        ]);
+        return OfficialSkillHostAdapters.CreateSet();
     }
 
     internal static SkillPackageGenerationService CreatePackageGenerationService ()
@@ -68,6 +72,17 @@ internal static class SkillTestData
             CreateOfficialHostAdapterSet(),
             new SkillDigestCalculator(),
             new SkillManifestJsonSerializer());
+    }
+
+    internal static CanonicalSkillPackageReader CreatePackageReader ()
+    {
+        var hostAdapters = CreateOfficialHostAdapterSet();
+        var manifestSerializer = new SkillManifestJsonSerializer();
+        return new CanonicalSkillPackageReader(
+            hostAdapters,
+            new SkillDigestCalculator(),
+            manifestSerializer,
+            new SkillManifestValidator(hostAdapters));
     }
 
     internal static SkillManifestValidator CreateManifestValidator ()

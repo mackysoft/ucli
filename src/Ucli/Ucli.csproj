@@ -34,6 +34,11 @@
   <ItemGroup>
     <None Include="../../README.md" Pack="true" PackagePath="" Link="README.md" />
 
+    <None Include="../../skills/**/*" LinkBase="skills">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+
     <None Include="../../LICENSE" Pack="true" PackagePath="" Link="LICENSE">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>

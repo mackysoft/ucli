@@ -2,6 +2,7 @@ using MackySoft.Ucli.Skills.Digests;
 using MackySoft.Ucli.Skills.Hosts.Contracts;
 using MackySoft.Ucli.Skills.Hosts.Registration;
 using MackySoft.Ucli.Skills.Manifests;
+using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;
 using MackySoft.Ucli.Skills.Sources;
 
@@ -76,19 +77,31 @@ public sealed class SkillPackageGenerationService
             new[] { new SkillDigestInputFile(bodyFile.RelativePath, bodyFile.Content) }
                 .Concat(referenceFiles.Select(static file => new SkillDigestInputFile(file.RelativePath, file.Content))));
 
-        var hostArtifacts = hostAdapters.Adapters
-            .Select(adapter => BuildHostArtifact(definition.Metadata, adapter))
-            .OrderBy(static artifact => artifact.Host, StringComparer.Ordinal)
+        var hostArtifactOutputs = CreateHostArtifactOutputs(definition.Metadata)
+            .OrderBy(static artifact => artifact.Manifest.Host, StringComparer.Ordinal)
+            .ToArray();
+        var hostArtifacts = hostArtifactOutputs
+            .Select(static artifact => artifact.Manifest)
             .ToArray();
 
         var manifest = new SkillManifest(
             SkillManifest.CurrentSchemaVersion,
             definition.Metadata.SkillName,
+            definition.Metadata.DisplayName,
+            definition.Metadata.Description,
             contentDigest,
             hostArtifacts);
 
         var manifestFile = SkillPackageFile.Create("ucli-skill.json", manifestSerializer.Serialize(manifest));
-        var files = new[] { bodyFile, manifestFile }.Concat(referenceFiles).OrderBy(static file => file.RelativePath, StringComparer.Ordinal).ToArray();
+        var hostArtifactFiles = hostArtifactOutputs
+            .SelectMany(static artifact => artifact.Files)
+            .OrderBy(static file => file.RelativePath, StringComparer.Ordinal)
+            .ToArray();
+        var files = new[] { bodyFile, manifestFile }
+            .Concat(referenceFiles)
+            .Concat(hostArtifactFiles)
+            .OrderBy(static file => file.RelativePath, StringComparer.Ordinal)
+            .ToArray();
 
         return new CanonicalSkillPackage(
             SkillName: definition.Metadata.SkillName,
@@ -98,32 +111,43 @@ public sealed class SkillPackageGenerationService
             Files: files);
     }
 
-    private SkillHostArtifactManifest BuildHostArtifact (
-        SkillSourceMetadata metadata,
-        ISkillHostAdapter adapter)
+    private IEnumerable<GeneratedHostArtifactOutput> CreateHostArtifactOutputs (SkillSourceMetadata metadata)
     {
-        var artifacts = adapter.BuildArtifacts(new SkillHostMetadata(metadata.SkillName, metadata.DisplayName, metadata.Description));
-        var frontmatterDigest = digestCalculator.ComputeSingleFileDigest("SKILL.md.frontmatter", artifacts.Frontmatter);
-
-        if (adapter.MetadataArtifactPath is null)
+        var hostMetadata = new SkillHostMetadata(metadata.SkillName, metadata.DisplayName, metadata.Description);
+        foreach (var adapter in hostAdapters.Adapters)
         {
-            if (artifacts.MetadataContent is not null)
+            var artifacts = adapter.BuildArtifacts(hostMetadata);
+            var frontmatterDigest = digestCalculator.ComputeSingleFileDigest("SKILL.md.frontmatter", artifacts.Frontmatter);
+
+            if (adapter.MetadataArtifactPath is null)
             {
-                throw new InvalidOperationException($"Host adapter '{adapter.Descriptor.HostKey}' must not emit metadata artifacts.");
+                if (artifacts.MetadataContent is not null)
+                {
+                    throw new InvalidOperationException($"Host adapter '{adapter.Descriptor.HostKey}' must not emit metadata artifacts.");
+                }
+
+                yield return new GeneratedHostArtifactOutput(
+                    new SkillHostArtifactManifest(adapter.Descriptor.HostKey, null, null, frontmatterDigest),
+                    []);
+                continue;
             }
 
-            return new SkillHostArtifactManifest(adapter.Descriptor.HostKey, null, null, frontmatterDigest);
-        }
+            if (artifacts.MetadataContent is null)
+            {
+                throw new InvalidOperationException($"Host adapter '{adapter.Descriptor.HostKey}' must emit metadata artifact '{adapter.MetadataArtifactPath}'.");
+            }
 
-        if (artifacts.MetadataContent is null)
-        {
-            throw new InvalidOperationException($"Host adapter '{adapter.Descriptor.HostKey}' must emit metadata artifact '{adapter.MetadataArtifactPath}'.");
+            yield return new GeneratedHostArtifactOutput(
+                new SkillHostArtifactManifest(
+                    adapter.Descriptor.HostKey,
+                    adapter.MetadataArtifactPath,
+                    digestCalculator.ComputeSingleFileDigest(adapter.MetadataArtifactPath, artifacts.MetadataContent),
+                    frontmatterDigest),
+                [SkillPackageFile.Create(adapter.MetadataArtifactPath, artifacts.MetadataContent)]);
         }
-
-        return new SkillHostArtifactManifest(
-            adapter.Descriptor.HostKey,
-            adapter.MetadataArtifactPath,
-            digestCalculator.ComputeSingleFileDigest(adapter.MetadataArtifactPath, artifacts.MetadataContent),
-            frontmatterDigest);
     }
+
+    private sealed record GeneratedHostArtifactOutput (
+        SkillHostArtifactManifest Manifest,
+        IReadOnlyList<SkillPackageFile> Files);
 }
