@@ -35,9 +35,9 @@ internal sealed class OperationCatalogLoadException : InvalidOperationException
         var message = $"{messagePrefix} {Error.Message}";
         return Error.Kind switch
         {
-            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message, Error.Code),
-            ExecutionErrorKind.Timeout => ExecutionError.Timeout(message, Error.Code),
-            _ => ExecutionError.InternalError(message, Error.Code),
+            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message, ErrorCode),
+            ExecutionErrorKind.Timeout => ExecutionError.Timeout(message, ErrorCode),
+            _ => ExecutionError.InternalError(message, ErrorCode),
         };
     }
 }

@@ -10,6 +10,8 @@ namespace MackySoft.Ucli.Application.Tests;
 
 public sealed class OperationCatalogProviderTests
 {
+    private const string CustomOperationMetadataErrorCode = "OPERATION_METADATA_CUSTOM_ERROR";
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task GetOperations_WhenUnityProjectIsProvided_UsesProvidedContextWithoutResolvingCurrentDirectory ()
@@ -76,19 +78,30 @@ public sealed class OperationCatalogProviderTests
         Assert.Single(result);
     }
 
-    [Fact]
+    [Theory]
+    [InlineData((int)ExecutionErrorKind.InvalidArgument, ProjectContextErrorCodes.UnityProjectMarkerMissing)]
+    [InlineData((int)ExecutionErrorKind.Timeout, ExecutionErrorCodes.IpcTimeout)]
+    [InlineData((int)ExecutionErrorKind.InternalError, CustomOperationMetadataErrorCode)]
     [Trait("Size", "Small")]
-    public async Task GetOperations_WhenCurrentDirectoryContextCannotBeResolved_ThrowsTypedLoadException ()
+    public async Task GetOperations_WhenCurrentDirectoryContextCannotBeResolved_ThrowsTypedLoadException (
+        int errorKindValue,
+        string errorCode)
     {
+        var errorKind = (ExecutionErrorKind)errorKindValue;
         var provider = new OperationCatalogProvider(
             new StubProjectContextResolver(ProjectContextResolutionResult.Failure(
-                ExecutionError.InvalidArgument("UnityProject is invalid."))),
+                CreateError(
+                    errorKind,
+                    "UnityProject is invalid.",
+                    errorCode))),
             new SpyOperationCatalogDiscoveryService([]));
 
         var exception = await Assert.ThrowsAsync<OperationCatalogLoadException>(async () =>
             await provider.GetOperations(CancellationToken.None));
 
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, exception.Error.Kind);
+        Assert.Equal(errorKind, exception.Error.Kind);
+        Assert.Equal(errorCode, exception.Error.Code);
+        Assert.Equal(errorCode, exception.ErrorCode);
         Assert.Contains("Operation catalog context could not be resolved.", exception.Error.Message, StringComparison.Ordinal);
     }
 
@@ -166,5 +179,19 @@ public sealed class OperationCatalogProviderTests
             ReceivedFailFast = failFast;
             return ValueTask.FromResult(operations);
         }
+    }
+
+    private static ExecutionError CreateError (
+        ExecutionErrorKind errorKind,
+        string message,
+        string errorCode)
+    {
+        return errorKind switch
+        {
+            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message, errorCode),
+            ExecutionErrorKind.Timeout => ExecutionError.Timeout(message, errorCode),
+            ExecutionErrorKind.InternalError => ExecutionError.InternalError(message, errorCode),
+            _ => throw new ArgumentOutOfRangeException(nameof(errorKind), errorKind, "Unsupported execution error kind."),
+        };
     }
 }
