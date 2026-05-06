@@ -207,6 +207,28 @@ public sealed class ResolveServiceTests
         Assert.Equal("Hierarchy path 'Root/Child' did not match a GameObject.", result.ReadIndex.FallbackReason);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenSceneHierarchyIndexFailureMessageIsBlank_FallsBackToUnityWithDefaultReason ()
+    {
+        var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
+        var sceneTreeLiteAccessService = new StubSceneTreeLiteAccessService(SceneTreeLiteReadResult.Failure("", IpcErrorCodes.InternalError));
+        var unityRequestExecutor = new SpyUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateUnityResponse()));
+        var service = new ResolveService(projectContextResolver, sceneTreeLiteAccessService, unityRequestExecutor);
+
+        var result = await service.Execute(
+            CreateInput(
+                selector: CreateSceneSelector(),
+                readIndexMode: ReadIndexMode.AllowStale),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, sceneTreeLiteAccessService.CallCount);
+        Assert.Equal(1, unityRequestExecutor.CallCount);
+        Assert.Equal(ReadIndexInfoSource.Unity, result.ReadIndex.Source);
+        Assert.Equal("readIndex fallback reason is unavailable.", result.ReadIndex.FallbackReason);
+    }
+
     private static ResolveCommandInput CreateInput (
         ResolveSelectorInput selector,
         ReadIndexMode? readIndexMode = null,

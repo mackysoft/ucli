@@ -3,6 +3,8 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 /// <summary> Creates application read-index metadata from access metadata. </summary>
 internal static class ReadIndexInfoFactory
 {
+    private const string UnknownUnityFallbackReason = "readIndex fallback reason is unavailable.";
+
     /// <summary> Creates readIndex metadata from asset-search lookup access metadata. </summary>
     public static ReadIndexInfo FromAssetLookupAccess (AssetLookupAccessInfo accessInfo)
     {
@@ -44,6 +46,18 @@ internal static class ReadIndexInfoFactory
             Source: ReadIndexInfoSource.Unity,
             Freshness: IndexFreshness.Fresh,
             GeneratedAtUtc: null,
-            FallbackReason: fallbackReason);
+            FallbackReason: NormalizeUnityFallbackReason(fallbackReason));
+    }
+
+    private static string? NormalizeUnityFallbackReason (string? fallbackReason)
+    {
+        if (fallbackReason is null)
+        {
+            return null;
+        }
+
+        return string.IsNullOrWhiteSpace(fallbackReason)
+            ? UnknownUnityFallbackReason
+            : fallbackReason;
     }
 }

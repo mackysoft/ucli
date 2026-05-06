@@ -21,19 +21,13 @@ internal static class PlanFailureResultFactory
     {
         ArgumentNullException.ThrowIfNull(error);
 
+        var executionError = RequestServiceResultPolicy.FromExecutionError(error, errorCode);
         return PlanServiceResult.Failure(
             error.Message,
             [
-                new OperationExecutionError(
-                    string.IsNullOrWhiteSpace(errorCode)
-                        ? ExecutionErrorCodeMapper.ToCode(error.Kind)
-                        : errorCode,
-                    error.Message,
-                    null),
+                executionError,
             ],
-            error.Kind == ExecutionErrorKind.InvalidArgument
-                ? ApplicationOutcome.InvalidArgument
-                : ApplicationOutcome.ToolError,
+            RequestServiceResultPolicy.ResolveOutcome(error, errorCode),
             output);
     }
 
@@ -45,18 +39,9 @@ internal static class PlanFailureResultFactory
         IReadOnlyList<ValidationError> validationErrors,
         PlanExecutionOutput? output = null)
     {
-        ArgumentNullException.ThrowIfNull(validationErrors);
-
-        var errors = new OperationExecutionError[validationErrors.Count];
-        for (var i = 0; i < validationErrors.Count; i++)
-        {
-            var validationError = validationErrors[i];
-            errors[i] = new OperationExecutionError(validationError.Code, validationError.Message, validationError.OpId);
-        }
-
         return PlanServiceResult.Failure(
             "Static validation failed.",
-            errors,
+            RequestServiceResultPolicy.FromValidationErrors(validationErrors),
             ApplicationOutcome.InvalidArgument,
             output);
     }

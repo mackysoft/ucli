@@ -13,9 +13,8 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class RefreshCommandTests
 {
-    private static readonly OperationExecuteResult SuccessResult = new(
-        RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-        OpResults:
+    private static readonly OperationExecuteResult SuccessResult = OperationExecuteResultFactory.Success(
+        "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
         [
             new OperationExecutionOperationResult(
                 OpId: "refresh",
@@ -31,9 +30,7 @@ public sealed class RefreshCommandTests
                         Guid: null),
                 ]),
         ],
-        Errors: [],
-        Outcome: ApplicationOutcome.Success,
-        ReadPostcondition: null);
+        "uCLI refresh completed.");
 
     [Fact]
     [Trait("Size", "Small")]
@@ -81,6 +78,48 @@ public sealed class RefreshCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Refresh_WhenServiceFails_PreservesFailurePayloadAndErrors ()
+    {
+        var failureResult = OperationExecuteResultFactory.Failure(
+            "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+            [],
+            [
+                new OperationExecutionError(
+                    IpcErrorCodes.InternalError,
+                    "Unity execution failed.",
+                    "refresh"),
+            ],
+            ApplicationOutcome.ToolError,
+            "uCLI refresh failed.");
+        var service = new StubRefreshService((_, _) => ValueTask.FromResult(failureResult));
+        var command = new RefreshCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Refresh(
+            projectPath: "/repo/UnityProject",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.ToolError, exitCode);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Refresh,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.ToolError);
+        JsonAssert.For(outputJson.RootElement)
+            .HasString("message", "Unity execution failed.")
+            .HasProperty("payload", payload => payload
+                .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
+                .HasArrayLength("opResults", 0))
+            .HasArrayLength("errors", 1)
+            .HasProperty("errors", 0, error => error
+                .HasString("code", IpcErrorCodes.InternalError)
+                .HasString("message", "Unity execution failed.")
+                .HasString("opId", "refresh"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Refresh_WhenReadPostconditionExists_WritesTopLevelPayload ()
     {
         var readPostcondition = new OperationExecutionReadPostcondition(
@@ -89,9 +128,8 @@ public sealed class RefreshCommandTests
                 Surface: IpcExecuteReadPostconditionSurfaceNames.AssetSearch,
                 MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T01:02:03+00:00")),
         ]);
-        var service = new StubRefreshService((_, _) => ValueTask.FromResult(new OperationExecuteResult(
-            RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-            OpResults:
+        var service = new StubRefreshService((_, _) => ValueTask.FromResult(OperationExecuteResultFactory.Success(
+            "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
             [
                 new OperationExecutionOperationResult(
                     OpId: "refresh",
@@ -101,9 +139,8 @@ public sealed class RefreshCommandTests
                     Changed: true,
                     Touched: []),
             ],
-            Errors: [],
-            Outcome: ApplicationOutcome.Success,
-            ReadPostcondition: readPostcondition)));
+            "uCLI refresh completed.",
+            readPostcondition)));
         var command = new RefreshCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Refresh(

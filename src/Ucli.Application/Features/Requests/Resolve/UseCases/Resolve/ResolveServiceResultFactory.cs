@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -8,13 +7,17 @@ namespace MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
 /// <summary> Creates normalized resolve service results. </summary>
 internal static class ResolveServiceResultFactory
 {
+    private const string SuccessMessage = "uCLI resolve completed.";
+
+    private const string FailureMessage = "uCLI resolve failed.";
+
     /// <summary> Creates one successful resolve result. </summary>
     public static ResolveServiceResult Success (
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         ReadIndexInfo readIndex)
     {
-        return Create(requestId, opResults, [], ApplicationOutcome.Success, readIndex);
+        return ResolveServiceResult.Success(requestId, opResults, SuccessMessage, readIndex);
     }
 
     /// <summary> Creates one failure result from a structured execution error. </summary>
@@ -25,17 +28,15 @@ internal static class ResolveServiceResultFactory
     {
         ArgumentNullException.ThrowIfNull(error);
 
-        var errorCode = ExecutionErrorCodeMapper.ToCode(error.Kind);
-        return Create(
+        var executionError = RequestServiceResultPolicy.FromExecutionError(error);
+        return Failure(
             requestId,
             [],
             [
-                new OperationExecutionError(errorCode, error.Message, null),
+                executionError,
             ],
-            error.Kind == ExecutionErrorKind.InvalidArgument
-                ? ApplicationOutcome.InvalidArgument
-                : ApplicationOutcome.ToolError,
-            readIndex ?? CreateUnityReadIndexInfo(fallbackReason: null));
+            RequestServiceResultPolicy.ResolveOutcome(error),
+            readIndex ?? ReadIndexInfoFactory.Unity(fallbackReason: null));
     }
 
     /// <summary> Creates one failure result from one IPC error. </summary>
@@ -45,16 +46,17 @@ internal static class ResolveServiceResultFactory
         ReadIndexInfo readIndex)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return Create(
+        var normalizedError = RequestServiceResultPolicy.NormalizeError(error, FailureMessage);
+        return Failure(
             requestId,
             [],
-            [error],
-            ExecuteResponseConverter.ResolveOutcome(error.Code),
+            [normalizedError],
+            RequestServiceResultPolicy.ResolveOutcome(normalizedError.Code),
             readIndex);
     }
 
-    /// <summary> Creates one normalized resolve service result. </summary>
-    public static ResolveServiceResult Create (
+    /// <summary> Creates one failed resolve result. </summary>
+    public static ResolveServiceResult Failure (
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<OperationExecutionError> errors,
@@ -63,25 +65,14 @@ internal static class ResolveServiceResultFactory
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
-        ArgumentNullException.ThrowIfNull(errors);
         ArgumentNullException.ThrowIfNull(readIndex);
 
-        return new ResolveServiceResult(
-            RequestId: requestId,
-            OpResults: opResults,
-            Errors: errors,
-            Outcome: outcome,
-            ReadIndex: readIndex);
-    }
-
-    private static ReadIndexInfo CreateUnityReadIndexInfo (string? fallbackReason)
-    {
-        return new ReadIndexInfo(
-            Used: false,
-            Hit: false,
-            Source: ReadIndexInfoSource.Unity,
-            Freshness: IndexFreshness.Fresh,
-            GeneratedAtUtc: null,
-            FallbackReason: fallbackReason);
+        return ResolveServiceResult.Failure(
+            requestId,
+            opResults,
+            errors,
+            outcome,
+            RequestServiceResultPolicy.ResolveFailureMessage(errors, FailureMessage),
+            readIndex);
     }
 }

@@ -1,8 +1,6 @@
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -29,21 +27,12 @@ internal static class QueryCommandResultFactory
                 payload: payload);
         }
 
-        var errors = new CommandError[serviceResult.Errors.Count];
-        for (var i = 0; i < serviceResult.Errors.Count; i++)
-        {
-            var error = serviceResult.Errors[i];
-            errors[i] = new CommandError(error.Code, error.Message, error.OpId);
-        }
-
-        return new CommandResult(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            Command: serviceResult.CommandName,
-            Status: IpcProtocol.StatusError,
-            ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(serviceResult.Outcome),
-            Message: serviceResult.Message,
-            Payload: payload,
-            Errors: errors);
+        return RequestCommandFailureResultFactory.Create(
+            serviceResult.CommandName,
+            serviceResult.Message,
+            payload,
+            serviceResult.Errors,
+            serviceResult.Outcome);
     }
 
     /// <summary> Creates one command result for a typed-query command from a normalized execution error. </summary>
