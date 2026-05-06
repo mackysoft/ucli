@@ -3,7 +3,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Index;
+using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 
 namespace MackySoft.Ucli.Tests.Scenes;
@@ -174,13 +174,13 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
         }
     }
 
-    private sealed class StubSceneTreeLiteStore : ISceneTreeLiteStore
+    private sealed class StubSceneTreeLiteStore : IReadIndexArtifactWriter
     {
         public int CallCount { get; private set; }
 
         public string? SourceInputsHash { get; private set; }
 
-        public ValueTask Write (
+        public ValueTask WriteSceneTreeLite (
             string storageRoot,
             string projectFingerprint,
             DateTimeOffset generatedAtUtc,
@@ -194,9 +194,33 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             SourceInputsHash = sourceInputsHash;
             return ValueTask.CompletedTask;
         }
+
+        public ValueTask WriteOpsCatalog (
+            string storageRoot,
+            string projectFingerprint,
+            DateTimeOffset generatedAtUtc,
+            IReadOnlyList<IndexOpEntryJsonContract> operations,
+            string sourceInputsHash,
+            ReadIndexInputHashSnapshot? manifestInputSnapshot,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
+        public ValueTask WriteAssetLookups (
+            string storageRoot,
+            string projectFingerprint,
+            DateTimeOffset generatedAtUtc,
+            IReadOnlyList<IndexAssetSearchEntryJsonContract> assetSearchEntries,
+            IReadOnlyList<IndexGuidPathEntryJsonContract> guidPathEntries,
+            ReadIndexInputHashSnapshot inputSnapshot,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
     }
 
-    private sealed class StubSceneTreeLiteSourceHashCalculator : ISceneTreeLiteSourceHashCalculator
+    private sealed class StubSceneTreeLiteSourceHashCalculator : IReadIndexSceneSourceHashProvider
     {
         private readonly Queue<string?> results = new();
 

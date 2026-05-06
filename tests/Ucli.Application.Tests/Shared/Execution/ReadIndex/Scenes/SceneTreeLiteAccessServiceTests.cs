@@ -5,11 +5,8 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.UnityIntegration.Indexing.Core;
-using MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
-using MackySoft.Ucli.UnityIntegration.Indexing.Scenes.Access;
 
-namespace MackySoft.Ucli.Tests.Scenes.Access;
+namespace MackySoft.Ucli.Application.Tests.Execution.ReadIndex.Scenes;
 
 public sealed class SceneTreeLiteAccessServiceTests
 {
@@ -22,7 +19,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         WriteSceneFile(project.UnityProjectRoot, "Assets/Scenes/Main.unity");
         var indexReader = new StubIndexCatalogReader
         {
-            SceneTreeLiteLookupResult = IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>.Success(
+            SceneTreeLiteLookupResult = ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Success(
                 new IndexSceneTreeLiteLookupJsonContract(
                     SchemaVersion: 1,
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
@@ -35,7 +32,7 @@ public sealed class SceneTreeLiteAccessServiceTests
             Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable),
         };
         var refreshService = new StubSceneTreeLiteSourceRefreshService();
-        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService);
+        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
 
         var result = await service.Read(
             project,
@@ -67,7 +64,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         WriteSceneFile(project.UnityProjectRoot, "Assets/Scenes/Main.unity");
         var indexReader = new StubIndexCatalogReader
         {
-            SceneTreeLiteLookupResult = IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>.Success(
+            SceneTreeLiteLookupResult = ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Success(
                 new IndexSceneTreeLiteLookupJsonContract(
                     SchemaVersion: 1,
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
@@ -79,7 +76,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         {
             Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh),
         };
-        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService());
+        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService(), new StubSceneTreeLiteSourceProbe());
 
         var result = await service.Read(
             project,
@@ -105,7 +102,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         WriteSceneFile(project.UnityProjectRoot, "Assets/Scenes/Main.unity");
         var indexReader = new StubIndexCatalogReader
         {
-            SceneTreeLiteLookupResult = IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>.Success(
+            SceneTreeLiteLookupResult = ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Success(
                 new IndexSceneTreeLiteLookupJsonContract(
                     SchemaVersion: 1,
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
@@ -117,7 +114,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         {
             Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh),
         };
-        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService());
+        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService(), new StubSceneTreeLiteSourceProbe());
 
         var result = await service.Read(
             project,
@@ -144,7 +141,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         WriteSceneFile(project.UnityProjectRoot, "Assets/Scenes/Main.unity");
         var indexReader = new StubIndexCatalogReader
         {
-            SceneTreeLiteLookupResult = IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>.Success(
+            SceneTreeLiteLookupResult = ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Success(
                 new IndexSceneTreeLiteLookupJsonContract(
                     SchemaVersion: 1,
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
@@ -170,7 +167,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                     ]),
                 "Existing scene-tree-lite index freshness is 'stale'."),
         };
-        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService);
+        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
 
         var result = await service.Read(
             project,
@@ -199,7 +196,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         WriteSceneFile(project.UnityProjectRoot, "Assets/Scenes/Main.unity");
         var indexReader = new StubIndexCatalogReader
         {
-            SceneTreeLiteLookupResult = IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>.Success(
+            SceneTreeLiteLookupResult = ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Success(
                 new IndexSceneTreeLiteLookupJsonContract(
                     SchemaVersion: 1,
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
@@ -236,7 +233,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                     ]),
                 "Existing scene-tree-lite index generatedAtUtc is older than mutation read postcondition."),
         };
-        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService);
+        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService, new StubSceneTreeLiteSourceProbe());
 
         var result = await service.Read(
             project,
@@ -263,7 +260,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         WriteSceneFile(project.UnityProjectRoot, "Assets/Scenes/Main.unity");
         var indexReader = new StubIndexCatalogReader
         {
-            SceneTreeLiteLookupResult = IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>.Success(
+            SceneTreeLiteLookupResult = ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Success(
                 new IndexSceneTreeLiteLookupJsonContract(
                     SchemaVersion: 1,
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
@@ -289,7 +286,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                 ])),
         };
         var refreshService = new StubSceneTreeLiteSourceRefreshService();
-        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService);
+        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService, new StubSceneTreeLiteSourceProbe());
 
         var result = await service.Read(
             project,
@@ -324,7 +321,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                 "readIndex disabled by mode."),
         };
         var indexReader = new StubIndexCatalogReader();
-        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService);
+        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
 
         var result = await service.Read(
             project,
@@ -362,7 +359,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                 "scene-tree-lite readIndex is unavailable for non-Assets scene paths."),
         };
         var indexReader = new StubIndexCatalogReader();
-        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService);
+        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
 
         var result = await service.Read(
             project,
@@ -390,7 +387,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         var project = CreateProject(scope);
         var indexReader = new StubIndexCatalogReader
         {
-            SceneTreeLiteLookupResult = IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>.Success(
+            SceneTreeLiteLookupResult = ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Success(
                 new IndexSceneTreeLiteLookupJsonContract(
                     SchemaVersion: 1,
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
@@ -398,7 +395,12 @@ public sealed class SceneTreeLiteAccessServiceTests
                     SourceInputsHash: "scene-hash",
                     Roots: CreateTree())),
         };
-        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService());
+        var service = new SceneTreeLiteAccessService(
+            indexReader,
+            new StubSceneTreeLiteFreshnessEvaluator(),
+            new TestMutationReadPostconditionStore(),
+            new StubSceneTreeLiteSourceRefreshService(),
+            new StubSceneTreeLiteSourceProbe(SceneTreeLiteSourceProbeResult.Failure("Scene path could not be resolved: Assets/Scenes/Main.unity")));
 
         var result = await service.Read(
             project,
@@ -424,7 +426,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         using var scope = TestDirectories.CreateTempScope("scene-tree-lite-access", "traversal-scene");
         var project = CreateProject(scope);
         var indexReader = new StubIndexCatalogReader();
-        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService());
+        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService(), new StubSceneTreeLiteSourceProbe());
 
         var result = await service.Read(
             project,
@@ -450,7 +452,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         using var scope = TestDirectories.CreateTempScope("scene-tree-lite-access", "windows-rooted-scene");
         var project = CreateProject(scope);
         var indexReader = new StubIndexCatalogReader();
-        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService());
+        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService(), new StubSceneTreeLiteSourceProbe());
 
         var result = await service.Read(
             project,
@@ -478,7 +480,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         WriteSceneFile(project.UnityProjectRoot, "Assets/Scenes/Main.unity");
         var indexReader = new StubIndexCatalogReader
         {
-            SceneTreeLiteLookupResult = IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>.Failure(
+            SceneTreeLiteLookupResult = ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Failure(
                 IpcErrorCodes.ReadIndexBootstrapFailed,
                 "scene-tree-lite lookup is missing."),
         };
@@ -491,7 +493,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                     Roots: CreateTree()),
                 "scene-tree-lite lookup is missing."),
         };
-        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService);
+        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
 
         var result = await service.Read(
             project,
@@ -519,7 +521,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         WriteSceneFile(project.UnityProjectRoot, "Assets/Scenes/Main.unity");
         var indexReader = new StubIndexCatalogReader
         {
-            SceneTreeLiteLookupResult = IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>.Failure(
+            SceneTreeLiteLookupResult = ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Failure(
                 IpcErrorCodes.ReadIndexFormatInvalid,
                 "Index contract file 'lookups/scene-tree-lite/*.lookup.json' is malformed."),
         };
@@ -532,7 +534,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                     Roots: CreateTree()),
                 "Index contract file 'lookups/scene-tree-lite/*.lookup.json' is malformed."),
         };
-        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService);
+        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
 
         var result = await service.Read(
             project,
@@ -593,21 +595,21 @@ public sealed class SceneTreeLiteAccessServiceTests
         ];
     }
 
-    private sealed class StubIndexCatalogReader : IIndexCatalogReader
+    private sealed class StubIndexCatalogReader : IReadIndexArtifactReader
     {
         public int SceneTreeLiteLookupCallCount { get; private set; }
 
-        public IndexAccessResult<IndexSceneTreeLiteLookupJsonContract> SceneTreeLiteLookupResult { get; set; }
-            = IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>.Failure(IpcErrorCodes.ReadIndexBootstrapFailed, "missing");
+        public ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract> SceneTreeLiteLookupResult { get; set; }
+            = ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Failure(IpcErrorCodes.ReadIndexBootstrapFailed, "missing");
 
-        public ValueTask<IndexAccessResult<IndexOpsCatalogJsonContract>> ReadOpsCatalog (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<IndexAccessResult<IndexTypesCatalogJsonContract>> ReadTypesCatalog (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<IndexAccessResult<IndexSchemasCatalogJsonContract>> ReadSchemasCatalog (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<IndexAccessResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookup (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<IndexAccessResult<IndexGuidPathLookupJsonContract>> ReadGuidPathLookup (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<IndexAccessResult<IndexInputsManifestJsonContract>> ReadInputsManifest (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>> ReadOpsCatalog (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexTypesCatalogJsonContract>> ReadTypesCatalog (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexSchemasCatalogJsonContract>> ReadSchemasCatalog (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookup (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>> ReadGuidPathLookup (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexInputsManifestJsonContract>> ReadInputsManifest (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
-        public ValueTask<IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookup (
+        public ValueTask<ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookup (
             string storageRoot,
             string projectFingerprint,
             string scenePath,
@@ -619,12 +621,22 @@ public sealed class SceneTreeLiteAccessServiceTests
         }
     }
 
-    private sealed class StubSceneTreeLiteFreshnessEvaluator : ISceneTreeLiteFreshnessEvaluator
+    private sealed class StubSceneTreeLiteFreshnessEvaluator : IReadIndexFreshnessEvaluator
     {
         public IndexFreshnessEvaluationResult Result { get; set; }
             = IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh);
 
         public ValueTask<IndexFreshnessEvaluationResult> Evaluate (
+            string projectRootPath,
+            IndexFreshnessTarget target,
+            string? persistedSourceInputsHash,
+            ReadIndexMode mode,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
+        public ValueTask<IndexFreshnessEvaluationResult> EvaluateSceneTreeLite (
             string projectRootPath,
             string scenePath,
             string? persistedSourceInputsHash,
@@ -633,6 +645,30 @@ public sealed class SceneTreeLiteAccessServiceTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(Result);
+        }
+    }
+
+    private sealed class StubSceneTreeLiteSourceProbe : ISceneTreeLiteSourceProbe
+    {
+        private readonly SceneTreeLiteSourceProbeResult result;
+
+        public StubSceneTreeLiteSourceProbe ()
+            : this(SceneTreeLiteSourceProbeResult.Success())
+        {
+        }
+
+        public StubSceneTreeLiteSourceProbe (SceneTreeLiteSourceProbeResult result)
+        {
+            this.result = result;
+        }
+
+        public ValueTask<SceneTreeLiteSourceProbeResult> EnsureCurrentAssetsSceneExists (
+            ResolvedUnityProjectContext project,
+            string scenePath,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(result);
         }
     }
 

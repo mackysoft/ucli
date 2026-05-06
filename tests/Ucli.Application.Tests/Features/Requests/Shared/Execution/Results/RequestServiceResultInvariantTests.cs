@@ -8,7 +8,6 @@ using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExe
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Validate.Common.Contracts;
-using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 

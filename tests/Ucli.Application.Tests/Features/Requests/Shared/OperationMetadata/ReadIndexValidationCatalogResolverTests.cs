@@ -1,7 +1,5 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
-using MackySoft.Ucli.Application.Shared.Context.Project;
-using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 

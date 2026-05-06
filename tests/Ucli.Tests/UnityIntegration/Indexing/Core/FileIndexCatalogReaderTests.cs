@@ -5,14 +5,14 @@ using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.Tests.Index;
 
-public sealed class FileIndexCatalogReaderTests
+public sealed class FileReadIndexArtifactReaderTests
 {
     [Fact]
     [Trait("Size", "Small")]
     public async Task ReadOpsCatalog_ReturnsContract_WhenCatalogExists ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-success");
-        var reader = new FileIndexCatalogReader();
+        var reader = new FileReadIndexArtifactReader();
         const string fingerprint = "fingerprint";
         var contract = new IndexOpsCatalogJsonContract(
             SchemaVersion: 1,
@@ -55,7 +55,7 @@ public sealed class FileIndexCatalogReaderTests
     public async Task ReadTypesCatalog_ReturnsContract_WhenCatalogExists ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "types-success");
-        var reader = new FileIndexCatalogReader();
+        var reader = new FileReadIndexArtifactReader();
         const string fingerprint = "fingerprint";
         var contract = new IndexTypesCatalogJsonContract(
             SchemaVersion: 1,
@@ -94,7 +94,7 @@ public sealed class FileIndexCatalogReaderTests
     public async Task ReadSchemasCatalog_ReturnsReadIndexBootstrapFailed_WhenCatalogDoesNotExist ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "schemas-missing");
-        var reader = new FileIndexCatalogReader();
+        var reader = new FileReadIndexArtifactReader();
 
         var result = await reader.ReadSchemasCatalog(scope.FullPath, "fingerprint", CancellationToken.None);
 
@@ -109,7 +109,7 @@ public sealed class FileIndexCatalogReaderTests
     public async Task ReadSchemasCatalog_ReturnsReadIndexFormatInvalid_WhenCatalogJsonIsMalformed ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "schemas-malformed-json");
-        var reader = new FileIndexCatalogReader();
+        var reader = new FileReadIndexArtifactReader();
         var catalogPath = UcliStoragePathResolver.ResolveSchemasCatalogPath(scope.FullPath, "fingerprint");
         WriteText(catalogPath, "{");
 
@@ -126,7 +126,7 @@ public sealed class FileIndexCatalogReaderTests
     public async Task ReadAssetSearchLookup_ReturnsContract_WhenLookupExists ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "asset-search-success");
-        var reader = new FileIndexCatalogReader();
+        var reader = new FileReadIndexArtifactReader();
         const string fingerprint = "fingerprint";
         var contract = new IndexAssetSearchLookupJsonContract(
             SchemaVersion: 1,
@@ -162,7 +162,7 @@ public sealed class FileIndexCatalogReaderTests
     public async Task ReadGuidPathLookup_ReturnsReadIndexFormatInvalid_WhenLookupJsonIsMalformed ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "guid-path-malformed");
-        var reader = new FileIndexCatalogReader();
+        var reader = new FileReadIndexArtifactReader();
         var lookupPath = UcliStoragePathResolver.ResolveGuidPathLookupPath(scope.FullPath, "fingerprint");
         WriteText(lookupPath, "{");
 
@@ -179,7 +179,7 @@ public sealed class FileIndexCatalogReaderTests
     public async Task ReadSceneTreeLiteLookup_ReturnsContract_WhenLookupExists ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "scene-tree-lite-success");
-        var reader = new FileIndexCatalogReader();
+        var reader = new FileReadIndexArtifactReader();
         const string fingerprint = "fingerprint";
         const string scenePath = "Assets/Scenes/Sample.unity";
         var contract = new IndexSceneTreeLiteLookupJsonContract(
@@ -211,7 +211,7 @@ public sealed class FileIndexCatalogReaderTests
     public async Task ReadSceneTreeLiteLookup_ReturnsReadIndexFormatInvalid_WhenScenePathDoesNotMatchRequestedScene ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "scene-tree-lite-mismatch");
-        var reader = new FileIndexCatalogReader();
+        var reader = new FileReadIndexArtifactReader();
         const string fingerprint = "fingerprint";
         const string requestedScenePath = "Assets/Scenes/Sample.unity";
         var contract = new IndexSceneTreeLiteLookupJsonContract(
@@ -241,7 +241,7 @@ public sealed class FileIndexCatalogReaderTests
     public async Task ReadInputsManifest_ReturnsReadIndexFormatInvalid_WhenContractIsIncomplete ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "inputs-incomplete-contract");
-        var reader = new FileIndexCatalogReader();
+        var reader = new FileReadIndexArtifactReader();
         var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, "fingerprint");
         WriteText(
             manifestPath,

@@ -1,6 +1,4 @@
-using MackySoft.Ucli.Infrastructure.Index;
-
-namespace MackySoft.Ucli.Tests.Execution.ReadIndex;
+namespace MackySoft.Ucli.Application.Tests.Execution.ReadIndex;
 
 public sealed class IndexHashFreshnessPolicyTests
 {
@@ -48,9 +46,9 @@ public sealed class IndexHashFreshnessPolicyTests
         Assert.Equal(IndexFreshness.Stale, result);
     }
 
-    private static IndexInputHashSnapshot CreateSnapshot ()
+    private static ReadIndexInputHashSnapshot CreateSnapshot ()
     {
-        return new IndexInputHashSnapshot(
+        return new ReadIndexInputHashSnapshot(
             ScriptAssembliesHash: "script-hash",
             PackagesManifestHash: "manifest-hash",
             PackagesLockHash: "lock-hash",

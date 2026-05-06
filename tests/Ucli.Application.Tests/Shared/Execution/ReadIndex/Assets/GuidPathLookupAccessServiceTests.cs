@@ -5,11 +5,8 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.UnityIntegration.Indexing.Assets;
-using MackySoft.Ucli.UnityIntegration.Indexing.Assets.Access;
-using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
-namespace MackySoft.Ucli.Tests.Assets.Access;
+namespace MackySoft.Ucli.Application.Tests.Execution.ReadIndex.Assets;
 
 public sealed class GuidPathLookupAccessServiceTests
 {
@@ -19,7 +16,7 @@ public sealed class GuidPathLookupAccessServiceTests
     {
         var indexReader = new StubIndexCatalogReader
         {
-            GuidPathLookupResult = IndexAccessResult<IndexGuidPathLookupJsonContract>.Success(
+            GuidPathLookupResult = ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>.Success(
                 new IndexGuidPathLookupJsonContract(
                     SchemaVersion: 1,
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
@@ -57,7 +54,7 @@ public sealed class GuidPathLookupAccessServiceTests
     {
         var indexReader = new StubIndexCatalogReader
         {
-            GuidPathLookupResult = IndexAccessResult<IndexGuidPathLookupJsonContract>.Success(
+            GuidPathLookupResult = ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>.Success(
                 new IndexGuidPathLookupJsonContract(
                     SchemaVersion: 1,
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
@@ -119,7 +116,7 @@ public sealed class GuidPathLookupAccessServiceTests
     {
         var indexReader = new StubIndexCatalogReader
         {
-            GuidPathLookupResult = IndexAccessResult<IndexGuidPathLookupJsonContract>.Success(
+            GuidPathLookupResult = ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>.Success(
                 new IndexGuidPathLookupJsonContract(
                     SchemaVersion: 1,
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"),
@@ -197,19 +194,19 @@ public sealed class GuidPathLookupAccessServiceTests
             PathSource: UnityProjectPathSource.CommandOption);
     }
 
-    private sealed class StubIndexCatalogReader : IIndexCatalogReader
+    private sealed class StubIndexCatalogReader : IReadIndexArtifactReader
     {
-        public IndexAccessResult<IndexGuidPathLookupJsonContract> GuidPathLookupResult { get; set; }
-            = IndexAccessResult<IndexGuidPathLookupJsonContract>.Failure(IpcErrorCodes.ReadIndexBootstrapFailed, "missing");
+        public ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract> GuidPathLookupResult { get; set; }
+            = ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>.Failure(IpcErrorCodes.ReadIndexBootstrapFailed, "missing");
 
-        public ValueTask<IndexAccessResult<IndexOpsCatalogJsonContract>> ReadOpsCatalog (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<IndexAccessResult<IndexTypesCatalogJsonContract>> ReadTypesCatalog (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<IndexAccessResult<IndexSchemasCatalogJsonContract>> ReadSchemasCatalog (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<IndexAccessResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookup (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookup (string storageRoot, string projectFingerprint, string scenePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<IndexAccessResult<IndexInputsManifestJsonContract>> ReadInputsManifest (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>> ReadOpsCatalog (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexTypesCatalogJsonContract>> ReadTypesCatalog (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexSchemasCatalogJsonContract>> ReadSchemasCatalog (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookup (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookup (string storageRoot, string projectFingerprint, string scenePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexInputsManifestJsonContract>> ReadInputsManifest (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
-        public ValueTask<IndexAccessResult<IndexGuidPathLookupJsonContract>> ReadGuidPathLookup (
+        public ValueTask<ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>> ReadGuidPathLookup (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -219,7 +216,7 @@ public sealed class GuidPathLookupAccessServiceTests
         }
     }
 
-    private sealed class StubIndexFreshnessEvaluator : IIndexFreshnessEvaluator
+    private sealed class StubIndexFreshnessEvaluator : IReadIndexFreshnessEvaluator
     {
         public IndexFreshnessEvaluationResult Result { get; set; }
             = IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh);
@@ -233,6 +230,16 @@ public sealed class GuidPathLookupAccessServiceTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(Result);
+        }
+
+        public ValueTask<IndexFreshnessEvaluationResult> EvaluateSceneTreeLite (
+            string projectRootPath,
+            string scenePath,
+            string? persistedSourceInputsHash,
+            ReadIndexMode mode,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
         }
     }
 

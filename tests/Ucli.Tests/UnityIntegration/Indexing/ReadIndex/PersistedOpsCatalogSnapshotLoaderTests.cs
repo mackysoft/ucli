@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
 namespace MackySoft.Ucli.Tests;
@@ -15,7 +14,7 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
             IpcErrorCodes.ReadIndexBootstrapFailed,
             "Index contract file was not found: ops.catalog.json.");
         var loader = new PersistedOpsCatalogSnapshotLoader(
-            new StubIndexCatalogReader(IndexAccessResult<IndexOpsCatalogJsonContract>.Failure(error)),
+            new StubIndexCatalogReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Failure(error)),
             new StubIndexFreshnessEvaluator(IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh)));
 
         var result = await loader.Load(CreateUnityProject(), CancellationToken.None);
@@ -35,7 +34,7 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
         var freshnessEvaluator = new StubIndexFreshnessEvaluator(
             IndexFreshnessEvaluationResult.Failure(IndexFreshness.Stale, error));
         var loader = new PersistedOpsCatalogSnapshotLoader(
-            new StubIndexCatalogReader(IndexAccessResult<IndexOpsCatalogJsonContract>.Success(CreateCatalog())),
+            new StubIndexCatalogReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Success(CreateCatalog())),
             freshnessEvaluator);
 
         var result = await loader.Load(CreateUnityProject(), CancellationToken.None);
@@ -52,7 +51,7 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
         var freshnessEvaluator = new StubIndexFreshnessEvaluator(
             IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable));
         var loader = new PersistedOpsCatalogSnapshotLoader(
-            new StubIndexCatalogReader(IndexAccessResult<IndexOpsCatalogJsonContract>.Success(CreateCatalog())),
+            new StubIndexCatalogReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Success(CreateCatalog())),
             freshnessEvaluator);
 
         var result = await loader.Load(CreateUnityProject(), CancellationToken.None);
@@ -93,16 +92,16 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
             ]);
     }
 
-    private sealed class StubIndexCatalogReader : IIndexCatalogReader
+    private sealed class StubIndexCatalogReader : IReadIndexArtifactReader
     {
-        private readonly IndexAccessResult<IndexOpsCatalogJsonContract> opsCatalogResult;
+        private readonly ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract> opsCatalogResult;
 
-        public StubIndexCatalogReader (IndexAccessResult<IndexOpsCatalogJsonContract> opsCatalogResult)
+        public StubIndexCatalogReader (ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract> opsCatalogResult)
         {
             this.opsCatalogResult = opsCatalogResult ?? throw new ArgumentNullException(nameof(opsCatalogResult));
         }
 
-        public ValueTask<IndexAccessResult<IndexOpsCatalogJsonContract>> ReadOpsCatalog (
+        public ValueTask<ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>> ReadOpsCatalog (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -111,7 +110,7 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
             return ValueTask.FromResult(opsCatalogResult);
         }
 
-        public ValueTask<IndexAccessResult<IndexTypesCatalogJsonContract>> ReadTypesCatalog (
+        public ValueTask<ReadIndexArtifactReadResult<IndexTypesCatalogJsonContract>> ReadTypesCatalog (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -119,7 +118,7 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
             throw new NotSupportedException();
         }
 
-        public ValueTask<IndexAccessResult<IndexSchemasCatalogJsonContract>> ReadSchemasCatalog (
+        public ValueTask<ReadIndexArtifactReadResult<IndexSchemasCatalogJsonContract>> ReadSchemasCatalog (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -127,7 +126,7 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
             throw new NotSupportedException();
         }
 
-        public ValueTask<IndexAccessResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookup (
+        public ValueTask<ReadIndexArtifactReadResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookup (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -135,7 +134,7 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
             throw new NotSupportedException();
         }
 
-        public ValueTask<IndexAccessResult<IndexGuidPathLookupJsonContract>> ReadGuidPathLookup (
+        public ValueTask<ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>> ReadGuidPathLookup (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -143,7 +142,7 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
             throw new NotSupportedException();
         }
 
-        public ValueTask<IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookup (
+        public ValueTask<ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookup (
             string storageRoot,
             string projectFingerprint,
             string scenePath,
@@ -152,7 +151,7 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
             throw new NotSupportedException();
         }
 
-        public ValueTask<IndexAccessResult<IndexInputsManifestJsonContract>> ReadInputsManifest (
+        public ValueTask<ReadIndexArtifactReadResult<IndexInputsManifestJsonContract>> ReadInputsManifest (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -161,7 +160,7 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
         }
     }
 
-    private sealed class StubIndexFreshnessEvaluator : IIndexFreshnessEvaluator
+    private sealed class StubIndexFreshnessEvaluator : IReadIndexFreshnessEvaluator
     {
         private readonly IndexFreshnessEvaluationResult result;
 
@@ -191,6 +190,16 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
             LastMode = mode;
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(result);
+        }
+
+        public ValueTask<IndexFreshnessEvaluationResult> EvaluateSceneTreeLite (
+            string projectRootPath,
+            string scenePath,
+            string? persistedSourceInputsHash,
+            ReadIndexMode mode,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
         }
     }
 }

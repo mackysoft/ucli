@@ -3,8 +3,8 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Index;
 using MackySoft.Ucli.UnityIntegration.Indexing.Assets;
+using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.Tests.Assets;
 
@@ -197,12 +197,12 @@ public sealed class AssetLookupSourceRefreshServiceTests
             ]);
     }
 
-    private static IndexInputHashSnapshot CreateSnapshot (
+    private static ReadIndexInputHashSnapshot CreateSnapshot (
         string assetSearchHash,
         string guidPathHash,
         string combinedHash)
     {
-        return new IndexInputHashSnapshot(
+        return new ReadIndexInputHashSnapshot(
             ScriptAssembliesHash: "script-hash",
             PackagesManifestHash: "manifest-hash",
             PackagesLockHash: "lock-hash",
@@ -247,7 +247,7 @@ public sealed class AssetLookupSourceRefreshServiceTests
         }
     }
 
-    private sealed class StubAssetLookupStore : IAssetLookupStore
+    private sealed class StubAssetLookupStore : IReadIndexArtifactWriter
     {
         public int CallCount { get; private set; }
 
@@ -255,15 +255,15 @@ public sealed class AssetLookupSourceRefreshServiceTests
 
         public IReadOnlyList<IndexAssetSearchEntryJsonContract>? AssetSearchEntries { get; private set; }
 
-        public IndexInputHashSnapshot? InputSnapshot { get; private set; }
+        public ReadIndexInputHashSnapshot? InputSnapshot { get; private set; }
 
-        public ValueTask Write (
+        public ValueTask WriteAssetLookups (
             string storageRoot,
             string projectFingerprint,
             DateTimeOffset generatedAtUtc,
             IReadOnlyList<IndexAssetSearchEntryJsonContract> assetSearchEntries,
             IReadOnlyList<IndexGuidPathEntryJsonContract> guidPathEntries,
-            IndexInputHashSnapshot inputSnapshot,
+            ReadIndexInputHashSnapshot inputSnapshot,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -273,27 +273,51 @@ public sealed class AssetLookupSourceRefreshServiceTests
             InputSnapshot = inputSnapshot;
             return ValueTask.CompletedTask;
         }
+
+        public ValueTask WriteOpsCatalog (
+            string storageRoot,
+            string projectFingerprint,
+            DateTimeOffset generatedAtUtc,
+            IReadOnlyList<IndexOpEntryJsonContract> operations,
+            string sourceInputsHash,
+            ReadIndexInputHashSnapshot? manifestInputSnapshot,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
+        public ValueTask WriteSceneTreeLite (
+            string storageRoot,
+            string projectFingerprint,
+            DateTimeOffset generatedAtUtc,
+            string scenePath,
+            IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> roots,
+            string sourceInputsHash,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
     }
 
-    private sealed class StubIndexInputFingerprintCalculator : IIndexInputFingerprintCalculator
+    private sealed class StubIndexInputFingerprintCalculator : IReadIndexInputFingerprintProvider
     {
-        private readonly Queue<IndexInputHashSnapshot?> snapshots = new();
+        private readonly Queue<ReadIndexInputHashSnapshot?> snapshots = new();
 
         public int FullCallCount { get; private set; }
 
-        public void Enqueue (IndexInputHashSnapshot? snapshot)
+        public void Enqueue (ReadIndexInputHashSnapshot? snapshot)
         {
             snapshots.Enqueue(snapshot);
         }
 
-        public ValueTask<IndexCoreInputHashSnapshot?> TryComputeCore (
+        public ValueTask<ReadIndexCoreInputHashSnapshot?> TryComputeCore (
             string projectRootPath,
             CancellationToken cancellationToken = default)
         {
             throw new InvalidOperationException("Core snapshot should not be computed in asset lookup refresh tests.");
         }
 
-        public ValueTask<IndexInputHashSnapshot?> TryCompute (
+        public ValueTask<ReadIndexInputHashSnapshot?> TryCompute (
             string projectRootPath,
             CancellationToken cancellationToken = default)
         {
