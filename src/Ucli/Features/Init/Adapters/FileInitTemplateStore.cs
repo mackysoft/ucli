@@ -74,14 +74,9 @@ internal sealed class FileInitTemplateStore : IInitTemplateStore
         var configSaveResult = await configStore.Save(repositoryRoot, config, cancellationToken).ConfigureAwait(false);
         if (!configSaveResult.IsSuccess)
         {
-            if (configSaveResult.Diagnostics.Count > 0)
-            {
-                return InitExecutionResult.Failure(UcliConfigDiagnosticErrorMapper.ToInvalidArgument(
-                    configSaveResult.Diagnostics,
-                    "Config values are invalid."));
-            }
-
-            return InitExecutionResult.Failure(configSaveResult.Error!);
+            return InitExecutionResult.Failure(UcliConfigDiagnosticErrorMapper.ToExecutionError(
+                configSaveResult,
+                "Config values are invalid."));
         }
 
         try

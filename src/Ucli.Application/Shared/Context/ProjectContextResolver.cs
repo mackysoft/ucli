@@ -40,14 +40,9 @@ internal sealed class ProjectContextResolver : IProjectContextResolver
         var configLoadResult = await configStore.Load(unityProjectContext.RepositoryRoot, cancellationToken).ConfigureAwait(false);
         if (!configLoadResult.IsSuccess)
         {
-            if (configLoadResult.Diagnostics.Count > 0)
-            {
-                return ProjectContextResolutionResult.Failure(UcliConfigDiagnosticErrorMapper.ToInvalidArgument(
-                    configLoadResult.Diagnostics,
-                    "Config JSON is invalid."));
-            }
-
-            return ProjectContextResolutionResult.Failure(configLoadResult.Error!);
+            return ProjectContextResolutionResult.Failure(UcliConfigDiagnosticErrorMapper.ToExecutionError(
+                configLoadResult,
+                "Config JSON is invalid."));
         }
 
         var context = new ProjectContext(

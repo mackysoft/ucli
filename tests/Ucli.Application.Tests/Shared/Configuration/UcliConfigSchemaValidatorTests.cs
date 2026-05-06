@@ -37,8 +37,7 @@ public sealed class UcliConfigSchemaValidatorTests
         Assert.Equal("safe", rawDocument.OperationPolicy);
         Assert.Equal("required", rawDocument.PlanTokenMode);
         Assert.Equal("requireFresh", rawDocument.ReadIndexDefaultMode);
-        Assert.NotNull(rawDocument.OperationAllowlist);
-        Assert.Equal(["^foo\\."], rawDocument.OperationAllowlist!);
+        Assert.Equal(["^foo\\."], rawDocument.OperationAllowlist);
         Assert.Equal(4000, rawDocument.IpcDefaultTimeoutMilliseconds);
         Assert.NotNull(rawDocument.IpcTimeoutMillisecondsByCommand);
         Assert.Null(rawDocument.IpcTimeoutMillisecondsByCommand!["status"]);
@@ -100,5 +99,21 @@ public sealed class UcliConfigSchemaValidatorTests
         Assert.Null(result.Document);
         Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.OperationPolicy);
         Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "ipcTimeoutMillisecondsByCommand.status");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithNonObjectRoot_ReturnsRootTypeDiagnostic ()
+    {
+        using var document = JsonDocument.Parse("[]");
+        var validator = new UcliConfigSchemaValidator();
+
+        var result = validator.Validate(document.RootElement, "config.json");
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Document);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Null(diagnostic.PropertyPath);
+        Assert.Contains("root", diagnostic.Code, StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -1,6 +1,6 @@
-namespace MackySoft.Ucli.Contracts.Configuration;
+namespace MackySoft.Ucli.Application.Shared.Configuration;
 
-/// <summary> Represents raw values read from <c>.ucli/config.json</c> before product-specific validation. </summary>
+/// <summary> Represents raw values read from <c>.ucli/config.json</c> before semantic validation. </summary>
 /// <param name="SchemaVersion"> The raw schema-version value. </param>
 /// <param name="OperationPolicy"> The raw operation-policy value. </param>
 /// <param name="PlanTokenMode"> The raw plan-token-mode value. </param>
@@ -9,10 +9,10 @@ namespace MackySoft.Ucli.Contracts.Configuration;
 /// <param name="IpcDefaultTimeoutMilliseconds"> The raw IPC default-timeout value. </param>
 /// <param name="IpcTimeoutMillisecondsByCommand"> The raw IPC timeout override-map values. </param>
 internal readonly record struct UcliConfigJsonRawDocument (
-    int? SchemaVersion,
-    string? OperationPolicy,
-    string? PlanTokenMode,
+    int SchemaVersion,
+    string OperationPolicy,
+    string PlanTokenMode,
     string? ReadIndexDefaultMode,
-    string[]? OperationAllowlist,
+    string[] OperationAllowlist,
     int? IpcDefaultTimeoutMilliseconds,
     Dictionary<string, int?>? IpcTimeoutMillisecondsByCommand);

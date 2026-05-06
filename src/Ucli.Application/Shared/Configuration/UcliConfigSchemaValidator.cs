@@ -92,10 +92,10 @@ internal sealed class UcliConfigSchemaValidator
 
         return UcliConfigSchemaValidationResult.Success(new UcliConfigJsonRawDocument(
             SchemaVersion: schemaVersion!.Value,
-            OperationPolicy: operationPolicy,
-            PlanTokenMode: planTokenMode,
+            OperationPolicy: operationPolicy!,
+            PlanTokenMode: planTokenMode!,
             ReadIndexDefaultMode: readIndexDefaultMode,
-            OperationAllowlist: operationAllowlist,
+            OperationAllowlist: operationAllowlist!,
             IpcDefaultTimeoutMilliseconds: ipcDefaultTimeoutMilliseconds,
             IpcTimeoutMillisecondsByCommand: ipcTimeoutMillisecondsByCommand));
     }

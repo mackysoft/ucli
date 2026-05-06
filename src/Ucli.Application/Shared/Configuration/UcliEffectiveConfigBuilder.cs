@@ -86,7 +86,7 @@ internal sealed class UcliEffectiveConfigBuilder
         }
 
         var config = new UcliConfig(
-            SchemaVersion: document.SchemaVersion.GetValueOrDefault(),
+            SchemaVersion: document.SchemaVersion,
             OperationPolicy: operationPolicy,
             PlanTokenMode: planTokenMode,
             ReadIndexDefaultMode: readIndexDefaultMode,
@@ -137,20 +137,10 @@ internal sealed class UcliEffectiveConfigBuilder
     }
 
     private static List<string> BuildOperationAllowlist (
-        IReadOnlyList<string>? source,
+        IReadOnlyList<string> source,
         string sourcePath,
         List<UcliConfigDiagnostic> diagnostics)
     {
-        if (source is null)
-        {
-            diagnostics.Add(CreateDiagnostic(
-                EmptyAllowlistPatternCode,
-                UcliConfigJsonPropertyNames.OperationAllowlist,
-                sourcePath,
-                "Config operationAllowlist must be an array."));
-            return [];
-        }
-
         var normalizedAllowlist = new List<string>(source.Count);
         for (var i = 0; i < source.Count; i++)
         {

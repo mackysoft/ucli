@@ -24,9 +24,9 @@ internal sealed record UcliConfigDocumentBuildResult (
     /// <param name="diagnostics"> The config diagnostics. </param>
     /// <returns> The failed result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="diagnostics" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="diagnostics" /> is empty. </exception>
     public static UcliConfigDocumentBuildResult Failure (IReadOnlyList<UcliConfigDiagnostic> diagnostics)
     {
-        ArgumentNullException.ThrowIfNull(diagnostics);
-        return new UcliConfigDocumentBuildResult(null, diagnostics.ToArray());
+        return new UcliConfigDocumentBuildResult(null, UcliConfigDiagnosticList.CopyForFailure(diagnostics));
     }
 }

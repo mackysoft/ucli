@@ -9,17 +9,14 @@ internal static class UcliConfigJsonContractReader
     /// <summary> Tries to read one lenient plan-token projection from config JSON. </summary>
     /// <param name="root"> The config JSON root element. </param>
     /// <param name="document"> The parsed raw config values used by plan-token flow. </param>
-    /// <param name="error"> The machine-readable contract read error when parsing fails. </param>
     /// <returns> <see langword="true" /> when root contract is satisfied; otherwise <see langword="false" />. </returns>
     public static bool TryReadPlanTokenLoose (
         JsonElement root,
-        out UcliConfigJsonRawDocument document,
-        out UcliConfigJsonReadError error)
+        out UcliPlanTokenConfigJsonRawDocument document)
     {
         document = default;
         if (root.ValueKind != JsonValueKind.Object)
         {
-            error = new UcliConfigJsonReadError(UcliConfigJsonReadErrorKind.RootTypeMismatch);
             return false;
         }
 
@@ -27,15 +24,10 @@ internal static class UcliConfigJsonContractReader
         var operationPolicy = TryReadLooseOptionalString(root, UcliConfigJsonPropertyNames.OperationPolicy);
         var operationAllowlist = TryReadLooseOptionalStringArray(root, UcliConfigJsonPropertyNames.OperationAllowlist);
 
-        document = new UcliConfigJsonRawDocument(
-            SchemaVersion: null,
+        document = new UcliPlanTokenConfigJsonRawDocument(
             OperationPolicy: operationPolicy,
             PlanTokenMode: planTokenMode,
-            ReadIndexDefaultMode: null,
-            OperationAllowlist: operationAllowlist,
-            IpcDefaultTimeoutMilliseconds: null,
-            IpcTimeoutMillisecondsByCommand: null);
-        error = UcliConfigJsonReadError.None;
+            OperationAllowlist: operationAllowlist);
         return true;
     }
 

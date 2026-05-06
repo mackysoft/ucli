@@ -56,16 +56,10 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
             cancellationToken).ConfigureAwait(false);
         if (!configLoadResult.IsSuccess)
         {
-            if (configLoadResult.Diagnostics.Count > 0)
-            {
-                return TestRunPreflightResult.FailureResult(
-                    TestRunServiceErrorMapper.MapExecutionError(UcliConfigDiagnosticErrorMapper.ToInvalidArgument(
-                        configLoadResult.Diagnostics,
-                        "Config JSON is invalid.")));
-            }
-
             return TestRunPreflightResult.FailureResult(
-                TestRunServiceErrorMapper.MapExecutionError(configLoadResult.Error!));
+                TestRunServiceErrorMapper.MapExecutionError(UcliConfigDiagnosticErrorMapper.ToExecutionError(
+                    configLoadResult,
+                    "Config JSON is invalid.")));
         }
 
         var timeoutResolutionResult = IpcCommandTimeoutResolver.ResolveNormalized(

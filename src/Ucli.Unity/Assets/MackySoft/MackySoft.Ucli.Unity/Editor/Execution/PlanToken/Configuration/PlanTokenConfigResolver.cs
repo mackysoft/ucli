@@ -47,7 +47,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
 
                 using var document = JsonDocument.Parse(File.ReadAllText(configPath));
                 var root = document.RootElement;
-                if (!UcliConfigJsonContractReader.TryReadPlanTokenLoose(root, out var config, out _))
+                if (!UcliConfigJsonContractReader.TryReadPlanTokenLoose(root, out var config))
                 {
                     return FallbackSnapshot;
                 }

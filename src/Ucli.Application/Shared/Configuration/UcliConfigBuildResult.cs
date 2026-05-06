@@ -24,9 +24,9 @@ internal sealed record UcliConfigBuildResult (
     /// <param name="diagnostics"> The semantic diagnostics. </param>
     /// <returns> The failed result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="diagnostics" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="diagnostics" /> is empty. </exception>
     public static UcliConfigBuildResult Failure (IReadOnlyList<UcliConfigDiagnostic> diagnostics)
     {
-        ArgumentNullException.ThrowIfNull(diagnostics);
-        return new UcliConfigBuildResult(null, diagnostics.ToArray());
+        return new UcliConfigBuildResult(null, UcliConfigDiagnosticList.CopyForFailure(diagnostics));
     }
 }

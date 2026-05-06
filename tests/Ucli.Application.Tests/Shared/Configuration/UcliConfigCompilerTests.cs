@@ -155,6 +155,76 @@ public sealed class UcliConfigCompilerTests
         Assert.Equal(15000, config.IpcTimeoutMillisecondsByCommand["call"]);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CreateDocument_WithValidConfig_ReturnsSerializableDocument ()
+    {
+        var config = new UcliConfig(
+            SchemaVersion: UcliConfig.CurrentSchemaVersion,
+            OperationPolicy: OperationPolicy.Dangerous,
+            PlanTokenMode: PlanTokenMode.Required,
+            ReadIndexDefaultMode: ReadIndexMode.AllowStale,
+            OperationAllowlist: ["^ucli\\."])
+        {
+            IpcDefaultTimeoutMilliseconds = 4500,
+            IpcTimeoutMillisecondsByCommand = new Dictionary<string, int?>(StringComparer.Ordinal)
+            {
+                ["status"] = null,
+                ["call"] = 15000,
+            },
+        };
+
+        var result = UcliConfigCompiler.CreateDefault().CreateDocument(config, "config.json");
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.Diagnostics);
+        var document = Assert.IsType<UcliConfigDocument>(result.Document);
+        Assert.Equal(UcliConfig.CurrentSchemaVersion, document.SchemaVersion);
+        Assert.Equal(OperationPolicyValues.Dangerous, document.OperationPolicy);
+        Assert.Equal(PlanTokenModeValues.Required, document.PlanTokenMode);
+        Assert.Equal(ReadIndexModeValues.AllowStale, document.ReadIndexDefaultMode);
+        Assert.Equal(["^ucli\\."], document.OperationAllowlist);
+        Assert.Equal(4500, document.IpcDefaultTimeoutMilliseconds);
+        Assert.NotNull(document.IpcTimeoutMillisecondsByCommand);
+        var timeoutOverrides = document.IpcTimeoutMillisecondsByCommand!;
+        Assert.Null(timeoutOverrides["status"]);
+        Assert.Equal(15000, timeoutOverrides["call"]);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CreateDocument_WithInvalidConfig_PreservesAllDiagnostics ()
+    {
+        var config = new UcliConfig(
+            SchemaVersion: 2,
+            OperationPolicy: (OperationPolicy)999,
+            PlanTokenMode: (PlanTokenMode)999,
+            ReadIndexDefaultMode: (ReadIndexMode)999,
+            OperationAllowlist: [" ", "["])
+        {
+            IpcDefaultTimeoutMilliseconds = 0,
+            IpcTimeoutMillisecondsByCommand = new Dictionary<string, int?>(StringComparer.Ordinal)
+            {
+                ["status"] = 0,
+                ["unknown"] = 3000,
+            },
+        };
+
+        var result = UcliConfigCompiler.CreateDefault().CreateDocument(config, "config.json");
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Document);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.SchemaVersion);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.OperationPolicy);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.PlanTokenMode);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.ReadIndexDefaultMode);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "operationAllowlist[0]");
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "operationAllowlist[1]");
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.IpcDefaultTimeoutMilliseconds);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "ipcTimeoutMillisecondsByCommand.status");
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "ipcTimeoutMillisecondsByCommand.unknown");
+    }
+
     private static UcliConfigBuildResult Compile (string json)
     {
         using var document = JsonDocument.Parse(json);

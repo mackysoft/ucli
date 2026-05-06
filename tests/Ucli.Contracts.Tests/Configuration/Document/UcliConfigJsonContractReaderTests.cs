@@ -20,11 +20,9 @@ public sealed class UcliConfigJsonContractReaderTests
         using var document = JsonDocument.Parse(json);
         var result = UcliConfigJsonContractReader.TryReadPlanTokenLoose(
             document.RootElement,
-            out var parsed,
-            out var error);
+            out var parsed);
 
         Assert.True(result);
-        Assert.Equal(UcliConfigJsonReadError.None, error);
         Assert.Null(parsed.PlanTokenMode);
         Assert.Equal("safe", parsed.OperationPolicy);
         Assert.NotNull(parsed.OperationAllowlist);
@@ -46,11 +44,23 @@ public sealed class UcliConfigJsonContractReaderTests
         using var document = JsonDocument.Parse(json);
         var result = UcliConfigJsonContractReader.TryReadPlanTokenLoose(
             document.RootElement,
-            out var parsed,
-            out var error);
+            out var parsed);
 
         Assert.True(result);
-        Assert.Equal(UcliConfigJsonReadError.None, error);
         Assert.Null(parsed.OperationAllowlist);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryReadPlanTokenLoose_WithNonObjectRoot_ReturnsFalse ()
+    {
+        using var document = JsonDocument.Parse("[]");
+
+        var result = UcliConfigJsonContractReader.TryReadPlanTokenLoose(
+            document.RootElement,
+            out var parsed);
+
+        Assert.False(result);
+        Assert.Equal(default, parsed);
     }
 }

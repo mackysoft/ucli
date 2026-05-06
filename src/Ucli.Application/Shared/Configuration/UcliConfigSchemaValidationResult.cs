@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts.Configuration;
-
 namespace MackySoft.Ucli.Application.Shared.Configuration;
 
 /// <summary> Represents the result of config JSON schema validation. </summary>
@@ -24,9 +22,9 @@ internal sealed record UcliConfigSchemaValidationResult (
     /// <param name="diagnostics"> The schema diagnostics. </param>
     /// <returns> The failed result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="diagnostics" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="diagnostics" /> is empty. </exception>
     public static UcliConfigSchemaValidationResult Failure (IReadOnlyList<UcliConfigDiagnostic> diagnostics)
     {
-        ArgumentNullException.ThrowIfNull(diagnostics);
-        return new UcliConfigSchemaValidationResult(null, diagnostics.ToArray());
+        return new UcliConfigSchemaValidationResult(null, UcliConfigDiagnosticList.CopyForFailure(diagnostics));
     }
 }
