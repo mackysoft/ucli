@@ -39,7 +39,7 @@ internal sealed class UcliConfigSchemaValidator
         var diagnostics = new List<UcliConfigDiagnostic>();
         if (root.ValueKind != JsonValueKind.Object)
         {
-            diagnostics.Add(CreateDiagnostic(
+            AddDiagnostic(diagnostics, CreateDiagnostic(
                 RootTypeMismatchCode,
                 propertyPath: null,
                 sourcePath,
@@ -48,6 +48,10 @@ internal sealed class UcliConfigSchemaValidator
         }
 
         AddObjectPropertyDiagnostics(root, sourcePath, diagnostics);
+        if (UcliConfigDiagnosticList.HasReachedLimit(diagnostics))
+        {
+            return UcliConfigSchemaValidationResult.Failure(diagnostics);
+        }
 
         var schemaVersion = ReadRequiredInt32(
             root,
@@ -108,9 +112,13 @@ internal sealed class UcliConfigSchemaValidator
         var seenPropertyNames = new HashSet<string>(StringComparer.Ordinal);
         foreach (var property in root.EnumerateObject())
         {
+            var propertyName = UcliConfigDiagnostic.FormatFragment(property.Name);
             if (!seenPropertyNames.Add(property.Name))
             {
-                diagnostics.Add(CreateDuplicatePropertyDiagnostic(property.Name, sourcePath));
+                if (!AddDiagnostic(diagnostics, CreateDuplicatePropertyDiagnostic(propertyName, sourcePath)))
+                {
+                    return;
+                }
             }
 
             if (StrictAllowedProperties.Contains(property.Name))
@@ -118,11 +126,14 @@ internal sealed class UcliConfigSchemaValidator
                 continue;
             }
 
-            diagnostics.Add(CreateDiagnostic(
+            if (!AddDiagnostic(diagnostics, CreateDiagnostic(
                 UnknownPropertyCode,
-                property.Name,
+                propertyName,
                 sourcePath,
-                $"Config contains unknown property: {property.Name}."));
+                $"Config contains unknown property: {propertyName}.")))
+            {
+                return;
+            }
         }
     }
 
@@ -134,13 +145,13 @@ internal sealed class UcliConfigSchemaValidator
     {
         if (!root.TryGetProperty(propertyName, out var property))
         {
-            diagnostics.Add(CreateMissingPropertyDiagnostic(propertyName, sourcePath));
+            AddDiagnostic(diagnostics, CreateMissingPropertyDiagnostic(propertyName, sourcePath));
             return null;
         }
 
         if (property.ValueKind != JsonValueKind.Number || !property.TryGetInt32(out var value))
         {
-            diagnostics.Add(CreatePropertyTypeMismatchDiagnostic(propertyName, sourcePath));
+            AddDiagnostic(diagnostics, CreatePropertyTypeMismatchDiagnostic(propertyName, sourcePath));
             return null;
         }
 
@@ -155,13 +166,13 @@ internal sealed class UcliConfigSchemaValidator
     {
         if (!root.TryGetProperty(propertyName, out var property))
         {
-            diagnostics.Add(CreateMissingPropertyDiagnostic(propertyName, sourcePath));
+            AddDiagnostic(diagnostics, CreateMissingPropertyDiagnostic(propertyName, sourcePath));
             return null;
         }
 
         if (property.ValueKind != JsonValueKind.String)
         {
-            diagnostics.Add(CreatePropertyTypeMismatchDiagnostic(propertyName, sourcePath));
+            AddDiagnostic(diagnostics, CreatePropertyTypeMismatchDiagnostic(propertyName, sourcePath));
             return null;
         }
 
@@ -181,7 +192,7 @@ internal sealed class UcliConfigSchemaValidator
 
         if (property.ValueKind != JsonValueKind.String)
         {
-            diagnostics.Add(CreatePropertyTypeMismatchDiagnostic(propertyName, sourcePath));
+            AddDiagnostic(diagnostics, CreatePropertyTypeMismatchDiagnostic(propertyName, sourcePath));
             return null;
         }
 
@@ -202,7 +213,7 @@ internal sealed class UcliConfigSchemaValidator
 
         if (property.ValueKind != JsonValueKind.Number || !property.TryGetInt32(out var value))
         {
-            diagnostics.Add(CreatePropertyTypeMismatchDiagnostic(propertyName, sourcePath));
+            AddDiagnostic(diagnostics, CreatePropertyTypeMismatchDiagnostic(propertyName, sourcePath));
             return null;
         }
 
@@ -217,13 +228,13 @@ internal sealed class UcliConfigSchemaValidator
     {
         if (!root.TryGetProperty(propertyName, out var property))
         {
-            diagnostics.Add(CreateMissingPropertyDiagnostic(propertyName, sourcePath));
+            AddDiagnostic(diagnostics, CreateMissingPropertyDiagnostic(propertyName, sourcePath));
             return null;
         }
 
         if (property.ValueKind != JsonValueKind.Array)
         {
-            diagnostics.Add(CreatePropertyTypeMismatchDiagnostic(propertyName, sourcePath));
+            AddDiagnostic(diagnostics, CreatePropertyTypeMismatchDiagnostic(propertyName, sourcePath));
             return null;
         }
 
@@ -234,11 +245,14 @@ internal sealed class UcliConfigSchemaValidator
             if (element.ValueKind != JsonValueKind.String)
             {
                 var propertyPath = $"{propertyName}[{index}]";
-                diagnostics.Add(CreateDiagnostic(
+                if (!AddDiagnostic(diagnostics, CreateDiagnostic(
                     ArrayElementTypeMismatchCode,
                     propertyPath,
                     sourcePath,
-                    $"Config JSON array element type is invalid: {propertyPath}."));
+                    $"Config JSON array element type is invalid: {propertyPath}.")))
+                {
+                    break;
+                }
             }
             else
             {
@@ -265,7 +279,7 @@ internal sealed class UcliConfigSchemaValidator
 
         if (property.ValueKind != JsonValueKind.Object)
         {
-            diagnostics.Add(CreatePropertyTypeMismatchDiagnostic(propertyName, sourcePath));
+            AddDiagnostic(diagnostics, CreatePropertyTypeMismatchDiagnostic(propertyName, sourcePath));
             return null;
         }
 
@@ -273,10 +287,15 @@ internal sealed class UcliConfigSchemaValidator
         var seenPropertyNames = new HashSet<string>(StringComparer.Ordinal);
         foreach (var entry in property.EnumerateObject())
         {
-            var propertyPath = $"{propertyName}.{entry.Name}";
+            var entryName = UcliConfigDiagnostic.FormatFragment(entry.Name);
+            var propertyPath = $"{propertyName}.{entryName}";
             if (!seenPropertyNames.Add(entry.Name))
             {
-                diagnostics.Add(CreateDuplicatePropertyDiagnostic(propertyPath, sourcePath));
+                if (!AddDiagnostic(diagnostics, CreateDuplicatePropertyDiagnostic(propertyPath, sourcePath)))
+                {
+                    break;
+                }
+
                 continue;
             }
 
@@ -288,11 +307,15 @@ internal sealed class UcliConfigSchemaValidator
 
             if (entry.Value.ValueKind != JsonValueKind.Number || !entry.Value.TryGetInt32(out var timeoutValue))
             {
-                diagnostics.Add(CreateDiagnostic(
+                if (!AddDiagnostic(diagnostics, CreateDiagnostic(
                     ObjectPropertyTypeMismatchCode,
                     propertyPath,
                     sourcePath,
-                    $"Config JSON object property type is invalid: {propertyPath}."));
+                    $"Config JSON object property type is invalid: {propertyPath}.")))
+                {
+                    break;
+                }
+
                 continue;
             }
 
@@ -342,5 +365,12 @@ internal sealed class UcliConfigSchemaValidator
         string message)
     {
         return UcliConfigDiagnostic.Create(code, propertyPath, sourcePath, message);
+    }
+
+    private static bool AddDiagnostic (
+        List<UcliConfigDiagnostic> diagnostics,
+        UcliConfigDiagnostic diagnostic)
+    {
+        return UcliConfigDiagnosticList.Add(diagnostics, diagnostic);
     }
 }

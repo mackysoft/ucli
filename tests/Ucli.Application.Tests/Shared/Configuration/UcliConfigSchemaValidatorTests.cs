@@ -103,6 +103,34 @@ public sealed class UcliConfigSchemaValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Validate_WithManyUnknownProperties_LimitsDiagnostics ()
+    {
+        var unknownProperties = string.Join(
+            ",",
+            Enumerable.Range(0, UcliConfigDiagnosticList.MaxDetailedDiagnostics + 20)
+                .Select(static index => $"\"unknown{index}\": true"));
+        var json = $$"""
+        {
+          "schemaVersion": 1,
+          "operationPolicy": "safe",
+          "planTokenMode": "required",
+          "operationAllowlist": ["^foo\\."],
+          {{unknownProperties}}
+        }
+        """;
+        using var document = JsonDocument.Parse(json);
+        var validator = new UcliConfigSchemaValidator();
+
+        var result = validator.Validate(document.RootElement, "config.json");
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Document);
+        Assert.Equal(UcliConfigDiagnosticList.MaxDetailedDiagnostics + 1, result.Diagnostics.Count);
+        Assert.Equal(UcliConfigDiagnosticList.OmittedDiagnosticsCode, result.Diagnostics[^1].Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Validate_WithNonObjectRoot_ReturnsRootTypeDiagnostic ()
     {
         using var document = JsonDocument.Parse("[]");

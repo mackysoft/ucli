@@ -28,7 +28,7 @@ internal sealed class UcliEffectiveConfigBuilder
 
         if (document.SchemaVersion != UcliConfig.CurrentSchemaVersion)
         {
-            diagnostics.Add(CreateDiagnostic(
+            AddDiagnostic(diagnostics, CreateDiagnostic(
                 UnsupportedSchemaVersionCode,
                 UcliConfigJsonPropertyNames.SchemaVersion,
                 sourcePath,
@@ -37,7 +37,7 @@ internal sealed class UcliEffectiveConfigBuilder
 
         if (!OperationPolicyCodec.TryParse(document.OperationPolicy, out var operationPolicy))
         {
-            diagnostics.Add(CreateUnsupportedLiteralDiagnostic(
+            AddDiagnostic(diagnostics, CreateUnsupportedLiteralDiagnostic(
                 UcliConfigJsonPropertyNames.OperationPolicy,
                 document.OperationPolicy,
                 sourcePath));
@@ -45,7 +45,7 @@ internal sealed class UcliEffectiveConfigBuilder
 
         if (!PlanTokenModeCodec.TryParse(document.PlanTokenMode, out var planTokenMode))
         {
-            diagnostics.Add(CreateUnsupportedLiteralDiagnostic(
+            AddDiagnostic(diagnostics, CreateUnsupportedLiteralDiagnostic(
                 UcliConfigJsonPropertyNames.PlanTokenMode,
                 document.PlanTokenMode,
                 sourcePath));
@@ -55,7 +55,7 @@ internal sealed class UcliEffectiveConfigBuilder
             ?? ReadIndexModeValues.RequireFresh;
         if (!ReadIndexModeCodec.TryParse(readIndexDefaultModeValue, out var readIndexDefaultMode))
         {
-            diagnostics.Add(CreateUnsupportedLiteralDiagnostic(
+            AddDiagnostic(diagnostics, CreateUnsupportedLiteralDiagnostic(
                 UcliConfigJsonPropertyNames.ReadIndexDefaultMode,
                 readIndexDefaultModeValue,
                 sourcePath));
@@ -65,7 +65,7 @@ internal sealed class UcliEffectiveConfigBuilder
             ?? IpcTimeoutDefaults.GlobalTimeoutMilliseconds;
         if (!IpcTimeoutConfigValidator.TryParseTimeoutMilliseconds(ipcDefaultTimeoutMillisecondsValue, out var ipcDefaultTimeoutMilliseconds))
         {
-            diagnostics.Add(CreateInvalidTimeoutDiagnostic(
+            AddDiagnostic(diagnostics, CreateInvalidTimeoutDiagnostic(
                 UcliConfigJsonPropertyNames.IpcDefaultTimeoutMilliseconds,
                 ipcDefaultTimeoutMillisecondsValue,
                 sourcePath));
@@ -111,22 +111,31 @@ internal sealed class UcliEffectiveConfigBuilder
         var timeoutsByCommand = new Dictionary<string, int?>(StringComparer.Ordinal);
         foreach (var entry in source)
         {
-            var propertyPath = $"{UcliConfigJsonPropertyNames.IpcTimeoutMillisecondsByCommand}.{entry.Key}";
+            var commandKey = UcliConfigDiagnostic.FormatFragment(entry.Key);
+            var propertyPath = $"{UcliConfigJsonPropertyNames.IpcTimeoutMillisecondsByCommand}.{commandKey}";
             if (!IpcTimeoutConfigValidator.TryNormalizeSupportedCommandName(entry.Key, out var commandName))
             {
                 var supportedCommands = IpcTimeoutConfigValidator.GetSupportedCommandNamesDescription();
-                diagnostics.Add(CreateDiagnostic(
+                if (!AddDiagnostic(diagnostics, CreateDiagnostic(
                     UnsupportedTimeoutCommandCode,
                     propertyPath,
                     sourcePath,
-                    $"Config ipcTimeoutMillisecondsByCommand contains unsupported command key: {entry.Key}. Supported: {supportedCommands}."));
+                    $"Config ipcTimeoutMillisecondsByCommand contains unsupported command key: {commandKey}. Supported: {supportedCommands}.")))
+                {
+                    break;
+                }
+
                 continue;
             }
 
             if (entry.Value.HasValue
                 && !IpcTimeoutConfigValidator.TryParseTimeoutMilliseconds(entry.Value.Value, out _))
             {
-                diagnostics.Add(CreateInvalidTimeoutDiagnostic(propertyPath, entry.Value.Value, sourcePath));
+                if (!AddDiagnostic(diagnostics, CreateInvalidTimeoutDiagnostic(propertyPath, entry.Value.Value, sourcePath)))
+                {
+                    break;
+                }
+
                 continue;
             }
 
@@ -147,21 +156,31 @@ internal sealed class UcliEffectiveConfigBuilder
             var propertyPath = $"{UcliConfigJsonPropertyNames.OperationAllowlist}[{i}]";
             if (!StringValueNormalizer.TryTrimToNonEmpty(source[i], out var normalizedPattern))
             {
-                diagnostics.Add(CreateDiagnostic(
+                if (!AddDiagnostic(diagnostics, CreateDiagnostic(
                     EmptyAllowlistPatternCode,
                     propertyPath,
                     sourcePath,
-                    "Config operationAllowlist contains an empty pattern."));
+                    "Config operationAllowlist contains an empty pattern.")))
+                {
+                    break;
+                }
+
                 continue;
             }
 
             if (!RegexPatternUtilities.TryValidatePattern(normalizedPattern, out var patternErrorMessage))
             {
-                diagnostics.Add(CreateDiagnostic(
+                var displayPattern = UcliConfigDiagnostic.FormatFragment(normalizedPattern);
+                var displayPatternErrorMessage = UcliConfigDiagnostic.FormatFragment(patternErrorMessage);
+                if (!AddDiagnostic(diagnostics, CreateDiagnostic(
                     InvalidRegexPatternCode,
                     propertyPath,
                     sourcePath,
-                    $"Config operationAllowlist contains an invalid regex pattern: {normalizedPattern}. {patternErrorMessage}"));
+                    $"Config operationAllowlist contains an invalid regex pattern: {displayPattern}. {displayPatternErrorMessage}")))
+                {
+                    break;
+                }
+
                 continue;
             }
 
@@ -204,8 +223,15 @@ internal sealed class UcliEffectiveConfigBuilder
         return UcliConfigDiagnostic.Create(code, propertyPath, sourcePath, message);
     }
 
+    private static bool AddDiagnostic (
+        List<UcliConfigDiagnostic> diagnostics,
+        UcliConfigDiagnostic diagnostic)
+    {
+        return UcliConfigDiagnosticList.Add(diagnostics, diagnostic);
+    }
+
     private static string FormatValue<T> (T? value)
     {
-        return value?.ToString() ?? "<null>";
+        return UcliConfigDiagnostic.FormatFragment(value?.ToString());
     }
 }

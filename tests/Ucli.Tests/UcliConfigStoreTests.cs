@@ -120,6 +120,36 @@ public sealed class UcliConfigStoreTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Load_ReturnsDiagnostics_WhenConfigContainsMultipleSchemaErrors ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-config-store", "multiple-schema-errors");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var configStore = new UcliConfigStore();
+        var configPath = configStore.GetConfigPath(unityProjectPath);
+        var relativeConfigPath = Path.GetRelativePath(scope.FullPath, configPath);
+        scope.WriteFile(relativeConfigPath, """
+        {
+          "schemaVersion": "1",
+          "planTokenMode": 1,
+          "operationAllowlist": ["^ucli\\.", 1],
+          "unexpectedProperty": true
+        }
+        """);
+
+        var result = await configStore.Load(unityProjectPath, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Config);
+        Assert.Null(result.Error);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.SchemaVersion);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.OperationPolicy);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.PlanTokenMode);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "operationAllowlist[1]");
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "unexpectedProperty");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Load_ReturnsInvalidArgument_WhenSchemaVersionDoesNotMatch ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-config-store", "schema-version-mismatch");
@@ -447,6 +477,47 @@ public sealed class UcliConfigStoreTests
         var diagnostic = AssertSingleDiagnostic(saveResult.Diagnostics);
         Assert.Contains("ipcTimeoutMillisecondsByCommand", diagnostic.Message, StringComparison.Ordinal);
         Assert.Contains("unsupported", diagnostic.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Save_ReturnsDiagnostics_WhenConfigContainsMultipleInvalidValues ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-config-store", "multiple-save-diagnostics");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var configStore = new UcliConfigStore();
+        var invalidConfig = new UcliConfig(
+            SchemaVersion: 2,
+            OperationPolicy: (OperationPolicy)999,
+            PlanTokenMode: (PlanTokenMode)999,
+            ReadIndexDefaultMode: (ReadIndexMode)999,
+            OperationAllowlist:
+            [
+                " ",
+                "[",
+            ])
+        {
+            IpcDefaultTimeoutMilliseconds = 0,
+            IpcTimeoutMillisecondsByCommand = new Dictionary<string, int?>(StringComparer.Ordinal)
+            {
+                [UcliContractConstants.Config.IpcTimeoutCommandStatus] = 0,
+                ["unsupported"] = 3000,
+            },
+        };
+
+        var saveResult = await configStore.Save(unityProjectPath, invalidConfig, CancellationToken.None);
+
+        Assert.False(saveResult.IsSuccess);
+        Assert.Null(saveResult.Error);
+        Assert.Contains(saveResult.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.SchemaVersion);
+        Assert.Contains(saveResult.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.OperationPolicy);
+        Assert.Contains(saveResult.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.PlanTokenMode);
+        Assert.Contains(saveResult.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.ReadIndexDefaultMode);
+        Assert.Contains(saveResult.Diagnostics, static diagnostic => diagnostic.PropertyPath == "operationAllowlist[0]");
+        Assert.Contains(saveResult.Diagnostics, static diagnostic => diagnostic.PropertyPath == "operationAllowlist[1]");
+        Assert.Contains(saveResult.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.IpcDefaultTimeoutMilliseconds);
+        Assert.Contains(saveResult.Diagnostics, static diagnostic => diagnostic.PropertyPath == "ipcTimeoutMillisecondsByCommand.status");
+        Assert.Contains(saveResult.Diagnostics, static diagnostic => diagnostic.PropertyPath == "ipcTimeoutMillisecondsByCommand.unsupported");
     }
 
     [Fact]

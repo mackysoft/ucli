@@ -91,6 +91,11 @@ public sealed class TestRunServiceTests
                     "operationPolicy",
                     "config.json",
                     "Config operationPolicy is invalid: unsupported."),
+                UcliConfigDiagnostic.Create(
+                    "config.semantic.unsupportedLiteral",
+                    "planTokenMode",
+                    "config.json",
+                    "Config planTokenMode is invalid: never."),
             ])),
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
@@ -107,6 +112,7 @@ public sealed class TestRunServiceTests
         Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
         Assert.Contains("operationPolicy", result.Message, StringComparison.Ordinal);
+        Assert.Contains("planTokenMode", result.Message, StringComparison.Ordinal);
     }
 
     [Theory]

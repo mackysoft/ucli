@@ -126,6 +126,11 @@ public sealed class FileInitTemplateStoreTests
                     "ipcDefaultTimeoutMilliseconds",
                     "config.json",
                     "Config timeout is invalid."),
+                UcliConfigDiagnostic.Create(
+                    "config.save.invalidRegexPattern",
+                    "operationAllowlist[0]",
+                    "config.json",
+                    "Config allowlist pattern is invalid."),
             ])));
         var store = new FileInitTemplateStore(configStore);
 
@@ -136,6 +141,7 @@ public sealed class FileInitTemplateStoreTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Contains("Config timeout is invalid.", error.Message, StringComparison.Ordinal);
+        Assert.Contains("Config allowlist pattern is invalid.", error.Message, StringComparison.Ordinal);
         var expectedStorageRoot = UcliStoragePathResolver.ResolveStorageRoot(workingDirectoryPath);
         var expectedGitIgnorePath = Path.Combine(
             UcliStoragePathResolver.ResolveUcliDirectoryPath(expectedStorageRoot),

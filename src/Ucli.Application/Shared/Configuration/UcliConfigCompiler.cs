@@ -98,7 +98,7 @@ internal sealed class UcliConfigCompiler
 
         if (config.SchemaVersion != UcliConfig.CurrentSchemaVersion)
         {
-            diagnostics.Add(CreateDiagnostic(
+            AddDiagnostic(diagnostics, CreateDiagnostic(
                 UnsupportedSchemaVersionCode,
                 UcliConfigJsonPropertyNames.SchemaVersion,
                 sourcePath,
@@ -133,7 +133,7 @@ internal sealed class UcliConfigCompiler
     {
         if (operationAllowlist is null)
         {
-            diagnostics.Add(CreateDiagnostic(
+            AddDiagnostic(diagnostics, CreateDiagnostic(
                 NullAllowlistCode,
                 UcliConfigJsonPropertyNames.OperationAllowlist,
                 sourcePath,
@@ -147,21 +147,30 @@ internal sealed class UcliConfigCompiler
             var propertyPath = $"{UcliConfigJsonPropertyNames.OperationAllowlist}[{i}]";
             if (string.IsNullOrWhiteSpace(pattern))
             {
-                diagnostics.Add(CreateDiagnostic(
+                if (!AddDiagnostic(diagnostics, CreateDiagnostic(
                     EmptyAllowlistPatternCode,
                     propertyPath,
                     sourcePath,
-                    "Config operationAllowlist contains an empty pattern."));
+                    "Config operationAllowlist contains an empty pattern.")))
+                {
+                    break;
+                }
+
                 continue;
             }
 
             if (!RegexPatternUtilities.TryValidatePattern(pattern, out var patternErrorMessage))
             {
-                diagnostics.Add(CreateDiagnostic(
+                var displayPattern = UcliConfigDiagnostic.FormatFragment(pattern);
+                var displayPatternErrorMessage = UcliConfigDiagnostic.FormatFragment(patternErrorMessage);
+                if (!AddDiagnostic(diagnostics, CreateDiagnostic(
                     InvalidRegexPatternCode,
                     propertyPath,
                     sourcePath,
-                    $"Config operationAllowlist contains an invalid regex pattern: {pattern}. {patternErrorMessage}"));
+                    $"Config operationAllowlist contains an invalid regex pattern: {displayPattern}. {displayPatternErrorMessage}")))
+                {
+                    break;
+                }
             }
         }
     }
@@ -173,7 +182,7 @@ internal sealed class UcliConfigCompiler
     {
         if (!IpcTimeoutConfigValidator.TryParseTimeoutMilliseconds(config.IpcDefaultTimeoutMilliseconds, out _))
         {
-            diagnostics.Add(CreateDiagnostic(
+            AddDiagnostic(diagnostics, CreateDiagnostic(
                 InvalidTimeoutCode,
                 UcliConfigJsonPropertyNames.IpcDefaultTimeoutMilliseconds,
                 sourcePath,
@@ -182,7 +191,7 @@ internal sealed class UcliConfigCompiler
 
         if (config.IpcTimeoutMillisecondsByCommand is null)
         {
-            diagnostics.Add(CreateDiagnostic(
+            AddDiagnostic(diagnostics, CreateDiagnostic(
                 NullTimeoutOverridesCode,
                 UcliConfigJsonPropertyNames.IpcTimeoutMillisecondsByCommand,
                 sourcePath,
@@ -192,26 +201,34 @@ internal sealed class UcliConfigCompiler
 
         foreach (var entry in config.IpcTimeoutMillisecondsByCommand)
         {
-            var propertyPath = $"{UcliConfigJsonPropertyNames.IpcTimeoutMillisecondsByCommand}.{entry.Key}";
+            var commandKey = UcliConfigDiagnostic.FormatFragment(entry.Key);
+            var propertyPath = $"{UcliConfigJsonPropertyNames.IpcTimeoutMillisecondsByCommand}.{commandKey}";
             if (!IpcTimeoutConfigValidator.TryNormalizeSupportedCommandName(entry.Key, out _))
             {
                 var supportedCommands = IpcTimeoutConfigValidator.GetSupportedCommandNamesDescription();
-                diagnostics.Add(CreateDiagnostic(
+                if (!AddDiagnostic(diagnostics, CreateDiagnostic(
                     UnsupportedTimeoutCommandCode,
                     propertyPath,
                     sourcePath,
-                    $"Config ipcTimeoutMillisecondsByCommand contains unsupported command key: {entry.Key}. Supported: {supportedCommands}."));
+                    $"Config ipcTimeoutMillisecondsByCommand contains unsupported command key: {commandKey}. Supported: {supportedCommands}.")))
+                {
+                    break;
+                }
+
                 continue;
             }
 
             if (entry.Value.HasValue
                 && !IpcTimeoutConfigValidator.TryParseTimeoutMilliseconds(entry.Value.Value, out _))
             {
-                diagnostics.Add(CreateDiagnostic(
+                if (!AddDiagnostic(diagnostics, CreateDiagnostic(
                     InvalidTimeoutCode,
                     propertyPath,
                     sourcePath,
-                    $"Config ipcTimeoutMillisecondsByCommand[{entry.Key}] must be a positive integer or null. Actual: {entry.Value.Value}."));
+                    $"Config ipcTimeoutMillisecondsByCommand[{commandKey}] must be a positive integer or null. Actual: {entry.Value.Value}.")))
+                {
+                    break;
+                }
             }
         }
     }
@@ -228,7 +245,7 @@ internal sealed class UcliConfigCompiler
             return;
         }
 
-        diagnostics.Add(CreateDiagnostic(
+        AddDiagnostic(diagnostics, CreateDiagnostic(
             UnsupportedEnumCode,
             propertyPath,
             sourcePath,
@@ -242,5 +259,12 @@ internal sealed class UcliConfigCompiler
         string message)
     {
         return UcliConfigDiagnostic.Create(code, propertyPath, sourcePath, message);
+    }
+
+    private static bool AddDiagnostic (
+        List<UcliConfigDiagnostic> diagnostics,
+        UcliConfigDiagnostic diagnostic)
+    {
+        return UcliConfigDiagnosticList.Add(diagnostics, diagnostic);
     }
 }
