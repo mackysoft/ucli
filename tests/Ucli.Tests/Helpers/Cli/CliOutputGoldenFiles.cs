@@ -21,4 +21,9 @@ internal static class CliOutputGoldenFiles
             static timestamp => timestamp.Offset == TimeSpan.Zero,
             "an ISO-8601 UTC timestamp");
     }
+
+    public static JsonGoldenFileNormalization NormalizeRequestIds ()
+    {
+        return new JsonGoldenFileNormalization().NormalizeGuidProperty("requestId", "<requestId>");
+    }
 }

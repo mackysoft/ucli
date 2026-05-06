@@ -1,6 +1,7 @@
 namespace MackySoft.Tests;
 
 using System.Globalization;
+using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Xunit.Sdk;
@@ -21,10 +22,12 @@ internal sealed class JsonGoldenFileNormalization
     private readonly List<JsonGoldenPathPrefixRule> pathPrefixRules = [];
     private readonly List<JsonGoldenStringPropertyRule> stringPropertyRules = [];
 
-    public JsonGoldenFileNormalization NormalizeRequestIds (string token = "<requestId>")
+    public JsonGoldenFileNormalization NormalizeGuidProperty (
+        string propertyName,
+        string token)
     {
         return NormalizeStringProperty(
-            "requestId",
+            propertyName,
             token,
             static value => Guid.TryParseExact(value, "D", out _),
             "a GUID in D format");
@@ -43,7 +46,7 @@ internal sealed class JsonGoldenFileNormalization
             validationDescription);
     }
 
-    public JsonGoldenFileNormalization NormalizeStringProperty (
+    private JsonGoldenFileNormalization NormalizeStringProperty (
         string propertyName,
         string token,
         Func<string, bool>? validate = null,
@@ -216,12 +219,17 @@ internal sealed class JsonGoldenFileNormalization
     {
         var root = Path.GetPathRoot(path);
         var rootLength = root?.Length ?? 0;
-        while (path.Length > rootLength && path.EndsWith(Path.DirectorySeparatorChar))
+        while (path.Length > rootLength && IsDirectorySeparator(path[^1]))
         {
             path = path[..^1];
         }
 
         return path;
+    }
+
+    private static bool IsDirectorySeparator (char value)
+    {
+        return value is '/' or '\\';
     }
 
     private static string? TryResolveExistingPath (string path)
@@ -356,56 +364,139 @@ internal sealed class JsonGoldenFileNormalization
                 ? StringComparison.OrdinalIgnoreCase
                 : StringComparison.Ordinal;
 
+            StringBuilder? builder = null;
+            var pendingAppendStartIndex = 0;
+            var currentIndex = 0;
+            while (currentIndex < value.Length)
+            {
+                if (!TryFindPathPrefixMatch(
+                    value,
+                    currentIndex,
+                    comparison,
+                    out var prefixLength))
+                {
+                    currentIndex++;
+                    continue;
+                }
+
+                builder ??= new StringBuilder(value.Length);
+                AppendPendingText(
+                    builder,
+                    value,
+                    pendingAppendStartIndex,
+                    currentIndex,
+                    normalizeDirectorySeparators: pendingAppendStartIndex > 0);
+                builder.Append(Token);
+
+                currentIndex += prefixLength;
+                pendingAppendStartIndex = currentIndex;
+            }
+
+            if (builder is null)
+            {
+                replacementValue = string.Empty;
+                return false;
+            }
+
+            AppendPendingText(
+                builder,
+                value,
+                pendingAppendStartIndex,
+                value.Length,
+                normalizeDirectorySeparators: true);
+            replacementValue = builder.ToString();
+            return true;
+        }
+
+        private bool TryFindPathPrefixMatch (
+            string value,
+            int startIndex,
+            StringComparison comparison,
+            out int prefixLength)
+        {
+            prefixLength = 0;
+            if (!IsPathPrefixBoundary(value, startIndex))
+            {
+                return false;
+            }
+
             foreach (var absolutePathPrefix in AbsolutePathPrefixes)
             {
-                if (TryCreateReplacementValue(
+                if (MatchesPathPrefix(
                     value,
+                    startIndex,
                     absolutePathPrefix,
-                    comparison,
-                    out replacementValue))
+                    comparison))
                 {
+                    prefixLength = absolutePathPrefix.Length;
                     return true;
                 }
             }
 
-            replacementValue = string.Empty;
             return false;
         }
 
-        private bool TryCreateReplacementValue (
+        private static bool MatchesPathPrefix (
             string value,
+            int startIndex,
             string absolutePathPrefix,
-            StringComparison comparison,
-            out string replacementValue)
+            StringComparison comparison)
         {
-            if (string.Equals(value, absolutePathPrefix, comparison))
+            if (startIndex + absolutePathPrefix.Length > value.Length)
             {
-                replacementValue = Token;
-                return true;
-            }
-
-            var prefixWithSeparator = absolutePathPrefix.EndsWith(Path.DirectorySeparatorChar)
-                ? absolutePathPrefix
-                : absolutePathPrefix + Path.DirectorySeparatorChar;
-            var prefixIndex = value.IndexOf(prefixWithSeparator, comparison);
-            if (prefixIndex < 0)
-            {
-                replacementValue = string.Empty;
                 return false;
             }
 
-            if (!IsPathPrefixBoundary(value, prefixIndex))
+            for (var offset = 0; offset < absolutePathPrefix.Length; offset++)
             {
-                replacementValue = string.Empty;
-                return false;
+                var valueChar = value[startIndex + offset];
+                var prefixChar = absolutePathPrefix[offset];
+                if (IsDirectorySeparator(valueChar) && IsDirectorySeparator(prefixChar))
+                {
+                    continue;
+                }
+
+                if (string.Compare(
+                    value,
+                    startIndex + offset,
+                    absolutePathPrefix,
+                    offset,
+                    length: 1,
+                    comparison) != 0)
+                {
+                    return false;
+                }
             }
 
-            var prefixText = value[..prefixIndex];
-            var relativeValue = value[(prefixIndex + prefixWithSeparator.Length)..]
-                .Replace(Path.DirectorySeparatorChar, '/')
-                .Replace(Path.AltDirectorySeparatorChar, '/');
-            replacementValue = $"{prefixText}{Token}/{relativeValue}";
-            return true;
+            var endIndex = startIndex + absolutePathPrefix.Length;
+            return endIndex == value.Length || IsDirectorySeparator(value[endIndex]) || IsPathBoundaryChar(value[endIndex]);
+        }
+
+        private static void AppendPendingText (
+            StringBuilder builder,
+            string value,
+            int startIndex,
+            int endIndex,
+            bool normalizeDirectorySeparators)
+        {
+            for (var i = startIndex; i < endIndex; i++)
+            {
+                builder.Append(normalizeDirectorySeparators
+                    ? NormalizeDirectorySeparator(value[i])
+                    : value[i]);
+            }
+        }
+
+        private static char NormalizeDirectorySeparator (char value)
+        {
+            return value == '\\'
+                ? '/'
+                : value;
+        }
+
+        private static bool IsPathBoundaryChar (char value)
+        {
+            return char.IsWhiteSpace(value) || value is ':' or '=' or '"' or '\'' or '(' or '[' or '{' or ')' or ']' or '}' or ',' or ';';
         }
 
         private static bool IsPathPrefixBoundary (
@@ -418,7 +509,7 @@ internal sealed class JsonGoldenFileNormalization
             }
 
             var previousChar = value[prefixIndex - 1];
-            return char.IsWhiteSpace(previousChar) || previousChar is ':' or '"' or '\'' or '(' or '[' or '{';
+            return IsPathBoundaryChar(previousChar);
         }
     }
 }

@@ -132,23 +132,7 @@ public sealed class TestRunCliOutputContractTests
             UcliContractConstants.CliOption.Mode,
             "unsupported");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            command: UcliCommandNames.TestRun,
-            status: "error",
-            exitCode: (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(
-            outputJson.RootElement,
-            expectedCode: "INVALID_ARGUMENT");
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("payload", payload => payload
-                .IsNull("result")
-                .HasString("errorKind", "invalidInput")
-                .IsNull("runId")
-                .IsNull("artifactsDir")
-                .IsNull("summaryJsonPath"));
         JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("test-run", "invalid-mode.json"), result.StdOut);
     }
 

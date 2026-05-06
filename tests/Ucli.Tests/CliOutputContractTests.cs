@@ -52,25 +52,7 @@ public sealed class CliOutputContractTests
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            command: UcliCommandNames.Init,
-            status: "ok",
-            exitCode: (int)CliExitCode.Success);
-        CommandResultAssert.HasNoErrors(outputJson.RootElement);
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("payload", payload => payload
-                .HasValueKind("configPath", JsonValueKind.String)
-                .HasValueKind("gitignorePath", JsonValueKind.String));
-
         var payload = outputJson.RootElement.GetProperty("payload");
-        var payloadPropertyCount = 0;
-        foreach (var _ in payload.EnumerateObject())
-        {
-            payloadPropertyCount++;
-        }
-
-        Assert.Equal(2, payloadPropertyCount);
         FileSystemAssert.ForPath(payload
             .GetProperty("configPath")
             .GetString()!)

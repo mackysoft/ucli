@@ -123,7 +123,7 @@ public sealed class JsonGoldenFileAssertTests
             }
 
             """,
-            new JsonGoldenFileNormalization().NormalizeRequestIds());
+            new JsonGoldenFileNormalization().NormalizeGuidProperty("requestId", "<requestId>"));
     }
 
     [Fact]
@@ -152,7 +152,7 @@ public sealed class JsonGoldenFileAssertTests
                 }
 
                 """,
-                new JsonGoldenFileNormalization().NormalizeRequestIds()));
+                new JsonGoldenFileNormalization().NormalizeGuidProperty("requestId", "<requestId>")));
 
         Assert.Contains("requestId", exception.Message, StringComparison.Ordinal);
         Assert.Contains("GUID", exception.Message, StringComparison.Ordinal);
@@ -320,7 +320,7 @@ public sealed class JsonGoldenFileAssertTests
                 }
 
                 """,
-                new JsonGoldenFileNormalization().NormalizeRequestIds()));
+                new JsonGoldenFileNormalization().NormalizeGuidProperty("requestId", "<requestId>")));
 
         Assert.Contains("selected for normalization", exception.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", exception.Message, StringComparison.Ordinal);
@@ -363,6 +363,96 @@ public sealed class JsonGoldenFileAssertTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void MatchesFile_WithAlternateDirectorySeparators_NormalizesPathPrefix ()
+    {
+        using var scope = TestDirectories.CreateTempScope("json-golden-file-assert", "alternate-path-separators");
+        var workspacePath = scope.CreateDirectory("workspace");
+        var alternateWorkspacePath = ReplaceWithAlternateDirectorySeparators(workspacePath);
+        var actualPath = alternateWorkspacePath + GetAlternateDirectorySeparator() + ".ucli" + GetAlternateDirectorySeparator() + "config.json";
+        var actualPathLiteral = JsonSerializer.Serialize(actualPath);
+        var goldenPath = scope.WriteFile(
+            "expected.json",
+            """
+            {
+              "path": "<workspace>/.ucli/config.json"
+            }
+            """);
+
+        JsonGoldenFileAssert.MatchesFile(
+            goldenPath,
+            $$"""
+            {
+              "path": {{actualPathLiteral}}
+            }
+
+            """,
+            new JsonGoldenFileNormalization().NormalizePathPrefix(workspacePath, "<workspace>"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void MatchesFile_WithMixedDirectorySeparators_NormalizesPathPrefix ()
+    {
+        using var scope = TestDirectories.CreateTempScope("json-golden-file-assert", "mixed-path-separators");
+        var workspacePath = scope.CreateDirectory("workspace");
+        var mixedWorkspacePath = ReplaceWithMixedDirectorySeparators(workspacePath);
+        var actualPath = mixedWorkspacePath + GetAlternateDirectorySeparator() + "Unity Project" + Path.DirectorySeparatorChar + ".ucli" + GetAlternateDirectorySeparator() + "config.json";
+        var actualPathLiteral = JsonSerializer.Serialize(actualPath);
+        var goldenPath = scope.WriteFile(
+            "expected.json",
+            """
+            {
+              "path": "<workspace>/Unity Project/.ucli/config.json"
+            }
+            """);
+
+        JsonGoldenFileAssert.MatchesFile(
+            goldenPath,
+            $$"""
+            {
+              "path": {{actualPathLiteral}}
+            }
+
+            """,
+            new JsonGoldenFileNormalization().NormalizePathPrefix(workspacePath, "<workspace>"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void MatchesFile_WithMultiplePathPrefixesInSingleStringMismatch_DoesNotExposeSourcePaths ()
+    {
+        using var scope = TestDirectories.CreateTempScope("json-golden-file-assert", "multiple-path-prefixes");
+        var workspacePath = scope.CreateDirectory("workspace");
+        var sourcePath = Path.Combine(workspacePath, "input.json");
+        var targetPath = Path.Combine(workspacePath, "logs", "output.json");
+        var actualMessage = $"paths={sourcePath};{targetPath}";
+        var actualMessageLiteral = JsonSerializer.Serialize(actualMessage);
+        var goldenPath = scope.WriteFile(
+            "expected.json",
+            """
+            {
+              "message": "paths=<workspace>/input.json;<workspace>/logs/missing.json"
+            }
+            """);
+
+        var exception = Assert.Throws<XunitException>(
+            () => JsonGoldenFileAssert.MatchesFile(
+                goldenPath,
+                $$"""
+                {
+                  "message": {{actualMessageLiteral}}
+                }
+
+                """,
+                new JsonGoldenFileNormalization().NormalizePathPrefix(workspacePath, "<workspace>")));
+
+        Assert.Contains("<workspace>/input.json", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("<workspace>/logs/output.json", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(workspacePath, exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void MatchesFile_WithMismatch_ReportsLineDiff ()
     {
         using var scope = TestDirectories.CreateTempScope("json-golden-file-assert", "mismatch");
@@ -388,5 +478,37 @@ public sealed class JsonGoldenFileAssertTests
         Assert.Contains("@@ line 2 @@", exception.Message, StringComparison.Ordinal);
         Assert.Contains("-   \"value\": 1", exception.Message, StringComparison.Ordinal);
         Assert.Contains("+   \"value\": 2", exception.Message, StringComparison.Ordinal);
+    }
+
+    private static string ReplaceWithAlternateDirectorySeparators (string path)
+    {
+        return path.Replace(Path.DirectorySeparatorChar, GetAlternateDirectorySeparator());
+    }
+
+    private static string ReplaceWithMixedDirectorySeparators (string path)
+    {
+        var result = path.ToCharArray();
+        var useAlternate = false;
+        for (var i = 0; i < result.Length; i++)
+        {
+            if (result[i] is not ('/' or '\\'))
+            {
+                continue;
+            }
+
+            result[i] = useAlternate
+                ? GetAlternateDirectorySeparator()
+                : Path.DirectorySeparatorChar;
+            useAlternate = !useAlternate;
+        }
+
+        return new string(result);
+    }
+
+    private static char GetAlternateDirectorySeparator ()
+    {
+        return Path.DirectorySeparatorChar == '/'
+            ? '\\'
+            : '/';
     }
 }

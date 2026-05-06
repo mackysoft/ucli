@@ -387,17 +387,7 @@ public sealed class OpsCliOutputContractTests
             UcliContractConstants.CliOption.Mode,
             "unsupported");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            command: UcliCommandNames.OpsList,
-            status: "error",
-            exitCode: (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(
-            outputJson.RootElement,
-            expectedCode: "INVALID_ARGUMENT");
-        Assert.Contains("Mode must be auto, daemon, or oneshot.", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
         JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("ops", "list-invalid-mode.json"), result.StdOut);
     }
 

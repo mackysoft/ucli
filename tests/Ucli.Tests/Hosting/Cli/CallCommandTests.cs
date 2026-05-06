@@ -75,25 +75,15 @@ public sealed class CallCommandTests
         Assert.Equal(DefaultRequestJson, service.CapturedInput.RequestJson);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            UcliCommandNames.Call,
-            IpcProtocol.StatusOk,
-            (int)CliExitCode.Success);
-        CommandResultAssert.HasNoErrors(outputJson.RootElement);
         JsonAssert.For(outputJson.RootElement)
-            .HasString("message", "uCLI call completed.")
             .HasProperty("payload", payload => payload
                 .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
-                .HasArrayLength("opResults", 1)
                 .HasProperty("plan", plan => plan
-                    .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
-                    .HasArrayLength("opResults", 1)
-                    .HasString("planToken", "plan-token-1")));
+                    .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")));
         JsonGoldenFileAssert.Matches(
             CliOutputGoldenFiles.GetPath("call", "success.json"),
             standardOutput,
-            new JsonGoldenFileNormalization().NormalizeRequestIds());
+            CliOutputGoldenFiles.NormalizeRequestIds());
     }
 
     [Fact]

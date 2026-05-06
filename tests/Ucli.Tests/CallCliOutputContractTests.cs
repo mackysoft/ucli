@@ -157,21 +157,11 @@ public sealed class CallCliOutputContractTests
             UcliContractConstants.CliOption.Mode,
             "unsupported");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            UcliCommandNames.Call,
-            IpcProtocol.StatusError,
-            (int)CliExitCode.InvalidArgument);
-        AssertPayloadHasGeneratedRequestId(outputJson.RootElement);
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("payload", payload => payload
-                .HasArrayLength("opResults", 0));
         JsonGoldenFileAssert.Matches(
             CliOutputGoldenFiles.GetPath("call", "invalid-mode.json"),
             result.StdOut,
-            new JsonGoldenFileNormalization().NormalizeRequestIds());
+            CliOutputGoldenFiles.NormalizeRequestIds());
     }
 
     private static string CreateRequestJson ()
