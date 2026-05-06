@@ -27,11 +27,11 @@ public sealed class SkillInstallServiceTests
         foreach (var package in packages)
         {
             var expectedManifest = package.Files.Single(static file => file.RelativePath == "ucli-skill.json").Content;
-            var actualManifest = File.ReadAllText(Path.Combine(scope.FullPath, ".agents", "skills", package.SkillName, "ucli-skill.json"));
+            var actualManifest = File.ReadAllText(Path.Combine(scope.FullPath, ".agents", "skills", package.Manifest.SkillName, "ucli-skill.json"));
             Assert.Equal(expectedManifest, actualManifest);
         }
 
-        Assert.True(File.Exists(Path.Combine(scope.FullPath, ".agents", "skills", packages[0].SkillName, "agents", "openai.yaml")));
+        Assert.True(File.Exists(Path.Combine(scope.FullPath, ".agents", "skills", packages[0].Manifest.SkillName, "agents", "openai.yaml")));
     }
 
     [Fact]
@@ -87,7 +87,7 @@ public sealed class SkillInstallServiceTests
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-unmanaged");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
         var service = SkillTestData.CreateInstallService();
-        scope.WriteFile(Path.Combine(".agents", "skills", packages[0].SkillName, "SKILL.md"), "# Existing\n");
+        scope.WriteFile(Path.Combine(".agents", "skills", packages[0].Manifest.SkillName, "SKILL.md"), "# Existing\n");
 
         var result = await service.InstallAsync(
             packages,
@@ -109,7 +109,7 @@ public sealed class SkillInstallServiceTests
         var created = await service.InstallAsync(packages, request, CancellationToken.None);
         Assert.True(created.IsSuccess, created.Failure?.Message);
 
-        var manifestPath = Path.Combine(created.Value!.TargetRoot, packages[0].SkillName, "ucli-skill.json");
+        var manifestPath = Path.Combine(created.Value!.TargetRoot, packages[0].Manifest.SkillName, "ucli-skill.json");
         var manifestText = File.ReadAllText(manifestPath).Replace(packages[0].Manifest.ContentDigest, "sha256:" + new string('0', 64), StringComparison.Ordinal);
         File.WriteAllText(manifestPath, manifestText);
 
@@ -130,7 +130,7 @@ public sealed class SkillInstallServiceTests
         var created = await service.InstallAsync(packages, request, CancellationToken.None);
         Assert.True(created.IsSuccess, created.Failure?.Message);
 
-        var manifestPath = Path.Combine(created.Value!.TargetRoot, packages[0].SkillName, "ucli-skill.json");
+        var manifestPath = Path.Combine(created.Value!.TargetRoot, packages[0].Manifest.SkillName, "ucli-skill.json");
         var originalDigest = packages[0].Manifest.HostArtifacts[0].MaterializedFrontmatterDigest;
         var manifestText = File.ReadAllText(manifestPath).Replace(originalDigest, "sha256:" + new string('f', 64), StringComparison.Ordinal);
         File.WriteAllText(manifestPath, manifestText);
@@ -152,7 +152,7 @@ public sealed class SkillInstallServiceTests
         var created = await service.InstallAsync(packages, request, CancellationToken.None);
         Assert.True(created.IsSuccess, created.Failure?.Message);
 
-        var skillPath = Path.Combine(created.Value!.TargetRoot, packages[0].SkillName, "SKILL.md");
+        var skillPath = Path.Combine(created.Value!.TargetRoot, packages[0].Manifest.SkillName, "SKILL.md");
         File.AppendAllText(skillPath, "\nInjected instruction.\n");
 
         var result = await service.InstallAsync(packages, request, CancellationToken.None);
@@ -172,7 +172,7 @@ public sealed class SkillInstallServiceTests
         var created = await service.InstallAsync(packages, request, CancellationToken.None);
         Assert.True(created.IsSuccess, created.Failure?.Message);
 
-        File.Delete(Path.Combine(created.Value!.TargetRoot, packages[0].SkillName, "SKILL.md"));
+        File.Delete(Path.Combine(created.Value!.TargetRoot, packages[0].Manifest.SkillName, "SKILL.md"));
 
         var result = await service.InstallAsync(packages, request, CancellationToken.None);
 
@@ -193,7 +193,7 @@ public sealed class SkillInstallServiceTests
 
         var referencePath = Path.Combine(
             created.Value!.TargetRoot,
-            packages[0].SkillName,
+            packages[0].Manifest.SkillName,
             packages[0].Files.First(static file => file.RelativePath.StartsWith("references/", StringComparison.Ordinal)).RelativePath);
         File.AppendAllText(referencePath, "\nInjected reference.\n");
 
@@ -213,7 +213,7 @@ public sealed class SkillInstallServiceTests
         var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
         var created = await service.InstallAsync(packages, request, CancellationToken.None);
         Assert.True(created.IsSuccess, created.Failure?.Message);
-        File.WriteAllText(Path.Combine(created.Value!.TargetRoot, packages[0].SkillName, "references", "extra.md"), "# Extra\n");
+        File.WriteAllText(Path.Combine(created.Value!.TargetRoot, packages[0].Manifest.SkillName, "references", "extra.md"), "# Extra\n");
 
         var result = await service.InstallAsync(packages, request, CancellationToken.None);
 
@@ -228,7 +228,7 @@ public sealed class SkillInstallServiceTests
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-invalid-manifest");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
         var service = SkillTestData.CreateInstallService();
-        scope.WriteFile(Path.Combine(".agents", "skills", packages[0].SkillName, "ucli-skill.json"), "{}");
+        scope.WriteFile(Path.Combine(".agents", "skills", packages[0].Manifest.SkillName, "ucli-skill.json"), "{}");
 
         var result = await service.InstallAsync(
             packages,
@@ -252,11 +252,11 @@ public sealed class SkillInstallServiceTests
         using var outsideScope = TestDirectories.CreateTempScope("ucli-skills", "install-manifest-symlink-outside");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
         var service = SkillTestData.CreateInstallService();
-        scope.CreateDirectory(Path.Combine(".agents", "skills", packages[0].SkillName));
+        scope.CreateDirectory(Path.Combine(".agents", "skills", packages[0].Manifest.SkillName));
         var outsideManifest = outsideScope.WriteFile("ucli-skill.json", packages[0].Files.Single(static file => file.RelativePath == "ucli-skill.json").Content);
         try
         {
-            File.CreateSymbolicLink(Path.Combine(scope.FullPath, ".agents", "skills", packages[0].SkillName, "ucli-skill.json"), outsideManifest);
+            File.CreateSymbolicLink(Path.Combine(scope.FullPath, ".agents", "skills", packages[0].Manifest.SkillName, "ucli-skill.json"), outsideManifest);
         }
         catch (IOException)
         {
@@ -298,9 +298,13 @@ public sealed class SkillInstallServiceTests
     public async Task InstallAsync_RejectsUnsafePackageName ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-unsafe-package");
-        var package = (await SkillTestData.GenerateOfficialPackagesAsync()).First() with
+        var generatedPackage = (await SkillTestData.GenerateOfficialPackagesAsync()).First();
+        var package = generatedPackage with
         {
-            SkillName = "../escape",
+            Manifest = generatedPackage.Manifest with
+            {
+                SkillName = "../escape",
+            },
         };
         var service = SkillTestData.CreateInstallService();
 
@@ -381,7 +385,7 @@ public sealed class SkillInstallServiceTests
         using var outsideScope = TestDirectories.CreateTempScope("ucli-skills", "install-skill-symlink-outside");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
         var targetRoot = repoScope.CreateDirectory(".agents/skills");
-        var symlinkPath = Path.Combine(targetRoot, packages[0].SkillName);
+        var symlinkPath = Path.Combine(targetRoot, packages[0].Manifest.SkillName);
         try
         {
             Directory.CreateSymbolicLink(symlinkPath, outsideScope.FullPath);

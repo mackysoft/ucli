@@ -52,9 +52,16 @@ public sealed class SkillPackageGenerationService
                 sourceResult.Failure.Message);
         }
 
+        if (sourceResult.Value!.Count == 0)
+        {
+            return SkillOperationResult<IReadOnlyList<CanonicalSkillPackage>>.FailureResult(
+                SkillFailureCodes.SourceInvalid,
+                $"SkillDefinitions directory does not contain any definitions: {definitionsRoot}");
+        }
+
         var packages = sourceResult.Value!
             .Select(Generate)
-            .OrderBy(static package => package.SkillName, StringComparer.Ordinal)
+            .OrderBy(static package => package.Manifest.SkillName, StringComparer.Ordinal)
             .ToArray();
 
         return SkillOperationResult<IReadOnlyList<CanonicalSkillPackage>>.Success(packages);
@@ -104,9 +111,6 @@ public sealed class SkillPackageGenerationService
             .ToArray();
 
         return new CanonicalSkillPackage(
-            SkillName: definition.Metadata.SkillName,
-            DisplayName: definition.Metadata.DisplayName,
-            Description: definition.Metadata.Description,
             Manifest: manifest,
             Files: files);
     }

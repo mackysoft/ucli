@@ -214,11 +214,8 @@ public sealed class SkillSourceDefinitionReader
 
         foreach (var reference in references)
         {
-            if (string.IsNullOrWhiteSpace(reference)
-                || !reference.EndsWith(".md", StringComparison.Ordinal)
-                || reference.Contains('/', StringComparison.Ordinal)
-                || reference.Contains('\\', StringComparison.Ordinal)
-                || reference is "." or "..")
+            if (!reference.EndsWith(".md", StringComparison.Ordinal)
+                || !SkillRelativePath.IsSafePathSegment(reference))
             {
                 return SkillOperationResult<SkillSourceMetadata>.FailureResult(SkillFailureCodes.SourceInvalid, $"Reference path is unsafe for '{skillName}': {reference}");
             }

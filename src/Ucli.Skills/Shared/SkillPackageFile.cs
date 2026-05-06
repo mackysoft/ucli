@@ -15,12 +15,9 @@ public sealed record SkillPackageFile (
         string relativePath,
         string content)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(relativePath);
         ArgumentNullException.ThrowIfNull(content);
 
-        if (relativePath.Contains('\\', StringComparison.Ordinal)
-            || relativePath.StartsWith("/", StringComparison.Ordinal)
-            || relativePath.Split('/').Any(static segment => string.IsNullOrWhiteSpace(segment) || segment is "." or ".."))
+        if (!SkillRelativePath.IsSafeFilePath(relativePath))
         {
             throw new ArgumentException("Package file path must be a safe slash-separated relative path.", nameof(relativePath));
         }

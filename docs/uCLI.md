@@ -92,15 +92,18 @@ timeout は mode decision、plugin verify、IPC dispatch、readiness wait をま
 GUI Editor session も `projectFingerprint` 単位の uCLI single-writer 排他に参加するが、同じ GUI Editor 内でユーザーが行う Inspector / Scene / Prefab Stage 操作は排他できない。reviewed mutation workflow では `planToken` と state drift 検知を使い、`plan` 後の手動変更を `call` 前に検出する。GUI session の `query` / `resolve` / `plan` は、selection、active Scene、Prefab Stage、dirty state、Undo stack に観測由来の変更を残してはならない。観測由来の Editor state を復元できない場合、その `query` / `resolve` / `plan` は成功として扱わない。
 
 ### `projectPath` 解決順序
-`--projectPath` を受け取るコマンドは、対象 Unity project を次の順で解決する。
+`--projectPath` を受け取るコマンドは、対象 Unity project path 候補を次の順で選択する。選択された候補はまだ未正規化の入力であり、その後に絶対 path 化、Unity project marker 判定、storage root / `projectFingerprint` 解決を行う。
 
 1. `--projectPath`
 2. 環境変数 `UCLI_PROJECT_PATH`
-3. コマンド固有の既定値
+3. コマンド固有の fallback
+4. カレントディレクトリ
 
-コマンド固有の既定値は次のとおり。
-- `test run` を除くコマンドは `CWD`
-- `test run` は `profile.json` `projectPath`、未指定時は `.`
+現在のコマンド固有 fallback は `test run` の `profile.json` `projectPath` のみである。`test run` 以外のコマンドと、`profile.json` `projectPath` が未指定の `test run` は、最終 fallback としてカレントディレクトリを使用する。
+
+Project context resolution は Git worktree を project path 入力候補として探索しない。`daemon list` は、解決済み Unity project から現在の Git worktree root と project-relative path を取得し、同じ relative path を sibling worktree に適用して inventory 候補を観測する。sibling worktree 側で Unity project marker 判定に失敗した候補は一覧対象外として扱う。
+
+Project context resolution 由来の入力不正は、公開 CLI JSON の envelope 構造を変えずに `errors[].code` へ投影する。代表的な code は `PROJECT_PATH_INVALID_FORMAT`、`PROJECT_PATH_NOT_FOUND`、`UNITY_PROJECT_MARKER_MISSING` である。
 
 ### モード挙動マトリクス
 | デーモン状態 | `--mode daemon` | `--mode auto`（既定） | `--mode oneshot` |

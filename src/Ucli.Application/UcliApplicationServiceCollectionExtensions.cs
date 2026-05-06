@@ -69,6 +69,7 @@ public static class UcliApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddUcliApplicationSharedServices (this IServiceCollection services)
     {
+        services.AddSingleton<IProjectPathInputResolver, ProjectPathInputResolver>();
         services.AddSingleton<IProjectContextResolver, ProjectContextResolver>();
         services.AddSingleton<IUnityExecutionModeDecisionService, UnityExecutionModeDecisionService>();
         services.AddSingleton<IReadIndexFreshnessEvaluator, ReadIndexFreshnessEvaluator>();

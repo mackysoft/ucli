@@ -274,7 +274,7 @@ public sealed class PlanServiceTests
     [InlineData(ExecutionErrorCodes.IpcTimeout)]
     public async Task Execute_WhenUnityExecutionFailsWithToolErrorCode_ReturnsToolErrorAndPreservesPayload (string errorCode)
     {
-        var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Failure(
+        var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResultTestFactory.Failure(
             "Unity execution failed.",
             errorCode));
         var service = new PlanService(
@@ -304,41 +304,6 @@ public sealed class PlanServiceTests
         Assert.NotNull(result.Output.ReadIndex);
         var error = Assert.Single(result.Errors);
         Assert.Equal(errorCode, error.Code);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenUnityExecutionFailureHasBlankBoundaryMessage_NormalizesFailureMessage ()
-    {
-        var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Failure(
-            "",
-            ""));
-        var service = new PlanService(
-            new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
-            new StubRequestStaticValidationPreflightService(CreateSuccessPreflightResult(
-                CreateReadIndexInfo(
-                    used: true,
-                    hit: true,
-                    freshness: IndexFreshness.Probable,
-                    fallbackReason: null))),
-            unityIpcRequestExecutor);
-
-        var result = await service.Execute(
-            new PlanCommandInput(
-                ProjectPath: "/repo/UnityProject",
-                Mode: null,
-                TimeoutMilliseconds: null,
-                ReadIndexMode: null,
-                FailFast: false,
-                RequestJson: """{"steps":[]}"""),
-            CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
-        Assert.Equal("Request execution failed.", result.Message);
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
-        Assert.Equal("Request execution failed.", error.Message);
     }
 
     private static RequestStaticValidationPreflightResult CreateSuccessPreflightResult (ReadIndexInfo readIndex)

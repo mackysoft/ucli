@@ -34,9 +34,7 @@ internal static class UnityIntegrationServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton<IProjectPathInputResolver, ProjectPathInputResolver>();
-        services.AddSingleton<IUnityProjectResolver>(provider => new UnityProjectResolver(
-            provider.GetRequiredService<IProjectPathInputResolver>()));
+        services.AddSingleton<IUnityProjectResolver, UnityProjectResolver>();
         services.AddSingleton<UnityUcliPluginMarkerDiscovery>();
         services.AddSingleton<UnityUcliPluginMarkerValidator>();
         services.AddSingleton<UnityUcliPluginMarkerCacheStore>();
@@ -64,6 +62,11 @@ internal static class UnityIntegrationServiceCollectionExtensions
         services.AddSingleton<IUnityIpcTransportClient, UnityIpcTransportClient>();
         services.AddSingleton<IUnityIpcClient, UnityDaemonIpcClient>();
         services.AddSingleton<IUnityIpcClient, UnityOneshotIpcClient>();
+        services.AddSingleton<UnityIpcRequestBuilder>();
+        services.AddSingleton<UnityIpcPluginVerifier>();
+        services.AddSingleton<UnityIpcExecutionTargetResolver>();
+        services.AddSingleton<UnityIpcClientSelector>();
+        services.AddSingleton<UnityDaemonReadinessGate>();
         services.AddSingleton<IUnityRequestExecutor, UnityIpcRequestExecutor>();
         return services;
     }

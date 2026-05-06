@@ -95,7 +95,7 @@ public sealed class RefreshCliOutputContractTests
             UcliCommandNames.Refresh,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, ProjectContextErrorCodes.UnityProjectMarkerMissing);
     }
 
     [Fact]
@@ -120,7 +120,7 @@ public sealed class RefreshCliOutputContractTests
             UcliCommandNames.Refresh,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, ProjectContextErrorCodes.UnityProjectMarkerMissing);
     }
 
     [Fact]

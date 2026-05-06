@@ -1,0 +1,21 @@
+{
+  "protocolVersion": 1,
+  "command": "test.run",
+  "status": "error",
+  "exitCode": 3,
+  "message": "Mode must be auto, daemon, or oneshot.",
+  "payload": {
+    "result": null,
+    "errorKind": "invalidInput",
+    "runId": null,
+    "artifactsDir": null,
+    "summaryJsonPath": null
+  },
+  "errors": [
+    {
+      "code": "INVALID_ARGUMENT",
+      "message": "Mode must be auto, daemon, or oneshot.",
+      "opId": null
+    }
+  ]
+}

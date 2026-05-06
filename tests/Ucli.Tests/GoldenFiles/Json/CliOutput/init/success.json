@@ -1,0 +1,12 @@
+{
+  "protocolVersion": 1,
+  "command": "init",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "uCLI config template generation completed.",
+  "payload": {
+    "configPath": "<workspace>/.ucli/config.json",
+    "gitignorePath": "<workspace>/.ucli/.gitignore"
+  },
+  "errors": []
+}

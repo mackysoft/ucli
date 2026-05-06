@@ -199,6 +199,39 @@ public sealed class PackageMetadataTests
     [Trait("Size", "Medium")]
     public async Task Verify_scope_detector_tracks_directory_build_props_changes ()
     {
+        IReadOnlyDictionary<string, string> outputs = await RunVerifyScopeDetectorForSingleFileChangeAsync(
+            "Directory.Build.props",
+            "<Project><PropertyGroup><Version>0.18.0</Version></PropertyGroup></Project>",
+            "<Project><PropertyGroup><Version>0.18.1</Version></PropertyGroup></Project>");
+
+        Assert.Equal("true", outputs["needs_dotnet"]);
+        Assert.Equal("true", outputs["needs_shared_pack"]);
+        Assert.Equal("true", outputs["needs_cli_pack"]);
+        Assert.Equal("false", outputs["needs_unity"]);
+        Assert.Equal("false", outputs["needs_unity_pack"]);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Verify_scope_detector_tracks_gitattributes_changes ()
+    {
+        IReadOnlyDictionary<string, string> outputs = await RunVerifyScopeDetectorForSingleFileChangeAsync(
+            ".gitattributes",
+            "skills/** text=auto\n",
+            "skills/** text eol=lf\n");
+
+        Assert.Equal("true", outputs["needs_dotnet"]);
+        Assert.Equal("true", outputs["needs_shared_pack"]);
+        Assert.Equal("true", outputs["needs_cli_pack"]);
+        Assert.Equal("true", outputs["needs_unity"]);
+        Assert.Equal("true", outputs["needs_unity_pack"]);
+    }
+
+    private static async Task<IReadOnlyDictionary<string, string>> RunVerifyScopeDetectorForSingleFileChangeAsync (
+        string relativePath,
+        string initialContents,
+        string changedContents)
+    {
         string tempDirectory = Path.Combine(Path.GetTempPath(), "ucli-verify-scope-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDirectory);
 
@@ -208,27 +241,21 @@ public sealed class PackageMetadataTests
             await RunRequiredProcessAsync("git", ["config", "user.email", "ucli-tests@example.invalid"], tempDirectory);
             await RunRequiredProcessAsync("git", ["config", "user.name", "uCLI Tests"], tempDirectory);
 
-            string propsPath = Path.Combine(tempDirectory, "Directory.Build.props");
-            await File.WriteAllTextAsync(
-                propsPath,
-                "<Project><PropertyGroup><Version>0.18.0</Version></PropertyGroup></Project>",
-                Encoding.UTF8);
-            await RunRequiredProcessAsync("git", ["add", "Directory.Build.props"], tempDirectory);
+            string targetPath = Path.Combine(tempDirectory, relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(targetPath) ?? tempDirectory);
+            await File.WriteAllTextAsync(targetPath, initialContents, Encoding.UTF8);
+            await RunRequiredProcessAsync("git", ["add", relativePath], tempDirectory);
             await RunRequiredProcessAsync("git", ["commit", "-m", "initial"], tempDirectory);
             string baseSha = (await RunRequiredProcessAsync("git", ["rev-parse", "HEAD"], tempDirectory)).StdOut.Trim();
 
-            await File.WriteAllTextAsync(
-                propsPath,
-                "<Project><PropertyGroup><Version>0.18.1</Version></PropertyGroup></Project>",
-                Encoding.UTF8);
-            await RunRequiredProcessAsync("git", ["add", "Directory.Build.props"], tempDirectory);
-            await RunRequiredProcessAsync("git", ["commit", "-m", "change props"], tempDirectory);
+            await File.WriteAllTextAsync(targetPath, changedContents, Encoding.UTF8);
+            await RunRequiredProcessAsync("git", ["add", relativePath], tempDirectory);
+            await RunRequiredProcessAsync("git", ["commit", "-m", "change file"], tempDirectory);
             string headSha = (await RunRequiredProcessAsync("git", ["rev-parse", "HEAD"], tempDirectory)).StdOut.Trim();
 
             string detectorScriptPath = ToBashPath(Path.Combine(RepositoryRoot, "scripts", "detect-verify-scopes.sh"));
-            string bashFileName = ResolveBashFileName();
             ProcessResult result = await RunRequiredProcessAsync(
-                bashFileName,
+                ResolveBashFileName(),
                 [detectorScriptPath],
                 tempDirectory,
                 new Dictionary<string, string>(StringComparer.Ordinal)
@@ -239,12 +266,7 @@ public sealed class PackageMetadataTests
                     ["PR_HEAD_SHA"] = headSha,
                 });
 
-            IReadOnlyDictionary<string, string> outputs = ParseDetectorOutputs(result.StdOut);
-            Assert.Equal("true", outputs["needs_dotnet"]);
-            Assert.Equal("true", outputs["needs_shared_pack"]);
-            Assert.Equal("true", outputs["needs_cli_pack"]);
-            Assert.Equal("false", outputs["needs_unity"]);
-            Assert.Equal("false", outputs["needs_unity_pack"]);
+            return ParseDetectorOutputs(result.StdOut);
         }
         finally
         {

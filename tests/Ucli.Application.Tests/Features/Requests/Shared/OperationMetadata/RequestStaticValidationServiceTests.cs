@@ -78,6 +78,7 @@ public sealed class RequestStaticValidationServiceTests
         Assert.Empty(result.Errors);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
         Assert.Contains("Static validation could not load operation metadata.", error.Message, StringComparison.Ordinal);
     }
 

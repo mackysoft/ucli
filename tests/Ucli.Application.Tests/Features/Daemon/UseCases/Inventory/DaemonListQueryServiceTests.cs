@@ -651,15 +651,18 @@ public sealed class DaemonListQueryServiceTests
                 StringComparer.Ordinal);
         }
 
-        public UnityProjectResolutionResult Resolve (string? projectPath)
+        public UnityProjectResolutionResult Resolve (ProjectPathCandidate projectPathCandidate)
         {
-            if (projectPath != null && contextsByPath.TryGetValue(Path.GetFullPath(projectPath), out var context))
+            ArgumentNullException.ThrowIfNull(projectPathCandidate);
+
+            if (contextsByPath.TryGetValue(Path.GetFullPath(projectPathCandidate.Path), out var context))
             {
                 return UnityProjectResolutionResult.Success(context);
             }
 
             return UnityProjectResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"UnityProject path does not exist: {projectPath}"));
+                $"UnityProject path does not exist: {projectPathCandidate.Path}",
+                ProjectContextErrorCodes.ProjectPathNotFound));
         }
     }
 

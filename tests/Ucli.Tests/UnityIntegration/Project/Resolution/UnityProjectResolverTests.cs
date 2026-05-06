@@ -2,7 +2,6 @@ namespace MackySoft.Ucli.Tests;
 
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Context.Project;
-using MackySoft.Ucli.Application.Shared.EnvironmentVariables;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Project.Resolution;
 
@@ -16,7 +15,7 @@ public sealed class UnityProjectResolverTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         var resolver = CreateResolver();
 
-        var result = resolver.Resolve(unityProjectPath);
+        var result = resolver.Resolve(CreateCandidate(unityProjectPath));
 
         Assert.True(result.IsSuccess);
         Assert.Null(result.Error);
@@ -36,7 +35,7 @@ public sealed class UnityProjectResolverTests
         var relativePath = Path.GetRelativePath(Environment.CurrentDirectory, unityProjectPath);
         var resolver = CreateResolver();
 
-        var result = resolver.Resolve(relativePath);
+        var result = resolver.Resolve(CreateCandidate(relativePath));
 
         Assert.True(result.IsSuccess);
         var context = Assert.IsType<ResolvedUnityProjectContext>(result.Context);
@@ -50,60 +49,22 @@ public sealed class UnityProjectResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Resolve_WhenCommandOptionIsMissing_UsesEnvironmentVariableProjectPath ()
+    public void Resolve_WithEnvironmentVariableCandidate_RetainsPathSource ()
     {
-        using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "environment-variable-path");
+        using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "environment-variable-source");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "EnvProject");
-        var resolver = CreateResolver(new Dictionary<string, string?>(StringComparer.Ordinal)
-        {
-            [UcliEnvironmentVariableNames.ProjectPath] = unityProjectPath,
-        });
+        var resolver = CreateResolver();
 
-        var result = resolver.Resolve(null);
+        var result = resolver.Resolve(new ProjectPathCandidate(
+            unityProjectPath,
+            UnityProjectPathSource.EnvironmentVariable,
+            "UCLI_PROJECT_PATH"));
 
         Assert.True(result.IsSuccess);
         var context = Assert.IsType<ResolvedUnityProjectContext>(result.Context);
         Assert.Equal(unityProjectPath, context.UnityProjectRoot);
-        Assert.Equal(UnityProjectPathSource.CommandOption, context.PathSource);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Resolve_WhenCommandOptionIsSpecified_IgnoresEnvironmentVariableProjectPath ()
-    {
-        using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "command-option-precedence");
-        var commandProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "CommandProject");
-        var environmentProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "EnvironmentProject");
-        var resolver = CreateResolver(new Dictionary<string, string?>(StringComparer.Ordinal)
-        {
-            [UcliEnvironmentVariableNames.ProjectPath] = environmentProjectPath,
-        });
-
-        var result = resolver.Resolve(commandProjectPath);
-
-        Assert.True(result.IsSuccess);
-        var context = Assert.IsType<ResolvedUnityProjectContext>(result.Context);
-        Assert.Equal(commandProjectPath, context.UnityProjectRoot);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Resolve_ReturnsInvalidArgument_WhenEnvironmentVariableProjectPathDoesNotExist ()
-    {
-        using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "environment-variable-missing-path");
-        var missingPath = scope.GetPath("MissingUnityProject");
-        var resolver = CreateResolver(new Dictionary<string, string?>(StringComparer.Ordinal)
-        {
-            [UcliEnvironmentVariableNames.ProjectPath] = missingPath,
-        });
-
-        var result = resolver.Resolve(null);
-
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.Context);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("does not exist", error.Message, StringComparison.Ordinal);
+        Assert.Equal(UnityProjectPathSource.EnvironmentVariable, context.PathSource);
+        Assert.Equal("UCLI_PROJECT_PATH", context.PathSourceLabel);
     }
 
     [Fact]
@@ -114,12 +75,13 @@ public sealed class UnityProjectResolverTests
         var missingPath = scope.GetPath("MissingUnityProject");
         var resolver = CreateResolver();
 
-        var result = resolver.Resolve(missingPath);
+        var result = resolver.Resolve(CreateCandidate(missingPath));
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Context);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Equal(ProjectContextErrorCodes.ProjectPathNotFound, error.Code);
         Assert.Contains("does not exist", error.Message, StringComparison.Ordinal);
     }
 
@@ -129,12 +91,13 @@ public sealed class UnityProjectResolverTests
     {
         var resolver = CreateResolver();
 
-        var result = resolver.Resolve("invalid\0path");
+        var result = resolver.Resolve(CreateCandidate("invalid\0path"));
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Context);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Equal(ProjectContextErrorCodes.ProjectPathInvalidFormat, error.Code);
         Assert.Contains("UnityProject path is invalid", error.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("\0", error.Message, StringComparison.Ordinal);
     }
@@ -148,12 +111,13 @@ public sealed class UnityProjectResolverTests
         var unityProjectPath = scope.GetPath("UnityProject");
         var resolver = CreateResolver();
 
-        var result = resolver.Resolve(unityProjectPath);
+        var result = resolver.Resolve(CreateCandidate(unityProjectPath));
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Context);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Equal(ProjectContextErrorCodes.UnityProjectMarkerMissing, error.Code);
         Assert.Contains("Missing file", error.Message, StringComparison.Ordinal);
     }
 
@@ -166,8 +130,8 @@ public sealed class UnityProjectResolverTests
         var pathWithTrailingSeparator = unityProjectPath + Path.DirectorySeparatorChar;
         var resolver = CreateResolver();
 
-        var primary = resolver.Resolve(unityProjectPath);
-        var secondary = resolver.Resolve(pathWithTrailingSeparator);
+        var primary = resolver.Resolve(CreateCandidate(unityProjectPath));
+        var secondary = resolver.Resolve(CreateCandidate(pathWithTrailingSeparator));
 
         Assert.True(primary.IsSuccess);
         Assert.True(secondary.IsSuccess);
@@ -184,7 +148,7 @@ public sealed class UnityProjectResolverTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, Path.Combine("RepoRoot", "UnityProject"));
         var resolver = CreateResolver();
 
-        var result = resolver.Resolve(unityProjectPath);
+        var result = resolver.Resolve(CreateCandidate(unityProjectPath));
 
         Assert.True(result.IsSuccess);
         var context = Assert.IsType<ResolvedUnityProjectContext>(result.Context);
@@ -204,8 +168,8 @@ public sealed class UnityProjectResolverTests
         var secondaryProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, Path.Combine("RepoRoot", "Packages", "UnityProjectB"));
         var resolver = CreateResolver();
 
-        var primary = resolver.Resolve(primaryProjectPath);
-        var secondary = resolver.Resolve(secondaryProjectPath);
+        var primary = resolver.Resolve(CreateCandidate(primaryProjectPath));
+        var secondary = resolver.Resolve(CreateCandidate(secondaryProjectPath));
 
         Assert.True(primary.IsSuccess);
         Assert.True(secondary.IsSuccess);
@@ -214,9 +178,13 @@ public sealed class UnityProjectResolverTests
         Assert.NotEqual(primary.Context!.ProjectFingerprint, secondary.Context!.ProjectFingerprint);
     }
 
-    private static UnityProjectResolver CreateResolver (IReadOnlyDictionary<string, string?>? environmentVariables = null)
+    private static ProjectPathCandidate CreateCandidate (string projectPath)
     {
-        return new UnityProjectResolver(new ProjectPathInputResolver(new StubEnvironmentVariableReader(
-            environmentVariables ?? new Dictionary<string, string?>(StringComparer.Ordinal))));
+        return new ProjectPathCandidate(projectPath, UnityProjectPathSource.CommandOption, "--projectPath");
+    }
+
+    private static UnityProjectResolver CreateResolver ()
+    {
+        return new UnityProjectResolver();
     }
 }

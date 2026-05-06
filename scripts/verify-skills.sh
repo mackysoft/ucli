@@ -10,8 +10,22 @@ mkdir -p "$temp_root"
 work_dir="$(mktemp -d "${temp_root%/}/ucli-skills-verify.XXXXXX")"
 trap 'rm -rf "$work_dir"' EXIT
 
+reject_non_regular_entries() {
+  local root="$1"
+  local label="$2"
+  local entry
+
+  while IFS= read -r entry; do
+    echo "Generated skills ${label} contains unsupported non-regular path: ${entry}" >&2
+    return 1
+  done < <(find "$root" ! -type f ! -type d -print | sort)
+}
+
 expected_root="$work_dir/skills"
 bash "$script_dir/generate-skills.sh" --output "$expected_root" >/dev/null
+
+reject_non_regular_entries "$DOTNET_REPO_ROOT/skills" "source tree"
+reject_non_regular_entries "$expected_root" "expected tree"
 
 if ! diff -ruN "$DOTNET_REPO_ROOT/skills" "$expected_root"; then
   echo "Generated skills drift detected. Run: bash scripts/generate-skills.sh" >&2
