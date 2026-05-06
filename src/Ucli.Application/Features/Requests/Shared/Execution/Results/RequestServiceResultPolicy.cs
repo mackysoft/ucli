@@ -113,7 +113,7 @@ internal static class RequestServiceResultPolicy
 
         return new OperationExecutionError(
             ResolveErrorCode(string.IsNullOrWhiteSpace(errorCode)
-                ? ExecutionErrorCodeMapper.ToCode(error.Kind)
+                ? ExecutionErrorCodeMapper.ToCode(error)
                 : errorCode),
             error.Message,
             null);
@@ -214,9 +214,14 @@ internal static class RequestServiceResultPolicy
         string? errorCode = null)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return ResolveOutcome(string.IsNullOrWhiteSpace(errorCode)
-            ? ExecutionErrorCodeMapper.ToCode(error.Kind)
-            : errorCode);
+        if (!string.IsNullOrWhiteSpace(errorCode))
+        {
+            return ResolveOutcome(errorCode);
+        }
+
+        return error.Kind == ExecutionErrorKind.InvalidArgument
+            ? ApplicationOutcome.InvalidArgument
+            : ApplicationOutcome.ToolError;
     }
 
     /// <summary> Resolves the application outcome for one machine-readable error code. </summary>
@@ -243,6 +248,7 @@ internal static class RequestServiceResultPolicy
         }
 
         return ValidationErrorCodes.Contains(errorCode)
+            || ProjectContextErrorCodes.Contains(errorCode)
             || IsPlanTokenValidationErrorCode(errorCode);
     }
 

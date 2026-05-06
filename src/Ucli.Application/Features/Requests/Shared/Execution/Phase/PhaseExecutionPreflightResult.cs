@@ -73,7 +73,7 @@ internal sealed record PhaseExecutionPreflightResult (
             ValidationErrors: Array.Empty<ValidationError>(),
             Error: error,
             ErrorCode: string.IsNullOrWhiteSpace(errorCode)
-                ? ExecutionErrorCodeMapper.ToCode(error.Kind)
+                ? ExecutionErrorCodeMapper.ToCode(error)
                 : errorCode);
     }
 }

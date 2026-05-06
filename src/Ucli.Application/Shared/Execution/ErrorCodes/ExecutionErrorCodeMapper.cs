@@ -6,6 +6,18 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 /// <summary> Maps <see cref="ExecutionErrorKind" /> values to command-facing machine-readable error codes. </summary>
 internal static class ExecutionErrorCodeMapper
 {
+    /// <summary> Converts one execution error to the corresponding CLI contract error code. </summary>
+    /// <param name="error"> The execution error. </param>
+    /// <returns> The mapped machine-readable error code. </returns>
+    public static string ToCode (ExecutionError error)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+
+        return string.IsNullOrWhiteSpace(error.Code)
+            ? ToCode(error.Kind)
+            : error.Code;
+    }
+
     /// <summary> Converts one execution-error kind to the corresponding CLI contract error code. </summary>
     /// <param name="kind"> The execution-error kind. </param>
     /// <returns> The mapped machine-readable error code. </returns>
