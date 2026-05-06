@@ -233,6 +233,8 @@ public sealed class DaemonCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task List_WithProjectPath_WhenNoDaemonSessionExists_ReturnsSuccessJsonContractAsSingleJson ()
     {
+        const int TimeoutMilliseconds = 10000;
+
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "daemon-list-success");
         await InitializeGitRepository(scope);
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
@@ -241,7 +243,9 @@ public sealed class DaemonCliOutputContractTests
             UcliCommandNames.Daemon,
             UcliCommandNames.ListSubcommand,
             UcliContractConstants.CliOption.ProjectPath,
-            unityProjectPath);
+            unityProjectPath,
+            UcliContractConstants.CliOption.Timeout,
+            TimeoutMilliseconds.ToString());
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
@@ -254,7 +258,7 @@ public sealed class DaemonCliOutputContractTests
 
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
-                .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcTimeoutDefaultDaemonListMilliseconds)
+                .HasInt32("timeoutMilliseconds", TimeoutMilliseconds)
                 .HasString("projectRelativePath", "UnityProject")
                 .HasBoolean("isComplete", true)
                 .IsNull("completionReason")
