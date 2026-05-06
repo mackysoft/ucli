@@ -1,0 +1,18 @@
+{
+  "protocolVersion": 1,
+  "command": "call",
+  "status": "error",
+  "exitCode": 3,
+  "message": "Mode must be auto, daemon, or oneshot.",
+  "payload": {
+    "requestId": "<requestId>",
+    "opResults": []
+  },
+  "errors": [
+    {
+      "code": "INVALID_ARGUMENT",
+      "message": "Mode must be auto, daemon, or oneshot.",
+      "opId": null
+    }
+  ]
+}

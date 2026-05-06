@@ -1,0 +1,24 @@
+{
+  "protocolVersion": 1,
+  "command": "validate",
+  "status": "error",
+  "exitCode": 3,
+  "message": "Static validation failed.",
+  "payload": {
+    "readIndex": {
+      "used": true,
+      "hit": true,
+      "source": "index",
+      "freshness": "probable",
+      "generatedAtUtc": "<generatedAtUtc>",
+      "fallbackReason": null
+    }
+  },
+  "errors": [
+    {
+      "code": "OPERATION_ARGS_INVALID",
+      "message": "Step \u0027step-1\u0027 args for operation \u0027ucli.go.describe\u0027 are invalid. Property \u0027args.path\u0027 is required.",
+      "opId": "step-1"
+    }
+  ]
+}
