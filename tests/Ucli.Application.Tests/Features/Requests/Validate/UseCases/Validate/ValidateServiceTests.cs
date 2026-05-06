@@ -7,7 +7,6 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -34,7 +33,7 @@ public sealed class ValidateServiceTests
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
         Assert.Null(result.Output);
         Assert.Equal(0, preflightService.CallCount);
     }
@@ -50,7 +49,7 @@ public sealed class ValidateServiceTests
                 used: false,
                 hit: false,
                 freshness: IndexFreshness.Probable),
-            IpcErrorCodes.ReadIndexFormatInvalid));
+            ReadIndexErrorCodes.ReadIndexFormatInvalid));
         var service = new ValidateService(
             new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
             new StubRequestStaticValidator(ValidationResult.Success()),
@@ -62,7 +61,7 @@ public sealed class ValidateServiceTests
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.ReadIndexFormatInvalid, error.Code);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexFormatInvalid, error.Code);
         Assert.NotNull(result.Output);
         Assert.False(result.Output!.ReadIndex.Used);
         Assert.Equal(1, preflightService.CallCount);

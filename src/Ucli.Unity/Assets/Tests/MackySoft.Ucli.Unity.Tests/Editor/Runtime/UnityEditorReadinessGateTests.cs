@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts;
 using System.Collections;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -35,32 +36,32 @@ namespace MackySoft.Ucli.Unity.Tests
         [TestCase(
             IpcEditorLifecycleStateCodec.Starting,
             IpcEditorBlockingReasonCodec.Startup,
-            IpcErrorCodes.EditorStarting,
+            EditorLifecycleErrorCodes.EditorStarting,
             "Unity editor startup is still in progress. Retry without --failFast or wait until lifecycleState=ready before executing request.")]
         [TestCase(
             IpcEditorLifecycleStateCodec.Busy,
             IpcEditorBlockingReasonCodec.Busy,
-            IpcErrorCodes.EditorBusy,
+            EditorLifecycleErrorCodes.EditorBusy,
             "Unity editor is busy with internal work. Retry without --failFast or wait until lifecycleState=ready before executing request.")]
         [TestCase(
             IpcEditorLifecycleStateCodec.Compiling,
             IpcEditorBlockingReasonCodec.Compile,
-            IpcErrorCodes.EditorCompiling,
+            EditorLifecycleErrorCodes.EditorCompiling,
             "Unity editor is compiling scripts. Retry without --failFast or wait until lifecycleState=ready before executing request.")]
         [TestCase(
             IpcEditorLifecycleStateCodec.DomainReloading,
             IpcEditorBlockingReasonCodec.DomainReload,
-            IpcErrorCodes.EditorDomainReloading,
+            EditorLifecycleErrorCodes.EditorDomainReloading,
             "Unity editor is reloading the AppDomain. Retry after lifecycleState=ready before executing request.")]
         [TestCase(
             IpcEditorLifecycleStateCodec.Playmode,
             IpcEditorBlockingReasonCodec.PlayMode,
-            IpcErrorCodes.EditorPlaymode,
+            EditorLifecycleErrorCodes.EditorPlaymode,
             "Unity editor is in Play Mode. Exit Play Mode and wait until lifecycleState=ready before executing request.")]
         [TestCase(
             IpcEditorLifecycleStateCodec.ShuttingDown,
             IpcEditorBlockingReasonCodec.Shutdown,
-            IpcErrorCodes.EditorShuttingDown,
+            EditorLifecycleErrorCodes.EditorShuttingDown,
             "Unity editor is shutting down and cannot accept execution requests.")]
         [Category("Size.Small")]
         public void CreateBlockedResult_WhenLifecycleStateIsMapped_ReturnsExpectedError (
@@ -266,7 +267,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsReady, Is.False);
             Assert.That(result.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Playmode));
             Assert.That(result.Error, Is.Not.Null);
-            Assert.That(result.Error!.Code, Is.EqualTo(IpcErrorCodes.EditorPlaymode));
+            Assert.That(result.Error!.Code, Is.EqualTo(EditorLifecycleErrorCodes.EditorPlaymode));
         });
 
         [UnityTest]
@@ -292,7 +293,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsReady, Is.False);
             Assert.That(result.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.DomainReloading));
             Assert.That(result.Error, Is.Not.Null);
-            Assert.That(result.Error!.Code, Is.EqualTo(IpcErrorCodes.EditorDomainReloading));
+            Assert.That(result.Error!.Code, Is.EqualTo(EditorLifecycleErrorCodes.EditorDomainReloading));
         });
 
         [UnityTest]
@@ -355,7 +356,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.DomainReloading));
             Assert.That(result.Snapshot.CanAcceptExecutionRequests, Is.False);
             Assert.That(result.Error, Is.Not.Null);
-            Assert.That(result.Error!.Code, Is.EqualTo(IpcErrorCodes.EditorDomainReloading));
+            Assert.That(result.Error!.Code, Is.EqualTo(EditorLifecycleErrorCodes.EditorDomainReloading));
         });
 
         [UnityTest]
@@ -388,7 +389,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.ShuttingDown));
             Assert.That(result.Snapshot.CanAcceptExecutionRequests, Is.False);
             Assert.That(result.Error, Is.Not.Null);
-            Assert.That(result.Error!.Code, Is.EqualTo(IpcErrorCodes.EditorShuttingDown));
+            Assert.That(result.Error!.Code, Is.EqualTo(EditorLifecycleErrorCodes.EditorShuttingDown));
         });
 
         private static UnityEditorReadinessGate CreateGate (

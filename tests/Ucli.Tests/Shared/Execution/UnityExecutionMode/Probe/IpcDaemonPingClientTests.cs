@@ -182,7 +182,7 @@ public sealed class IpcDaemonPingClientTests
                 IpcProtocol.StatusOk,
                 [
                     new IpcError(
-                        Code: IpcErrorCodes.InvalidArgument,
+                        Code: UcliCoreErrorCodes.InvalidArgument,
                         Message: "invalid request",
                         OpId: null),
                 ]));
@@ -214,7 +214,7 @@ public sealed class IpcDaemonPingClientTests
                 AsyncWaitTimeout);
         });
 
-        Assert.Equal(IpcErrorCodes.SessionTokenRequired, exception.ErrorCode!.Value);
+        Assert.Equal(IpcSessionErrorCodes.SessionTokenRequired, exception.ErrorCode!.Value);
         Assert.Equal(0, unityIpcClient.CallCount);
         Assert.Equal(1, sessionTokenProvider.CallCount);
     }

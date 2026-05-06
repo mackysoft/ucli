@@ -124,7 +124,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
             {
                 throw new DaemonPingResponseException(
                     "Daemon session token is required.",
-                    IpcErrorCodes.SessionTokenRequired);
+                    IpcSessionErrorCodes.SessionTokenRequired);
             }
 
             throw new DaemonPingResponseException(

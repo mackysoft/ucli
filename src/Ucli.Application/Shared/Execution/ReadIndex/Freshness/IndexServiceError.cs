@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts;
-
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 
 /// <summary> Represents one machine-readable index service error. </summary>

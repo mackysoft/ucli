@@ -3,7 +3,6 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -75,33 +74,33 @@ internal sealed class AssetLookupSnapshotReader : IAssetLookupSnapshotReader
             {
                 return AssetLookupSnapshotFetchResult.Failure(
                     $"{responseSourceName} failed with status '{response.FailureStatus}'.",
-                    IpcErrorCodes.InternalError);
+                    UcliCoreErrorCodes.InternalError);
             }
 
             return AssetLookupSnapshotFetchResult.Failure(
                 $"{responseSourceName} failed with an error status.",
-                IpcErrorCodes.InternalError);
+                UcliCoreErrorCodes.InternalError);
         }
 
         if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcIndexAssetsReadResponse payload, out var payloadError))
         {
             return AssetLookupSnapshotFetchResult.Failure(
                 $"{responseSourceName} payload is invalid. {payloadError.Message}",
-                IpcErrorCodes.InternalError);
+                UcliCoreErrorCodes.InternalError);
         }
 
         if (!IndexCatalogContractValidator.TryValidateAssetSearchEntries(payload.AssetSearchEntries, "assetSearchEntries", out var assetSearchError))
         {
             return AssetLookupSnapshotFetchResult.Failure(
                 $"{responseSourceName} payload is invalid. {assetSearchError}",
-                IpcErrorCodes.InternalError);
+                UcliCoreErrorCodes.InternalError);
         }
 
         if (!IndexCatalogContractValidator.TryValidateGuidPathEntries(payload.GuidPathEntries, "guidPathEntries", out var guidPathError))
         {
             return AssetLookupSnapshotFetchResult.Failure(
                 $"{responseSourceName} payload is invalid. {guidPathError}",
-                IpcErrorCodes.InternalError);
+                UcliCoreErrorCodes.InternalError);
         }
 
         if (!AreSortedByAssetPath(payload.AssetSearchEntries!)
@@ -109,14 +108,14 @@ internal sealed class AssetLookupSnapshotReader : IAssetLookupSnapshotReader
         {
             return AssetLookupSnapshotFetchResult.Failure(
                 $"{responseSourceName} payload is invalid. Lookup entries must be sorted by assetPath.",
-                IpcErrorCodes.InternalError);
+                UcliCoreErrorCodes.InternalError);
         }
 
         if (!GuidPathEntriesMatchAssetSearchEntries(payload.AssetSearchEntries!, payload.GuidPathEntries!))
         {
             return AssetLookupSnapshotFetchResult.Failure(
                 $"{responseSourceName} payload is invalid. guidPathEntries must be represented in assetSearchEntries.",
-                IpcErrorCodes.InternalError);
+                UcliCoreErrorCodes.InternalError);
         }
 
         return AssetLookupSnapshotFetchResult.Success(payload);

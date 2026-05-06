@@ -3,7 +3,6 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
@@ -78,33 +77,33 @@ internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
             {
                 return SceneTreeLiteSnapshotFetchResult.Failure(
                     $"{responseSourceName} failed with status '{response.FailureStatus}'.",
-                    IpcErrorCodes.InternalError);
+                    UcliCoreErrorCodes.InternalError);
             }
 
             return SceneTreeLiteSnapshotFetchResult.Failure(
                 $"{responseSourceName} failed with an error status.",
-                IpcErrorCodes.InternalError);
+                UcliCoreErrorCodes.InternalError);
         }
 
         if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcIndexSceneTreeLiteReadResponse payload, out var payloadError))
         {
             return SceneTreeLiteSnapshotFetchResult.Failure(
                 $"{responseSourceName} payload is invalid. {payloadError.Message}",
-                IpcErrorCodes.InternalError);
+                UcliCoreErrorCodes.InternalError);
         }
 
         if (!string.Equals(payload.ScenePath, requestedScenePath, StringComparison.Ordinal))
         {
             return SceneTreeLiteSnapshotFetchResult.Failure(
                 $"{responseSourceName} payload is invalid. scenePath does not match the requested scene path.",
-                IpcErrorCodes.InternalError);
+                UcliCoreErrorCodes.InternalError);
         }
 
         if (!IndexCatalogContractValidator.TryValidateSceneTreeLiteNodes(payload.Roots, "roots", out var rootsError))
         {
             return SceneTreeLiteSnapshotFetchResult.Failure(
                 $"{responseSourceName} payload is invalid. {rootsError}",
-                IpcErrorCodes.InternalError);
+                UcliCoreErrorCodes.InternalError);
         }
 
         return SceneTreeLiteSnapshotFetchResult.Success(payload);

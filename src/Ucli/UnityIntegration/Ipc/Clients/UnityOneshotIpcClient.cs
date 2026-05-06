@@ -182,7 +182,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         {
             return UnityRequestExecutionResult.Failure(
                 $"Failed to execute Unity oneshot IPC request. {exception.Message}",
-                IpcErrorCodes.InternalError);
+                UcliCoreErrorCodes.InternalError);
         }
     }
 

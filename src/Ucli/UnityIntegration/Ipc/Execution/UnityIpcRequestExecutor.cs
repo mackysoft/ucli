@@ -8,7 +8,6 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin;
@@ -88,10 +87,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
             .ConfigureAwait(false);
         if (modeDecisionResult.HasContractError)
         {
-            if (string.Equals(
-                    modeDecisionResult.ContractError!.Code,
-                    UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
-                    StringComparison.Ordinal))
+            if (modeDecisionResult.ContractError!.Code == UnityExecutionModeDecisionErrorCodes.DaemonNotRunning)
             {
                 var daemonModePluginLocateResult = await VerifyUnityPluginWithinBudget(
                         unityProject.UnityProjectRoot,
@@ -300,7 +296,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
             {
                 return UnityRequestExecutionResult.Failure(
                     $"Failed while waiting for Unity daemon readiness. {exception.Message}",
-                    IpcErrorCodes.InternalError);
+                    UcliCoreErrorCodes.InternalError);
             }
 
             if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
@@ -345,7 +341,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
         if (!IpcEditorLifecycleStateCodec.TryParse(pingResponse.LifecycleState, out var lifecycleState))
         {
             return DaemonReadinessDecision.Failure(
-                IpcErrorCodes.InternalError,
+                UcliCoreErrorCodes.InternalError,
                 $"Unity editor lifecycle gate returned unsupported state '{pingResponse.LifecycleState}'.");
         }
 
@@ -357,31 +353,31 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
         return lifecycleState switch
         {
             IpcEditorLifecycleStateCodec.Starting => DaemonReadinessDecision.Failure(
-                IpcErrorCodes.EditorStarting,
+                EditorLifecycleErrorCodes.EditorStarting,
                 "Unity editor startup is still in progress. Retry without --failFast or wait until lifecycleState=ready before executing request."),
             IpcEditorLifecycleStateCodec.Busy => DaemonReadinessDecision.Failure(
-                IpcErrorCodes.EditorBusy,
+                EditorLifecycleErrorCodes.EditorBusy,
                 "Unity editor is busy with internal work. Retry without --failFast or wait until lifecycleState=ready before executing request."),
             IpcEditorLifecycleStateCodec.Compiling => DaemonReadinessDecision.Failure(
-                IpcErrorCodes.EditorCompiling,
+                EditorLifecycleErrorCodes.EditorCompiling,
                 "Unity editor is compiling scripts. Retry without --failFast or wait until lifecycleState=ready before executing request."),
             IpcEditorLifecycleStateCodec.DomainReloading => DaemonReadinessDecision.Failure(
-                IpcErrorCodes.EditorDomainReloading,
+                EditorLifecycleErrorCodes.EditorDomainReloading,
                 "Unity editor is reloading the AppDomain. Retry after lifecycleState=ready before executing request."),
             IpcEditorLifecycleStateCodec.Playmode => DaemonReadinessDecision.Failure(
-                IpcErrorCodes.EditorPlaymode,
+                EditorLifecycleErrorCodes.EditorPlaymode,
                 "Unity editor is in Play Mode. Exit Play Mode and wait until lifecycleState=ready before executing request."),
             IpcEditorLifecycleStateCodec.BlockedByModal => DaemonReadinessDecision.Failure(
-                IpcErrorCodes.EditorModalBlocked,
+                EditorLifecycleErrorCodes.EditorModalBlocked,
                 "Unity editor is blocked by a modal dialog. Resolve the dialog and wait until lifecycleState=ready before executing request."),
             IpcEditorLifecycleStateCodec.SafeMode => DaemonReadinessDecision.Failure(
-                IpcErrorCodes.EditorSafeMode,
+                EditorLifecycleErrorCodes.EditorSafeMode,
                 "Unity editor is in Safe Mode. Resolve compiler errors and wait until lifecycleState=ready before executing request."),
             IpcEditorLifecycleStateCodec.ShuttingDown => DaemonReadinessDecision.Failure(
-                IpcErrorCodes.EditorShuttingDown,
+                EditorLifecycleErrorCodes.EditorShuttingDown,
                 "Unity editor is shutting down and cannot accept execution requests."),
             _ => DaemonReadinessDecision.Failure(
-                IpcErrorCodes.InternalError,
+                UcliCoreErrorCodes.InternalError,
                 $"Unity editor lifecycle gate returned unsupported state '{lifecycleState}'."),
         };
     }
@@ -410,9 +406,9 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
             return false;
         }
 
-        return firstError.Code == IpcErrorCodes.EditorStarting
-            || firstError.Code == IpcErrorCodes.EditorBusy
-            || firstError.Code == IpcErrorCodes.EditorCompiling;
+        return firstError.Code == EditorLifecycleErrorCodes.EditorStarting
+            || firstError.Code == EditorLifecycleErrorCodes.EditorBusy
+            || firstError.Code == EditorLifecycleErrorCodes.EditorCompiling;
     }
 
     private async ValueTask<ExecutionError?> VerifyUnityPluginWithinBudget (

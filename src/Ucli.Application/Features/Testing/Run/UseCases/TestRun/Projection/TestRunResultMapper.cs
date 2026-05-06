@@ -3,8 +3,6 @@ using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Pipeline;
-using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Projection;
 
@@ -35,7 +33,7 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
         {
             return TestRunServiceResult.InfraError(
                 "Unexpected execution pipeline state.",
-                IpcErrorCodes.InternalError,
+                UcliCoreErrorCodes.InternalError,
                 pipelineResult.Session?.RunId,
                 pipelineResult.Session?.Paths.ArtifactsDir,
                 pipelineResult.Session?.Paths.SummaryJsonPath);
@@ -77,7 +75,7 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
             if (unityExecutionResult.FailureKind == UnityTestExecutionFailureKind.ClientSetupFailed)
             {
                 UcliErrorCode setupErrorCode = !unityExecutionResult.ErrorCode.HasValue || !unityExecutionResult.ErrorCode.Value.IsValid
-                    ? IpcErrorCodes.InternalError
+                    ? UcliCoreErrorCodes.InternalError
                     : unityExecutionResult.ErrorCode.Value;
 
                 return TestRunServiceResult.InfraError(

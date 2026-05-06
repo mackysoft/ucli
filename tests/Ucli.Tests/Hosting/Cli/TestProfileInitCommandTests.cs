@@ -51,7 +51,7 @@ public sealed class TestProfileInitCommandTests
             UcliCommandNames.TestProfileInit,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
     }
 
     private sealed class StubTestProfileInitService : ITestProfileInitService

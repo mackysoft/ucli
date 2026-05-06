@@ -20,7 +20,7 @@ public sealed class ExecuteResponseConverterTests
         Assert.False(result.IsSuccess);
         Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("opResults[0]", error.Message, StringComparison.Ordinal);
     }
 
@@ -44,7 +44,7 @@ public sealed class ExecuteResponseConverterTests
         Assert.False(result.IsSuccess);
         Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("opResults[0].touched", error.Message, StringComparison.Ordinal);
     }
 
@@ -67,7 +67,7 @@ public sealed class ExecuteResponseConverterTests
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("opResults[0].opId", error.Message, StringComparison.Ordinal);
     }
 
@@ -96,7 +96,7 @@ public sealed class ExecuteResponseConverterTests
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("opResults[0].touched[0].kind", error.Message, StringComparison.Ordinal);
     }
 
@@ -114,7 +114,7 @@ public sealed class ExecuteResponseConverterTests
         Assert.False(result.IsSuccess);
         Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("readPostcondition.requirements", error.Message, StringComparison.Ordinal);
     }
 
@@ -136,7 +136,7 @@ public sealed class ExecuteResponseConverterTests
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("readPostcondition.requirements[0].surface", error.Message, StringComparison.Ordinal);
     }
 
@@ -159,7 +159,7 @@ public sealed class ExecuteResponseConverterTests
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("opResults[0].phase", error.Message, StringComparison.Ordinal);
         Assert.Contains("unsupported", error.Message, StringComparison.Ordinal);
     }
@@ -189,7 +189,7 @@ public sealed class ExecuteResponseConverterTests
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("opResults[0].touched[0].kind", error.Message, StringComparison.Ordinal);
         Assert.Contains("unsupported", error.Message, StringComparison.Ordinal);
     }
@@ -212,7 +212,7 @@ public sealed class ExecuteResponseConverterTests
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("readPostcondition.requirements[0].surface", error.Message, StringComparison.Ordinal);
         Assert.Contains("unsupported", error.Message, StringComparison.Ordinal);
     }
@@ -231,7 +231,7 @@ public sealed class ExecuteResponseConverterTests
         Assert.False(result.IsSuccess);
         Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("'errors' field", error.Message, StringComparison.Ordinal);
     }
 
@@ -251,7 +251,7 @@ public sealed class ExecuteResponseConverterTests
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("errors[0].code", error.Message, StringComparison.Ordinal);
     }
 
@@ -269,7 +269,7 @@ public sealed class ExecuteResponseConverterTests
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Equal("Execute response failed with status 'busy'.", error.Message);
     }
 
@@ -281,7 +281,7 @@ public sealed class ExecuteResponseConverterTests
             Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse([])),
             Errors:
             [
-                new OperationExecutionError(IpcErrorCodes.PlanTokenInvalid, "Plan token is invalid.", null),
+                new OperationExecutionError(PlanTokenErrorCodes.PlanTokenInvalid, "Plan token is invalid.", null),
             ],
             HasFailureStatus: true);
 
@@ -289,7 +289,7 @@ public sealed class ExecuteResponseConverterTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
-        Assert.Equal(IpcErrorCodes.PlanTokenInvalid, Assert.Single(result.Errors).Code);
+        Assert.Equal(PlanTokenErrorCodes.PlanTokenInvalid, Assert.Single(result.Errors).Code);
     }
 
     private static UnityRequestResponse CreateResponse (IpcExecuteResponse payload)

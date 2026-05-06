@@ -4,10 +4,8 @@ using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Assets.Access;
@@ -51,7 +49,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
 
         if (!AssetLookupAccessUtilities.TryNormalizeSearchQuery(query, out var normalizedQuery, out var errorMessage))
         {
-            return AssetSearchLookupReadResult.Failure(errorMessage, IpcErrorCodes.InvalidArgument);
+            return AssetSearchLookupReadResult.Failure(errorMessage, UcliCoreErrorCodes.InvalidArgument);
         }
 
         if (readIndexMode == ReadIndexMode.Disabled)
@@ -76,7 +74,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
             .ConfigureAwait(false);
         if (!lookupResult.IsSuccess)
         {
-            if (lookupResult.Error!.Code == IpcErrorCodes.InvalidArgument)
+            if (lookupResult.Error!.Code == UcliCoreErrorCodes.InvalidArgument)
             {
                 return AssetSearchLookupReadResult.Failure(
                     lookupResult.Error.Message,

@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Assets;

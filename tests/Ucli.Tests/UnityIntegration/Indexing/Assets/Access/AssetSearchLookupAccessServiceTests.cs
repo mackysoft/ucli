@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Assets;
@@ -192,7 +191,7 @@ public sealed class AssetSearchLookupAccessServiceTests
             query: new AssetSearchLookupQuery(null, null, null));
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
     }
 
     private static ResolvedUnityProjectContext CreateProject ()
@@ -225,7 +224,7 @@ public sealed class AssetSearchLookupAccessServiceTests
     private sealed class StubIndexCatalogReader : IIndexCatalogReader
     {
         public IndexAccessResult<IndexAssetSearchLookupJsonContract> AssetSearchLookupResult { get; set; }
-            = IndexAccessResult<IndexAssetSearchLookupJsonContract>.Failure(IpcErrorCodes.ReadIndexBootstrapFailed, "missing");
+            = IndexAccessResult<IndexAssetSearchLookupJsonContract>.Failure(ReadIndexErrorCodes.ReadIndexBootstrapFailed, "missing");
 
         public ValueTask<IndexAccessResult<IndexOpsCatalogJsonContract>> ReadOpsCatalog (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public ValueTask<IndexAccessResult<IndexTypesCatalogJsonContract>> ReadTypesCatalog (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
@@ -270,7 +269,7 @@ public sealed class AssetSearchLookupAccessServiceTests
         public bool LastFailFast { get; private set; }
 
         public AssetLookupRefreshResult Result { get; set; }
-            = AssetLookupRefreshResult.Failure("not configured", IpcErrorCodes.InternalError);
+            = AssetLookupRefreshResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
         public ValueTask<AssetLookupRefreshResult> Refresh (
             ResolvedUnityProjectContext project,

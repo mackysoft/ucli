@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts;
-
 namespace MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 
 /// <summary> Represents one Unity request execution result. </summary>

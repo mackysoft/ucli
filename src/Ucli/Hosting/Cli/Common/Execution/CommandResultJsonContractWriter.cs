@@ -64,7 +64,7 @@ internal sealed class CommandResultJsonContractWriter : JsonContractWriter<Comma
         {
             var error = errors[i];
             writer.WriteStartObject();
-            WriteNullableString(writer, "code", error.Code);
+            WriteNullableString(writer, "code", error.Code.Value);
             WriteNullableString(writer, "message", error.Message);
             WriteNullableString(writer, "opId", error.OpId);
             writer.WriteEndObject();

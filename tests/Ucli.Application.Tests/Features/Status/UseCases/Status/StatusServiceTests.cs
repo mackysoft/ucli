@@ -12,7 +12,6 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Unity.Resolution;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Status;

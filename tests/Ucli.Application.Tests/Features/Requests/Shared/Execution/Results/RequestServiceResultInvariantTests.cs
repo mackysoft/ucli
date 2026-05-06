@@ -10,7 +10,6 @@ using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Validate.Common.Contracts;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Execution.Results;
 
@@ -103,8 +102,8 @@ public sealed class RequestServiceResultInvariantTests
         var readIndex = CreateReadIndexInfo();
         OperationExecutionError[] errors =
         [
-            new OperationExecutionError(IpcErrorCodes.InvalidArgument, "Invalid argument.", null),
-            new OperationExecutionError(IpcErrorCodes.InternalError, "Internal error.", null),
+            new OperationExecutionError(UcliCoreErrorCodes.InvalidArgument, "Invalid argument.", null),
+            new OperationExecutionError(UcliCoreErrorCodes.InternalError, "Internal error.", null),
         ];
 
         Assert.Equal(ApplicationOutcome.ToolError, RequestServiceResultPolicy.ResolveOutcome(errors));
@@ -177,7 +176,7 @@ public sealed class RequestServiceResultInvariantTests
         var readIndex = CreateReadIndexInfo();
         OperationExecutionError[] errors =
         [
-            new OperationExecutionError(IpcErrorCodes.InternalError, "", null),
+            new OperationExecutionError(UcliCoreErrorCodes.InternalError, "", null),
         ];
 
         Assert.ThrowsAny<ArgumentException>(() => PlanServiceResult.Failure("Plan failed.", errors, ApplicationOutcome.ToolError));
@@ -200,7 +199,7 @@ public sealed class RequestServiceResultInvariantTests
         Assert.ThrowsAny<ArgumentException>(() => QueryServiceResultFactory.Failure("query assets find", RequestId, [], errors, ApplicationOutcome.ToolError, "", readIndex));
         Assert.ThrowsAny<ArgumentException>(() => ResolveServiceResult.Failure(RequestId, [], errors, ApplicationOutcome.ToolError, "", readIndex));
         Assert.ThrowsAny<ArgumentException>(() => OperationExecuteResult.Failure(RequestId, [], errors, ApplicationOutcome.ToolError, ""));
-        Assert.ThrowsAny<ArgumentException>(() => ValidateServiceResult.Failure("", IpcErrorCodes.InternalError, validateOutput));
+        Assert.ThrowsAny<ArgumentException>(() => ValidateServiceResult.Failure("", UcliCoreErrorCodes.InternalError, validateOutput));
     }
 
     [Fact]
@@ -209,11 +208,11 @@ public sealed class RequestServiceResultInvariantTests
     {
         var result = PlanFailureResultFactory.FromExecutionError(
             ExecutionError.InternalError("Project path is invalid."),
-            errorCode: IpcErrorCodes.InvalidArgument);
+            errorCode: UcliCoreErrorCodes.InvalidArgument);
 
         Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
     }
 
     [Fact]
@@ -227,7 +226,7 @@ public sealed class RequestServiceResultInvariantTests
             CreateReadIndexInfo());
 
         var queryError = Assert.Single(queryResult.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, queryError.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, queryError.Code);
         Assert.Equal("uCLI query failed.", queryError.Message);
         Assert.Equal(ApplicationOutcome.ToolError, queryResult.Outcome);
 
@@ -237,7 +236,7 @@ public sealed class RequestServiceResultInvariantTests
             CreateReadIndexInfo());
 
         var resolveError = Assert.Single(resolveResult.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, resolveError.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, resolveError.Code);
         Assert.Equal("uCLI resolve failed.", resolveError.Message);
         Assert.Equal("uCLI resolve failed.", resolveResult.Message);
         Assert.Equal(ApplicationOutcome.ToolError, resolveResult.Outcome);
@@ -246,7 +245,7 @@ public sealed class RequestServiceResultInvariantTests
     [Theory]
     [Trait("Size", "Small")]
     [MemberData(nameof(InvalidArgumentErrorCodeValues))]
-    public void InvalidArgumentErrorCodes_MapToInvalidArgumentOutcome (string errorCode)
+    public void InvalidArgumentErrorCodes_MapToInvalidArgumentOutcome (UcliErrorCode errorCode)
     {
         var validationError = new ValidationError(errorCode, "Validation failed.", "step-1");
 
@@ -274,11 +273,12 @@ public sealed class RequestServiceResultInvariantTests
     [Trait("Size", "Small")]
     public void UnknownErrorCode_IsPreservedAndMapsToToolError ()
     {
+        var futureErrorCode = new UcliErrorCode("FUTURE_TRANSPORT_FAILURE");
         var error = RequestServiceResultPolicy.FromTransportFailure(
-            errorCode: "FUTURE_TRANSPORT_FAILURE",
+            errorCode: futureErrorCode,
             message: "Future transport failed.");
 
-        Assert.Equal("FUTURE_TRANSPORT_FAILURE", error.Code);
+        Assert.Equal(futureErrorCode, error.Code);
         Assert.Equal(ApplicationOutcome.ToolError, RequestServiceResultPolicy.ResolveOutcome(error.Code));
     }
 
@@ -286,9 +286,9 @@ public sealed class RequestServiceResultInvariantTests
     [Trait("Size", "Small")]
     public void Failure_FromTransportFailure_NormalizesBlankBoundaryMessage ()
     {
-        var error = RequestServiceResultPolicy.FromTransportFailure(errorCode: "", message: "");
+        var error = RequestServiceResultPolicy.FromTransportFailure(errorCode: default(UcliErrorCode), message: "");
 
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Equal("Request execution failed.", error.Message);
         Assert.Equal(ApplicationOutcome.ToolError, RequestServiceResultPolicy.ResolveOutcome(error.Code));
     }
@@ -303,10 +303,10 @@ public sealed class RequestServiceResultInvariantTests
             inputErrors,
             ApplicationOutcome.ToolError);
 
-        inputErrors[0] = new OperationExecutionError(IpcErrorCodes.InvalidArgument, "Changed message.", null);
+        inputErrors[0] = new OperationExecutionError(UcliCoreErrorCodes.InvalidArgument, "Changed message.", null);
 
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         var collection = Assert.IsAssignableFrom<ICollection<OperationExecutionError>>(result.Errors);
         Assert.True(collection.IsReadOnly);
     }
@@ -315,20 +315,20 @@ public sealed class RequestServiceResultInvariantTests
     {
         return
         [
-            new OperationExecutionError(IpcErrorCodes.InternalError, "Failure message.", null),
+            new OperationExecutionError(UcliCoreErrorCodes.InternalError, "Failure message.", null),
         ];
     }
 
-    public static TheoryData<string> InvalidArgumentErrorCodeValues ()
+    public static TheoryData<UcliErrorCode> InvalidArgumentErrorCodeValues ()
     {
-        return new TheoryData<string>
+        return new TheoryData<UcliErrorCode>
         {
-            IpcErrorCodes.InvalidArgument,
-            IpcErrorCodes.PlanTokenRequired,
-            IpcErrorCodes.PlanTokenInvalid,
-            IpcErrorCodes.PlanTokenExpired,
-            IpcErrorCodes.PlanTokenRequestMismatch,
-            IpcErrorCodes.StateChangedSincePlan,
+            UcliCoreErrorCodes.InvalidArgument,
+            PlanTokenErrorCodes.PlanTokenRequired,
+            PlanTokenErrorCodes.PlanTokenInvalid,
+            PlanTokenErrorCodes.PlanTokenExpired,
+            PlanTokenErrorCodes.PlanTokenRequestMismatch,
+            PlanTokenErrorCodes.StateChangedSincePlan,
             ValidationErrorCodes.ProtocolVersionMismatch,
             ValidationErrorCodes.RequestIdInvalid,
             ValidationErrorCodes.StepsRequired,
@@ -349,11 +349,11 @@ public sealed class RequestServiceResultInvariantTests
     {
         OperationExecutionError[] invalidArgumentErrors =
         [
-            new OperationExecutionError(IpcErrorCodes.InvalidArgument, "Invalid argument.", null),
+            new OperationExecutionError(UcliCoreErrorCodes.InvalidArgument, "Invalid argument.", null),
         ];
         OperationExecutionError[] internalErrors =
         [
-            new OperationExecutionError(IpcErrorCodes.InternalError, "Internal error.", null),
+            new OperationExecutionError(UcliCoreErrorCodes.InternalError, "Internal error.", null),
         ];
 
         Assert.ThrowsAny<ArgumentException>(() => createFailure(invalidArgumentErrors, ApplicationOutcome.ToolError));

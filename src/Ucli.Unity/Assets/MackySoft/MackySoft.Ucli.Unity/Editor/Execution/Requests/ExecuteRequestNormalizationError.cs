@@ -16,13 +16,13 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         /// <summary> Creates one invalid argument error. </summary>
         /// <param name="message"> The user-facing error message. </param>
         /// <param name="opId"> The related operation identifier when available; otherwise <see langword="null" />. </param>
-        /// <returns> One normalization error with <see cref="IpcErrorCodes.InvalidArgument" /> code. </returns>
+        /// <returns> One normalization error with <see cref="UcliCoreErrorCodes.InvalidArgument" /> code. </returns>
         internal static ExecuteRequestNormalizationError InvalidArgument (
             string message,
             string? opId)
         {
             return new ExecuteRequestNormalizationError(
-                Code: IpcErrorCodes.InvalidArgument,
+                Code: UcliCoreErrorCodes.InvalidArgument,
                 Message: message,
                 OpId: opId);
         }
@@ -30,13 +30,13 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         /// <summary> Creates one protocol version mismatch error. </summary>
         /// <param name="expectedVersion"> The supported protocol version. </param>
         /// <param name="actualVersion"> The received protocol version. </param>
-        /// <returns> One normalization error with <see cref="IpcErrorCodes.ProtocolVersionMismatch" /> code. </returns>
+        /// <returns> One normalization error with <see cref="IpcProtocolErrorCodes.ProtocolVersionMismatch" /> code. </returns>
         internal static ExecuteRequestNormalizationError ProtocolVersionMismatch (
             int expectedVersion,
             int actualVersion)
         {
             return new ExecuteRequestNormalizationError(
-                Code: IpcErrorCodes.ProtocolVersionMismatch,
+                Code: IpcProtocolErrorCodes.ProtocolVersionMismatch,
                 Message: $"Protocol version mismatch. Expected {expectedVersion}, actual {actualVersion}.",
                 OpId: null);
         }

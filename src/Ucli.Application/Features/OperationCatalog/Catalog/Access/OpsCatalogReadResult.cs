@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts;
-
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 
 /// <summary> Represents one normalized internal ops catalog read result. </summary>

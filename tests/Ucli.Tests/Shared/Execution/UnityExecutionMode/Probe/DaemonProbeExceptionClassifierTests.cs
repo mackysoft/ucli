@@ -1,5 +1,4 @@
 using System.Net.Sockets;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests.Execution.Mode;
 
@@ -40,7 +39,7 @@ public sealed class DaemonProbeExceptionClassifierTests
     public void IsNotRunning_WhenSessionTokenInvalidResponse_ReturnsTrue ()
     {
         var result = DaemonProbeExceptionClassifier.IsNotRunning(
-            new DaemonPingResponseException("token invalid", IpcErrorCodes.SessionTokenInvalid));
+            new DaemonPingResponseException("token invalid", IpcSessionErrorCodes.SessionTokenInvalid));
 
         Assert.True(result);
     }

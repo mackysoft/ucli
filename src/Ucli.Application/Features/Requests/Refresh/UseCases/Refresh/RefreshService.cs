@@ -1,7 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 

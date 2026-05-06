@@ -53,7 +53,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
         });
 
         [UnityTest]
@@ -157,7 +157,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
         });
 
         [UnityTest]
@@ -213,7 +213,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(readinessGate.LastFailFast, Is.True);
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.EditorBusy));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(EditorLifecycleErrorCodes.EditorBusy));
         });
 
         [UnityTest]
@@ -241,7 +241,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator TestRunHandler_WhenServiceReturnsLifecycleFailure_PreservesErrorCode () => UniTask.ToCoroutine(async () =>
         {
             var service = new StubUnityTestRunService(_ => Task.FromResult(UnityTestRunServiceResult.Failure(
-                new IpcError(IpcErrorCodes.EditorBusy, "Unity editor is busy with internal work.", null))));
+                new IpcError(EditorLifecycleErrorCodes.EditorBusy, "Unity editor is busy with internal work.", null))));
             var handler = new TestRunUnityIpcMethodHandler(service);
             var request = CreateTestRunRequest(
                 "req-test-run-lifecycle-error",
@@ -251,7 +251,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.EditorBusy));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(EditorLifecycleErrorCodes.EditorBusy));
             Assert.That(response.Errors[0].Message, Is.EqualTo("Unity editor is busy with internal work."));
         });
 
@@ -269,7 +269,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
         });
 
         [UnityTest]
@@ -286,7 +286,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InternalError));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InternalError));
             Assert.That(response.Errors[0].Message, Does.Contain("test-run-failed"));
         });
 
@@ -302,7 +302,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
         });
 
         [UnityTest]
@@ -363,7 +363,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.EditorBusy));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(EditorLifecycleErrorCodes.EditorBusy));
             Assert.That(readinessGate.CallCount, Is.EqualTo(1));
             Assert.That(readinessGate.LastFailFast, Is.True);
             Assert.That(builder.CallCount, Is.EqualTo(0));
@@ -386,7 +386,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
         });
 
         [UnityTest]
@@ -435,7 +435,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.EditorBusy));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(EditorLifecycleErrorCodes.EditorBusy));
             Assert.That(readinessGate.CallCount, Is.EqualTo(1));
             Assert.That(readinessGate.LastFailFast, Is.True);
             Assert.That(builder.CallCount, Is.EqualTo(0));
@@ -458,7 +458,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
         });
 
         [UnityTest]
@@ -477,7 +477,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InternalError));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InternalError));
             Assert.That(response.Errors[0].Message, Does.Contain("scene-tree-lite-failed"));
         });
 
@@ -507,7 +507,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
         });
 
         [UnityTest]
@@ -554,7 +554,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
         });
 
         [UnityTest]
@@ -580,7 +580,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
         });
 
         [UnityTest]
@@ -687,7 +687,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
         });
 
         [UnityTest]
@@ -714,7 +714,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
         });
 
         [UnityTest]
@@ -741,7 +741,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
         });
 
         [UnityTest]
@@ -768,7 +768,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
         });
 
         [UnityTest]

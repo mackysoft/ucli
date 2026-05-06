@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts;
-
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
 /// <summary> Represents the result of resolving one read-index backed validation catalog. </summary>

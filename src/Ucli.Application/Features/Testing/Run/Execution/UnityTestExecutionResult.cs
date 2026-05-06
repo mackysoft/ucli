@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts;
-
 namespace MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 
 /// <summary> Represents one Unity test-execution result. </summary>
@@ -32,14 +30,14 @@ internal sealed record UnityTestExecutionResult (
     public static UnityTestExecutionResult Failure (
         UnityTestExecutionFailureKind failureKind,
         string errorMessage,
-        string? errorCode = null)
+        UcliErrorCode? errorCode = null)
     {
         return new UnityTestExecutionResult(
             null,
             failureKind,
             errorMessage,
-            UcliErrorCode.TryCreate(errorCode, out var normalizedErrorCode)
-                ? normalizedErrorCode
+            errorCode.HasValue && errorCode.Value.IsValid
+                ? errorCode.Value
                 : (UcliErrorCode?)null);
     }
 }

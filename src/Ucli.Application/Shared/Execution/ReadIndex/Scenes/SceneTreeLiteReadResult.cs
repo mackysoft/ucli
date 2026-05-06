@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts;
-
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 
 /// <summary> Represents one scene-tree-lite read result. </summary>

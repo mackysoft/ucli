@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Index;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 
@@ -69,7 +68,7 @@ public sealed class SceneTreeLiteFreshnessEvaluatorTests
         Assert.False(result.IsSuccess);
         Assert.Equal(IndexFreshness.Stale, result.Freshness);
         Assert.NotNull(result.Error);
-        Assert.Equal(IpcErrorCodes.ReadIndexFreshRequired, result.Error!.Code);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexFreshRequired, result.Error!.Code);
     }
 
     private sealed class StubSceneTreeLiteSourceHashCalculator : ISceneTreeLiteSourceHashCalculator

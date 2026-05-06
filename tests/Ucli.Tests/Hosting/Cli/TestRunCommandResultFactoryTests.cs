@@ -1,7 +1,6 @@
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Testing;
 
@@ -41,7 +40,7 @@ public sealed class TestRunCommandResultFactoryTests
     [Trait("Size", "Small")]
     public void Create_WithServiceErrorCode_ReturnsErrorEnvelopeWithSameCode ()
     {
-        const string errorCode = "UNITY_TEST_EXECUTION_FAILED";
+        UcliErrorCode errorCode = new("UNITY_TEST_EXECUTION_FAILED");
         const string message = "Unity test execution failed.";
 
         var serviceResult = TestRunServiceResult.ToolError(
@@ -89,7 +88,7 @@ public sealed class TestRunCommandResultFactoryTests
         Assert.Equal("error", result.Status);
         Assert.Equal(2, result.ExitCode);
         Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, result.Errors[0].Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.Errors[0].Code);
 
         var payload = JsonSerializer.SerializeToElement(result.Payload);
         JsonAssert.For(payload)

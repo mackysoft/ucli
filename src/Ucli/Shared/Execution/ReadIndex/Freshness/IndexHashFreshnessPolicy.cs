@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Index;
 
 namespace MackySoft.Ucli.Shared.Execution.ReadIndex;
@@ -53,7 +52,7 @@ internal static class IndexHashFreshnessPolicy
             return IndexFreshnessEvaluationResult.Failure(
                 freshness,
                 new IndexServiceError(
-                    IpcErrorCodes.ReadIndexFreshRequired,
+                    ReadIndexErrorCodes.ReadIndexFreshRequired,
                     "readIndexMode=requireFresh requires index freshness 'fresh'."));
         }
 

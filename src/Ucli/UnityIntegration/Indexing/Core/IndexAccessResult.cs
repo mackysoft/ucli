@@ -39,7 +39,7 @@ internal sealed record IndexAccessResult<T> (
     /// <param name="message"> The error message. </param>
     /// <returns> The failed result. </returns>
     public static IndexAccessResult<T> Failure (
-        string code,
+        UcliErrorCode code,
         string message)
     {
         return Failure(new IndexServiceError(code, message));

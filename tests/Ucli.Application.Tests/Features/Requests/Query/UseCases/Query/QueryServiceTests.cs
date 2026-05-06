@@ -7,7 +7,6 @@ using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -212,7 +211,7 @@ public sealed class QueryServiceTests
         Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.Equal("Request execution failed.", result.Message);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Equal("Request execution failed.", error.Message);
     }
 
@@ -294,7 +293,7 @@ public sealed class QueryServiceTests
         private readonly AssetSearchLookupReadResult result;
 
         public StubAssetSearchLookupAccessService ()
-            : this(AssetSearchLookupReadResult.Failure("Asset lookup should not be read.", IpcErrorCodes.InternalError))
+            : this(AssetSearchLookupReadResult.Failure("Asset lookup should not be read.", UcliCoreErrorCodes.InternalError))
         {
         }
 
@@ -332,7 +331,7 @@ public sealed class QueryServiceTests
         private readonly SceneTreeLiteReadResult result;
 
         public StubSceneTreeLiteAccessService ()
-            : this(SceneTreeLiteReadResult.Failure("Scene tree should not be read.", IpcErrorCodes.InternalError))
+            : this(SceneTreeLiteReadResult.Failure("Scene tree should not be read.", UcliCoreErrorCodes.InternalError))
         {
         }
 

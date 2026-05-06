@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 
@@ -19,7 +18,7 @@ internal static class IndexFreshnessPolicy
             return IndexFreshnessEvaluationResult.Failure(
                 freshness,
                 new IndexServiceError(
-                    IpcErrorCodes.ReadIndexFreshRequired,
+                    ReadIndexErrorCodes.ReadIndexFreshRequired,
                     "readIndexMode=requireFresh requires index freshness 'fresh'."));
         }
 

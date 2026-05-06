@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
@@ -60,7 +59,7 @@ internal static class TestRunCommandResultFactory
     private static UcliErrorCode ResolveErrorCode (UcliErrorCode? errorCode)
     {
         return !errorCode.HasValue || !errorCode.Value.IsValid
-            ? IpcErrorCodes.InternalError
+            ? UcliCoreErrorCodes.InternalError
             : errorCode.Value;
     }
 }

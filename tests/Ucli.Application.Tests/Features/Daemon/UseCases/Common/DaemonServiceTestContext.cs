@@ -13,7 +13,6 @@ using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 

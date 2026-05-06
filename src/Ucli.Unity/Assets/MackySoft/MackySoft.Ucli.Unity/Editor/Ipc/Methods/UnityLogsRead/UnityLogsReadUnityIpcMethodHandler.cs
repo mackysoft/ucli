@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -68,7 +69,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     errorMessage);
                 return new ValueTask<IpcResponse>(UnityIpcResponseFactory.CreateErrorResponse(
                     request,
-                    IpcErrorCodes.InvalidArgument,
+                    UcliCoreErrorCodes.InvalidArgument,
                     errorMessage,
                     null));
             }

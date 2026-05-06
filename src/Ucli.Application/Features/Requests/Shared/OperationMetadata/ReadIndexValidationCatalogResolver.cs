@@ -1,7 +1,5 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
@@ -72,7 +70,7 @@ internal sealed class ReadIndexValidationCatalogResolver : IReadIndexValidationC
             var message = $"Index contract file 'ops.catalog.json' is malformed. {exception.Message}";
             return ReadIndexValidationCatalogResolutionResult.Failure(
                 CreateReadIndexMiss(message),
-                IpcErrorCodes.ReadIndexFormatInvalid,
+                ReadIndexErrorCodes.ReadIndexFormatInvalid,
                 message);
         }
 
@@ -97,7 +95,7 @@ internal sealed class ReadIndexValidationCatalogResolver : IReadIndexValidationC
         ArgumentException.ThrowIfNullOrWhiteSpace(errorMessage);
 
         if ((readIndexMode == ReadIndexMode.AllowStale)
-            && errorCode == IpcErrorCodes.ReadIndexBootstrapFailed)
+            && errorCode == ReadIndexErrorCodes.ReadIndexBootstrapFailed)
         {
             return ReadIndexValidationCatalogResolutionResult.Success(
                 RequestStaticValidationCatalog.Unavailable,

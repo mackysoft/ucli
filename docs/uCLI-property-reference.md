@@ -29,7 +29,7 @@
 | `message` | string | yes | 説明 |
 | `opId` | `string \| null` | yes | 該当実行単位の `id`。該当なしは `null` |
 
-`code` は open code set である。既知コード一覧にない値でも JSON 契約上は有効であり、利用側は未知値を汎用失敗として扱う。
+`code` は open code set である。既知コード一覧にない値でも JSON 契約上は有効であり、利用側は未知値を汎用失敗として扱う。C# 契約では機械判定用エラーコードを `UcliErrorCode` で扱い、既知コードは責務別の typed code definition として定義する。JSON wire shape は文字列のままとする。
 
 ## 内部 IPC 契約
 

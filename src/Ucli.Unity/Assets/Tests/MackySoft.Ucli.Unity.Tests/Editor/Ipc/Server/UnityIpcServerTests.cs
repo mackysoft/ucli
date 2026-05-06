@@ -343,7 +343,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.SessionTokenRequired));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcSessionErrorCodes.SessionTokenRequired));
         });
 
         [UnityTest]
@@ -361,7 +361,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.SessionTokenInvalid));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcSessionErrorCodes.SessionTokenInvalid));
         });
 
         [UnityTest]
@@ -379,7 +379,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InternalError));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InternalError));
         });
 
         [UnityTest]
@@ -494,7 +494,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator HandleRequest_WhenTestRunServiceReturnsLifecycleFailure_PreservesErrorCode () => UniTask.ToCoroutine(async () =>
         {
             var testRunService = new StubUnityTestRunService(UnityTestRunServiceResult.Failure(
-                new IpcError(IpcErrorCodes.EditorBusy, "Unity editor is busy with internal work.", null)));
+                new IpcError(EditorLifecycleErrorCodes.EditorBusy, "Unity editor is busy with internal work.", null)));
             var server = CreateServerForRequestHandling(
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
@@ -506,7 +506,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.EditorBusy));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(EditorLifecycleErrorCodes.EditorBusy));
             Assert.That(response.Errors[0].Message, Is.EqualTo("Unity editor is busy with internal work."));
             Assert.That(testRunService.CallCount, Is.EqualTo(1));
         });
@@ -532,7 +532,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
         });
 
         [UnityTest]

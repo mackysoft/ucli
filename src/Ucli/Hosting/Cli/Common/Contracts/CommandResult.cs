@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Hosting.Cli.Common.Contracts;
@@ -56,7 +55,7 @@ internal sealed record CommandResult (
             command: normalizedCommand,
             message: normalizedMessage,
             exitCode: CliExitCode.ToolError,
-            errorCode: IpcErrorCodes.CommandNotImplemented);
+            errorCode: UcliCoreErrorCodes.CommandNotImplemented);
     }
 
     /// <summary> Creates an error result for invalid command arguments. </summary>
@@ -69,7 +68,7 @@ internal sealed record CommandResult (
             command: command,
             message: message,
             exitCode: CliExitCode.InvalidArgument,
-            errorCode: IpcErrorCodes.InvalidArgument);
+            errorCode: UcliCoreErrorCodes.InvalidArgument);
     }
 
     /// <summary> Creates an error result for command cancellation. </summary>
@@ -108,7 +107,7 @@ internal sealed record CommandResult (
             command: command,
             message: message,
             exitCode: CliExitCode.ToolError,
-            errorCode: IpcErrorCodes.InternalError);
+            errorCode: UcliCoreErrorCodes.InternalError);
     }
 
     /// <summary> Creates a normalized error result with a single error entry. </summary>

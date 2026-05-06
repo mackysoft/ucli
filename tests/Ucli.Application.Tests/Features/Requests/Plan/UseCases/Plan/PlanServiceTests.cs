@@ -8,7 +8,6 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -125,7 +124,7 @@ public sealed class PlanServiceTests
                     hit: true,
                     freshness: IndexFreshness.Stale,
                     fallbackReason: "readIndexMode=requireFresh requires index freshness 'fresh'."),
-                IpcErrorCodes.ReadIndexFreshRequired)),
+                ReadIndexErrorCodes.ReadIndexFreshRequired)),
             unityIpcRequestExecutor);
 
         var result = await service.Execute(
@@ -147,7 +146,7 @@ public sealed class PlanServiceTests
         Assert.Equal(IndexFreshness.Stale, result.Output.ReadIndex.Freshness);
         Assert.Equal(0, unityIpcRequestExecutor.CallCount);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.ReadIndexFreshRequired, error.Code);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexFreshRequired, error.Code);
     }
 
     [Fact]
@@ -176,7 +175,7 @@ public sealed class PlanServiceTests
         Assert.Null(result.Output);
         Assert.Equal(0, unityIpcRequestExecutor.CallCount);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
     }
 
     [Fact]
@@ -266,15 +265,20 @@ public sealed class PlanServiceTests
         Assert.Single(result.Output!.OpResults);
         Assert.Null(result.Output.PlanToken);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("planToken", error.Message, StringComparison.Ordinal);
     }
 
+    public static TheoryData<UcliErrorCode> UnityExecutionToolErrorCodes => new()
+    {
+        EditorLifecycleErrorCodes.EditorPlaymode,
+        ExecutionErrorCodes.IpcTimeout,
+    };
+
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(IpcErrorCodes.EditorPlaymode)]
-    [InlineData(ExecutionErrorCodes.IpcTimeout)]
-    public async Task Execute_WhenUnityExecutionFailsWithToolErrorCode_ReturnsToolErrorAndPreservesPayload (string errorCode)
+    [MemberData(nameof(UnityExecutionToolErrorCodes))]
+    public async Task Execute_WhenUnityExecutionFailsWithToolErrorCode_ReturnsToolErrorAndPreservesPayload (UcliErrorCode errorCode)
     {
         var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Failure(
             "Unity execution failed.",
@@ -339,7 +343,7 @@ public sealed class PlanServiceTests
         Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.Equal("Request execution failed.", result.Message);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Equal("Request execution failed.", error.Message);
     }
 

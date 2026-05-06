@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts;
 
 namespace MackySoft.Ucli.Unity.Runtime
 {
@@ -45,39 +46,39 @@ namespace MackySoft.Ucli.Unity.Runtime
             var error = snapshot.LifecycleState switch
             {
                 IpcEditorLifecycleStateCodec.Starting => new IpcError(
-                    IpcErrorCodes.EditorStarting,
+                    EditorLifecycleErrorCodes.EditorStarting,
                     "Unity editor startup is still in progress. Retry without --failFast or wait until lifecycleState=ready before executing request.",
                     null),
                 IpcEditorLifecycleStateCodec.Busy => new IpcError(
-                    IpcErrorCodes.EditorBusy,
+                    EditorLifecycleErrorCodes.EditorBusy,
                     "Unity editor is busy with internal work. Retry without --failFast or wait until lifecycleState=ready before executing request.",
                     null),
                 IpcEditorLifecycleStateCodec.Compiling => new IpcError(
-                    IpcErrorCodes.EditorCompiling,
+                    EditorLifecycleErrorCodes.EditorCompiling,
                     "Unity editor is compiling scripts. Retry without --failFast or wait until lifecycleState=ready before executing request.",
                     null),
                 IpcEditorLifecycleStateCodec.DomainReloading => new IpcError(
-                    IpcErrorCodes.EditorDomainReloading,
+                    EditorLifecycleErrorCodes.EditorDomainReloading,
                     "Unity editor is reloading the AppDomain. Retry after lifecycleState=ready before executing request.",
                     null),
                 IpcEditorLifecycleStateCodec.Playmode => new IpcError(
-                    IpcErrorCodes.EditorPlaymode,
+                    EditorLifecycleErrorCodes.EditorPlaymode,
                     "Unity editor is in Play Mode. Exit Play Mode and wait until lifecycleState=ready before executing request.",
                     null),
                 IpcEditorLifecycleStateCodec.BlockedByModal => new IpcError(
-                    IpcErrorCodes.EditorModalBlocked,
+                    EditorLifecycleErrorCodes.EditorModalBlocked,
                     "Unity editor is blocked by a modal dialog. Resolve the dialog and wait until lifecycleState=ready before executing request.",
                     null),
                 IpcEditorLifecycleStateCodec.SafeMode => new IpcError(
-                    IpcErrorCodes.EditorSafeMode,
+                    EditorLifecycleErrorCodes.EditorSafeMode,
                     "Unity editor is in Safe Mode. Resolve compiler errors and wait until lifecycleState=ready before executing request.",
                     null),
                 IpcEditorLifecycleStateCodec.ShuttingDown => new IpcError(
-                    IpcErrorCodes.EditorShuttingDown,
+                    EditorLifecycleErrorCodes.EditorShuttingDown,
                     "Unity editor is shutting down and cannot accept execution requests.",
                     null),
                 _ => new IpcError(
-                    IpcErrorCodes.InternalError,
+                    UcliCoreErrorCodes.InternalError,
                     $"Unity editor lifecycle gate returned unsupported state '{snapshot.LifecycleState}'.",
                     null),
             };

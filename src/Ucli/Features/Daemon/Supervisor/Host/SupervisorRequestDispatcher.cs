@@ -72,7 +72,7 @@ internal sealed class SupervisorRequestDispatcher
         {
             return SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
-                IpcErrorCodes.SessionTokenRequired,
+                IpcSessionErrorCodes.SessionTokenRequired,
                 "Supervisor session token is required.");
         }
 
@@ -80,7 +80,7 @@ internal sealed class SupervisorRequestDispatcher
         {
             return SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
-                IpcErrorCodes.SessionTokenInvalid,
+                IpcSessionErrorCodes.SessionTokenInvalid,
                 "Supervisor session token is invalid.");
         }
 
@@ -88,7 +88,7 @@ internal sealed class SupervisorRequestDispatcher
         {
             return SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
-                IpcErrorCodes.ProtocolVersionMismatch,
+                IpcProtocolErrorCodes.ProtocolVersionMismatch,
                 $"Protocol version mismatch. Requested={request.ProtocolVersion}, Supported={IpcProtocol.CurrentVersion}.");
         }
 
@@ -99,7 +99,7 @@ internal sealed class SupervisorRequestDispatcher
             SupervisorIpcContracts.StopProjectMethod => await HandleStopProject(stream, request, runtimeContext, cancellationToken).ConfigureAwait(false),
             _ => SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
-                IpcErrorCodes.IpcMethodNotSupported,
+                IpcProtocolErrorCodes.IpcMethodNotSupported,
                 $"Supervisor IPC method is not supported: {request.Method}."),
         };
     }
@@ -128,7 +128,7 @@ internal sealed class SupervisorRequestDispatcher
         {
             return SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
-                IpcErrorCodes.InvalidArgument,
+                UcliCoreErrorCodes.InvalidArgument,
                 $"Supervisor ensureRunning payload is invalid. {payloadError.Message}");
         }
 
@@ -146,7 +146,7 @@ internal sealed class SupervisorRequestDispatcher
         {
             return SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
-                IpcErrorCodes.InvalidArgument,
+                UcliCoreErrorCodes.InvalidArgument,
                 $"Supervisor ensureRunning timeout must be greater than zero. Actual={payload.TimeoutMilliseconds}.");
         }
 
@@ -185,7 +185,7 @@ internal sealed class SupervisorRequestDispatcher
         {
             return SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
-                IpcErrorCodes.InternalError,
+                UcliCoreErrorCodes.InternalError,
                 $"Supervisor ensureRunning returned unsupported start status: {startResult.Status}.");
         }
 
@@ -210,7 +210,7 @@ internal sealed class SupervisorRequestDispatcher
         {
             return SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
-                IpcErrorCodes.InvalidArgument,
+                UcliCoreErrorCodes.InvalidArgument,
                 $"Supervisor stopProject payload is invalid. {payloadError.Message}");
         }
 
@@ -228,7 +228,7 @@ internal sealed class SupervisorRequestDispatcher
         {
             return SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
-                IpcErrorCodes.InvalidArgument,
+                UcliCoreErrorCodes.InvalidArgument,
                 $"Supervisor stopProject timeout must be greater than zero. Actual={payload.TimeoutMilliseconds}.");
         }
 
@@ -267,7 +267,7 @@ internal sealed class SupervisorRequestDispatcher
         {
             return SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
-                IpcErrorCodes.InternalError,
+                UcliCoreErrorCodes.InternalError,
                 $"Supervisor stopProject returned unsupported stop status: {stopResult.Status}.");
         }
 

@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 
@@ -77,7 +76,7 @@ internal sealed record RequestStaticValidationPreflightResult (
         ExecutionError error,
         PreparedRequestContext? preparedRequest = null,
         ReadIndexInfo? readIndex = null,
-        string? errorCode = null)
+        UcliErrorCode? errorCode = null)
     {
         ArgumentNullException.ThrowIfNull(error);
         return new RequestStaticValidationPreflightResult(
@@ -85,8 +84,8 @@ internal sealed record RequestStaticValidationPreflightResult (
             ReadIndex: readIndex,
             ValidationErrors: Array.Empty<ValidationError>(),
             Error: error,
-            ErrorCode: UcliErrorCode.TryCreate(errorCode, out var normalizedErrorCode)
-                ? normalizedErrorCode
+            ErrorCode: errorCode.HasValue && errorCode.Value.IsValid
+                ? errorCode.Value
                 : ExecutionErrorCodeMapper.ToCode(error.Kind));
     }
 }

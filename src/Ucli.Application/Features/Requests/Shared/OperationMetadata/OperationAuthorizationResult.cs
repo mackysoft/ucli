@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts;
-
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
 /// <summary> Represents authorization result for one operation execution attempt. </summary>

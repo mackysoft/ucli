@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;

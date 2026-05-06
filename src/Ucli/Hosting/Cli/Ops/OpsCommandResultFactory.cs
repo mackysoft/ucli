@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Requests;
@@ -76,7 +75,7 @@ internal static class OpsCommandResultFactory
 
     private static CliExitCode ResolveExitCode (UcliErrorCode? errorCode)
     {
-        return errorCode == IpcErrorCodes.InvalidArgument
+        return errorCode == UcliCoreErrorCodes.InvalidArgument
             ? CliExitCode.InvalidArgument
             : CliExitCode.ToolError;
     }
@@ -84,7 +83,7 @@ internal static class OpsCommandResultFactory
     private static UcliErrorCode ResolveErrorCode (UcliErrorCode? errorCode)
     {
         return !errorCode.HasValue || !errorCode.Value.IsValid
-            ? IpcErrorCodes.InternalError
+            ? UcliCoreErrorCodes.InternalError
             : errorCode.Value;
     }
 }

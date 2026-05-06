@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts;
-
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 
 /// <summary> Represents one application-level operation execution error. </summary>

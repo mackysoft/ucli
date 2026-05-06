@@ -23,7 +23,7 @@ internal static class IpcDaemonLogsResponseCodec
         {
             if (firstError is not null)
             {
-                error = firstError.Code == IpcErrorCodes.InvalidArgument
+                error = firstError.Code == UcliCoreErrorCodes.InvalidArgument
                     ? ExecutionError.InvalidArgument($"Daemon logs read failed with error code '{firstError.Code}'. {firstError.Message}")
                     : ExecutionError.InternalError($"Daemon logs read failed with error code '{firstError.Code}'. {firstError.Message}");
                 payload = null;

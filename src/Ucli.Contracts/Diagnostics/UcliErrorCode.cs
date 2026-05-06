@@ -26,20 +26,6 @@ public readonly record struct UcliErrorCode
     /// <summary> Gets whether this instance contains a valid error code value. </summary>
     public bool IsValid => IsValidValue(Value);
 
-    /// <summary> Converts one error code into its string value. </summary>
-    /// <param name="code"> The error code to convert. </param>
-    public static implicit operator string (UcliErrorCode code)
-    {
-        return code.Value ?? string.Empty;
-    }
-
-    /// <summary> Converts one string into an error code. </summary>
-    /// <param name="value"> The raw error code value. </param>
-    public static implicit operator UcliErrorCode (string value)
-    {
-        return new UcliErrorCode(value);
-    }
-
     /// <summary> Tries to create one validated error code. </summary>
     /// <param name="value"> The raw error code value. </param>
     /// <param name="code"> The validated error code when successful. </param>
@@ -64,6 +50,13 @@ public readonly record struct UcliErrorCode
     public static bool IsValidValue (string? value)
     {
         return !string.IsNullOrWhiteSpace(value);
+    }
+
+    /// <summary> Converts the error code to its raw string value. </summary>
+    /// <param name="code"> The error code to convert. </param>
+    public static implicit operator string (UcliErrorCode code)
+    {
+        return code.ToString();
     }
 
     /// <inheritdoc />

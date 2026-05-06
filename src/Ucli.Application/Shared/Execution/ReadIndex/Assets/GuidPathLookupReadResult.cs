@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts;
-
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 
 /// <summary> Represents one GUID-path lookup read result. </summary>

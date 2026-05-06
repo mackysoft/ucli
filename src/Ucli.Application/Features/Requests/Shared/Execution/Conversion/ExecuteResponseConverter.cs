@@ -18,7 +18,7 @@ internal static class ExecuteResponseConverter
             return CreateFailure(
                 [
                     new OperationExecutionError(
-                        IpcErrorCodes.InternalError,
+                        UcliCoreErrorCodes.InternalError,
                         $"Execute response payload is invalid. {payloadError.Message}",
                         null),
                 ]);
@@ -64,7 +64,7 @@ internal static class ExecuteResponseConverter
         return
         [
             new OperationExecutionError(
-                IpcErrorCodes.InternalError,
+                UcliCoreErrorCodes.InternalError,
                 string.IsNullOrWhiteSpace(failureStatus)
                     ? "Execute response failed with an error status."
                     : $"Execute response failed with status '{failureStatus}'.",
@@ -204,7 +204,7 @@ internal static class ExecuteResponseConverter
                 return false;
             }
 
-            if (IsMissingRequiredString(errors[errorIndex].Code))
+            if (!errors[errorIndex].Code.IsValid)
             {
                 errorMessage = $"Execute response envelope is invalid. The 'errors[{errorIndex}].code' field is missing.";
                 return false;
@@ -255,7 +255,7 @@ internal static class ExecuteResponseConverter
         return CreateFailure(
             [
                 new OperationExecutionError(
-                    IpcErrorCodes.InternalError,
+                    UcliCoreErrorCodes.InternalError,
                     message,
                     null),
             ]);

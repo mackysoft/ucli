@@ -21,7 +21,7 @@ public sealed class CallCommandResultFactoryTests
         var result = CallCommandResultFactory.Create(CallServiceResult.Failure(
             "Call failed.",
             [
-                new OperationExecutionError(IpcErrorCodes.InternalError, "Call failed.", null),
+                new OperationExecutionError(UcliCoreErrorCodes.InternalError, "Call failed.", null),
             ],
             ApplicationOutcome.ToolError,
             new CallExecutionOutput(
@@ -46,7 +46,7 @@ public sealed class CallCommandResultFactoryTests
         var result = CallCommandResultFactory.Create(CallServiceResult.Failure(
             "Call failed.",
             [
-                new OperationExecutionError(IpcErrorCodes.InternalError, "Call failed.", null),
+                new OperationExecutionError(UcliCoreErrorCodes.InternalError, "Call failed.", null),
             ],
             ApplicationOutcome.ToolError,
             output: null));

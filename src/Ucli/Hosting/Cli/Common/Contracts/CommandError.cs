@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts;
-
 namespace MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 
 /// <summary> Represents a single error entry in the CLI JSON result payload. </summary>

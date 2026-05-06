@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts;
 using System.Collections.Generic;
 using System.Threading;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -68,7 +69,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 if (!PlanTokenKeyStore.TryLoadOrCreate(snapshot, out var signingKey, out var keyErrorMessage))
                 {
                     return PlanTokenIssueResult.Failed(new OperationFailure(
-                        Code: IpcErrorCodes.InternalError,
+                        Code: UcliCoreErrorCodes.InternalError,
                         Message: keyErrorMessage ?? "Failed to load plan-token signing key.",
                         OpId: null));
                 }
@@ -96,7 +97,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             catch (Exception exception)
             {
                 return PlanTokenIssueResult.Failed(new OperationFailure(
-                    Code: IpcErrorCodes.InternalError,
+                    Code: UcliCoreErrorCodes.InternalError,
                     Message: $"Failed to issue plan token. {exception.Message}",
                     OpId: null));
             }
@@ -138,7 +139,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             catch (Exception exception)
             {
                 return PlanTokenValidationResult.Failed(new OperationFailure(
-                    Code: IpcErrorCodes.InternalError,
+                    Code: UcliCoreErrorCodes.InternalError,
                     Message: $"Failed to validate plan token. {exception.Message}",
                     OpId: null));
             }
@@ -186,7 +187,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                     if (!string.Equals(compiledExecutionDigest, payload.CompiledExecutionDigest, StringComparison.Ordinal))
                     {
                         return PlanTokenValidationResult.Failed(new OperationFailure(
-                            Code: IpcErrorCodes.StateChangedSincePlan,
+                            Code: PlanTokenErrorCodes.StateChangedSincePlan,
                             Message: "Compiled execution changed since plan token issuance.",
                             OpId: null));
                     }
@@ -196,7 +197,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 if (!string.Equals(stateFingerprint, payload.StateFingerprint, StringComparison.Ordinal))
                 {
                     return PlanTokenValidationResult.Failed(new OperationFailure(
-                        Code: IpcErrorCodes.StateChangedSincePlan,
+                        Code: PlanTokenErrorCodes.StateChangedSincePlan,
                         Message: "Project state changed since plan token issuance.",
                         OpId: null));
                 }
@@ -210,7 +211,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             catch (Exception exception)
             {
                 return PlanTokenValidationResult.Failed(new OperationFailure(
-                    Code: IpcErrorCodes.InternalError,
+                    Code: UcliCoreErrorCodes.InternalError,
                     Message: $"Failed to validate plan token. {exception.Message}",
                     OpId: null));
             }
@@ -233,7 +234,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 if (config.Mode == PlanTokenMode.Required)
                 {
                     failure = new OperationFailure(
-                        Code: IpcErrorCodes.PlanTokenRequired,
+                        Code: PlanTokenErrorCodes.PlanTokenRequired,
                         Message: "Plan token is required for call execution.",
                         OpId: null);
                     return false;
@@ -257,7 +258,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             if (!PlanTokenKeyStore.TryLoadOrCreate(snapshot, out var signingKey, out var keyErrorMessage))
             {
                 failure = new OperationFailure(
-                    Code: IpcErrorCodes.InternalError,
+                    Code: UcliCoreErrorCodes.InternalError,
                     Message: keyErrorMessage ?? "Failed to load plan-token signing key.",
                     OpId: null);
                 return false;
@@ -280,7 +281,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             if (nowUtc > payload.ExpiresAtUtc.Add(ClockSkew))
             {
                 failure = new OperationFailure(
-                    Code: IpcErrorCodes.PlanTokenExpired,
+                    Code: PlanTokenErrorCodes.PlanTokenExpired,
                     Message: "Plan token has expired.",
                     OpId: null);
                 return false;
@@ -296,7 +297,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             if (!string.Equals(requestDigest, payload.RequestDigest, StringComparison.Ordinal))
             {
                 failure = new OperationFailure(
-                    Code: IpcErrorCodes.PlanTokenRequestMismatch,
+                    Code: PlanTokenErrorCodes.PlanTokenRequestMismatch,
                     Message: "Plan token request digest does not match current request.",
                     OpId: null);
                 return false;
@@ -312,7 +313,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         private static OperationFailure CreateInvalidTokenFailure (string message)
         {
             return new OperationFailure(
-                Code: IpcErrorCodes.PlanTokenInvalid,
+                Code: PlanTokenErrorCodes.PlanTokenInvalid,
                 Message: message,
                 OpId: null);
         }

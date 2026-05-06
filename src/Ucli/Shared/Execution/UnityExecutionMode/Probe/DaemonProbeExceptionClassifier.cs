@@ -1,6 +1,4 @@
 using System.Net.Sockets;
-using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 
@@ -25,7 +23,7 @@ internal static class DaemonProbeExceptionClassifier
 
     private static bool IsSessionTokenErrorCode (UcliErrorCode? errorCode)
     {
-        return errorCode == IpcErrorCodes.SessionTokenRequired
-            || errorCode == IpcErrorCodes.SessionTokenInvalid;
+        return errorCode == IpcSessionErrorCodes.SessionTokenRequired
+            || errorCode == IpcSessionErrorCodes.SessionTokenInvalid;
     }
 }

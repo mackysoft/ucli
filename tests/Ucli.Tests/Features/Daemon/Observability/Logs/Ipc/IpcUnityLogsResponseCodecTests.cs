@@ -42,7 +42,7 @@ public sealed class IpcUnityLogsResponseCodecTests
             status: IpcProtocol.StatusError,
             errors:
             [
-                new IpcError(IpcErrorCodes.InvalidArgument, "stackTrace is invalid.", null),
+                new IpcError(UcliCoreErrorCodes.InvalidArgument, "stackTrace is invalid.", null),
             ],
             payload: new { });
 

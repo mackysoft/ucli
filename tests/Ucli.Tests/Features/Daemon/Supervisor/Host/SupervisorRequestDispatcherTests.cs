@@ -31,7 +31,7 @@ public sealed class SupervisorRequestDispatcherTests
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
-        Assert.Equal(IpcErrorCodes.SessionTokenRequired, error.Code);
+        Assert.Equal(IpcSessionErrorCodes.SessionTokenRequired, error.Code);
     }
 
     [Fact]
@@ -54,7 +54,7 @@ public sealed class SupervisorRequestDispatcherTests
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
-        Assert.Equal(IpcErrorCodes.SessionTokenInvalid, error.Code);
+        Assert.Equal(IpcSessionErrorCodes.SessionTokenInvalid, error.Code);
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public sealed class SupervisorRequestDispatcherTests
 
         Assert.Equal(IpcProtocol.StatusError, invalidResponse.Status);
         var invalidError = Assert.Single(invalidResponse.Errors);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, invalidError.Code);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, invalidError.Code);
 
         var pingResponse = await SendRequest(
             dispatcher,
@@ -121,7 +121,7 @@ public sealed class SupervisorRequestDispatcherTests
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
         Assert.Contains("Project fingerprint does not match", error.Message, StringComparison.Ordinal);
     }
 

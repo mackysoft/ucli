@@ -26,7 +26,7 @@ public sealed class CommandResultFactoryTests
         Assert.Equal("error", result.Status);
         Assert.Equal(expectedExitCode, result.ExitCode);
         Assert.Single(result.Errors);
-        Assert.Equal(expectedErrorCode, result.Errors[0].Code);
+        Assert.Equal(expectedErrorCode, result.Errors[0].Code.Value);
         Assert.Equal(message, result.Errors[0].Message);
     }
 }

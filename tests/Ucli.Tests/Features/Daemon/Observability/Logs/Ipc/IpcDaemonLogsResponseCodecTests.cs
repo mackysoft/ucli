@@ -42,7 +42,7 @@ public sealed class IpcDaemonLogsResponseCodecTests
             status: IpcProtocol.StatusError,
             errors:
             [
-                new IpcError(IpcErrorCodes.InvalidArgument, "queryTarget stack is not supported.", null),
+                new IpcError(UcliCoreErrorCodes.InvalidArgument, "queryTarget stack is not supported.", null),
             ],
             payload: new { });
 

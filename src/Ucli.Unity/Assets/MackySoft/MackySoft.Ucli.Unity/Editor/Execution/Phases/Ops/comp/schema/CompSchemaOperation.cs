@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -82,7 +83,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (extractionResult.Entries.Count == 0)
             {
                 return OperationPhaseStepResult.Failed(new OperationFailure(
-                    Code: IpcErrorCodes.InternalError,
+                    Code: UcliCoreErrorCodes.InternalError,
                     Message: $"Schema could not be extracted for type '{validationState.ComponentType!.FullName}'.",
                     OpId: operation.Id));
             }

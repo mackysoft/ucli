@@ -23,7 +23,7 @@ public sealed class DaemonPingResponseCodecTests
         var response = CreateResponse(
             IpcProtocol.StatusError,
             [
-                new IpcError(IpcErrorCodes.InvalidArgument, "invalid request", null),
+                new IpcError(UcliCoreErrorCodes.InvalidArgument, "invalid request", null),
             ],
             null);
 
@@ -31,7 +31,7 @@ public sealed class DaemonPingResponseCodecTests
 
         Assert.False(result);
         Assert.NotNull(error);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, error.ErrorCode!.Value);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.ErrorCode!.Value);
     }
 
     [Fact]

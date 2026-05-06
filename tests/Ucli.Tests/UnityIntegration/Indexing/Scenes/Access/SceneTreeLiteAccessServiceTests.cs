@@ -2,7 +2,6 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
@@ -156,7 +155,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         {
             Result = IndexFreshnessEvaluationResult.Failure(
                 IndexFreshness.Stale,
-                new IndexServiceError(IpcErrorCodes.ReadIndexFreshRequired, "fresh required")),
+                new IndexServiceError(ReadIndexErrorCodes.ReadIndexFreshRequired, "fresh required")),
         };
         var refreshService = new StubSceneTreeLiteSourceRefreshService
         {
@@ -412,7 +411,7 @@ public sealed class SceneTreeLiteAccessServiceTests
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
         Assert.Contains("Scene path could not be resolved", result.Message, StringComparison.Ordinal);
         Assert.Equal(0, indexReader.SceneTreeLiteLookupCallCount);
     }
@@ -438,7 +437,7 @@ public sealed class SceneTreeLiteAccessServiceTests
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
         Assert.Contains("project-relative path", result.Message, StringComparison.Ordinal);
         Assert.Equal(0, indexReader.SceneTreeLiteLookupCallCount);
     }
@@ -464,7 +463,7 @@ public sealed class SceneTreeLiteAccessServiceTests
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
         Assert.Contains("project-relative path", result.Message, StringComparison.Ordinal);
         Assert.Equal(0, indexReader.SceneTreeLiteLookupCallCount);
     }
@@ -479,7 +478,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         var indexReader = new StubIndexCatalogReader
         {
             SceneTreeLiteLookupResult = IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>.Failure(
-                IpcErrorCodes.ReadIndexBootstrapFailed,
+                ReadIndexErrorCodes.ReadIndexBootstrapFailed,
                 "scene-tree-lite lookup is missing."),
         };
         var refreshService = new StubSceneTreeLiteSourceRefreshService
@@ -520,7 +519,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         var indexReader = new StubIndexCatalogReader
         {
             SceneTreeLiteLookupResult = IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>.Failure(
-                IpcErrorCodes.ReadIndexFormatInvalid,
+                ReadIndexErrorCodes.ReadIndexFormatInvalid,
                 "Index contract file 'lookups/scene-tree-lite/*.lookup.json' is malformed."),
         };
         var refreshService = new StubSceneTreeLiteSourceRefreshService
@@ -598,7 +597,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         public int SceneTreeLiteLookupCallCount { get; private set; }
 
         public IndexAccessResult<IndexSceneTreeLiteLookupJsonContract> SceneTreeLiteLookupResult { get; set; }
-            = IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>.Failure(IpcErrorCodes.ReadIndexBootstrapFailed, "missing");
+            = IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>.Failure(ReadIndexErrorCodes.ReadIndexBootstrapFailed, "missing");
 
         public ValueTask<IndexAccessResult<IndexOpsCatalogJsonContract>> ReadOpsCatalog (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public ValueTask<IndexAccessResult<IndexTypesCatalogJsonContract>> ReadTypesCatalog (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
@@ -645,7 +644,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         public bool LastFailFast { get; private set; }
 
         public SceneTreeLiteRefreshResult Result { get; set; }
-            = SceneTreeLiteRefreshResult.Failure("not configured", IpcErrorCodes.InternalError);
+            = SceneTreeLiteRefreshResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
         public ValueTask<SceneTreeLiteRefreshResult> Refresh (
             ResolvedUnityProjectContext project,

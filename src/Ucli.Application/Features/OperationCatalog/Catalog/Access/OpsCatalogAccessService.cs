@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Persistence;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 
@@ -61,11 +60,11 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
             .ConfigureAwait(false);
         if (!persistedCatalogResult.IsSuccess)
         {
-            if (persistedCatalogResult.ErrorCode == IpcErrorCodes.InvalidArgument)
+            if (persistedCatalogResult.ErrorCode == UcliCoreErrorCodes.InvalidArgument)
             {
                 return OpsCatalogReadResult.Failure(
                     persistedCatalogResult.ErrorMessage!,
-                    IpcErrorCodes.InvalidArgument);
+                    UcliCoreErrorCodes.InvalidArgument);
             }
 
             return await ReadCatalogFromSource(

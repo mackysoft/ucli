@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -578,7 +579,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Failure, Is.Not.Null);
-            Assert.That(result.Failure!.Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(result.Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(result.Failure.OpId, Is.EqualTo(expectedOperationId));
         }
 

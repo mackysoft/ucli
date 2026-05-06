@@ -48,7 +48,7 @@ public sealed class DaemonCleanupOperationTests
             {
                 ReadResult = DaemonSessionReadResult.Success(null),
             },
-            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new DaemonPingResponseException("token invalid", IpcErrorCodes.SessionTokenInvalid))),
+            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new DaemonPingResponseException("token invalid", IpcSessionErrorCodes.SessionTokenInvalid))),
             artifactCleaner: artifactCleaner,
             endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
 
@@ -94,7 +94,7 @@ public sealed class DaemonCleanupOperationTests
             {
                 ReadResult = DaemonSessionReadResult.Success(session),
             },
-            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new DaemonPingResponseException("token invalid", IpcErrorCodes.SessionTokenInvalid))),
+            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new DaemonPingResponseException("token invalid", IpcSessionErrorCodes.SessionTokenInvalid))),
             artifactCleaner: artifactCleaner,
             endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
 
@@ -117,7 +117,7 @@ public sealed class DaemonCleanupOperationTests
             {
                 ReadResult = DaemonSessionReadResult.Success(session),
             },
-            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new DaemonPingResponseException("token required", IpcErrorCodes.SessionTokenRequired))),
+            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new DaemonPingResponseException("token required", IpcSessionErrorCodes.SessionTokenRequired))),
             artifactCleaner: artifactCleaner,
             endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
 

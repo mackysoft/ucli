@@ -112,7 +112,7 @@ public sealed class CliPreDispatchErrorPolicyTests
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         Assert.Equal(expectedMessage, result.Message);
         var error = Assert.Single(result.Errors);
-        Assert.Equal("INVALID_ARGUMENT", error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
         Assert.Equal(expectedMessage, error.Message);
     }
 

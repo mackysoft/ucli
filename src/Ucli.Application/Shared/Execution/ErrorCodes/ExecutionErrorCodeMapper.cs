@@ -1,6 +1,4 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 
@@ -14,10 +12,10 @@ internal static class ExecutionErrorCodeMapper
     {
         return kind switch
         {
-            ExecutionErrorKind.InvalidArgument => IpcErrorCodes.InvalidArgument,
+            ExecutionErrorKind.InvalidArgument => UcliCoreErrorCodes.InvalidArgument,
             ExecutionErrorKind.Timeout => ExecutionErrorCodes.IpcTimeout,
-            ExecutionErrorKind.InternalError => IpcErrorCodes.InternalError,
-            _ => IpcErrorCodes.InternalError,
+            ExecutionErrorKind.InternalError => UcliCoreErrorCodes.InternalError,
+            _ => UcliCoreErrorCodes.InternalError,
         };
     }
 }

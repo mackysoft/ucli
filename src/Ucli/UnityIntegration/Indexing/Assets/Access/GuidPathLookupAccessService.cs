@@ -4,10 +4,8 @@ using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Assets.Access;
@@ -45,7 +43,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
     {
         if (!AssetLookupAccessUtilities.TryNormalizeAssetGuid(assetGuid, out var normalizedAssetGuid, out var errorMessage))
         {
-            return ValueTask.FromResult(GuidPathLookupReadResult.Failure(errorMessage, IpcErrorCodes.InvalidArgument));
+            return ValueTask.FromResult(GuidPathLookupReadResult.Failure(errorMessage, UcliCoreErrorCodes.InvalidArgument));
         }
 
         return ReadCore(
@@ -72,7 +70,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
     {
         if (!AssetLookupAccessUtilities.TryNormalizeAssetPath(assetPath, out var normalizedAssetPath, out var errorMessage))
         {
-            return ValueTask.FromResult(GuidPathLookupReadResult.Failure(errorMessage, IpcErrorCodes.InvalidArgument));
+            return ValueTask.FromResult(GuidPathLookupReadResult.Failure(errorMessage, UcliCoreErrorCodes.InvalidArgument));
         }
 
         return ReadCore(
@@ -125,7 +123,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
             .ConfigureAwait(false);
         if (!lookupResult.IsSuccess)
         {
-            if (lookupResult.Error!.Code == IpcErrorCodes.InvalidArgument)
+            if (lookupResult.Error!.Code == UcliCoreErrorCodes.InvalidArgument)
             {
                 return GuidPathLookupReadResult.Failure(
                     lookupResult.Error.Message,

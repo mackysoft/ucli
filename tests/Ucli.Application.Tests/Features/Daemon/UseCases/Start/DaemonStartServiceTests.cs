@@ -5,7 +5,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 

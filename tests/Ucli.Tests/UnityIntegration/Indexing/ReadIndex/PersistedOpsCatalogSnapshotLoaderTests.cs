@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
@@ -12,7 +11,7 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
     public async Task Load_WhenOpsCatalogReadFails_ReturnsFailure ()
     {
         var error = new IndexServiceError(
-            IpcErrorCodes.ReadIndexBootstrapFailed,
+            ReadIndexErrorCodes.ReadIndexBootstrapFailed,
             "Index contract file was not found: ops.catalog.json.");
         var loader = new PersistedOpsCatalogSnapshotLoader(
             new StubIndexCatalogReader(IndexAccessResult<IndexOpsCatalogJsonContract>.Failure(error)),
@@ -30,7 +29,7 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
     public async Task Load_WhenFreshnessEvaluationFails_ReturnsFailure ()
     {
         var error = new IndexServiceError(
-            IpcErrorCodes.ReadIndexFreshRequired,
+            ReadIndexErrorCodes.ReadIndexFreshRequired,
             "readIndexMode=requireFresh requires index freshness 'fresh'.");
         var freshnessEvaluator = new StubIndexFreshnessEvaluator(
             IndexFreshnessEvaluationResult.Failure(IndexFreshness.Stale, error));

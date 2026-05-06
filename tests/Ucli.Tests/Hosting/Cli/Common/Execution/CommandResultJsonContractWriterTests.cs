@@ -19,7 +19,7 @@ public sealed class CommandResultJsonContractWriterTests
             Payload: new { sampleValue = true },
             Errors:
             [
-                new CommandError("INVALID_ARGUMENT", "Failed.", null),
+                new CommandError(UcliCoreErrorCodes.InvalidArgument, "Failed.", null),
             ]);
 
         var json = new CommandResultJsonContractWriter().Write(result);

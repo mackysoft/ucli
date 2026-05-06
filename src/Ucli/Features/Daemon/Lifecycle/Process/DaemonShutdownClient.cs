@@ -2,7 +2,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
@@ -101,8 +100,8 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
     /// <returns> <see langword="true" /> when error code indicates session-token contract failure; otherwise <see langword="false" />. </returns>
     private static bool IsSessionTokenErrorCode (UcliErrorCode errorCode)
     {
-        return errorCode == IpcErrorCodes.SessionTokenRequired
-            || errorCode == IpcErrorCodes.SessionTokenInvalid;
+        return errorCode == IpcSessionErrorCodes.SessionTokenRequired
+            || errorCode == IpcSessionErrorCodes.SessionTokenInvalid;
     }
 
     /// <summary>

@@ -6,7 +6,6 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -72,7 +71,7 @@ public sealed class RequestStaticValidationPreflightServiceTests
         var validator = new SpyRequestStaticValidator(ValidationResult.Success());
         var resolver = new StubReadIndexValidationCatalogResolver(ReadIndexValidationCatalogResolutionResult.Failure(
             readIndex,
-            IpcErrorCodes.ReadIndexFormatInvalid,
+            ReadIndexErrorCodes.ReadIndexFormatInvalid,
             "Index contract file 'ops.catalog.json' is malformed."));
         var service = new RequestStaticValidationPreflightService(
             resolver,
@@ -85,7 +84,7 @@ public sealed class RequestStaticValidationPreflightServiceTests
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
-        Assert.Equal(IpcErrorCodes.ReadIndexFormatInvalid, result.ErrorCode);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexFormatInvalid, result.ErrorCode);
         Assert.Same(preparedRequest, result.PreparedRequest);
         Assert.Same(readIndex, result.ReadIndex);
         Assert.Equal(0, validator.CallCount);

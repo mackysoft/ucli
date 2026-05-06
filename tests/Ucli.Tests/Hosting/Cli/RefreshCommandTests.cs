@@ -85,7 +85,7 @@ public sealed class RefreshCommandTests
             [],
             [
                 new OperationExecutionError(
-                    IpcErrorCodes.InternalError,
+                    UcliCoreErrorCodes.InternalError,
                     "Unity execution failed.",
                     "refresh"),
             ],
@@ -113,7 +113,7 @@ public sealed class RefreshCommandTests
                 .HasArrayLength("opResults", 0))
             .HasArrayLength("errors", 1)
             .HasProperty("errors", 0, error => error
-                .HasString("code", IpcErrorCodes.InternalError)
+                .HasString("code", UcliCoreErrorCodes.InternalError.Value)
                 .HasString("message", "Unity execution failed.")
                 .HasString("opId", "refresh"));
     }

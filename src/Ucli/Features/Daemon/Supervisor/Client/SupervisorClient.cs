@@ -268,7 +268,7 @@ internal sealed class SupervisorClient
                 $"Supervisor response failed with unexpected status: {status ?? "<null>"}.");
         }
 
-        if (firstError.Code == IpcErrorCodes.InvalidArgument)
+        if (firstError.Code == UcliCoreErrorCodes.InvalidArgument)
         {
             return ExecutionError.InvalidArgument(firstError.Message);
         }

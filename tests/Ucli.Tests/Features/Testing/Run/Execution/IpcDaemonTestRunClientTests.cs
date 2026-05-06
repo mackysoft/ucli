@@ -182,7 +182,7 @@ public sealed class IpcDaemonTestRunClientTests
                 request,
                 IpcProtocol.StatusError,
                 [
-                    new IpcError(IpcErrorCodes.EditorBusy, "Unity editor is busy with internal work.", null),
+                    new IpcError(EditorLifecycleErrorCodes.EditorBusy, "Unity editor is busy with internal work.", null),
                 ],
                 new { }));
         var sessionTokenProvider = new StubDaemonSessionTokenProvider(
@@ -201,8 +201,8 @@ public sealed class IpcDaemonTestRunClientTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityTestExecutionFailureKind.AbnormalExit, result.FailureKind);
-        Assert.Equal(IpcErrorCodes.EditorBusy, result.ErrorCode);
-        Assert.Contains(IpcErrorCodes.EditorBusy, result.ErrorMessage, StringComparison.Ordinal);
+        Assert.Equal(EditorLifecycleErrorCodes.EditorBusy, result.ErrorCode);
+        Assert.Contains(EditorLifecycleErrorCodes.EditorBusy.Value, result.ErrorMessage, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -261,7 +261,7 @@ public sealed class IpcDaemonTestRunClientTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityTestExecutionFailureKind.ClientSetupFailed, result.FailureKind);
-        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
         Assert.Equal(0, daemonTransportClient.CallCount);
     }
 

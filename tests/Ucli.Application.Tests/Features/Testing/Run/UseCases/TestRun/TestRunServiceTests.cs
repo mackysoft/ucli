@@ -11,7 +11,6 @@ using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
 using static MackySoft.Ucli.Application.Tests.Helpers.ApplicationCommandInputTestHelper;
 
@@ -74,7 +73,7 @@ public sealed class TestRunServiceTests
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InvalidInput, result.ErrorKind);
         Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
     }
 
     [Fact]
@@ -110,17 +109,22 @@ public sealed class TestRunServiceTests
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InvalidInput, result.ErrorKind);
         Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
         Assert.Contains("operationPolicy", result.Message, StringComparison.Ordinal);
         Assert.Contains("planTokenMode", result.Message, StringComparison.Ordinal);
     }
 
+    public static TheoryData<UcliErrorCode, string> ModeContractErrorCases => new()
+    {
+        { UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, "Daemon is not running for mode=daemon." },
+        { UnityExecutionModeDecisionErrorCodes.DaemonRunningOneshotForbidden, "Daemon is running for mode=oneshot." },
+    };
+
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, "Daemon is not running for mode=daemon.")]
-    [InlineData(UnityExecutionModeDecisionErrorCodes.DaemonRunningOneshotForbidden, "Daemon is running for mode=oneshot.")]
+    [MemberData(nameof(ModeContractErrorCases))]
     public async Task Execute_WithModeContractError_ReturnsToolErrorWithModeCode (
-        string errorCode,
+        UcliErrorCode errorCode,
         string message)
     {
         var configuration = CreateResolvedConfiguration();
@@ -186,7 +190,7 @@ public sealed class TestRunServiceTests
             ValueTask.FromResult(UnityTestExecutionResult.Failure(
                 UnityTestExecutionFailureKind.AbnormalExit,
                 "Unity editor is busy with internal work.",
-                IpcErrorCodes.EditorBusy)));
+                EditorLifecycleErrorCodes.EditorBusy)));
 
         var service = CreateService(
             configurationResolver: new StubConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
@@ -205,7 +209,7 @@ public sealed class TestRunServiceTests
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
         Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
-        Assert.Equal(IpcErrorCodes.EditorBusy, result.ErrorCode);
+        Assert.Equal(EditorLifecycleErrorCodes.EditorBusy, result.ErrorCode);
         Assert.Equal(1, daemonTestRunClient.CallCount);
         Assert.True(daemonTestRunClient.LastFailFast);
     }
@@ -280,7 +284,7 @@ public sealed class TestRunServiceTests
             ValueTask.FromResult(UnityTestExecutionResult.Failure(
                 UnityTestExecutionFailureKind.ClientSetupFailed,
                 "Daemon session token could not be resolved. session store read failed",
-                IpcErrorCodes.InternalError)));
+                UcliCoreErrorCodes.InternalError)));
 
         var service = CreateService(
             configurationResolver: new StubConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
@@ -299,7 +303,7 @@ public sealed class TestRunServiceTests
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
         Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
-        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
     }
 
     [Fact]
@@ -311,7 +315,7 @@ public sealed class TestRunServiceTests
             ValueTask.FromResult(UnityTestExecutionResult.Failure(
                 UnityTestExecutionFailureKind.ClientSetupFailed,
                 "Daemon session token could not be resolved. Daemon session token is missing.",
-                IpcErrorCodes.InvalidArgument)));
+                UcliCoreErrorCodes.InvalidArgument)));
 
         var service = CreateService(
             configurationResolver: new StubConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
@@ -330,7 +334,7 @@ public sealed class TestRunServiceTests
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
         Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
     }
 
     [Fact]
@@ -557,7 +561,7 @@ public sealed class TestRunServiceTests
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
         Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
-        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
         Assert.Equal(session.RunId, result.RunId);
     }
 
@@ -583,7 +587,7 @@ public sealed class TestRunServiceTests
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
         Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
-        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
         Assert.Equal("Unexpected error during Unity results conversion: boom", result.Message);
         Assert.Equal(session.RunId, result.RunId);
     }

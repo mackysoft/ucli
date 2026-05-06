@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts;
-
 namespace MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 
 /// <summary> Represents one ping-response contract failure returned from a reachable daemon endpoint. </summary>

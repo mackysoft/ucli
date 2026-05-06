@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts;
-
 namespace MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 
 /// <summary> Represents one structured contract error emitted from mode decision. </summary>

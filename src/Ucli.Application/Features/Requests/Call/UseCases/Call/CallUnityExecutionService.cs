@@ -7,8 +7,6 @@ using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Postprocessi
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
-using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call;
@@ -99,7 +97,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             {
                 return CreateFailure(
                     RequestServiceResultPolicy.FromTransportFailure(
-                        IpcErrorCodes.InternalError,
+                        UcliCoreErrorCodes.InternalError,
                         "Execute response payload is invalid. The 'planToken' field is missing."),
                     ApplicationOutcome.ToolError,
                     baseOutput);

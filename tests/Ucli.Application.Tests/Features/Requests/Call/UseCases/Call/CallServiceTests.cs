@@ -12,7 +12,6 @@ using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
@@ -418,7 +417,7 @@ public sealed class CallServiceTests
                     ],
                     errors:
                     [
-                        new IpcError(IpcErrorCodes.PlanTokenInvalid, "Plan failed.", null),
+                        new IpcError(PlanTokenErrorCodes.PlanTokenInvalid, "Plan failed.", null),
                     ],
                     planToken: null)));
         var service = CreateService(
@@ -486,7 +485,7 @@ public sealed class CallServiceTests
                     ],
                     errors:
                     [
-                        new IpcError(IpcErrorCodes.StateChangedSincePlan, "State changed.", null),
+                        new IpcError(PlanTokenErrorCodes.StateChangedSincePlan, "State changed.", null),
                     ],
                     planToken: null)));
         var service = CreateService(
@@ -741,7 +740,7 @@ public sealed class CallServiceTests
         Assert.NotNull(result.Output.ReadPostcondition);
         Assert.Equal(1, readPostconditionStore.WriteCallCount);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Equal("Failed to persist mutation read postcondition.", error.Message);
     }
 

@@ -4,7 +4,6 @@ using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Phase;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Shared.Execution;
-using MackySoft.Ucli.Contracts;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call;
 

@@ -1,23 +1,12 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 
 /// <summary> Provides invariant checks for request service result models. </summary>
 internal static class RequestServiceResultPolicy
 {
-    private const string PlanTokenRequiredCode = "PLAN_TOKEN_REQUIRED";
-
-    private const string PlanTokenInvalidCode = "PLAN_TOKEN_INVALID";
-
-    private const string PlanTokenExpiredCode = "PLAN_TOKEN_EXPIRED";
-
-    private const string PlanTokenRequestMismatchCode = "PLAN_TOKEN_REQUEST_MISMATCH";
-
-    private const string StateChangedSincePlanCode = "STATE_CHANGED_SINCE_PLAN";
-
     private static readonly IReadOnlyList<OperationExecutionError> EmptyErrorList = Array.AsReadOnly(Array.Empty<OperationExecutionError>());
 
     /// <summary> Gets the canonical empty error collection for successful results. </summary>
@@ -111,14 +100,14 @@ internal static class RequestServiceResultPolicy
     /// <summary> Creates one operation execution error from a structured execution error. </summary>
     public static OperationExecutionError FromExecutionError (
         ExecutionError error,
-        string? errorCode = null)
+        UcliErrorCode? errorCode = null)
     {
         ArgumentNullException.ThrowIfNull(error);
         ArgumentException.ThrowIfNullOrWhiteSpace(error.Message, nameof(error));
 
         return new OperationExecutionError(
-            UcliErrorCode.TryCreate(errorCode, out var normalizedErrorCode)
-                ? normalizedErrorCode
+            errorCode.HasValue && errorCode.Value.IsValid
+                ? errorCode.Value
                 : ExecutionErrorCodeMapper.ToCode(error.Kind),
             error.Message,
             null);
@@ -126,7 +115,7 @@ internal static class RequestServiceResultPolicy
 
     /// <summary> Creates one operation execution error from a transport failure. </summary>
     public static OperationExecutionError FromTransportFailure (
-        string? errorCode,
+        UcliErrorCode? errorCode,
         string? message,
         string? opId = null,
         string? fallbackMessage = null)
@@ -220,11 +209,11 @@ internal static class RequestServiceResultPolicy
     /// <summary> Resolves the application outcome for one structured execution error. </summary>
     public static ApplicationOutcome ResolveOutcome (
         ExecutionError error,
-        string? errorCode = null)
+        UcliErrorCode? errorCode = null)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return ResolveOutcome(UcliErrorCode.TryCreate(errorCode, out var normalizedErrorCode)
-            ? normalizedErrorCode
+        return ResolveOutcome(errorCode.HasValue && errorCode.Value.IsValid
+            ? errorCode.Value
             : ExecutionErrorCodeMapper.ToCode(error.Kind));
     }
 
@@ -237,10 +226,10 @@ internal static class RequestServiceResultPolicy
     }
 
     /// <summary> Resolves the machine-readable error code used for request failures. </summary>
-    public static UcliErrorCode ResolveErrorCode (string? errorCode)
+    public static UcliErrorCode ResolveErrorCode (UcliErrorCode? errorCode)
     {
-        return UcliErrorCode.TryCreate(errorCode, out var normalizedErrorCode)
-            ? normalizedErrorCode
+        return errorCode.HasValue && errorCode.Value.IsValid
+            ? errorCode.Value
             : ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.InternalError);
     }
 
@@ -265,10 +254,10 @@ internal static class RequestServiceResultPolicy
 
     private static bool IsPlanTokenValidationErrorCode (UcliErrorCode errorCode)
     {
-        return errorCode == PlanTokenRequiredCode
-            || errorCode == PlanTokenInvalidCode
-            || errorCode == PlanTokenExpiredCode
-            || errorCode == PlanTokenRequestMismatchCode
-            || errorCode == StateChangedSincePlanCode;
+        return errorCode == PlanTokenErrorCodes.PlanTokenRequired
+            || errorCode == PlanTokenErrorCodes.PlanTokenInvalid
+            || errorCode == PlanTokenErrorCodes.PlanTokenExpired
+            || errorCode == PlanTokenErrorCodes.PlanTokenRequestMismatch
+            || errorCode == PlanTokenErrorCodes.StateChangedSincePlan;
     }
 }

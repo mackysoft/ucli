@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts;
-
 namespace MackySoft.Ucli.Application.Shared.Configuration;
 
 /// <summary> Validates and normalizes IPC-timeout config values. </summary>

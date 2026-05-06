@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -73,7 +74,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 out var errorMessage))
             {
                 return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
-                    Code: IpcErrorCodes.InternalError,
+                    Code: UcliCoreErrorCodes.InternalError,
                     Message: errorMessage,
                     OpId: operation.Id)));
             }
@@ -117,7 +118,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 if (asset == null)
                 {
                     return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
-                        Code: IpcErrorCodes.InternalError,
+                        Code: UcliCoreErrorCodes.InternalError,
                         Message: $"Asset instance could not be created for type '{assetType!.FullName}'.",
                         OpId: operation.Id)));
                 }

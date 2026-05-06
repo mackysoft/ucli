@@ -368,7 +368,7 @@ public sealed class OpsCatalogAccessServiceTests
     {
         public PersistedOpsCatalogReadResult Result { get; set; }
             = PersistedOpsCatalogReadResult.Failure(
-                IpcErrorCodes.ReadIndexBootstrapFailed,
+                ReadIndexErrorCodes.ReadIndexBootstrapFailed,
                 "Index contract file was not found: ops.catalog.json.");
 
         public ValueTask<PersistedOpsCatalogReadResult> Read (
@@ -466,7 +466,7 @@ public sealed class OpsCatalogAccessServiceTests
         public bool LastRequireReadinessGate { get; private set; }
 
         public OpsCatalogFetchResult Result { get; set; }
-            = OpsCatalogFetchResult.Failure("not configured", IpcErrorCodes.InternalError);
+            = OpsCatalogFetchResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
         public ValueTask<OpsCatalogFetchResult> Read (
             ResolvedUnityProjectContext project,

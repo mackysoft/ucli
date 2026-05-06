@@ -4,9 +4,8 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 internal static class ExecutionErrorCodes
 {
     /// <summary> Gets the error code used when command execution is canceled. </summary>
-    public const string Canceled = "CANCELED";
+    public static readonly UcliErrorCode Canceled = new UcliErrorCode("CANCELED");
 
     /// <summary> Gets the error code used when IPC execution exceeds configured timeout. </summary>
-    public const string IpcTimeout = "IPC_TIMEOUT";
-
+    public static readonly UcliErrorCode IpcTimeout = new UcliErrorCode("IPC_TIMEOUT");
 }

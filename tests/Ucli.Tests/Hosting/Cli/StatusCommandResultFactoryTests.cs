@@ -63,7 +63,7 @@ public sealed class StatusCommandResultFactoryTests
         Assert.Equal(IpcProtocol.StatusError, result.Status);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, result.Errors[0].Code);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.Errors[0].Code);
         Assert.Equal("timeout is invalid.", result.Errors[0].Message);
     }
 }

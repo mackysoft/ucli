@@ -1,3 +1,4 @@
+global using MackySoft.Ucli.Contracts;
 global using MackySoft.Ucli.Features.Daemon.Common.CommandContracts;
 global using MackySoft.Ucli.Features.Daemon.Lifecycle.Cleanup;
 global using MackySoft.Ucli.Features.Daemon.Lifecycle.Diagnosis;

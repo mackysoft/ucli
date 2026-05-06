@@ -5,7 +5,6 @@ using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests;
@@ -57,7 +56,7 @@ public sealed class OperationCatalogDiscoveryServiceTests
         var service = new OperationCatalogDiscoveryService(
             new StubOpsCatalogReader(OpsCatalogFetchResult.Failure(
                 "Mode must be auto, daemon, or oneshot.",
-                IpcErrorCodes.InvalidArgument)));
+                UcliCoreErrorCodes.InvalidArgument)));
 
         var exception = await Assert.ThrowsAsync<OperationCatalogLoadException>(async () =>
             await service.Discover(
@@ -68,7 +67,7 @@ public sealed class OperationCatalogDiscoveryServiceTests
                 cancellationToken: CancellationToken.None));
 
         Assert.Equal(ExecutionErrorKind.InvalidArgument, exception.Error.Kind);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, exception.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, exception.ErrorCode);
         Assert.Contains("Operation catalog discovery failed.", exception.Error.Message, StringComparison.Ordinal);
     }
 

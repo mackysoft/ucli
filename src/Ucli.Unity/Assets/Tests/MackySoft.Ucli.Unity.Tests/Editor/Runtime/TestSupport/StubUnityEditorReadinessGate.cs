@@ -1,4 +1,5 @@
 using System.Threading;
+using MackySoft.Ucli.Contracts;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
@@ -43,7 +44,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 CreateBlockedResult(
                     IpcEditorLifecycleStateCodec.Busy,
                     IpcEditorBlockingReasonCodec.Busy,
-                    IpcErrorCodes.EditorBusy,
+                    EditorLifecycleErrorCodes.EditorBusy,
                     "Unity editor is busy with internal work. Retry without --failFast or wait until lifecycleState=ready before executing request."),
                 new TaskCompletionSource<UnityEditorExecutionReadinessResult>(TaskCreationOptions.RunContinuationsAsynchronously));
         }
@@ -78,7 +79,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static UnityEditorExecutionReadinessResult CreateBlockedResult (
             string lifecycleState,
             string? blockingReason,
-            string errorCode,
+            UcliErrorCode errorCode,
             string errorMessage)
         {
             return UnityEditorExecutionReadinessResult.Blocked(

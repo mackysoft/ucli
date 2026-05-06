@@ -4,7 +4,6 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
@@ -47,7 +46,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
             var message = sessionTokenResult.IsSessionNotAvailable
                 ? "Daemon session token is not available."
                 : $"Daemon session token could not be resolved. {sessionTokenResult.Error!.Message}";
-            return UnityRequestExecutionResult.Failure(message, IpcErrorCodes.InternalError);
+            return UnityRequestExecutionResult.Failure(message, UcliCoreErrorCodes.InternalError);
         }
 
         try
@@ -81,7 +80,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
         {
             return UnityRequestExecutionResult.Failure(
                 $"Failed to execute Unity daemon IPC request. {exception.Message}",
-                IpcErrorCodes.InternalError);
+                UcliCoreErrorCodes.InternalError);
         }
     }
 }

@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Projection;
 
@@ -26,7 +25,7 @@ internal static class TestRunServiceErrorMapper
         {
             ExecutionErrorKind.InvalidArgument => TestRunServiceResult.InvalidInput(
                 error.Message,
-                IpcErrorCodes.InvalidArgument,
+                UcliCoreErrorCodes.InvalidArgument,
                 runId,
                 artifactsDir,
                 summaryJsonPath),
@@ -38,7 +37,7 @@ internal static class TestRunServiceErrorMapper
                 summaryJsonPath),
             _ => TestRunServiceResult.InfraError(
                 error.Message,
-                IpcErrorCodes.InternalError,
+                UcliCoreErrorCodes.InternalError,
                 runId,
                 artifactsDir,
                 summaryJsonPath),
@@ -56,13 +55,13 @@ internal static class TestRunServiceErrorMapper
         {
             return TestRunServiceResult.InfraError(
                 "Unexpected error while resolving run configuration.",
-                IpcErrorCodes.InternalError);
+                UcliCoreErrorCodes.InternalError);
         }
 
         var hasInternalError = errors.Any(static error => error.Kind == ExecutionErrorKind.InternalError);
         var errorCode = hasInternalError
-            ? IpcErrorCodes.InternalError
-            : IpcErrorCodes.InvalidArgument;
+            ? UcliCoreErrorCodes.InternalError
+            : UcliCoreErrorCodes.InvalidArgument;
         var message = string.Join(" | ", errors.Select(static error => error.Message));
 
         return hasInternalError

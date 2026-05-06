@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
-using MackySoft.Ucli.Contracts;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 

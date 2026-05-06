@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -47,7 +48,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 {
                     return UnityIpcResponseFactory.CreateErrorResponse(
                         request,
-                        IpcErrorCodes.IpcMethodNotSupported,
+                        IpcProtocolErrorCodes.IpcMethodNotSupported,
                         $"IPC method is not supported: {request.Method}.",
                         null);
                 }
@@ -62,7 +63,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 return UnityIpcResponseFactory.CreateErrorResponse(
                     request,
-                    IpcErrorCodes.InternalError,
+                    UcliCoreErrorCodes.InternalError,
                     $"Unexpected error occurred while handling IPC request. {exception.Message}",
                     null);
             }

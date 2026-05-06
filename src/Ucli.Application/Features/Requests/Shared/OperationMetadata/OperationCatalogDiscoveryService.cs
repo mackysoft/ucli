@@ -1,8 +1,6 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
@@ -99,7 +97,7 @@ internal sealed class OperationCatalogDiscoveryService : IOperationCatalogDiscov
 
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
 
-        if (errorCode == IpcErrorCodes.InvalidArgument)
+        if (errorCode == UcliCoreErrorCodes.InvalidArgument)
         {
             return ExecutionError.InvalidArgument(message);
         }

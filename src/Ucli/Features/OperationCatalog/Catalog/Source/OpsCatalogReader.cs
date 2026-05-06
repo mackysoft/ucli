@@ -4,7 +4,6 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
@@ -78,26 +77,26 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
             {
                 return OpsCatalogFetchResult.Failure(
                     $"{responseSourceName} failed with status '{response.FailureStatus}'.",
-                    IpcErrorCodes.InternalError);
+                    UcliCoreErrorCodes.InternalError);
             }
 
             return OpsCatalogFetchResult.Failure(
                 $"{responseSourceName} failed with an error status.",
-                IpcErrorCodes.InternalError);
+                UcliCoreErrorCodes.InternalError);
         }
 
         if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcOpsReadResponse payload, out var payloadError))
         {
             return OpsCatalogFetchResult.Failure(
                 $"{responseSourceName} payload is invalid. {payloadError.Message}",
-                IpcErrorCodes.InternalError);
+                UcliCoreErrorCodes.InternalError);
         }
 
         if (!IndexCatalogContractValidator.TryValidateOpsEntries(payload.Operations, "operations", out var validationError))
         {
             return OpsCatalogFetchResult.Failure(
                 $"{responseSourceName} payload is invalid. {validationError}",
-                IpcErrorCodes.InternalError);
+                UcliCoreErrorCodes.InternalError);
         }
 
         return OpsCatalogFetchResult.Success(payload);

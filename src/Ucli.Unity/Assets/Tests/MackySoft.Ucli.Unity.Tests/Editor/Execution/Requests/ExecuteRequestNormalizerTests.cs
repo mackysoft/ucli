@@ -1778,7 +1778,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error, Is.Not.Null);
-            Assert.That(result.Error!.Code, Is.EqualTo(IpcErrorCodes.ProtocolVersionMismatch));
+            Assert.That(result.Error!.Code, Is.EqualTo(IpcProtocolErrorCodes.ProtocolVersionMismatch));
             Assert.That(result.Error.OpId, Is.Null);
         }
 
@@ -2031,7 +2031,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error, Is.Not.Null);
-            Assert.That(result.Error!.Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(result.Error!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(result.Error.OpId, Is.EqualTo("badCommit"));
             Assert.That(result.Error.Message, Is.EqualTo("Edit step property 'step.commit' must be one of 'none', 'context', or 'project'."));
         }
@@ -2080,7 +2080,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Request, Is.Null);
             Assert.That(result.Error, Is.Not.Null);
-            Assert.That(result.Error!.Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(result.Error!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(result.Error.OpId, Is.EqualTo(expectedOpId));
         }
 

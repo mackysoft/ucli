@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests.Ops.Source;
@@ -68,7 +67,7 @@ public sealed class OpsCatalogReaderTests
                 IpcProtocol.StatusError,
                 [
                     new IpcError(
-                        IpcErrorCodes.InvalidArgument,
+                        UcliCoreErrorCodes.InvalidArgument,
                         "invalid request",
                         null),
                 ],
@@ -86,7 +85,7 @@ public sealed class OpsCatalogReaderTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
         Assert.Equal("invalid request", result.Message);
     }
 
@@ -113,7 +112,7 @@ public sealed class OpsCatalogReaderTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
         Assert.Equal("ops.read failed with status 'busy'.", result.Message);
     }
 
@@ -143,7 +142,7 @@ public sealed class OpsCatalogReaderTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
         Assert.Contains("payload is invalid", result.Message, StringComparison.Ordinal);
     }
 

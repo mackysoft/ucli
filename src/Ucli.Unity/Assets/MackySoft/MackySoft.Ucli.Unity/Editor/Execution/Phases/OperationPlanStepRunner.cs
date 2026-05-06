@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -35,7 +36,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!operationRegistry.TryResolve(operation.Op, out var phaseOperation))
             {
                 var missingOperationFailure = new OperationFailure(
-                    Code: IpcErrorCodes.CommandNotImplemented,
+                    Code: UcliCoreErrorCodes.CommandNotImplemented,
                     Message: $"Operation '{operation.Op}' is not implemented.",
                     OpId: operation.Id);
                 return new OperationPlanStepOutcome(

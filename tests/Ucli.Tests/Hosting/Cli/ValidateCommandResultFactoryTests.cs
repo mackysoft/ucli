@@ -2,7 +2,6 @@ using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Validate.Common.Contracts;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -60,14 +59,14 @@ public sealed class ValidateCommandResultFactoryTests
     {
         var result = ValidateCommandResultFactory.Create(ValidateServiceResult.Failure(
             "Index contract file 'ops.catalog.json' is malformed.",
-            IpcErrorCodes.ReadIndexFormatInvalid,
+            ReadIndexErrorCodes.ReadIndexFormatInvalid,
             new ValidateExecutionOutput(CreateReadIndexInfo())));
 
         Assert.Equal(UcliCommandNames.Validate, result.Command);
         Assert.Equal("error", result.Status);
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
         Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.ReadIndexFormatInvalid, result.Errors[0].Code);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexFormatInvalid, result.Errors[0].Code);
 
         var payload = JsonSerializer.SerializeToElement(result.Payload);
         JsonAssert.For(payload)

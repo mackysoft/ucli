@@ -287,7 +287,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(secondResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(secondResponse.Errors.Count, Is.EqualTo(1));
-            Assert.That(secondResponse.Errors[0].Code, Is.EqualTo(IpcErrorCodes.RequestIdConflict));
+            Assert.That(secondResponse.Errors[0].Code, Is.EqualTo(ExecuteRequestErrorCodes.RequestIdConflict));
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(1));
             AssertEmptyOpResultsPayload(secondResponse.Payload);
         });
@@ -317,7 +317,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(secondResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(secondResponse.Errors.Count, Is.EqualTo(1));
-            Assert.That(secondResponse.Errors[0].Code, Is.EqualTo(IpcErrorCodes.RequestIdConflict));
+            Assert.That(secondResponse.Errors[0].Code, Is.EqualTo(ExecuteRequestErrorCodes.RequestIdConflict));
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(1));
             AssertEmptyOpResultsPayload(secondResponse.Payload);
         });
@@ -367,7 +367,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.EditorBusy));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(EditorLifecycleErrorCodes.EditorBusy));
             Assert.That(readinessGate.CallCount, Is.EqualTo(1));
             Assert.That(readinessGate.LastFailFast, Is.True);
             Assert.That(mainThreadRequestExecutor.CallCount, Is.EqualTo(0));
@@ -387,7 +387,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Dispatch_WhenNormalizationFails_ReturnsNormalizationError () => UniTask.ToCoroutine(async () =>
         {
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Failure(
-                new ExecuteRequestNormalizationError(IpcErrorCodes.InvalidArgument, "invalid request", "op-1")));
+                new ExecuteRequestNormalizationError(UcliCoreErrorCodes.InvalidArgument, "invalid request", "op-1")));
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(CreateNormalizedRequest()));
             var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
@@ -397,7 +397,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(response.Errors[0].OpId, Is.EqualTo("op-1"));
             AssertEmptyOpResultsPayload(response.Payload);
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
@@ -408,7 +408,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Dispatch_WhenCommandIsNotImplemented_DoesNotWaitForReadiness () => UniTask.ToCoroutine(async () =>
         {
             var normalizer = new SpyExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Failure(
-                new ExecuteRequestNormalizationError(IpcErrorCodes.InvalidArgument, "normalizer should not run", null)));
+                new ExecuteRequestNormalizationError(UcliCoreErrorCodes.InvalidArgument, "normalizer should not run", null)));
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(CreateNormalizedRequest()));
             var readinessGate = StubUnityEditorReadinessGate.CreatePending();
             var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor, readinessGate);
@@ -419,7 +419,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.CommandNotImplemented));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.CommandNotImplemented));
             Assert.That(readinessGate.CallCount, Is.EqualTo(0));
             Assert.That(normalizer.CallCount, Is.EqualTo(0));
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
@@ -430,7 +430,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Dispatch_WhenNormalizationFails_DoesNotWaitForReadiness () => UniTask.ToCoroutine(async () =>
         {
             var normalizer = new SpyExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Failure(
-                new ExecuteRequestNormalizationError(IpcErrorCodes.InvalidArgument, "invalid request", "op-1")));
+                new ExecuteRequestNormalizationError(UcliCoreErrorCodes.InvalidArgument, "invalid request", "op-1")));
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(CreateNormalizedRequest()));
             var readinessGate = StubUnityEditorReadinessGate.CreatePending();
             var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor, readinessGate);
@@ -441,7 +441,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(readinessGate.CallCount, Is.EqualTo(0));
             Assert.That(normalizer.CallCount, Is.EqualTo(1));
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
@@ -452,7 +452,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Dispatch_WhenArgumentsIsNotObject_ReturnsInvalidArgumentWithoutExecuting () => UniTask.ToCoroutine(async () =>
         {
             var normalizer = new SpyExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Failure(
-                new ExecuteRequestNormalizationError(IpcErrorCodes.InvalidArgument, "normalizer should not run", null)));
+                new ExecuteRequestNormalizationError(UcliCoreErrorCodes.InvalidArgument, "normalizer should not run", null)));
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(CreateNormalizedRequest()));
             var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
@@ -462,7 +462,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(response.Errors[0].Message, Is.EqualTo("Request arguments must be a JSON object."));
             AssertEmptyOpResultsPayload(response.Payload);
             Assert.That(normalizer.CallCount, Is.EqualTo(0));
@@ -491,7 +491,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         {
                             new OperationTouch(OperationTouchKind.Scene, "Assets/Scenes/Main.unity", "11111111111111111111111111111111"),
                         },
-                        new OperationFailure(IpcErrorCodes.InvalidArgument, "call failed", "op-1")),
+                        new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "call failed", "op-1")),
                     new OperationPhaseTrace(
                         "op-2",
                         MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen,
@@ -503,7 +503,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 errors: new[]
                 {
-                    new OperationFailure(IpcErrorCodes.InvalidArgument, "call failed", "op-1"),
+                    new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "call failed", "op-1"),
                 }));
             var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
@@ -518,7 +518,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(response.Errors[0].OpId, Is.EqualTo("op-1"));
             Assert.That(response.Payload.TryGetProperty("opResults", out var opResults), Is.True);
             Assert.That(opResults.GetArrayLength(), Is.EqualTo(2));
@@ -545,7 +545,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         true,
                         true,
                         Array.Empty<OperationTouch>(),
-                        new OperationFailure(IpcErrorCodes.InvalidArgument, "edit failed", "edit-1")),
+                        new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "edit failed", "edit-1")),
                     new OperationPhaseTrace(
                         "edit-1#1",
                         MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave,
@@ -557,7 +557,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 errors: new[]
                 {
-                    new OperationFailure(IpcErrorCodes.InvalidArgument, "edit failed", "edit-1"),
+                    new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "edit failed", "edit-1"),
                 }));
             var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
@@ -675,7 +675,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static async UniTask AssertReturnsCommandNotImplementedError (string commandName)
         {
             var normalizer = new SpyExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Failure(
-                new ExecuteRequestNormalizationError(IpcErrorCodes.InvalidArgument, "normalizer should not run", null)));
+                new ExecuteRequestNormalizationError(UcliCoreErrorCodes.InvalidArgument, "normalizer should not run", null)));
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(CreateNormalizedRequest()));
             var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
@@ -685,7 +685,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.CommandNotImplemented));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.CommandNotImplemented));
             AssertEmptyOpResultsPayload(response.Payload);
             Assert.That(normalizer.CallCount, Is.EqualTo(0));
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
