@@ -12,171 +12,19 @@ internal static class CSharpSourceScanner
 
         for (var index = 0; index < sourceText.Length; index++)
         {
-            var current = sourceText[index];
-            var next = index + 1 < sourceText.Length ? sourceText[index + 1] : '\0';
-
-            switch (state)
+            if (state == CSharpTriviaState.Normal
+                && TryStripInterpolatedStringLiteral(sourceText, index, builder, out var interpolatedStringEndIndex))
             {
-                case CSharpTriviaState.Normal:
-                    if (TryStripInterpolatedStringLiteral(sourceText, index, builder, out var interpolatedStringEndIndex))
-                    {
-                        index = interpolatedStringEndIndex;
-                    }
-                    else if (current == '/' && next == '/')
-                    {
-                        builder.Append(' ');
-                        builder.Append(' ');
-                        index++;
-                        state = CSharpTriviaState.LineComment;
-                    }
-                    else if (current == '/' && next == '*')
-                    {
-                        builder.Append(' ');
-                        builder.Append(' ');
-                        index++;
-                        state = CSharpTriviaState.BlockComment;
-                    }
-                    else if (current == '@' && next == '"')
-                    {
-                        builder.Append(' ');
-                        builder.Append(' ');
-                        index++;
-                        state = CSharpTriviaState.VerbatimStringLiteral;
-                    }
-                    else if (current == '"')
-                    {
-                        rawStringQuoteCount = CountQuoteRun(sourceText, index);
-                        if (rawStringQuoteCount >= 3)
-                        {
-                            AppendSpaces(builder, rawStringQuoteCount);
-                            index += rawStringQuoteCount - 1;
-                            state = CSharpTriviaState.RawStringLiteral;
-                        }
-                        else
-                        {
-                            builder.Append(' ');
-                            state = CSharpTriviaState.StringLiteral;
-                        }
-                    }
-                    else if (current == '\'')
-                    {
-                        builder.Append(' ');
-                        state = CSharpTriviaState.CharacterLiteral;
-                    }
-                    else
-                    {
-                        builder.Append(current);
-                    }
-
-                    break;
-
-                case CSharpTriviaState.LineComment:
-                    if (current == '\n')
-                    {
-                        builder.Append(current);
-                        state = CSharpTriviaState.Normal;
-                    }
-                    else
-                    {
-                        builder.Append(' ');
-                    }
-
-                    break;
-
-                case CSharpTriviaState.BlockComment:
-                    if (current == '*' && next == '/')
-                    {
-                        builder.Append(' ');
-                        builder.Append(' ');
-                        index++;
-                        state = CSharpTriviaState.Normal;
-                    }
-                    else
-                    {
-                        AppendTriviaReplacement(builder, current);
-                    }
-
-                    break;
-
-                case CSharpTriviaState.StringLiteral:
-                    if (current == '\\' && next != '\0')
-                    {
-                        builder.Append(' ');
-                        builder.Append(next == '\n' ? '\n' : ' ');
-                        index++;
-                    }
-                    else if (current == '"')
-                    {
-                        builder.Append(' ');
-                        state = CSharpTriviaState.Normal;
-                    }
-                    else
-                    {
-                        AppendTriviaReplacement(builder, current);
-                    }
-
-                    break;
-
-                case CSharpTriviaState.VerbatimStringLiteral:
-                    if (current == '"' && next == '"')
-                    {
-                        builder.Append(' ');
-                        builder.Append(' ');
-                        index++;
-                    }
-                    else if (current == '"')
-                    {
-                        builder.Append(' ');
-                        state = CSharpTriviaState.Normal;
-                    }
-                    else
-                    {
-                        AppendTriviaReplacement(builder, current);
-                    }
-
-                    break;
-
-                case CSharpTriviaState.CharacterLiteral:
-                    if (current == '\\' && next != '\0')
-                    {
-                        builder.Append(' ');
-                        builder.Append(next == '\n' ? '\n' : ' ');
-                        index++;
-                    }
-                    else if (current == '\'')
-                    {
-                        builder.Append(' ');
-                        state = CSharpTriviaState.Normal;
-                    }
-                    else
-                    {
-                        AppendTriviaReplacement(builder, current);
-                    }
-
-                    break;
-
-                case CSharpTriviaState.RawStringLiteral:
-                    if (current == '"')
-                    {
-                        var quoteCount = CountQuoteRun(sourceText, index);
-                        if (quoteCount >= rawStringQuoteCount)
-                        {
-                            AppendSpaces(builder, quoteCount);
-                            index += quoteCount - 1;
-                            state = CSharpTriviaState.Normal;
-                        }
-                        else
-                        {
-                            AppendTriviaReplacement(builder, current);
-                        }
-                    }
-                    else
-                    {
-                        AppendTriviaReplacement(builder, current);
-                    }
-
-                    break;
+                index = interpolatedStringEndIndex;
+                continue;
             }
+
+            if (TryAdvanceTrivia(sourceText, ref index, ref state, ref rawStringQuoteCount, builder))
+            {
+                continue;
+            }
+
+            builder.Append(sourceText[index]);
         }
 
         return builder.ToString();
@@ -188,7 +36,6 @@ internal static class CSharpSourceScanner
         StringBuilder builder,
         out int endIndex)
     {
-        endIndex = startIndex;
         if (TryStripRawInterpolatedStringLiteral(sourceText, startIndex, builder, out endIndex))
         {
             return true;
@@ -392,154 +239,54 @@ internal static class CSharpSourceScanner
 
         for (var index = 0; index < value.Length; index++)
         {
+            if (TryAdvanceTrivia(value, ref index, ref state, ref rawStringQuoteCount, replacementBuilder: null))
+            {
+                continue;
+            }
+
             var current = value[index];
             var next = index + 1 < value.Length ? value[index + 1] : '\0';
-
-            switch (state)
+            if (current == '(')
             {
-                case CSharpTriviaState.Normal:
-                    if (current == '/' && next == '/')
+                parenthesisDepth++;
+            }
+            else if (current == ')')
+            {
+                parenthesisDepth = Math.Max(0, parenthesisDepth - 1);
+            }
+            else if (current == '[')
+            {
+                bracketDepth++;
+            }
+            else if (current == ']')
+            {
+                bracketDepth = Math.Max(0, bracketDepth - 1);
+            }
+            else if (current == '{')
+            {
+                braceDepth++;
+            }
+            else if (current == '}')
+            {
+                braceDepth = Math.Max(0, braceDepth - 1);
+            }
+            else if (parenthesisDepth == 0 && bracketDepth == 0 && braceDepth == 0)
+            {
+                if (current == '?' && next != '?' && next != '.' && next != '[')
+                {
+                    conditionalDepth++;
+                }
+                else if (current == ':')
+                {
+                    if (conditionalDepth > 0)
                     {
-                        index++;
-                        state = CSharpTriviaState.LineComment;
+                        conditionalDepth--;
                     }
-                    else if (current == '/' && next == '*')
+                    else
                     {
-                        index++;
-                        state = CSharpTriviaState.BlockComment;
+                        return index;
                     }
-                    else if (current == '@' && next == '"')
-                    {
-                        index++;
-                        state = CSharpTriviaState.VerbatimStringLiteral;
-                    }
-                    else if (current == '"')
-                    {
-                        rawStringQuoteCount = CountQuoteRun(value, index);
-                        if (rawStringQuoteCount >= 3)
-                        {
-                            index += rawStringQuoteCount - 1;
-                            state = CSharpTriviaState.RawStringLiteral;
-                        }
-                        else
-                        {
-                            state = CSharpTriviaState.StringLiteral;
-                        }
-                    }
-                    else if (current == '\'')
-                    {
-                        state = CSharpTriviaState.CharacterLiteral;
-                    }
-                    else if (current == '(')
-                    {
-                        parenthesisDepth++;
-                    }
-                    else if (current == ')')
-                    {
-                        parenthesisDepth = Math.Max(0, parenthesisDepth - 1);
-                    }
-                    else if (current == '[')
-                    {
-                        bracketDepth++;
-                    }
-                    else if (current == ']')
-                    {
-                        bracketDepth = Math.Max(0, bracketDepth - 1);
-                    }
-                    else if (current == '{')
-                    {
-                        braceDepth++;
-                    }
-                    else if (current == '}')
-                    {
-                        braceDepth = Math.Max(0, braceDepth - 1);
-                    }
-                    else if (parenthesisDepth == 0 && bracketDepth == 0 && braceDepth == 0)
-                    {
-                        if (current == '?' && next != '?' && next != '.' && next != '[')
-                        {
-                            conditionalDepth++;
-                        }
-                        else if (current == ':')
-                        {
-                            if (conditionalDepth > 0)
-                            {
-                                conditionalDepth--;
-                            }
-                            else
-                            {
-                                return index;
-                            }
-                        }
-                    }
-
-                    break;
-
-                case CSharpTriviaState.LineComment:
-                    if (current == '\n')
-                    {
-                        state = CSharpTriviaState.Normal;
-                    }
-
-                    break;
-
-                case CSharpTriviaState.BlockComment:
-                    if (current == '*' && next == '/')
-                    {
-                        index++;
-                        state = CSharpTriviaState.Normal;
-                    }
-
-                    break;
-
-                case CSharpTriviaState.StringLiteral:
-                    if (current == '\\' && next != '\0')
-                    {
-                        index++;
-                    }
-                    else if (current == '"')
-                    {
-                        state = CSharpTriviaState.Normal;
-                    }
-
-                    break;
-
-                case CSharpTriviaState.VerbatimStringLiteral:
-                    if (current == '"' && next == '"')
-                    {
-                        index++;
-                    }
-                    else if (current == '"')
-                    {
-                        state = CSharpTriviaState.Normal;
-                    }
-
-                    break;
-
-                case CSharpTriviaState.CharacterLiteral:
-                    if (current == '\\' && next != '\0')
-                    {
-                        index++;
-                    }
-                    else if (current == '\'')
-                    {
-                        state = CSharpTriviaState.Normal;
-                    }
-
-                    break;
-
-                case CSharpTriviaState.RawStringLiteral:
-                    if (current == '"')
-                    {
-                        var quoteCount = CountQuoteRun(value, index);
-                        if (quoteCount >= rawStringQuoteCount)
-                        {
-                            index += quoteCount - 1;
-                            state = CSharpTriviaState.Normal;
-                        }
-                    }
-
-                    break;
+                }
             }
         }
 
@@ -554,124 +301,23 @@ internal static class CSharpSourceScanner
 
         for (var index = startIndex; index < sourceText.Length; index++)
         {
-            var current = sourceText[index];
-            var next = index + 1 < sourceText.Length ? sourceText[index + 1] : '\0';
-
-            switch (state)
+            if (TryAdvanceTrivia(sourceText, ref index, ref state, ref rawStringQuoteCount, replacementBuilder: null))
             {
-                case CSharpTriviaState.Normal:
-                    if (current == '/' && next == '/')
-                    {
-                        index++;
-                        state = CSharpTriviaState.LineComment;
-                    }
-                    else if (current == '/' && next == '*')
-                    {
-                        index++;
-                        state = CSharpTriviaState.BlockComment;
-                    }
-                    else if (current == '@' && next == '"')
-                    {
-                        index++;
-                        state = CSharpTriviaState.VerbatimStringLiteral;
-                    }
-                    else if (current == '"')
-                    {
-                        rawStringQuoteCount = CountQuoteRun(sourceText, index);
-                        if (rawStringQuoteCount >= 3)
-                        {
-                            index += rawStringQuoteCount - 1;
-                            state = CSharpTriviaState.RawStringLiteral;
-                        }
-                        else
-                        {
-                            state = CSharpTriviaState.StringLiteral;
-                        }
-                    }
-                    else if (current == '\'')
-                    {
-                        state = CSharpTriviaState.CharacterLiteral;
-                    }
-                    else if (current == '{')
-                    {
-                        braceDepth++;
-                    }
-                    else if (current == '}')
-                    {
-                        braceDepth--;
-                        if (braceDepth == 0)
-                        {
-                            return index;
-                        }
-                    }
+                continue;
+            }
 
-                    break;
-
-                case CSharpTriviaState.LineComment:
-                    if (current == '\n')
-                    {
-                        state = CSharpTriviaState.Normal;
-                    }
-
-                    break;
-
-                case CSharpTriviaState.BlockComment:
-                    if (current == '*' && next == '/')
-                    {
-                        index++;
-                        state = CSharpTriviaState.Normal;
-                    }
-
-                    break;
-
-                case CSharpTriviaState.StringLiteral:
-                    if (current == '\\' && next != '\0')
-                    {
-                        index++;
-                    }
-                    else if (current == '"')
-                    {
-                        state = CSharpTriviaState.Normal;
-                    }
-
-                    break;
-
-                case CSharpTriviaState.VerbatimStringLiteral:
-                    if (current == '"' && next == '"')
-                    {
-                        index++;
-                    }
-                    else if (current == '"')
-                    {
-                        state = CSharpTriviaState.Normal;
-                    }
-
-                    break;
-
-                case CSharpTriviaState.CharacterLiteral:
-                    if (current == '\\' && next != '\0')
-                    {
-                        index++;
-                    }
-                    else if (current == '\'')
-                    {
-                        state = CSharpTriviaState.Normal;
-                    }
-
-                    break;
-
-                case CSharpTriviaState.RawStringLiteral:
-                    if (current == '"')
-                    {
-                        var quoteCount = CountQuoteRun(sourceText, index);
-                        if (quoteCount >= rawStringQuoteCount)
-                        {
-                            index += quoteCount - 1;
-                            state = CSharpTriviaState.Normal;
-                        }
-                    }
-
-                    break;
+            var current = sourceText[index];
+            if (current == '{')
+            {
+                braceDepth++;
+            }
+            else if (current == '}')
+            {
+                braceDepth--;
+                if (braceDepth == 0)
+                {
+                    return index;
+                }
             }
         }
 
@@ -686,142 +332,220 @@ internal static class CSharpSourceScanner
 
         for (var index = startIndex; index < sourceText.Length; index++)
         {
-            var current = sourceText[index];
-            var next = index + 1 < sourceText.Length ? sourceText[index + 1] : '\0';
-
-            switch (state)
+            if (TryAdvanceTrivia(sourceText, ref index, ref state, ref rawStringQuoteCount, replacementBuilder: null))
             {
-                case CSharpTriviaState.Normal:
-                    if (current == '/' && next == '/')
-                    {
-                        index++;
-                        state = CSharpTriviaState.LineComment;
-                    }
-                    else if (current == '/' && next == '*')
-                    {
-                        index++;
-                        state = CSharpTriviaState.BlockComment;
-                    }
-                    else if (current == '@' && next == '"')
-                    {
-                        index++;
-                        state = CSharpTriviaState.VerbatimStringLiteral;
-                    }
-                    else if (current == '"')
-                    {
-                        rawStringQuoteCount = CountQuoteRun(sourceText, index);
-                        if (rawStringQuoteCount >= 3)
-                        {
-                            index += rawStringQuoteCount - 1;
-                            state = CSharpTriviaState.RawStringLiteral;
-                        }
-                        else
-                        {
-                            state = CSharpTriviaState.StringLiteral;
-                        }
-                    }
-                    else if (current == '\'')
-                    {
-                        state = CSharpTriviaState.CharacterLiteral;
-                    }
-                    else if (current == '{')
-                    {
-                        braceDepth++;
-                    }
-                    else if (current == '}')
-                    {
-                        var closingBraceCount = CountCharacterRun(sourceText, index, '}');
-                        if (braceDepth == 0 && closingBraceCount >= delimiterBraceCount)
-                        {
-                            return index;
-                        }
+                continue;
+            }
 
-                        if (braceDepth > 0)
-                        {
-                            braceDepth--;
-                        }
-                    }
+            var current = sourceText[index];
+            if (current == '{')
+            {
+                braceDepth++;
+            }
+            else if (current == '}')
+            {
+                var closingBraceCount = CountCharacterRun(sourceText, index, '}');
+                if (braceDepth == 0 && closingBraceCount >= delimiterBraceCount)
+                {
+                    return index;
+                }
 
-                    break;
-
-                case CSharpTriviaState.LineComment:
-                    if (current == '\n')
-                    {
-                        state = CSharpTriviaState.Normal;
-                    }
-
-                    break;
-
-                case CSharpTriviaState.BlockComment:
-                    if (current == '*' && next == '/')
-                    {
-                        index++;
-                        state = CSharpTriviaState.Normal;
-                    }
-
-                    break;
-
-                case CSharpTriviaState.StringLiteral:
-                    if (current == '\\' && next != '\0')
-                    {
-                        index++;
-                    }
-                    else if (current == '"')
-                    {
-                        state = CSharpTriviaState.Normal;
-                    }
-
-                    break;
-
-                case CSharpTriviaState.VerbatimStringLiteral:
-                    if (current == '"' && next == '"')
-                    {
-                        index++;
-                    }
-                    else if (current == '"')
-                    {
-                        state = CSharpTriviaState.Normal;
-                    }
-
-                    break;
-
-                case CSharpTriviaState.CharacterLiteral:
-                    if (current == '\\' && next != '\0')
-                    {
-                        index++;
-                    }
-                    else if (current == '\'')
-                    {
-                        state = CSharpTriviaState.Normal;
-                    }
-
-                    break;
-
-                case CSharpTriviaState.RawStringLiteral:
-                    if (current == '"')
-                    {
-                        var quoteCount = CountQuoteRun(sourceText, index);
-                        if (quoteCount >= rawStringQuoteCount)
-                        {
-                            index += quoteCount - 1;
-                            state = CSharpTriviaState.Normal;
-                        }
-                    }
-
-                    break;
+                if (braceDepth > 0)
+                {
+                    braceDepth--;
+                }
             }
         }
 
         return -1;
     }
 
-    private static void AppendTriviaReplacement (StringBuilder builder, char value)
+    private static bool TryAdvanceTrivia (
+        string sourceText,
+        ref int index,
+        ref CSharpTriviaState state,
+        ref int rawStringQuoteCount,
+        StringBuilder? replacementBuilder)
     {
-        builder.Append(value == '\n' ? '\n' : ' ');
+        var current = sourceText[index];
+        var next = index + 1 < sourceText.Length ? sourceText[index + 1] : '\0';
+
+        switch (state)
+        {
+            case CSharpTriviaState.Normal:
+                if (current == '/' && next == '/')
+                {
+                    AppendSpaces(replacementBuilder, 2);
+                    index++;
+                    state = CSharpTriviaState.LineComment;
+                    return true;
+                }
+
+                if (current == '/' && next == '*')
+                {
+                    AppendSpaces(replacementBuilder, 2);
+                    index++;
+                    state = CSharpTriviaState.BlockComment;
+                    return true;
+                }
+
+                if (current == '@' && next == '"')
+                {
+                    AppendSpaces(replacementBuilder, 2);
+                    index++;
+                    state = CSharpTriviaState.VerbatimStringLiteral;
+                    return true;
+                }
+
+                if (current == '"')
+                {
+                    rawStringQuoteCount = CountQuoteRun(sourceText, index);
+                    if (rawStringQuoteCount >= 3)
+                    {
+                        AppendSpaces(replacementBuilder, rawStringQuoteCount);
+                        index += rawStringQuoteCount - 1;
+                        state = CSharpTriviaState.RawStringLiteral;
+                    }
+                    else
+                    {
+                        AppendSpaces(replacementBuilder, 1);
+                        state = CSharpTriviaState.StringLiteral;
+                    }
+
+                    return true;
+                }
+
+                if (current == '\'')
+                {
+                    AppendSpaces(replacementBuilder, 1);
+                    state = CSharpTriviaState.CharacterLiteral;
+                    return true;
+                }
+
+                return false;
+
+            case CSharpTriviaState.LineComment:
+                if (current == '\n')
+                {
+                    replacementBuilder?.Append(current);
+                    state = CSharpTriviaState.Normal;
+                }
+                else
+                {
+                    AppendSpaces(replacementBuilder, 1);
+                }
+
+                return true;
+
+            case CSharpTriviaState.BlockComment:
+                if (current == '*' && next == '/')
+                {
+                    AppendSpaces(replacementBuilder, 2);
+                    index++;
+                    state = CSharpTriviaState.Normal;
+                }
+                else
+                {
+                    AppendTriviaReplacement(replacementBuilder, current);
+                }
+
+                return true;
+
+            case CSharpTriviaState.StringLiteral:
+                if (current == '\\' && next != '\0')
+                {
+                    AppendSpaces(replacementBuilder, 1);
+                    AppendTriviaReplacement(replacementBuilder, next);
+                    index++;
+                }
+                else if (current == '"')
+                {
+                    AppendSpaces(replacementBuilder, 1);
+                    state = CSharpTriviaState.Normal;
+                }
+                else
+                {
+                    AppendTriviaReplacement(replacementBuilder, current);
+                }
+
+                return true;
+
+            case CSharpTriviaState.VerbatimStringLiteral:
+                if (current == '"' && next == '"')
+                {
+                    AppendSpaces(replacementBuilder, 2);
+                    index++;
+                }
+                else if (current == '"')
+                {
+                    AppendSpaces(replacementBuilder, 1);
+                    state = CSharpTriviaState.Normal;
+                }
+                else
+                {
+                    AppendTriviaReplacement(replacementBuilder, current);
+                }
+
+                return true;
+
+            case CSharpTriviaState.CharacterLiteral:
+                if (current == '\\' && next != '\0')
+                {
+                    AppendSpaces(replacementBuilder, 1);
+                    AppendTriviaReplacement(replacementBuilder, next);
+                    index++;
+                }
+                else if (current == '\'')
+                {
+                    AppendSpaces(replacementBuilder, 1);
+                    state = CSharpTriviaState.Normal;
+                }
+                else
+                {
+                    AppendTriviaReplacement(replacementBuilder, current);
+                }
+
+                return true;
+
+            case CSharpTriviaState.RawStringLiteral:
+                if (current == '"')
+                {
+                    var quoteCount = CountQuoteRun(sourceText, index);
+                    if (quoteCount >= rawStringQuoteCount)
+                    {
+                        AppendSpaces(replacementBuilder, quoteCount);
+                        index += quoteCount - 1;
+                        state = CSharpTriviaState.Normal;
+                    }
+                    else
+                    {
+                        AppendTriviaReplacement(replacementBuilder, current);
+                    }
+                }
+                else
+                {
+                    AppendTriviaReplacement(replacementBuilder, current);
+                }
+
+                return true;
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(state), state, "Unknown C# trivia state.");
+        }
     }
 
-    private static void AppendSpaces (StringBuilder builder, int count)
+    private static void AppendTriviaReplacement (StringBuilder? builder, char value)
     {
+        builder?.Append(value == '\n' ? '\n' : ' ');
+    }
+
+    private static void AppendSpaces (StringBuilder? builder, int count)
+    {
+        if (builder is null)
+        {
+            return;
+        }
+
         for (var index = 0; index < count; index++)
         {
             builder.Append(' ');

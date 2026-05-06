@@ -72,16 +72,6 @@ internal static class ArchitectureTestRepository
         return CSharpSourceScanner.StripCommentsAndStringLiterals(File.ReadAllText(sourceFile));
     }
 
-    internal static string[] ReadProjectReferences (string projectPath)
-    {
-        return ProjectFileReferenceReader.ReadProjectReferences(projectPath);
-    }
-
-    internal static string[] ReadPackageReferences (string projectPath)
-    {
-        return ProjectFileReferenceReader.ReadPackageReferences(projectPath);
-    }
-
     internal static string[] ReadUnityAsmdefReferences (string asmdefPath)
     {
         using var document = JsonDocument.Parse(File.ReadAllText(ToFullPath(asmdefPath)));
@@ -146,11 +136,6 @@ internal static class ArchitectureTestRepository
             friends.Add(sourceText[valueStart..valueEnd]);
             searchIndex = valueEnd + 1;
         }
-    }
-
-    internal static IEnumerable<PublicSurfaceDeclaration> ReadPublicSurfaceDeclarations (string sourceFile)
-    {
-        return PublicSurfaceDeclarationExtractor.Read(sourceFile);
     }
 
     private static bool IsUnityGeneratedProjectFile (string relativePath)

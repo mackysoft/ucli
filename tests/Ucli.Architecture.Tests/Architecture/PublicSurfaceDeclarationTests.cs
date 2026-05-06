@@ -21,8 +21,8 @@ public sealed class PublicSurfaceDeclarationTests
 
         try
         {
-            var declarations = ArchitectureTestRepository
-                .ReadPublicSurfaceDeclarations(sourceFile)
+            var declarations = PublicSurfaceDeclarationExtractor
+                .Read(sourceFile)
                 .Select(static declaration => declaration.Signature)
                 .ToArray();
 
@@ -56,8 +56,8 @@ public sealed class PublicSurfaceDeclarationTests
 
         try
         {
-            var declarations = ArchitectureTestRepository
-                .ReadPublicSurfaceDeclarations(sourceFile)
+            var declarations = PublicSurfaceDeclarationExtractor
+                .Read(sourceFile)
                 .Select(static declaration => declaration.Signature)
                 .ToArray();
 

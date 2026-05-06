@@ -27,21 +27,10 @@ public sealed class ProjectReferenceBoundaryTests
             ],
         };
 
-        var actualProjectPaths = ArchitectureTestRepository
-            .EnumerateProductionProjectFiles()
-            .OrderBy(static value => value, StringComparer.Ordinal)
-            .ToArray();
-        Assert.Equal(
-            expectedReferencesByProject.Keys.OrderBy(static value => value, StringComparer.Ordinal),
-            actualProjectPaths);
-
-        foreach (var (projectPath, expectedReferences) in expectedReferencesByProject)
-        {
-            var actualReferences = ArchitectureTestRepository.ReadProjectReferences(projectPath);
-            Assert.Equal(
-                expectedReferences.OrderBy(static value => value, StringComparer.Ordinal),
-                actualReferences.OrderBy(static value => value, StringComparer.Ordinal));
-        }
+        BoundaryAssertions.AssertAllowedItemsByPath(
+            expectedReferencesByProject,
+            ArchitectureTestRepository.EnumerateProductionProjectFiles(),
+            ProjectFileReferenceReader.ReadProjectReferences);
     }
 
     [Fact]
@@ -83,21 +72,10 @@ public sealed class ProjectReferenceBoundaryTests
             ],
         };
 
-        var actualProjectPaths = ArchitectureTestRepository
-            .EnumerateTestProjectFiles()
-            .OrderBy(static value => value, StringComparer.Ordinal)
-            .ToArray();
-        Assert.Equal(
-            expectedReferencesByProject.Keys.OrderBy(static value => value, StringComparer.Ordinal),
-            actualProjectPaths);
-
-        foreach (var (projectPath, expectedReferences) in expectedReferencesByProject)
-        {
-            var actualReferences = ArchitectureTestRepository.ReadProjectReferences(projectPath);
-            Assert.Equal(
-                expectedReferences.OrderBy(static value => value, StringComparer.Ordinal),
-                actualReferences.OrderBy(static value => value, StringComparer.Ordinal));
-        }
+        BoundaryAssertions.AssertAllowedItemsByPath(
+            expectedReferencesByProject,
+            ArchitectureTestRepository.EnumerateTestProjectFiles(),
+            ProjectFileReferenceReader.ReadProjectReferences);
     }
 
     [Fact]
@@ -113,28 +91,17 @@ public sealed class ProjectReferenceBoundaryTests
             ],
         };
 
-        var actualAsmdefPaths = Directory
-            .EnumerateFiles(
-                ArchitectureTestRepository.ToFullPath("src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity"),
-                "*.asmdef",
-                SearchOption.AllDirectories)
-            .Select(ArchitectureTestRepository.NormalizeRepositoryRelativePath)
-            .OrderBy(static value => value, StringComparer.Ordinal)
-            .ToArray();
-        Assert.Equal(
-            expectedReferencesByAsmdef.Keys.OrderBy(static value => value, StringComparer.Ordinal),
-            actualAsmdefPaths);
-
-        foreach (var (asmdefPath, expectedReferences) in expectedReferencesByAsmdef)
-        {
-            var actualReferences = ArchitectureTestRepository
+        BoundaryAssertions.AssertAllowedItemsByPath(
+            expectedReferencesByAsmdef,
+            Directory
+                .EnumerateFiles(
+                    ArchitectureTestRepository.ToFullPath("src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity"),
+                    "*.asmdef",
+                    SearchOption.AllDirectories)
+                .Select(ArchitectureTestRepository.NormalizeRepositoryRelativePath),
+            static asmdefPath => ArchitectureTestRepository
                 .ReadUnityAsmdefReferences(asmdefPath)
                 .Where(static reference => reference.StartsWith("MackySoft.Ucli", StringComparison.Ordinal))
-                .ToArray();
-            Assert.Equal(
-                expectedReferences.OrderBy(static value => value, StringComparer.Ordinal),
-                actualReferences.OrderBy(static value => value, StringComparer.Ordinal));
-        }
+                .ToArray());
     }
-
 }

@@ -25,21 +25,10 @@ public sealed class PackageReferenceBoundaryTests
             ],
         };
 
-        var actualProjectPaths = ArchitectureTestRepository
-            .EnumerateProductionProjectFiles()
-            .OrderBy(static value => value, StringComparer.Ordinal)
-            .ToArray();
-        Assert.Equal(
-            expectedPackagesByProject.Keys.OrderBy(static value => value, StringComparer.Ordinal),
-            actualProjectPaths);
-
-        foreach (var (projectPath, expectedPackages) in expectedPackagesByProject)
-        {
-            var actualPackages = ArchitectureTestRepository.ReadPackageReferences(projectPath);
-            Assert.Equal(
-                expectedPackages.OrderBy(static value => value, StringComparer.Ordinal),
-                actualPackages.OrderBy(static value => value, StringComparer.Ordinal));
-        }
+        BoundaryAssertions.AssertAllowedItemsByPath(
+            expectedPackagesByProject,
+            ArchitectureTestRepository.EnumerateProductionProjectFiles(),
+            ProjectFileReferenceReader.ReadPackageReferences);
     }
 
     [Fact]
@@ -64,21 +53,10 @@ public sealed class PackageReferenceBoundaryTests
             ["tests/Ucli.Tests/Ucli.Tests.csproj"] = expectedTestPackages,
         };
 
-        var actualProjectPaths = ArchitectureTestRepository
-            .EnumerateTestProjectFiles()
-            .OrderBy(static value => value, StringComparer.Ordinal)
-            .ToArray();
-        Assert.Equal(
-            expectedPackagesByProject.Keys.OrderBy(static value => value, StringComparer.Ordinal),
-            actualProjectPaths);
-
-        foreach (var (projectPath, expectedPackages) in expectedPackagesByProject)
-        {
-            var actualPackages = ArchitectureTestRepository.ReadPackageReferences(projectPath);
-            Assert.Equal(
-                expectedPackages.OrderBy(static value => value, StringComparer.Ordinal),
-                actualPackages.OrderBy(static value => value, StringComparer.Ordinal));
-        }
+        BoundaryAssertions.AssertAllowedItemsByPath(
+            expectedPackagesByProject,
+            ArchitectureTestRepository.EnumerateTestProjectFiles(),
+            ProjectFileReferenceReader.ReadPackageReferences);
     }
 
     [Fact]

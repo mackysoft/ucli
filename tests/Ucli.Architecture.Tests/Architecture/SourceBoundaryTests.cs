@@ -2,6 +2,33 @@ namespace MackySoft.Ucli.Architecture.Tests.Architecture;
 
 public sealed class SourceBoundaryTests
 {
+    private static readonly string[] HostResourceAndCliOutputApiMarkers =
+    [
+        "System.Diagnostics.Process",
+        "Process.Start(",
+        "new Process(",
+        "File.",
+        "Directory.",
+        "using System.IO;",
+        "global using System.IO;",
+        "System.IO.File",
+        "System.IO.Directory",
+        "System.IO.Path",
+        "Path.Combine(",
+        "Path.Get",
+        "Path.IsPath",
+        "Path.EndsInDirectorySeparator(",
+        "Environment.",
+        "System.Net.",
+        "SocketException",
+        "FileStream",
+        "FileInfo",
+        "DirectoryInfo",
+        "HttpClient",
+        "Console.",
+        "System.Console",
+    ];
+
     [Fact]
     [Trait("Size", "Small")]
     public void Contracts_source_does_not_reference_non_contract_ucli_boundaries ()
@@ -26,37 +53,9 @@ public sealed class SourceBoundaryTests
     [Trait("Size", "Small")]
     public void Contracts_source_does_not_use_host_resource_or_cli_output_apis ()
     {
-        var forbiddenSourceMarkers = new[]
-        {
-            "System.Diagnostics.Process",
-            "Process.Start(",
-            "new Process(",
-            "File.",
-            "Directory.",
-            "using System.IO;",
-            "global using System.IO;",
-            "System.IO.File",
-            "System.IO.Directory",
-            "System.IO.Path",
-            "Path.Combine(",
-            "Path.Get",
-            "Path.IsPath",
-            "Path.EndsInDirectorySeparator(",
-            "Environment.",
-            "System.Net.Sockets",
-            "System.Net.",
-            "SocketException",
-            "FileStream",
-            "FileInfo",
-            "DirectoryInfo",
-            "HttpClient",
-            "Console.",
-            "System.Console",
-        };
-
         AssertNoMarkersInCode(
             ArchitectureTestRepository.EnumerateCSharpSourceFiles("src/Ucli.Contracts"),
-            forbiddenSourceMarkers);
+            HostResourceAndCliOutputApiMarkers);
     }
 
     [Fact]
@@ -80,31 +79,9 @@ public sealed class SourceBoundaryTests
     [Trait("Size", "Small")]
     public void Application_source_does_not_use_host_resource_apis ()
     {
-        var forbiddenSourceMarkers = new[]
-        {
-            "System.Diagnostics.Process",
+        string[] applicationSpecificHostResourceMarkers =
+        [
             "DiagnosticsProcess",
-            "Process.Start(",
-            "new Process(",
-            "File.",
-            "Directory.",
-            "using System.IO;",
-            "global using System.IO;",
-            "System.IO.File",
-            "System.IO.Directory",
-            "System.IO.Path",
-            "Path.Combine(",
-            "Path.Get",
-            "Path.IsPath",
-            "Path.EndsInDirectorySeparator(",
-            "Environment.",
-            "System.Net.Sockets",
-            "System.Net.",
-            "SocketException",
-            "FileStream",
-            "FileInfo",
-            "DirectoryInfo",
-            "HttpClient",
             "IProcessRunner",
             "ProcessRunRequest",
             "ProcessRunResult",
@@ -112,15 +89,16 @@ public sealed class SourceBoundaryTests
             "ProcessOutputDrainMode",
             "ExecuteRequestPayloadFactory",
             "ReadIndexInfoTextCodec",
-            "Console.",
-            "System.Console",
             "ConsoleAppFramework",
             "Utf8JsonWriter",
             "JsonWriterOptions",
             "class UserRequestJsonNormalizer",
             "new IpcExecuteRequest",
             "IpcExecuteRequest(",
-        };
+        ];
+        var forbiddenSourceMarkers = HostResourceAndCliOutputApiMarkers
+            .Concat(applicationSpecificHostResourceMarkers)
+            .ToArray();
 
         AssertNoMarkersInCode(
             ArchitectureTestRepository.EnumerateCSharpSourceFiles("src/Ucli.Application"),
@@ -253,9 +231,9 @@ public sealed class SourceBoundaryTests
             "IpcPayloadCodec.SerializeToElement",
         };
 
-        AssertNoRawMarkers(
+        Assert.Empty(SourceMarkerDetector.FindRawMarkers(
             ArchitectureTestRepository.EnumerateCSharpSourceFiles("src/Ucli.Application"),
-            forbiddenSourceMarkers);
+            forbiddenSourceMarkers));
     }
 
     [Fact]
@@ -513,21 +491,10 @@ public sealed class SourceBoundaryTests
             ],
         };
 
-        var actualAssemblyInfoFiles = ArchitectureTestRepository
-            .EnumerateRepositoryAssemblyInfoFiles()
-            .OrderBy(static value => value, StringComparer.Ordinal)
-            .ToArray();
-        Assert.Equal(
-            expectedFriendsByAssemblyInfo.Keys.OrderBy(static value => value, StringComparer.Ordinal),
-            actualAssemblyInfoFiles);
-
-        foreach (var (assemblyInfoPath, expectedFriends) in expectedFriendsByAssemblyInfo)
-        {
-            var actualFriends = ArchitectureTestRepository.ReadInternalsVisibleToAssemblyNames(assemblyInfoPath);
-            Assert.Equal(
-                expectedFriends.OrderBy(static value => value, StringComparer.Ordinal),
-                actualFriends.OrderBy(static value => value, StringComparer.Ordinal));
-        }
+        BoundaryAssertions.AssertAllowedItemsByPath(
+            expectedFriendsByAssemblyInfo,
+            ArchitectureTestRepository.EnumerateRepositoryAssemblyInfoFiles(),
+            ArchitectureTestRepository.ReadInternalsVisibleToAssemblyNames);
     }
 
     [Fact]
@@ -589,7 +556,7 @@ public sealed class SourceBoundaryTests
         var violations = new List<string>();
         foreach (var sourceFile in sourceFiles)
         {
-            foreach (var declaration in ArchitectureTestRepository.ReadPublicSurfaceDeclarations(sourceFile))
+            foreach (var declaration in PublicSurfaceDeclarationExtractor.Read(sourceFile))
             {
                 foreach (var marker in forbiddenPublicSurfaceMarkers)
                 {
@@ -608,11 +575,6 @@ public sealed class SourceBoundaryTests
     private static void AssertNoMarkersInCode (IEnumerable<string> sourceFiles, IReadOnlyCollection<string> forbiddenMarkers)
     {
         Assert.Empty(SourceMarkerDetector.FindMarkersInCode(sourceFiles, forbiddenMarkers));
-    }
-
-    private static void AssertNoRawMarkers (IEnumerable<string> sourceFiles, IReadOnlyCollection<string> forbiddenMarkers)
-    {
-        Assert.Empty(SourceMarkerDetector.FindRawMarkers(sourceFiles, forbiddenMarkers));
     }
 
     private static bool ReferencesApplicationUseCaseNamespace (string sourceText)
