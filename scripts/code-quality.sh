@@ -115,25 +115,31 @@ diagnostics=(
   IDE1006
 )
 
-format_scope_args=()
-if [ "${#include_paths[@]}" -gt 0 ]; then
-  format_scope_args=(--include "${include_paths[@]}")
-fi
-
 run_restore() {
   if [ "$restore" = true ]; then
     dotnet restore "$solution"
   fi
 }
 
+run_dotnet_format() {
+  local command="$1"
+  shift
+
+  if [ "${#include_paths[@]}" -gt 0 ]; then
+    dotnet format "$command" "$solution" --include "${include_paths[@]}" "$@"
+  else
+    dotnet format "$command" "$solution" "$@"
+  fi
+}
+
 run_format() {
-  dotnet format style "$solution" "${format_scope_args[@]}" --diagnostics "${diagnostics[@]}" --verbosity minimal --no-restore
-  dotnet format whitespace "$solution" "${format_scope_args[@]}" --verbosity minimal --no-restore
+  run_dotnet_format style --diagnostics "${diagnostics[@]}" --verbosity minimal --no-restore
+  run_dotnet_format whitespace --verbosity minimal --no-restore
 }
 
 run_format_verify() {
-  dotnet format whitespace "$solution" "${format_scope_args[@]}" --verify-no-changes --verbosity minimal --no-restore
-  dotnet format style "$solution" "${format_scope_args[@]}" --diagnostics "${diagnostics[@]}" --verify-no-changes --verbosity minimal --no-restore
+  run_dotnet_format whitespace --verify-no-changes --verbosity minimal --no-restore
+  run_dotnet_format style --diagnostics "${diagnostics[@]}" --verify-no-changes --verbosity minimal --no-restore
 }
 
 run_restore
