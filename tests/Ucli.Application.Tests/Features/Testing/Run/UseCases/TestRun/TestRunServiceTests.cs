@@ -77,6 +77,38 @@ public sealed class TestRunServiceTests
         Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithConfigDiagnostics_ReturnsInvalidInput ()
+    {
+        var configuration = CreateResolvedConfiguration();
+        var service = CreateService(
+            configurationResolver: new StubConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
+            configStore: new StubConfigStore(UcliConfigLoadResult.Failure(
+            [
+                UcliConfigDiagnostic.Create(
+                    "config.semantic.unsupportedLiteral",
+                    "operationPolicy",
+                    "config.json",
+                    "Config operationPolicy is invalid: unsupported."),
+            ])),
+            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
+            artifactsService: new StubArtifactsService(
+                prepare: _ => throw new InvalidOperationException(),
+                complete: (_, _) => throw new InvalidOperationException()),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+            resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))));
+
+        var result = await service.Execute(CreateInput(), CancellationToken.None);
+
+        Assert.Null(result.Result);
+        Assert.Equal(TestRunErrorKind.InvalidInput, result.ErrorKind);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
+        Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Contains("operationPolicy", result.Message, StringComparison.Ordinal);
+    }
+
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, "Daemon is not running for mode=daemon.")]
@@ -591,11 +623,12 @@ public sealed class TestRunServiceTests
         ITestRunArtifactsService artifactsService,
         IUnityTestExecutor unityTestExecutor,
         IUnityResultsConverter resultsConverter,
+        IUcliConfigStore? configStore = null,
         IDaemonTestRunClient? daemonTestRunClient = null)
     {
         var preflightService = new TestRunPreflightService(
             configurationResolver,
-            new StubConfigStore(),
+            configStore ?? new StubConfigStore(),
             modeDecisionService);
         var executionPipeline = new TestRunExecutionPipeline(
             artifactsService,
@@ -678,6 +711,18 @@ public sealed class TestRunServiceTests
 
     private sealed class StubConfigStore : IUcliConfigStore
     {
+        private readonly UcliConfigLoadResult loadResult;
+
+        public StubConfigStore ()
+            : this(UcliConfigLoadResult.Success(UcliConfig.CreateDefault(), ConfigSource.Default))
+        {
+        }
+
+        public StubConfigStore (UcliConfigLoadResult loadResult)
+        {
+            this.loadResult = loadResult;
+        }
+
         public string GetConfigPath (string storageRoot)
         {
             return Path.Combine(storageRoot, ".ucli", "config.json");
@@ -687,7 +732,7 @@ public sealed class TestRunServiceTests
             string storageRoot,
             CancellationToken cancellationToken = default)
         {
-            return ValueTask.FromResult(UcliConfigLoadResult.Success(UcliConfig.CreateDefault(), ConfigSource.Default));
+            return ValueTask.FromResult(loadResult);
         }
 
         public ValueTask<UcliConfigSaveResult> Save (

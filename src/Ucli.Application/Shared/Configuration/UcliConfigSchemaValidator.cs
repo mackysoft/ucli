@@ -12,6 +12,7 @@ internal sealed class UcliConfigSchemaValidator
     private const string PropertyTypeMismatchCode = "config.schema.propertyTypeMismatch";
     private const string ArrayElementTypeMismatchCode = "config.schema.arrayElementTypeMismatch";
     private const string ObjectPropertyTypeMismatchCode = "config.schema.objectPropertyTypeMismatch";
+    private const string DuplicatePropertyCode = "config.schema.duplicateProperty";
 
     private static readonly HashSet<string> StrictAllowedProperties = new(StringComparer.Ordinal)
     {
@@ -46,7 +47,7 @@ internal sealed class UcliConfigSchemaValidator
             return UcliConfigSchemaValidationResult.Failure(diagnostics);
         }
 
-        AddUnknownPropertyDiagnostics(root, sourcePath, diagnostics);
+        AddObjectPropertyDiagnostics(root, sourcePath, diagnostics);
 
         var schemaVersion = ReadRequiredInt32(
             root,
@@ -99,13 +100,19 @@ internal sealed class UcliConfigSchemaValidator
             IpcTimeoutMillisecondsByCommand: ipcTimeoutMillisecondsByCommand));
     }
 
-    private static void AddUnknownPropertyDiagnostics (
+    private static void AddObjectPropertyDiagnostics (
         JsonElement root,
         string sourcePath,
         List<UcliConfigDiagnostic> diagnostics)
     {
+        var seenPropertyNames = new HashSet<string>(StringComparer.Ordinal);
         foreach (var property in root.EnumerateObject())
         {
+            if (!seenPropertyNames.Add(property.Name))
+            {
+                diagnostics.Add(CreateDuplicatePropertyDiagnostic(property.Name, sourcePath));
+            }
+
             if (StrictAllowedProperties.Contains(property.Name))
             {
                 continue;
@@ -263,8 +270,16 @@ internal sealed class UcliConfigSchemaValidator
         }
 
         var values = new Dictionary<string, int?>(StringComparer.Ordinal);
+        var seenPropertyNames = new HashSet<string>(StringComparer.Ordinal);
         foreach (var entry in property.EnumerateObject())
         {
+            var propertyPath = $"{propertyName}.{entry.Name}";
+            if (!seenPropertyNames.Add(entry.Name))
+            {
+                diagnostics.Add(CreateDuplicatePropertyDiagnostic(propertyPath, sourcePath));
+                continue;
+            }
+
             if (entry.Value.ValueKind == JsonValueKind.Null)
             {
                 values[entry.Name] = null;
@@ -273,7 +288,6 @@ internal sealed class UcliConfigSchemaValidator
 
             if (entry.Value.ValueKind != JsonValueKind.Number || !entry.Value.TryGetInt32(out var timeoutValue))
             {
-                var propertyPath = $"{propertyName}.{entry.Name}";
                 diagnostics.Add(CreateDiagnostic(
                     ObjectPropertyTypeMismatchCode,
                     propertyPath,
@@ -308,6 +322,17 @@ internal sealed class UcliConfigSchemaValidator
             propertyName,
             sourcePath,
             $"Config JSON property type is invalid: {propertyName}.");
+    }
+
+    private static UcliConfigDiagnostic CreateDuplicatePropertyDiagnostic (
+        string propertyPath,
+        string sourcePath)
+    {
+        return CreateDiagnostic(
+            DuplicatePropertyCode,
+            propertyPath,
+            sourcePath,
+            $"Config JSON contains duplicate property: {propertyPath}.");
     }
 
     private static UcliConfigDiagnostic CreateDiagnostic (

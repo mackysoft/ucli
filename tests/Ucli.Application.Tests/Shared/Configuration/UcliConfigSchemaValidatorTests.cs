@@ -73,4 +73,32 @@ public sealed class UcliConfigSchemaValidatorTests
         Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "ipcTimeoutMillisecondsByCommand.status");
         Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "unexpectedProperty");
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithDuplicateProperties_ReturnsDiagnostics ()
+    {
+        const string json = """
+        {
+          "schemaVersion": 1,
+          "operationPolicy": "safe",
+          "operationPolicy": "dangerous",
+          "planTokenMode": "required",
+          "operationAllowlist": ["^foo\\."],
+          "ipcTimeoutMillisecondsByCommand": {
+            "status": null,
+            "status": 15000
+          }
+        }
+        """;
+        using var document = JsonDocument.Parse(json);
+        var validator = new UcliConfigSchemaValidator();
+
+        var result = validator.Validate(document.RootElement, "config.json");
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Document);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == UcliConfigJsonPropertyNames.OperationPolicy);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "ipcTimeoutMillisecondsByCommand.status");
+    }
 }
