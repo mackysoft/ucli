@@ -70,12 +70,9 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                 .ConfigureAwait(false);
             if (!planExecutionResult.IsSuccess)
             {
-                var failure = planExecutionResult.FailureInfo!;
-                var error = RequestServiceResultPolicy.FromTransportFailure(
-                    failure.Code,
-                    failure.Message);
+                var failure = RequestServiceResultPolicy.FromUnityRequestFailure(planExecutionResult.FailureInfo!);
                 return CreateFailure(
-                    error,
+                    failure.Error,
                     failure.Outcome,
                     baseOutput);
             }
@@ -137,12 +134,9 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             .ConfigureAwait(false);
         if (!callExecutionResult.IsSuccess)
         {
-            var failure = callExecutionResult.FailureInfo!;
-            var error = RequestServiceResultPolicy.FromTransportFailure(
-                failure.Code,
-                failure.Message);
+            var failure = RequestServiceResultPolicy.FromUnityRequestFailure(callExecutionResult.FailureInfo!);
             return CreateFailure(
-                error,
+                failure.Error,
                 failure.Outcome,
                 baseOutput);
         }

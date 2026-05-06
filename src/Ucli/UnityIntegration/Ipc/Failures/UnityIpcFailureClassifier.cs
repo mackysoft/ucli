@@ -15,10 +15,9 @@ internal static class UnityIpcFailureClassifier
     /// <returns> The classified timeout failure. </returns>
     public static UnityRequestFailure Timeout (string message)
     {
-        return new UnityRequestFailure(
+        return FromCodeAndMessage(
             ExecutionErrorCodes.IpcTimeout,
-            message,
-            ApplicationOutcome.ToolError);
+            message);
     }
 
     /// <summary> Creates an internal failure. </summary>
@@ -26,10 +25,9 @@ internal static class UnityIpcFailureClassifier
     /// <returns> The classified internal failure. </returns>
     public static UnityRequestFailure InternalError (string message)
     {
-        return new UnityRequestFailure(
+        return FromCodeAndMessage(
             IpcErrorCodes.InternalError,
-            message,
-            ApplicationOutcome.ToolError);
+            message);
     }
 
     /// <summary> Converts a structured execution error into a Unity request failure. </summary>

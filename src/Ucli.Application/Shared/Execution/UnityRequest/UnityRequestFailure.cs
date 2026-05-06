@@ -19,6 +19,12 @@ internal sealed record UnityRequestFailure
             throw new ArgumentException("Failure outcome must not be success.", nameof(outcome));
         }
 
+        var resolvedOutcome = ApplicationFailureOutcomeResolver.Resolve(code);
+        if (outcome != resolvedOutcome)
+        {
+            throw new ArgumentException("Failure outcome must match the failure code.", nameof(outcome));
+        }
+
         Code = code;
         Message = message;
         Outcome = outcome;

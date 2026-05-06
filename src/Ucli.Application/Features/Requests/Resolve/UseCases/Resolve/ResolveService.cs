@@ -186,15 +186,12 @@ internal sealed class ResolveService : IResolveService
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
-            var failure = executionResult.FailureInfo!;
-            var error = RequestServiceResultPolicy.FromTransportFailure(
-                failure.Code,
-                failure.Message);
+            var failure = RequestServiceResultPolicy.FromUnityRequestFailure(executionResult.FailureInfo!);
             return ResolveServiceResultFactory.Failure(
                 requestId,
                 [],
                 [
-                    error,
+                    failure.Error,
                 ],
                 failure.Outcome,
                 readIndex);

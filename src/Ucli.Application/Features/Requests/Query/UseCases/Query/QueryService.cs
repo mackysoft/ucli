@@ -240,19 +240,16 @@ internal sealed class QueryService : IQueryService
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
-            var failure = executionResult.FailureInfo!;
-            var error = RequestServiceResultPolicy.FromTransportFailure(
-                failure.Code,
-                failure.Message);
+            var failure = RequestServiceResultPolicy.FromUnityRequestFailure(executionResult.FailureInfo!);
             return QueryServiceResultFactory.Failure(
                 operation.CommandName,
                 requestId,
                 [],
                 [
-                    error,
+                    failure.Error,
                 ],
                 failure.Outcome,
-                error.Message,
+                failure.Message,
                 readIndex);
         }
 

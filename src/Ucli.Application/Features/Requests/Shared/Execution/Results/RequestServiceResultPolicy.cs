@@ -130,6 +130,18 @@ internal static class RequestServiceResultPolicy
             opId);
     }
 
+    /// <summary> Converts one Unity request boundary failure into a request-service failure. </summary>
+    public static RequestServiceFailure FromUnityRequestFailure (UnityRequestFailure failure)
+    {
+        ArgumentNullException.ThrowIfNull(failure);
+
+        return new RequestServiceFailure(
+            FromTransportFailure(
+                failure.Code,
+                failure.Message),
+            failure.Outcome);
+    }
+
     /// <summary> Normalizes one operation execution error from an external result boundary. </summary>
     public static OperationExecutionError NormalizeError (
         OperationExecutionError error,

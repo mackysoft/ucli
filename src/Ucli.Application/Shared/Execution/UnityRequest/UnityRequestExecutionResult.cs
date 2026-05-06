@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts.Ipc;
-
 namespace MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 
 /// <summary> Represents one Unity request execution result. </summary>
@@ -52,26 +50,5 @@ internal sealed record UnityRequestExecutionResult
         return new UnityRequestExecutionResult(
             response: null,
             failure);
-    }
-
-    /// <summary> Creates a failed request-execution result. </summary>
-    /// <param name="message"> The user-facing failure message. </param>
-    /// <param name="errorCode"> The machine-readable failure code. </param>
-    /// <returns> The failed request-execution result. </returns>
-    public static UnityRequestExecutionResult Failure (
-        string message,
-        string errorCode)
-    {
-        var normalizedErrorCode = string.IsNullOrWhiteSpace(errorCode)
-            ? IpcErrorCodes.InternalError
-            : errorCode;
-        var normalizedMessage = string.IsNullOrWhiteSpace(message)
-            ? "Request execution failed."
-            : message;
-
-        return Failure(new UnityRequestFailure(
-            normalizedErrorCode,
-            normalizedMessage,
-            ApplicationFailureOutcomeResolver.Resolve(normalizedErrorCode)));
     }
 }

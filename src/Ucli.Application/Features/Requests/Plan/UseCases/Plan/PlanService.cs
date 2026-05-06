@@ -101,14 +101,11 @@ internal sealed class PlanService : IPlanService
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
-            var failure = executionResult.FailureInfo!;
-            var error = RequestServiceResultPolicy.FromTransportFailure(
-                failure.Code,
-                failure.Message);
+            var failure = RequestServiceResultPolicy.FromUnityRequestFailure(executionResult.FailureInfo!);
             return PlanServiceResult.Failure(
-                error.Message,
+                failure.Message,
                 [
-                    error,
+                    failure.Error,
                 ],
                 failure.Outcome,
                 baseOutput);
