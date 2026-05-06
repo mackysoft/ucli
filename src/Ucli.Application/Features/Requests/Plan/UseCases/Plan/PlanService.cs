@@ -58,7 +58,7 @@ internal sealed class PlanService : IPlanService
             .ConfigureAwait(false);
 
         var preparedRequest = requestStaticValidationPreflightResult.PreparedRequest;
-        var baseOutput = PlanExecutionOutputFactory.CreateBase(preparedRequest, requestStaticValidationPreflightResult.ReadIndex);
+        var baseOutput = PlanExecutionOutputFactory.TryCreateBase(preparedRequest, requestStaticValidationPreflightResult.ReadIndex);
         if (requestStaticValidationPreflightResult.Error != null)
         {
             return PlanFailureResultFactory.FromExecutionError(
@@ -74,14 +74,8 @@ internal sealed class PlanService : IPlanService
                 baseOutput);
         }
 
-        if (preparedRequest == null)
-        {
-            throw new InvalidOperationException("Prepared request must be available when static-validation preflight succeeds.");
-        }
-        if (baseOutput == null)
-        {
-            throw new InvalidOperationException("Plan output must be available when static-validation preflight succeeds.");
-        }
+        preparedRequest = requestStaticValidationPreflightResult.PreparedRequest!;
+        baseOutput = PlanExecutionOutputFactory.CreateBase(preparedRequest, requestStaticValidationPreflightResult.ReadIndex!);
 
         var timeoutResolutionResult = IpcCommandTimeoutResolver.ResolveNormalized(
             input.TimeoutMilliseconds,
@@ -107,13 +101,15 @@ internal sealed class PlanService : IPlanService
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
-            var errorCode = ResolveErrorCode(executionResult.ErrorCode);
+            var error = RequestServiceResultPolicy.FromTransportFailure(
+                executionResult.ErrorCode,
+                executionResult.Message);
             return PlanServiceResult.Failure(
-                executionResult.Message,
+                error.Message,
                 [
-                    new OperationExecutionError(errorCode, executionResult.Message, null),
+                    error,
                 ],
-                ExecuteResponseConverter.ResolveOutcome(errorCode),
+                RequestServiceResultPolicy.ResolveOutcome(error.Code),
                 baseOutput);
         }
 
@@ -125,7 +121,7 @@ internal sealed class PlanService : IPlanService
         if (!convertedResponse.IsSuccess)
         {
             return PlanServiceResult.Failure(
-                ResolveFailureMessage(convertedResponse.Errors, "uCLI plan failed."),
+                RequestServiceResultPolicy.ResolveFailureMessage(convertedResponse.Errors, "uCLI plan failed."),
                 convertedResponse.Errors,
                 convertedResponse.Outcome,
                 executionOutput);
@@ -160,29 +156,4 @@ internal sealed class PlanService : IPlanService
             failFast);
     }
 
-    private static string ResolveErrorCode (string? errorCode)
-    {
-        return string.IsNullOrWhiteSpace(errorCode)
-            ? IpcErrorCodes.InternalError
-            : errorCode;
-    }
-
-    private static string ResolveFailureMessage (
-        IReadOnlyList<OperationExecutionError> errors,
-        string fallbackMessage)
-    {
-        ArgumentNullException.ThrowIfNull(errors);
-        ArgumentException.ThrowIfNullOrWhiteSpace(fallbackMessage);
-
-        for (var i = 0; i < errors.Count; i++)
-        {
-            var error = errors[i];
-            if (!string.IsNullOrWhiteSpace(error.Message))
-            {
-                return error.Message;
-            }
-        }
-
-        return fallbackMessage;
-    }
 }

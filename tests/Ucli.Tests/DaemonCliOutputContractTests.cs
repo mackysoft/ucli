@@ -240,7 +240,8 @@ public sealed class DaemonCliOutputContractTests
         await InitializeGitRepository(scope);
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandWithWorkingDirectory(
+            scope.FullPath,
             UcliCommandNames.Daemon,
             UcliCommandNames.ListSubcommand,
             UcliContractConstants.CliOption.ProjectPath,

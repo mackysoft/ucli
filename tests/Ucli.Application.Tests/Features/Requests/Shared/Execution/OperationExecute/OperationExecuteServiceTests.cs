@@ -27,7 +27,9 @@ public sealed class OperationExecuteServiceTests
             Kind: UcliOperationKind.Command,
             Policy: OperationPolicy.Advanced,
             ArgsSchemaJson: """{"type":"object","additionalProperties":false}"""),
-        Args: EmptyArgs);
+        Args: EmptyArgs,
+        SuccessMessage: "uCLI refresh completed.",
+        FailureMessage: "uCLI refresh failed.");
 
     [Fact]
     [Trait("Size", "Small")]
@@ -430,10 +432,13 @@ public sealed class OperationExecuteServiceTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(IpcErrorCodes.InvalidArgument, (int)ApplicationOutcome.InvalidArgument)]
-    [InlineData(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, (int)ApplicationOutcome.ToolError)]
+    [InlineData(IpcErrorCodes.InvalidArgument, IpcErrorCodes.InvalidArgument, (int)ApplicationOutcome.InvalidArgument)]
+    [InlineData(IpcErrorCodes.PlanTokenInvalid, IpcErrorCodes.PlanTokenInvalid, (int)ApplicationOutcome.InvalidArgument)]
+    [InlineData(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, (int)ApplicationOutcome.ToolError)]
+    [InlineData("", IpcErrorCodes.InternalError, (int)ApplicationOutcome.ToolError)]
     public async Task Execute_WhenTransportExecutionFails_MapsExitCodeFromErrorCode (
         string errorCode,
+        string expectedErrorCode,
         int expectedOutcome)
     {
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
@@ -456,7 +461,65 @@ public sealed class OperationExecuteServiceTests
         Assert.Equal((ApplicationOutcome)expectedOutcome, result.Outcome);
         Assert.Empty(result.OpResults);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(errorCode, error.Code);
+        Assert.Equal(expectedErrorCode, error.Code);
+        Assert.Equal("execution failed", error.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenTransportExecutionFailsWithBlankMessage_UsesFallbackMessage ()
+    {
+        var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
+        var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
+        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Failure(
+            message: "",
+            errorCode: IpcErrorCodes.InternalError));
+        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore());
+
+        var result = await service.Execute(
+            RefreshOperation,
+            CreateInput(
+                projectPath: "/repo/UnityProject",
+                mode: null,
+                timeoutMilliseconds: null,
+                failFast: false),
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal("Request execution failed.", error.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenRequiredPlanTokenExecutionFailsWithBlankErrorCode_NormalizesInternalError ()
+    {
+        var config = UcliConfig.CreateDefault() with
+        {
+            PlanTokenMode = PlanTokenMode.Required,
+        };
+        var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext(config)));
+        var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
+        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Failure(
+            message: "execution failed",
+            errorCode: ""));
+        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore());
+
+        var result = await service.Execute(
+            RefreshOperation,
+            CreateInput(
+                projectPath: "/repo/UnityProject",
+                mode: null,
+                timeoutMilliseconds: null,
+                failFast: false),
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
+        Assert.Equal(1, ipcRequestExecutor.CallCount);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
         Assert.Equal("execution failed", error.Message);
     }
 

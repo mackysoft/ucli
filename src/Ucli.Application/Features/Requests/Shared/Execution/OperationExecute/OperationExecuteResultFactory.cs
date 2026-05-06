@@ -8,6 +8,8 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Operatio
 /// <summary> Creates normalized operation-execution results across fixed-operation workflows. </summary>
 internal static class OperationExecuteResultFactory
 {
+    private const string DefaultFailureMessage = "Operation execution failed.";
+
     /// <summary> Creates one failure result from a structured execution error. </summary>
     /// <param name="error"> The structured execution error. </param>
     /// <returns> The normalized operation execution result. </returns>
@@ -21,73 +23,110 @@ internal static class OperationExecuteResultFactory
     /// <summary> Creates one failure result from a structured execution error. </summary>
     /// <param name="requestId"> The request identifier. </param>
     /// <param name="error"> The structured execution error. </param>
+    /// <param name="failureMessage"> The fallback user-facing failure message. </param>
     /// <returns> The normalized operation execution result. </returns>
     public static OperationExecuteResult FromExecutionError (
         string requestId,
-        ExecutionError error)
+        ExecutionError error,
+        string? failureMessage = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(error);
 
-        var errorCode = ExecutionErrorCodeMapper.ToCode(error.Kind);
-        return Create(
+        var executionError = RequestServiceResultPolicy.FromExecutionError(error);
+        return Failure(
             requestId,
             [],
             [
-                new OperationExecutionError(errorCode, error.Message, null),
+                executionError,
             ],
-            error.Kind == ExecutionErrorKind.InvalidArgument
-                ? ApplicationOutcome.InvalidArgument
-                : ApplicationOutcome.ToolError);
+            RequestServiceResultPolicy.ResolveOutcome(error),
+            failureMessage);
     }
 
     /// <summary> Creates one failure result from static validation errors. </summary>
     /// <param name="requestId"> The request identifier. </param>
     /// <param name="validationErrors"> The static validation errors. </param>
+    /// <param name="failureMessage"> The fallback user-facing failure message. </param>
     /// <returns> The normalized operation execution result. </returns>
     public static OperationExecuteResult FromValidationErrors (
         string requestId,
-        IReadOnlyList<ValidationError> validationErrors)
+        IReadOnlyList<ValidationError> validationErrors,
+        string? failureMessage = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
-        ArgumentNullException.ThrowIfNull(validationErrors);
 
-        var errors = new OperationExecutionError[validationErrors.Count];
-        for (var i = 0; i < validationErrors.Count; i++)
-        {
-            var validationError = validationErrors[i];
-            errors[i] = new OperationExecutionError(validationError.Code, validationError.Message, validationError.OpId);
-        }
-
-        return Create(
+        return Failure(
             requestId,
             [],
-            errors,
-            ApplicationOutcome.InvalidArgument);
+            RequestServiceResultPolicy.FromValidationErrors(validationErrors),
+            ApplicationOutcome.InvalidArgument,
+            failureMessage);
     }
 
-    /// <summary> Creates one normalized operation execution result. </summary>
+    /// <summary> Creates one successful operation execution result. </summary>
+    /// <param name="requestId"> The request identifier. </param>
+    /// <param name="opResults"> The per-step execution results. </param>
+    /// <param name="message"> The user-facing success message. </param>
+    /// <param name="readPostcondition"> The emitted mutation read-postcondition payload. </param>
+    /// <returns> The normalized operation execution result. </returns>
+    public static OperationExecuteResult Success (
+        string requestId,
+        IReadOnlyList<OperationExecutionOperationResult> opResults,
+        string message,
+        OperationExecutionReadPostcondition? readPostcondition = null)
+    {
+        return OperationExecuteResult.Success(requestId, opResults, message, readPostcondition);
+    }
+
+    /// <summary> Creates one failed operation execution result. </summary>
     /// <param name="requestId"> The request identifier. </param>
     /// <param name="opResults"> The per-step execution results. </param>
     /// <param name="errors"> The machine-readable error list. </param>
     /// <param name="outcome"> The associated application outcome. </param>
+    /// <param name="readPostcondition"> The emitted mutation read-postcondition payload. </param>
     /// <returns> The normalized operation execution result. </returns>
-    public static OperationExecuteResult Create (
+    public static OperationExecuteResult Failure (
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<OperationExecutionError> errors,
         ApplicationOutcome outcome,
         OperationExecutionReadPostcondition? readPostcondition = null)
     {
+        return Failure(
+            requestId,
+            opResults,
+            errors,
+            outcome,
+            failureMessage: null,
+            readPostcondition);
+    }
+
+    /// <summary> Creates one failed operation execution result. </summary>
+    /// <param name="requestId"> The request identifier. </param>
+    /// <param name="opResults"> The per-step execution results. </param>
+    /// <param name="errors"> The machine-readable error list. </param>
+    /// <param name="outcome"> The associated application outcome. </param>
+    /// <param name="failureMessage"> The fallback user-facing failure message. </param>
+    /// <param name="readPostcondition"> The emitted mutation read-postcondition payload. </param>
+    /// <returns> The normalized operation execution result. </returns>
+    public static OperationExecuteResult Failure (
+        string requestId,
+        IReadOnlyList<OperationExecutionOperationResult> opResults,
+        IReadOnlyList<OperationExecutionError> errors,
+        ApplicationOutcome outcome,
+        string? failureMessage,
+        OperationExecutionReadPostcondition? readPostcondition = null)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
-        ArgumentNullException.ThrowIfNull(errors);
 
-        return new OperationExecuteResult(
-            RequestId: requestId,
-            OpResults: opResults,
-            Errors: errors,
-            Outcome: outcome,
-            ReadPostcondition: readPostcondition);
+        return OperationExecuteResult.Failure(
+            requestId,
+            opResults,
+            errors,
+            outcome,
+            RequestServiceResultPolicy.ResolveFailureMessage(errors, failureMessage ?? DefaultFailureMessage),
+            readPostcondition);
     }
 }

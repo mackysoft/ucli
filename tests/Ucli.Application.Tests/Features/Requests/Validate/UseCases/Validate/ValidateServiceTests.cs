@@ -33,8 +33,8 @@ public sealed class ValidateServiceTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.False(result.HasValidationErrors);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(IpcErrorCodes.InvalidArgument, error.Code);
         Assert.Null(result.Output);
         Assert.Equal(0, preflightService.CallCount);
     }
@@ -61,8 +61,8 @@ public sealed class ValidateServiceTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.False(result.HasValidationErrors);
-        Assert.Equal(IpcErrorCodes.ReadIndexFormatInvalid, result.ErrorCode);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(IpcErrorCodes.ReadIndexFormatInvalid, error.Code);
         Assert.NotNull(result.Output);
         Assert.False(result.Output!.ReadIndex.Used);
         Assert.Equal(1, preflightService.CallCount);
@@ -96,11 +96,9 @@ public sealed class ValidateServiceTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.True(result.HasValidationErrors);
-        Assert.Null(result.ErrorCode);
         Assert.NotNull(result.Output);
-        Assert.Single(result.ValidationErrors);
-        Assert.Equal(ValidationErrorCodes.OperationArgsInvalid, result.ValidationErrors[0].Code);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(ValidationErrorCodes.OperationArgsInvalid, error.Code);
     }
 
     [Fact]

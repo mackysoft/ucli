@@ -1,9 +1,6 @@
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -26,25 +23,16 @@ internal static class ResolveCommandResultFactory
         {
             return CommandResult.Success(
                 command: UcliCommandNames.Resolve,
-                message: "uCLI resolve completed.",
+                message: serviceResult.Message,
                 payload: payload);
         }
 
-        var errors = new CommandError[serviceResult.Errors.Count];
-        for (var i = 0; i < serviceResult.Errors.Count; i++)
-        {
-            var error = serviceResult.Errors[i];
-            errors[i] = new CommandError(error.Code, error.Message, error.OpId);
-        }
-
-        return new CommandResult(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            Command: UcliCommandNames.Resolve,
-            Status: IpcProtocol.StatusError,
-            ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(serviceResult.Outcome),
-            Message: ResolveFailureMessage(serviceResult.Errors),
-            Payload: payload,
-            Errors: errors);
+        return RequestCommandFailureResultFactory.Create(
+            UcliCommandNames.Resolve,
+            serviceResult.Message,
+            payload,
+            serviceResult.Errors,
+            serviceResult.Outcome);
     }
 
     /// <summary> Creates one command result for <c>resolve</c> from a normalized execution error. </summary>
@@ -52,21 +40,5 @@ internal static class ResolveCommandResultFactory
     {
         ArgumentNullException.ThrowIfNull(error);
         return Create(ResolveServiceResultFactory.FromExecutionError(Guid.NewGuid().ToString("D"), error));
-    }
-
-    private static string ResolveFailureMessage (IReadOnlyList<OperationExecutionError> errors)
-    {
-        ArgumentNullException.ThrowIfNull(errors);
-
-        for (var i = 0; i < errors.Count; i++)
-        {
-            var error = errors[i];
-            if (!string.IsNullOrWhiteSpace(error.Message))
-            {
-                return error.Message;
-            }
-        }
-
-        return "uCLI resolve failed.";
     }
 }

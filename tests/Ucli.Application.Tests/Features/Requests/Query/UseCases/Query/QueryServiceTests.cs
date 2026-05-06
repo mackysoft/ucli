@@ -184,6 +184,38 @@ public sealed class QueryServiceTests
         Assert.Equal("UnityEngine.Transform, UnityEngine.CoreModule", executeRequest.Args.GetProperty("type").GetString());
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenUnityOnlyQueryFailureHasBlankBoundaryMessage_NormalizesFailureMessage ()
+    {
+        var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
+        var assetSearchLookupAccessService = new StubAssetSearchLookupAccessService();
+        var sceneTreeLiteAccessService = new StubSceneTreeLiteAccessService();
+        var unityRequestExecutor = new SpyUnityRequestExecutor(UnityRequestExecutionResult.Failure("", ""));
+        var service = new QueryService(projectContextResolver, assetSearchLookupAccessService, sceneTreeLiteAccessService, unityRequestExecutor);
+        var args = JsonSerializer.SerializeToElement(new
+        {
+            type = "UnityEngine.Transform, UnityEngine.CoreModule",
+        });
+
+        var result = await service.Execute(
+            CreateInput(
+                new QueryUnityOperationRequest(
+                    CommandName: "query.comp.schema",
+                    OperationId: "comp.schema",
+                    OperationName: UcliPrimitiveOperationNames.CompSchema,
+                    Args: args),
+                readIndexMode: ReadIndexMode.AllowStale),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
+        Assert.Equal("Request execution failed.", result.Message);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal("Request execution failed.", error.Message);
+    }
+
     private static QueryCommandInput CreateInput (
         QueryOperationRequest operation,
         ReadIndexMode? readIndexMode = null,

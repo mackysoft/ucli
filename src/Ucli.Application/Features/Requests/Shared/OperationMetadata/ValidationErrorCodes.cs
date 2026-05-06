@@ -1,8 +1,12 @@
+using System.Reflection;
+
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
 /// <summary> Defines machine-readable validation error codes for static request validation. </summary>
 internal static class ValidationErrorCodes
 {
+    private static readonly IReadOnlySet<string> AllCodes = CreateAllCodes();
+
     /// <summary> Gets the error code used when protocolVersion differs from supported value. </summary>
     public const string ProtocolVersionMismatch = "PROTOCOL_VERSION_MISMATCH";
 
@@ -38,4 +42,26 @@ internal static class ValidationErrorCodes
 
     /// <summary> Gets the error code used when an edit step violates DSL constraints. </summary>
     public const string EditStepInvalid = "EDIT_STEP_INVALID";
+
+    /// <summary> Returns whether the specified code belongs to static request validation. </summary>
+    public static bool Contains (string code)
+    {
+        return !string.IsNullOrWhiteSpace(code) && AllCodes.Contains(code);
+    }
+
+    private static IReadOnlySet<string> CreateAllCodes ()
+    {
+        var fields = typeof(ValidationErrorCodes).GetFields(BindingFlags.Public | BindingFlags.Static);
+        var codes = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < fields.Length; i++)
+        {
+            var field = fields[i];
+            if (field is { IsLiteral: true, IsInitOnly: false, FieldType: var fieldType } && fieldType == typeof(string))
+            {
+                codes.Add((string)field.GetRawConstantValue()!);
+            }
+        }
+
+        return codes;
+    }
 }

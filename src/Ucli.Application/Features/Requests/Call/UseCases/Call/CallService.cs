@@ -54,16 +54,13 @@ internal sealed class CallService : ICallService
                 cancellationToken)
             .ConfigureAwait(false);
         var preparedRequestContext = requestPreparationResult.PreparedRequest;
-        var baseOutput = CallExecutionOutputFactory.CreateBase(preparedRequestContext?.Request.RequestId);
+        var baseOutput = CallExecutionOutputFactory.TryCreateBase(preparedRequestContext?.Request.RequestId);
         if (requestPreparationResult.Error != null)
         {
             return CallFailureResultFactory.FromExecutionError(requestPreparationResult.Error, baseOutput);
         }
 
-        if (preparedRequestContext == null)
-        {
-            throw new InvalidOperationException("Prepared request must be available when request preparation succeeds.");
-        }
+        preparedRequestContext = requestPreparationResult.PreparedRequest!;
         var timeoutResolutionResult = IpcCommandTimeoutResolver.ResolveNormalized(
             input.TimeoutMilliseconds,
             UcliCommandIds.Call,
@@ -84,7 +81,7 @@ internal sealed class CallService : ICallService
             .ConfigureAwait(false);
 
         var preparedRequest = preflightResult.PreparedRequest;
-        baseOutput = CallExecutionOutputFactory.CreateBase(preparedRequest?.Request.RequestId);
+        baseOutput = CallExecutionOutputFactory.TryCreateBase(preparedRequest?.Request.RequestId);
         if (preflightResult.Error != null)
         {
             return CallFailureResultFactory.FromExecutionError(preflightResult.Error, baseOutput, preflightResult.ErrorCode);
@@ -95,10 +92,7 @@ internal sealed class CallService : ICallService
             return CallFailureResultFactory.FromValidationErrors(preflightResult.ValidationErrors, baseOutput);
         }
 
-        if (preparedRequest == null)
-        {
-            throw new InvalidOperationException("Prepared request must be available when preflight succeeds.");
-        }
+        preparedRequest = preflightResult.PreparedRequest!;
         var dangerousValidationFailure = dangerousOperationGuard.Validate(
             preparedRequest,
             input.AllowDangerous);

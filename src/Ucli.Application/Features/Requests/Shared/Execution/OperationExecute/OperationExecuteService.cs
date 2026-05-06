@@ -60,7 +60,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         var projectContextResult = await projectContextResolver.Resolve(input.ProjectPath, cancellationToken).ConfigureAwait(false);
         if (!projectContextResult.IsSuccess)
         {
-            return OperationExecuteResultFactory.FromExecutionError(requestId, projectContextResult.Error!);
+            return OperationExecuteResultFactory.FromExecutionError(requestId, projectContextResult.Error!, definition.FailureMessage);
         }
 
         var projectContext = projectContextResult.Context!;
@@ -71,7 +71,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             config);
         if (!timeoutResolutionResult.IsSuccess)
         {
-            return OperationExecuteResultFactory.FromExecutionError(requestId, timeoutResolutionResult.Error!);
+            return OperationExecuteResultFactory.FromExecutionError(requestId, timeoutResolutionResult.Error!, definition.FailureMessage);
         }
 
         var deadline = ExecutionDeadline.Start(timeoutResolutionResult.Timeout!.Value, timeProvider);
@@ -91,7 +91,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                         authorizationResult.ErrorCode ?? ValidationErrorCodes.OperationNotAllowed,
                         authorizationResult.Message,
                         definition.OperationId),
-                ]);
+                ],
+                definition.FailureMessage);
         }
 
         string? planToken = null;
@@ -101,7 +102,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             {
                 return OperationExecuteResultFactory.FromExecutionError(
                     requestId,
-                    ExecutionError.Timeout("Timed out before Unity IPC plan request could begin."));
+                    ExecutionError.Timeout("Timed out before Unity IPC plan request could begin."),
+                    definition.FailureMessage);
             }
 
             var planTokenResult = await IssuePlanToken(
@@ -126,7 +128,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         {
             return OperationExecuteResultFactory.FromExecutionError(
                 requestId,
-                ExecutionError.Timeout("Timed out before Unity IPC execute request could begin."));
+                ExecutionError.Timeout("Timed out before Unity IPC execute request could begin."),
+                definition.FailureMessage);
         }
 
         var executionResult = await unityIpcRequestExecutor.Execute(
@@ -147,14 +150,17 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
-            var errorCode = ResolveErrorCode(executionResult.ErrorCode);
-            return OperationExecuteResultFactory.Create(
+            var error = RequestServiceResultPolicy.FromTransportFailure(
+                executionResult.ErrorCode,
+                executionResult.Message);
+            return OperationExecuteResultFactory.Failure(
                 requestId,
                 [],
                 [
-                    new OperationExecutionError(errorCode, executionResult.Message, null),
+                    error,
                 ],
-                ResolveOutcome(errorCode));
+                RequestServiceResultPolicy.ResolveOutcome(error.Code),
+                definition.FailureMessage);
         }
 
         var postprocessedResponse = await ExecuteResponseReadPostconditionProcessor.Persist(
@@ -166,11 +172,21 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             .ConfigureAwait(false);
         var convertedResponse = postprocessedResponse.Response;
 
-        return OperationExecuteResultFactory.Create(
+        if (convertedResponse.IsSuccess)
+        {
+            return OperationExecuteResultFactory.Success(
+                requestId,
+                convertedResponse.OpResults,
+                definition.SuccessMessage,
+                convertedResponse.ReadPostcondition);
+        }
+
+        return OperationExecuteResultFactory.Failure(
             requestId,
             convertedResponse.OpResults,
             convertedResponse.Errors,
             convertedResponse.Outcome,
+            definition.FailureMessage,
             convertedResponse.ReadPostcondition);
     }
 
@@ -217,16 +233,19 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
-            var errorCode = ResolveErrorCode(executionResult.ErrorCode);
+            var error = RequestServiceResultPolicy.FromTransportFailure(
+                executionResult.ErrorCode,
+                executionResult.Message);
             return (
                 null,
-                OperationExecuteResultFactory.Create(
+                OperationExecuteResultFactory.Failure(
                     requestId,
                     [],
                     [
-                        new OperationExecutionError(errorCode, executionResult.Message, null),
+                        error,
                     ],
-                    ResolveOutcome(errorCode)));
+                    RequestServiceResultPolicy.ResolveOutcome(error.Code),
+                    definition.FailureMessage));
         }
 
         var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
@@ -234,60 +253,31 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         {
             return (
                 null,
-                OperationExecuteResultFactory.Create(
+                OperationExecuteResultFactory.Failure(
                     requestId,
                     convertedResponse.OpResults,
                     convertedResponse.Errors,
-                    convertedResponse.Outcome));
+                    convertedResponse.Outcome,
+                    definition.FailureMessage));
         }
 
         if (string.IsNullOrWhiteSpace(convertedResponse.PlanToken))
         {
             return (
                 null,
-                OperationExecuteResultFactory.Create(
+                OperationExecuteResultFactory.Failure(
                     requestId,
                     convertedResponse.OpResults,
                     [
-                        new OperationExecutionError(
+                        RequestServiceResultPolicy.FromTransportFailure(
                             IpcErrorCodes.InternalError,
-                            "Execute response payload is invalid. The 'planToken' field is missing.",
-                            null),
+                            "Execute response payload is invalid. The 'planToken' field is missing."),
                     ],
-                    ApplicationOutcome.ToolError));
+                    ApplicationOutcome.ToolError,
+                    definition.FailureMessage));
         }
 
         return (convertedResponse.PlanToken, null);
-    }
-
-    /// <summary> Resolves the machine-readable error code used for transport-level failures. </summary>
-    /// <param name="errorCode"> The raw error code. </param>
-    /// <returns> The normalized error code. </returns>
-    private static string ResolveErrorCode (string? errorCode)
-    {
-        return string.IsNullOrWhiteSpace(errorCode)
-            ? IpcErrorCodes.InternalError
-            : errorCode;
-    }
-
-    /// <summary> Resolves the application outcome from one transport-level error code. </summary>
-    /// <param name="errorCode"> The raw error code. </param>
-    /// <returns> The associated application outcome. </returns>
-    private static ApplicationOutcome ResolveOutcome (string errorCode)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(errorCode);
-
-        return ExecuteResponseConverter.ResolveOutcome(errorCode);
-    }
-
-    /// <summary> Resolves the application outcome from one machine-readable error collection. </summary>
-    /// <param name="errors"> The machine-readable error collection. </param>
-    /// <returns> The associated application outcome. </returns>
-    private static ApplicationOutcome ResolveOutcome (IReadOnlyList<OperationExecutionError> errors)
-    {
-        ArgumentNullException.ThrowIfNull(errors);
-
-        return ExecuteResponseConverter.ResolveOutcome(errors);
     }
 
 }
