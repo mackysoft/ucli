@@ -4,13 +4,14 @@ namespace MackySoft.Ucli.Architecture.Tests.Architecture;
 
 internal static class PublicSurfaceDeclarationExtractor
 {
-    internal static IEnumerable<PublicSurfaceDeclaration> Read (string sourceFile)
+    internal static IEnumerable<PublicSurfaceDeclaration> Read (string sourceText, string relativePath)
     {
-        var sourceText = ArchitectureTestRepository.ReadCSharpSourceWithoutCommentsAndStringLiterals(sourceFile);
         var currentNamespace = string.Empty;
         var signature = new StringBuilder();
         var publicTypeFrames = new Stack<PublicSurfaceTypeFrame>();
         var namespaceBodyDepths = new Stack<int>();
+        var pendingAttributes = new List<PublicSurfaceAttributeLine>();
+        var pendingAttributeBracketDepth = 0;
         var signatureStartLine = 0;
         var readsSignature = false;
         var awaitsNamespaceBlock = false;
@@ -35,15 +36,21 @@ internal static class PublicSurfaceDeclarationExtractor
 
             if (!readsSignature)
             {
-                var namespaceDeclaration = ReadNamespaceDeclaration(trimmedLine);
+                var declarationLine = StripLeadingSameLineAttributes(trimmedLine);
+                var namespaceDeclaration = ReadNamespaceDeclaration(declarationLine);
                 if (namespaceDeclaration is not null)
                 {
                     currentNamespace = namespaceDeclaration;
-                    awaitsNamespaceBlock = IsNamespaceDeclarationAwaitingBlock(trimmedLine);
+                    awaitsNamespaceBlock = IsNamespaceDeclarationAwaitingBlock(declarationLine);
                 }
 
-                if (!IsPublicSurfaceDeclarationStart(trimmedLine, IsInsidePublicInterface(publicTypeFrames)))
+                if (!IsPublicSurfaceDeclarationStart(declarationLine, IsInsidePublicInterface(publicTypeFrames)))
                 {
+                    TrackPendingAttributeLine(
+                        pendingAttributes,
+                        ref pendingAttributeBracketDepth,
+                        lineIndex + 1,
+                        trimmedLine);
                     braceDepth += lineBraceDelta;
                     if (startsNamespaceBlock)
                     {
@@ -55,12 +62,29 @@ internal static class PublicSurfaceDeclarationExtractor
 
                 readsSignature = true;
                 signature.Clear();
-                signatureStartLine = lineIndex + 1;
+                signatureStartLine = pendingAttributes.Count > 0
+                    ? pendingAttributes[0].LineNumber
+                    : lineIndex + 1;
                 parenthesisDepth = 0;
-            }
+                foreach (var attribute in pendingAttributes)
+                {
+                    AppendSignatureLine(signature, attribute.Text);
+                }
 
-            AppendSignatureLine(signature, trimmedLine);
-            parenthesisDepth += CountCharacter(trimmedLine, '(') - CountCharacter(trimmedLine, ')');
+                pendingAttributes.Clear();
+                pendingAttributeBracketDepth = 0;
+                var signatureLine = trimmedLine.StartsWith("[", StringComparison.Ordinal)
+                    ? trimmedLine
+                    : declarationLine;
+                AppendSignatureLine(signature, ReadSignatureLine(signatureLine, declarationLine));
+                parenthesisDepth += CountCharacter(declarationLine, '(') - CountCharacter(declarationLine, ')');
+            }
+            else
+            {
+                var signatureLine = ReadSignatureLine(trimmedLine, trimmedLine);
+                AppendSignatureLine(signature, signatureLine);
+                parenthesisDepth += CountCharacter(signatureLine, '(') - CountCharacter(signatureLine, ')');
+            }
 
             if (!IsPublicSurfaceSignatureComplete(trimmedLine, signature.ToString(), parenthesisDepth))
             {
@@ -74,7 +98,7 @@ internal static class PublicSurfaceDeclarationExtractor
             if (isPublicSurfaceType || (!isTypeDeclaration && publicTypeFrames.Count > 0))
             {
                 yield return new PublicSurfaceDeclaration(
-                    ArchitectureTestRepository.NormalizeRepositoryRelativePath(sourceFile),
+                    relativePath,
                     signatureStartLine,
                     currentNamespace,
                     signatureText);
@@ -88,6 +112,28 @@ internal static class PublicSurfaceDeclarationExtractor
 
             readsSignature = false;
         }
+    }
+
+    private static void TrackPendingAttributeLine (
+        List<PublicSurfaceAttributeLine> pendingAttributes,
+        ref int pendingAttributeBracketDepth,
+        int lineNumber,
+        string trimmedLine)
+    {
+        if (trimmedLine.Length == 0)
+        {
+            return;
+        }
+
+        if (pendingAttributeBracketDepth > 0 || trimmedLine.StartsWith("[", StringComparison.Ordinal))
+        {
+            pendingAttributes.Add(new PublicSurfaceAttributeLine(lineNumber, trimmedLine));
+            pendingAttributeBracketDepth += CountCharacter(trimmedLine, '[') - CountCharacter(trimmedLine, ']');
+            return;
+        }
+
+        pendingAttributes.Clear();
+        pendingAttributeBracketDepth = 0;
     }
 
     private static string? ReadNamespaceDeclaration (string trimmedLine)
@@ -114,9 +160,82 @@ internal static class PublicSurfaceDeclarationExtractor
             && !trimmedLine.EndsWith('{');
     }
 
+    private static string ReadSignatureLine (string signatureLine, string structureLine)
+    {
+        var structureLineLength = ReadSignatureLineLength(structureLine);
+        if (structureLineLength == structureLine.Length)
+        {
+            return signatureLine;
+        }
+
+        var structureLineIndex = signatureLine.LastIndexOf(structureLine, StringComparison.Ordinal);
+        if (structureLineIndex < 0)
+        {
+            return signatureLine;
+        }
+
+        return signatureLine[..(structureLineIndex + structureLineLength)].TrimEnd();
+    }
+
+    private static int ReadSignatureLineLength (string trimmedLine)
+    {
+        var expressionBodyIndex = trimmedLine.IndexOf("=>", StringComparison.Ordinal);
+        if (expressionBodyIndex >= 0)
+        {
+            return expressionBodyIndex;
+        }
+
+        var bodyStartIndex = trimmedLine.IndexOf('{');
+        if (bodyStartIndex >= 0)
+        {
+            return bodyStartIndex + 1;
+        }
+
+        return trimmedLine.Length;
+    }
+
+    private static string StripLeadingSameLineAttributes (string trimmedLine)
+    {
+        var declarationLine = trimmedLine;
+        while (declarationLine.StartsWith("[", StringComparison.Ordinal))
+        {
+            var attributeEndIndex = FindAttributeListEnd(declarationLine);
+            if (attributeEndIndex < 0)
+            {
+                return string.Empty;
+            }
+
+            declarationLine = declarationLine[(attributeEndIndex + 1)..].TrimStart();
+        }
+
+        return declarationLine;
+    }
+
+    private static int FindAttributeListEnd (string value)
+    {
+        var bracketDepth = 0;
+        for (var index = 0; index < value.Length; index++)
+        {
+            if (value[index] == '[')
+            {
+                bracketDepth++;
+            }
+            else if (value[index] == ']')
+            {
+                bracketDepth--;
+                if (bracketDepth == 0)
+                {
+                    return index;
+                }
+            }
+        }
+
+        return -1;
+    }
+
     private static bool IsPublicSurfaceDeclarationStart (string trimmedLine, bool insidePublicInterface)
     {
-        if (trimmedLine.Length == 0 || trimmedLine[0] == '[')
+        if (trimmedLine.Length == 0)
         {
             return false;
         }
@@ -161,8 +280,7 @@ internal static class PublicSurfaceDeclarationExtractor
 
         return trimmedLine.Contains('{', StringComparison.Ordinal)
             || trimmedLine.Contains(';', StringComparison.Ordinal)
-            || trimmedLine.Contains("=>", StringComparison.Ordinal)
-            || trimmedLine.EndsWith(')');
+            || trimmedLine.Contains("=>", StringComparison.Ordinal);
     }
 
     private static bool IsTypeDeclaration (string value)
@@ -171,7 +289,8 @@ internal static class PublicSurfaceDeclarationExtractor
             || value.Contains(" struct ", StringComparison.Ordinal)
             || value.Contains(" interface ", StringComparison.Ordinal)
             || value.Contains(" enum ", StringComparison.Ordinal)
-            || value.Contains(" record ", StringComparison.Ordinal);
+            || value.Contains(" record ", StringComparison.Ordinal)
+            || value.Contains(" delegate ", StringComparison.Ordinal);
     }
 
     private static bool IsInterfaceDeclaration (string value)
@@ -227,10 +346,8 @@ internal static class PublicSurfaceDeclarationExtractor
     private readonly record struct PublicSurfaceTypeFrame (
         int BodyDepth,
         bool IsInterface);
-}
 
-internal readonly record struct PublicSurfaceDeclaration (
-    string RelativePath,
-    int LineNumber,
-    string Namespace,
-    string Signature);
+    private readonly record struct PublicSurfaceAttributeLine (
+        int LineNumber,
+        string Text);
+}

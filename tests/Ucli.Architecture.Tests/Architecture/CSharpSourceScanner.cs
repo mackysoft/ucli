@@ -6,20 +6,31 @@ internal static class CSharpSourceScanner
 {
     internal static string StripCommentsAndStringLiterals (string sourceText)
     {
+        return StripTrivia(sourceText, stripStringLiterals: true);
+    }
+
+    internal static string StripComments (string sourceText)
+    {
+        return StripTrivia(sourceText, stripStringLiterals: false);
+    }
+
+    private static string StripTrivia (string sourceText, bool stripStringLiterals)
+    {
         var builder = new StringBuilder(sourceText.Length);
         var state = CSharpTriviaState.Normal;
         var rawStringQuoteCount = 0;
 
         for (var index = 0; index < sourceText.Length; index++)
         {
-            if (state == CSharpTriviaState.Normal
+            if (stripStringLiterals
+                && state == CSharpTriviaState.Normal
                 && TryStripInterpolatedStringLiteral(sourceText, index, builder, out var interpolatedStringEndIndex))
             {
                 index = interpolatedStringEndIndex;
                 continue;
             }
 
-            if (TryAdvanceTrivia(sourceText, ref index, ref state, ref rawStringQuoteCount, builder))
+            if (TryAdvanceTrivia(sourceText, ref index, ref state, ref rawStringQuoteCount, builder, stripStringLiterals))
             {
                 continue;
             }
@@ -365,7 +376,8 @@ internal static class CSharpSourceScanner
         ref int index,
         ref CSharpTriviaState state,
         ref int rawStringQuoteCount,
-        StringBuilder? replacementBuilder)
+        StringBuilder? replacementBuilder,
+        bool stripStringLiterals = true)
     {
         var current = sourceText[index];
         var next = index + 1 < sourceText.Length ? sourceText[index + 1] : '\0';
@@ -391,7 +403,7 @@ internal static class CSharpSourceScanner
 
                 if (current == '@' && next == '"')
                 {
-                    AppendSpaces(replacementBuilder, 2);
+                    AppendStringLiteralCharacters(replacementBuilder, sourceText, index, count: 2, stripStringLiterals);
                     index++;
                     state = CSharpTriviaState.VerbatimStringLiteral;
                     return true;
@@ -402,13 +414,13 @@ internal static class CSharpSourceScanner
                     rawStringQuoteCount = CountQuoteRun(sourceText, index);
                     if (rawStringQuoteCount >= 3)
                     {
-                        AppendSpaces(replacementBuilder, rawStringQuoteCount);
+                        AppendStringLiteralCharacters(replacementBuilder, sourceText, index, rawStringQuoteCount, stripStringLiterals);
                         index += rawStringQuoteCount - 1;
                         state = CSharpTriviaState.RawStringLiteral;
                     }
                     else
                     {
-                        AppendSpaces(replacementBuilder, 1);
+                        AppendStringLiteralCharacters(replacementBuilder, sourceText, index, count: 1, stripStringLiterals);
                         state = CSharpTriviaState.StringLiteral;
                     }
 
@@ -417,7 +429,7 @@ internal static class CSharpSourceScanner
 
                 if (current == '\'')
                 {
-                    AppendSpaces(replacementBuilder, 1);
+                    AppendStringLiteralCharacters(replacementBuilder, sourceText, index, count: 1, stripStringLiterals);
                     state = CSharpTriviaState.CharacterLiteral;
                     return true;
                 }
@@ -454,18 +466,17 @@ internal static class CSharpSourceScanner
             case CSharpTriviaState.StringLiteral:
                 if (current == '\\' && next != '\0')
                 {
-                    AppendSpaces(replacementBuilder, 1);
-                    AppendTriviaReplacement(replacementBuilder, next);
+                    AppendStringLiteralCharacters(replacementBuilder, sourceText, index, count: 2, stripStringLiterals);
                     index++;
                 }
                 else if (current == '"')
                 {
-                    AppendSpaces(replacementBuilder, 1);
+                    AppendStringLiteralCharacters(replacementBuilder, sourceText, index, count: 1, stripStringLiterals);
                     state = CSharpTriviaState.Normal;
                 }
                 else
                 {
-                    AppendTriviaReplacement(replacementBuilder, current);
+                    AppendStringLiteralCharacter(replacementBuilder, current, stripStringLiterals);
                 }
 
                 return true;
@@ -473,17 +484,17 @@ internal static class CSharpSourceScanner
             case CSharpTriviaState.VerbatimStringLiteral:
                 if (current == '"' && next == '"')
                 {
-                    AppendSpaces(replacementBuilder, 2);
+                    AppendStringLiteralCharacters(replacementBuilder, sourceText, index, count: 2, stripStringLiterals);
                     index++;
                 }
                 else if (current == '"')
                 {
-                    AppendSpaces(replacementBuilder, 1);
+                    AppendStringLiteralCharacters(replacementBuilder, sourceText, index, count: 1, stripStringLiterals);
                     state = CSharpTriviaState.Normal;
                 }
                 else
                 {
-                    AppendTriviaReplacement(replacementBuilder, current);
+                    AppendStringLiteralCharacter(replacementBuilder, current, stripStringLiterals);
                 }
 
                 return true;
@@ -491,18 +502,17 @@ internal static class CSharpSourceScanner
             case CSharpTriviaState.CharacterLiteral:
                 if (current == '\\' && next != '\0')
                 {
-                    AppendSpaces(replacementBuilder, 1);
-                    AppendTriviaReplacement(replacementBuilder, next);
+                    AppendStringLiteralCharacters(replacementBuilder, sourceText, index, count: 2, stripStringLiterals);
                     index++;
                 }
                 else if (current == '\'')
                 {
-                    AppendSpaces(replacementBuilder, 1);
+                    AppendStringLiteralCharacters(replacementBuilder, sourceText, index, count: 1, stripStringLiterals);
                     state = CSharpTriviaState.Normal;
                 }
                 else
                 {
-                    AppendTriviaReplacement(replacementBuilder, current);
+                    AppendStringLiteralCharacter(replacementBuilder, current, stripStringLiterals);
                 }
 
                 return true;
@@ -513,18 +523,18 @@ internal static class CSharpSourceScanner
                     var quoteCount = CountQuoteRun(sourceText, index);
                     if (quoteCount >= rawStringQuoteCount)
                     {
-                        AppendSpaces(replacementBuilder, quoteCount);
+                        AppendStringLiteralCharacters(replacementBuilder, sourceText, index, quoteCount, stripStringLiterals);
                         index += quoteCount - 1;
                         state = CSharpTriviaState.Normal;
                     }
                     else
                     {
-                        AppendTriviaReplacement(replacementBuilder, current);
+                        AppendStringLiteralCharacter(replacementBuilder, current, stripStringLiterals);
                     }
                 }
                 else
                 {
-                    AppendTriviaReplacement(replacementBuilder, current);
+                    AppendStringLiteralCharacter(replacementBuilder, current, stripStringLiterals);
                 }
 
                 return true;
@@ -537,6 +547,30 @@ internal static class CSharpSourceScanner
     private static void AppendTriviaReplacement (StringBuilder? builder, char value)
     {
         builder?.Append(value == '\n' ? '\n' : ' ');
+    }
+
+    private static void AppendStringLiteralCharacters (
+        StringBuilder? builder,
+        string sourceText,
+        int startIndex,
+        int count,
+        bool stripStringLiterals)
+    {
+        for (var offset = 0; offset < count; offset++)
+        {
+            AppendStringLiteralCharacter(builder, sourceText[startIndex + offset], stripStringLiterals);
+        }
+    }
+
+    private static void AppendStringLiteralCharacter (StringBuilder? builder, char value, bool stripStringLiterals)
+    {
+        if (stripStringLiterals)
+        {
+            AppendTriviaReplacement(builder, value);
+            return;
+        }
+
+        builder?.Append(value);
     }
 
     private static void AppendSpaces (StringBuilder? builder, int count)

@@ -65,4 +65,29 @@ public sealed class CSharpSourceScannerTests
 
         Assert.Contains("MackySoft.Ucli.Hosting.Sample.Value", strippedText, StringComparison.Ordinal);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void StripComments_preserves_string_literals_and_removes_comment_text ()
+    {
+        var sourceText = """"
+            internal sealed class Sample
+            {
+                // git worktree list --porcelain
+                internal string Command () => "git worktree list --porcelain";
+
+                /*
+                 * rev-parse
+                 */
+                internal string Revision () => @"rev-parse";
+            }
+            """";
+
+        var strippedText = CSharpSourceScanner.StripComments(sourceText);
+
+        Assert.Contains("\"git worktree list --porcelain\"", strippedText, StringComparison.Ordinal);
+        Assert.Contains("@\"rev-parse\"", strippedText, StringComparison.Ordinal);
+        Assert.DoesNotContain("// git worktree list --porcelain", strippedText, StringComparison.Ordinal);
+        Assert.DoesNotContain("* rev-parse", strippedText, StringComparison.Ordinal);
+    }
 }

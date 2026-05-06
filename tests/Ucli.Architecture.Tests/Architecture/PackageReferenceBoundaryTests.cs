@@ -61,6 +61,18 @@ public sealed class PackageReferenceBoundaryTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void MsBuildImportFiles_do_not_define_package_references ()
+    {
+        var violations = ArchitectureTestRepository
+            .EnumerateMsBuildImportFiles()
+            .Where(static importFile => ProjectFileReferenceReader.ReadPackageReferences(importFile).Length > 0)
+            .ToArray();
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Unity_packages_config_contains_only_allowed_ucli_packages ()
     {
         var expectedPackageIds = new[]
@@ -68,8 +80,8 @@ public sealed class PackageReferenceBoundaryTests
             "MackySoft.Ucli.Contracts",
             "MackySoft.Ucli.Infrastructure",
         };
-        var actualPackageIds = ArchitectureTestRepository
-            .ReadUnityPackageIds("src/Ucli.Unity/Assets/packages.config")
+        var actualPackageIds = UnityPackagesConfigReader
+            .ReadPackageIds("src/Ucli.Unity/Assets/packages.config")
             .Where(static packageId => packageId.StartsWith("MackySoft.Ucli", StringComparison.Ordinal))
             .ToArray();
 

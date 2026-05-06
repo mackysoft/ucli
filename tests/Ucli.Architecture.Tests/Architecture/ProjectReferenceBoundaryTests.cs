@@ -80,6 +80,18 @@ public sealed class ProjectReferenceBoundaryTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void MsBuildImportFiles_do_not_define_project_references ()
+    {
+        var violations = ArchitectureTestRepository
+            .EnumerateMsBuildImportFiles()
+            .Where(static importFile => ProjectFileReferenceReader.ReadProjectReferences(importFile).Length > 0)
+            .ToArray();
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Unity_editor_asmdef_references_only_allowed_ucli_assemblies ()
     {
         var expectedReferencesByAsmdef = new Dictionary<string, string[]>(StringComparer.Ordinal)
@@ -99,8 +111,8 @@ public sealed class ProjectReferenceBoundaryTests
                     "*.asmdef",
                     SearchOption.AllDirectories)
                 .Select(ArchitectureTestRepository.NormalizeRepositoryRelativePath),
-            static asmdefPath => ArchitectureTestRepository
-                .ReadUnityAsmdefReferences(asmdefPath)
+            static asmdefPath => UnityAsmdefReferenceReader
+                .Read(asmdefPath)
                 .Where(static reference => reference.StartsWith("MackySoft.Ucli", StringComparison.Ordinal))
                 .ToArray());
     }

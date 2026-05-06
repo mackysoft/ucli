@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace MackySoft.Ucli.Architecture.Tests.Architecture;
 
 internal static class SourceMarkerDetector
@@ -7,19 +9,24 @@ internal static class SourceMarkerDetector
         var violations = new List<string>();
         foreach (var sourceFile in sourceFiles)
         {
-            var sourceText = ArchitectureTestRepository.ReadCSharpSourceWithoutCommentsAndStringLiterals(sourceFile);
+            var sourceText = CSharpSourceFileReader.ReadWithoutCommentsAndStringLiterals(sourceFile);
             AddMarkerViolations(violations, sourceFile, sourceText, forbiddenMarkers);
         }
 
         return violations.ToArray();
     }
 
-    internal static string[] FindRawMarkers (IEnumerable<string> sourceFiles, IReadOnlyCollection<string> forbiddenMarkers)
+    internal static string[] FindMarkersOutsideComments (IEnumerable<string> sourceFiles, IReadOnlyCollection<string> forbiddenMarkers)
     {
         var violations = new List<string>();
         foreach (var sourceFile in sourceFiles)
         {
-            var sourceText = File.ReadAllText(sourceFile);
+            if (ArchitectureTestRepository.IsReparsePoint(sourceFile))
+            {
+                throw new InvalidOperationException($"C# source file must not be a reparse point: {sourceFile}");
+            }
+
+            var sourceText = CSharpSourceScanner.StripComments(File.ReadAllText(sourceFile));
             AddMarkerViolations(violations, sourceFile, sourceText, forbiddenMarkers);
         }
 
@@ -28,22 +35,25 @@ internal static class SourceMarkerDetector
 
     internal static bool ContainsQualifiedNameWithSegment (string sourceText, string prefix, string requiredSegment)
     {
+        var normalizedSourceText = NormalizeReferenceTrivia(sourceText);
+        var normalizedPrefix = NormalizeReferenceTrivia(prefix);
+        var normalizedRequiredSegment = NormalizeReferenceTrivia(requiredSegment);
         var searchIndex = 0;
         while (true)
         {
-            var markerIndex = sourceText.IndexOf(prefix, searchIndex, StringComparison.Ordinal);
+            var markerIndex = normalizedSourceText.IndexOf(normalizedPrefix, searchIndex, StringComparison.Ordinal);
             if (markerIndex < 0)
             {
                 return false;
             }
 
-            var markerEndIndex = markerIndex + prefix.Length;
-            while (markerEndIndex < sourceText.Length && IsQualifiedNameCharacter(sourceText[markerEndIndex]))
+            var markerEndIndex = markerIndex + normalizedPrefix.Length;
+            while (markerEndIndex < normalizedSourceText.Length && IsQualifiedNameCharacter(normalizedSourceText[markerEndIndex]))
             {
                 markerEndIndex++;
             }
 
-            if (sourceText[markerIndex..markerEndIndex].Contains(requiredSegment, StringComparison.Ordinal))
+            if (normalizedSourceText[markerIndex..markerEndIndex].Contains(normalizedRequiredSegment, StringComparison.Ordinal))
             {
                 return true;
             }
@@ -58,12 +68,46 @@ internal static class SourceMarkerDetector
         string sourceText,
         IReadOnlyCollection<string> forbiddenMarkers)
     {
+        var normalizedSourceText = NormalizeReferenceTrivia(sourceText);
         foreach (var marker in forbiddenMarkers)
         {
-            if (sourceText.Contains(marker, StringComparison.Ordinal))
+            var normalizedMarker = NormalizeReferenceTrivia(marker);
+            if (normalizedSourceText.Contains(normalizedMarker, StringComparison.Ordinal))
             {
                 violations.Add($"{ArchitectureTestRepository.NormalizeRepositoryRelativePath(sourceFile)} contains {marker}.");
             }
+        }
+    }
+
+    private static string NormalizeReferenceTrivia (string value)
+    {
+        var builder = new StringBuilder(value.Length);
+        var hasPendingWhitespace = false;
+        foreach (var current in value)
+        {
+            if (char.IsWhiteSpace(current))
+            {
+                hasPendingWhitespace = true;
+                continue;
+            }
+
+            if (hasPendingWhitespace)
+            {
+                AppendNormalizedWhitespace(builder, current);
+                hasPendingWhitespace = false;
+            }
+
+            builder.Append(current);
+        }
+
+        return builder.ToString();
+    }
+
+    private static void AppendNormalizedWhitespace (StringBuilder builder, char next)
+    {
+        if (builder.Length > 0 && builder[^1] != '.' && next != '.' && next != '(')
+        {
+            builder.Append(' ');
         }
     }
 
