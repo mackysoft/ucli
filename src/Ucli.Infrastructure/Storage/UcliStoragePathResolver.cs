@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Infrastructure.Storage;
 /// <summary> Resolves repository-root and shared <c>.ucli</c> storage paths. </summary>
 public static class UcliStoragePathResolver
 {
-    private static readonly char[] RunIdInvalidPathChars =
+    private static readonly char[] PathSegmentInvalidPathChars =
     {
         '/',
         '\\',
@@ -440,7 +440,7 @@ public static class UcliStoragePathResolver
             throw new ArgumentException("Run identifier must not be empty.", nameof(runId));
         }
 
-        if (normalizedRunId.IndexOfAny(RunIdInvalidPathChars) >= 0
+        if (normalizedRunId.IndexOfAny(PathSegmentInvalidPathChars) >= 0
             || string.Equals(normalizedRunId, ".", StringComparison.Ordinal)
             || string.Equals(normalizedRunId, "..", StringComparison.Ordinal))
         {
@@ -579,6 +579,15 @@ public static class UcliStoragePathResolver
         if (!TryTrimToNonEmpty(projectFingerprint, out var normalizedProjectFingerprint))
         {
             throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
+        }
+
+        if (normalizedProjectFingerprint.IndexOfAny(PathSegmentInvalidPathChars) >= 0
+            || string.Equals(normalizedProjectFingerprint, ".", StringComparison.Ordinal)
+            || string.Equals(normalizedProjectFingerprint, "..", StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "Project fingerprint must be one path segment and must not contain path separator or traversal tokens.",
+                nameof(projectFingerprint));
         }
 
         return normalizedProjectFingerprint;

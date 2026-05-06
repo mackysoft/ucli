@@ -23,7 +23,7 @@ internal sealed class FileTestRunProfileJsonReader : ITestRunProfileJsonReader
         if (!normalizedProfilePathResult.IsSuccess)
         {
             return TestRunProfileJsonReadResult.Failure(ExecutionError.InvalidArgument(
-                $"profilePath is invalid: {profilePath}."));
+                "profilePath is invalid: Path format is invalid."));
         }
 
         var normalizedProfilePath = normalizedProfilePathResult.FullPath!;

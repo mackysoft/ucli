@@ -37,7 +37,7 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
         if (!fullPathResult.IsSuccess)
         {
             return UnityProjectResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"UnityProject path is invalid: {pathCandidate}"));
+                "UnityProject path is invalid: Path format is invalid."));
         }
 
         var unityProjectRoot = fullPathResult.FullPath!;

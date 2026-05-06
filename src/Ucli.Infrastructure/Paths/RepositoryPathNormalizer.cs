@@ -23,7 +23,10 @@ internal static class RepositoryPathNormalizer
                 $"Repository root is invalid. {repositoryRootResult.DiagnosticMessage}");
         }
 
-        var targetPathResult = PathNormalizer.TryNormalizeFullPath(pathValue, repositoryRootResult.FullPath);
+        var pathValueForResolution = pathValue is null
+            ? null
+            : PathStringNormalizer.ToPlatformSeparated(pathValue);
+        var targetPathResult = PathNormalizer.TryNormalizeFullPath(pathValueForResolution, repositoryRootResult.FullPath);
         if (!targetPathResult.IsSuccess)
         {
             return RepositoryPathNormalizationResult.Failure(

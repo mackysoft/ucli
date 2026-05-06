@@ -59,14 +59,15 @@ public sealed class RepositoryPathNormalizerTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryNormalize_WithMixedSeparators_ReturnsSlashSeparatedRelativePath ()
+    public void TryNormalize_WithMixedSeparators_ReturnsPlatformFullPathAndSlashSeparatedRelativePath ()
     {
         var repositoryRoot = Path.Combine(Path.GetTempPath(), "ucli-repository-path-normalizer");
-        var pathValue = $"Assets{Path.DirectorySeparatorChar}Scenes{Path.AltDirectorySeparatorChar}Main.unity";
+        var pathValue = "Assets\\Scenes/Main.unity";
 
         var result = RepositoryPathNormalizer.TryNormalize(repositoryRoot, pathValue);
 
         Assert.True(result.IsSuccess);
+        Assert.Equal(Path.GetFullPath(Path.Combine(repositoryRoot, "Assets", "Scenes", "Main.unity")), result.FullPath);
         Assert.Equal("Assets/Scenes/Main.unity", result.RepositoryRelativeSlashPath);
     }
 

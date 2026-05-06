@@ -7,28 +7,29 @@ namespace MackySoft.Ucli.Features.Testing.Run.Configuration;
 internal sealed class FileTestRunPathNormalizer : ITestRunPathNormalizer
 {
     /// <inheritdoc />
-    public bool TryNormalizeRepositoryPath (
+    public TestRunPathNormalizationResult TryNormalizeRepositoryPath (
         string repositoryRoot,
-        string path,
-        out string? normalizedPath,
-        out string? errorMessage)
+        string path)
     {
-        normalizedPath = null;
-        errorMessage = null;
-
         var result = RepositoryPathNormalizer.TryNormalize(repositoryRoot, path);
         if (result.IsSuccess)
         {
-            normalizedPath = result.FullPath;
-            return true;
+            return TestRunPathNormalizationResult.Success(result.FullPath!);
         }
 
-        errorMessage = result.FailureKind switch
+        return TestRunPathNormalizationResult.Failure(
+            MapFailureKind(result.FailureKind),
+            result.DiagnosticMessage);
+    }
+
+    private static TestRunPathNormalizationFailureKind MapFailureKind (PathNormalizationFailureKind failureKind)
+    {
+        return failureKind switch
         {
-            PathNormalizationFailureKind.EmptyPath => "Path value is empty.",
-            PathNormalizationFailureKind.OutsideRepositoryRoot => "Path must be under the repository root.",
-            _ => result.DiagnosticMessage,
+            PathNormalizationFailureKind.EmptyPath => TestRunPathNormalizationFailureKind.EmptyPath,
+            PathNormalizationFailureKind.InvalidFormat => TestRunPathNormalizationFailureKind.InvalidFormat,
+            PathNormalizationFailureKind.OutsideRepositoryRoot => TestRunPathNormalizationFailureKind.OutsideRepositoryRoot,
+            _ => throw new ArgumentOutOfRangeException(nameof(failureKind), failureKind, "Unsupported path normalization failure kind."),
         };
-        return false;
     }
 }

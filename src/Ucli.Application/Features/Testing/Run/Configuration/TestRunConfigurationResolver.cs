@@ -162,20 +162,19 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
             return null;
         }
 
-        if (pathNormalizer.TryNormalizeRepositoryPath(
-                repositoryRoot,
-                configuration.TestSettingsPath,
-                out var normalizedPath,
-                out var errorMessage))
+        var pathNormalizationResult = pathNormalizer.TryNormalizeRepositoryPath(
+            repositoryRoot,
+            configuration.TestSettingsPath);
+        if (pathNormalizationResult.IsSuccess)
         {
             configuration = configuration with
             {
-                TestSettingsPath = normalizedPath,
+                TestSettingsPath = pathNormalizationResult.FullPath,
             };
             return null;
         }
 
-        return ExecutionError.InvalidArgument($"testSettingsPath is invalid: {errorMessage}");
+        return ExecutionError.InvalidArgument(CreateTestSettingsPathErrorMessage(pathNormalizationResult));
     }
 
     /// <summary> Validates merged configuration values before project and editor resolution. </summary>
@@ -200,6 +199,23 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
         }
 
         return errors;
+    }
+
+    private static string CreateTestSettingsPathErrorMessage (TestRunPathNormalizationResult pathNormalizationResult)
+    {
+        if (pathNormalizationResult.IsSuccess)
+        {
+            throw new ArgumentException("Successful path normalization result does not have an error message.", nameof(pathNormalizationResult));
+        }
+
+        var reason = pathNormalizationResult.FailureKind switch
+        {
+            TestRunPathNormalizationFailureKind.EmptyPath => "Path value is empty.",
+            TestRunPathNormalizationFailureKind.InvalidFormat => "Path format is invalid.",
+            TestRunPathNormalizationFailureKind.OutsideRepositoryRoot => "Path must be under the repository root.",
+            _ => "Path is invalid.",
+        };
+        return $"testSettingsPath is invalid: {reason}";
     }
 
     private static ExecutionError? ValidateTestSettingsPath (
