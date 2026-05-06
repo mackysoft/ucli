@@ -1,0 +1,35 @@
+{
+  "protocolVersion": 1,
+  "command": "call",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "uCLI call completed.",
+  "payload": {
+    "requestId": "<requestId>",
+    "opResults": [
+      {
+        "opId": "step-1",
+        "op": "ucli.go.describe",
+        "phase": "call",
+        "applied": true,
+        "changed": false,
+        "touched": []
+      }
+    ],
+    "plan": {
+      "requestId": "<requestId>",
+      "opResults": [
+        {
+          "opId": "step-1",
+          "op": "ucli.go.describe",
+          "phase": "plan",
+          "applied": false,
+          "changed": false,
+          "touched": []
+        }
+      ],
+      "planToken": "plan-token-1"
+    }
+  },
+  "errors": []
+}
