@@ -2,7 +2,7 @@ using System.Net.Sockets;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
+using MackySoft.Ucli.UnityIntegration.Ipc.Failures;
 
 namespace MackySoft.Ucli.Tests.Ipc;
 
@@ -44,6 +44,23 @@ public sealed class UnityIpcFailureClassifierTests
         Assert.Equal(IpcErrorCodes.InvalidArgument, failure.Code);
         Assert.Equal(ApplicationOutcome.InvalidArgument, failure.Outcome);
         Assert.Equal("Plugin marker is missing.", failure.Message);
+    }
+
+    [Theory]
+    [InlineData(IpcErrorCodes.PlanTokenRequired)]
+    [InlineData(IpcErrorCodes.PlanTokenInvalid)]
+    [InlineData(IpcErrorCodes.PlanTokenExpired)]
+    [InlineData(IpcErrorCodes.PlanTokenRequestMismatch)]
+    [InlineData(IpcErrorCodes.StateChangedSincePlan)]
+    [Trait("Size", "Small")]
+    public void FromCodeAndMessage_WithPlanTokenValidationCode_ReturnsInvalidArgumentOutcome (string code)
+    {
+        var failure = UnityIpcFailureClassifier.FromCodeAndMessage(
+            code,
+            "Plan token validation failed.");
+
+        Assert.Equal(code, failure.Code);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, failure.Outcome);
     }
 
     [Fact]

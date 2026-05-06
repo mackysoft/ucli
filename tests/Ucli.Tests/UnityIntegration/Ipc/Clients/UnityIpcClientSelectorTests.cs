@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
-using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
+using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 
 namespace MackySoft.Ucli.Tests.Ipc;
 
