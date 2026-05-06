@@ -148,6 +148,91 @@ public sealed class OpsCatalogSourceRefreshServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Refresh_ReturnsSourceResultWithFingerprintFailureReason_WhenCoreSnapshotBeforeReadIsMissing ()
+    {
+        var reader = new StubOpsCatalogReader
+        {
+            Result = OpsCatalogFetchResult.Success(
+                new IpcOpsReadResponse(
+                    DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
+                    [CreateGoDescribeEntry()])),
+        };
+        var fingerprintProvider = new StubReadIndexInputFingerprintProvider
+        {
+            CoreSnapshot = null,
+            Snapshot = CreateSnapshot("asset-search", "guid-path", "combined"),
+        };
+        var artifactWriter = new StubReadIndexArtifactWriter();
+        var service = new OpsCatalogSourceRefreshService(
+            reader,
+            new StubPersistedOpsCatalogPersistenceArtifactsReader(),
+            fingerprintProvider,
+            artifactWriter);
+
+        var result = await service.Refresh(
+            CreateProjectContext(),
+            UcliConfig.CreateDefault(),
+            UnityExecutionMode.Auto,
+            TimeSpan.FromMilliseconds(1200),
+            failFast: true,
+            "readIndex stale.",
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Contains("readIndex stale.", result.FallbackReason!, StringComparison.Ordinal);
+        Assert.Contains("input fingerprint could not be computed", result.FallbackReason!, StringComparison.Ordinal);
+        Assert.Equal(1, reader.CallCount);
+        Assert.Equal(1, fingerprintProvider.CoreCallCount);
+        Assert.Equal(0, fingerprintProvider.FullCallCount);
+        Assert.Equal(0, artifactWriter.OpsCatalogCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Refresh_ReturnsFirstSourceResultWithRetryFailureReason_WhenRetryCatalogReadFails ()
+    {
+        var reader = new StubOpsCatalogReader();
+        reader.Enqueue(OpsCatalogFetchResult.Success(
+            new IpcOpsReadResponse(
+                DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
+                [CreateGoDescribeEntry()])));
+        reader.Enqueue(OpsCatalogFetchResult.Failure("Unity source unavailable.", IpcErrorCodes.InternalError));
+        var fingerprintProvider = new StubReadIndexInputFingerprintProvider
+        {
+            Snapshot = CreateSnapshot("asset-search", "guid-path", "combined-2"),
+        };
+        fingerprintProvider.EnqueueCore(CreateCoreSnapshot("combined-1"));
+        fingerprintProvider.EnqueueCore(CreateCoreSnapshot("combined-2"));
+        fingerprintProvider.EnqueueCore(CreateCoreSnapshot("combined-2"));
+        var artifactWriter = new StubReadIndexArtifactWriter();
+        var service = new OpsCatalogSourceRefreshService(
+            reader,
+            new StubPersistedOpsCatalogPersistenceArtifactsReader(),
+            fingerprintProvider,
+            artifactWriter);
+
+        var result = await service.Refresh(
+            CreateProjectContext(),
+            UcliConfig.CreateDefault(),
+            UnityExecutionMode.Auto,
+            TimeSpan.FromMilliseconds(1200),
+            failFast: true,
+            "readIndex stale.",
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Single(result.Operations!);
+        Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, result.Operations![0].Name);
+        Assert.Contains("readIndex stale.", result.FallbackReason!, StringComparison.Ordinal);
+        Assert.Contains("project inputs changed while the catalog was being read", result.FallbackReason!, StringComparison.Ordinal);
+        Assert.Contains("retry catalog read failed. Unity source unavailable.", result.FallbackReason!, StringComparison.Ordinal);
+        Assert.Equal(2, reader.CallCount);
+        Assert.Equal(3, fingerprintProvider.CoreCallCount);
+        Assert.Equal(0, artifactWriter.OpsCatalogCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Refresh_RetriesAndPersists_WhenCoreInputsChangeDuringFirstCatalogRead ()
     {
         var reader = new StubOpsCatalogReader();

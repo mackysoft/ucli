@@ -49,7 +49,6 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
             mode,
             timeout,
             readIndexMode,
-            fallbackReason: null,
             static (entries, key) => FindByAssetGuid(entries, key),
             normalizedAssetGuid,
             cancellationToken);
@@ -76,7 +75,6 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
             mode,
             timeout,
             readIndexMode,
-            fallbackReason: null,
             static (entries, key) => FindByAssetPath(entries, key),
             normalizedAssetPath,
             cancellationToken);
@@ -88,7 +86,6 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
         UnityExecutionModeValue mode,
         TimeSpan timeout,
         ReadIndexMode readIndexMode,
-        string? fallbackReason,
         Func<IReadOnlyList<IndexGuidPathEntryJsonContract>, string, IndexGuidPathEntryJsonContract?> resolver,
         string key,
         CancellationToken cancellationToken)
@@ -185,13 +182,12 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
                 "GUID-path lookup read completed.");
         }
 
-        fallbackReason = $"Existing guid-path index freshness is '{ReadIndexAccessUtilities.DescribeFreshness(freshnessResult.Freshness)}'.";
         return await ReadFromSource(
                 project,
                 config,
                 mode,
                 timeout,
-                fallbackReason,
+                $"Existing guid-path index freshness is '{ReadIndexAccessUtilities.DescribeFreshness(freshnessResult.Freshness)}'.",
                 resolver,
                 key,
                 cancellationToken)

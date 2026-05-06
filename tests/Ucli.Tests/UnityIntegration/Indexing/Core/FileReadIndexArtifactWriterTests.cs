@@ -44,6 +44,39 @@ public sealed class FileReadIndexArtifactWriterTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task WriteOpsCatalog_WithoutManifest_WritesCatalogOnly ()
+    {
+        using var scope = TestDirectories.CreateTempScope("read-index-writer", "ops-no-manifest");
+        var writer = CreateWriter();
+        var generatedAtUtc = DateTimeOffset.Parse("2026-03-08T00:00:00+00:00");
+        IReadOnlyList<IndexOpEntryJsonContract> operations =
+        [
+            CreateGoDescribeEntry(),
+        ];
+
+        await writer.WriteOpsCatalog(
+            scope.FullPath,
+            "fingerprint",
+            generatedAtUtc,
+            operations,
+            "ops-hash",
+            manifestInputSnapshot: null,
+            CancellationToken.None);
+
+        var reader = new FileReadIndexArtifactReader();
+        var project = CreateProject(scope, "fingerprint");
+        var catalogResult = await reader.ReadOpsCatalog(project, CancellationToken.None);
+        var manifestResult = await reader.ReadInputsManifest(project, CancellationToken.None);
+
+        Assert.True(catalogResult.IsSuccess);
+        Assert.False(manifestResult.IsSuccess);
+        Assert.Equal(IpcErrorCodes.ReadIndexBootstrapFailed, manifestResult.Error!.Code);
+        Assert.Equal(generatedAtUtc, catalogResult.Value!.GeneratedAtUtc);
+        Assert.Equal("ops-hash", catalogResult.Value.SourceInputsHash);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task WriteAssetLookups_WritesLookupFilesAndManifest ()
     {
         using var scope = TestDirectories.CreateTempScope("read-index-writer", "assets");
@@ -134,6 +167,62 @@ public sealed class FileReadIndexArtifactWriterTests
             "Assets/Scenes/Main.unity")));
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WriteSceneTreeLite_WhenTargetSceneIsUpdated_PreservesOtherSceneLookup ()
+    {
+        using var scope = TestDirectories.CreateTempScope("read-index-writer", "scene-target");
+        var writer = CreateWriter();
+        var firstGeneratedAtUtc = DateTimeOffset.Parse("2026-04-14T00:00:00+00:00");
+        var secondGeneratedAtUtc = DateTimeOffset.Parse("2026-04-14T00:01:00+00:00");
+        var updatedGeneratedAtUtc = DateTimeOffset.Parse("2026-04-14T00:02:00+00:00");
+
+        await writer.WriteSceneTreeLite(
+            scope.FullPath,
+            "fingerprint",
+            firstGeneratedAtUtc,
+            "Assets/Scenes/First.unity",
+            [CreateSceneRoot("FirstRoot")],
+            "first-hash",
+            CancellationToken.None);
+        await writer.WriteSceneTreeLite(
+            scope.FullPath,
+            "fingerprint",
+            secondGeneratedAtUtc,
+            "Assets/Scenes/Second.unity",
+            [CreateSceneRoot("SecondRoot")],
+            "second-hash",
+            CancellationToken.None);
+        await writer.WriteSceneTreeLite(
+            scope.FullPath,
+            "fingerprint",
+            updatedGeneratedAtUtc,
+            "Assets/Scenes/First.unity",
+            [CreateSceneRoot("FirstRootUpdated")],
+            "first-updated-hash",
+            CancellationToken.None);
+
+        var reader = new FileReadIndexArtifactReader();
+        var project = CreateProject(scope, "fingerprint");
+        var firstResult = await reader.ReadSceneTreeLiteLookup(
+            project,
+            "Assets/Scenes/First.unity",
+            CancellationToken.None);
+        var secondResult = await reader.ReadSceneTreeLiteLookup(
+            project,
+            "Assets/Scenes/Second.unity",
+            CancellationToken.None);
+
+        Assert.True(firstResult.IsSuccess);
+        Assert.True(secondResult.IsSuccess);
+        Assert.Equal("first-updated-hash", firstResult.Value!.SourceInputsHash);
+        Assert.Equal("FirstRootUpdated", firstResult.Value.Roots![0].Name);
+        Assert.Equal(updatedGeneratedAtUtc, firstResult.Value.GeneratedAtUtc);
+        Assert.Equal("second-hash", secondResult.Value!.SourceInputsHash);
+        Assert.Equal("SecondRoot", secondResult.Value.Roots![0].Name);
+        Assert.Equal(secondGeneratedAtUtc, secondResult.Value.GeneratedAtUtc);
+    }
+
     private static FileReadIndexArtifactWriter CreateWriter ()
     {
         return new FileReadIndexArtifactWriter(
@@ -174,6 +263,14 @@ public sealed class FileReadIndexArtifactWriterTests
                 Array.Empty<string>(),
                 UcliOperationPlanModeValues.ObservesLiveUnity),
         };
+    }
+
+    private static IndexSceneTreeLiteNodeJsonContract CreateSceneRoot (string name)
+    {
+        return new IndexSceneTreeLiteNodeJsonContract(
+            name,
+            $"GlobalObjectId_V1-{name}",
+            Array.Empty<IndexSceneTreeLiteNodeJsonContract>());
     }
 
     private static ReadIndexInputHashSnapshot CreateSnapshot ()
