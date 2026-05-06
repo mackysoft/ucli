@@ -273,6 +273,25 @@ public sealed class ExecuteResponseConverterTests
         Assert.Equal("Execute response failed with status 'busy'.", error.Message);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Convert_WhenPlanTokenValidationFails_ReturnsInvalidArgumentOutcome ()
+    {
+        var response = new UnityRequestResponse(
+            Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse([])),
+            Errors:
+            [
+                new OperationExecutionError(IpcErrorCodes.PlanTokenInvalid, "Plan token is invalid.", null),
+            ],
+            HasFailureStatus: true);
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
+        Assert.Equal(IpcErrorCodes.PlanTokenInvalid, Assert.Single(result.Errors).Code);
+    }
+
     private static UnityRequestResponse CreateResponse (IpcExecuteResponse payload)
     {
         return new UnityRequestResponse(

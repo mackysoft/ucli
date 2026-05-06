@@ -40,15 +40,14 @@ internal sealed class PlanCommandPreflightService : IPlanCommandPreflightService
                 PlanFailureResultFactory.FromExecutionError(requestPreparationResult.Error));
         }
 
-        var preparedRequest = requestPreparationResult.PreparedRequest
-            ?? throw new InvalidOperationException("Prepared request must be available when request preparation succeeds.");
+        var preparedRequest = requestPreparationResult.PreparedRequest!;
         var requestStaticValidationPreflightResult = await requestStaticValidationPreflightService.Prepare(
                 preparedRequest,
                 readIndexMode,
                 cancellationToken)
             .ConfigureAwait(false);
 
-        var output = PlanExecutionOutputFactory.CreateBase(
+        var output = PlanExecutionOutputFactory.TryCreateBase(
             requestStaticValidationPreflightResult.PreparedRequest,
             requestStaticValidationPreflightResult.ReadIndex);
         if (requestStaticValidationPreflightResult.Error != null)
@@ -69,6 +68,8 @@ internal sealed class PlanCommandPreflightService : IPlanCommandPreflightService
         }
 
         return PlanCommandPreflightResult.Success(
-            output ?? throw new InvalidOperationException("Plan preflight must produce a base payload when it succeeds."));
+            PlanExecutionOutputFactory.CreateBase(
+                requestStaticValidationPreflightResult.PreparedRequest!,
+                requestStaticValidationPreflightResult.ReadIndex!));
     }
 }
