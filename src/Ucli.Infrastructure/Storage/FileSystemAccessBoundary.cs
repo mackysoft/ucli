@@ -7,6 +7,7 @@ using System.Security.AccessControl;
 using System.Security.Principal;
 #endif
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.Infrastructure.Storage;
 
@@ -34,7 +35,7 @@ internal static class FileSystemAccessBoundary
             throw new ArgumentException("Directory path must not be empty.", nameof(directoryPath));
         }
 
-        var normalizedDirectoryPath = Path.GetFullPath(directoryPath);
+        var normalizedDirectoryPath = NormalizePathArgument(directoryPath, nameof(directoryPath));
         if (TryResolveLocalDirectoryRoot(normalizedDirectoryPath, out var localDirectoryRoot))
         {
             UcliLocalStorageBootstrapper.EnsureInitialized(normalizedDirectoryPath);
@@ -55,7 +56,7 @@ internal static class FileSystemAccessBoundary
             throw new ArgumentException("File path must not be empty.", nameof(filePath));
         }
 
-        var normalizedFilePath = Path.GetFullPath(filePath);
+        var normalizedFilePath = NormalizePathArgument(filePath, nameof(filePath));
         if (!File.Exists(normalizedFilePath))
         {
             throw new FileNotFoundException($"Secure file target was not found: {normalizedFilePath}", normalizedFilePath);
@@ -73,7 +74,7 @@ internal static class FileSystemAccessBoundary
             throw new ArgumentException("Socket path must not be empty.", nameof(socketPath));
         }
 
-        var normalizedSocketPath = Path.GetFullPath(socketPath);
+        var normalizedSocketPath = NormalizePathArgument(socketPath, nameof(socketPath));
         if (!File.Exists(normalizedSocketPath))
         {
             throw new FileNotFoundException($"Secure socket target was not found: {normalizedSocketPath}", normalizedSocketPath);
@@ -210,7 +211,7 @@ internal static class FileSystemAccessBoundary
         string directoryPath,
         out string? localDirectoryRoot)
     {
-        var currentDirectory = new DirectoryInfo(Path.GetFullPath(directoryPath));
+        var currentDirectory = new DirectoryInfo(NormalizePathArgument(directoryPath, nameof(directoryPath)));
         while (currentDirectory != null)
         {
             var parentDirectory = currentDirectory.Parent;
@@ -233,25 +234,26 @@ internal static class FileSystemAccessBoundary
         string path,
         string rootPath)
     {
-        if (string.Equals(path, rootPath, GetPathComparison()))
-        {
-            return true;
-        }
-
-        var normalizedRootPath = EnsureTrailingDirectorySeparator(rootPath);
-        return EnsureTrailingDirectorySeparator(path).StartsWith(normalizedRootPath, GetPathComparison());
+        return RepositoryPathNormalizer.TryNormalize(rootPath, path).IsSuccess;
     }
 
     private static string NormalizeDirectoryPath (string directoryPath)
     {
-        return Path.GetFullPath(directoryPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return NormalizePathArgument(directoryPath, nameof(directoryPath))
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     }
 
-    private static string EnsureTrailingDirectorySeparator (string directoryPath)
+    private static string NormalizePathArgument (
+        string pathValue,
+        string parameterName)
     {
-        return directoryPath.EndsWith(Path.DirectorySeparatorChar)
-            ? directoryPath
-            : directoryPath + Path.DirectorySeparatorChar;
+        var pathResult = PathNormalizer.TryNormalizeFullPath(pathValue);
+        if (!pathResult.IsSuccess)
+        {
+            throw new ArgumentException(pathResult.DiagnosticMessage, parameterName);
+        }
+
+        return pathResult.FullPath!;
     }
 
     private static StringComparison GetPathComparison ()

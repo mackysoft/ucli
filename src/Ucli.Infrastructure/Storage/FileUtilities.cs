@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Infrastructure.Paths;
+
 namespace MackySoft.Ucli.Infrastructure.Storage;
 
 /// <summary> Provides shared utility operations for filesystem files. </summary>
@@ -54,7 +56,13 @@ public static class FileUtilities
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        var directoryPath = Path.GetDirectoryName(Path.GetFullPath(path))
+        var pathResult = PathNormalizer.TryNormalizeFullPath(path);
+        if (!pathResult.IsSuccess)
+        {
+            throw new ArgumentException(pathResult.DiagnosticMessage, nameof(path));
+        }
+
+        var directoryPath = Path.GetDirectoryName(pathResult.FullPath!)
             ?? throw new InvalidOperationException($"Directory path could not be resolved: {path}");
         Directory.CreateDirectory(directoryPath);
         var temporaryPath = path + $".tmp.{Guid.NewGuid():N}";

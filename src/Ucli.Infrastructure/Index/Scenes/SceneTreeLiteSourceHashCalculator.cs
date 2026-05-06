@@ -25,9 +25,15 @@ internal sealed class SceneTreeLiteSourceHashCalculator : ISceneTreeLiteSourceHa
         }
 
         var normalizedScenePath = PathStringNormalizer.ToSlashSeparated(scenePath);
-        var absoluteScenePath = Path.Combine(
-            Path.GetFullPath(projectRootPath),
+        var scenePathResult = RepositoryPathNormalizer.TryNormalize(
+            projectRootPath,
             PathStringNormalizer.ToPlatformSeparated(normalizedScenePath));
+        if (!scenePathResult.IsSuccess)
+        {
+            return null;
+        }
+
+        var absoluteScenePath = scenePathResult.FullPath!;
         var absoluteMetaPath = absoluteScenePath + ".meta";
 
         var sceneHash = await FileContentHash.TryComputeFileHash(absoluteScenePath, cancellationToken).ConfigureAwait(false);

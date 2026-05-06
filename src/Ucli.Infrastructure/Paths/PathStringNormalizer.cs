@@ -91,6 +91,12 @@ internal static class PathStringNormalizer
             throw new ArgumentNullException(nameof(pathValue));
         }
 
-        return NormalizeCaseForCurrentPlatform(ToSlashSeparated(Path.GetFullPath(pathValue)));
+        var pathResult = PathNormalizer.TryNormalizeFullPath(pathValue);
+        if (!pathResult.IsSuccess)
+        {
+            throw new ArgumentException(pathResult.DiagnosticMessage, nameof(pathValue));
+        }
+
+        return NormalizeCaseForCurrentPlatform(ToSlashSeparated(pathResult.FullPath!));
     }
 }

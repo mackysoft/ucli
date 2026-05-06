@@ -125,6 +125,22 @@ public sealed class UnityProjectResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Resolve_ReturnsInvalidArgument_WhenProjectPathFormatIsInvalid ()
+    {
+        var resolver = CreateResolver();
+
+        var result = resolver.Resolve("invalid\0path");
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Context);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("UnityProject path is invalid", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("\0", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Resolve_ReturnsInvalidArgument_WhenProjectVersionFileIsMissing ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "missing-project-version");

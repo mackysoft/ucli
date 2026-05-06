@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Infrastructure.Storage;
 /// <summary> Resolves repository-root and shared <c>.ucli</c> storage paths. </summary>
 public static class UcliStoragePathResolver
 {
-    private static readonly char[] RunIdInvalidPathChars =
+    private static readonly char[] PathSegmentInvalidPathChars =
     {
         '/',
         '\\',
@@ -30,7 +30,7 @@ public static class UcliStoragePathResolver
             throw new ArgumentException("Start path must not be empty.", nameof(startPath));
         }
 
-        var directoryPath = Path.GetFullPath(startPath);
+        var directoryPath = NormalizePathArgument(startPath, nameof(startPath));
         if (!Directory.Exists(directoryPath))
         {
             return null;
@@ -68,7 +68,7 @@ public static class UcliStoragePathResolver
             throw new ArgumentException("Start path must not be empty.", nameof(startPath));
         }
 
-        var fullStartPath = Path.GetFullPath(startPath);
+        var fullStartPath = NormalizePathArgument(startPath, nameof(startPath));
         var repositoryRoot = TryResolveRepositoryRoot(fullStartPath);
         if (repositoryRoot is not null)
         {
@@ -87,8 +87,7 @@ public static class UcliStoragePathResolver
     /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> is <see langword="null" />, empty, or whitespace. </exception>
     public static string ResolveUcliDirectoryPath (string storageRoot)
     {
-        var normalizedStorageRoot = NormalizeStorageRoot(storageRoot);
-        return Path.Combine(normalizedStorageRoot, UcliStoragePathNames.UcliDirectoryName);
+        return ResolveUnderStorageRoot(storageRoot, UcliStoragePathNames.UcliDirectoryName);
     }
 
     /// <summary> Resolves the absolute path to shared <c>.ucli/config.json</c>. </summary>
@@ -128,7 +127,7 @@ public static class UcliStoragePathResolver
             ? StringComparison.OrdinalIgnoreCase
             : StringComparison.Ordinal;
 
-        var currentDirectory = new DirectoryInfo(Path.GetFullPath(directoryPath));
+        var currentDirectory = new DirectoryInfo(NormalizePathArgument(directoryPath, nameof(directoryPath)));
         while (currentDirectory != null)
         {
             var parentDirectory = currentDirectory.Parent;
@@ -209,11 +208,10 @@ public static class UcliStoragePathResolver
         string storageRoot,
         string projectFingerprint)
     {
-        var normalizedStorageRoot = NormalizeStorageRoot(storageRoot);
         var normalizedProjectFingerprint = NormalizeProjectFingerprint(projectFingerprint);
 
-        return Path.Combine(
-            normalizedStorageRoot,
+        return ResolveUnderStorageRoot(
+            storageRoot,
             UcliStoragePathNames.UcliDirectoryName,
             UcliStoragePathNames.LocalDirectoryName,
             UcliStoragePathNames.FingerprintsDirectoryName,
@@ -442,7 +440,7 @@ public static class UcliStoragePathResolver
             throw new ArgumentException("Run identifier must not be empty.", nameof(runId));
         }
 
-        if (normalizedRunId.IndexOfAny(RunIdInvalidPathChars) >= 0
+        if (normalizedRunId.IndexOfAny(PathSegmentInvalidPathChars) >= 0
             || string.Equals(normalizedRunId, ".", StringComparison.Ordinal)
             || string.Equals(normalizedRunId, "..", StringComparison.Ordinal))
         {
@@ -541,7 +539,39 @@ public static class UcliStoragePathResolver
             throw new ArgumentException("Storage root must not be empty.", nameof(storageRoot));
         }
 
-        return Path.GetFullPath(storageRoot);
+        return NormalizePathArgument(storageRoot, nameof(storageRoot));
+    }
+
+    private static string ResolveUnderStorageRoot (
+        string storageRoot,
+        params string[] relativeSegments)
+    {
+        var normalizedStorageRoot = NormalizeStorageRoot(storageRoot);
+        var pathSegments = new string[relativeSegments.Length + 1];
+        pathSegments[0] = normalizedStorageRoot;
+        Array.Copy(relativeSegments, 0, pathSegments, 1, relativeSegments.Length);
+
+        var candidatePath = Path.Combine(pathSegments);
+        var repositoryPathResult = RepositoryPathNormalizer.TryNormalize(normalizedStorageRoot, candidatePath);
+        if (!repositoryPathResult.IsSuccess)
+        {
+            throw new ArgumentException(repositoryPathResult.DiagnosticMessage, nameof(storageRoot));
+        }
+
+        return repositoryPathResult.FullPath!;
+    }
+
+    private static string NormalizePathArgument (
+        string pathValue,
+        string parameterName)
+    {
+        var pathResult = PathNormalizer.TryNormalizeFullPath(pathValue);
+        if (!pathResult.IsSuccess)
+        {
+            throw new ArgumentException(pathResult.DiagnosticMessage, parameterName);
+        }
+
+        return pathResult.FullPath!;
     }
 
     private static string NormalizeProjectFingerprint (string projectFingerprint)
@@ -549,6 +579,15 @@ public static class UcliStoragePathResolver
         if (!TryTrimToNonEmpty(projectFingerprint, out var normalizedProjectFingerprint))
         {
             throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
+        }
+
+        if (normalizedProjectFingerprint.IndexOfAny(PathSegmentInvalidPathChars) >= 0
+            || string.Equals(normalizedProjectFingerprint, ".", StringComparison.Ordinal)
+            || string.Equals(normalizedProjectFingerprint, "..", StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "Project fingerprint must be one path segment and must not contain path separator or traversal tokens.",
+                nameof(projectFingerprint));
         }
 
         return normalizedProjectFingerprint;
