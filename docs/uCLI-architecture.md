@@ -151,6 +151,31 @@ UnityEngine / UnityEditor 依存コード、operation handler、Unity object 解
 
 SKILL template、manifest、digest、host adapter、materialization、install / export / doctor のロジックは `Ucli.Skills` に置く。SKILL は operation contract の正本ではなく、operation args、result、assurance は実行時の `ucli ops describe` を正本にする。
 
+## Ucli.Contracts 内の配置基準
+
+`Ucli.Contracts` は公開 contract の正本であり、実行 host や use case の都合を持たない。ここに置いてよい処理は、共有 contract 型だけで完結し、CLI、Application、Infrastructure、Unity 実装へ依存しないものに限る。
+
+`Ucli.Contracts` に残すものは次の通り。
+
+- IPC wire DTO、operation Args / Result contract、protocol constants
+- semantic value type、contract attribute、contract metadata DTO
+- public schema generator、contract attribute に基づく structural validation
+- JSON を共有 contract model へ読む internal contract reader
+- 公開 JSON 構造を維持するための最小 contract helper
+
+`Ucli.Contracts` に置かないものは次の通り。
+
+- project context、operation catalog 取得、readIndex freshness、config allowlist などの application policy
+- user-facing error、CLI JSON envelope、標準入出力、終了コード
+- filesystem、process、socket、hash、storage path などの infrastructure 実装
+- UnityEngine / UnityEditor、Unity object 解決、operation handler、Unity lifecycle
+
+contract reader は `MackySoft.Ucli.Contracts.Ipc.ContractReading` に置く。reader は JSON の構造を contract model へ読む責務だけを持ち、application validation の判断、CLI 向け文言、Unity 実体解決を持たない。
+
+既存の public 型が `MackySoft.Ucli.Contracts.Ipc.Validation` namespace で公開されている場合は、公開 API 維持のため旧 namespace に残す。新規 internal reader 型を旧 namespace へ追加してはならない。
+
+operation schema generator と operation contract validator は公開 helper として `MackySoft.Ucli.Contracts.Ipc` に残す。ただし責務は operation Args / Result contract の JSON Schema subset 生成と contract attribute / semantic value に基づく structural validation に限定する。
+
 ## Package Visibility
 
 Project 分割と公開パッケージ境界は一致させない。公開パッケージの運用正本は [package-operations.md](package-operations.md) とする。
