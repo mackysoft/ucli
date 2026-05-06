@@ -72,6 +72,9 @@ jobs:
       - name: Restore CLI
         run: dotnet restore src/Ucli/Ucli.csproj
 
+      - name: Verify generated skills
+        run: bash scripts/verify-skills.sh
+
       - name: Pack CLI tool
         run: >-
           dotnet pack src/Ucli/Ucli.csproj

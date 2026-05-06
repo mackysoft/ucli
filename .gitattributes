@@ -3,3 +3,6 @@
 
 # C# sources are formatted with LF based on .editorconfig.
 *.cs text eol=lf
+
+# Generated SKILL packages must compare byte-for-byte with generator output.
+skills/** text eol=lf

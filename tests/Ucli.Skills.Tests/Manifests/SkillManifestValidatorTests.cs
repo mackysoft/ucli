@@ -53,6 +53,8 @@ public sealed class SkillManifestValidatorTests
         return new TheoryData<SkillManifest>
         {
             valid with { SchemaVersion = 0 },
+            valid with { DisplayName = "" },
+            valid with { Description = "" },
             valid with { ContentDigest = "sha256:not-hex" },
             valid with { HostArtifacts = valid.HostArtifacts.Where(static artifact => artifact.Host != "copilot").ToArray() },
             valid with { HostArtifacts = valid.HostArtifacts.Concat([new SkillHostArtifactManifest("generic", null, null, "sha256:" + new string('5', 64))]).ToArray() },
@@ -68,6 +70,8 @@ public sealed class SkillManifestValidatorTests
         return new SkillManifest(
             SkillManifest.CurrentSchemaVersion,
             skillName,
+            "Sample Skill",
+            "Use this sample skill for tests.",
             "sha256:" + new string('0', 64),
             [
                 new SkillHostArtifactManifest("claude", null, null, "sha256:" + new string('1', 64)),

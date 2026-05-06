@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "skillName": "ucli-verify-changes",
+  "displayName": "uCLI Verify Changes",
+  "description": "Use when verifying uCLI-driven Unity changes with follow-up reads, ucli test, logs, artifacts, and opResults evidence after validation, plan, or call execution.",
+  "contentDigest": "sha256:63895c11e0e199decd58c4e8190b3b0b0d7f85605bec8e2c44c56d286a8a72f0",
+  "hostArtifacts": [
+    {
+      "host": "claude",
+      "materializedFrontmatterDigest": "sha256:e7d73a37c92c486102ab5fb8c1522a4dd00eedc349a247904419455028663ef3"
+    },
+    {
+      "host": "copilot",
+      "materializedFrontmatterDigest": "sha256:d75b2c3b40aeef154219eb8c3397af5cbfd1a1643c006d3decd2ff438a3070ad"
+    },
+    {
+      "host": "openai",
+      "path": "agents/openai.yaml",
+      "digest": "sha256:c71c5447e8e4ed302ee4a8568ba7bd578eaed53f07dd22291940140ed32b387e",
+      "materializedFrontmatterDigest": "sha256:4125b0cc29f085c1da95135c5ebfd1398a6c8de6b0549e46840dc4bf949eb41d"
+    }
+  ]
+}

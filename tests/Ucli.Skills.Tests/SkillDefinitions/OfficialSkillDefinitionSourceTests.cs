@@ -35,6 +35,15 @@ public sealed class OfficialSkillDefinitionSourceTests
         "ucli call --allowDangerous",
         "ucli plan --allowDangerous",
         "ucli validate --allowDangerous",
+        "arbitrary C#",
+        "execute C#",
+        "run C#",
+        "arbitrary shell",
+        "execute shell",
+        "run shell",
+        "edit Unity YAML directly",
+        "modify Unity YAML directly",
+        "write Unity YAML directly",
     ];
 
     [Fact]
@@ -112,8 +121,18 @@ public sealed class OfficialSkillDefinitionSourceTests
             Assert.Contains("touched", template, StringComparison.Ordinal);
             Assert.Contains("readPostcondition", template, StringComparison.Ordinal);
             Assert.Contains("--allowDangerous", template, StringComparison.Ordinal);
-            Assert.DoesNotContain("argsSchema", template, StringComparison.Ordinal);
-            Assert.DoesNotContain("resultSchema", template, StringComparison.Ordinal);
+
+            foreach (var forbiddenTerm in ForbiddenCanonicalSchemaTerms)
+            {
+                Assert.DoesNotContain(forbiddenTerm, template, StringComparison.OrdinalIgnoreCase);
+            }
+
+            foreach (var forbiddenTerm in ForbiddenDangerousWorkflowExamples)
+            {
+                Assert.DoesNotContain(forbiddenTerm, template, StringComparison.OrdinalIgnoreCase);
+            }
+
+            Assert.False(ContainsOperationCatalogTableCopy(template), skillName);
             Assert.False(Directory.Exists(Path.Combine(definitionsRoot, skillName, "scripts")), skillName);
             Assert.False(Directory.Exists(Path.Combine(definitionsRoot, skillName, "assets")), skillName);
         }

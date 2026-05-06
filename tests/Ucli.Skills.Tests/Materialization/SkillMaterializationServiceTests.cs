@@ -2,6 +2,7 @@ using MackySoft.Ucli.Skills.Hosts.Claude;
 using MackySoft.Ucli.Skills.Hosts.Copilot;
 using MackySoft.Ucli.Skills.Hosts.OpenAi;
 using MackySoft.Ucli.Skills.Installation.Validation;
+using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Skills.Tests.Materialization;
@@ -32,7 +33,7 @@ public sealed class SkillMaterializationServiceTests
                 Assert.True(SkillHostMaterializationInspector.TryExtractFrontmatter(skillText, out var frontmatter));
                 Assert.False(string.IsNullOrWhiteSpace(frontmatter));
                 Assert.Equal(package.Files.Single(static file => file.RelativePath == "SKILL.md").Content, GetBodyWithoutFrontmatter(skillText, frontmatter));
-                AssertCanonicalFilesArePreserved(package.Files, materializedFiles);
+                AssertCanonicalFilesArePreserved(package, materializedFiles);
                 Assert.Equal(GetExpectedPaths(package.Files, host), materializedFiles.Select(static file => file.RelativePath).ToArray());
             }
         }
@@ -76,7 +77,13 @@ public sealed class SkillMaterializationServiceTests
         IReadOnlyList<SkillPackageFile> canonicalFiles,
         string host)
     {
+        var hostArtifactPaths = canonicalFiles
+            .Where(static file => string.Equals(file.RelativePath, "agents/openai.yaml", StringComparison.Ordinal))
+            .Select(static file => file.RelativePath)
+            .ToHashSet(StringComparer.Ordinal);
+
         return canonicalFiles
+            .Where(file => !hostArtifactPaths.Contains(file.RelativePath))
             .Select(static file => file.RelativePath)
             .Concat(string.Equals(host, OpenAiSkillHostAdapter.HostKey, StringComparison.Ordinal) ? ["agents/openai.yaml"] : [])
             .Order(StringComparer.Ordinal)
@@ -84,10 +91,16 @@ public sealed class SkillMaterializationServiceTests
     }
 
     private static void AssertCanonicalFilesArePreserved (
-        IReadOnlyList<SkillPackageFile> canonicalFiles,
+        CanonicalSkillPackage package,
         IReadOnlyList<SkillPackageFile> materializedFiles)
     {
-        foreach (var canonicalFile in canonicalFiles.Where(static file => !string.Equals(file.RelativePath, "SKILL.md", StringComparison.Ordinal)))
+        var hostArtifactPaths = package.Manifest.HostArtifacts
+            .Select(static artifact => artifact.Path)
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var canonicalFile in package.Files.Where(file => !string.Equals(file.RelativePath, "SKILL.md", StringComparison.Ordinal)
+            && !hostArtifactPaths.Contains(file.RelativePath)))
         {
             var materializedFile = materializedFiles.Single(file => string.Equals(file.RelativePath, canonicalFile.RelativePath, StringComparison.Ordinal));
             Assert.Equal(canonicalFile.Content, materializedFile.Content);

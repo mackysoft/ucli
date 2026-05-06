@@ -148,6 +148,7 @@ public sealed class PackageMetadataTests
             ["tests/Ucli.Infrastructure.Tests/Ucli.Infrastructure.Tests.csproj"] = "false",
             ["tests/Ucli.Skills.Tests/Ucli.Skills.Tests.csproj"] = "false",
             ["tests/Ucli.Tests/Ucli.Tests.csproj"] = "false",
+            ["tools/Ucli.SkillGenerator/Ucli.SkillGenerator.csproj"] = "false",
         };
 
         string[] actualProjectPaths = Directory
