@@ -1,0 +1,30 @@
+{
+  "protocolVersion": 1,
+  "command": "ops.list",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "uCLI ops list completed.",
+  "payload": {
+    "operations": [
+      {
+        "name": "ucli.go.describe",
+        "kind": "query",
+        "policy": "safe"
+      },
+      {
+        "name": "ucli.scene.save",
+        "kind": "mutation",
+        "policy": "advanced"
+      }
+    ],
+    "readIndex": {
+      "used": true,
+      "hit": true,
+      "source": "index",
+      "freshness": "probable",
+      "generatedAtUtc": "<generatedAtUtc>",
+      "fallbackReason": null
+    }
+  },
+  "errors": []
+}

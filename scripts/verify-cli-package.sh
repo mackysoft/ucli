@@ -66,6 +66,19 @@ while IFS= read -r skill_file; do
   fi
 done < <(find "${repo_root}/skills" -type f | sort)
 
+list_host_independent_skill_files() {
+  local relative_path
+
+  while IFS= read -r skill_file; do
+    relative_path="${skill_file#"${repo_root}/skills/"}"
+    case "${relative_path}" in
+      */SKILL.md|*/ucli-skill.json|*/references/*)
+        printf '%s\n' "${relative_path}"
+        ;;
+    esac
+  done < <(find "${repo_root}/skills" -type f | sort)
+}
+
 skills_list="$("${tool_path}/ucli" skills list)"
 if ! grep -F '"command": "skills.list"' <<< "${skills_list}" >/dev/null; then
   echo "ucli skills list did not report the skills.list command." >&2
@@ -79,23 +92,25 @@ fi
 
 export_path="${tool_path}/exported-skills"
 "${tool_path}/ucli" skills export --host openai --output "${export_path}" >/dev/null
-while IFS= read -r skill_file; do
-  relative_path="${skill_file#"${repo_root}/skills/"}"
+while IFS= read -r relative_path; do
   exported_file="${export_path}/${relative_path}"
   if [[ ! -f "${exported_file}" ]]; then
-    echo "ucli skills export did not materialize generated SKILL file: ${exported_file}" >&2
+    echo "ucli skills export did not materialize required SKILL content file: ${exported_file}" >&2
     exit 1
   fi
-done < <(find "${repo_root}/skills" -type f | sort)
+done < <(list_host_independent_skill_files)
 
 install_repo="$(mktemp -d "${temp_root%/}/ucli-skills-install.XXXXXX")"
 "${tool_path}/ucli" skills install --host openai --scope project --repoRoot "${install_repo}" >/dev/null
 "${tool_path}/ucli" skills install --host openai --scope project --repoRoot "${install_repo}" >/dev/null
-while IFS= read -r skill_file; do
-  relative_path="${skill_file#"${repo_root}/skills/"}"
-  installed_file="${install_repo}/.agents/skills/${relative_path}"
-  if [[ ! -f "${installed_file}" ]]; then
-    echo "ucli skills install did not materialize generated SKILL file: ${installed_file}" >&2
-    exit 1
-  fi
-done < <(find "${repo_root}/skills" -type f | sort)
+"${tool_path}/ucli" skills doctor --host openai --scope project --repoRoot "${install_repo}" >/dev/null
+installed_path="${install_repo}/.agents/skills"
+if [[ ! -d "${installed_path}" ]]; then
+  echo "ucli skills install did not create the project skills directory: ${installed_path}" >&2
+  exit 1
+fi
+
+if ! diff -ruN "${export_path}" "${installed_path}"; then
+  echo "ucli skills install output differs from ucli skills export output for the same host." >&2
+  exit 1
+fi

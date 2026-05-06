@@ -1,0 +1,26 @@
+{
+  "protocolVersion": 1,
+  "command": "plan",
+  "status": "error",
+  "exitCode": 3,
+  "message": "Mode must be auto, daemon, or oneshot.",
+  "payload": {
+    "requestId": "<requestId>",
+    "opResults": [],
+    "readIndex": {
+      "used": false,
+      "hit": false,
+      "source": "index",
+      "freshness": "probable",
+      "generatedAtUtc": null,
+      "fallbackReason": "readIndex disabled by mode."
+    }
+  },
+  "errors": [
+    {
+      "code": "INVALID_ARGUMENT",
+      "message": "Mode must be auto, daemon, or oneshot.",
+      "opId": null
+    }
+  ]
+}

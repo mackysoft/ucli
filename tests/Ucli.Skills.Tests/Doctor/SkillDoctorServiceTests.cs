@@ -75,7 +75,7 @@ public sealed class SkillDoctorServiceTests
             new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
             CancellationToken.None);
         Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
-        File.AppendAllText(Path.Combine(installResult.Value!.TargetRoot, packages[0].SkillName, "SKILL.md"), "\nInjected instruction.\n");
+        File.AppendAllText(Path.Combine(installResult.Value!.TargetRoot, packages[0].Manifest.SkillName, "SKILL.md"), "\nInjected instruction.\n");
         var doctor = SkillTestData.CreateDoctorService();
 
         var result = await doctor.DiagnoseAsync(packages, OpenAiSkillHostAdapter.HostKey, installResult.Value.TargetRoot, CancellationToken.None);
@@ -96,7 +96,7 @@ public sealed class SkillDoctorServiceTests
             new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
             CancellationToken.None);
         Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
-        File.Delete(Path.Combine(installResult.Value!.TargetRoot, packages[0].SkillName, "SKILL.md"));
+        File.Delete(Path.Combine(installResult.Value!.TargetRoot, packages[0].Manifest.SkillName, "SKILL.md"));
         var doctor = SkillTestData.CreateDoctorService();
 
         var result = await doctor.DiagnoseAsync(packages, OpenAiSkillHostAdapter.HostKey, installResult.Value.TargetRoot, CancellationToken.None);
@@ -117,7 +117,7 @@ public sealed class SkillDoctorServiceTests
             new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
             CancellationToken.None);
         Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
-        var manifestPath = Path.Combine(installResult.Value!.TargetRoot, packages[0].SkillName, "ucli-skill.json");
+        var manifestPath = Path.Combine(installResult.Value!.TargetRoot, packages[0].Manifest.SkillName, "ucli-skill.json");
         var originalDigest = packages[0].Manifest.HostArtifacts[0].MaterializedFrontmatterDigest;
         var manifestText = File.ReadAllText(manifestPath).Replace(originalDigest, "sha256:" + new string('f', 64), StringComparison.Ordinal);
         File.WriteAllText(manifestPath, manifestText);
@@ -143,7 +143,7 @@ public sealed class SkillDoctorServiceTests
         Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
         var referencePath = Path.Combine(
             installResult.Value!.TargetRoot,
-            packages[0].SkillName,
+            packages[0].Manifest.SkillName,
             packages[0].Files.First(static file => file.RelativePath.StartsWith("references/", StringComparison.Ordinal)).RelativePath);
         File.Delete(referencePath);
         var doctor = SkillTestData.CreateDoctorService();
@@ -161,7 +161,7 @@ public sealed class SkillDoctorServiceTests
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "doctor-invalid-manifest");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
         var targetRoot = scope.CreateDirectory(".agents/skills");
-        scope.WriteFile(Path.Combine(".agents", "skills", packages[0].SkillName, "ucli-skill.json"), "{}");
+        scope.WriteFile(Path.Combine(".agents", "skills", packages[0].Manifest.SkillName, "ucli-skill.json"), "{}");
         var doctor = SkillTestData.CreateDoctorService();
 
         var result = await doctor.DiagnoseAsync(packages, OpenAiSkillHostAdapter.HostKey, targetRoot, CancellationToken.None);
@@ -183,11 +183,11 @@ public sealed class SkillDoctorServiceTests
         using var outsideScope = TestDirectories.CreateTempScope("ucli-skills", "doctor-manifest-symlink-outside");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
         var targetRoot = scope.CreateDirectory(".agents/skills");
-        scope.CreateDirectory(Path.Combine(".agents", "skills", packages[0].SkillName));
+        scope.CreateDirectory(Path.Combine(".agents", "skills", packages[0].Manifest.SkillName));
         var outsideManifest = outsideScope.WriteFile("ucli-skill.json", packages[0].Files.Single(static file => file.RelativePath == "ucli-skill.json").Content);
         try
         {
-            File.CreateSymbolicLink(Path.Combine(targetRoot, packages[0].SkillName, "ucli-skill.json"), outsideManifest);
+            File.CreateSymbolicLink(Path.Combine(targetRoot, packages[0].Manifest.SkillName, "ucli-skill.json"), outsideManifest);
         }
         catch (IOException)
         {
