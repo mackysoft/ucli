@@ -225,8 +225,9 @@ public sealed class PackageMetadataTests
             string headSha = (await RunRequiredProcessAsync("git", ["rev-parse", "HEAD"], tempDirectory)).StdOut.Trim();
 
             string detectorScriptPath = ToBashPath(Path.Combine(RepositoryRoot, "scripts", "detect-verify-scopes.sh"));
+            string bashFileName = ResolveBashFileName();
             ProcessResult result = await RunRequiredProcessAsync(
-                "bash",
+                bashFileName,
                 [detectorScriptPath],
                 tempDirectory,
                 new Dictionary<string, string>(StringComparer.Ordinal)
@@ -451,6 +452,46 @@ public sealed class PackageMetadataTests
         }
 
         return fullPath;
+    }
+
+    private static string ResolveBashFileName ()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return "bash";
+        }
+
+        foreach (string candidatePath in EnumerateGitBashCandidatePaths())
+        {
+            if (File.Exists(candidatePath))
+            {
+                return candidatePath;
+            }
+        }
+
+        return "bash";
+    }
+
+    private static IEnumerable<string> EnumerateGitBashCandidatePaths ()
+    {
+        var visitedRootPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        string?[] rootPaths =
+        [
+            Environment.GetEnvironmentVariable("ProgramFiles"),
+            Environment.GetEnvironmentVariable("ProgramW6432"),
+            Environment.GetEnvironmentVariable("ProgramFiles(x86)"),
+        ];
+
+        foreach (string? rootPath in rootPaths)
+        {
+            if (string.IsNullOrWhiteSpace(rootPath) || !visitedRootPaths.Add(rootPath))
+            {
+                continue;
+            }
+
+            yield return Path.Combine(rootPath, "Git", "bin", "bash.exe");
+            yield return Path.Combine(rootPath, "Git", "usr", "bin", "bash.exe");
+        }
     }
 
     private static async Task<ProcessResult> RunRequiredProcessAsync (
