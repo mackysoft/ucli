@@ -111,6 +111,45 @@ public sealed class FileInitTemplateStoreTests
         Assert.Equal(1, configStore.SaveCallCount);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Write_WhenConfigSaveReturnsDiagnostics_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("init-service", "config-save-diagnostics");
+        var workingDirectoryPath = scope.CreateDirectory("workspace");
+        using var currentDirectoryScope = new CurrentDirectoryScope(workingDirectoryPath);
+        var configStore = new StubConfigStore(saveHandler: static (_, _, _) => ValueTask.FromResult(
+            UcliConfigSaveResult.Failure(
+            [
+                UcliConfigDiagnostic.Create(
+                    "config.save.invalidTimeout",
+                    "ipcDefaultTimeoutMilliseconds",
+                    "config.json",
+                    "Config timeout is invalid."),
+                UcliConfigDiagnostic.Create(
+                    "config.save.invalidRegexPattern",
+                    "operationAllowlist[0]",
+                    "config.json",
+                    "Config allowlist pattern is invalid."),
+            ])));
+        var store = new FileInitTemplateStore(configStore);
+
+        var result = await store.WriteAsync(UcliConfig.CreateDefault(), false, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Output);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("Config timeout is invalid.", error.Message, StringComparison.Ordinal);
+        Assert.Contains("Config allowlist pattern is invalid.", error.Message, StringComparison.Ordinal);
+        var expectedStorageRoot = UcliStoragePathResolver.ResolveStorageRoot(workingDirectoryPath);
+        var expectedGitIgnorePath = Path.Combine(
+            UcliStoragePathResolver.ResolveUcliDirectoryPath(expectedStorageRoot),
+            UcliStoragePathNames.GitIgnoreFileName);
+        Assert.False(File.Exists(expectedGitIgnorePath));
+        Assert.Equal(1, configStore.SaveCallCount);
+    }
+
     private sealed class CurrentDirectoryScope : IDisposable
     {
         private readonly string originalCurrentDirectory;

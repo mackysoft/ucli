@@ -57,7 +57,9 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
         if (!configLoadResult.IsSuccess)
         {
             return TestRunPreflightResult.FailureResult(
-                TestRunServiceErrorMapper.MapExecutionError(configLoadResult.Error!));
+                TestRunServiceErrorMapper.MapExecutionError(UcliConfigDiagnosticErrorMapper.ToExecutionError(
+                    configLoadResult,
+                    "Config JSON is invalid.")));
         }
 
         var timeoutResolutionResult = IpcCommandTimeoutResolver.ResolveNormalized(
