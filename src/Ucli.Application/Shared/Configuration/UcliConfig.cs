@@ -15,7 +15,7 @@ internal sealed record UcliConfig (
     ReadIndexMode ReadIndexDefaultMode,
     IReadOnlyList<string> OperationAllowlist)
 {
-    private const int CurrentSchemaVersion = 1;
+    internal const int CurrentSchemaVersion = 1;
     private const string DefaultAllowlistPattern = "^ucli\\.";
 
     /// <summary> Gets the IPC timeout in milliseconds used when CLI options do not override timeout. </summary>

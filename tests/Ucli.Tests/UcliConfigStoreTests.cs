@@ -3,7 +3,6 @@ namespace MackySoft.Ucli.Tests;
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Configuration;
-using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
 
 public sealed class UcliConfigStoreTests
@@ -114,9 +113,9 @@ public sealed class UcliConfigStoreTests
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Config);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("invalid", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(result.Error);
+        var diagnostic = AssertSingleDiagnostic(result.Diagnostics);
+        Assert.Contains("invalid", diagnostic.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -145,9 +144,9 @@ public sealed class UcliConfigStoreTests
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Config);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("schemaVersion", error.Message, StringComparison.Ordinal);
+        Assert.Null(result.Error);
+        var diagnostic = AssertSingleDiagnostic(result.Diagnostics);
+        Assert.Contains("schemaVersion", diagnostic.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -174,10 +173,10 @@ public sealed class UcliConfigStoreTests
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Config);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("operationAllowlist", error.Message, StringComparison.Ordinal);
-        Assert.Contains("regex", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(result.Error);
+        var diagnostic = AssertSingleDiagnostic(result.Diagnostics);
+        Assert.Contains("operationAllowlist", diagnostic.Message, StringComparison.Ordinal);
+        Assert.Contains("regex", diagnostic.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -200,10 +199,10 @@ public sealed class UcliConfigStoreTests
         var saveResult = await configStore.Save(unityProjectPath, invalidConfig, CancellationToken.None);
 
         Assert.False(saveResult.IsSuccess);
-        var error = Assert.IsType<ExecutionError>(saveResult.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("operationAllowlist", error.Message, StringComparison.Ordinal);
-        Assert.Contains("regex", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(saveResult.Error);
+        var diagnostic = AssertSingleDiagnostic(saveResult.Diagnostics);
+        Assert.Contains("operationAllowlist", diagnostic.Message, StringComparison.Ordinal);
+        Assert.Contains("regex", diagnostic.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -230,9 +229,9 @@ public sealed class UcliConfigStoreTests
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Config);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("readIndexDefaultMode", error.Message, StringComparison.Ordinal);
+        Assert.Null(result.Error);
+        var diagnostic = AssertSingleDiagnostic(result.Diagnostics);
+        Assert.Contains("readIndexDefaultMode", diagnostic.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -260,9 +259,9 @@ public sealed class UcliConfigStoreTests
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Config);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("ipcDefaultTimeoutMilliseconds", error.Message, StringComparison.Ordinal);
+        Assert.Null(result.Error);
+        var diagnostic = AssertSingleDiagnostic(result.Diagnostics);
+        Assert.Contains("ipcDefaultTimeoutMilliseconds", diagnostic.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -316,9 +315,9 @@ public sealed class UcliConfigStoreTests
         var saveResult = await configStore.Save(unityProjectPath, invalidConfig, CancellationToken.None);
 
         Assert.False(saveResult.IsSuccess);
-        var error = Assert.IsType<ExecutionError>(saveResult.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("ipcDefaultTimeoutMilliseconds", error.Message, StringComparison.Ordinal);
+        Assert.Null(saveResult.Error);
+        var diagnostic = AssertSingleDiagnostic(saveResult.Diagnostics);
+        Assert.Contains("ipcDefaultTimeoutMilliseconds", diagnostic.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -379,10 +378,10 @@ public sealed class UcliConfigStoreTests
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Config);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("ipcTimeoutMillisecondsByCommand", error.Message, StringComparison.Ordinal);
-        Assert.Contains("unknown", error.Message, StringComparison.Ordinal);
+        Assert.Null(result.Error);
+        var diagnostic = AssertSingleDiagnostic(result.Diagnostics);
+        Assert.Contains("ipcTimeoutMillisecondsByCommand", diagnostic.Message, StringComparison.Ordinal);
+        Assert.Contains("unknown", diagnostic.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -412,9 +411,9 @@ public sealed class UcliConfigStoreTests
         var saveResult = await configStore.Save(unityProjectPath, invalidConfig, CancellationToken.None);
 
         Assert.False(saveResult.IsSuccess);
-        var error = Assert.IsType<ExecutionError>(saveResult.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("ipcTimeoutMillisecondsByCommand", error.Message, StringComparison.Ordinal);
+        Assert.Null(saveResult.Error);
+        var diagnostic = AssertSingleDiagnostic(saveResult.Diagnostics);
+        Assert.Contains("ipcTimeoutMillisecondsByCommand", diagnostic.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -444,10 +443,10 @@ public sealed class UcliConfigStoreTests
         var saveResult = await configStore.Save(unityProjectPath, invalidConfig, CancellationToken.None);
 
         Assert.False(saveResult.IsSuccess);
-        var error = Assert.IsType<ExecutionError>(saveResult.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("ipcTimeoutMillisecondsByCommand", error.Message, StringComparison.Ordinal);
-        Assert.Contains("unsupported", error.Message, StringComparison.Ordinal);
+        Assert.Null(saveResult.Error);
+        var diagnostic = AssertSingleDiagnostic(saveResult.Diagnostics);
+        Assert.Contains("ipcTimeoutMillisecondsByCommand", diagnostic.Message, StringComparison.Ordinal);
+        Assert.Contains("unsupported", diagnostic.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -476,10 +475,17 @@ public sealed class UcliConfigStoreTests
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Config);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("unknown properties", error.Message, StringComparison.Ordinal);
-        Assert.Contains("unexpectedProperty", error.Message, StringComparison.Ordinal);
+        Assert.Null(result.Error);
+        var diagnostic = AssertSingleDiagnostic(result.Diagnostics);
+        Assert.Contains("unknown property", diagnostic.Message, StringComparison.Ordinal);
+        Assert.Contains("unexpectedProperty", diagnostic.Message, StringComparison.Ordinal);
+    }
+
+    private static UcliConfigDiagnostic AssertSingleDiagnostic (IReadOnlyList<UcliConfigDiagnostic> diagnostics)
+    {
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.False(string.IsNullOrWhiteSpace(diagnostic.Code));
+        return diagnostic;
     }
 
     private static void AssertDefaultIpcTimeouts (IReadOnlyDictionary<string, int?> actual)

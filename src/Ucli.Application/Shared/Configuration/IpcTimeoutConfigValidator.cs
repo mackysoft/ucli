@@ -126,13 +126,31 @@ internal static class IpcTimeoutConfigValidator
             StringComparer.Ordinal);
     }
 
-    /// <summary> Creates a deterministic command-key list for error messages. </summary>
+    /// <summary> Creates a deterministic command-key list for diagnostics and error messages. </summary>
     /// <returns> The sorted command-key list. </returns>
-    private static string GetSupportedCommandNamesDescription ()
+    public static string GetSupportedCommandNamesDescription ()
     {
         return string.Join(", ", IpcTimeoutDefaults.SupportedCommands
             .Select(static command => command.Name)
             .OrderBy(static commandName => commandName, StringComparer.Ordinal));
+    }
+
+    /// <summary> Tries to normalize one supported timeout command name. </summary>
+    /// <param name="commandName"> The command-name literal from config. </param>
+    /// <param name="normalizedCommandName"> The normalized command name when successful. </param>
+    /// <returns> <see langword="true" /> when the command is supported; otherwise <see langword="false" />. </returns>
+    public static bool TryNormalizeSupportedCommandName (
+        string? commandName,
+        out string normalizedCommandName)
+    {
+        if (TryParseSupportedTimeoutCommand(commandName, out var command))
+        {
+            normalizedCommandName = command.Name;
+            return true;
+        }
+
+        normalizedCommandName = string.Empty;
+        return false;
     }
 
     private static bool TryParseSupportedTimeoutCommand (
