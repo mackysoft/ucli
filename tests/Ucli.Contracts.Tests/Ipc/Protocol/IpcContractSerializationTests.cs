@@ -64,6 +64,9 @@ public sealed class IpcContractSerializationTests
             ]);
 
         var json = JsonSerializer.Serialize(response, SerializerOptions);
+        using var jsonDocument = JsonDocument.Parse(json);
+        Assert.Equal("COMMAND_NOT_IMPLEMENTED", jsonDocument.RootElement.GetProperty("errors")[0].GetProperty("code").GetString());
+
         var roundTrip = JsonSerializer.Deserialize<IpcResponse>(json, SerializerOptions);
 
         Assert.NotNull(roundTrip);
@@ -73,6 +76,38 @@ public sealed class IpcContractSerializationTests
         Assert.Single(roundTrip.Errors);
         Assert.Equal("COMMAND_NOT_IMPLEMENTED", roundTrip.Errors[0].Code);
         Assert.Equal("Not implemented", roundTrip.Errors[0].Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UcliErrorCode_RetainsUnknownCodeValue ()
+    {
+        UcliErrorCode code = new("FUTURE_DAEMON_FAILURE");
+
+        Assert.Equal("FUTURE_DAEMON_FAILURE", code.Value);
+        Assert.Equal("FUTURE_DAEMON_FAILURE", code.ToString());
+        Assert.Equal(new UcliErrorCode("FUTURE_DAEMON_FAILURE"), code);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    public void UcliErrorCode_RejectsBlankValue (string? value)
+    {
+        Assert.ThrowsAny<ArgumentException>(() => new UcliErrorCode(value!));
+        Assert.False(UcliErrorCode.TryCreate(value, out _));
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("""{"protocolVersion":1,"requestId":"req","status":"error","payload":{},"errors":[{"code":null,"message":"bad","opId":null}]}""")]
+    [InlineData("""{"protocolVersion":1,"requestId":"req","status":"error","payload":{},"errors":[{"code":123,"message":"bad","opId":null}]}""")]
+    [InlineData("""{"protocolVersion":1,"requestId":"req","status":"error","payload":{},"errors":[{"code":"","message":"bad","opId":null}]}""")]
+    public void IpcResponse_WhenErrorCodeJsonIsInvalid_Throws (string json)
+    {
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<IpcResponse>(json, SerializerOptions));
     }
 
     [Fact]

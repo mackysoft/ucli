@@ -314,7 +314,7 @@ public sealed class PlanServiceTests
     {
         var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Failure(
             "",
-            ""));
+            null));
         var service = new PlanService(
             new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
             new StubRequestStaticValidationPreflightService(CreateSuccessPreflightResult(

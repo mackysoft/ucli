@@ -435,7 +435,6 @@ public sealed class OperationExecuteServiceTests
     [InlineData(IpcErrorCodes.InvalidArgument, IpcErrorCodes.InvalidArgument, (int)ApplicationOutcome.InvalidArgument)]
     [InlineData(IpcErrorCodes.PlanTokenInvalid, IpcErrorCodes.PlanTokenInvalid, (int)ApplicationOutcome.InvalidArgument)]
     [InlineData(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, (int)ApplicationOutcome.ToolError)]
-    [InlineData("", IpcErrorCodes.InternalError, (int)ApplicationOutcome.ToolError)]
     public async Task Execute_WhenTransportExecutionFails_MapsExitCodeFromErrorCode (
         string errorCode,
         string expectedErrorCode,
@@ -493,7 +492,7 @@ public sealed class OperationExecuteServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenRequiredPlanTokenExecutionFailsWithBlankErrorCode_NormalizesInternalError ()
+    public async Task Execute_WhenRequiredPlanTokenExecutionFailsWithMissingErrorCode_NormalizesInternalError ()
     {
         var config = UcliConfig.CreateDefault() with
         {
@@ -503,7 +502,7 @@ public sealed class OperationExecuteServiceTests
         var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Failure(
             message: "execution failed",
-            errorCode: ""));
+            errorCode: null));
         var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore());
 
         var result = await service.Execute(

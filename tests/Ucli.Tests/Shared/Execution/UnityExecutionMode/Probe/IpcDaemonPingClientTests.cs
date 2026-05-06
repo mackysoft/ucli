@@ -214,7 +214,7 @@ public sealed class IpcDaemonPingClientTests
                 AsyncWaitTimeout);
         });
 
-        Assert.Equal(IpcErrorCodes.SessionTokenRequired, exception.ErrorCode);
+        Assert.Equal(IpcErrorCodes.SessionTokenRequired, exception.ErrorCode!.Value);
         Assert.Equal(0, unityIpcClient.CallCount);
         Assert.Equal(1, sessionTokenProvider.CallCount);
     }

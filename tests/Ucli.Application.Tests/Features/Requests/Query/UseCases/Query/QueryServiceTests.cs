@@ -191,7 +191,7 @@ public sealed class QueryServiceTests
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
         var assetSearchLookupAccessService = new StubAssetSearchLookupAccessService();
         var sceneTreeLiteAccessService = new StubSceneTreeLiteAccessService();
-        var unityRequestExecutor = new SpyUnityRequestExecutor(UnityRequestExecutionResult.Failure("", ""));
+        var unityRequestExecutor = new SpyUnityRequestExecutor(UnityRequestExecutionResult.Failure("", null));
         var service = new QueryService(projectContextResolver, assetSearchLookupAccessService, sceneTreeLiteAccessService, unityRequestExecutor);
         var args = JsonSerializer.SerializeToElement(new
         {

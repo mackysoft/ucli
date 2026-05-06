@@ -31,7 +31,7 @@ public sealed class DaemonPingResponseCodecTests
 
         Assert.False(result);
         Assert.NotNull(error);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, error.ErrorCode);
+        Assert.Equal(IpcErrorCodes.InvalidArgument, error.ErrorCode!.Value);
     }
 
     [Fact]

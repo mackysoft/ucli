@@ -243,7 +243,7 @@ public sealed class ExecuteResponseConverterTests
             Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse([])),
             Errors:
             [
-                new OperationExecutionError(null!, "Unity execution failed.", null),
+                new OperationExecutionError(default, "Unity execution failed.", null),
             ],
             HasFailureStatus: true);
 

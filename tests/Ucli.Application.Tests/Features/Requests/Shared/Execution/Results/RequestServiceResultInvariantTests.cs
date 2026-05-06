@@ -153,18 +153,31 @@ public sealed class RequestServiceResultInvariantTests
             validationErrors));
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData("", "Failure message.")]
-    [InlineData("INTERNAL_ERROR", "")]
-    public void Failure_WhenErrorCodeOrMessageIsMissing_Throws (
-        string errorCode,
-        string errorMessage)
+    public void Failure_WhenErrorCodeIsMissing_Throws ()
     {
         var readIndex = CreateReadIndexInfo();
         OperationExecutionError[] errors =
         [
-            new OperationExecutionError(errorCode, errorMessage, null),
+            new OperationExecutionError(default, "Failure message.", null),
+        ];
+
+        Assert.ThrowsAny<ArgumentException>(() => PlanServiceResult.Failure("Plan failed.", errors, ApplicationOutcome.ToolError));
+        Assert.ThrowsAny<ArgumentException>(() => CallServiceResult.Failure("Call failed.", errors, ApplicationOutcome.ToolError));
+        Assert.ThrowsAny<ArgumentException>(() => QueryServiceResultFactory.Failure("query assets find", RequestId, [], errors, ApplicationOutcome.ToolError, "Query failed.", readIndex));
+        Assert.ThrowsAny<ArgumentException>(() => ResolveServiceResultFactory.Failure(RequestId, [], errors, ApplicationOutcome.ToolError, readIndex));
+        Assert.ThrowsAny<ArgumentException>(() => OperationExecuteResultFactory.Failure(RequestId, [], errors, ApplicationOutcome.ToolError));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Failure_WhenErrorMessageIsMissing_Throws ()
+    {
+        var readIndex = CreateReadIndexInfo();
+        OperationExecutionError[] errors =
+        [
+            new OperationExecutionError(IpcErrorCodes.InternalError, "", null),
         ];
 
         Assert.ThrowsAny<ArgumentException>(() => PlanServiceResult.Failure("Plan failed.", errors, ApplicationOutcome.ToolError));
@@ -210,7 +223,7 @@ public sealed class RequestServiceResultInvariantTests
         var queryResult = QueryServiceResultFactory.FromIpcError(
             "query assets find",
             RequestId,
-            new OperationExecutionError("", "", null),
+            new OperationExecutionError(default, "", null),
             CreateReadIndexInfo());
 
         var queryError = Assert.Single(queryResult.Errors);
@@ -220,7 +233,7 @@ public sealed class RequestServiceResultInvariantTests
 
         var resolveResult = ResolveServiceResultFactory.FromIpcError(
             RequestId,
-            new OperationExecutionError("", "", null),
+            new OperationExecutionError(default, "", null),
             CreateReadIndexInfo());
 
         var resolveError = Assert.Single(resolveResult.Errors);
@@ -255,6 +268,18 @@ public sealed class RequestServiceResultInvariantTests
             ]);
         Assert.Equal(ApplicationOutcome.InvalidArgument, validateResult.Outcome);
         Assert.Equal(errorCode, Assert.Single(validateResult.Errors).Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UnknownErrorCode_IsPreservedAndMapsToToolError ()
+    {
+        var error = RequestServiceResultPolicy.FromTransportFailure(
+            errorCode: "FUTURE_TRANSPORT_FAILURE",
+            message: "Future transport failed.");
+
+        Assert.Equal("FUTURE_TRANSPORT_FAILURE", error.Code);
+        Assert.Equal(ApplicationOutcome.ToolError, RequestServiceResultPolicy.ResolveOutcome(error.Code));
     }
 
     [Fact]
