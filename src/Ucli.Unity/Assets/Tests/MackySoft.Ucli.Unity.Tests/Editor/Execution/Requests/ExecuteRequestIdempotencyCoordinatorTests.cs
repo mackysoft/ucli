@@ -189,8 +189,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
             try
             {
-                Assert.CatchAsync<OperationCanceledException>(async () =>
-                    await TestAwaiter.WaitAsync(waiterTask, "Waiter cancellation result", SignalWaitTimeout));
+                _ = await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(
+                    async () =>
+                    {
+                        _ = await waiterTask;
+                    },
+                    "Waiter cancellation result",
+                    SignalWaitTimeout);
+
                 Assert.That(ownerTask.IsCompleted, Is.False);
                 ownerRelease.TrySetResult(true);
 
