@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 
@@ -20,9 +21,9 @@ internal static class CommandResultFactory
 
         return error.Kind switch
         {
-            ExecutionErrorKind.InvalidArgument => CommandResult.InvalidArgument(command, error.Message),
-            ExecutionErrorKind.Timeout => CommandResult.Timeout(command, error.Message),
-            ExecutionErrorKind.InternalError => CommandResult.InternalError(command, error.Message),
+            ExecutionErrorKind.InvalidArgument => CommandResult.InvalidArgument(command, error.Message, ExecutionErrorCodeMapper.ToCode(error)),
+            ExecutionErrorKind.Timeout => CommandResult.Timeout(command, error.Message, ExecutionErrorCodeMapper.ToCode(error)),
+            ExecutionErrorKind.InternalError => CommandResult.InternalError(command, error.Message, ExecutionErrorCodeMapper.ToCode(error)),
             _ => throw new ArgumentOutOfRangeException(nameof(error), error.Kind, "Unsupported execution error kind."),
         };
     }

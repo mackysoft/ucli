@@ -427,9 +427,16 @@ public sealed class TestRunConfigurationResolverTests
 
     private sealed class StubProjectPathInputResolver : IProjectPathInputResolver
     {
-        private readonly Func<string?, string?, string?> resolve;
+        private readonly Func<ProjectContextResolutionInput, ProjectPathCandidate> resolve;
 
         public StubProjectPathInputResolver (Func<string?, string?, string?> resolve)
+            : this(input => new ProjectPathCandidate(
+                resolve(input.CommandOptionProjectPath, input.FallbackProjectPath) ?? Environment.CurrentDirectory,
+                ResolveSource(input, resolve)))
+        {
+        }
+
+        public StubProjectPathInputResolver (Func<ProjectContextResolutionInput, ProjectPathCandidate> resolve)
         {
             this.resolve = resolve ?? throw new ArgumentNullException(nameof(resolve));
         }
@@ -438,13 +445,32 @@ public sealed class TestRunConfigurationResolverTests
 
         public string? LastFallbackProjectPath { get; private set; }
 
-        public string? Resolve (
-            string? commandOptionProjectPath,
-            string? fallbackProjectPath = null)
+        public ProjectPathCandidate? LastProjectPathCandidate { get; private set; }
+
+        public ProjectPathCandidate Resolve (ProjectContextResolutionInput input)
         {
-            LastCommandOptionProjectPath = commandOptionProjectPath;
-            LastFallbackProjectPath = fallbackProjectPath;
-            return resolve(commandOptionProjectPath, fallbackProjectPath);
+            LastCommandOptionProjectPath = input.CommandOptionProjectPath;
+            LastFallbackProjectPath = input.FallbackProjectPath;
+            LastProjectPathCandidate = resolve(input);
+            return LastProjectPathCandidate;
+        }
+
+        private static UnityProjectPathSource ResolveSource (
+            ProjectContextResolutionInput input,
+            Func<string?, string?, string?> resolve)
+        {
+            var resolvedPath = resolve(input.CommandOptionProjectPath, input.FallbackProjectPath);
+            if (string.Equals(resolvedPath, input.CommandOptionProjectPath, StringComparison.Ordinal))
+            {
+                return UnityProjectPathSource.CommandOption;
+            }
+
+            if (string.Equals(resolvedPath, input.FallbackProjectPath, StringComparison.Ordinal))
+            {
+                return UnityProjectPathSource.Fallback;
+            }
+
+            return UnityProjectPathSource.EnvironmentVariable;
         }
     }
 
@@ -495,11 +521,13 @@ public sealed class TestRunConfigurationResolverTests
             this.result = result;
         }
 
-        public string? LastProjectPath { get; private set; }
+        public ProjectPathCandidate? LastProjectPathCandidate { get; private set; }
 
-        public UnityProjectResolutionResult Resolve (string? projectPath)
+        public string? LastProjectPath => LastProjectPathCandidate?.Path;
+
+        public UnityProjectResolutionResult Resolve (ProjectPathCandidate projectPathCandidate)
         {
-            LastProjectPath = projectPath;
+            LastProjectPathCandidate = projectPathCandidate;
             return result;
         }
     }

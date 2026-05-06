@@ -157,7 +157,10 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         CancellationToken cancellationToken)
     {
         var candidateProjectPath = worktreeProjectPathResolver.ResolveCandidateProjectPath(worktree.WorktreePath, projectRelativePath);
-        var candidateProjectResult = unityProjectResolver.Resolve(candidateProjectPath);
+        var candidateProjectResult = unityProjectResolver.Resolve(new ProjectPathCandidate(
+            candidateProjectPath,
+            UnityProjectPathSource.Fallback,
+            "gitWorktree.projectRelativePath"));
         if (!candidateProjectResult.IsSuccess)
         {
             return WorktreeObservationResult.Success(item: null);

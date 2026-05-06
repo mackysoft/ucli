@@ -3,7 +3,7 @@ using MackySoft.Ucli.Contracts.Testing;
 namespace MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 
 /// <summary> Represents merged and normalized configuration values before project and editor resolution. </summary>
-/// <param name="ProjectPath"> The absolute Unity project path candidate. </param>
+/// <param name="ProjectPath"> The selected Unity project path candidate before project resolution. </param>
 /// <param name="Mode"> The execution-mode value. </param>
 /// <param name="UnityVersion"> The optional Unity version override value. </param>
 /// <param name="UnityEditorPath"> The optional Unity editor path override value. </param>

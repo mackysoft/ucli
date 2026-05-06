@@ -80,9 +80,9 @@ internal sealed class OperationCatalogProvider : IOperationCatalogProvider
         var message = $"{messagePrefix} {error.Message}";
         return error.Kind switch
         {
-            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message),
-            ExecutionErrorKind.Timeout => ExecutionError.Timeout(message),
-            _ => ExecutionError.InternalError(message),
+            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message, error.Code),
+            ExecutionErrorKind.Timeout => ExecutionError.Timeout(message, error.Code),
+            _ => ExecutionError.InternalError(message, error.Code),
         };
     }
 

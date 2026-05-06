@@ -15,7 +15,7 @@ internal sealed class OperationCatalogLoadException : InvalidOperationException
     {
         Error = error ?? throw new ArgumentNullException(nameof(error));
         ErrorCode = string.IsNullOrWhiteSpace(errorCode)
-            ? ExecutionErrorCodeMapper.ToCode(Error.Kind)
+            ? ExecutionErrorCodeMapper.ToCode(Error)
             : errorCode;
     }
 
@@ -35,9 +35,9 @@ internal sealed class OperationCatalogLoadException : InvalidOperationException
         var message = $"{messagePrefix} {Error.Message}";
         return Error.Kind switch
         {
-            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message),
-            ExecutionErrorKind.Timeout => ExecutionError.Timeout(message),
-            _ => ExecutionError.InternalError(message),
+            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message, ErrorCode),
+            ExecutionErrorKind.Timeout => ExecutionError.Timeout(message, ErrorCode),
+            _ => ExecutionError.InternalError(message, ErrorCode),
         };
     }
 }

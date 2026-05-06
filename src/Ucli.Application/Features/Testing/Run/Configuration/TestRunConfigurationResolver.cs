@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolver
 {
     private const int MinTimeoutMilliseconds = 1;
-    private const string DefaultProjectPath = ".";
+    private const string ProfileProjectPathSourceLabel = "testRunProfile.projectPath";
 
     private readonly ITestRunProfileLoader profileLoader;
 
@@ -69,8 +69,8 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
             profile = profileLoadResult.Profile;
         }
 
-        var resolvedProjectPath = ResolveProjectPath(input, profile);
-        var mergedConfiguration = TestRunConfigurationMerger.Merge(input, profile, resolvedProjectPath);
+        var projectPathCandidate = ResolveProjectPath(input, profile);
+        var mergedConfiguration = TestRunConfigurationMerger.Merge(input, profile, projectPathCandidate.Path);
         var validationErrors = ValidateMergedConfigurationValues(mergedConfiguration);
         if (validationErrors.Count > 0)
         {
@@ -78,7 +78,7 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        var unityProjectResolutionResult = unityProjectResolver.Resolve(mergedConfiguration.ProjectPath);
+        var unityProjectResolutionResult = unityProjectResolver.Resolve(projectPathCandidate);
         if (!unityProjectResolutionResult.IsSuccess)
         {
             return TestRunConfigurationResolutionResult.Failure([unityProjectResolutionResult.Error!]);
@@ -136,16 +136,16 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
     /// <param name="input"> The interpreted command input values. </param>
     /// <param name="profile"> The optional loaded profile values. </param>
     /// <returns> The resolved project-path candidate. </returns>
-    private string ResolveProjectPath (
+    private ProjectPathCandidate ResolveProjectPath (
         TestRunConfigurationRequest input,
         TestRunProfile? profile)
     {
         ArgumentNullException.ThrowIfNull(input);
 
-        return projectPathInputResolver.Resolve(
-                   input.ProjectPath,
-                   profile?.ProjectPath ?? DefaultProjectPath)
-               ?? DefaultProjectPath;
+        return projectPathInputResolver.Resolve(new ProjectContextResolutionInput(
+            CommandOptionProjectPath: input.ProjectPath,
+            FallbackProjectPath: profile?.ProjectPath,
+            FallbackSourceLabel: ProfileProjectPathSourceLabel));
     }
 
     private static ExecutionError? NormalizeTestSettingsPath (

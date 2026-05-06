@@ -94,7 +94,7 @@ public sealed class OpsCliOutputContractTests
             exitCode: (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(
             outputJson.RootElement,
-            expectedCode: "INVALID_ARGUMENT");
+            expectedCode: ProjectContextErrorCodes.UnityProjectMarkerMissing);
     }
 
     [Fact]
