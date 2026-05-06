@@ -180,12 +180,15 @@ uCLI operation authoring 支援は初期の公式 SKILL には含めない。利
 {
   "schemaVersion": 1,
   "skillName": "ucli-plan-apply",
+  "displayName": "uCLI Plan Apply",
+  "description": "Build, validate, plan, apply, and verify uCLI JSON requests.",
   "contentDigest": "sha256:...",
   "hostArtifacts": [
     {
       "host": "openai",
       "path": "agents/openai.yaml",
-      "digest": "sha256:..."
+      "digest": "sha256:...",
+      "materializedFrontmatterDigest": "sha256:..."
     },
     {
       "host": "claude",
@@ -201,7 +204,9 @@ uCLI operation authoring 支援は初期の公式 SKILL には含めない。利
 
 `ucli-skill.json` は canonical manifest として扱い、install 後も内容を変えない。
 
-`contentDigest` は `SKILL.md` と host 非依存 `references/` の内容から算出する。host 固有 artifact の digest は `hostArtifacts` で別枠にし、OpenAI 用 `agents/openai.yaml` などの drift を共通本文の drift と混ぜない。
+`displayName` と `description` は listing と host metadata 生成に使う canonical metadata とする。`contentDigest` は `SKILL.md` と host 非依存 `references/` の内容から算出する。`displayName`、`description`、`ucli-skill.json`、host 固有 artifact は `contentDigest` に含めない。
+
+host 固有 artifact の digest は `hostArtifacts` で別枠にし、OpenAI 用 `agents/openai.yaml` などの drift を共通本文の drift と混ぜない。`materializedFrontmatterDigest` は各 host の materialized `SKILL.md` frontmatter を検証し、`digest` は metadata artifact file を持つ host だけに付与する。
 
 Digest input は次の規則で正規化する。
 
@@ -209,7 +214,7 @@ Digest input は次の規則で正規化する。
 - path は `/` 区切りに正規化する。
 - file list は path の ordinal 昇順に並べる。
 - directory entry は digest input に含めない。
-- `ucli-skill.json` と host 固有 artifact は `contentDigest` に含めない。
+- `ucli-skill.json`、manifest metadata、host 固有 artifact は `contentDigest` に含めない。
 - digest input は `path + NUL + content` の列として構成し、path と content の境界を曖昧にしない。
 
 installed skill directory に個別の install metadata file は置かない。install 状態は host target 配下の `ucli-skill.json` を scan して判定する。
@@ -263,4 +268,4 @@ CI は SKILL を正本化させないための drift gate として扱う。
 - 任意 C# 実行、任意 shell 実行、Unity YAML 直編集、`--allowDangerous` が必要な operation が通常 workflow として書かれていたら失敗する。
 - `SKILL.md` が 500 lines 以上になった場合は分割を要求する。
 - `references/*.md` が 1000 lines 以上になった場合は分割を要求する。
-- `references/` に operation catalog の丸写しが含まれていないことを検査する。
+- `SKILL.md` と `references/` に operation catalog の丸写しが含まれていないことを検査する。
