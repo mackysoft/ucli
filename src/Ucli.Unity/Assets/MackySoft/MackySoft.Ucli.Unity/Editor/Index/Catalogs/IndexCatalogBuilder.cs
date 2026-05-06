@@ -70,10 +70,8 @@ namespace MackySoft.Ucli.Unity.Index
                 cancellationToken.ThrowIfCancellationRequested();
                 var componentSchemaResult = await componentSchemaExtractor.Extract(projectTypeCatalog.ComponentTypes, cancellationToken);
                 var assetSchemaResult = await assetSchemaExtractor.Extract(projectTypeCatalog.AssetTypes, cancellationToken);
-                var schemaEntries = componentSchemaResult.Entries
-                    .Concat(assetSchemaResult.Entries)
-                    .OrderBy(static entry => entry.SchemaKey ?? string.Empty, StringComparer.Ordinal)
-                    .ToArray();
+                var schemaEntries = IndexJsonOrderingPolicy.OrderSchemaEntries(
+                    componentSchemaResult.Entries.Concat(assetSchemaResult.Entries));
 
                 cancellationToken.ThrowIfCancellationRequested();
                 var typeEntries = typeCatalogComposer.Compose(

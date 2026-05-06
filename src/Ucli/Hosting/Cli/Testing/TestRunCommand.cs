@@ -13,12 +13,18 @@ internal sealed class TestRunCommand
 {
     private readonly ITestRunService testRunService;
 
+    private readonly ICommandResultWriter commandResultWriter;
+
     /// <summary> Initializes a new instance of the TestRunCommand class. </summary>
     /// <param name="testRunService"> The test-run core service dependency. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when testRunService is null. </exception>
-    public TestRunCommand (ITestRunService testRunService)
+    public TestRunCommand (
+        ITestRunService testRunService,
+        ICommandResultWriter commandResultWriter)
     {
         this.testRunService = testRunService ?? throw new ArgumentNullException(nameof(testRunService));
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the test run command and emits the JSON result contract. </summary>
@@ -62,7 +68,7 @@ internal sealed class TestRunCommand
             var errorResult = TestRunCommandResultFactory.Create(TestRunServiceResult.InvalidInput(
                 normalizedModeResult.Error!.Message,
                 IpcErrorCodes.InvalidArgument));
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -72,7 +78,7 @@ internal sealed class TestRunCommand
             var errorResult = TestRunCommandResultFactory.Create(TestRunServiceResult.InvalidInput(
                 normalizedTestPlatformResult.Error!.Message,
                 IpcErrorCodes.InvalidArgument));
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -92,7 +98,7 @@ internal sealed class TestRunCommand
                 FailFast: failFast),
             cancellationToken).ConfigureAwait(false);
         var commandResult = TestRunCommandResultFactory.Create(serviceResult);
-        CommandResultWriter.WriteToStandardOutput(commandResult);
+        commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }
 

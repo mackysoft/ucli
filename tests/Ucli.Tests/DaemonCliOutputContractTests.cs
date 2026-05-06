@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
@@ -11,6 +12,8 @@ namespace MackySoft.Ucli.Tests;
 public sealed class DaemonCliOutputContractTests
 {
     private const string UnknownOptionMessage = "Argument '--unknown' is not recognized.";
+
+    private const int DaemonListContractTestTimeoutMilliseconds = 15000;
 
     private static readonly TimeSpan ProcessExitTimeout = TimeSpan.FromSeconds(5);
 
@@ -233,8 +236,6 @@ public sealed class DaemonCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task List_WithProjectPath_WhenNoDaemonSessionExists_ReturnsSuccessJsonContractAsSingleJson ()
     {
-        const int TimeoutMilliseconds = 10000;
-
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "daemon-list-success");
         await InitializeGitRepository(scope);
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
@@ -245,7 +246,7 @@ public sealed class DaemonCliOutputContractTests
             UcliContractConstants.CliOption.ProjectPath,
             unityProjectPath,
             UcliContractConstants.CliOption.Timeout,
-            TimeoutMilliseconds.ToString());
+            DaemonListContractTestTimeoutMilliseconds.ToString(CultureInfo.InvariantCulture));
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
@@ -258,7 +259,7 @@ public sealed class DaemonCliOutputContractTests
 
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
-                .HasInt32("timeoutMilliseconds", TimeoutMilliseconds)
+                .HasInt32("timeoutMilliseconds", DaemonListContractTestTimeoutMilliseconds)
                 .HasString("projectRelativePath", "UnityProject")
                 .HasBoolean("isComplete", true)
                 .IsNull("completionReason")

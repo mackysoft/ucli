@@ -11,12 +11,18 @@ internal sealed class DaemonStartCommand
 {
     private readonly IDaemonStartService daemonStartService;
 
+    private readonly ICommandResultWriter commandResultWriter;
+
     /// <summary> Initializes a new instance of the DaemonStartCommand class. </summary>
     /// <param name="daemonStartService"> The daemon-start service dependency. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when daemonStartService is null. </exception>
-    public DaemonStartCommand (IDaemonStartService daemonStartService)
+    public DaemonStartCommand (
+        IDaemonStartService daemonStartService,
+        ICommandResultWriter commandResultWriter)
     {
         this.daemonStartService = daemonStartService ?? throw new ArgumentNullException(nameof(daemonStartService));
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the daemon start command and emits the JSON result contract. </summary>
@@ -39,7 +45,7 @@ internal sealed class DaemonStartCommand
             var errorResult = CommandResultFactory.FromExecutionError(
                 UcliCommandNames.DaemonStart,
                 normalizedTimeoutResult.Error!);
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -49,7 +55,7 @@ internal sealed class DaemonStartCommand
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = CreateCommandResult(executionResult);
-        CommandResultWriter.WriteToStandardOutput(commandResult);
+        commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }
 

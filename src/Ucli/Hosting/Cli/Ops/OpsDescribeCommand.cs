@@ -11,12 +11,18 @@ internal sealed class OpsDescribeCommand
 {
     private readonly IOpsService opsService;
 
+    private readonly ICommandResultWriter commandResultWriter;
+
     /// <summary> Initializes a new instance of the OpsDescribeCommand class. </summary>
     /// <param name="opsService"> The ops workflow service dependency. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when opsService is null. </exception>
-    public OpsDescribeCommand (IOpsService opsService)
+    public OpsDescribeCommand (
+        IOpsService opsService,
+        ICommandResultWriter commandResultWriter)
     {
         this.opsService = opsService ?? throw new ArgumentNullException(nameof(opsService));
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the ops describe command and emits the JSON result contract. </summary>
@@ -48,7 +54,7 @@ internal sealed class OpsDescribeCommand
             var errorResult = CommandResultFactory.FromExecutionError(
                 UcliCommandNames.OpsDescribe,
                 normalizedReadIndexModeResult.Error!);
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -58,7 +64,7 @@ internal sealed class OpsDescribeCommand
             var errorResult = CommandResultFactory.FromExecutionError(
                 UcliCommandNames.OpsDescribe,
                 normalizedModeResult.Error!);
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -68,7 +74,7 @@ internal sealed class OpsDescribeCommand
             var errorResult = CommandResultFactory.FromExecutionError(
                 UcliCommandNames.OpsDescribe,
                 normalizedTimeoutResult.Error!);
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -83,7 +89,7 @@ internal sealed class OpsDescribeCommand
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = OpsCommandResultFactory.CreateDescribe(serviceResult);
-        CommandResultWriter.WriteToStandardOutput(commandResult);
+        commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }
 }
