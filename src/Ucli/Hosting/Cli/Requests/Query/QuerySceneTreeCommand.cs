@@ -15,10 +15,17 @@ internal sealed class QuerySceneTreeCommand
 
     private readonly IQueryService queryService;
 
+    private readonly ICommandResultWriter commandResultWriter;
+
     /// <summary> Initializes a new instance of the <see cref="QuerySceneTreeCommand" /> class. </summary>
-    public QuerySceneTreeCommand (IQueryService queryService)
+    /// <param name="queryService"> The query workflow service dependency. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
+    public QuerySceneTreeCommand (
+        IQueryService queryService,
+        ICommandResultWriter commandResultWriter)
     {
         this.queryService = queryService ?? throw new ArgumentNullException(nameof(queryService));
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes <c>query scene tree</c> and emits the JSON result contract. </summary>
@@ -56,24 +63,24 @@ internal sealed class QuerySceneTreeCommand
         var commonOptionsResult = QueryCommonOptionsNormalizer.Normalize(projectPath, mode, timeout, readIndexMode, failFast);
         if (!commonOptionsResult.IsSuccess)
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(UcliCommandNames.QuerySceneTree, commonOptionsResult.Error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QuerySceneTree, commonOptionsResult.Error!);
         }
 
         if (!QueryOptionValueNormalizer.TryNormalizeRequired(path, "path", out var normalizedPath, out var error))
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(UcliCommandNames.QuerySceneTree, error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QuerySceneTree, error!);
         }
 
         var depthResult = QueryDepthOptionNormalizer.Normalize(depth, fullDepth, DefaultDepth);
         if (!depthResult.IsSuccess)
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(UcliCommandNames.QuerySceneTree, depthResult.Error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QuerySceneTree, depthResult.Error!);
         }
 
         var windowResult = QueryWindowOptionsFactory.Create(all, limit, after);
         if (!windowResult.IsSuccess)
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(UcliCommandNames.QuerySceneTree, windowResult.Error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QuerySceneTree, windowResult.Error!);
         }
 
         return await QueryCommandExecutionHelper.Execute(
@@ -86,6 +93,7 @@ internal sealed class QuerySceneTreeCommand
                     ScenePath: normalizedPath,
                     Depth: depthResult.Depth,
                     WindowOptions: windowResult.Options!),
+                commandResultWriter,
                 cancellationToken)
             .ConfigureAwait(false);
     }

@@ -158,4 +158,5 @@ public sealed class CommandResultTests
         Assert.Equal(expectedMessage, result.Errors[0].Message);
         Assert.Null(result.Errors[0].OpId);
     }
+
 }

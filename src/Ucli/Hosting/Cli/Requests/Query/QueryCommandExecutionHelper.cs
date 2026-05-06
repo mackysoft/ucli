@@ -9,11 +9,14 @@ internal static class QueryCommandExecutionHelper
 {
     /// <summary> Writes one execution error and returns its exit code. </summary>
     public static int WriteExecutionError (
+        ICommandResultWriter commandResultWriter,
         string commandName,
         ExecutionError error)
     {
+        ArgumentNullException.ThrowIfNull(commandResultWriter);
+
         var errorResult = QueryCommandResultFactory.CreateExecutionError(commandName, error);
-        CommandResultWriter.WriteToStandardOutput(errorResult);
+        commandResultWriter.WriteToStandardOutput(errorResult);
         return errorResult.ExitCode;
     }
 
@@ -22,11 +25,13 @@ internal static class QueryCommandExecutionHelper
         IQueryService queryService,
         QueryCommonOptions options,
         QueryOperationRequest operation,
+        ICommandResultWriter commandResultWriter,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(queryService);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(operation);
+        ArgumentNullException.ThrowIfNull(commandResultWriter);
 
         var serviceResult = await queryService.Execute(
                 new QueryCommandInput(
@@ -39,7 +44,7 @@ internal static class QueryCommandExecutionHelper
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = QueryCommandResultFactory.Create(serviceResult);
-        CommandResultWriter.WriteToStandardOutput(commandResult);
+        commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }
 }

@@ -468,7 +468,6 @@ namespace MackySoft.Ucli.Unity.Tests
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(asset);
             AssetDatabase.SaveAssets();
-            AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceSynchronousImport);
 
             var reloadedAsset = AssetDatabase.LoadAssetAtPath<TAsset>(assetPath);
             Assert.That(reloadedAsset, Is.Not.Null);

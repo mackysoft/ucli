@@ -5,6 +5,7 @@ using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Daemon;
+using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -44,7 +45,7 @@ public sealed class DaemonListCommandTests
                 [
                     item,
                 ])));
-        var command = new DaemonListCommand(service);
+        var command = new DaemonListCommand(service, CommandResultTestWriter.Create());
 
         CommandExecutionState.Reset();
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.List(

@@ -3,6 +3,7 @@ using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Parsing;
 using MackySoft.Ucli.Hosting.Cli.Common.Startup;
 using MackySoft.Ucli.Hosting.Composition.Common;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
@@ -25,37 +26,43 @@ internal sealed class CliExecutionRunner
         ArgumentNullException.ThrowIfNull(args);
 
         CliParseErrorJsonPolicy.BeginCapture();
+        using var serviceProvider = CreateServiceProvider();
+        var commandResultWriter = serviceProvider.GetRequiredService<ICommandResultWriter>();
 
         var preDispatchErrorResult = CliPreDispatchErrorPolicy.TryCreateErrorResult(args);
         if (preDispatchErrorResult != null)
         {
-            CommandResultWriter.WriteToStandardOutput(preDispatchErrorResult);
+            commandResultWriter.WriteToStandardOutput(preDispatchErrorResult);
             Environment.ExitCode = preDispatchErrorResult.ExitCode;
             return Environment.ExitCode;
         }
 
-        var app = UcliCommandCatalog.RegisterCommands(
-            ConsoleApp.Create()
-                .ConfigureServices(static services => services.AddUcliServices()));
+        var app = UcliCommandCatalog.RegisterCommands(ConsoleApp.Create());
+        var previousServiceProvider = ConsoleApp.ServiceProvider;
+        ConsoleApp.ServiceProvider = serviceProvider;
 
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await app.RunAsync(args).ConfigureAwait(false);
+            await app.RunAsync(args, disposeServiceProvider: false).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
             var canceledResult = CommandResult.Canceled(UcliCommandNames.Root, CanceledMessage);
-            CommandResultWriter.WriteToStandardOutput(canceledResult);
+            commandResultWriter.WriteToStandardOutput(canceledResult);
             Environment.ExitCode = canceledResult.ExitCode;
             return Environment.ExitCode;
         }
         catch (Exception)
         {
             var internalErrorResult = CommandResult.InternalError(UcliCommandNames.Root, InternalErrorMessage);
-            CommandResultWriter.WriteToStandardOutput(internalErrorResult);
+            commandResultWriter.WriteToStandardOutput(internalErrorResult);
             Environment.ExitCode = internalErrorResult.ExitCode;
             return Environment.ExitCode;
+        }
+        finally
+        {
+            ConsoleApp.ServiceProvider = previousServiceProvider;
         }
 
         // NOTE:
@@ -64,10 +71,17 @@ internal sealed class CliExecutionRunner
         var parseErrorResult = CliParseErrorJsonPolicy.TryCreateParseErrorResult(args);
         if (parseErrorResult != null)
         {
-            CommandResultWriter.WriteToStandardOutput(parseErrorResult);
+            commandResultWriter.WriteToStandardOutput(parseErrorResult);
             Environment.ExitCode = parseErrorResult.ExitCode;
         }
 
         return Environment.ExitCode;
+    }
+
+    private static ServiceProvider CreateServiceProvider ()
+    {
+        var services = new ServiceCollection();
+        services.AddUcliServices();
+        return services.BuildServiceProvider();
     }
 }

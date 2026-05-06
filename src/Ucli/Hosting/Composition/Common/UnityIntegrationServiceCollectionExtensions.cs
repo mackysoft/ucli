@@ -49,6 +49,7 @@ internal static class UnityIntegrationServiceCollectionExtensions
         services.AddSingleton<IUnityEditorSearchRootProvider, DefaultUnityEditorSearchRootProvider>();
         services.AddSingleton<IUnityEditorPathResolver, UnityEditorPathResolver>();
         services.AddSingleton<IIndexCatalogReader, FileIndexCatalogReader>();
+        services.AddSingleton<IIndexCatalogWriter, FileIndexCatalogWriter>();
         services.AddSingleton<IMutationReadPostconditionStore, MutationReadPostconditionStore>();
         services.AddSingleton<IIndexInputFingerprintCalculator, FileSystemIndexInputFingerprintCalculator>();
         services.AddSingleton<IIndexFreshnessEvaluator, IndexFreshnessEvaluator>();

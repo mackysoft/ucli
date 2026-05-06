@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Index;
+using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Infrastructure.Index;
@@ -6,6 +7,27 @@ namespace MackySoft.Ucli.Infrastructure.Index;
 /// <summary> Persists generated index contracts to filesystem-backed storage paths. </summary>
 internal sealed class FileIndexCatalogWriter : IIndexCatalogWriter
 {
+    private readonly IJsonContractWriter<IndexTypesCatalogJsonContract> typesCatalogWriter;
+
+    private readonly IJsonContractWriter<IndexSchemasCatalogJsonContract> schemasCatalogWriter;
+
+    private readonly IJsonContractWriter<IndexInputsManifestJsonContract> inputsManifestWriter;
+
+    /// <summary> Initializes a new instance of the <see cref="FileIndexCatalogWriter" /> class. </summary>
+    /// <param name="typesCatalogWriter"> The writer for <c>types.catalog.json</c>. </param>
+    /// <param name="schemasCatalogWriter"> The writer for <c>schemas.catalog.json</c>. </param>
+    /// <param name="inputsManifestWriter"> The writer for <c>inputs/manifest.json</c>. </param>
+    /// <exception cref="ArgumentNullException"> Thrown when any dependency is <see langword="null" />. </exception>
+    public FileIndexCatalogWriter (
+        IJsonContractWriter<IndexTypesCatalogJsonContract> typesCatalogWriter,
+        IJsonContractWriter<IndexSchemasCatalogJsonContract> schemasCatalogWriter,
+        IJsonContractWriter<IndexInputsManifestJsonContract> inputsManifestWriter)
+    {
+        this.typesCatalogWriter = typesCatalogWriter ?? throw new ArgumentNullException(nameof(typesCatalogWriter));
+        this.schemasCatalogWriter = schemasCatalogWriter ?? throw new ArgumentNullException(nameof(schemasCatalogWriter));
+        this.inputsManifestWriter = inputsManifestWriter ?? throw new ArgumentNullException(nameof(inputsManifestWriter));
+    }
+
     /// <summary> Writes generated index contracts to one storage root and project fingerprint directory. </summary>
     /// <param name="storageRootPath"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
@@ -62,17 +84,17 @@ internal sealed class FileIndexCatalogWriter : IIndexCatalogWriter
 
             await FileUtilities.WriteAllTextAtomically(
                     typesCatalogPath,
-                    IndexTypesCatalogJsonContractSerializer.Serialize(typesCatalog) + Environment.NewLine,
+                    typesCatalogWriter.Write(typesCatalog),
                     cancellationToken)
                 .ConfigureAwait(false);
             await FileUtilities.WriteAllTextAtomically(
                     schemasCatalogPath,
-                    IndexSchemasCatalogJsonContractSerializer.Serialize(schemasCatalog) + Environment.NewLine,
+                    schemasCatalogWriter.Write(schemasCatalog),
                     cancellationToken)
                 .ConfigureAwait(false);
             await FileUtilities.WriteAllTextAtomically(
                     inputsManifestPath,
-                    IndexInputsManifestJsonContractSerializer.Serialize(inputsManifest) + Environment.NewLine,
+                    inputsManifestWriter.Write(inputsManifest),
                     cancellationToken)
                 .ConfigureAwait(false);
             return IndexCatalogWriteResult.Success();

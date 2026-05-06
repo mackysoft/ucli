@@ -43,10 +43,7 @@ namespace MackySoft.Ucli.Unity.Index
                 projectTypeCatalog.SerializeReferenceCandidateTypes,
                 componentReferencedTypes,
                 assetReferencedTypes);
-            return catalogTypes
-                .Select(CreateTypeEntry)
-                .OrderBy(static entry => entry.TypeId ?? string.Empty, StringComparer.Ordinal)
-                .ToArray();
+            return IndexJsonOrderingPolicy.OrderTypeEntries(catalogTypes.Select(CreateTypeEntry));
         }
 
         private static IReadOnlyCollection<Type> BuildCatalogTypes (
@@ -63,9 +60,7 @@ namespace MackySoft.Ucli.Unity.Index
             AddTypes(types, componentReferencedTypes);
             AddTypes(types, assetReferencedTypes);
 
-            return types
-                .OrderBy(static type => IndexTypeIdFormatter.Format(type), StringComparer.Ordinal)
-                .ToArray();
+            return types.ToArray();
         }
 
         private static void AddTypes (

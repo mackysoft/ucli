@@ -11,12 +11,18 @@ internal sealed class RefreshCommand
 {
     private readonly IRefreshService refreshService;
 
+    private readonly ICommandResultWriter commandResultWriter;
+
     /// <summary> Initializes a new instance of the RefreshCommand class. </summary>
     /// <param name="refreshService"> The refresh service dependency. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when refreshService is null. </exception>
-    public RefreshCommand (IRefreshService refreshService)
+    public RefreshCommand (
+        IRefreshService refreshService,
+        ICommandResultWriter commandResultWriter)
     {
         this.refreshService = refreshService ?? throw new ArgumentNullException(nameof(refreshService));
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the refresh command and emits the JSON result contract. </summary>
@@ -42,7 +48,7 @@ internal sealed class RefreshCommand
         if (!normalizedModeResult.IsSuccess)
         {
             var errorResult = RefreshCommandResultFactory.CreateExecutionError(normalizedModeResult.Error!);
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -50,7 +56,7 @@ internal sealed class RefreshCommand
         if (!normalizedTimeoutResult.IsSuccess)
         {
             var errorResult = RefreshCommandResultFactory.CreateExecutionError(normalizedTimeoutResult.Error!);
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -63,7 +69,7 @@ internal sealed class RefreshCommand
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = RefreshCommandResultFactory.Create(executionResult);
-        CommandResultWriter.WriteToStandardOutput(commandResult);
+        commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }
 }

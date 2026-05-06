@@ -12,15 +12,17 @@ public sealed class FileSceneTreeLiteStoreTests
     public async Task Write_CreatesLookupAtHashedScenePath ()
     {
         using var scope = TestDirectories.CreateTempScope("scene-tree-lite-store", "write");
-        var store = new FileSceneTreeLiteStore();
+        var sceneTreeLiteLookupWriter = new IndexSceneTreeLiteLookupJsonContractWriter();
+        var store = new FileSceneTreeLiteStore(sceneTreeLiteLookupWriter);
         var generatedAtUtc = DateTimeOffset.Parse("2026-04-14T00:00:00+00:00");
+        var roots = CreateRoots("Root");
 
         await store.Write(
             scope.FullPath,
             "project-fingerprint",
             generatedAtUtc,
             "Assets\\Scenes\\Main.unity",
-            CreateRoots("Root"),
+            roots,
             "scene-hash",
             CancellationToken.None);
 
@@ -43,6 +45,14 @@ public sealed class FileSceneTreeLiteStoreTests
         Assert.Equal("Assets/Scenes/Main.unity", result.Value.ScenePath);
         Assert.Equal("scene-hash", result.Value.SourceInputsHash);
         Assert.Single(result.Value.Roots!);
+        Assert.Equal(
+            sceneTreeLiteLookupWriter.Write(new IndexSceneTreeLiteLookupJsonContract(
+                SchemaVersion: 1,
+                GeneratedAtUtc: generatedAtUtc,
+                ScenePath: "Assets/Scenes/Main.unity",
+                SourceInputsHash: "scene-hash",
+                Roots: roots)),
+            await File.ReadAllTextAsync(lookupPath, CancellationToken.None));
     }
 
     [Fact]
@@ -50,7 +60,7 @@ public sealed class FileSceneTreeLiteStoreTests
     public async Task Write_OverwritesOnlyTargetSceneLookup ()
     {
         using var scope = TestDirectories.CreateTempScope("scene-tree-lite-store", "overwrite");
-        var store = new FileSceneTreeLiteStore();
+        var store = new FileSceneTreeLiteStore(new IndexSceneTreeLiteLookupJsonContractWriter());
         var reader = new FileIndexCatalogReader();
 
         await store.Write(

@@ -16,10 +16,17 @@ internal sealed class QueryGoDescribeCommand
 
     private readonly IQueryService queryService;
 
+    private readonly ICommandResultWriter commandResultWriter;
+
     /// <summary> Initializes a new instance of the <see cref="QueryGoDescribeCommand" /> class. </summary>
-    public QueryGoDescribeCommand (IQueryService queryService)
+    /// <param name="queryService"> The query workflow service dependency. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
+    public QueryGoDescribeCommand (
+        IQueryService queryService,
+        ICommandResultWriter commandResultWriter)
     {
         this.queryService = queryService ?? throw new ArgumentNullException(nameof(queryService));
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes <c>query go describe</c> and emits the JSON result contract. </summary>
@@ -57,18 +64,18 @@ internal sealed class QueryGoDescribeCommand
         var commonOptionsResult = QueryCommonOptionsNormalizer.Normalize(projectPath, mode, timeout, readIndexMode, failFast);
         if (!commonOptionsResult.IsSuccess)
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(UcliCommandNames.QueryGoDescribe, commonOptionsResult.Error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QueryGoDescribe, commonOptionsResult.Error!);
         }
 
         if (!TryCreateTarget(globalObjectId, scene, hierarchyPath, prefab, out var target, out var error))
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(UcliCommandNames.QueryGoDescribe, error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QueryGoDescribe, error!);
         }
 
         var depthResult = QueryDepthOptionNormalizer.Normalize(depth, fullDepth, DefaultDepth);
         if (!depthResult.IsSuccess)
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(UcliCommandNames.QueryGoDescribe, depthResult.Error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QueryGoDescribe, depthResult.Error!);
         }
 
         return await QueryCommandExecutionHelper.Execute(
@@ -79,6 +86,7 @@ internal sealed class QueryGoDescribeCommand
                     OperationId: OperationId,
                     OperationName: UcliPrimitiveOperationNames.GoDescribe,
                     Args: QueryOperationArgsFactory.CreateGoDescribe(target!, depthResult.Depth)),
+                commandResultWriter,
                 cancellationToken)
             .ConfigureAwait(false);
     }

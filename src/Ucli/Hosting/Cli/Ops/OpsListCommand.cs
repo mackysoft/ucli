@@ -11,12 +11,18 @@ internal sealed class OpsListCommand
 {
     private readonly IOpsService opsService;
 
+    private readonly ICommandResultWriter commandResultWriter;
+
     /// <summary> Initializes a new instance of the OpsListCommand class. </summary>
     /// <param name="opsService"> The ops workflow service dependency. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when opsService is null. </exception>
-    public OpsListCommand (IOpsService opsService)
+    public OpsListCommand (
+        IOpsService opsService,
+        ICommandResultWriter commandResultWriter)
     {
         this.opsService = opsService ?? throw new ArgumentNullException(nameof(opsService));
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the ops list command and emits the JSON result contract. </summary>
@@ -45,7 +51,7 @@ internal sealed class OpsListCommand
             var errorResult = CommandResultFactory.FromExecutionError(
                 UcliCommandNames.OpsList,
                 normalizedReadIndexModeResult.Error!);
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -55,7 +61,7 @@ internal sealed class OpsListCommand
             var errorResult = CommandResultFactory.FromExecutionError(
                 UcliCommandNames.OpsList,
                 normalizedModeResult.Error!);
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -65,7 +71,7 @@ internal sealed class OpsListCommand
             var errorResult = CommandResultFactory.FromExecutionError(
                 UcliCommandNames.OpsList,
                 normalizedTimeoutResult.Error!);
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -79,7 +85,7 @@ internal sealed class OpsListCommand
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = OpsCommandResultFactory.CreateList(serviceResult);
-        CommandResultWriter.WriteToStandardOutput(commandResult);
+        commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }
 }
