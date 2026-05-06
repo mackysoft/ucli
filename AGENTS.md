@@ -96,11 +96,10 @@ bash scripts/code-quality.sh verify
 bash scripts/verify.sh
 ```
 
-`dotnet format` が停止・ハングした場合
+対象ファイルまたはディレクトリのみを整形・確認したい場合は、`--include` に対象パスの一覧を指定してもよい。
 ```bash
-dotnet build-server shutdown
-dotnet format "<SOLUTION_OR_PROJECT>" --verbosity diagnostic --no-restore
-dotnet format "<SOLUTION_OR_PROJECT>" --verbosity diagnostic --include "<TARGET_PATH>" --no-restore
+bash scripts/code-quality.sh format --include "<TARGET_PATH>" ["<TARGET_PATH>"...]
+bash scripts/code-quality.sh verify --include "<TARGET_PATH>" ["<TARGET_PATH>"...]
 ```
 
 - フォーマット後は対象のテストを実行し、回帰がないことを確認すること。
