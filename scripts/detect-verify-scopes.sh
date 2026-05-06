@@ -69,7 +69,7 @@ is_dotnet_input() {
 
   case "${file}" in
     # Changes to this detector can alter every downstream job decision.
-    .editorconfig|Ucli.slnx|.github/workflows/verify.yaml|.github/workflows/shared-package-publish.yaml|.github/workflows/cli-package-publish.yaml|scripts/code-quality.sh|scripts/detect-verify-scopes.sh|scripts/dotnet-common.sh|scripts/test-dotnet.sh|scripts/verify.sh|src/Ucli.Skills/SkillDefinitions/*)
+    .editorconfig|Ucli.slnx|.github/workflows/verify.yaml|.github/workflows/shared-package-publish.yaml|.github/workflows/cli-package-publish.yaml|scripts/code-quality.sh|scripts/detect-verify-scopes.sh|scripts/dotnet-common.sh|scripts/generate-skills.sh|scripts/test-dotnet.sh|scripts/verify-skills.sh|scripts/verify.sh|skills/*|src/Ucli.Skills/SkillDefinitions/*|tools/*)
       return 0
       ;;
   esac
@@ -159,7 +159,7 @@ is_cli_pack_input() {
   fi
 
   case "${file}" in
-    README.md|LICENSE|.github/workflows/verify.yaml|.github/workflows/cli-package-publish.yaml|scripts/detect-verify-scopes.sh|scripts/sync-cli-package-version.sh|scripts/verify-cli-package.sh|src/Ucli/*|src/Ucli.Application/*|src/Ucli.Contracts/*|src/Ucli.Infrastructure/*)
+    README.md|LICENSE|.github/workflows/verify.yaml|.github/workflows/cli-package-publish.yaml|scripts/detect-verify-scopes.sh|scripts/generate-skills.sh|scripts/sync-cli-package-version.sh|scripts/verify-cli-package.sh|scripts/verify-skills.sh|skills/*|src/Ucli/*|src/Ucli.Application/*|src/Ucli.Contracts/*|src/Ucli.Infrastructure/*|src/Ucli.Skills/*|tools/*)
       return 0
       ;;
     *)

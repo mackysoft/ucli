@@ -6,6 +6,8 @@ if [[ "$#" -ne 2 ]]; then
   exit 2
 fi
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "${script_dir}/.." && pwd)"
 package_dir="$1"
 expected_version="$2"
 
@@ -25,7 +27,8 @@ fi
 
 temp_root="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 tool_path="$(mktemp -d "${temp_root%/}/ucli-tool.XXXXXX")"
-trap 'rm -rf "${tool_path}"' EXIT
+install_repo=""
+trap 'rm -rf "${tool_path}" "${install_repo}"' EXIT
 
 # --source replaces configured feeds, ensuring the install exercises only the
 # nupkg built by this run.
@@ -53,3 +56,46 @@ for entry in README.md LICENSE tools/net8.0/any/DotnetToolSettings.xml; do
     exit 1
   fi
 done
+
+while IFS= read -r skill_file; do
+  relative_path="${skill_file#"${repo_root}/"}"
+  entry="tools/net8.0/any/${relative_path}"
+  if ! grep -Fx "${entry}" <<< "${package_entries}" >/dev/null; then
+    echo "CLI package is missing required generated SKILL entry: ${entry}" >&2
+    exit 1
+  fi
+done < <(find "${repo_root}/skills" -type f | sort)
+
+skills_list="$("${tool_path}/ucli" skills list)"
+if ! grep -F '"command": "skills.list"' <<< "${skills_list}" >/dev/null; then
+  echo "ucli skills list did not report the skills.list command." >&2
+  exit 1
+fi
+
+if ! grep -F '"skillName": "ucli-plan-apply"' <<< "${skills_list}" >/dev/null; then
+  echo "ucli skills list did not include bundled official SKILL packages." >&2
+  exit 1
+fi
+
+export_path="${tool_path}/exported-skills"
+"${tool_path}/ucli" skills export --host openai --output "${export_path}" >/dev/null
+while IFS= read -r skill_file; do
+  relative_path="${skill_file#"${repo_root}/skills/"}"
+  exported_file="${export_path}/${relative_path}"
+  if [[ ! -f "${exported_file}" ]]; then
+    echo "ucli skills export did not materialize generated SKILL file: ${exported_file}" >&2
+    exit 1
+  fi
+done < <(find "${repo_root}/skills" -type f | sort)
+
+install_repo="$(mktemp -d "${temp_root%/}/ucli-skills-install.XXXXXX")"
+"${tool_path}/ucli" skills install --host openai --scope project --repoRoot "${install_repo}" >/dev/null
+"${tool_path}/ucli" skills install --host openai --scope project --repoRoot "${install_repo}" >/dev/null
+while IFS= read -r skill_file; do
+  relative_path="${skill_file#"${repo_root}/skills/"}"
+  installed_file="${install_repo}/.agents/skills/${relative_path}"
+  if [[ ! -f "${installed_file}" ]]; then
+    echo "ucli skills install did not materialize generated SKILL file: ${installed_file}" >&2
+    exit 1
+  fi
+done < <(find "${repo_root}/skills" -type f | sort)
