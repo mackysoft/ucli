@@ -25,7 +25,7 @@ public sealed record SkillOperationResult<T> (
     /// <param name="message"> The user-facing failure message. </param>
     /// <returns> The failed result. </returns>
     public static SkillOperationResult<T> FailureResult (
-        string code,
+        SkillFailureCode code,
         string message)
     {
         return new SkillOperationResult<T>(default, SkillFailure.Create(code, message));

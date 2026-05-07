@@ -4,7 +4,7 @@ namespace MackySoft.Ucli.Skills.Shared;
 /// <param name="Code"> The failure code. </param>
 /// <param name="Message"> The user-facing failure message. </param>
 public sealed record SkillFailure (
-    string Code,
+    SkillFailureCode Code,
     string Message)
 {
     /// <summary> Creates one SKILL failure. </summary>
@@ -12,10 +12,14 @@ public sealed record SkillFailure (
     /// <param name="message"> The user-facing failure message. </param>
     /// <returns> The created failure. </returns>
     public static SkillFailure Create (
-        string code,
+        SkillFailureCode code,
         string message)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(code);
+        if (!code.IsValid)
+        {
+            throw new ArgumentException("Failure code must be valid.", nameof(code));
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         return new SkillFailure(code, message);
     }

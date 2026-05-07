@@ -37,6 +37,9 @@ internal sealed class SkillsInstallCommand
     /// <param name="scope"> Required install scope. Only project is supported. </param>
     /// <param name="repoRoot"> --repoRoot, Required repository root. </param>
     /// <param name="targetDir"> --targetDir, Optional target root path under the repository root. </param>
+    /// <param name="dryRun"> --dryRun, Whether to return the install plan without writing. </param>
+    /// <param name="force"> Whether managed local modifications can be overwritten. </param>
+    /// <param name="printDiff"> --printDiff, Whether structured file diffs should be included. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.InstallSubcommand)]
@@ -45,6 +48,9 @@ internal sealed class SkillsInstallCommand
         string? scope = null,
         string? repoRoot = null,
         string? targetDir = null,
+        bool dryRun = false,
+        bool force = false,
+        bool printDiff = false,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -91,8 +97,12 @@ internal sealed class SkillsInstallCommand
         }
 
         var installResult = await installService.InstallAsync(
-                packagesResult.Value!,
-                new SkillInstallRequest(normalizedHost!, normalizedScope!.Value, repositoryRoot!, targetDir),
+                new SkillInstallInput(
+                    packagesResult.Value!,
+                    new SkillInstallRequest(normalizedHost!, normalizedScope!.Value, repositoryRoot!, targetDir),
+                    dryRun,
+                    force,
+                    printDiff),
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = SkillsCommandResultFactory.CreateInstall(installResult, normalizedHost!, repositoryRoot!);

@@ -37,6 +37,9 @@ internal sealed class SkillsUpdateCommand
     /// <param name="scope"> Required install scope. Only project is supported. </param>
     /// <param name="repoRoot"> --repoRoot, Required repository root. </param>
     /// <param name="targetDir"> --targetDir, Optional target root path under the repository root. </param>
+    /// <param name="dryRun"> --dryRun, Whether to return the update plan without writing. </param>
+    /// <param name="force"> Whether managed local modifications can be overwritten. </param>
+    /// <param name="printDiff"> --printDiff, Whether structured file diffs should be included. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.UpdateSubcommand)]
@@ -45,6 +48,9 @@ internal sealed class SkillsUpdateCommand
         string? scope = null,
         string? repoRoot = null,
         string? targetDir = null,
+        bool dryRun = false,
+        bool force = false,
+        bool printDiff = false,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -93,7 +99,10 @@ internal sealed class SkillsUpdateCommand
         var updateResult = await updateService.UpdateAsync(
                 new SkillUpdateInput(
                     packagesResult.Value!,
-                    new SkillInstallRequest(normalizedHost!, normalizedScope!.Value, repositoryRoot!, targetDir)),
+                    new SkillInstallRequest(normalizedHost!, normalizedScope!.Value, repositoryRoot!, targetDir),
+                    dryRun,
+                    force,
+                    printDiff),
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = SkillsCommandResultFactory.CreateUpdate(updateResult, normalizedHost!, repositoryRoot!);

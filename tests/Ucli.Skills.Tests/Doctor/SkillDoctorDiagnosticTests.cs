@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Skills.Doctor;
+using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Skills.Tests.Doctor;
 
@@ -12,6 +13,18 @@ public sealed class SkillDoctorDiagnosticTests
 
         Assert.Equal(SkillDoctorSeverity.Error, diagnostic.Severity);
         Assert.Equal("SKILL_ERROR", diagnostic.Code);
+        Assert.Equal("Broken.", diagnostic.Message);
+        Assert.Equal("sample-skill", diagnostic.SkillName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Error_WithFailureCode_CreatesErrorDiagnostic ()
+    {
+        var diagnostic = SkillDoctorDiagnostic.Error(SkillFailureCodes.ManifestInvalid, "Broken.", "sample-skill");
+
+        Assert.Equal(SkillDoctorSeverity.Error, diagnostic.Severity);
+        Assert.Equal(SkillFailureCodes.ManifestInvalid.Value, diagnostic.Code);
         Assert.Equal("Broken.", diagnostic.Message);
         Assert.Equal("sample-skill", diagnostic.SkillName);
     }
