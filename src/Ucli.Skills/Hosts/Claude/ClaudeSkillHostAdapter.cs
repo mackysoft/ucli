@@ -10,7 +10,12 @@ public sealed class ClaudeSkillHostAdapter : ISkillHostAdapter
     public const string HostKey = "claude";
 
     /// <inheritdoc />
-    public SkillHostDescriptor Descriptor { get; } = new(HostKey, ".claude/skills");
+    public SkillHostDescriptor Descriptor { get; } = new(
+        HostKey,
+        ".claude/skills",
+        "~/.claude/skills",
+        new SkillUserTargetRootPolicy(null, null, ".claude/skills"),
+        "Claude Code watches existing skill directories. Restart Claude Code if the top-level skills directory was created after the session started.");
 
     /// <inheritdoc />
     public string? MetadataArtifactPath => null;

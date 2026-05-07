@@ -34,8 +34,8 @@ internal sealed class SkillsUpdateCommand
 
     /// <summary> Executes the skills update command and emits the JSON result contract. </summary>
     /// <param name="host"> Required target host (claude|copilot|openai). </param>
-    /// <param name="scope"> Required install scope. Only project is supported. </param>
-    /// <param name="repoRoot"> --repoRoot, Required repository root. </param>
+    /// <param name="scope"> Required install scope (project|user). </param>
+    /// <param name="repoRoot"> --repoRoot, Required repository root for project scope. </param>
     /// <param name="targetDir"> --targetDir, Optional target root path under the repository root. </param>
     /// <param name="dryRun"> --dryRun, Whether to return the update plan without writing. </param>
     /// <param name="force"> Whether managed local modifications can be overwritten. </param>
@@ -67,7 +67,7 @@ internal sealed class SkillsUpdateCommand
             return errorResult.ExitCode;
         }
 
-        var normalizedScope = SkillsCommandOptionNormalizer.NormalizeProjectScope(
+        var normalizedScope = SkillsCommandOptionNormalizer.NormalizeScope(
             UcliCommandNames.SkillsUpdate,
             scope,
             out errorResult);
@@ -77,9 +77,9 @@ internal sealed class SkillsUpdateCommand
             return errorResult.ExitCode;
         }
 
-        var repositoryRoot = SkillsCommandOptionNormalizer.NormalizeRequiredFullPath(
+        var repositoryRoot = SkillsCommandOptionNormalizer.NormalizeRepositoryRootForScope(
             UcliCommandNames.SkillsUpdate,
-            "repoRoot",
+            normalizedScope!.Value,
             repoRoot,
             out errorResult);
         if (errorResult is not null)
@@ -105,7 +105,8 @@ internal sealed class SkillsUpdateCommand
                     printDiff),
                 cancellationToken)
             .ConfigureAwait(false);
-        var commandResult = SkillsCommandResultFactory.CreateUpdate(updateResult, normalizedHost!, repositoryRoot!);
+        var reloadGuidance = hostAdapters.GetAdapter(normalizedHost!).Value!.Descriptor.ReloadGuidance;
+        var commandResult = SkillsCommandResultFactory.CreateUpdate(updateResult, normalizedHost!, normalizedScope.Value, repositoryRoot, reloadGuidance);
         commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }

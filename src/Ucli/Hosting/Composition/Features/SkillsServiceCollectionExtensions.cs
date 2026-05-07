@@ -37,6 +37,7 @@ internal static class SkillsServiceCollectionExtensions
         services.AddSingleton<SkillHostMaterializationInspector>();
         services.AddSingleton<SkillInstalledPackageValidator>();
         services.AddSingleton<SkillInstalledPackageIntegrityVerifier>();
+        services.AddSingleton<SkillInstalledPackageDriftAnalyzer>();
         services.AddSingleton<SkillInstalledTargetStateAnalyzer>();
         services.AddSingleton<ISkillPackageDirectoryOperations, SkillPackageDirectoryOperations>();
         services.AddSingleton<ISkillMaterializedPackageWriter, SkillMaterializedPackageWriter>();

@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
+using MackySoft.Ucli.Skills.Distribution;
 using MackySoft.Ucli.Skills.Doctor;
 using MackySoft.Ucli.Skills.Hosts.Registration;
 using MackySoft.Ucli.Skills.Installation;
@@ -12,6 +13,7 @@ namespace MackySoft.Ucli.Hosting.Cli.Skills;
 internal static class SkillsCommandResultFactory
 {
     private const string ProjectScopeLiteral = "project";
+    private const string UserScopeLiteral = "user";
 
     /// <summary> Creates a successful command result for <c>skills list</c>. </summary>
     /// <param name="packages"> The official SKILL packages. </param>
@@ -45,6 +47,8 @@ internal static class SkillsCommandResultFactory
                     {
                         host = adapter.Descriptor.HostKey,
                         adapter.Descriptor.ProjectTargetDirectory,
+                        adapter.Descriptor.UserTargetDirectory,
+                        adapter.Descriptor.ReloadGuidance,
                     })
                     .ToArray(),
             });
@@ -58,11 +62,14 @@ internal static class SkillsCommandResultFactory
     public static CommandResult CreateExport (
         SkillOperationResult<string> result,
         IReadOnlyList<CanonicalSkillPackage> packages,
-        string host)
+        string host,
+        SkillExportFormat format,
+        string reloadGuidance)
     {
         ArgumentNullException.ThrowIfNull(result);
         ArgumentNullException.ThrowIfNull(packages);
         ArgumentException.ThrowIfNullOrWhiteSpace(host);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reloadGuidance);
 
         if (!result.IsSuccess)
         {
@@ -75,9 +82,11 @@ internal static class SkillsCommandResultFactory
             payload: new
             {
                 host,
+                format = ToExportFormatLiteral(format),
                 outputRoot = result.Value!,
                 skills = CreateSkillNameList(packages),
                 skillCount = packages.Count,
+                reloadGuidance,
             });
     }
 
@@ -89,11 +98,13 @@ internal static class SkillsCommandResultFactory
     public static CommandResult CreateInstall (
         SkillOperationResult<SkillInstallResult> result,
         string host,
-        string repositoryRoot)
+        SkillScopeKind scope,
+        string? repositoryRoot,
+        string reloadGuidance)
     {
         ArgumentNullException.ThrowIfNull(result);
         ArgumentException.ThrowIfNullOrWhiteSpace(host);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reloadGuidance);
 
         if (!result.IsSuccess)
         {
@@ -114,12 +125,13 @@ internal static class SkillsCommandResultFactory
             payload: new
             {
                 host,
-                scope = ProjectScopeLiteral,
+                scope = ToScopeLiteral(scope),
                 repositoryRoot,
                 installResult.TargetRoot,
                 installResult.DryRun,
                 installResult.Force,
                 installResult.PrintDiff,
+                reloadGuidance,
                 actions,
                 createdCount = installResult.Actions.Count(static action => action.ActionKind == SkillInstallActionKind.Created),
                 updatedCount = installResult.Actions.Count(static action => action.ActionKind == SkillInstallActionKind.Updated),
@@ -136,11 +148,13 @@ internal static class SkillsCommandResultFactory
     public static CommandResult CreateUpdate (
         SkillOperationResult<SkillUpdateResult> result,
         string host,
-        string repositoryRoot)
+        SkillScopeKind scope,
+        string? repositoryRoot,
+        string reloadGuidance)
     {
         ArgumentNullException.ThrowIfNull(result);
         ArgumentException.ThrowIfNullOrWhiteSpace(host);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reloadGuidance);
 
         if (!result.IsSuccess)
         {
@@ -161,12 +175,13 @@ internal static class SkillsCommandResultFactory
             payload: new
             {
                 host,
-                scope = ProjectScopeLiteral,
+                scope = ToScopeLiteral(scope),
                 repositoryRoot,
                 updateResult.TargetRoot,
                 updateResult.DryRun,
                 updateResult.Force,
                 updateResult.PrintDiff,
+                reloadGuidance,
                 actions,
                 createdCount = updateResult.Actions.Count(static action => action.ActionKind == SkillUpdateActionKind.Created),
                 updatedCount = updateResult.Actions.Count(static action => action.ActionKind == SkillUpdateActionKind.Updated),
@@ -183,11 +198,13 @@ internal static class SkillsCommandResultFactory
     public static CommandResult CreateUninstall (
         SkillOperationResult<SkillUninstallResult> result,
         string host,
-        string repositoryRoot)
+        SkillScopeKind scope,
+        string? repositoryRoot,
+        string reloadGuidance)
     {
         ArgumentNullException.ThrowIfNull(result);
         ArgumentException.ThrowIfNullOrWhiteSpace(host);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reloadGuidance);
 
         if (!result.IsSuccess)
         {
@@ -208,11 +225,12 @@ internal static class SkillsCommandResultFactory
             payload: new
             {
                 host,
-                scope = ProjectScopeLiteral,
+                scope = ToScopeLiteral(scope),
                 repositoryRoot,
                 uninstallResult.TargetRoot,
                 uninstallResult.DryRun,
                 uninstallResult.Force,
+                reloadGuidance,
                 actions,
                 deletedCount = uninstallResult.Actions.Count(static action => action.ActionKind == SkillUninstallActionKind.Deleted),
                 noOpCount = uninstallResult.Actions.Count(static action => action.ActionKind == SkillUninstallActionKind.NoOp),
@@ -227,17 +245,20 @@ internal static class SkillsCommandResultFactory
     /// <returns> The command result serialized to stdout. </returns>
     public static CommandResult CreateDoctor (
         SkillDoctorResult result,
-        string repositoryRoot)
+        SkillScopeKind scope,
+        string? repositoryRoot,
+        string reloadGuidance)
     {
         ArgumentNullException.ThrowIfNull(result);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reloadGuidance);
 
         var payload = new
         {
             host = result.Host,
-            scope = ProjectScopeLiteral,
+            scope = ToScopeLiteral(scope),
             repositoryRoot,
             result.TargetRoot,
+            reloadGuidance,
             result.IsHealthy,
             diagnostics = result.Diagnostics
                 .Select(static diagnostic => new
@@ -314,6 +335,26 @@ internal static class SkillsCommandResultFactory
         return code == SkillFailureCodes.HostUnsupported || code == SkillFailureCodes.PathUnsafe
             ? CliExitCode.InvalidArgument
             : CliExitCode.ToolError;
+    }
+
+    private static string ToScopeLiteral (SkillScopeKind scope)
+    {
+        return scope switch
+        {
+            SkillScopeKind.Project => ProjectScopeLiteral,
+            SkillScopeKind.User => UserScopeLiteral,
+            _ => scope.ToString(),
+        };
+    }
+
+    private static string ToExportFormatLiteral (SkillExportFormat format)
+    {
+        return format switch
+        {
+            SkillExportFormat.Directory => "directory",
+            SkillExportFormat.Zip => "zip",
+            _ => format.ToString(),
+        };
     }
 
     private static string ToActionLiteral (SkillInstallActionKind actionKind)

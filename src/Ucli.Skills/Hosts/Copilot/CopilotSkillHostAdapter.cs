@@ -10,7 +10,12 @@ public sealed class CopilotSkillHostAdapter : ISkillHostAdapter
     public const string HostKey = "copilot";
 
     /// <inheritdoc />
-    public SkillHostDescriptor Descriptor { get; } = new(HostKey, ".github/skills");
+    public SkillHostDescriptor Descriptor { get; } = new(
+        HostKey,
+        ".github/skills",
+        "~/.copilot/skills",
+        new SkillUserTargetRootPolicy(null, null, ".copilot/skills"),
+        "Run /skills reload in GitHub Copilot CLI to load newly installed or updated skills.");
 
     /// <inheritdoc />
     public string? MetadataArtifactPath => null;

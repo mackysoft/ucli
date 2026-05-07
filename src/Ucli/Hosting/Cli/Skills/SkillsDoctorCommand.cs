@@ -39,8 +39,8 @@ internal sealed class SkillsDoctorCommand
 
     /// <summary> Executes the skills doctor command and emits the JSON result contract. </summary>
     /// <param name="host"> Required target host (claude|copilot|openai). </param>
-    /// <param name="scope"> Required install scope. Only project is supported. </param>
-    /// <param name="repoRoot"> --repoRoot, Required repository root. </param>
+    /// <param name="scope"> Required install scope (project|user). </param>
+    /// <param name="repoRoot"> --repoRoot, Required repository root for project scope. </param>
     /// <param name="targetDir"> --targetDir, Optional target root path under the repository root. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
@@ -66,7 +66,7 @@ internal sealed class SkillsDoctorCommand
             return errorResult.ExitCode;
         }
 
-        var normalizedScope = SkillsCommandOptionNormalizer.NormalizeProjectScope(
+        var normalizedScope = SkillsCommandOptionNormalizer.NormalizeScope(
             UcliCommandNames.SkillsDoctor,
             scope,
             out errorResult);
@@ -76,9 +76,9 @@ internal sealed class SkillsDoctorCommand
             return errorResult.ExitCode;
         }
 
-        var repositoryRoot = SkillsCommandOptionNormalizer.NormalizeRequiredFullPath(
+        var repositoryRoot = SkillsCommandOptionNormalizer.NormalizeRepositoryRootForScope(
             UcliCommandNames.SkillsDoctor,
-            "repoRoot",
+            normalizedScope!.Value,
             repoRoot,
             out errorResult);
         if (errorResult is not null)
@@ -87,7 +87,7 @@ internal sealed class SkillsDoctorCommand
             return errorResult.ExitCode;
         }
 
-        var targetResult = targetResolver.ResolveTarget(new SkillInstallRequest(normalizedHost!, normalizedScope!.Value, repositoryRoot!, targetDir));
+        var targetResult = targetResolver.ResolveTarget(new SkillInstallRequest(normalizedHost!, normalizedScope!.Value, repositoryRoot, targetDir));
         if (!targetResult.IsSuccess)
         {
             var targetErrorResult = SkillsCommandResultFactory.CreateSkillFailure(UcliCommandNames.SkillsDoctor, targetResult.Failure!);
@@ -109,7 +109,8 @@ internal sealed class SkillsDoctorCommand
                 targetResult.Value!.TargetRoot,
                 cancellationToken)
             .ConfigureAwait(false);
-        var commandResult = SkillsCommandResultFactory.CreateDoctor(doctorResult, repositoryRoot!);
+        var reloadGuidance = hostAdapters.GetAdapter(normalizedHost!).Value!.Descriptor.ReloadGuidance;
+        var commandResult = SkillsCommandResultFactory.CreateDoctor(doctorResult, normalizedScope.Value, repositoryRoot, reloadGuidance);
         commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }

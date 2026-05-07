@@ -27,6 +27,15 @@ public sealed class SkillHostAdapterSet
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(adapter.Descriptor.HostKey, nameof(adapters));
             ArgumentException.ThrowIfNullOrWhiteSpace(adapter.Descriptor.ProjectTargetDirectory, nameof(adapters));
+            ArgumentException.ThrowIfNullOrWhiteSpace(adapter.Descriptor.UserTargetDirectory, nameof(adapters));
+            ArgumentNullException.ThrowIfNull(adapter.Descriptor.UserTargetRootPolicy, nameof(adapters));
+            ArgumentException.ThrowIfNullOrWhiteSpace(adapter.Descriptor.UserTargetRootPolicy.HomeRelativeDirectory, nameof(adapters));
+            if (!string.IsNullOrWhiteSpace(adapter.Descriptor.UserTargetRootPolicy.EnvironmentVariableName))
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(adapter.Descriptor.UserTargetRootPolicy.EnvironmentVariableChildDirectory, nameof(adapters));
+            }
+
+            ArgumentException.ThrowIfNullOrWhiteSpace(adapter.Descriptor.ReloadGuidance, nameof(adapters));
         }
 
         var duplicateHost = adapterArray

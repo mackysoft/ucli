@@ -120,7 +120,7 @@ public sealed class SkillInstalledPackageValidator
         if (!hostMatchResult.Value)
         {
             return SkillOperationResult<SkillManifest>.FailureResult(
-                SkillFailureCodes.InstallTargetHostConflict,
+                SkillFailureCodes.InstallTargetDigestMismatch,
                 $"Installed skill directory is not materialized for requested host: {skillDirectory}");
         }
 
