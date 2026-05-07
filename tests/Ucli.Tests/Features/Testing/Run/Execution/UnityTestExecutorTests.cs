@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
+using MackySoft.Ucli.Tests.TestDoubles;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -378,33 +379,6 @@ public sealed class UnityTestExecutorTests
         }
     }
 
-    private sealed class StubProjectLifecycleLockProvider : IProjectLifecycleLockProvider
-    {
-        private readonly bool throwTimeout;
-
-        public StubProjectLifecycleLockProvider (bool throwTimeout = false)
-        {
-            this.throwTimeout = throwTimeout;
-        }
-
-        public ProjectLifecycleLockRequest? LastRequest { get; private set; }
-
-        public ValueTask<IAsyncDisposable> Acquire (
-            ProjectLifecycleLockRequest request,
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            LastRequest = request;
-            if (throwTimeout)
-            {
-                throw new TimeoutException("lock held");
-            }
-
-            return ValueTask.FromResult<IAsyncDisposable>(new NoOpAsyncDisposable());
-        }
-    }
-
     private sealed class StubUnityProjectLockFileProbe : IUnityProjectLockFileProbe
     {
         private readonly IReadOnlyList<UnityProjectLockFileProbeResult> results;
@@ -436,11 +410,4 @@ public sealed class UnityTestExecutorTests
         }
     }
 
-    private sealed class NoOpAsyncDisposable : IAsyncDisposable
-    {
-        public ValueTask DisposeAsync ()
-        {
-            return ValueTask.CompletedTask;
-        }
-    }
 }

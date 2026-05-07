@@ -14,6 +14,14 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
 
     private const int RetryDelayMilliseconds = 50;
 
+    private const int SharingViolationHResult = unchecked((int)0x80070020);
+
+    private const int LockViolationHResult = unchecked((int)0x80070021);
+
+    private const int PosixResourceTemporarilyUnavailableHResult = 11;
+
+    private const int PosixNoLocksAvailableHResult = 35;
+
     private readonly string lockStorageBoundaryRoot;
 
     private readonly string lockStorageRoot;
@@ -80,7 +88,7 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
                     FileShare.None);
                 return new LockHandle(stream);
             }
-            catch (IOException)
+            catch (IOException exception) when (IsLockContentionException(exception))
             {
                 if (!deadline.TryGetRemainingTimeout(out var remaining))
                 {
@@ -257,6 +265,14 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
         return OperatingSystem.IsWindows()
             ? StringComparison.OrdinalIgnoreCase
             : StringComparison.Ordinal;
+    }
+
+    private static bool IsLockContentionException (IOException exception)
+    {
+        return exception.HResult is SharingViolationHResult
+            or LockViolationHResult
+            or PosixResourceTemporarilyUnavailableHResult
+            or PosixNoLocksAvailableHResult;
     }
 
     /// <summary> Releases one file lock handle when disposed. </summary>

@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
+using MackySoft.Ucli.Tests.TestDoubles;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
@@ -413,37 +414,6 @@ public sealed class UnityOneshotIpcClientTests
         }
     }
 
-    private sealed class StubProjectLifecycleLockProvider : IProjectLifecycleLockProvider
-    {
-        private readonly Func<ProjectLifecycleLockRequest, TimeSpan, CancellationToken, IAsyncDisposable> acquire;
-
-        public StubProjectLifecycleLockProvider ()
-            : this((_, _, cancellationToken) =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                return new NoOpAsyncDisposable();
-            })
-        {
-        }
-
-        public StubProjectLifecycleLockProvider (Func<ProjectLifecycleLockRequest, TimeSpan, CancellationToken, IAsyncDisposable> acquire)
-        {
-            this.acquire = acquire ?? throw new ArgumentNullException(nameof(acquire));
-        }
-
-        public ProjectLifecycleLockRequest? LastRequest { get; private set; }
-
-        public ValueTask<IAsyncDisposable> Acquire (
-            ProjectLifecycleLockRequest request,
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            LastRequest = request;
-            return ValueTask.FromResult(acquire(request, timeout, cancellationToken));
-        }
-    }
-
     private sealed class StubUnityProjectLockFileProbe : IUnityProjectLockFileProbe
     {
         private readonly UnityProjectLockFileProbeResult result;
@@ -464,11 +434,4 @@ public sealed class UnityOneshotIpcClientTests
         }
     }
 
-    private sealed class NoOpAsyncDisposable : IAsyncDisposable
-    {
-        public ValueTask DisposeAsync ()
-        {
-            return ValueTask.CompletedTask;
-        }
-    }
 }

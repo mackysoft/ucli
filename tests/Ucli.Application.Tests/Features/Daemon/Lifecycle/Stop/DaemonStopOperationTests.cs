@@ -88,6 +88,26 @@ public sealed class DaemonStopOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Stop_WhenWorkflowBegins_AcquiresLifecycleLockForUnityProjectRoot ()
+    {
+        var context = CreateContext("fingerprint-stop-lock-context");
+        var lockProvider = new StubProjectLifecycleLockProvider();
+        var operation = new DaemonStopOperation(
+            lifecycleLockProvider: lockProvider,
+            daemonSessionStore: new StubDaemonSessionStore(),
+            shutdownClient: new StubDaemonShutdownClient(),
+            processTerminationService: new StubDaemonProcessTerminationService(),
+            artifactCleaner: new StubDaemonArtifactCleaner());
+
+        var result = await operation.Stop(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.Equal(DaemonStopStatus.NotRunning, result.Status);
+        var lockRequest = Assert.IsType<ProjectLifecycleLockRequest>(lockProvider.LastRequest);
+        Assert.Equal(context.UnityProjectRoot, lockRequest.UnityProjectRoot);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Stop_WhenLifecycleLockAcquireTimesOut_ReturnsTimeoutFailure ()
     {
         var lockProvider = new StubProjectLifecycleLockProvider
@@ -181,32 +201,6 @@ public sealed class DaemonStopOperationTests
             ProcessId: processId,
 
             OwnerProcessId: 9876);
-    }
-
-    private sealed class StubProjectLifecycleLockProvider : IProjectLifecycleLockProvider
-    {
-        public bool ThrowTimeoutOnAcquire { get; set; }
-
-        public ValueTask<IAsyncDisposable> Acquire (
-            ProjectLifecycleLockRequest request,
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            if (ThrowTimeoutOnAcquire)
-            {
-                throw new TimeoutException("lock timeout");
-            }
-
-            return ValueTask.FromResult<IAsyncDisposable>(new NoopAsyncDisposable());
-        }
-
-        private sealed class NoopAsyncDisposable : IAsyncDisposable
-        {
-            public ValueTask DisposeAsync ()
-            {
-                return ValueTask.CompletedTask;
-            }
-        }
     }
 
     private sealed class StubDaemonSessionStore : IDaemonSessionStore

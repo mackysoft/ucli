@@ -44,7 +44,7 @@ internal static class FileSystemAccessBoundary
         }
 
         Directory.CreateDirectory(normalizedDirectoryPath);
-        ApplySecureDirectoryMode(normalizedDirectoryPath);
+        EnsureSecureDirectoryNode(normalizedDirectoryPath);
     }
 
     /// <summary> Ensures the target directory chain exists and is limited to the current user from one owned boundary root. </summary>
@@ -133,7 +133,22 @@ internal static class FileSystemAccessBoundary
         {
             var currentPath = pendingDirectories.Pop();
             Directory.CreateDirectory(currentPath);
-            ApplySecureDirectoryMode(currentPath);
+            EnsureSecureDirectoryNode(currentPath);
+        }
+    }
+
+    private static void EnsureSecureDirectoryNode (string directoryPath)
+    {
+        EnsureDirectoryIsNotReparsePoint(directoryPath);
+        ApplySecureDirectoryMode(directoryPath);
+    }
+
+    private static void EnsureDirectoryIsNotReparsePoint (string directoryPath)
+    {
+        var attributes = File.GetAttributes(directoryPath);
+        if ((attributes & FileAttributes.ReparsePoint) != 0)
+        {
+            throw new IOException($"Secure directory target must not be a reparse point: {directoryPath}");
         }
     }
 

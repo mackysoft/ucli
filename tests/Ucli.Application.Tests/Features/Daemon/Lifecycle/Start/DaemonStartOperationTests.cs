@@ -481,35 +481,6 @@ public sealed class DaemonStartOperationTests
             OwnerProcessId: ownerProcessId);
     }
 
-    private sealed class StubProjectLifecycleLockProvider : IProjectLifecycleLockProvider
-    {
-        public bool ThrowTimeoutOnAcquire { get; set; }
-
-        public ProjectLifecycleLockRequest? LastRequest { get; private set; }
-
-        public ValueTask<IAsyncDisposable> Acquire (
-            ProjectLifecycleLockRequest request,
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            LastRequest = request;
-            if (ThrowTimeoutOnAcquire)
-            {
-                throw new TimeoutException("lock timeout");
-            }
-
-            return ValueTask.FromResult<IAsyncDisposable>(new NoopAsyncDisposable());
-        }
-
-        private sealed class NoopAsyncDisposable : IAsyncDisposable
-        {
-            public ValueTask DisposeAsync ()
-            {
-                return ValueTask.CompletedTask;
-            }
-        }
-    }
-
     private sealed class StubDaemonSessionStore : IDaemonSessionStore
     {
         public DaemonSessionReadResult ReadResult { get; set; } = DaemonSessionReadResult.Success(null);

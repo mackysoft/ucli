@@ -97,20 +97,22 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Acquire_WithSamePhysicalProjectRoot_WaitsUntilReleased ()
+    public async Task Acquire_WithSamePhysicalProjectRootAcrossProviders_WaitsUntilReleased ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lock", "same-physical-project");
         var timeProvider = new ManualTimeProvider();
-        var provider = CreateProvider(scope, timeProvider);
+        var lockStorageRoot = scope.CreateDirectory("locks");
+        var firstProvider = CreateProvider(lockStorageRoot, timeProvider);
+        var secondProvider = CreateProvider(lockStorageRoot, timeProvider);
         var unityProjectRoot = scope.CreateDirectory("UnityProject");
         var firstRequest = CreateRequest(unityProjectRoot);
         var secondRequest = CreateRequest(unityProjectRoot);
-        var firstHandle = await provider.Acquire(
+        var firstHandle = await firstProvider.Acquire(
             firstRequest,
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
 
-        var secondAcquireTask = provider.Acquire(
+        var secondAcquireTask = secondProvider.Acquire(
             secondRequest,
             TimeSpan.FromSeconds(2),
             CancellationToken.None).AsTask();
@@ -151,20 +153,22 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lock", "symlink-project");
         var timeProvider = new ManualTimeProvider();
-        var provider = CreateProvider(scope, timeProvider);
+        var lockStorageRoot = scope.CreateDirectory("locks");
+        var firstProvider = CreateProvider(lockStorageRoot, timeProvider);
+        var secondProvider = CreateProvider(lockStorageRoot, timeProvider);
         var targetProjectRoot = scope.CreateDirectory(Path.Combine("target", "UnityProject"));
         var symlinkProjectRoot = Path.Combine(scope.FullPath, "linked-project");
-        if (!TryCreateDirectorySymbolicLink(symlinkProjectRoot, targetProjectRoot))
+        if (!TestSymbolicLinks.TryCreateDirectory(symlinkProjectRoot, targetProjectRoot))
         {
             throw SkipException.ForSkip("Skipping because symbolic link creation is not available in this environment.");
         }
 
-        var firstHandle = await provider.Acquire(
+        var firstHandle = await firstProvider.Acquire(
             CreateRequest(targetProjectRoot),
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
 
-        var secondAcquireTask = provider.Acquire(
+        var secondAcquireTask = secondProvider.Acquire(
             CreateRequest(symlinkProjectRoot),
             TimeSpan.FromSeconds(2),
             CancellationToken.None).AsTask();
@@ -183,7 +187,9 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lock", "case-variant-project");
         var timeProvider = new ManualTimeProvider();
-        var provider = CreateProvider(scope, timeProvider);
+        var lockStorageRoot = scope.CreateDirectory("locks");
+        var firstProvider = CreateProvider(lockStorageRoot, timeProvider);
+        var secondProvider = CreateProvider(lockStorageRoot, timeProvider);
         var projectRoot = scope.CreateDirectory("UnityProject");
         var caseVariantProjectRoot = CreateCaseVariantPath(projectRoot);
         if (string.Equals(caseVariantProjectRoot, projectRoot, StringComparison.Ordinal)
@@ -192,12 +198,12 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
             throw SkipException.ForSkip("Skipping because this filesystem does not resolve case-variant directory paths.");
         }
 
-        var firstHandle = await provider.Acquire(
+        var firstHandle = await firstProvider.Acquire(
             CreateRequest(projectRoot),
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
 
-        var secondAcquireTask = provider.Acquire(
+        var secondAcquireTask = secondProvider.Acquire(
             CreateRequest(caseVariantProjectRoot),
             TimeSpan.FromSeconds(2),
             CancellationToken.None).AsTask();
@@ -241,37 +247,19 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         TestDirectoryScope scope,
         TimeProvider timeProvider)
     {
-        return new FileSystemProjectLifecycleLockProvider(
-            timeProvider,
-            scope.CreateDirectory("locks"));
+        return CreateProvider(scope.CreateDirectory("locks"), timeProvider);
+    }
+
+    private static FileSystemProjectLifecycleLockProvider CreateProvider (
+        string lockStorageRoot,
+        TimeProvider timeProvider)
+    {
+        return new FileSystemProjectLifecycleLockProvider(timeProvider, lockStorageRoot);
     }
 
     private static ProjectLifecycleLockRequest CreateRequest (string unityProjectRoot)
     {
         return new ProjectLifecycleLockRequest(unityProjectRoot);
-    }
-
-    private static bool TryCreateDirectorySymbolicLink (
-        string symbolicLinkPath,
-        string targetPath)
-    {
-        try
-        {
-            Directory.CreateSymbolicLink(symbolicLinkPath, targetPath);
-            return true;
-        }
-        catch (IOException)
-        {
-            return false;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return false;
-        }
-        catch (PlatformNotSupportedException)
-        {
-            return false;
-        }
     }
 
     private static string CreateCaseVariantPath (string path)

@@ -11,6 +11,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Tests.TestDoubles;
 
 public sealed class DaemonCleanupOperationTests
 {
@@ -434,13 +435,31 @@ public sealed class DaemonCleanupOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Cleanup_WhenWorkflowBegins_AcquiresLifecycleLockForUnityProjectRoot ()
+    {
+        var context = CreateContext("fingerprint-cleanup-lock-context");
+        var lockProvider = new StubProjectLifecycleLockProvider();
+        var operation = CreateOperation(
+            lifecycleLockProvider: lockProvider,
+            daemonSessionStore: new StubDaemonSessionStore
+            {
+                ReadResult = DaemonSessionReadResult.Success(null),
+            },
+            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))));
+
+        var result = await operation.Cleanup(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var lockRequest = Assert.IsType<ProjectLifecycleLockRequest>(lockProvider.LastRequest);
+        Assert.Equal(context.UnityProjectRoot, lockRequest.UnityProjectRoot);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Cleanup_WhenLifecycleLockAcquireTimesOut_ReturnsTimeoutFailure ()
     {
         var operation = CreateOperation(
-            lifecycleLockProvider: new StubProjectLifecycleLockProvider
-            {
-                ThrowTimeoutOnAcquire = true,
-            });
+            lifecycleLockProvider: new StubProjectLifecycleLockProvider(throwTimeout: true));
 
         var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-lock-timeout"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -497,32 +516,6 @@ public sealed class DaemonCleanupOperationTests
             EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: processId,
             OwnerProcessId: 9876);
-    }
-
-    private sealed class StubProjectLifecycleLockProvider : IProjectLifecycleLockProvider
-    {
-        public bool ThrowTimeoutOnAcquire { get; set; }
-
-        public ValueTask<IAsyncDisposable> Acquire (
-            ProjectLifecycleLockRequest request,
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            if (ThrowTimeoutOnAcquire)
-            {
-                throw new TimeoutException("lock timeout");
-            }
-
-            return ValueTask.FromResult<IAsyncDisposable>(new NoopAsyncDisposable());
-        }
-
-        private sealed class NoopAsyncDisposable : IAsyncDisposable
-        {
-            public ValueTask DisposeAsync ()
-            {
-                return ValueTask.CompletedTask;
-            }
-        }
     }
 
     private sealed class StubDaemonSessionStore : IDaemonSessionStore
