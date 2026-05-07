@@ -46,7 +46,8 @@ public sealed class UnityOneshotIpcClientTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Same(unityProject, lockProvider.LastUnityProject);
+        var lockRequest = Assert.IsType<ProjectLifecycleLockRequest>(lockProvider.LastRequest);
+        Assert.Equal(unityProject.UnityProjectRoot, lockRequest.UnityProjectRoot);
         Assert.Equal(
             UcliStoragePathResolver.ResolveUnityLogPath(unityProject.RepositoryRoot, unityProject.ProjectFingerprint),
             launcher.LastUnityLogPath);
@@ -414,7 +415,7 @@ public sealed class UnityOneshotIpcClientTests
 
     private sealed class StubProjectLifecycleLockProvider : IProjectLifecycleLockProvider
     {
-        private readonly Func<ResolvedUnityProjectContext, TimeSpan, CancellationToken, IAsyncDisposable> acquire;
+        private readonly Func<ProjectLifecycleLockRequest, TimeSpan, CancellationToken, IAsyncDisposable> acquire;
 
         public StubProjectLifecycleLockProvider ()
             : this((_, _, cancellationToken) =>
@@ -425,21 +426,21 @@ public sealed class UnityOneshotIpcClientTests
         {
         }
 
-        public StubProjectLifecycleLockProvider (Func<ResolvedUnityProjectContext, TimeSpan, CancellationToken, IAsyncDisposable> acquire)
+        public StubProjectLifecycleLockProvider (Func<ProjectLifecycleLockRequest, TimeSpan, CancellationToken, IAsyncDisposable> acquire)
         {
             this.acquire = acquire ?? throw new ArgumentNullException(nameof(acquire));
         }
 
-        public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
+        public ProjectLifecycleLockRequest? LastRequest { get; private set; }
 
         public ValueTask<IAsyncDisposable> Acquire (
-            ResolvedUnityProjectContext unityProject,
+            ProjectLifecycleLockRequest request,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            LastUnityProject = unityProject;
-            return ValueTask.FromResult(acquire(unityProject, timeout, cancellationToken));
+            LastRequest = request;
+            return ValueTask.FromResult(acquire(request, timeout, cancellationToken));
         }
     }
 

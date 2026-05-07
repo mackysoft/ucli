@@ -39,12 +39,34 @@ internal static class FileSystemAccessBoundary
         if (TryResolveLocalDirectoryRoot(normalizedDirectoryPath, out var localDirectoryRoot))
         {
             UcliLocalStorageBootstrapper.EnsureInitialized(normalizedDirectoryPath);
-            EnsureSecureDirectoryChain(localDirectoryRoot!, normalizedDirectoryPath);
+            EnsureSecureDirectoryChainCore(localDirectoryRoot!, normalizedDirectoryPath);
             return;
         }
 
         Directory.CreateDirectory(normalizedDirectoryPath);
         ApplySecureDirectoryMode(normalizedDirectoryPath);
+    }
+
+    /// <summary> Ensures the target directory chain exists and is limited to the current user from one owned boundary root. </summary>
+    /// <param name="boundaryRootPath"> The directory root owned by this application boundary. </param>
+    /// <param name="directoryPath"> The target directory path under <paramref name="boundaryRootPath" />. </param>
+    public static void EnsureSecureDirectoryChain (
+        string boundaryRootPath,
+        string directoryPath)
+    {
+        if (string.IsNullOrWhiteSpace(boundaryRootPath))
+        {
+            throw new ArgumentException("Boundary root path must not be empty.", nameof(boundaryRootPath));
+        }
+
+        if (string.IsNullOrWhiteSpace(directoryPath))
+        {
+            throw new ArgumentException("Directory path must not be empty.", nameof(directoryPath));
+        }
+
+        EnsureSecureDirectoryChainCore(
+            NormalizeDirectoryPath(boundaryRootPath),
+            NormalizeDirectoryPath(directoryPath));
     }
 
     /// <summary> Ensures the target file is limited to the current user. </summary>
@@ -83,24 +105,22 @@ internal static class FileSystemAccessBoundary
         ApplySecureFileMode(normalizedSocketPath);
     }
 
-    private static void EnsureSecureDirectoryChain (
+    private static void EnsureSecureDirectoryChainCore (
         string boundaryRootPath,
         string directoryPath)
     {
-        var normalizedBoundaryRootPath = NormalizeDirectoryPath(boundaryRootPath);
-        var normalizedDirectoryPath = NormalizeDirectoryPath(directoryPath);
-        if (!IsPathUnderOrEqual(normalizedDirectoryPath, normalizedBoundaryRootPath))
+        if (!IsPathUnderOrEqual(directoryPath, boundaryRootPath))
         {
             throw new InvalidOperationException(
-                $"Secure directory target must remain under the local storage root. Root={normalizedBoundaryRootPath}, Target={normalizedDirectoryPath}");
+                $"Secure directory target must remain under the local storage root. Root={boundaryRootPath}, Target={directoryPath}");
         }
 
         var pendingDirectories = new Stack<string>();
-        var currentDirectoryPath = normalizedDirectoryPath;
+        var currentDirectoryPath = directoryPath;
         while (true)
         {
             pendingDirectories.Push(currentDirectoryPath);
-            if (string.Equals(currentDirectoryPath, normalizedBoundaryRootPath, GetPathComparison()))
+            if (string.Equals(currentDirectoryPath, boundaryRootPath, GetPathComparison()))
             {
                 break;
             }

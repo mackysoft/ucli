@@ -86,7 +86,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             }
 
             await using var lifecycleLock = await lifecycleLockProvider.Acquire(
-                    unityProject,
+                    new ProjectLifecycleLockRequest(unityProject.UnityProjectRoot),
                     lockTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);

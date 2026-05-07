@@ -504,7 +504,7 @@ public sealed class DaemonCleanupOperationTests
         public bool ThrowTimeoutOnAcquire { get; set; }
 
         public ValueTask<IAsyncDisposable> Acquire (
-            ResolvedUnityProjectContext unityProject,
+            ProjectLifecycleLockRequest request,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {

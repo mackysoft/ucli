@@ -71,7 +71,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         try
         {
             lockHandle = await lifecycleLockProvider.Acquire(
-                    unityProject,
+                    new ProjectLifecycleLockRequest(unityProject.UnityProjectRoot),
                     lockAcquireTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);

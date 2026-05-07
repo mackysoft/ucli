@@ -1,6 +1,9 @@
 namespace MackySoft.Ucli.Tests.Execution;
 
+using System.Runtime.Versioning;
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
+using MackySoft.Ucli.Tests.Helpers;
 using Xunit.Sdk;
 
 public sealed class FileSystemProjectLifecycleLockProviderTests
@@ -14,16 +17,13 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         using var scope = TestDirectories.CreateTempScope("daemon-lock", "wait-until-release");
         var timeProvider = new ManualTimeProvider();
         var provider = CreateProvider(scope, timeProvider);
-        var unityProject = CreateContext(
-            scope.CreateDirectory("UnityProject"),
-            scope.CreateDirectory("Repo"),
-            "fingerprint-lock");
+        var lockRequest = CreateRequest(scope.CreateDirectory("UnityProject"));
         var firstHandle = await provider.Acquire(
-            unityProject,
+            lockRequest,
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
         var secondAcquireTask = provider.Acquire(
-            unityProject,
+            lockRequest,
             TimeSpan.FromSeconds(2),
             CancellationToken.None).AsTask();
 
@@ -42,18 +42,15 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         using var scope = TestDirectories.CreateTempScope("daemon-lock", "cancel-while-waiting");
         var timeProvider = new ManualTimeProvider();
         var provider = CreateProvider(scope, timeProvider);
-        var unityProject = CreateContext(
-            scope.CreateDirectory("UnityProject"),
-            scope.CreateDirectory("Repo"),
-            "fingerprint-lock");
+        var lockRequest = CreateRequest(scope.CreateDirectory("UnityProject"));
         var firstHandle = await provider.Acquire(
-            unityProject,
+            lockRequest,
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
         using var waitingCts = new CancellationTokenSource();
 
         var waitingTask = provider.Acquire(
-                unityProject,
+                lockRequest,
                 TimeSpan.FromSeconds(5),
                 waitingCts.Token)
             .AsTask();
@@ -76,17 +73,14 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         using var scope = TestDirectories.CreateTempScope("daemon-lock", "timeout-while-waiting");
         var timeProvider = new ManualTimeProvider();
         var provider = CreateProvider(scope, timeProvider);
-        var unityProject = CreateContext(
-            scope.CreateDirectory("UnityProject"),
-            scope.CreateDirectory("Repo"),
-            "fingerprint-lock");
+        var lockRequest = CreateRequest(scope.CreateDirectory("UnityProject"));
         var firstHandle = await provider.Acquire(
-            unityProject,
+            lockRequest,
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
 
         var waitingTask = provider.Acquire(
-                unityProject,
+                lockRequest,
                 TimeSpan.FromMilliseconds(150),
                 CancellationToken.None)
             .AsTask();
@@ -103,27 +97,21 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Acquire_WithDifferentStorageRootsAndFingerprintsForSamePhysicalProject_WaitsUntilReleased ()
+    public async Task Acquire_WithSamePhysicalProjectRoot_WaitsUntilReleased ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lock", "same-physical-project");
         var timeProvider = new ManualTimeProvider();
         var provider = CreateProvider(scope, timeProvider);
         var unityProjectRoot = scope.CreateDirectory("UnityProject");
-        var firstContext = CreateContext(
-            unityProjectRoot,
-            scope.CreateDirectory("RepoA"),
-            "fingerprint-a");
-        var secondContext = CreateContext(
-            unityProjectRoot,
-            scope.CreateDirectory("RepoB"),
-            "fingerprint-b");
+        var firstRequest = CreateRequest(unityProjectRoot);
+        var secondRequest = CreateRequest(unityProjectRoot);
         var firstHandle = await provider.Acquire(
-            firstContext,
+            firstRequest,
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
 
         var secondAcquireTask = provider.Acquire(
-            secondContext,
+            secondRequest,
             TimeSpan.FromSeconds(2),
             CancellationToken.None).AsTask();
 
@@ -141,22 +129,15 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lock", "different-physical-project");
         var provider = CreateProvider(scope, new ManualTimeProvider());
-        var repositoryRoot = scope.CreateDirectory("Repo");
-        var firstContext = CreateContext(
-            scope.CreateDirectory("UnityProjectA"),
-            repositoryRoot,
-            "fingerprint-a");
-        var secondContext = CreateContext(
-            scope.CreateDirectory("UnityProjectB"),
-            repositoryRoot,
-            "fingerprint-b");
+        var firstRequest = CreateRequest(scope.CreateDirectory("UnityProjectA"));
+        var secondRequest = CreateRequest(scope.CreateDirectory("UnityProjectB"));
         var firstHandle = await provider.Acquire(
-            firstContext,
+            firstRequest,
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
 
         var secondHandle = await provider.Acquire(
-            secondContext,
+            secondRequest,
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
 
@@ -179,12 +160,12 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         }
 
         var firstHandle = await provider.Acquire(
-            CreateContext(targetProjectRoot, scope.CreateDirectory("RepoA"), "fingerprint-a"),
+            CreateRequest(targetProjectRoot),
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
 
         var secondAcquireTask = provider.Acquire(
-            CreateContext(symlinkProjectRoot, scope.CreateDirectory("RepoB"), "fingerprint-b"),
+            CreateRequest(symlinkProjectRoot),
             TimeSpan.FromSeconds(2),
             CancellationToken.None).AsTask();
 
@@ -196,6 +177,66 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         await secondHandle.DisposeAsync();
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Acquire_WithCaseVariantProjectRootOnCaseInsensitiveFileSystem_UsesSamePhysicalProjectLock ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-lock", "case-variant-project");
+        var timeProvider = new ManualTimeProvider();
+        var provider = CreateProvider(scope, timeProvider);
+        var projectRoot = scope.CreateDirectory("UnityProject");
+        var caseVariantProjectRoot = CreateCaseVariantPath(projectRoot);
+        if (string.Equals(caseVariantProjectRoot, projectRoot, StringComparison.Ordinal)
+            || !Directory.Exists(caseVariantProjectRoot))
+        {
+            throw SkipException.ForSkip("Skipping because this filesystem does not resolve case-variant directory paths.");
+        }
+
+        var firstHandle = await provider.Acquire(
+            CreateRequest(projectRoot),
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
+
+        var secondAcquireTask = provider.Acquire(
+            CreateRequest(caseVariantProjectRoot),
+            TimeSpan.FromSeconds(2),
+            CancellationToken.None).AsTask();
+
+        Assert.False(secondAcquireTask.IsCompleted);
+
+        await firstHandle.DisposeAsync();
+        timeProvider.Advance(TimeSpan.FromMilliseconds(50));
+        var secondHandle = await TestAwaiter.WaitAsync(secondAcquireTask, "Case-variant lifecycle lock reacquire", AcquireWaitTimeout);
+        await secondHandle.DisposeAsync();
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    [SupportedOSPlatform("macos")]
+    [SupportedOSPlatform("linux")]
+    public async Task Acquire_OnUnix_CreatesLockStorageDirectoryChainWithOwnerOnlyAccess ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("daemon-lock", "owner-only");
+        var timeProvider = new ManualTimeProvider();
+        var lockStorageRoot = Path.Combine(scope.FullPath, "locks", "unity-projects");
+        var provider = new FileSystemProjectLifecycleLockProvider(timeProvider, lockStorageRoot);
+        var handle = await provider.Acquire(
+            CreateRequest(scope.CreateDirectory("UnityProject")),
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
+
+        await handle.DisposeAsync();
+
+        PosixAccessBoundaryAssert.DirectoryIsOwnerOnly(lockStorageRoot);
+        var lockKeyDirectoryPath = Assert.Single(Directory.EnumerateDirectories(lockStorageRoot));
+        PosixAccessBoundaryAssert.DirectoryIsOwnerOnly(lockKeyDirectoryPath);
+    }
+
     private static FileSystemProjectLifecycleLockProvider CreateProvider (
         TestDirectoryScope scope,
         TimeProvider timeProvider)
@@ -205,16 +246,9 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
             scope.CreateDirectory("locks"));
     }
 
-    private static ResolvedUnityProjectContext CreateContext (
-        string unityProjectRoot,
-        string repositoryRoot,
-        string projectFingerprint)
+    private static ProjectLifecycleLockRequest CreateRequest (string unityProjectRoot)
     {
-        return new ResolvedUnityProjectContext(
-            UnityProjectRoot: unityProjectRoot,
-            RepositoryRoot: repositoryRoot,
-            ProjectFingerprint: projectFingerprint,
-            PathSource: UnityProjectPathSource.CommandOption);
+        return new ProjectLifecycleLockRequest(unityProjectRoot);
     }
 
     private static bool TryCreateDirectorySymbolicLink (
@@ -238,5 +272,24 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         {
             return false;
         }
+    }
+
+    private static string CreateCaseVariantPath (string path)
+    {
+        var characters = path.ToCharArray();
+        for (var i = 0; i < characters.Length; i++)
+        {
+            var character = characters[i];
+            if (char.IsUpper(character))
+            {
+                characters[i] = char.ToLowerInvariant(character);
+            }
+            else if (char.IsLower(character))
+            {
+                characters[i] = char.ToUpperInvariant(character);
+            }
+        }
+
+        return new string(characters);
     }
 }

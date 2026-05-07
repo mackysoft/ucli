@@ -59,7 +59,7 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
         try
         {
             lifecycleLock = await lifecycleLockProvider.Acquire(
-                    configuration.UnityProject,
+                    new ProjectLifecycleLockRequest(configuration.UnityProject.UnityProjectRoot),
                     ProjectExecutionLockAcquireTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);

@@ -36,7 +36,8 @@ public sealed class UnityTestExecutorTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(0, result.ProcessExitCode);
-        Assert.Same(configuration.UnityProject, lockProvider.LastUnityProject);
+        var lockRequest = Assert.IsType<ProjectLifecycleLockRequest>(lockProvider.LastRequest);
+        Assert.Equal(configuration.UnityProject.UnityProjectRoot, lockRequest.UnityProjectRoot);
     }
 
     [Fact]
@@ -386,15 +387,15 @@ public sealed class UnityTestExecutorTests
             this.throwTimeout = throwTimeout;
         }
 
-        public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
+        public ProjectLifecycleLockRequest? LastRequest { get; private set; }
 
         public ValueTask<IAsyncDisposable> Acquire (
-            ResolvedUnityProjectContext unityProject,
+            ProjectLifecycleLockRequest request,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            LastUnityProject = unityProject;
+            LastRequest = request;
             if (throwTimeout)
             {
                 throw new TimeoutException("lock held");

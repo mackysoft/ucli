@@ -412,7 +412,7 @@ public sealed class DaemonStartOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Start_WhenWorkflowBegins_AcquiresLifecycleLockForResolvedUnityProject ()
+    public async Task Start_WhenWorkflowBegins_AcquiresLifecycleLockForUnityProjectRoot ()
     {
         var context = CreateContext("fingerprint-start-lock-context");
         var lockProvider = new StubProjectLifecycleLockProvider();
@@ -432,7 +432,8 @@ public sealed class DaemonStartOperationTests
         var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Same(context, lockProvider.LastUnityProject);
+        var lockRequest = Assert.IsType<ProjectLifecycleLockRequest>(lockProvider.LastRequest);
+        Assert.Equal(context.UnityProjectRoot, lockRequest.UnityProjectRoot);
     }
 
     private static DaemonStartOperation CreateOperation (
@@ -484,14 +485,14 @@ public sealed class DaemonStartOperationTests
     {
         public bool ThrowTimeoutOnAcquire { get; set; }
 
-        public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
+        public ProjectLifecycleLockRequest? LastRequest { get; private set; }
 
         public ValueTask<IAsyncDisposable> Acquire (
-            ResolvedUnityProjectContext unityProject,
+            ProjectLifecycleLockRequest request,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
-            LastUnityProject = unityProject;
+            LastRequest = request;
             if (ThrowTimeoutOnAcquire)
             {
                 throw new TimeoutException("lock timeout");

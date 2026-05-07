@@ -66,7 +66,7 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
         try
         {
             lockHandle = await lifecycleLockProvider.Acquire(
-                    unityProject,
+                    new ProjectLifecycleLockRequest(unityProject.UnityProjectRoot),
                     lockAcquireTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);
