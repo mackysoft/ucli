@@ -38,8 +38,7 @@ public sealed class SkillMaterializedPackageDiffBuilder
         var relativePaths = beforeFiles.Keys
             .Concat(afterFiles.Keys)
             .Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal)
-            .ToArray();
+            .Order(StringComparer.Ordinal);
 
         var fileDiffs = new List<SkillFileDiff>();
         foreach (var relativePath in relativePaths)
