@@ -2,7 +2,7 @@
 > この文書は、uCLI のコマンド一覧、option table、サブコマンド規則、終了コード、実行例のリファレンスである。
 > 全体契約は [uCLI.md](uCLI.md)、JSON プロパティ定義は [uCLI-property-reference.md](uCLI-property-reference.md)、JSON リクエスト入力契約は [json-request-spec.md](json-request-spec.md) を参照する。
 >
-> 現在の公開 CLI host が登録している top-level command は `init`、`status`、`refresh`、`resolve`、`query`、`validate`、`plan`、`call`、`daemon`、`logs`、`ops`、`test` である。
+> 現在の公開 CLI host が登録している top-level command は `init`、`status`、`refresh`、`resolve`、`query`、`validate`、`plan`、`call`、`daemon`、`logs`、`ops`、`skills`、`test` である。
 
 ## コマンド概要
 
@@ -16,6 +16,7 @@
 | `ucli plan` | JSON リクエストの plan フェーズを実行する | static preflight 後に Unity IPC `plan` を実行する |
 | `ucli call` | JSON リクエストの call フェーズを実行する | static preflight 後に Unity IPC `call` を実行する |
 | `ucli ops` | primitive operation の一覧・詳細を返す | `list` / `describe` を持つ |
+| `ucli skills` | 公式 SKILL の一覧、配布、導入、更新、削除、診断を行う | `list` / `export` / `install` / `update` / `uninstall` / `doctor` |
 | `ucli status` | daemon と lifecycle の状態を返す | `ProjectVersion.txt` 由来の `unityVersion` を返す |
 | `ucli logs` | Unity / daemon のログを取得する | 成功時はイベントストリームを返す |
 | `ucli daemon` | daemon の起動・停止・掃除・状態取得を行う | `start` / `stop` / `cleanup` / `status` / `list` |
@@ -30,6 +31,15 @@
   - `--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--readIndexMode <disabled|allowStale|requireFresh>`、`--failFast` を受け付ける。
   - `--failFast` は live source fallback に対してのみ適用し、readIndex hit では Unity 接続も readiness wait も行わない。
   - `mode` / `timeout` は readIndex hit 時も妥当性を検証し、不正値は `INVALID_ARGUMENT` を返す。
+- `ucli skills`
+  - `list` は bundled official SKILL と supported host を返す。
+  - `export --host <host> --output <dir>` は指定 host 向けに公式 SKILL を一括 materialize する。
+  - `install --host <host> --scope project --repoRoot <path>` は未導入の公式 SKILL を一括導入し、既存 target は暗黙上書きしない。
+  - `update --host <host> --scope project --repoRoot <path>` は未導入の公式 SKILL を作成し、clean な旧版だけを更新し、最新なら no-op とする。
+  - `uninstall --host <host> --scope project --repoRoot <path>` は clean な uCLI 管理済み公式 SKILL だけを削除し、`ucli-skill.json` が無い directory は unmanaged として残す。
+  - `doctor --host <host> --scope project --repoRoot <path>` は指定 host の SKILL 配布物だけを診断する。
+  - `install` / `update` / `uninstall` / `doctor` は `--targetDir <path>` を任意で受け付けるが、project scope では repository root 配下に限定する。
+  - 成功時 payload は `host`、`scope`、`repositoryRoot`、`targetRoot` を返す。`update` は `createdCount` / `updatedCount` / `noOpCount`、`uninstall` は `deletedCount` / `noOpCount` / `skippedUnmanagedCount` を返す。
 - `ucli status`
   - daemon と lifecycle の状態を JSON で返す。
   - `--timeout <int>` で daemon 状態確認タイムアウトを上書きする。

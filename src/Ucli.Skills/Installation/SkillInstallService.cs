@@ -79,15 +79,15 @@ public sealed class SkillInstallService
                 return SkillOperationResult<SkillInstallResult>.FailureResult(materializedResult.Failure!.Code, materializedResult.Failure.Message);
             }
 
-            foreach (var file in materializedResult.Value!.Files)
+            var writeResult = await SkillMaterializedPackageWriter.WriteAsync(
+                    targetRoot,
+                    skillDirectory,
+                    materializedResult.Value!,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!writeResult.IsSuccess)
             {
-                var filePathResult = SkillPackagePathBoundary.ResolvePackageFilePathUnderRoot(targetRoot, skillDirectory, file.RelativePath);
-                if (!filePathResult.IsSuccess)
-                {
-                    return SkillOperationResult<SkillInstallResult>.FailureResult(filePathResult.Failure!.Code, filePathResult.Failure.Message);
-                }
-
-                await SkillPackageFileWriter.WriteAllTextAtomically(filePathResult.Value!, file.Content, cancellationToken).ConfigureAwait(false);
+                return SkillOperationResult<SkillInstallResult>.FailureResult(writeResult.Failure!.Code, writeResult.Failure.Message);
             }
 
             actions.Add(new SkillInstallAction(identity, SkillInstallActionKind.Created));

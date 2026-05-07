@@ -19,6 +19,8 @@ public sealed class UcliCommandCatalogTests
     [InlineData(UcliCommandNames.Skills, UcliCommandNames.ListSubcommand, null, UcliCommandNames.SkillsList)]
     [InlineData(UcliCommandNames.Skills, UcliCommandNames.ExportSubcommand, null, UcliCommandNames.SkillsExport)]
     [InlineData(UcliCommandNames.Skills, UcliCommandNames.InstallSubcommand, null, UcliCommandNames.SkillsInstall)]
+    [InlineData(UcliCommandNames.Skills, UcliCommandNames.UpdateSubcommand, null, UcliCommandNames.SkillsUpdate)]
+    [InlineData(UcliCommandNames.Skills, UcliCommandNames.UninstallSubcommand, null, UcliCommandNames.SkillsUninstall)]
     [InlineData(UcliCommandNames.Skills, UcliCommandNames.DoctorSubcommand, null, UcliCommandNames.SkillsDoctor)]
     [InlineData(UcliCommandNames.Query, UcliCommandNames.AssetsSubcommand, UcliCommandNames.FindSubcommand, UcliCommandNames.QueryAssetsFind)]
     [InlineData(UcliCommandNames.Query, UcliCommandNames.SceneSubcommand, UcliCommandNames.TreeSubcommand, UcliCommandNames.QuerySceneTree)]

@@ -109,6 +109,24 @@ internal static class SkillTestData
             CreateInstalledPackageValidator(hostAdapters));
     }
 
+    internal static SkillUpdateService CreateUpdateService ()
+    {
+        var hostAdapters = CreateOfficialHostAdapterSet();
+        return new SkillUpdateService(
+            new SkillInstallTargetResolver(hostAdapters),
+            new SkillMaterializationService(hostAdapters),
+            CreateInstalledPackageValidator(hostAdapters),
+            CreateInstalledPackageIntegrityVerifier(hostAdapters));
+    }
+
+    internal static SkillUninstallService CreateUninstallService ()
+    {
+        var hostAdapters = CreateOfficialHostAdapterSet();
+        return new SkillUninstallService(
+            new SkillInstallTargetResolver(hostAdapters),
+            CreateInstalledPackageIntegrityVerifier(hostAdapters));
+    }
+
     internal static SkillInstallationScanner CreateInstallationScanner ()
     {
         var hostAdapters = CreateOfficialHostAdapterSet();
@@ -132,6 +150,14 @@ internal static class SkillTestData
             new SkillInstalledContentDigestVerifier(new SkillDigestCalculator()),
             new SkillInstalledFileSetVerifier(),
             new SkillHostMaterializationInspector(hostAdapters, new SkillDigestCalculator()));
+    }
+
+    internal static SkillInstalledPackageIntegrityVerifier CreateInstalledPackageIntegrityVerifier (SkillHostAdapterSet hostAdapters)
+    {
+        return new SkillInstalledPackageIntegrityVerifier(
+            CreateInstalledManifestReader(hostAdapters),
+            new SkillHostMaterializationInspector(hostAdapters, new SkillDigestCalculator()),
+            new SkillDigestCalculator());
     }
 
     internal static SkillInstalledManifestReader CreateInstalledManifestReader (SkillHostAdapterSet hostAdapters)
