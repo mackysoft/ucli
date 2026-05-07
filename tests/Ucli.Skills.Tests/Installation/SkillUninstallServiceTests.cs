@@ -157,6 +157,30 @@ public sealed class SkillUninstallServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task UninstallAsync_WhenTargetChangesAfterPlanning_ReturnsFailureWithoutDeleting ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "uninstall-target-race");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var uninstallService = SkillTestData.CreateUninstallService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var install = await installService.InstallAsync([packages[0], packages[1]], request, CancellationToken.None);
+        Assert.True(install.IsSuccess, install.Failure?.Message);
+        var skillDirectory = Path.Combine(install.Value!.TargetRoot, packages[0].Manifest.SkillName);
+        var skillPath = Path.Combine(skillDirectory, "SKILL.md");
+        var secondPackage = SkillTestData.WithFileEnumerationCallback(packages[1], () =>
+            File.AppendAllText(skillPath, "\nInjected after planning.\n"));
+
+        var result = await uninstallService.UninstallAsync(new SkillUninstallInput([packages[0], secondPackage], request), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, result.Failure!.Code);
+        Assert.True(Directory.Exists(skillDirectory));
+        Assert.Contains("Injected after planning.", File.ReadAllText(skillPath), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task UninstallAsync_DryRunBlocksLocalModificationWithoutDeleting ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "uninstall-dry-run-local-modification");

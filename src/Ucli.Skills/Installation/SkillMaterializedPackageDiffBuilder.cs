@@ -93,18 +93,29 @@ public sealed class SkillMaterializedPackageDiffBuilder
         CancellationToken cancellationToken)
     {
         var files = new Dictionary<string, string>(StringComparer.Ordinal);
-        if (!Directory.Exists(skillDirectory))
+        var fullSkillDirectory = Path.GetFullPath(skillDirectory);
+        if (!Directory.Exists(fullSkillDirectory))
         {
             return SkillOperationResult<Dictionary<string, string>>.Success(files);
         }
 
+        var skillDirectoryResult = SkillPackagePathBoundary.ResolveUnderRoot(fullSkillDirectory, fullSkillDirectory);
+        if (!skillDirectoryResult.IsSuccess)
+        {
+            return SkillOperationResult<Dictionary<string, string>>.FailureResult(
+                skillDirectoryResult.Failure!.Code,
+                skillDirectoryResult.Failure.Message);
+        }
+
+        var resolvedSkillDirectory = skillDirectoryResult.Value!;
+
         try
         {
-            foreach (var filePath in Directory.EnumerateFiles(skillDirectory, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
+            foreach (var filePath in Directory.EnumerateFiles(resolvedSkillDirectory, "*", SearchOption.AllDirectories))
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var resolvedPathResult = SkillPackagePathBoundary.ResolveUnderRoot(skillDirectory, filePath);
+                var resolvedPathResult = SkillPackagePathBoundary.ResolveUnderRoot(resolvedSkillDirectory, filePath);
                 if (!resolvedPathResult.IsSuccess)
                 {
                     return SkillOperationResult<Dictionary<string, string>>.FailureResult(
@@ -112,7 +123,7 @@ public sealed class SkillMaterializedPackageDiffBuilder
                         resolvedPathResult.Failure.Message);
                 }
 
-                var relativePath = Path.GetRelativePath(skillDirectory, resolvedPathResult.Value!).Replace(Path.DirectorySeparatorChar, '/');
+                var relativePath = Path.GetRelativePath(resolvedSkillDirectory, resolvedPathResult.Value!).Replace(Path.DirectorySeparatorChar, '/');
                 files[relativePath] = SkillTextNormalizer.NormalizeToLf(
                     await File.ReadAllTextAsync(resolvedPathResult.Value!, cancellationToken).ConfigureAwait(false));
             }
@@ -121,7 +132,7 @@ public sealed class SkillMaterializedPackageDiffBuilder
         {
             return SkillOperationResult<Dictionary<string, string>>.FailureResult(
                 SkillFailureCodes.InstallTargetReadFailed,
-                $"Failed to read SKILL package diff input: {skillDirectory}. {ex.Message}");
+                $"Failed to read SKILL package diff input: {resolvedSkillDirectory}. {ex.Message}");
         }
 
         return SkillOperationResult<Dictionary<string, string>>.Success(files);

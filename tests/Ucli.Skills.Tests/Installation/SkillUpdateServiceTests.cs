@@ -256,6 +256,57 @@ public sealed class SkillUpdateServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task UpdateAsync_WhenTargetChangesAfterPlanning_ReturnsFailureWithoutOverwriting ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-target-race");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var updateService = SkillTestData.CreateUpdateService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var install = await installService.InstallAsync([packages[0], packages[1]], request, CancellationToken.None);
+        Assert.True(install.IsSuccess, install.Failure?.Message);
+        var skillPath = Path.Combine(install.Value!.TargetRoot, packages[0].Manifest.SkillName, "SKILL.md");
+        var updatedPackage = SkillTestData.CreatePackageWithUpdatedBody(packages[0]);
+        var secondPackage = SkillTestData.WithFileEnumerationCallback(packages[1], () =>
+            File.AppendAllText(skillPath, "\nInjected after planning.\n"));
+
+        var result = await updateService.UpdateAsync(new SkillUpdateInput([updatedPackage, secondPackage], request), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, result.Failure!.Code);
+        var skillText = File.ReadAllText(skillPath);
+        Assert.Contains("Injected after planning.", skillText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Official update.", skillText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task UpdateAsync_WhenLaterTargetChangesAfterPlanning_ReturnsFailureWithoutUpdatingEarlierTarget ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-later-target-race");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var updateService = SkillTestData.CreateUpdateService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var install = await installService.InstallAsync([packages[0], packages[1]], request, CancellationToken.None);
+        Assert.True(install.IsSuccess, install.Failure?.Message);
+        var firstSkillPath = Path.Combine(install.Value!.TargetRoot, packages[0].Manifest.SkillName, "SKILL.md");
+        var secondSkillPath = Path.Combine(install.Value.TargetRoot, packages[1].Manifest.SkillName, "SKILL.md");
+        var firstUpdatedPackage = SkillTestData.CreatePackageWithUpdatedBody(packages[0]);
+        var secondUpdatedPackage = SkillTestData.WithFileEnumerationCallback(
+            SkillTestData.CreatePackageWithUpdatedBody(packages[1]),
+            () => File.AppendAllText(secondSkillPath, "\nInjected after planning.\n"));
+
+        var result = await updateService.UpdateAsync(new SkillUpdateInput([firstUpdatedPackage, secondUpdatedPackage], request), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, result.Failure!.Code);
+        Assert.DoesNotContain("Official update.", File.ReadAllText(firstSkillPath), StringComparison.Ordinal);
+        Assert.Contains("Injected after planning.", File.ReadAllText(secondSkillPath), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task UpdateAsync_RejectsLocalEmptyDirectoryBeforeReplacingOutdatedPackage ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-local-empty-directory");
@@ -398,6 +449,8 @@ public sealed class SkillUpdateServiceTests
             string targetRoot,
             string skillDirectory,
             SkillMaterializedPackage materializedPackage,
+            SkillMaterializedPackageWriteMode writeMode,
+            Func<string, CancellationToken, ValueTask<SkillOperationResult<bool>>>? precondition,
             CancellationToken cancellationToken = default)
         {
             return ValueTask.FromResult(SkillOperationResult<bool>.FailureResult(

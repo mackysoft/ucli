@@ -188,6 +188,16 @@ internal static class SkillTestData
         };
     }
 
+    internal static CanonicalSkillPackage WithFileEnumerationCallback (
+        CanonicalSkillPackage package,
+        Action callback)
+    {
+        return package with
+        {
+            Files = new CallbackPackageFileList(package.Files, callback),
+        };
+    }
+
     internal static SkillInstalledPackageValidator CreateInstalledPackageValidator (SkillHostAdapterSet hostAdapters)
     {
         return new SkillInstalledPackageValidator(
@@ -211,5 +221,41 @@ internal static class SkillTestData
         return new SkillInstalledManifestReader(
             new SkillManifestJsonSerializer(),
             new SkillManifestValidator(hostAdapters));
+    }
+
+    private sealed class CallbackPackageFileList : IReadOnlyList<SkillPackageFile>
+    {
+        private readonly IReadOnlyList<SkillPackageFile> files;
+        private readonly Action callback;
+
+        private bool invoked;
+
+        internal CallbackPackageFileList (
+            IReadOnlyList<SkillPackageFile> files,
+            Action callback)
+        {
+            this.files = files ?? throw new ArgumentNullException(nameof(files));
+            this.callback = callback ?? throw new ArgumentNullException(nameof(callback));
+        }
+
+        public SkillPackageFile this[int index] => files[index];
+
+        public int Count => files.Count;
+
+        public IEnumerator<SkillPackageFile> GetEnumerator ()
+        {
+            if (!invoked)
+            {
+                invoked = true;
+                callback();
+            }
+
+            return files.GetEnumerator();
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator ()
+        {
+            return GetEnumerator();
+        }
     }
 }

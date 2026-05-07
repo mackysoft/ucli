@@ -7,16 +7,26 @@ namespace MackySoft.Ucli.Skills.Installation;
 /// <summary> Writes materialized SKILL packages under a resolved host target root. </summary>
 public sealed class SkillMaterializedPackageWriter : ISkillMaterializedPackageWriter
 {
-    /// <summary> Writes all files for one materialized package. </summary>
-    /// <param name="targetRoot"> The resolved host target root. </param>
-    /// <param name="skillDirectory"> The resolved skill package directory. </param>
-    /// <param name="materializedPackage"> The materialized package to write. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> Success when all file paths stay under the target root; otherwise a path-safety failure. </returns>
+    private readonly ISkillPackageDirectoryOperations directoryOperations;
+
+    /// <summary> Initializes a new instance of the <see cref="SkillMaterializedPackageWriter" /> class. </summary>
+    public SkillMaterializedPackageWriter ()
+        : this(new SkillPackageDirectoryOperations())
+    {
+    }
+
+    internal SkillMaterializedPackageWriter (ISkillPackageDirectoryOperations directoryOperations)
+    {
+        this.directoryOperations = directoryOperations ?? throw new ArgumentNullException(nameof(directoryOperations));
+    }
+
+    /// <inheritdoc />
     public async ValueTask<SkillOperationResult<bool>> WriteAsync (
         string targetRoot,
         string skillDirectory,
         SkillMaterializedPackage materializedPackage,
+        SkillMaterializedPackageWriteMode writeMode,
+        Func<string, CancellationToken, ValueTask<SkillOperationResult<bool>>>? precondition,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(targetRoot);
@@ -56,23 +66,51 @@ public sealed class SkillMaterializedPackageWriter : ISkillMaterializedPackageWr
             return SkillOperationResult<bool>.FailureResult(stagingDirectoryResult.Failure!.Code, stagingDirectoryResult.Failure.Message);
         }
 
-        var backupDirectoryResult = SkillPackagePathBoundary.ResolveUnderRoot(
+        var backupContainerResult = SkillPackagePathBoundary.ResolveUnderRoot(
             targetRoot,
             Path.Combine(transactionRoot, $"{Path.GetFileName(resolvedSkillDirectory)}.backup.{Guid.NewGuid():N}"));
+        if (!backupContainerResult.IsSuccess)
+        {
+            return SkillOperationResult<bool>.FailureResult(backupContainerResult.Failure!.Code, backupContainerResult.Failure.Message);
+        }
+
+        var backupDirectoryResult = SkillPackagePathBoundary.ResolveUnderRoot(
+            targetRoot,
+            Path.Combine(backupContainerResult.Value!, Path.GetFileName(resolvedSkillDirectory)));
         if (!backupDirectoryResult.IsSuccess)
         {
             return SkillOperationResult<bool>.FailureResult(backupDirectoryResult.Failure!.Code, backupDirectoryResult.Failure.Message);
         }
 
         var stagingDirectory = stagingDirectoryResult.Value!;
+        var backupContainer = backupContainerResult.Value!;
         var backupDirectory = backupDirectoryResult.Value!;
         var movedExistingToBackup = false;
         var committed = false;
 
         try
         {
-            Directory.CreateDirectory(transactionRoot);
-            Directory.CreateDirectory(stagingDirectory);
+            directoryOperations.Create(transactionRoot);
+            var transactionRootGuard = SkillPackageTransactionPathGuard.ValidateCreatedDirectory(targetRoot, transactionRoot);
+            if (!transactionRootGuard.IsSuccess)
+            {
+                return SkillOperationResult<bool>.FailureResult(transactionRootGuard.Failure!.Code, transactionRootGuard.Failure.Message);
+            }
+
+            var lockResult = SkillPackageTransactionLock.Acquire(targetRoot, transactionRoot);
+            if (!lockResult.IsSuccess)
+            {
+                return SkillOperationResult<bool>.FailureResult(lockResult.Failure!.Code, lockResult.Failure.Message);
+            }
+
+            using var transactionLock = lockResult.Value!;
+            directoryOperations.Create(stagingDirectory);
+            var stagingDirectoryGuard = SkillPackageTransactionPathGuard.ValidateCreatedDirectory(targetRoot, stagingDirectory);
+            if (!stagingDirectoryGuard.IsSuccess)
+            {
+                return SkillOperationResult<bool>.FailureResult(stagingDirectoryGuard.Failure!.Code, stagingDirectoryGuard.Failure.Message);
+            }
+
             foreach (var file in materializedPackage.Files)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -93,13 +131,64 @@ public sealed class SkillMaterializedPackageWriter : ISkillMaterializedPackageWr
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            if (Directory.Exists(resolvedSkillDirectory))
+            if (precondition is not null)
             {
-                Directory.Move(resolvedSkillDirectory, backupDirectory);
-                movedExistingToBackup = true;
+                var preconditionResult = await precondition(resolvedSkillDirectory, cancellationToken).ConfigureAwait(false);
+                if (!preconditionResult.IsSuccess)
+                {
+                    return SkillOperationResult<bool>.FailureResult(preconditionResult.Failure!.Code, preconditionResult.Failure.Message);
+                }
             }
 
-            Directory.Move(stagingDirectory, resolvedSkillDirectory);
+            var targetExists = directoryOperations.Exists(resolvedSkillDirectory);
+            if (writeMode == SkillMaterializedPackageWriteMode.CreateNew && targetExists)
+            {
+                return SkillOperationResult<bool>.FailureResult(
+                    SkillFailureCodes.InstallTargetDigestMismatch,
+                    $"Target skill directory changed after planning; refusing to write: {resolvedSkillDirectory}");
+            }
+
+            if (writeMode == SkillMaterializedPackageWriteMode.ReplaceExisting && !targetExists)
+            {
+                return SkillOperationResult<bool>.FailureResult(
+                    SkillFailureCodes.InstallTargetDigestMismatch,
+                    $"Target skill directory changed after planning; refusing to write: {resolvedSkillDirectory}");
+            }
+
+            if (targetExists)
+            {
+                directoryOperations.Create(backupContainer);
+                var backupContainerGuard = SkillPackageTransactionPathGuard.ValidateCreatedDirectory(targetRoot, backupContainer);
+                if (!backupContainerGuard.IsSuccess)
+                {
+                    return SkillOperationResult<bool>.FailureResult(backupContainerGuard.Failure!.Code, backupContainerGuard.Failure.Message);
+                }
+
+                directoryOperations.Move(resolvedSkillDirectory, backupDirectory);
+                movedExistingToBackup = true;
+                if (precondition is not null)
+                {
+                    var movedTargetResult = await precondition(backupDirectory, cancellationToken).ConfigureAwait(false);
+                    if (!movedTargetResult.IsSuccess)
+                    {
+                        try
+                        {
+                            directoryOperations.Move(backupDirectory, resolvedSkillDirectory);
+                            movedExistingToBackup = false;
+                        }
+                        catch (Exception restoreException) when (restoreException is IOException or UnauthorizedAccessException)
+                        {
+                            return SkillOperationResult<bool>.FailureResult(
+                                SkillFailureCodes.InstallTargetWriteFailed,
+                                $"Failed to write SKILL package atomically and restore backup: {resolvedSkillDirectory}. Backup remains at: {backupDirectory}. {restoreException.Message}");
+                        }
+
+                        return SkillOperationResult<bool>.FailureResult(movedTargetResult.Failure!.Code, movedTargetResult.Failure.Message);
+                    }
+                }
+            }
+
+            directoryOperations.Move(stagingDirectory, resolvedSkillDirectory);
             committed = true;
             DeleteDirectoryBestEffort(backupDirectory);
 
@@ -107,11 +196,11 @@ public sealed class SkillMaterializedPackageWriter : ISkillMaterializedPackageWr
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            if (!committed && movedExistingToBackup && !Directory.Exists(resolvedSkillDirectory) && Directory.Exists(backupDirectory))
+            if (!committed && movedExistingToBackup && !directoryOperations.Exists(resolvedSkillDirectory) && directoryOperations.Exists(backupDirectory))
             {
                 try
                 {
-                    Directory.Move(backupDirectory, resolvedSkillDirectory);
+                    directoryOperations.Move(backupDirectory, resolvedSkillDirectory);
                 }
                 catch (Exception restoreException) when (restoreException is IOException or UnauthorizedAccessException)
                 {
@@ -121,7 +210,7 @@ public sealed class SkillMaterializedPackageWriter : ISkillMaterializedPackageWr
                 }
             }
 
-            var backupMessage = !committed && movedExistingToBackup && Directory.Exists(backupDirectory)
+            var backupMessage = !committed && movedExistingToBackup && directoryOperations.Exists(backupDirectory)
                 ? $" Backup remains at: {backupDirectory}."
                 : string.Empty;
             return SkillOperationResult<bool>.FailureResult(
@@ -130,7 +219,7 @@ public sealed class SkillMaterializedPackageWriter : ISkillMaterializedPackageWr
         }
         finally
         {
-            var preserveBackup = !committed && movedExistingToBackup && Directory.Exists(backupDirectory);
+            var preserveBackup = !committed && movedExistingToBackup && directoryOperations.Exists(backupDirectory);
             DeleteDirectoryBestEffort(stagingDirectory);
             if (committed || !movedExistingToBackup)
             {
@@ -144,16 +233,37 @@ public sealed class SkillMaterializedPackageWriter : ISkillMaterializedPackageWr
         }
     }
 
-    private static void DeleteDirectoryBestEffort (string path)
+    /// <summary> Writes all files for one materialized package using the legacy upsert behavior. </summary>
+    /// <param name="targetRoot"> The resolved host target root. </param>
+    /// <param name="skillDirectory"> The resolved skill package directory. </param>
+    /// <param name="materializedPackage"> The materialized package to write. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> Success when all file paths stay under the target root; otherwise a path-safety failure. </returns>
+    public ValueTask<SkillOperationResult<bool>> WriteAsync (
+        string targetRoot,
+        string skillDirectory,
+        SkillMaterializedPackage materializedPackage,
+        CancellationToken cancellationToken = default)
     {
-        if (!Directory.Exists(path))
+        return WriteAsync(
+            targetRoot,
+            skillDirectory,
+            materializedPackage,
+            directoryOperations.Exists(skillDirectory) ? SkillMaterializedPackageWriteMode.ReplaceExisting : SkillMaterializedPackageWriteMode.CreateNew,
+            precondition: null,
+            cancellationToken);
+    }
+
+    private void DeleteDirectoryBestEffort (string path)
+    {
+        if (!directoryOperations.Exists(path))
         {
             return;
         }
 
         try
         {
-            Directory.Delete(path, recursive: true);
+            directoryOperations.Delete(path, recursive: true);
         }
         catch (IOException)
         {

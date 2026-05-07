@@ -418,13 +418,24 @@ internal static class SkillsCommandResultFactory
                     .Select(static file => new
                     {
                         relativePath = file.RelativePath,
-                        changeKind = file.ChangeKind,
+                        changeKind = ToDiffChangeKindLiteral(file.ChangeKind),
                         beforeContent = file.BeforeContent,
                         afterContent = file.AfterContent,
                     })
                     .ToArray(),
             })
             .ToArray();
+    }
+
+    private static string ToDiffChangeKindLiteral (SkillDiffChangeKind changeKind)
+    {
+        return changeKind switch
+        {
+            SkillDiffChangeKind.Added => "added",
+            SkillDiffChangeKind.Modified => "modified",
+            SkillDiffChangeKind.Deleted => "deleted",
+            _ => changeKind.ToString(),
+        };
     }
 
     private static string ToSeverityLiteral (SkillDoctorSeverity severity)

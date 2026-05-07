@@ -402,6 +402,49 @@ public sealed class SkillsCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task SkillsInstall_WithForceAndPrintDiff_OverwritesLocalModification ()
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "install-force-local-modification");
+        var repoRoot = scope.CreateDirectory("repo");
+        var install = await RunOpenAiInstall(repoRoot);
+        Assert.Equal((int)CliExitCode.Success, install.ExitCode);
+        using var installJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(install.StdOut);
+        var targetRoot = installJson.RootElement.GetProperty("payload").GetProperty("targetRoot").GetString()!;
+        var skillPath = Path.Combine(targetRoot, ExpectedSkillNames[0], "SKILL.md");
+        var localPath = Path.Combine(targetRoot, ExpectedSkillNames[0], "local.md");
+        await File.AppendAllTextAsync(skillPath, "\nInjected instruction.\n");
+        await File.WriteAllTextAsync(localPath, "# Local\n");
+
+        var result = await RunOpenAiInstall(repoRoot, force: true, printDiff: true);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasBoolean("force", true)
+                .HasBoolean("printDiff", true)
+                .HasInt32("updatedCount", 1)
+                .HasInt32("blockedCount", 0)
+                .HasProperty("actions", 0, static action => action
+                    .HasString("skillName", ExpectedSkillNames[0])
+                    .HasString("action", "updated")
+                    .IsNull("blockedReason")
+                    .HasArrayLength("diffs", 1)));
+        var action = FindAction(outputJson.RootElement, ExpectedSkillNames[0]);
+        var modified = FindDiffFile(action, "SKILL.md");
+        Assert.Equal("modified", modified.GetProperty("changeKind").GetString());
+        Assert.Contains("Injected instruction.", modified.GetProperty("beforeContent").GetString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("Injected instruction.", modified.GetProperty("afterContent").GetString(), StringComparison.Ordinal);
+        var deleted = FindDiffFile(action, "local.md");
+        Assert.Equal("deleted", deleted.GetProperty("changeKind").GetString());
+        Assert.Equal("# Local\n", deleted.GetProperty("beforeContent").GetString());
+        Assert.Equal(JsonValueKind.Null, deleted.GetProperty("afterContent").ValueKind);
+        Assert.DoesNotContain("Injected instruction.", await File.ReadAllTextAsync(skillPath), StringComparison.Ordinal);
+        Assert.False(File.Exists(localPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task SkillsUpdate_WithProjectScope_CreatesThenNoOps ()
     {
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "update-openai");
@@ -567,6 +610,11 @@ public sealed class SkillsCliOutputContractTests
                     .HasString("action", "updated")
                     .IsNull("blockedReason")
                     .HasArrayLength("diffs", 1)));
+        var action = FindAction(outputJson.RootElement, ExpectedSkillNames[0]);
+        var modified = FindDiffFile(action, "SKILL.md");
+        Assert.Equal("modified", modified.GetProperty("changeKind").GetString());
+        Assert.Contains("Injected instruction.", modified.GetProperty("beforeContent").GetString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("Injected instruction.", modified.GetProperty("afterContent").GetString(), StringComparison.Ordinal);
         Assert.DoesNotContain("Injected instruction.", await File.ReadAllTextAsync(skillPath), StringComparison.Ordinal);
     }
 
@@ -860,6 +908,26 @@ public sealed class SkillsCliOutputContractTests
             ContentDigest = new SkillDigestCalculator().ComputeDigest(digestInputs),
         };
         await File.WriteAllTextAsync(manifestPath, serializer.Serialize(manifest));
+    }
+
+    private static JsonElement FindAction (
+        JsonElement root,
+        string skillName)
+    {
+        return root.GetProperty("payload")
+            .GetProperty("actions")
+            .EnumerateArray()
+            .Single(action => string.Equals(action.GetProperty("skillName").GetString(), skillName, StringComparison.Ordinal));
+    }
+
+    private static JsonElement FindDiffFile (
+        JsonElement action,
+        string relativePath)
+    {
+        return action.GetProperty("diffs")[0]
+            .GetProperty("files")
+            .EnumerateArray()
+            .Single(file => string.Equals(file.GetProperty("relativePath").GetString(), relativePath, StringComparison.Ordinal));
     }
 
     private static Task<CommandExecutionResult> RunOpenAiUpdate (

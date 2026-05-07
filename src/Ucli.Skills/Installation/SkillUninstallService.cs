@@ -66,7 +66,7 @@ public sealed class SkillUninstallService
                 return SkillOperationResult<SkillUninstallResult>.FailureResult(stateResult.Failure!.Code, stateResult.Failure.Message);
             }
 
-            var actionPlanResult = CreateActionPlan(skillDirectory, identity, stateResult.Value!, input);
+            var actionPlanResult = CreateActionPlan(package, skillDirectory, identity, stateResult.Value!, input);
             if (!actionPlanResult.IsSuccess)
             {
                 return SkillOperationResult<SkillUninstallResult>.FailureResult(actionPlanResult.Failure!.Code, actionPlanResult.Failure.Message);
@@ -85,7 +85,38 @@ public sealed class SkillUninstallService
                     continue;
                 }
 
-                var deleteResult = await packageRemover.DeleteAsync(targetRoot, actionPlan.SkillDirectory, cancellationToken).ConfigureAwait(false);
+                var preconditionResult = await ValidateDeletePreconditionAsync(
+                        actionPlan.Package,
+                        target.Host,
+                        actionPlan.SkillDirectory,
+                        input.Force,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (!preconditionResult.IsSuccess)
+                {
+                    return SkillOperationResult<SkillUninstallResult>.FailureResult(preconditionResult.Failure!.Code, preconditionResult.Failure.Message);
+                }
+            }
+
+            foreach (var actionPlan in actionPlans)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!actionPlan.ShouldDelete)
+                {
+                    continue;
+                }
+
+                var deleteResult = await packageRemover.DeleteAsync(
+                        targetRoot,
+                        actionPlan.SkillDirectory,
+                        (directory, token) => ValidateDeletePreconditionAsync(
+                            actionPlan.Package,
+                            target.Host,
+                            directory,
+                            input.Force,
+                            token),
+                        cancellationToken)
+                    .ConfigureAwait(false);
                 if (!deleteResult.IsSuccess)
                 {
                     return SkillOperationResult<SkillUninstallResult>.FailureResult(deleteResult.Failure!.Code, deleteResult.Failure.Message);
@@ -101,6 +132,7 @@ public sealed class SkillUninstallService
     }
 
     private static SkillOperationResult<SkillUninstallActionPlan> CreateActionPlan (
+        CanonicalSkillPackage package,
         string skillDirectory,
         SkillInstallIdentity identity,
         SkillInstalledTargetState state,
@@ -112,26 +144,30 @@ public sealed class SkillUninstallService
                 return SkillOperationResult<SkillUninstallActionPlan>.Success(new SkillUninstallActionPlan(
                     new SkillUninstallAction(identity, SkillUninstallActionKind.NoOp),
                     skillDirectory,
+                    package,
                     ShouldDelete: false));
             case SkillInstalledTargetStateKind.Current:
             case SkillInstalledTargetStateKind.CleanOutdated:
                 return SkillOperationResult<SkillUninstallActionPlan>.Success(new SkillUninstallActionPlan(
                     new SkillUninstallAction(identity, SkillUninstallActionKind.Deleted),
                     skillDirectory,
+                    package,
                     ShouldDelete: true));
             case SkillInstalledTargetStateKind.Unmanaged:
                 return SkillOperationResult<SkillUninstallActionPlan>.Success(new SkillUninstallActionPlan(
                     new SkillUninstallAction(identity, SkillUninstallActionKind.SkippedUnmanaged),
                     skillDirectory,
+                    package,
                     ShouldDelete: false));
             case SkillInstalledTargetStateKind.LocalModified:
-                return CreateLocalModificationActionPlan(skillDirectory, identity, input);
+                return CreateLocalModificationActionPlan(package, skillDirectory, identity, input);
             default:
                 throw new ArgumentOutOfRangeException(nameof(state), state.Kind, "Unsupported target state.");
         }
     }
 
     private static SkillOperationResult<SkillUninstallActionPlan> CreateLocalModificationActionPlan (
+        CanonicalSkillPackage package,
         string skillDirectory,
         SkillInstallIdentity identity,
         SkillUninstallInput input)
@@ -141,6 +177,7 @@ public sealed class SkillUninstallService
             return SkillOperationResult<SkillUninstallActionPlan>.Success(new SkillUninstallActionPlan(
                 new SkillUninstallAction(identity, SkillUninstallActionKind.Deleted),
                 skillDirectory,
+                package,
                 ShouldDelete: true));
         }
 
@@ -152,6 +189,7 @@ public sealed class SkillUninstallService
                     SkillUninstallActionKind.BlockedLocalModification,
                     SkillBlockedReason.LocalModificationRequiresForce),
                 skillDirectory,
+                package,
                 ShouldDelete: false));
         }
 
@@ -160,8 +198,43 @@ public sealed class SkillUninstallService
             $"Target skill directory contains local modifications. Use --force to delete: {skillDirectory}");
     }
 
+    private async ValueTask<SkillOperationResult<bool>> ValidateDeletePreconditionAsync (
+        CanonicalSkillPackage package,
+        string host,
+        string skillDirectory,
+        bool force,
+        CancellationToken cancellationToken)
+    {
+        var stateResult = await targetStateAnalyzer.AnalyzeAsync(package, skillDirectory, host, cancellationToken).ConfigureAwait(false);
+        if (!stateResult.IsSuccess)
+        {
+            return SkillOperationResult<bool>.FailureResult(stateResult.Failure!.Code, stateResult.Failure.Message);
+        }
+
+        var state = stateResult.Value!.Kind;
+        var isValid = force
+            ? state is SkillInstalledTargetStateKind.Current or SkillInstalledTargetStateKind.CleanOutdated or SkillInstalledTargetStateKind.LocalModified
+            : state is SkillInstalledTargetStateKind.Current or SkillInstalledTargetStateKind.CleanOutdated;
+        if (isValid)
+        {
+            return SkillOperationResult<bool>.Success(true);
+        }
+
+        return SkillOperationResult<bool>.FailureResult(
+            ResolveChangedTargetFailureCode(state),
+            $"Target skill directory changed after planning; refusing to delete: {skillDirectory}");
+    }
+
+    private static SkillFailureCode ResolveChangedTargetFailureCode (SkillInstalledTargetStateKind state)
+    {
+        return state == SkillInstalledTargetStateKind.Unmanaged
+            ? SkillFailureCodes.InstallTargetUnmanaged
+            : SkillFailureCodes.InstallTargetDigestMismatch;
+    }
+
     private sealed record SkillUninstallActionPlan (
         SkillUninstallAction Action,
         string SkillDirectory,
+        CanonicalSkillPackage Package,
         bool ShouldDelete);
 }

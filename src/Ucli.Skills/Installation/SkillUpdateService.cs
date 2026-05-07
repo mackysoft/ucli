@@ -102,10 +102,40 @@ public sealed class SkillUpdateService
                     continue;
                 }
 
+                var preconditionResult = await ValidateWritePreconditionAsync(
+                        actionPlan.Package,
+                        target.Host,
+                        actionPlan.SkillDirectory,
+                        actionPlan.Action.ActionKind,
+                        input.Force,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (!preconditionResult.IsSuccess)
+                {
+                    return SkillOperationResult<SkillUpdateResult>.FailureResult(preconditionResult.Failure!.Code, preconditionResult.Failure.Message);
+                }
+            }
+
+            foreach (var actionPlan in actionPlans)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (actionPlan.MaterializedPackage is null)
+                {
+                    continue;
+                }
+
                 var writeResult = await packageWriter.WriteAsync(
                         targetRoot,
                         actionPlan.SkillDirectory,
                         actionPlan.MaterializedPackage,
+                        ResolveWriteMode(actionPlan.Action.ActionKind),
+                        (directory, token) => ValidateWritePreconditionAsync(
+                            actionPlan.Package,
+                            target.Host,
+                            directory,
+                            actionPlan.Action.ActionKind,
+                            input.Force,
+                            token),
                         cancellationToken)
                     .ConfigureAwait(false);
                 if (!writeResult.IsSuccess)
@@ -148,6 +178,7 @@ public sealed class SkillUpdateService
                 return SkillOperationResult<SkillUpdateActionPlan>.Success(new SkillUpdateActionPlan(
                     new SkillUpdateAction(identity, SkillUpdateActionKind.NoOp),
                     skillDirectory,
+                    package,
                     null));
             case SkillInstalledTargetStateKind.CleanOutdated:
                 return await CreateWriteActionPlanAsync(
@@ -254,6 +285,7 @@ public sealed class SkillUpdateService
                 null,
                 packagePlan.Diffs),
             skillDirectory,
+            package,
             packagePlan.MaterializedPackage));
     }
 
@@ -272,8 +304,58 @@ public sealed class SkillUpdateService
             ? SkillOperationResult<SkillUpdateActionPlan>.Success(new SkillUpdateActionPlan(
                 new SkillUpdateAction(identity, actionKind, blockedReason, packagePlanResult.Value!.Diffs),
                 skillDirectory,
+                package,
                 null))
             : SkillOperationResult<SkillUpdateActionPlan>.FailureResult(packagePlanResult.Failure!.Code, packagePlanResult.Failure.Message);
+    }
+
+    private async ValueTask<SkillOperationResult<bool>> ValidateWritePreconditionAsync (
+        CanonicalSkillPackage package,
+        string host,
+        string skillDirectory,
+        SkillUpdateActionKind actionKind,
+        bool force,
+        CancellationToken cancellationToken)
+    {
+        var stateResult = await targetStateAnalyzer.AnalyzeAsync(package, skillDirectory, host, cancellationToken).ConfigureAwait(false);
+        if (!stateResult.IsSuccess)
+        {
+            return SkillOperationResult<bool>.FailureResult(stateResult.Failure!.Code, stateResult.Failure.Message);
+        }
+
+        var state = stateResult.Value!.Kind;
+        var isValid = actionKind switch
+        {
+            SkillUpdateActionKind.Created => state == SkillInstalledTargetStateKind.Missing,
+            SkillUpdateActionKind.Updated when force => state == SkillInstalledTargetStateKind.CleanOutdated || state == SkillInstalledTargetStateKind.LocalModified,
+            SkillUpdateActionKind.Updated => state == SkillInstalledTargetStateKind.CleanOutdated,
+            _ => true,
+        };
+        if (isValid)
+        {
+            return SkillOperationResult<bool>.Success(true);
+        }
+
+        return SkillOperationResult<bool>.FailureResult(
+            ResolveChangedTargetFailureCode(state),
+            $"Target skill directory changed after planning; refusing to write: {skillDirectory}");
+    }
+
+    private static SkillMaterializedPackageWriteMode ResolveWriteMode (SkillUpdateActionKind actionKind)
+    {
+        return actionKind switch
+        {
+            SkillUpdateActionKind.Created => SkillMaterializedPackageWriteMode.CreateNew,
+            SkillUpdateActionKind.Updated => SkillMaterializedPackageWriteMode.ReplaceExisting,
+            _ => throw new ArgumentOutOfRangeException(nameof(actionKind), actionKind, "Action does not write a materialized package."),
+        };
+    }
+
+    private static SkillFailureCode ResolveChangedTargetFailureCode (SkillInstalledTargetStateKind state)
+    {
+        return state == SkillInstalledTargetStateKind.Unmanaged
+            ? SkillFailureCodes.InstallTargetUnmanaged
+            : SkillFailureCodes.InstallTargetDigestMismatch;
     }
 
     private async ValueTask<SkillOperationResult<SkillMaterializedPackagePlan>> CreateMaterializedPackagePlanAsync (
@@ -302,5 +384,6 @@ public sealed class SkillUpdateService
     private sealed record SkillUpdateActionPlan (
         SkillUpdateAction Action,
         string SkillDirectory,
+        CanonicalSkillPackage Package,
         SkillMaterializedPackage? MaterializedPackage);
 }

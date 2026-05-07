@@ -80,6 +80,98 @@ public sealed class SkillInstallServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task InstallAsync_WithForceOverwritesLocalModification ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-force-local-modification");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var service = SkillTestData.CreateInstallService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var install = await service.InstallAsync(packages, request, CancellationToken.None);
+        Assert.True(install.IsSuccess, install.Failure?.Message);
+        var skillPath = Path.Combine(install.Value!.TargetRoot, packages[0].Manifest.SkillName, "SKILL.md");
+        File.AppendAllText(skillPath, "\nInjected instruction.\n");
+
+        var result = await service.InstallAsync(new SkillInstallInput(packages, request, Force: true, PrintDiff: true), CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Failure?.Message);
+        var action = result.Value!.Actions.Single(action => action.Identity.SkillName == packages[0].Manifest.SkillName);
+        Assert.Equal(SkillInstallActionKind.Updated, action.ActionKind);
+        Assert.NotEmpty(action.Diffs!);
+        Assert.DoesNotContain("Injected instruction.", File.ReadAllText(skillPath), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task InstallAsync_WithForceRejectsUnmanagedTarget ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-force-unmanaged");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var service = SkillTestData.CreateInstallService();
+        var unmanagedPath = scope.WriteFile(Path.Combine(".agents", "skills", packages[0].Manifest.SkillName, "SKILL.md"), "# Existing\n");
+
+        var result = await service.InstallAsync(
+            new SkillInstallInput(
+                [packages[0]],
+                new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
+                Force: true),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.InstallTargetUnmanaged, result.Failure!.Code);
+        Assert.Equal("# Existing\n", File.ReadAllText(unmanagedPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task InstallAsync_WhenTargetAppearsAfterPlanning_ReturnsFailureWithoutOverwriting ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-target-race");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var service = SkillTestData.CreateInstallService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var firstSkillDirectory = Path.Combine(scope.FullPath, ".agents", "skills", packages[0].Manifest.SkillName);
+        var unmanagedPath = Path.Combine(firstSkillDirectory, "SKILL.md");
+        var secondPackage = SkillTestData.WithFileEnumerationCallback(packages[1], () =>
+        {
+            Directory.CreateDirectory(firstSkillDirectory);
+            File.WriteAllText(unmanagedPath, "# Race\n");
+        });
+
+        var result = await service.InstallAsync([packages[0], secondPackage], request, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.InstallTargetUnmanaged, result.Failure!.Code);
+        Assert.Equal("# Race\n", File.ReadAllText(unmanagedPath));
+        Assert.False(File.Exists(Path.Combine(firstSkillDirectory, "ucli-skill.json")));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task InstallAsync_WhenLaterTargetAppearsAfterPlanning_ReturnsFailureWithoutCreatingEarlierTarget ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-later-target-race");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var service = SkillTestData.CreateInstallService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var firstSkillDirectory = Path.Combine(scope.FullPath, ".agents", "skills", packages[0].Manifest.SkillName);
+        var secondSkillDirectory = Path.Combine(scope.FullPath, ".agents", "skills", packages[1].Manifest.SkillName);
+        var secondUnmanagedPath = Path.Combine(secondSkillDirectory, "SKILL.md");
+        var secondPackage = SkillTestData.WithFileEnumerationCallback(packages[1], () =>
+        {
+            Directory.CreateDirectory(secondSkillDirectory);
+            File.WriteAllText(secondUnmanagedPath, "# Race\n");
+        });
+
+        var result = await service.InstallAsync([packages[0], secondPackage], request, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.InstallTargetUnmanaged, result.Failure!.Code);
+        Assert.False(Directory.Exists(firstSkillDirectory));
+        Assert.Equal("# Race\n", File.ReadAllText(secondUnmanagedPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task InstallAsync_RejectsSharedTargetRootFromDifferentHost ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-host-conflict");
