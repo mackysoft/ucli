@@ -119,10 +119,10 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
         string unityLogPath,
         CancellationToken cancellationToken)
     {
-        var projectLockError = TryCreateProjectLockError(unityProject.UnityProjectRoot);
-        if (projectLockError != null)
+        var projectLockValidationError = TryValidateProjectLock(unityProject.UnityProjectRoot);
+        if (projectLockValidationError != null)
         {
-            return UnityBatchmodeProcessLaunchResult.Failure(projectLockError);
+            return UnityBatchmodeProcessLaunchResult.Failure(projectLockValidationError);
         }
 
         var pluginLocateResult = await unityUcliPluginLocator.Locate(
@@ -174,10 +174,10 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
             }
 
             // NOTE: An external Unity editor can open the project while plugin and editor paths are being resolved.
-            projectLockError = TryCreateProjectLockError(unityProject.UnityProjectRoot);
-            if (projectLockError != null)
+            projectLockValidationError = TryValidateProjectLock(unityProject.UnityProjectRoot);
+            if (projectLockValidationError != null)
             {
-                return UnityBatchmodeProcessLaunchResult.Failure(projectLockError);
+                return UnityBatchmodeProcessLaunchResult.Failure(projectLockValidationError);
             }
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -207,7 +207,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
         }
     }
 
-    private ExecutionError? TryCreateProjectLockError (string unityProjectRoot)
+    private ExecutionError? TryValidateProjectLock (string unityProjectRoot)
     {
         var lockFileProbeResult = unityProjectLockFileProbe.Probe(unityProjectRoot);
         if (!lockFileProbeResult.IsSuccess)
