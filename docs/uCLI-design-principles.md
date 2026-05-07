@@ -89,9 +89,10 @@ project-scoped settings は project context に属する。
 ### Domain reload / compile / reimport は第一級イベント
 再読込や再コンパイルは異常ではなく、Unity の通常ライフサイクルである。  
 uCLI はこれを例外でなく、仕様化された状態遷移として扱う。
-### Single-writer per projectFingerprint
-同一 `projectFingerprint` に対する mutation は、常に 1 つの writer lane に直列化する。
-daemon / oneshot / `refresh` / `test.run` / mutation `call` を理由に、同一 project への並列 writer を許さない。
+### Single Unity process start per physical UnityProjectRoot
+同一物理 `UnityProjectRoot` に対する Unity process 起動は、常に 1 つに直列化する。
+daemon / oneshot / `test.run` は worktree / storage root / `projectFingerprint` が異なっても同じ lifecycle lock に参加する。
+`projectFingerprint` は session / IPC / artifact / readIndex の識別に使い、Unity 起動排他の identity と混同しない。
 ### GUI と headless を同列に扱う
 uCLI は GUI 依存にしてはならない。  
 ただし headless だから偉いのではなく、**どの runtime で動いても同じ契約を守る**ことを優先する。
