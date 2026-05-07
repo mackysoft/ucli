@@ -337,6 +337,47 @@ public sealed class SkillsCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task SkillsInstall_WithDryRunAndPrintDiff_ReturnsPlanWithoutWriting ()
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "install-dry-run-diff");
+        var repoRoot = scope.CreateDirectory("repo");
+
+        var result = await RunOpenAiInstall(repoRoot, dryRun: true, printDiff: true);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.SkillsInstall,
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasBoolean("dryRun", true)
+                .HasBoolean("force", false)
+                .HasBoolean("printDiff", true)
+                .HasInt32("createdCount", ExpectedSkillNames.Length)
+                .HasInt32("updatedCount", 0)
+                .HasInt32("noOpCount", 0)
+                .HasInt32("blockedCount", 0)
+                .HasProperty("actions", 0, static action => action
+                    .HasString("skillName", ExpectedSkillNames[0])
+                    .HasString("action", "created")
+                    .IsNull("blockedReason")
+                    .HasArrayLength("diffs", 1)
+                    .HasProperty("diffs", 0, static diff => diff
+                        .HasProperty("files", 0, static file => file
+                            .HasString("relativePath", "SKILL.md")
+                            .HasString("changeKind", "added")
+                            .IsNull("beforeContent")
+                            .HasValueKind("afterContent", JsonValueKind.String)))));
+
+        var targetRoot = outputJson.RootElement.GetProperty("payload").GetProperty("targetRoot").GetString()!;
+        Assert.False(Directory.Exists(Path.Combine(targetRoot, ExpectedSkillNames[0])));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task SkillsInstall_WithSharedTargetRootAcrossHosts_ReturnsHostConflict ()
     {
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "install-host-conflict");
@@ -400,6 +441,35 @@ public sealed class SkillsCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task SkillsUpdate_WithDryRunAndPrintDiff_ReturnsCreatedPlanWithoutWriting ()
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "update-dry-run-diff");
+        var repoRoot = scope.CreateDirectory("repo");
+
+        var result = await RunOpenAiUpdate(repoRoot, dryRun: true, printDiff: true);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasBoolean("dryRun", true)
+                .HasBoolean("force", false)
+                .HasBoolean("printDiff", true)
+                .HasInt32("createdCount", ExpectedSkillNames.Length)
+                .HasInt32("updatedCount", 0)
+                .HasInt32("blockedCount", 0)
+                .HasProperty("actions", 0, static action => action
+                    .HasString("skillName", ExpectedSkillNames[0])
+                    .HasString("action", "created")
+                    .IsNull("blockedReason")
+                    .HasArrayLength("diffs", 1)));
+
+        var targetRoot = outputJson.RootElement.GetProperty("payload").GetProperty("targetRoot").GetString()!;
+        Assert.False(Directory.Exists(Path.Combine(targetRoot, ExpectedSkillNames[0])));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task SkillsUpdate_WithCleanOutdatedTarget_ReturnsUpdatedAction ()
     {
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "update-outdated");
@@ -427,6 +497,71 @@ public sealed class SkillsCliOutputContractTests
                 .HasProperty("actions", 0, static action => action
                     .HasString("skillName", ExpectedSkillNames[0])
                     .HasString("action", "updated")));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SkillsUpdate_WithDryRunLocalModification_ReturnsBlockedPlanWithoutWriting ()
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "update-dry-run-local-modification");
+        var repoRoot = scope.CreateDirectory("repo");
+        var install = await RunOpenAiInstall(repoRoot);
+        Assert.Equal((int)CliExitCode.Success, install.ExitCode);
+        using var installJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(install.StdOut);
+        var targetRoot = installJson.RootElement.GetProperty("payload").GetProperty("targetRoot").GetString()!;
+        var skillPath = Path.Combine(targetRoot, ExpectedSkillNames[0], "SKILL.md");
+        await File.AppendAllTextAsync(skillPath, "\nInjected instruction.\n");
+        var modifiedSkill = await File.ReadAllTextAsync(skillPath);
+
+        var result = await RunOpenAiUpdate(repoRoot, dryRun: true, printDiff: true);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasBoolean("dryRun", true)
+                .HasBoolean("force", false)
+                .HasBoolean("printDiff", true)
+                .HasInt32("updatedCount", 0)
+                .HasInt32("blockedCount", 1)
+                .HasProperty("actions", 0, static action => action
+                    .HasString("skillName", ExpectedSkillNames[0])
+                    .HasString("action", "blockedLocalModification")
+                    .HasString("blockedReason", "localModificationRequiresForce")
+                    .HasArrayLength("diffs", 1)));
+        Assert.Equal(modifiedSkill, await File.ReadAllTextAsync(skillPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SkillsUpdate_WithForceAndPrintDiff_OverwritesLocalModification ()
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "update-force-local-modification");
+        var repoRoot = scope.CreateDirectory("repo");
+        var install = await RunOpenAiInstall(repoRoot);
+        Assert.Equal((int)CliExitCode.Success, install.ExitCode);
+        using var installJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(install.StdOut);
+        var targetRoot = installJson.RootElement.GetProperty("payload").GetProperty("targetRoot").GetString()!;
+        var skillPath = Path.Combine(targetRoot, ExpectedSkillNames[0], "SKILL.md");
+        await File.AppendAllTextAsync(skillPath, "\nInjected instruction.\n");
+
+        var result = await RunOpenAiUpdate(repoRoot, force: true, printDiff: true);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasBoolean("dryRun", false)
+                .HasBoolean("force", true)
+                .HasBoolean("printDiff", true)
+                .HasInt32("updatedCount", 1)
+                .HasInt32("blockedCount", 0)
+                .HasProperty("actions", 0, static action => action
+                    .HasString("skillName", ExpectedSkillNames[0])
+                    .HasString("action", "updated")
+                    .IsNull("blockedReason")
+                    .HasArrayLength("diffs", 1)));
+        Assert.DoesNotContain("Injected instruction.", await File.ReadAllTextAsync(skillPath), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -495,6 +630,37 @@ public sealed class SkillsCliOutputContractTests
                     .HasString("skillName", ExpectedSkillNames[0])
                     .HasString("action", "skippedUnmanaged")));
         Assert.True(File.Exists(unmanagedPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SkillsUninstall_WithDryRunLocalModification_ReturnsBlockedPlanWithoutDeleting ()
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "uninstall-dry-run-local-modification");
+        var repoRoot = scope.CreateDirectory("repo");
+        var install = await RunOpenAiInstall(repoRoot);
+        Assert.Equal((int)CliExitCode.Success, install.ExitCode);
+        using var installJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(install.StdOut);
+        var targetRoot = installJson.RootElement.GetProperty("payload").GetProperty("targetRoot").GetString()!;
+        var skillDirectory = Path.Combine(targetRoot, ExpectedSkillNames[0]);
+        await File.AppendAllTextAsync(Path.Combine(skillDirectory, "SKILL.md"), "\nInjected instruction.\n");
+
+        var result = await RunOpenAiUninstall(repoRoot, dryRun: true);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasBoolean("dryRun", true)
+                .HasBoolean("force", false)
+                .HasInt32("deletedCount", ExpectedSkillNames.Length - 1)
+                .HasInt32("blockedCount", 1)
+                .HasProperty("actions", 0, static action => action
+                    .HasString("skillName", ExpectedSkillNames[0])
+                    .HasString("action", "blockedLocalModification")
+                    .HasString("blockedReason", "localModificationRequiresForce")
+                    .HasArrayLength("diffs", 0)));
+        Assert.True(Directory.Exists(skillDirectory));
     }
 
     [Fact]
@@ -638,9 +804,13 @@ public sealed class SkillsCliOutputContractTests
                     .HasString("code", InstallTargetUnmanagedCode)));
     }
 
-    private static Task<CommandExecutionResult> RunOpenAiInstall (string repoRoot)
+    private static Task<CommandExecutionResult> RunOpenAiInstall (
+        string repoRoot,
+        bool dryRun = false,
+        bool force = false,
+        bool printDiff = false)
     {
-        return RunInstall(repoRoot, "openai", targetDir: null);
+        return RunInstall(repoRoot, "openai", targetDir: null, dryRun, force, printDiff);
     }
 
     private static async Task RewriteInstalledSkillBodyAndManifestAsOlderAsync (
@@ -686,22 +856,32 @@ public sealed class SkillsCliOutputContractTests
         await File.WriteAllTextAsync(manifestPath, serializer.Serialize(manifest));
     }
 
-    private static Task<CommandExecutionResult> RunOpenAiUpdate (string repoRoot)
+    private static Task<CommandExecutionResult> RunOpenAiUpdate (
+        string repoRoot,
+        bool dryRun = false,
+        bool force = false,
+        bool printDiff = false)
     {
-        return RunScopedCommand(UcliCommandNames.UpdateSubcommand, repoRoot, "openai", "project", targetDir: null);
+        return RunScopedCommand(UcliCommandNames.UpdateSubcommand, repoRoot, "openai", "project", targetDir: null, dryRun, force, printDiff);
     }
 
-    private static Task<CommandExecutionResult> RunOpenAiUninstall (string repoRoot)
+    private static Task<CommandExecutionResult> RunOpenAiUninstall (
+        string repoRoot,
+        bool dryRun = false,
+        bool force = false)
     {
-        return RunScopedCommand(UcliCommandNames.UninstallSubcommand, repoRoot, "openai", "project", targetDir: null);
+        return RunScopedCommand(UcliCommandNames.UninstallSubcommand, repoRoot, "openai", "project", targetDir: null, dryRun, force, printDiff: false);
     }
 
     private static Task<CommandExecutionResult> RunInstall (
         string repoRoot,
         string host,
-        string? targetDir)
+        string? targetDir,
+        bool dryRun = false,
+        bool force = false,
+        bool printDiff = false)
     {
-        return RunScopedCommand(UcliCommandNames.InstallSubcommand, repoRoot, host, "project", targetDir);
+        return RunScopedCommand(UcliCommandNames.InstallSubcommand, repoRoot, host, "project", targetDir, dryRun, force, printDiff);
     }
 
     private static Task<CommandExecutionResult> RunScopedCommand (
@@ -709,7 +889,10 @@ public sealed class SkillsCliOutputContractTests
         string repoRoot,
         string? host,
         string? scope,
-        string? targetDir)
+        string? targetDir,
+        bool dryRun = false,
+        bool force = false,
+        bool printDiff = false)
     {
         var args = new List<string>
         {
@@ -737,6 +920,21 @@ public sealed class SkillsCliOutputContractTests
         {
             args.Add("--targetDir");
             args.Add(targetDir);
+        }
+
+        if (dryRun)
+        {
+            args.Add("--dryRun");
+        }
+
+        if (force)
+        {
+            args.Add("--force");
+        }
+
+        if (printDiff)
+        {
+            args.Add("--printDiff");
         }
 
         return CliProcessRunner.RunCommand(args.ToArray());

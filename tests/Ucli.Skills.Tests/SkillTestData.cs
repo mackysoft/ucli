@@ -9,6 +9,7 @@ using MackySoft.Ucli.Skills.Installation.Validation;
 using MackySoft.Ucli.Skills.Manifests;
 using MackySoft.Ucli.Skills.Materialization;
 using MackySoft.Ucli.Skills.Packaging;
+using MackySoft.Ucli.Skills.Shared;
 using MackySoft.Ucli.Skills.Sources;
 
 namespace MackySoft.Ucli.Skills.Tests;
@@ -103,28 +104,35 @@ internal static class SkillTestData
     internal static SkillInstallService CreateInstallService ()
     {
         var hostAdapters = CreateOfficialHostAdapterSet();
+        var installedPackageValidator = CreateInstalledPackageValidator(hostAdapters);
         return new SkillInstallService(
             new SkillInstallTargetResolver(hostAdapters),
             new SkillMaterializationService(hostAdapters),
-            CreateInstalledPackageValidator(hostAdapters));
+            new SkillInstalledTargetStateAnalyzer(installedPackageValidator, CreateInstalledPackageIntegrityVerifier(hostAdapters)),
+            new SkillMaterializedPackageWriter(),
+            new SkillMaterializedPackageDiffBuilder());
     }
 
     internal static SkillUpdateService CreateUpdateService ()
     {
         var hostAdapters = CreateOfficialHostAdapterSet();
+        var installedPackageValidator = CreateInstalledPackageValidator(hostAdapters);
         return new SkillUpdateService(
             new SkillInstallTargetResolver(hostAdapters),
             new SkillMaterializationService(hostAdapters),
-            CreateInstalledPackageValidator(hostAdapters),
-            CreateInstalledPackageIntegrityVerifier(hostAdapters));
+            new SkillInstalledTargetStateAnalyzer(installedPackageValidator, CreateInstalledPackageIntegrityVerifier(hostAdapters)),
+            new SkillMaterializedPackageWriter(),
+            new SkillMaterializedPackageDiffBuilder());
     }
 
     internal static SkillUninstallService CreateUninstallService ()
     {
         var hostAdapters = CreateOfficialHostAdapterSet();
+        var installedPackageValidator = CreateInstalledPackageValidator(hostAdapters);
         return new SkillUninstallService(
             new SkillInstallTargetResolver(hostAdapters),
-            CreateInstalledPackageIntegrityVerifier(hostAdapters));
+            new SkillInstalledTargetStateAnalyzer(installedPackageValidator, CreateInstalledPackageIntegrityVerifier(hostAdapters)),
+            new SkillInstalledPackageRemover());
     }
 
     internal static SkillInstallationScanner CreateInstallationScanner ()
@@ -140,6 +148,44 @@ internal static class SkillTestData
     {
         var hostAdapters = CreateOfficialHostAdapterSet();
         return new SkillDoctorService(hostAdapters, CreateInstalledPackageValidator(hostAdapters));
+    }
+
+    internal static IReadOnlyList<CanonicalSkillPackage> ReplacePackage (
+        IReadOnlyList<CanonicalSkillPackage> packages,
+        CanonicalSkillPackage replacement)
+    {
+        return packages
+            .Select(package => string.Equals(package.Manifest.SkillName, replacement.Manifest.SkillName, StringComparison.Ordinal) ? replacement : package)
+            .ToArray();
+    }
+
+    internal static CanonicalSkillPackage CreatePackageWithUpdatedBody (CanonicalSkillPackage package)
+    {
+        var files = package.Files
+            .Select(static file => string.Equals(file.RelativePath, "SKILL.md", StringComparison.Ordinal)
+                ? SkillPackageFile.Create("SKILL.md", file.Content + "\nOfficial update.\n")
+                : file)
+            .ToArray();
+        var contentDigest = new SkillDigestCalculator().ComputeDigest(files
+            .Where(static file => string.Equals(file.RelativePath, "SKILL.md", StringComparison.Ordinal)
+                || file.RelativePath.StartsWith("references/", StringComparison.Ordinal))
+            .Select(static file => new SkillDigestInputFile(file.RelativePath, file.Content)));
+        var manifest = package.Manifest with
+        {
+            ContentDigest = contentDigest,
+        };
+        var manifestText = new SkillManifestJsonSerializer().Serialize(manifest);
+        files = files
+            .Select(file => string.Equals(file.RelativePath, "ucli-skill.json", StringComparison.Ordinal)
+                ? SkillPackageFile.Create("ucli-skill.json", manifestText)
+                : file)
+            .ToArray();
+
+        return package with
+        {
+            Manifest = manifest,
+            Files = files,
+        };
     }
 
     internal static SkillInstalledPackageValidator CreateInstalledPackageValidator (SkillHostAdapterSet hostAdapters)

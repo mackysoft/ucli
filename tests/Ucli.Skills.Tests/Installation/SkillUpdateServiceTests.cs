@@ -1,10 +1,8 @@
 using MackySoft.Tests;
-using MackySoft.Ucli.Skills.Digests;
 using MackySoft.Ucli.Skills.Hosts.Claude;
 using MackySoft.Ucli.Skills.Hosts.OpenAi;
 using MackySoft.Ucli.Skills.Installation;
-using MackySoft.Ucli.Skills.Manifests;
-using MackySoft.Ucli.Skills.Packaging;
+using MackySoft.Ucli.Skills.Materialization;
 using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Skills.Tests.Installation;
@@ -45,7 +43,7 @@ public sealed class SkillUpdateServiceTests
         var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
         var install = await installService.InstallAsync(packages, request, CancellationToken.None);
         Assert.True(install.IsSuccess, install.Failure?.Message);
-        var updatedPackages = ReplacePackage(packages, CreatePackageWithUpdatedBody(packages[0]));
+        var updatedPackages = SkillTestData.ReplacePackage(packages, SkillTestData.CreatePackageWithUpdatedBody(packages[0]));
 
         var result = await updateService.UpdateAsync(new SkillUpdateInput(updatedPackages, request), CancellationToken.None);
 
@@ -99,6 +97,191 @@ public sealed class SkillUpdateServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task UpdateAsync_DryRunCreatesPlanWithoutWritingFiles ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-dry-run-create");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var service = SkillTestData.CreateUpdateService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+
+        var result = await service.UpdateAsync(new SkillUpdateInput([packages[0]], request, DryRun: true, PrintDiff: true), CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Failure?.Message);
+        var action = result.Value!.Actions.Single();
+        Assert.Equal(SkillUpdateActionKind.Created, action.ActionKind);
+        Assert.NotEmpty(action.Diffs!);
+        Assert.False(Directory.Exists(Path.Combine(result.Value.TargetRoot, packages[0].Manifest.SkillName)));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task UpdateAsync_DryRunUpdatesCleanOutdatedPlanWithoutWriting ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-dry-run-outdated");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var updateService = SkillTestData.CreateUpdateService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var install = await installService.InstallAsync([packages[0]], request, CancellationToken.None);
+        Assert.True(install.IsSuccess, install.Failure?.Message);
+        var manifestPath = Path.Combine(install.Value!.TargetRoot, packages[0].Manifest.SkillName, "ucli-skill.json");
+        var originalManifest = File.ReadAllText(manifestPath);
+        var updatedPackage = SkillTestData.CreatePackageWithUpdatedBody(packages[0]);
+
+        var result = await updateService.UpdateAsync(new SkillUpdateInput([updatedPackage], request, DryRun: true, PrintDiff: true), CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Failure?.Message);
+        var action = result.Value!.Actions.Single();
+        Assert.Equal(SkillUpdateActionKind.Updated, action.ActionKind);
+        Assert.NotEmpty(action.Diffs!);
+        Assert.Equal(originalManifest, File.ReadAllText(manifestPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task UpdateAsync_DryRunBlocksLocalModificationWithoutWriting ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-dry-run-local-modification");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var updateService = SkillTestData.CreateUpdateService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var install = await installService.InstallAsync(packages, request, CancellationToken.None);
+        Assert.True(install.IsSuccess, install.Failure?.Message);
+        var skillPath = Path.Combine(install.Value!.TargetRoot, packages[0].Manifest.SkillName, "SKILL.md");
+        File.AppendAllText(skillPath, "\nInjected instruction.\n");
+        var modifiedSkill = File.ReadAllText(skillPath);
+
+        var result = await updateService.UpdateAsync(new SkillUpdateInput(packages, request, DryRun: true, PrintDiff: true), CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Failure?.Message);
+        var action = result.Value!.Actions.Single(action => action.Identity.SkillName == packages[0].Manifest.SkillName);
+        Assert.Equal(SkillUpdateActionKind.BlockedLocalModification, action.ActionKind);
+        Assert.Equal(SkillBlockedReason.LocalModificationRequiresForce, action.BlockedReason);
+        Assert.NotEmpty(action.Diffs!);
+        Assert.Equal(modifiedSkill, File.ReadAllText(skillPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task UpdateAsync_WithForceOverwritesLocalModification ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-force-local-modification");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var updateService = SkillTestData.CreateUpdateService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var install = await installService.InstallAsync(packages, request, CancellationToken.None);
+        Assert.True(install.IsSuccess, install.Failure?.Message);
+        var skillPath = Path.Combine(install.Value!.TargetRoot, packages[0].Manifest.SkillName, "SKILL.md");
+        File.AppendAllText(skillPath, "\nInjected instruction.\n");
+
+        var result = await updateService.UpdateAsync(new SkillUpdateInput(packages, request, Force: true, PrintDiff: true), CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Failure?.Message);
+        var action = result.Value!.Actions.Single(action => action.Identity.SkillName == packages[0].Manifest.SkillName);
+        Assert.Equal(SkillUpdateActionKind.Updated, action.ActionKind);
+        Assert.NotEmpty(action.Diffs!);
+        Assert.DoesNotContain("Injected instruction.", File.ReadAllText(skillPath), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task UpdateAsync_DryRunBlocksUnmanagedTargetEvenWithForce ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-dry-run-unmanaged-force");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var service = SkillTestData.CreateUpdateService();
+        var unmanagedPath = scope.WriteFile(Path.Combine(".agents", "skills", packages[0].Manifest.SkillName, "SKILL.md"), "# Existing\n");
+
+        var result = await service.UpdateAsync(
+            new SkillUpdateInput(
+                [packages[0]],
+                new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
+                DryRun: true,
+                Force: true,
+                PrintDiff: true),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Failure?.Message);
+        var action = result.Value!.Actions.Single();
+        Assert.Equal(SkillUpdateActionKind.BlockedUnmanaged, action.ActionKind);
+        Assert.Equal(SkillBlockedReason.UnmanagedTarget, action.BlockedReason);
+        Assert.Empty(action.Diffs!);
+        Assert.True(File.Exists(unmanagedPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task UpdateAsync_WhenWriterFails_PreservesExistingTarget ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-writer-failure-preserves");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var updateService = CreateUpdateService(new FailingPackageWriter());
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var install = await installService.InstallAsync(packages, request, CancellationToken.None);
+        Assert.True(install.IsSuccess, install.Failure?.Message);
+        var skillDirectory = Path.Combine(install.Value!.TargetRoot, packages[0].Manifest.SkillName);
+        var skillPath = Path.Combine(skillDirectory, "SKILL.md");
+        var originalSkill = File.ReadAllText(skillPath);
+        var updatedPackages = SkillTestData.ReplacePackage(packages, SkillTestData.CreatePackageWithUpdatedBody(packages[0]));
+
+        var result = await updateService.UpdateAsync(new SkillUpdateInput(updatedPackages, request), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.InstallTargetWriteFailed, result.Failure!.Code);
+        Assert.True(Directory.Exists(skillDirectory));
+        Assert.Equal(originalSkill, File.ReadAllText(skillPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task UpdateAsync_WhenLaterTargetIsUnmanaged_DoesNotUpdateEarlierPackage ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-plan-before-write-unmanaged");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var updateService = SkillTestData.CreateUpdateService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var install = await installService.InstallAsync([packages[0]], request, CancellationToken.None);
+        Assert.True(install.IsSuccess, install.Failure?.Message);
+        var manifestPath = Path.Combine(install.Value!.TargetRoot, packages[0].Manifest.SkillName, "ucli-skill.json");
+        var originalManifest = File.ReadAllText(manifestPath);
+        var unmanagedPath = scope.WriteFile(Path.Combine(".agents", "skills", packages[1].Manifest.SkillName, "SKILL.md"), "# Existing\n");
+        var updatedPackage = SkillTestData.CreatePackageWithUpdatedBody(packages[0]);
+
+        var result = await updateService.UpdateAsync(new SkillUpdateInput([updatedPackage, packages[1]], request), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.InstallTargetUnmanaged, result.Failure!.Code);
+        Assert.Equal(originalManifest, File.ReadAllText(manifestPath));
+        Assert.True(File.Exists(unmanagedPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task PackageWriterWriteAsync_WithOutsideSkillDirectory_ReturnsPathUnsafeWithoutWriting ()
+    {
+        using var targetScope = TestDirectories.CreateTempScope("ucli-skills", "writer-target-root");
+        using var outsideScope = TestDirectories.CreateTempScope("ucli-skills", "writer-outside-root");
+        var writer = new SkillMaterializedPackageWriter();
+        var outsideSkillDirectory = Path.Combine(outsideScope.FullPath, "skill");
+
+        var result = await writer.WriteAsync(
+            targetScope.FullPath,
+            outsideSkillDirectory,
+            new SkillMaterializedPackage("skill", OpenAiSkillHostAdapter.HostKey, []),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.PathUnsafe, result.Failure!.Code);
+        Assert.False(Directory.Exists(outsideSkillDirectory));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(outsideScope.FullPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task UpdateAsync_RejectsLocalEmptyDirectoryBeforeReplacingOutdatedPackage ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-local-empty-directory");
@@ -110,7 +293,7 @@ public sealed class SkillUpdateServiceTests
         Assert.True(install.IsSuccess, install.Failure?.Message);
         var localDirectory = Path.Combine(install.Value!.TargetRoot, packages[0].Manifest.SkillName, "local-notes");
         Directory.CreateDirectory(localDirectory);
-        var updatedPackages = ReplacePackage(packages, CreatePackageWithUpdatedBody(packages[0]));
+        var updatedPackages = SkillTestData.ReplacePackage(packages, SkillTestData.CreatePackageWithUpdatedBody(packages[0]));
 
         var result = await updateService.UpdateAsync(new SkillUpdateInput(updatedPackages, request), CancellationToken.None);
 
@@ -152,7 +335,7 @@ public sealed class SkillUpdateServiceTests
             return;
         }
 
-        var updatedPackages = ReplacePackage(packages, CreatePackageWithUpdatedBody(packages[0]));
+        var updatedPackages = SkillTestData.ReplacePackage(packages, SkillTestData.CreatePackageWithUpdatedBody(packages[0]));
 
         var result = await updateService.UpdateAsync(new SkillUpdateInput(updatedPackages, request), CancellationToken.None);
 
@@ -199,7 +382,7 @@ public sealed class SkillUpdateServiceTests
         var claude = await installService.InstallAsync(packages, claudeRequest, CancellationToken.None);
         Assert.True(openAi.IsSuccess, openAi.Failure?.Message);
         Assert.True(claude.IsSuccess, claude.Failure?.Message);
-        var updatedPackages = ReplacePackage(packages, CreatePackageWithUpdatedBody(packages[0]));
+        var updatedPackages = SkillTestData.ReplacePackage(packages, SkillTestData.CreatePackageWithUpdatedBody(packages[0]));
 
         var result = await updateService.UpdateAsync(new SkillUpdateInput(updatedPackages, openAiRequest), CancellationToken.None);
 
@@ -235,41 +418,29 @@ public sealed class SkillUpdateServiceTests
         Assert.Equal(SkillFailureCodes.PathUnsafe, result.Failure!.Code);
     }
 
-    private static IReadOnlyList<CanonicalSkillPackage> ReplacePackage (
-        IReadOnlyList<CanonicalSkillPackage> packages,
-        CanonicalSkillPackage replacement)
+    private static SkillUpdateService CreateUpdateService (ISkillMaterializedPackageWriter writer)
     {
-        return packages
-            .Select(package => string.Equals(package.Manifest.SkillName, replacement.Manifest.SkillName, StringComparison.Ordinal) ? replacement : package)
-            .ToArray();
+        var hostAdapters = SkillTestData.CreateOfficialHostAdapterSet();
+        var installedPackageValidator = SkillTestData.CreateInstalledPackageValidator(hostAdapters);
+        return new SkillUpdateService(
+            new SkillInstallTargetResolver(hostAdapters),
+            new SkillMaterializationService(hostAdapters),
+            new SkillInstalledTargetStateAnalyzer(installedPackageValidator, SkillTestData.CreateInstalledPackageIntegrityVerifier(hostAdapters)),
+            writer,
+            new SkillMaterializedPackageDiffBuilder());
     }
 
-    private static CanonicalSkillPackage CreatePackageWithUpdatedBody (CanonicalSkillPackage package)
+    private sealed class FailingPackageWriter : ISkillMaterializedPackageWriter
     {
-        var files = package.Files
-            .Select(static file => string.Equals(file.RelativePath, "SKILL.md", StringComparison.Ordinal)
-                ? SkillPackageFile.Create("SKILL.md", file.Content + "\nOfficial update.\n")
-                : file)
-            .ToArray();
-        var contentDigest = new SkillDigestCalculator().ComputeDigest(files
-            .Where(static file => string.Equals(file.RelativePath, "SKILL.md", StringComparison.Ordinal)
-                || file.RelativePath.StartsWith("references/", StringComparison.Ordinal))
-            .Select(static file => new SkillDigestInputFile(file.RelativePath, file.Content)));
-        var manifest = package.Manifest with
+        public ValueTask<SkillOperationResult<bool>> WriteAsync (
+            string targetRoot,
+            string skillDirectory,
+            SkillMaterializedPackage materializedPackage,
+            CancellationToken cancellationToken = default)
         {
-            ContentDigest = contentDigest,
-        };
-        var manifestText = new SkillManifestJsonSerializer().Serialize(manifest);
-        files = files
-            .Select(file => string.Equals(file.RelativePath, "ucli-skill.json", StringComparison.Ordinal)
-                ? SkillPackageFile.Create("ucli-skill.json", manifestText)
-                : file)
-            .ToArray();
-
-        return package with
-        {
-            Manifest = manifest,
-            Files = files,
-        };
+            return ValueTask.FromResult(SkillOperationResult<bool>.FailureResult(
+                SkillFailureCodes.InstallTargetWriteFailed,
+                "Synthetic write failure."));
+        }
     }
 }

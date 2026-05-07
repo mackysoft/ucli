@@ -35,6 +35,29 @@ public sealed class SkillUninstallServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task UninstallAsync_DryRunReturnsDeletedPlanWithoutDeleting ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "uninstall-dry-run-delete");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var uninstallService = SkillTestData.CreateUninstallService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var install = await installService.InstallAsync(packages, request, CancellationToken.None);
+        Assert.True(install.IsSuccess, install.Failure?.Message);
+
+        var result = await uninstallService.UninstallAsync(new SkillUninstallInput(packages, request, DryRun: true), CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Failure?.Message);
+        Assert.True(result.Value!.DryRun);
+        Assert.All(result.Value.Actions, static action => Assert.Equal(SkillUninstallActionKind.Deleted, action.ActionKind));
+        foreach (var package in packages)
+        {
+            Assert.True(Directory.Exists(Path.Combine(result.Value.TargetRoot, package.Manifest.SkillName)), package.Manifest.SkillName);
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task UninstallAsync_NoOps_WhenTargetRootIsMissing ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "uninstall-missing-target");
@@ -107,6 +130,73 @@ public sealed class SkillUninstallServiceTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, result.Failure!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task UninstallAsync_WhenLaterTargetHasLocalModification_DoesNotDeleteEarlierPackage ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "uninstall-plan-before-delete-local-modification");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var uninstallService = SkillTestData.CreateUninstallService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var install = await installService.InstallAsync([packages[0], packages[1]], request, CancellationToken.None);
+        Assert.True(install.IsSuccess, install.Failure?.Message);
+        var firstSkillDirectory = Path.Combine(install.Value!.TargetRoot, packages[0].Manifest.SkillName);
+        var modifiedSkillDirectory = Path.Combine(install.Value.TargetRoot, packages[1].Manifest.SkillName);
+        File.AppendAllText(Path.Combine(modifiedSkillDirectory, "SKILL.md"), "\nInjected instruction.\n");
+
+        var result = await uninstallService.UninstallAsync(new SkillUninstallInput([packages[0], packages[1]], request), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, result.Failure!.Code);
+        Assert.True(Directory.Exists(firstSkillDirectory));
+        Assert.True(Directory.Exists(modifiedSkillDirectory));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task UninstallAsync_DryRunBlocksLocalModificationWithoutDeleting ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "uninstall-dry-run-local-modification");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var uninstallService = SkillTestData.CreateUninstallService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var install = await installService.InstallAsync(packages, request, CancellationToken.None);
+        Assert.True(install.IsSuccess, install.Failure?.Message);
+        var skillDirectory = Path.Combine(install.Value!.TargetRoot, packages[0].Manifest.SkillName);
+        File.AppendAllText(Path.Combine(skillDirectory, "SKILL.md"), "\nInjected instruction.\n");
+
+        var result = await uninstallService.UninstallAsync(new SkillUninstallInput(packages, request, DryRun: true), CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Failure?.Message);
+        var action = result.Value!.Actions.Single(action => action.Identity.SkillName == packages[0].Manifest.SkillName);
+        Assert.Equal(SkillUninstallActionKind.BlockedLocalModification, action.ActionKind);
+        Assert.Equal(SkillBlockedReason.LocalModificationRequiresForce, action.BlockedReason);
+        Assert.True(Directory.Exists(skillDirectory));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task UninstallAsync_WithForceDeletesLocalModification ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "uninstall-force-local-modification");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var uninstallService = SkillTestData.CreateUninstallService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var install = await installService.InstallAsync(packages, request, CancellationToken.None);
+        Assert.True(install.IsSuccess, install.Failure?.Message);
+        var skillDirectory = Path.Combine(install.Value!.TargetRoot, packages[0].Manifest.SkillName);
+        File.AppendAllText(Path.Combine(skillDirectory, "SKILL.md"), "\nInjected instruction.\n");
+
+        var result = await uninstallService.UninstallAsync(new SkillUninstallInput([packages[0]], request, Force: true), CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Failure?.Message);
+        Assert.Equal(SkillUninstallActionKind.Deleted, result.Value!.Actions.Single().ActionKind);
+        Assert.False(Directory.Exists(skillDirectory));
     }
 
     [Fact]
@@ -265,5 +355,19 @@ public sealed class SkillUninstallServiceTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(SkillFailureCodes.PathUnsafe, result.Failure!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task PackageRemoverDeleteAsync_RejectsTargetRootDeletion ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "uninstall-remover-target-root");
+        var remover = new SkillInstalledPackageRemover();
+
+        var result = await remover.DeleteAsync(scope.FullPath, scope.FullPath, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.PathUnsafe, result.Failure!.Code);
+        Assert.True(Directory.Exists(scope.FullPath));
     }
 }
