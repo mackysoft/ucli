@@ -61,13 +61,13 @@ install / export 先は host によって変わる。
 
 公式 SKILL は、uCLI が supported host として定義する全 host へ materialize できなければならない。host 対応は skill ごとの metadata ではなく、`src/Ucli.Skills` の host adapter set で管理する。
 
-1.0 の supported host は次のとおり。
+supported host は次のとおり。
 
-| Host | Project scope target | 備考 |
-| --- | --- | --- |
-| `claude` | `.claude/skills` | Claude Code project skill |
-| `copilot` | `.github/skills` | GitHub Copilot CLI project skill |
-| `openai` | `.agents/skills` | OpenAI / Codex 向け metadata を `agents/openai.yaml` として含める |
+| Host | Project scope target | User scope target | Reload guidance | 備考 |
+| --- | --- | --- | --- | --- |
+| `claude` | `.claude/skills` | `~/.claude/skills` | 既存 skill directory は Claude Code が監視する。top-level directory をセッション後に作成した場合は Claude Code を再起動する。 | Claude Code project / personal skill |
+| `copilot` | `.github/skills` | `~/.copilot/skills` | GitHub Copilot CLI で `/skills reload` を実行する。 | GitHub Copilot CLI project / personal skill |
+| `openai` | `.agents/skills` | `${CODEX_HOME}/skills`、未設定時 `~/.codex/skills` | Codex session または app を再起動する。 | OpenAI / Codex 向け metadata を `agents/openai.yaml` として含める |
 
 `SKILL.md` 本文と `references/` の内容は host で変えない。host で変えるのは次だけとする。
 
@@ -76,9 +76,9 @@ install / export 先は host によって変わる。
 - install / export target path
 - reload / restart guidance
 
-`install`、`update`、`uninstall`、`export`、`doctor` は、配置先だけでなく host 固有 metadata を決めるために `--host <host>` を明示入力として扱う。`--targetDir` が指定される場合でも、materialize 形式を決めるために host は必要である。
+`install`、`update`、`uninstall`、`export`、`doctor` は、配置先だけでなく host 固有 metadata を決めるために `--host <host>` を明示入力として扱う。`--targetDir` が指定される場合でも、materialize 形式を決めるために host は必要である。各 command payload は host-specific reload / restart guidance を返す。
 
-対応していない host は option 正規化時に失敗させる。`--targetDir` は host support validation を迂回しない。uCLI は unsupported host を generic skill output へ fallback しない。host を追加する場合は、host adapter、target path、metadata policy、doctor rule、materialization test を追加する。
+対応していない host は option 正規化時に失敗させる。`--targetDir` は host support validation を迂回しない。uCLI は unsupported host を generic skill output へ fallback しない。host を追加する場合は、host adapter、project / user target path、metadata policy、reload guidance、doctor rule、materialization test、export test を追加する。
 
 host materialization は決定論的でなければならない。
 
@@ -86,6 +86,8 @@ host materialization は決定論的でなければならない。
 - `SKILL.md` body は canonical generated output と一致させる。
 - host adapter が変更できるのは frontmatter、host metadata、install / reload guidance だけとする。
 - host adapter は operation catalog、request schema、operation args の説明を挿入しない。
+
+`ucli skills export` は `--format directory|zip` を受け付ける。`directory` は現行どおり `<output>/<skillName>/...` を書き出し、`zip` は release artifact 用に `<skillName>/<relativePath>` を zip root に並べる。zip entry は ordinal sort、directory entry なし、固定 timestamp、UTF-8 LF content で生成し、同じ input / host / option から byte-identical な zip を出力する。
 
 OpenAI / Codex 向け metadata は、OpenAI host adapter が各 skill の `agents/openai.yaml` として生成する。
 
@@ -224,7 +226,7 @@ installed skill directory に個別の install metadata file は置かない。i
 同じ target root を複数 host で共有する install は衝突として扱い、拒否する。host 固有 frontmatter や `agents/openai.yaml` の有無が混ざると、materialized output の対象 host を安全に判定できないためである。
 
 ## Install Safety
-`install` は、指定 host の project scope target に公式 SKILL を一括で配置する。既存 target は暗黙上書きしない。
+`install` は、指定 host の target に公式 SKILL を一括で配置する。既存 target は暗黙上書きしない。project scope は `--repoRoot` を必須とし、user scope は host 既定 user target を使う。user scope に `--targetDir` を指定する場合は absolute path に限定し、`--repoRoot` は受け付けない。
 
 - target skill directory が存在しない場合は新規作成する。
 - target skill directory が存在し、`ucli-skill.json` の `contentDigest` が一致する場合は no-op とする。
@@ -235,12 +237,13 @@ path safety は次の規則で扱う。
 
 - `--targetDir` は canonical absolute path に正規化してから検証する。
 - project scope の install target は repository root 配下に限定する。
+- user scope の install target は host 既定 user target または absolute `--targetDir` に限定する。
 - `..` や symlink により repository root または target root の外へ出る path は拒否する。
 - materialized artifact の各 file path が target root 外へ出ないことを検証する。
 - official SKILL に executable file が含まれる場合は scripts policy 違反として失敗する。
 
 ## Update / Uninstall Safety
-`update` は、指定 host の project scope target にある公式 SKILL を一括で最新化する。target root または公式 skill directory が無い場合は作成し、導入済み内容が最新なら no-op とする。
+`update` は、指定 host の target にある公式 SKILL を一括で最新化する。target root または公式 skill directory が無い場合は作成し、導入済み内容が最新なら no-op とする。
 
 - target skill directory が存在しない場合は新規作成する。
 - target skill directory が存在し、現在の bundled official SKILL と一致する場合は no-op とする。
@@ -248,7 +251,7 @@ path safety は次の規則で扱う。
 - target skill directory が存在するが `ucli-skill.json` が無い場合は unmanaged として失敗し、上書きしない。
 - local modification、別 host materialization、manifest 不正は失敗し、`--force` なしでは更新しない。
 
-`uninstall` は、指定 host の project scope target 配下にある uCLI 管理済み公式 SKILL だけを削除する。target root 自体、別 host の target、unrelated directory は削除しない。
+`uninstall` は、指定 host の target 配下にある uCLI 管理済み公式 SKILL だけを削除する。target root 自体、別 host の target、unrelated directory は削除しない。
 
 - target root または target skill directory が存在しない場合は no-op とする。
 - `ucli-skill.json` が無い target skill directory は unmanaged として削除せず、payload で skipped として返す。
@@ -268,7 +271,7 @@ path safety は次の規則で扱う。
 `src/Ucli.Skills` は原則として `src/Ucli.Contracts` に依存しない。`Ucli.Skills` は operation contract を反射・再定義しない。SKILL は operation catalog を含まないため、operation の正確な args、result、assurance は実行時に `ucli ops describe` から取得する。
 
 ## Doctor Scope
-`ucli skills doctor` は SKILL 配布物だけを診断する。対象は target directory、host adapter、`SKILL.md`、`ucli-skill.json`、digest、supported host artifact の有無とする。
+`ucli skills doctor` は SKILL 配布物だけを診断する。対象は target directory、host adapter、`SKILL.md`、`ucli-skill.json`、digest、supported host artifact の有無とする。doctor は common content drift、frontmatter drift、host artifact drift、file-set drift、clean outdated を別の diagnostic code として返す。OpenAI / Codex の `agents/openai.yaml` drift は common content drift ではなく host artifact drift として扱う。
 
 Unity plugin、daemon、project status は `ucli status` や既存の daemon / logs command に委ねる。
 
