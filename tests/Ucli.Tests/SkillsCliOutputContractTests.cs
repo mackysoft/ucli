@@ -1,6 +1,9 @@
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
+using MackySoft.Ucli.Skills.Digests;
+using MackySoft.Ucli.Skills.Installation.Validation;
+using MackySoft.Ucli.Skills.Manifests;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -397,6 +400,37 @@ public sealed class SkillsCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task SkillsUpdate_WithCleanOutdatedTarget_ReturnsUpdatedAction ()
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "update-outdated");
+        var repoRoot = scope.CreateDirectory("repo");
+        var install = await RunOpenAiInstall(repoRoot);
+        Assert.Equal((int)CliExitCode.Success, install.ExitCode);
+        using var installJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(install.StdOut);
+        var targetRoot = installJson.RootElement.GetProperty("payload").GetProperty("targetRoot").GetString()!;
+        await RewriteInstalledSkillBodyAndManifestAsOlderAsync(targetRoot, ExpectedSkillNames[0]);
+
+        var updated = await RunOpenAiUpdate(repoRoot);
+
+        using var updatedJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(updated.StdOut);
+        Assert.Equal((int)CliExitCode.Success, updated.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            updatedJson.RootElement,
+            command: UcliCommandNames.SkillsUpdate,
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+        JsonAssert.For(updatedJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasInt32("createdCount", 0)
+                .HasInt32("updatedCount", 1)
+                .HasInt32("noOpCount", ExpectedSkillNames.Length - 1)
+                .HasProperty("actions", 0, static action => action
+                    .HasString("skillName", ExpectedSkillNames[0])
+                    .HasString("action", "updated")));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task SkillsUninstall_WithProjectScope_DeletesThenNoOps ()
     {
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "uninstall-openai");
@@ -609,6 +643,49 @@ public sealed class SkillsCliOutputContractTests
         return RunInstall(repoRoot, "openai", targetDir: null);
     }
 
+    private static async Task RewriteInstalledSkillBodyAndManifestAsOlderAsync (
+        string targetRoot,
+        string skillName)
+    {
+        var skillDirectory = Path.Combine(targetRoot, skillName);
+        var skillPath = Path.Combine(skillDirectory, "SKILL.md");
+        var manifestPath = Path.Combine(skillDirectory, "ucli-skill.json");
+        var skillText = NormalizeToLf(await File.ReadAllTextAsync(skillPath));
+        Assert.True(SkillHostMaterializationInspector.TryExtractFrontmatter(skillText, out var frontmatter));
+        var body = skillText[frontmatter.Length..];
+        if (body.StartsWith('\n'))
+        {
+            body = body[1..];
+        }
+
+        var olderBody = body + "\nSynthetic previous version.\n";
+        await File.WriteAllTextAsync(skillPath, frontmatter + "\n" + olderBody);
+
+        var digestInputs = new List<SkillDigestInputFile>
+        {
+            new("SKILL.md", olderBody),
+        };
+        var referencesRoot = Path.Combine(skillDirectory, "references");
+        if (Directory.Exists(referencesRoot))
+        {
+            foreach (var referencePath in Directory.EnumerateFiles(referencesRoot, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
+            {
+                var relativePath = Path.GetRelativePath(skillDirectory, referencePath).Replace(Path.DirectorySeparatorChar, '/');
+                var content = NormalizeToLf(await File.ReadAllTextAsync(referencePath));
+                digestInputs.Add(new SkillDigestInputFile(relativePath, content));
+            }
+        }
+
+        var serializer = new SkillManifestJsonSerializer();
+        var manifestResult = serializer.TryDeserialize(await File.ReadAllTextAsync(manifestPath));
+        Assert.True(manifestResult.IsSuccess, manifestResult.Failure?.Message);
+        var manifest = manifestResult.Value! with
+        {
+            ContentDigest = new SkillDigestCalculator().ComputeDigest(digestInputs),
+        };
+        await File.WriteAllTextAsync(manifestPath, serializer.Serialize(manifest));
+    }
+
     private static Task<CommandExecutionResult> RunOpenAiUpdate (string repoRoot)
     {
         return RunScopedCommand(UcliCommandNames.UpdateSubcommand, repoRoot, "openai", "project", targetDir: null);
@@ -668,6 +745,11 @@ public sealed class SkillsCliOutputContractTests
     private static Task<CommandExecutionResult> RunOpenAiDoctor (string repoRoot)
     {
         return RunScopedCommand(UcliCommandNames.DoctorSubcommand, repoRoot, "openai", "project", targetDir: null);
+    }
+
+    private static string NormalizeToLf (string text)
+    {
+        return text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
     }
 
     private static string[] CreateRequiredHostScenarioArgs (

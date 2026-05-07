@@ -111,6 +111,67 @@ public sealed class SkillUninstallServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task UninstallAsync_RejectsLocalEmptyDirectory ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "uninstall-local-empty-directory");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var uninstallService = SkillTestData.CreateUninstallService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var install = await installService.InstallAsync(packages, request, CancellationToken.None);
+        Assert.True(install.IsSuccess, install.Failure?.Message);
+        var localDirectory = Path.Combine(install.Value!.TargetRoot, packages[0].Manifest.SkillName, "local-notes");
+        Directory.CreateDirectory(localDirectory);
+
+        var result = await uninstallService.UninstallAsync(new SkillUninstallInput(packages, request), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, result.Failure!.Code);
+        Assert.True(Directory.Exists(localDirectory));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task UninstallAsync_RejectsLocalDirectorySymlink ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "uninstall-local-directory-symlink");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var uninstallService = SkillTestData.CreateUninstallService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var install = await installService.InstallAsync(packages, request, CancellationToken.None);
+        Assert.True(install.IsSuccess, install.Failure?.Message);
+        var skillDirectory = Path.Combine(install.Value!.TargetRoot, packages[0].Manifest.SkillName);
+        var allowedDirectory = Path.Combine(skillDirectory, "agents");
+        Assert.True(Directory.Exists(allowedDirectory));
+        var localDirectoryLink = Path.Combine(skillDirectory, "local-agents");
+        try
+        {
+            Directory.CreateSymbolicLink(localDirectoryLink, allowedDirectory);
+        }
+        catch (IOException)
+        {
+            return;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return;
+        }
+
+        var result = await uninstallService.UninstallAsync(new SkillUninstallInput(packages, request), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, result.Failure!.Code);
+        Assert.True(Directory.Exists(localDirectoryLink));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task UninstallAsync_RejectsSharedTargetRootFromDifferentHost ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "uninstall-host-conflict");

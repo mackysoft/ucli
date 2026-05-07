@@ -99,6 +99,70 @@ public sealed class SkillUpdateServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task UpdateAsync_RejectsLocalEmptyDirectoryBeforeReplacingOutdatedPackage ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-local-empty-directory");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var updateService = SkillTestData.CreateUpdateService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var install = await installService.InstallAsync(packages, request, CancellationToken.None);
+        Assert.True(install.IsSuccess, install.Failure?.Message);
+        var localDirectory = Path.Combine(install.Value!.TargetRoot, packages[0].Manifest.SkillName, "local-notes");
+        Directory.CreateDirectory(localDirectory);
+        var updatedPackages = ReplacePackage(packages, CreatePackageWithUpdatedBody(packages[0]));
+
+        var result = await updateService.UpdateAsync(new SkillUpdateInput(updatedPackages, request), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, result.Failure!.Code);
+        Assert.True(Directory.Exists(localDirectory));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task UpdateAsync_RejectsLocalDirectorySymlinkBeforeReplacingOutdatedPackage ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-local-directory-symlink");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var updateService = SkillTestData.CreateUpdateService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var install = await installService.InstallAsync(packages, request, CancellationToken.None);
+        Assert.True(install.IsSuccess, install.Failure?.Message);
+        var skillDirectory = Path.Combine(install.Value!.TargetRoot, packages[0].Manifest.SkillName);
+        var allowedDirectory = Path.Combine(skillDirectory, "agents");
+        Assert.True(Directory.Exists(allowedDirectory));
+        var localDirectoryLink = Path.Combine(skillDirectory, "local-agents");
+        try
+        {
+            Directory.CreateSymbolicLink(localDirectoryLink, allowedDirectory);
+        }
+        catch (IOException)
+        {
+            return;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return;
+        }
+
+        var updatedPackages = ReplacePackage(packages, CreatePackageWithUpdatedBody(packages[0]));
+
+        var result = await updateService.UpdateAsync(new SkillUpdateInput(updatedPackages, request), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, result.Failure!.Code);
+        Assert.True(Directory.Exists(localDirectoryLink));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task UpdateAsync_RejectsSharedTargetRootFromDifferentHost ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-host-conflict");
@@ -119,6 +183,31 @@ public sealed class SkillUpdateServiceTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(SkillFailureCodes.InstallTargetHostConflict, result.Failure!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task UpdateAsync_DoesNotModifyOtherHostTarget ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-other-host");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var updateService = SkillTestData.CreateUpdateService();
+        var openAiRequest = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var claudeRequest = new SkillInstallRequest(ClaudeSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var openAi = await installService.InstallAsync(packages, openAiRequest, CancellationToken.None);
+        var claude = await installService.InstallAsync(packages, claudeRequest, CancellationToken.None);
+        Assert.True(openAi.IsSuccess, openAi.Failure?.Message);
+        Assert.True(claude.IsSuccess, claude.Failure?.Message);
+        var updatedPackages = ReplacePackage(packages, CreatePackageWithUpdatedBody(packages[0]));
+
+        var result = await updateService.UpdateAsync(new SkillUpdateInput(updatedPackages, openAiRequest), CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Failure?.Message);
+        var updatedManifest = updatedPackages[0].Files.Single(static file => file.RelativePath == "ucli-skill.json").Content;
+        var oldManifest = packages[0].Files.Single(static file => file.RelativePath == "ucli-skill.json").Content;
+        Assert.Equal(updatedManifest, File.ReadAllText(Path.Combine(openAi.Value!.TargetRoot, packages[0].Manifest.SkillName, "ucli-skill.json")));
+        Assert.Equal(oldManifest, File.ReadAllText(Path.Combine(claude.Value!.TargetRoot, packages[0].Manifest.SkillName, "ucli-skill.json")));
     }
 
     [Fact]
