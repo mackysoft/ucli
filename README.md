@@ -920,6 +920,8 @@ Lifecycle lock files are stored in the current user's OS local application data 
 
 `<sha256>` is derived from the normalized physical `UnityProjectRoot`, so paths that resolve to the same physical Unity project share one launch lock.
 
+Unity's project-local `Temp/UnityLockfile` is treated as a Unity-owned marker for editors opened outside uCLI. uCLI does not delete it during startup checks; when a Unity process started by uCLI is terminated and the marker remains, uCLI reports it as a residual-lock diagnostic while keeping the original timeout or cancellation classification.
+
 ## 📦 Packages
 
 | Package | Install when |
