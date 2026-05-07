@@ -94,16 +94,6 @@ Agents should not hard-code operation arguments or guess Unity state from memory
 - Serialize Unity process launches by physical Unity project root, even when worktrees or `projectFingerprint` values differ.
 - Keep daemon state separate across Git worktrees.
 
-Lifecycle lock files are stored in the current user's OS local application data directory, not under repo-local `.ucli` state:
-
-| OS | Local application data root | Lifecycle lock path |
-| --- | --- | --- |
-| Windows | `%LOCALAPPDATA%` | `%LOCALAPPDATA%\MackySoft\ucli\lifecycle-locks\unity-projects\<sha256>\lifecycle.lock` |
-| macOS | `$HOME/Library/Application Support` | `$HOME/Library/Application Support/MackySoft/ucli/lifecycle-locks/unity-projects/<sha256>/lifecycle.lock` |
-| Linux | `$XDG_DATA_HOME` when absolute, otherwise `$HOME/.local/share` | `${XDG_DATA_HOME:-$HOME/.local/share}/MackySoft/ucli/lifecycle-locks/unity-projects/<sha256>/lifecycle.lock` |
-
-`<sha256>` is derived from the normalized physical `UnityProjectRoot`, so paths that resolve to the same physical Unity project share one launch lock.
-
 ## 📦 Installation
 
 ### ✅ Requirements
@@ -917,6 +907,18 @@ Common options:
 | `--allowDangerous` | `ucli call` | Allow operations marked dangerous by the operation catalog. |
 
 > **NOTE:** Project path resolution uses `--projectPath`, then `UCLI_PROJECT_PATH`, then the command default. The default is usually the current working directory.
+
+### Lifecycle Lock Location
+
+Lifecycle lock files are stored in the current user's OS local application data directory, not under repo-local `.ucli` state:
+
+| OS | Local application data root | Lifecycle lock path |
+| --- | --- | --- |
+| Windows | `%LOCALAPPDATA%` | `%LOCALAPPDATA%\MackySoft\ucli\lifecycle-locks\unity-projects\<sha256>\lifecycle.lock` |
+| macOS | `$HOME/Library/Application Support` | `$HOME/Library/Application Support/MackySoft/ucli/lifecycle-locks/unity-projects/<sha256>/lifecycle.lock` |
+| Linux | `$XDG_DATA_HOME` when absolute, otherwise `$HOME/.local/share` | `${XDG_DATA_HOME:-$HOME/.local/share}/MackySoft/ucli/lifecycle-locks/unity-projects/<sha256>/lifecycle.lock` |
+
+`<sha256>` is derived from the normalized physical `UnityProjectRoot`, so paths that resolve to the same physical Unity project share one launch lock.
 
 ## 📦 Packages
 
