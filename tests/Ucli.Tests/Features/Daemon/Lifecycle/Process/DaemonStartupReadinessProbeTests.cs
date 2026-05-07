@@ -211,6 +211,40 @@ public sealed class DaemonStartupReadinessProbeTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task WaitUntilReady_WhenDaemonLogContainsProjectAlreadyOpenMarker_ReturnsProjectAlreadyOpenImmediately ()
+    {
+        var pingClient = new StubDaemonPingInfoClient(() => ValueTask.FromException<IpcPingResponse>(new SocketException((int)SocketError.ConnectionRefused)));
+        var logReader = new StubUnityLogReader
+        {
+            NextResult = UnityLogReadResult.Success(
+                """
+                COMMAND LINE ARGUMENTS:
+                -projectPath
+                /tmp/unity-project
+                It looks like another Unity instance is running with this project open.
+                """,
+                truncated: false,
+                path: "/tmp/unity.log",
+                sizeBytes: 256),
+        };
+        var probe = CreateProbe(pingClient, logReader);
+
+        var result = await probe.WaitUntilReady(
+            CreateContext("fingerprint-readiness-already-open"),
+            TimeSpan.FromSeconds(5),
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsReady);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(UnityProcessErrorCodes.UnityProjectAlreadyOpen, error.Code);
+        Assert.Contains("already open", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(1, pingClient.CallCount);
+        Assert.Equal(1, logReader.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenOnlyPreviousSessionHasPackageResolutionFailure_ReturnsTimeout ()
     {
         var pingClient = new StubDaemonPingInfoClient(() => ValueTask.FromException<IpcPingResponse>(new SocketException((int)SocketError.ConnectionRefused)));

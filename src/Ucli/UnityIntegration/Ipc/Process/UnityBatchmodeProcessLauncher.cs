@@ -59,6 +59,8 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
         string unityLogPath,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(session);
 
         var endpoint = endpointResolver.Resolve(
@@ -117,19 +119,10 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
         string unityLogPath,
         CancellationToken cancellationToken)
     {
-        var lockFileProbeResult = unityProjectLockFileProbe.Probe(unityProject.UnityProjectRoot);
-        if (!lockFileProbeResult.IsSuccess)
+        var projectLockError = TryCreateProjectLockError(unityProject.UnityProjectRoot);
+        if (projectLockError != null)
         {
-            return UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InternalError(
-                lockFileProbeResult.ErrorMessage!,
-                UcliCoreErrorCodes.InternalError));
-        }
-
-        if (lockFileProbeResult.IsLocked)
-        {
-            return UnityBatchmodeProcessLaunchResult.Failure(CreateProjectAlreadyOpenError(
-                unityProject.UnityProjectRoot,
-                lockFileProbeResult.LockFilePath));
+            return UnityBatchmodeProcessLaunchResult.Failure(projectLockError);
         }
 
         var pluginLocateResult = await unityUcliPluginLocator.Locate(
@@ -140,6 +133,8 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
         {
             return UnityBatchmodeProcessLaunchResult.Failure(pluginLocateResult.Error!);
         }
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         var unityVersionResult = unityVersionResolver.Resolve(unityProject.UnityProjectRoot, preferredUnityVersion: null);
         if (!unityVersionResult.IsSuccess)
@@ -152,6 +147,8 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
         {
             return UnityBatchmodeProcessLaunchResult.Failure(unityEditorPathResult.Error!);
         }
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         try
         {
@@ -176,6 +173,15 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
                 processStartInfo.ArgumentList.Add(argumentTokens[i]);
             }
 
+            // NOTE: An external Unity editor can open the project while plugin and editor paths are being resolved.
+            projectLockError = TryCreateProjectLockError(unityProject.UnityProjectRoot);
+            if (projectLockError != null)
+            {
+                return UnityBatchmodeProcessLaunchResult.Failure(projectLockError);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
             var process = System.Diagnostics.Process.Start(processStartInfo);
             if (process == null)
             {
@@ -190,6 +196,10 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
             return UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InvalidArgument(
                 $"Unity batchmode launch path is invalid. {exception.Message}"));
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception exception)
         {
             return UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InternalError(
@@ -197,15 +207,30 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
         }
     }
 
+    private ExecutionError? TryCreateProjectLockError (string unityProjectRoot)
+    {
+        var lockFileProbeResult = unityProjectLockFileProbe.Probe(unityProjectRoot);
+        if (!lockFileProbeResult.IsSuccess)
+        {
+            return ExecutionError.InternalError(
+                lockFileProbeResult.ErrorMessage!,
+                UcliCoreErrorCodes.InternalError);
+        }
+
+        if (!lockFileProbeResult.IsLocked)
+        {
+            return null;
+        }
+
+        return CreateProjectAlreadyOpenError(unityProjectRoot, lockFileProbeResult.LockFilePath);
+    }
+
     private static ExecutionError CreateProjectAlreadyOpenError (
         string unityProjectRoot,
         string? lockFilePath)
     {
-        var lockFileSuffix = string.IsNullOrWhiteSpace(lockFilePath)
-            ? string.Empty
-            : $" LockFile={lockFilePath}";
         return ExecutionError.InternalError(
-            $"Unity project is already open or locked by another Unity process. ProjectPath={unityProjectRoot}.{lockFileSuffix}",
+            UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProjectRoot, lockFilePath),
             UnityProcessErrorCodes.UnityProjectAlreadyOpen);
     }
 

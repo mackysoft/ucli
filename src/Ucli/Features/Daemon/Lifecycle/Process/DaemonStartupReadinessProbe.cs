@@ -1,10 +1,12 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Execution;
+using MackySoft.Ucli.Shared.Unity.ProjectLock;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
 
@@ -231,6 +233,13 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
         }
 
         var latestStartupLogText = DaemonStartupFailureLogClassifier.GetLatestStartupLogText(logReadResult.Text);
+        if (UnityProjectAlreadyOpenLogClassifier.ContainsAlreadyOpenMarkerInText(latestStartupLogText))
+        {
+            return ExecutionError.InternalError(
+                UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProject.UnityProjectRoot),
+                UnityProcessErrorCodes.UnityProjectAlreadyOpen);
+        }
+
         return DaemonStartupFailureLogClassifier.TryClassify(latestStartupLogText, out var error)
             ? error
             : null;

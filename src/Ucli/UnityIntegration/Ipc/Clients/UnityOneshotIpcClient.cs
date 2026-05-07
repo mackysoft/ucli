@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
@@ -6,6 +7,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Failures;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
@@ -120,6 +122,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 var startupProbeError = await WaitUntilReachable(
                         unityProject,
                         sessionToken,
+                        unityLogPath,
                         deadline,
                         processHandle,
                         timeout,
@@ -186,6 +189,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     private async ValueTask<ExecutionError?> WaitUntilReachable (
         ResolvedUnityProjectContext unityProject,
         string sessionToken,
+        string unityLogPath,
         ExecutionDeadline deadline,
         IUnityBatchmodeProcessHandle processHandle,
         TimeSpan timeout,
@@ -197,6 +201,14 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
             if (processHandle.HasExited)
             {
+                var projectAlreadyOpenError = TryCreateProjectAlreadyOpenErrorFromUnityLog(
+                    unityProject.UnityProjectRoot,
+                    unityLogPath);
+                if (projectAlreadyOpenError != null)
+                {
+                    return projectAlreadyOpenError;
+                }
+
                 var exitCode = processHandle.ExitCode;
                 return ExecutionError.InternalError(
                     exitCode is int code
@@ -240,6 +252,20 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 await Task.Delay(GetRetryDelay(remainingTimeout), cancellationToken).ConfigureAwait(false);
             }
         }
+    }
+
+    private static ExecutionError? TryCreateProjectAlreadyOpenErrorFromUnityLog (
+        string unityProjectRoot,
+        string unityLogPath)
+    {
+        if (!UnityProjectAlreadyOpenLogClassifier.ContainsAlreadyOpenMarker(unityLogPath))
+        {
+            return null;
+        }
+
+        return ExecutionError.InternalError(
+            UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProjectRoot),
+            UnityProcessErrorCodes.UnityProjectAlreadyOpen);
     }
 
     private static bool IsStartupRetryable (Exception exception)

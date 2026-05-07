@@ -69,32 +69,29 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
         {
             return UnityTestExecutionResult.Failure(
                 UnityTestExecutionFailureKind.ProjectAlreadyOpen,
-                CreateProjectAlreadyOpenMessage(configuration.UnityProject.UnityProjectRoot),
+                UnityProjectLockFailureMessage.CreateAlreadyOpen(configuration.UnityProject.UnityProjectRoot),
                 UnityProcessErrorCodes.UnityProjectAlreadyOpen);
         }
 
         await using var acquiredLifecycleLock = lifecycleLock;
-        var lockFileProbeResult = unityProjectLockFileProbe.Probe(configuration.UnityProject.UnityProjectRoot);
-        if (!lockFileProbeResult.IsSuccess)
+        var projectLockFailure = TryCreateProjectLockFailure(configuration.UnityProject.UnityProjectRoot);
+        if (projectLockFailure != null)
         {
-            return UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.StartFailed,
-                lockFileProbeResult.ErrorMessage!,
-                UcliCoreErrorCodes.InternalError);
-        }
-
-        if (lockFileProbeResult.IsLocked)
-        {
-            return UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.ProjectAlreadyOpen,
-                CreateProjectAlreadyOpenMessage(configuration.UnityProject.UnityProjectRoot, lockFileProbeResult.LockFilePath),
-                UnityProcessErrorCodes.UnityProjectAlreadyOpen);
+            return projectLockFailure;
         }
 
         var arguments = unityCommandBuilder.BuildArguments(configuration, artifactPaths);
+        // NOTE: An external Unity editor can open the project after the first probe but before process start.
+        projectLockFailure = TryCreateProjectLockFailure(configuration.UnityProject.UnityProjectRoot);
+        if (projectLockFailure != null)
+        {
+            return projectLockFailure;
+        }
+
         ProcessRunResult processRunResult;
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
             processRunResult = await processRunner.RunAsync(
                 new ProcessRunRequest(
                     FileName: configuration.UnityEditorPath,
@@ -137,6 +134,12 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
 
                 if (processRunResult.ExitCode.Value != 0 && processRunResult.ExitCode.Value != 2)
                 {
+                    var alreadyOpenFailure = TryCreateProjectAlreadyOpenFailureFromEditorLog(configuration, artifactPaths);
+                    if (alreadyOpenFailure != null)
+                    {
+                        return alreadyOpenFailure;
+                    }
+
                     return UnityTestExecutionResult.Failure(
                         UnityTestExecutionFailureKind.AbnormalExit,
                         processRunResult.ErrorMessage ?? $"Unity process exited with code {processRunResult.ExitCode.Value}.");
@@ -152,6 +155,12 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
 
         if (!TestRunArtifactValidator.TryValidateGeneratedFiles(artifactPaths, out var artifactValidationError))
         {
+            var alreadyOpenFailure = TryCreateProjectAlreadyOpenFailureFromEditorLog(configuration, artifactPaths);
+            if (alreadyOpenFailure != null)
+            {
+                return alreadyOpenFailure;
+            }
+
             return UnityTestExecutionResult.Failure(
                 UnityTestExecutionFailureKind.ArtifactMissing,
                 artifactValidationError!);
@@ -160,13 +169,40 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
         return UnityTestExecutionResult.Success(processRunResult.ExitCode!.Value);
     }
 
-    private static string CreateProjectAlreadyOpenMessage (
-        string unityProjectRoot,
-        string? lockFilePath = null)
+    private UnityTestExecutionResult? TryCreateProjectLockFailure (string unityProjectRoot)
     {
-        var lockFileSuffix = string.IsNullOrWhiteSpace(lockFilePath)
-            ? string.Empty
-            : $" LockFile={lockFilePath}";
-        return $"Unity project is already open or locked by another Unity process. ProjectPath={unityProjectRoot}.{lockFileSuffix}";
+        var lockFileProbeResult = unityProjectLockFileProbe.Probe(unityProjectRoot);
+        if (!lockFileProbeResult.IsSuccess)
+        {
+            return UnityTestExecutionResult.Failure(
+                UnityTestExecutionFailureKind.StartFailed,
+                lockFileProbeResult.ErrorMessage!,
+                UcliCoreErrorCodes.InternalError);
+        }
+
+        if (!lockFileProbeResult.IsLocked)
+        {
+            return null;
+        }
+
+        return UnityTestExecutionResult.Failure(
+            UnityTestExecutionFailureKind.ProjectAlreadyOpen,
+            UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProjectRoot, lockFileProbeResult.LockFilePath),
+            UnityProcessErrorCodes.UnityProjectAlreadyOpen);
+    }
+
+    private static UnityTestExecutionResult? TryCreateProjectAlreadyOpenFailureFromEditorLog (
+        ResolvedTestRunConfiguration configuration,
+        ArtifactPaths artifactPaths)
+    {
+        if (!UnityProjectAlreadyOpenLogClassifier.ContainsAlreadyOpenMarker(artifactPaths.EditorLogPath))
+        {
+            return null;
+        }
+
+        return UnityTestExecutionResult.Failure(
+            UnityTestExecutionFailureKind.ProjectAlreadyOpen,
+            UnityProjectLockFailureMessage.CreateAlreadyOpen(configuration.UnityProject.UnityProjectRoot),
+            UnityProcessErrorCodes.UnityProjectAlreadyOpen);
     }
 }

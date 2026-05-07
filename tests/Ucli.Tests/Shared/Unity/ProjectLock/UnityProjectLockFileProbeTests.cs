@@ -35,4 +35,33 @@ public sealed class UnityProjectLockFileProbeTests
         Assert.True(result.IsLocked);
         Assert.Equal(lockFilePath, result.LockFilePath);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Probe_WhenUnityLockPathIsDirectory_ReturnsLocked ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-project-lock-file-probe", "locked-directory");
+        var projectPath = scope.CreateDirectory("UnityProject");
+        var lockFilePath = scope.CreateDirectory(Path.Combine("UnityProject", "Temp", "UnityLockfile"));
+        var probe = new UnityProjectLockFileProbe();
+
+        var result = probe.Probe(projectPath);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.IsLocked);
+        Assert.Equal(lockFilePath, result.LockFilePath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Probe_WhenUnityProjectRootPathIsInvalid_ReturnsFailure ()
+    {
+        var probe = new UnityProjectLockFileProbe();
+
+        var result = probe.Probe("invalid\0project");
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.IsLocked);
+        Assert.Contains("invalid", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+    }
 }

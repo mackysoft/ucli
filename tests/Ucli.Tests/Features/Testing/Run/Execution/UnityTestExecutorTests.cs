@@ -64,6 +64,32 @@ public sealed class UnityTestExecutorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenUnityReportsProjectAlreadyOpenInEditorLog_ReturnsProjectAlreadyOpen ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-test-executor", "already-open-log");
+        var configuration = CreateConfiguration(scope);
+        var artifactPaths = CreateArtifactPaths(scope);
+        scope.WriteFile("run/editor.log", "It looks like another Unity instance is running with this project open.");
+
+        var executor = new UnityTestExecutor(
+            new StubUnityCommandBuilder(["-batchmode"]),
+            new StubProcessRunner(ProcessRunResult.Exited(1, "Unity exited.")),
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe());
+
+        var result = await executor.Execute(
+            configuration,
+            artifactPaths,
+            TimeSpan.FromMilliseconds(3000),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityTestExecutionFailureKind.ProjectAlreadyOpen, result.FailureKind);
+        Assert.Equal(UnityProcessErrorCodes.UnityProjectAlreadyOpen, result.ErrorCode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WithMissingResultsXml_ReturnsArtifactMissingFailure ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-test-executor", "missing-results-xml");
@@ -112,6 +138,32 @@ public sealed class UnityTestExecutorTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(TimeSpan.FromMilliseconds(1), processRunner.LastRequest.Timeout);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenCanceledBeforeProcessStart_ReturnsCanceledWithoutStartingProcess ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-test-executor", "canceled-before-start");
+        using var cancellationTokenSource = new CancellationTokenSource();
+        var configuration = CreateConfiguration(scope);
+        var artifactPaths = CreateArtifactPaths(scope);
+        var processRunner = new StubProcessRunner(ProcessRunResult.Exited(0));
+        var executor = new UnityTestExecutor(
+            new StubUnityCommandBuilder(["-batchmode"], cancellationTokenSource.Cancel),
+            processRunner,
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe());
+
+        var result = await executor.Execute(
+            configuration,
+            artifactPaths,
+            TimeSpan.FromMilliseconds(3000),
+            cancellationTokenSource.Token);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityTestExecutionFailureKind.Canceled, result.FailureKind);
+        Assert.Equal(0, processRunner.CallCount);
     }
 
     [Fact]
@@ -192,6 +244,37 @@ public sealed class UnityTestExecutorTests
         Assert.Equal(0, processRunner.CallCount);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenUnityLockFileAppearsBeforeProcessStart_ReturnsProjectAlreadyOpenWithoutStartingProcess ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-test-executor", "unity-lock-file-race");
+        var configuration = CreateConfiguration(scope);
+        var artifactPaths = CreateArtifactPaths(scope);
+        var processRunner = new StubProcessRunner(ProcessRunResult.Exited(0));
+        var lockFilePath = scope.GetPath("UnityProject/Temp/UnityLockfile");
+        var lockFileProbe = new StubUnityProjectLockFileProbe(
+            UnityProjectLockFileProbeResult.Unlocked(lockFilePath),
+            UnityProjectLockFileProbeResult.Locked(lockFilePath));
+        var executor = new UnityTestExecutor(
+            new StubUnityCommandBuilder(["-batchmode"]),
+            processRunner,
+            new StubProjectLifecycleLockProvider(),
+            lockFileProbe);
+
+        var result = await executor.Execute(
+            configuration,
+            artifactPaths,
+            TimeSpan.FromMilliseconds(3000),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityTestExecutionFailureKind.ProjectAlreadyOpen, result.FailureKind);
+        Assert.Equal(UnityProcessErrorCodes.UnityProjectAlreadyOpen, result.ErrorCode);
+        Assert.Equal(2, lockFileProbe.CallCount);
+        Assert.Equal(0, processRunner.CallCount);
+    }
+
     private static ResolvedTestRunConfiguration CreateConfiguration (TestDirectoryScope scope)
     {
         var projectPath = scope.GetPath("UnityProject");
@@ -221,15 +304,21 @@ public sealed class UnityTestExecutorTests
     {
         private readonly IReadOnlyList<string> arguments;
 
-        public StubUnityCommandBuilder (IReadOnlyList<string> arguments)
+        private readonly Action? onBuild;
+
+        public StubUnityCommandBuilder (
+            IReadOnlyList<string> arguments,
+            Action? onBuild = null)
         {
             this.arguments = arguments;
+            this.onBuild = onBuild;
         }
 
         public IReadOnlyList<string> BuildArguments (
             ResolvedTestRunConfiguration configuration,
             ArtifactPaths artifactPaths)
         {
+            onBuild?.Invoke();
             return arguments;
         }
     }
@@ -285,22 +374,32 @@ public sealed class UnityTestExecutorTests
 
     private sealed class StubUnityProjectLockFileProbe : IUnityProjectLockFileProbe
     {
-        private readonly UnityProjectLockFileProbeResult result;
+        private readonly IReadOnlyList<UnityProjectLockFileProbeResult> results;
+
+        private int nextResultIndex;
 
         public StubUnityProjectLockFileProbe ()
             : this(UnityProjectLockFileProbeResult.Unlocked("/tmp/UnityLockfile"))
         {
         }
 
-        public StubUnityProjectLockFileProbe (UnityProjectLockFileProbeResult result)
+        public StubUnityProjectLockFileProbe (params UnityProjectLockFileProbeResult[] results)
         {
-            this.result = result;
+            this.results = results is { Length: > 0 }
+                ? results
+                : [UnityProjectLockFileProbeResult.Unlocked("/tmp/UnityLockfile")];
         }
+
+        public int CallCount { get; private set; }
 
         public UnityProjectLockFileProbeResult Probe (string unityProjectRoot)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
-            return result;
+
+            var resultIndex = Math.Min(nextResultIndex, results.Count - 1);
+            nextResultIndex++;
+            CallCount++;
+            return results[resultIndex];
         }
     }
 

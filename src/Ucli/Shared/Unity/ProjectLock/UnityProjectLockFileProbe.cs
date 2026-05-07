@@ -20,9 +20,26 @@ internal sealed class UnityProjectLockFileProbe : IUnityProjectLockFileProbe
         try
         {
             var lockFilePath = Path.Combine(unityProjectRoot, TempDirectoryName, UnityLockFileName);
-            return File.Exists(lockFilePath)
-                ? UnityProjectLockFileProbeResult.Locked(lockFilePath)
-                : UnityProjectLockFileProbeResult.Unlocked(lockFilePath);
+            try
+            {
+                _ = File.GetAttributes(lockFilePath);
+                return UnityProjectLockFileProbeResult.Locked(lockFilePath);
+            }
+            catch (FileNotFoundException)
+            {
+                return UnityProjectLockFileProbeResult.Unlocked(lockFilePath);
+            }
+            catch (DirectoryNotFoundException)
+            {
+                return UnityProjectLockFileProbeResult.Unlocked(lockFilePath);
+            }
+            catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception)
+                                             || exception is IOException
+                                             || exception is UnauthorizedAccessException)
+            {
+                return UnityProjectLockFileProbeResult.Failure(
+                    UnityProjectLockFailureMessage.CreateInspectionFailed(lockFilePath, exception));
+            }
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
