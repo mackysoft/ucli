@@ -28,7 +28,7 @@ uCLI focuses on those guarantees:
 - **Explicit persistence:** changing an object and saving a context are separate decisions.
 - **Machine-readable evidence:** automation receives structured JSON with `opResults`, `applied`, `changed`, `touched`, errors, logs, and artifacts.
 - **Lifecycle-aware execution:** compile, domain reload, busy, play mode, shutdown, and blocked states are surfaced as protocol states or structured errors.
-- **Worktree-safe sessions:** daemon state, indexes, artifacts, and writer exclusion are scoped by project identity.
+- **Worktree-safe sessions:** daemon state, indexes, and artifacts are scoped by project identity; Unity process launches are serialized by physical project root.
 - **Dangerous operations are opt-in:** unsafe paths are isolated behind operation policy and `--allowDangerous`.
 
 ## 🧭 What uCLI Makes Explicit
@@ -39,7 +39,7 @@ uCLI is built around the review boundary: an automated Unity change should be in
 | --- | --- | --- |
 | Editor readiness | Whether Unity can accept the request now. | Lifecycle states are surfaced; execution waits or fails with structured errors. |
 | Reviewed plan drift | Whether Unity state still matches the reviewed plan. | `planToken` validates request and state before `call`. |
-| Project and worktree identity | Which project owns local state, indexes, artifacts, and writer exclusion. | Local state is scoped by `projectFingerprint`. |
+| Project and worktree identity | Which project owns local state, indexes, artifacts, and Unity launch exclusion. | Local state is scoped by `projectFingerprint`; Unity launch locks are scoped by normalized physical `UnityProjectRoot`. |
 | Timeout recovery | Whether a retry is safe after timeout or disconnect. | Timeout is not proof of no-op; inspect returned results when available and logs before retrying. |
 | Persistence | Whether a mutation also saved project data. | `commit` makes save boundaries explicit. |
 | Evidence | What changed, what was touched, and where diagnostics live. | JSON envelopes, logs, and test artifacts are first-class outputs. |
@@ -90,8 +90,17 @@ Agents should not hard-code operation arguments or guess Unity state from memory
 
 ### 🌿 For Multi-Worktree Development
 
-- Scope sessions, indexes, artifacts, and writer exclusion by project identity.
+- Scope sessions, indexes, and artifacts by project identity.
+- Serialize Unity process launches by physical Unity project root, even when worktrees or `projectFingerprint` values differ.
 - Keep daemon state separate across Git worktrees.
+
+Lifecycle lock files are stored in the current user's OS local application data directory, not under repo-local `.ucli` state:
+
+```text
+<LocalApplicationData>/MackySoft/ucli/lifecycle-locks/unity-projects/<sha256>/lifecycle.lock
+```
+
+`<sha256>` is derived from the normalized physical `UnityProjectRoot`, so paths that resolve to the same physical Unity project share one launch lock.
 
 ## 📦 Installation
 
