@@ -39,7 +39,7 @@ uCLI is built around the review boundary: an automated Unity change should be in
 | --- | --- | --- |
 | Editor readiness | Whether Unity can accept the request now. | Lifecycle states are surfaced; execution waits or fails with structured errors. |
 | Reviewed plan drift | Whether Unity state still matches the reviewed plan. | `planToken` validates request and state before `call`. |
-| Project and worktree identity | Which project owns local state, indexes, artifacts, and Unity launch exclusion. | Local state is scoped by `projectFingerprint`; Unity launch locks are scoped by normalized physical `UnityProjectRoot`. |
+| Project and worktree identity | Which project owns local state, indexes, artifacts, and launch coordination. | Local state and Unity process launches stay coordinated across worktrees. |
 | Timeout recovery | Whether a retry is safe after timeout or disconnect. | Timeout is not proof of no-op; inspect returned results when available and logs before retrying. |
 | Persistence | Whether a mutation also saved project data. | `commit` makes save boundaries explicit. |
 | Evidence | What changed, what was touched, and where diagnostics live. | JSON envelopes, logs, and test artifacts are first-class outputs. |
@@ -91,7 +91,7 @@ Agents should not hard-code operation arguments or guess Unity state from memory
 ### 🌿 For Multi-Worktree Development
 
 - Scope sessions, indexes, and artifacts by project identity.
-- Serialize Unity process launches by physical Unity project root, even when worktrees or `projectFingerprint` values differ.
+- Serialize Unity process launches by physical Unity project root, even across worktrees.
 - Keep daemon state separate across Git worktrees.
 
 ## 📦 Installation
