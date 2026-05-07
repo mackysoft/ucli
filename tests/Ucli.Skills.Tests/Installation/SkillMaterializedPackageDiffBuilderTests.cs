@@ -2,7 +2,6 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Skills.Hosts.OpenAi;
 using MackySoft.Ucli.Skills.Installation;
 using MackySoft.Ucli.Skills.Materialization;
-using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Skills.Tests.Installation;
