@@ -188,7 +188,7 @@ CLI の `plan` と `call` はユーザー入力 JSON リクエストを受け取
 - Unity process を新規起動する `daemon start` / `oneshot` / `test.run` は、正規化済みの物理 `UnityProjectRoot` ごとに 1 本だけ許可する
 - 起動排他の lock は repo-local `.ucli` ではなく、ユーザー単位の OS local application data 配下に保存する
 - `projectFingerprint` は session / IPC / artifact / readIndex / planToken の識別に使い、Unity 起動排他の identity と混同しない
-- `status` / `daemon status` / `logs` / `ops` / `resolve` / `query` / `validate` / `plan` は reader 側の経路とし、writer lane を取らない
+- `status` / `daemon status` / `logs` / `ops` / `resolve` / `query` / `validate` / `plan` は reader 側の経路とし、Unity 起動排他 lock を取らない
 - queue と即時拒否のどちらを採るかは実装選択とするが、同じ物理 Unity project への並列 Unity 起動を許可しないことは固定契約とする
 
 ### `planToken` とドリフト検知

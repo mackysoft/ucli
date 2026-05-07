@@ -4,7 +4,7 @@
 
 uCLIが先に固定すべき対策は、**編集APIを増やすことではなく、制御面を決定論化すること**でした。既存のUnity CLI / MCPで再発している問題は、編集APIの不足よりも、`compile / domain reload`、`接続 / 識別`、`transport差`、`stale state`、`失敗後の状態不明` に集中しています。CoplayDevでは、スクリプト変更後に待機 primitive がなく agent が `sleep` を積み増す問題、stdio では HTTP で見える custom tool が見えない問題、UI を開いているだけで package update check が頻発する問題が継続しています。Unity公式も、同一projectをEditorが開いたままbatchmodeで開く運用をサポートせず、batchmode の console 出力は限定的で、`-quit` が error message を隠しうると明記しています。[^coplay814][^coplay837][^coplay830][^unity-cli-manual]
 
-uCLIはすでに、[uCLI.md](uCLI.md) にある `plan -> call`、`planToken` による drift 検知、`projectFingerprint`、`requestId` 冪等、`call` の live Unity 再解決、`dangerous` の隔離といった骨格を持っています。ここで先に凍結すべき制御面は、`single-writer per projectFingerprint`、transport 差を public 契約へ持ち込まないこと、`timeout != 未適用` を前提にした失敗時契約、idle 時の inert 性、reload-safe な session / log / artifact 管理です。これらが曖昧なまま機能を増やすと、同じ種別の不具合が transport や runtime を変えて再発しやすくなります。[^unity-cli-manual][^qiita-unity-mcp][^ivan500]
+uCLIはすでに、[uCLI.md](uCLI.md) にある `plan -> call`、`planToken` による drift 検知、`projectFingerprint`、物理 `UnityProjectRoot` 単位の起動排他、`requestId` 冪等、`call` の live Unity 再解決、`dangerous` の隔離といった骨格を持っています。ここで先に凍結すべき制御面は、状態識別と起動排他の分離、transport 差を public 契約へ持ち込まないこと、`timeout != 未適用` を前提にした失敗時契約、idle 時の inert 性、reload-safe な session / log / artifact 管理です。これらが曖昧なまま機能を増やすと、同じ種別の不具合が transport や runtime を変えて再発しやすくなります。[^unity-cli-manual][^qiita-unity-mcp][^ivan500]
 
 したがって、uCLI の優先課題は「不具合への個別対処」ではなく、「Unity の状態遷移・識別・排他・失敗後状態をプロトコルとして固定する」ことにあります。以下では、その観点を既存の D1-D12 に対応づけ、uCLI で既に仕様化済みの点と、未明文化の点を切り分けます。
 
