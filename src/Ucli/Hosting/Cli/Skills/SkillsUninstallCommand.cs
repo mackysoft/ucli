@@ -37,6 +37,8 @@ internal sealed class SkillsUninstallCommand
     /// <param name="scope"> Required install scope. Only project is supported. </param>
     /// <param name="repoRoot"> --repoRoot, Required repository root. </param>
     /// <param name="targetDir"> --targetDir, Optional target root path under the repository root. </param>
+    /// <param name="dryRun"> --dryRun, Whether to return the uninstall plan without writing. </param>
+    /// <param name="force"> Whether managed local modifications can be deleted. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.UninstallSubcommand)]
@@ -45,6 +47,8 @@ internal sealed class SkillsUninstallCommand
         string? scope = null,
         string? repoRoot = null,
         string? targetDir = null,
+        bool dryRun = false,
+        bool force = false,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -93,7 +97,9 @@ internal sealed class SkillsUninstallCommand
         var uninstallResult = await uninstallService.UninstallAsync(
                 new SkillUninstallInput(
                     packagesResult.Value!,
-                    new SkillInstallRequest(normalizedHost!, normalizedScope!.Value, repositoryRoot!, targetDir)),
+                    new SkillInstallRequest(normalizedHost!, normalizedScope!.Value, repositoryRoot!, targetDir),
+                    dryRun,
+                    force),
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = SkillsCommandResultFactory.CreateUninstall(uninstallResult, normalizedHost!, repositoryRoot!);

@@ -101,28 +101,30 @@ internal static class SkillsCommandResultFactory
         }
 
         var installResult = result.Value!;
-        var actions = installResult.Actions
-            .OrderBy(static action => action.Identity.SkillName, StringComparer.Ordinal)
-            .Select(static action => new
-            {
-                action.Identity.SkillName,
-                action = ToActionLiteral(action.ActionKind),
-                action.Identity.TargetRoot,
-            })
-            .ToArray();
+        var actions = CreateActionPayloads(
+            installResult.Actions,
+            static action => action.Identity,
+            static action => ToActionLiteral(action.ActionKind),
+            static action => action.BlockedReason,
+            static action => action.Diffs);
 
         return CommandResult.Success(
             command: UcliCommandNames.SkillsInstall,
-            message: "uCLI official SKILL packages installed.",
+            message: installResult.DryRun ? "uCLI official SKILL install plan generated." : "uCLI official SKILL packages installed.",
             payload: new
             {
                 host,
                 scope = ProjectScopeLiteral,
                 repositoryRoot,
                 installResult.TargetRoot,
+                installResult.DryRun,
+                installResult.Force,
+                installResult.PrintDiff,
                 actions,
                 createdCount = installResult.Actions.Count(static action => action.ActionKind == SkillInstallActionKind.Created),
+                updatedCount = installResult.Actions.Count(static action => action.ActionKind == SkillInstallActionKind.Updated),
                 noOpCount = installResult.Actions.Count(static action => action.ActionKind == SkillInstallActionKind.NoOp),
+                blockedCount = installResult.Actions.Count(static action => IsBlocked(action.ActionKind)),
             });
     }
 
@@ -146,29 +148,30 @@ internal static class SkillsCommandResultFactory
         }
 
         var updateResult = result.Value!;
-        var actions = updateResult.Actions
-            .OrderBy(static action => action.Identity.SkillName, StringComparer.Ordinal)
-            .Select(static action => new
-            {
-                action.Identity.SkillName,
-                action = ToActionLiteral(action.ActionKind),
-                action.Identity.TargetRoot,
-            })
-            .ToArray();
+        var actions = CreateActionPayloads(
+            updateResult.Actions,
+            static action => action.Identity,
+            static action => ToActionLiteral(action.ActionKind),
+            static action => action.BlockedReason,
+            static action => action.Diffs);
 
         return CommandResult.Success(
             command: UcliCommandNames.SkillsUpdate,
-            message: "uCLI official SKILL packages updated.",
+            message: updateResult.DryRun ? "uCLI official SKILL update plan generated." : "uCLI official SKILL packages updated.",
             payload: new
             {
                 host,
                 scope = ProjectScopeLiteral,
                 repositoryRoot,
                 updateResult.TargetRoot,
+                updateResult.DryRun,
+                updateResult.Force,
+                updateResult.PrintDiff,
                 actions,
                 createdCount = updateResult.Actions.Count(static action => action.ActionKind == SkillUpdateActionKind.Created),
                 updatedCount = updateResult.Actions.Count(static action => action.ActionKind == SkillUpdateActionKind.Updated),
                 noOpCount = updateResult.Actions.Count(static action => action.ActionKind == SkillUpdateActionKind.NoOp),
+                blockedCount = updateResult.Actions.Count(static action => IsBlocked(action.ActionKind)),
             });
     }
 
@@ -192,29 +195,29 @@ internal static class SkillsCommandResultFactory
         }
 
         var uninstallResult = result.Value!;
-        var actions = uninstallResult.Actions
-            .OrderBy(static action => action.Identity.SkillName, StringComparer.Ordinal)
-            .Select(static action => new
-            {
-                action.Identity.SkillName,
-                action = ToActionLiteral(action.ActionKind),
-                action.Identity.TargetRoot,
-            })
-            .ToArray();
+        var actions = CreateActionPayloads(
+            uninstallResult.Actions,
+            static action => action.Identity,
+            static action => ToActionLiteral(action.ActionKind),
+            static action => action.BlockedReason,
+            static _ => null);
 
         return CommandResult.Success(
             command: UcliCommandNames.SkillsUninstall,
-            message: "uCLI official SKILL packages uninstalled.",
+            message: uninstallResult.DryRun ? "uCLI official SKILL uninstall plan generated." : "uCLI official SKILL packages uninstalled.",
             payload: new
             {
                 host,
                 scope = ProjectScopeLiteral,
                 repositoryRoot,
                 uninstallResult.TargetRoot,
+                uninstallResult.DryRun,
+                uninstallResult.Force,
                 actions,
                 deletedCount = uninstallResult.Actions.Count(static action => action.ActionKind == SkillUninstallActionKind.Deleted),
                 noOpCount = uninstallResult.Actions.Count(static action => action.ActionKind == SkillUninstallActionKind.NoOp),
                 skippedUnmanagedCount = uninstallResult.Actions.Count(static action => action.ActionKind == SkillUninstallActionKind.SkippedUnmanaged),
+                blockedCount = uninstallResult.Actions.Count(static action => IsBlocked(action.ActionKind)),
             });
     }
 
@@ -294,7 +297,7 @@ internal static class SkillsCommandResultFactory
             Payload: new { },
             Errors:
             [
-                new CommandError(new UcliErrorCode(failure.Code), failure.Message, null),
+                new CommandError(new UcliErrorCode(failure.Code.Value), failure.Message, null),
             ]);
     }
 
@@ -306,9 +309,9 @@ internal static class SkillsCommandResultFactory
             .ToArray();
     }
 
-    private static CliExitCode ResolveExitCode (string code)
+    private static CliExitCode ResolveExitCode (SkillFailureCode code)
     {
-        return code is SkillFailureCodes.HostUnsupported or SkillFailureCodes.PathUnsafe
+        return code == SkillFailureCodes.HostUnsupported || code == SkillFailureCodes.PathUnsafe
             ? CliExitCode.InvalidArgument
             : CliExitCode.ToolError;
     }
@@ -318,7 +321,11 @@ internal static class SkillsCommandResultFactory
         return actionKind switch
         {
             SkillInstallActionKind.Created => "created",
+            SkillInstallActionKind.Updated => "updated",
             SkillInstallActionKind.NoOp => "noOp",
+            SkillInstallActionKind.BlockedManagedOverwrite => "blockedManagedOverwrite",
+            SkillInstallActionKind.BlockedLocalModification => "blockedLocalModification",
+            SkillInstallActionKind.BlockedUnmanaged => "blockedUnmanaged",
             _ => actionKind.ToString(),
         };
     }
@@ -330,6 +337,8 @@ internal static class SkillsCommandResultFactory
             SkillUpdateActionKind.Created => "created",
             SkillUpdateActionKind.Updated => "updated",
             SkillUpdateActionKind.NoOp => "noOp",
+            SkillUpdateActionKind.BlockedLocalModification => "blockedLocalModification",
+            SkillUpdateActionKind.BlockedUnmanaged => "blockedUnmanaged",
             _ => actionKind.ToString(),
         };
     }
@@ -341,7 +350,91 @@ internal static class SkillsCommandResultFactory
             SkillUninstallActionKind.Deleted => "deleted",
             SkillUninstallActionKind.NoOp => "noOp",
             SkillUninstallActionKind.SkippedUnmanaged => "skippedUnmanaged",
+            SkillUninstallActionKind.BlockedLocalModification => "blockedLocalModification",
             _ => actionKind.ToString(),
+        };
+    }
+
+    private static bool IsBlocked (SkillInstallActionKind actionKind)
+    {
+        return actionKind is SkillInstallActionKind.BlockedManagedOverwrite
+            or SkillInstallActionKind.BlockedLocalModification
+            or SkillInstallActionKind.BlockedUnmanaged;
+    }
+
+    private static bool IsBlocked (SkillUpdateActionKind actionKind)
+    {
+        return actionKind is SkillUpdateActionKind.BlockedLocalModification
+            or SkillUpdateActionKind.BlockedUnmanaged;
+    }
+
+    private static bool IsBlocked (SkillUninstallActionKind actionKind)
+    {
+        return actionKind is SkillUninstallActionKind.BlockedLocalModification;
+    }
+
+    private static object[] CreateActionPayloads<TAction> (
+        IReadOnlyList<TAction> actions,
+        Func<TAction, SkillInstallIdentity> getIdentity,
+        Func<TAction, string> getActionLiteral,
+        Func<TAction, SkillBlockedReason?> getBlockedReason,
+        Func<TAction, IReadOnlyList<SkillActionDiff>?> getDiffs)
+    {
+        return actions
+            .OrderBy(action => getIdentity(action).SkillName, StringComparer.Ordinal)
+            .Select(action =>
+            {
+                var identity = getIdentity(action);
+                return new
+                {
+                    identity.SkillName,
+                    action = getActionLiteral(action),
+                    identity.TargetRoot,
+                    blockedReason = ToBlockedReasonLiteral(getBlockedReason(action)),
+                    diffs = CreateDiffPayloads(getDiffs(action)),
+                };
+            })
+            .ToArray();
+    }
+
+    private static string? ToBlockedReasonLiteral (SkillBlockedReason? reason)
+    {
+        return reason switch
+        {
+            null => null,
+            SkillBlockedReason.ManagedOverwriteRequiresForce => "managedOverwriteRequiresForce",
+            SkillBlockedReason.LocalModificationRequiresForce => "localModificationRequiresForce",
+            SkillBlockedReason.UnmanagedTarget => "unmanagedTarget",
+            _ => reason.Value.ToString(),
+        };
+    }
+
+    private static object[] CreateDiffPayloads (IReadOnlyList<SkillActionDiff>? diffs)
+    {
+        return (diffs ?? Array.Empty<SkillActionDiff>())
+            .Select(static diff => new
+            {
+                files = diff.Files
+                    .Select(static file => new
+                    {
+                        relativePath = file.RelativePath,
+                        changeKind = ToDiffChangeKindLiteral(file.ChangeKind),
+                        beforeContent = file.BeforeContent,
+                        afterContent = file.AfterContent,
+                    })
+                    .ToArray(),
+            })
+            .ToArray();
+    }
+
+    private static string ToDiffChangeKindLiteral (SkillDiffChangeKind changeKind)
+    {
+        return changeKind switch
+        {
+            SkillDiffChangeKind.Added => "added",
+            SkillDiffChangeKind.Modified => "modified",
+            SkillDiffChangeKind.Deleted => "deleted",
+            _ => changeKind.ToString(),
         };
     }
 
