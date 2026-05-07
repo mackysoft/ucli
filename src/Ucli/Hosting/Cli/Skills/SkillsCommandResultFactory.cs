@@ -297,7 +297,7 @@ internal static class SkillsCommandResultFactory
             Payload: new { },
             Errors:
             [
-                new CommandError(new UcliErrorCode(failure.Code), failure.Message, null),
+                new CommandError(new UcliErrorCode(failure.Code.Value), failure.Message, null),
             ]);
     }
 
@@ -309,9 +309,9 @@ internal static class SkillsCommandResultFactory
             .ToArray();
     }
 
-    private static CliExitCode ResolveExitCode (string code)
+    private static CliExitCode ResolveExitCode (SkillFailureCode code)
     {
-        return code is SkillFailureCodes.HostUnsupported or SkillFailureCodes.PathUnsafe
+        return code == SkillFailureCodes.HostUnsupported || code == SkillFailureCodes.PathUnsafe
             ? CliExitCode.InvalidArgument
             : CliExitCode.ToolError;
     }

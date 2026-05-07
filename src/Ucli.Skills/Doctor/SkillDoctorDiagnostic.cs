@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Skills.Shared;
+
 namespace MackySoft.Ucli.Skills.Doctor;
 
 /// <summary> Represents one SKILL doctor diagnostic. </summary>
@@ -38,6 +40,24 @@ public sealed record SkillDoctorDiagnostic
         string? skillName = null)
     {
         return Create(SkillDoctorSeverity.Error, code, message, skillName);
+    }
+
+    /// <summary> Creates an error diagnostic from a SKILL failure code. </summary>
+    /// <param name="code"> The diagnostic code. </param>
+    /// <param name="message"> The diagnostic message. </param>
+    /// <param name="skillName"> The related skill name, or <see langword="null" /> for target-level diagnostics. </param>
+    /// <returns> The error diagnostic. </returns>
+    public static SkillDoctorDiagnostic Error (
+        SkillFailureCode code,
+        string message,
+        string? skillName = null)
+    {
+        if (!code.IsValid)
+        {
+            throw new ArgumentException("Failure code must be valid.", nameof(code));
+        }
+
+        return Create(SkillDoctorSeverity.Error, code.Value, message, skillName);
     }
 
     /// <summary> Creates an informational diagnostic. </summary>

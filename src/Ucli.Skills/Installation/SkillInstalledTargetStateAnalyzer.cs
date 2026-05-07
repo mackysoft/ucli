@@ -49,12 +49,12 @@ public sealed class SkillInstalledTargetStateAnalyzer
             return SkillOperationResult<SkillInstalledTargetState>.Success(new SkillInstalledTargetState(SkillInstalledTargetStateKind.Current));
         }
 
-        if (string.Equals(currentResult.Failure!.Code, SkillFailureCodes.InstallTargetUnmanaged, StringComparison.Ordinal))
+        if (currentResult.Failure!.Code == SkillFailureCodes.InstallTargetUnmanaged)
         {
             return SkillOperationResult<SkillInstalledTargetState>.Success(new SkillInstalledTargetState(SkillInstalledTargetStateKind.Unmanaged));
         }
 
-        if (!string.Equals(currentResult.Failure.Code, SkillFailureCodes.InstallTargetDigestMismatch, StringComparison.Ordinal))
+        if (currentResult.Failure.Code != SkillFailureCodes.InstallTargetDigestMismatch)
         {
             return SkillOperationResult<SkillInstalledTargetState>.FailureResult(currentResult.Failure.Code, currentResult.Failure.Message);
         }
@@ -65,7 +65,7 @@ public sealed class SkillInstalledTargetStateAnalyzer
             return SkillOperationResult<SkillInstalledTargetState>.Success(new SkillInstalledTargetState(SkillInstalledTargetStateKind.CleanOutdated));
         }
 
-        return string.Equals(integrityResult.Failure!.Code, SkillFailureCodes.InstallTargetDigestMismatch, StringComparison.Ordinal)
+        return integrityResult.Failure!.Code == SkillFailureCodes.InstallTargetDigestMismatch
             ? SkillOperationResult<SkillInstalledTargetState>.Success(new SkillInstalledTargetState(SkillInstalledTargetStateKind.LocalModified))
             : SkillOperationResult<SkillInstalledTargetState>.FailureResult(integrityResult.Failure.Code, integrityResult.Failure.Message);
     }
