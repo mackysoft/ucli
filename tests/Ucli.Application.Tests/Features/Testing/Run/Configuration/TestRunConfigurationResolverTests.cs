@@ -1,9 +1,7 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
-using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Application.Shared.Unity.Resolution;
 using MackySoft.Ucli.Contracts.Testing;
 
 namespace MackySoft.Ucli.Application.Tests;
