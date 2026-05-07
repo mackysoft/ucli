@@ -23,4 +23,7 @@ internal enum UnityTestExecutionFailureKind
 
     /// <summary> Indicates client-side daemon execution setup failed before Unity request dispatch. </summary>
     ClientSetupFailed = 6,
+
+    /// <summary> Indicates the Unity project is already open or locked by another Unity process. </summary>
+    ProjectAlreadyOpen = 7,
 }

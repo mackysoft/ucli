@@ -1,11 +1,13 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Unity.Resolution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin;
 
@@ -22,21 +24,27 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
 
     private readonly IUnityUcliPluginLocator unityUcliPluginLocator;
 
+    private readonly IUnityProjectLockFileProbe unityProjectLockFileProbe;
+
     /// <summary> Initializes a new instance of the <see cref="UnityBatchmodeProcessLauncher" /> class. </summary>
     /// <param name="unityVersionResolver"> The Unity version resolver dependency. </param>
     /// <param name="unityEditorPathResolver"> The Unity editor path resolver dependency. </param>
     /// <param name="endpointResolver"> The IPC endpoint resolver dependency. </param>
+    /// <param name="unityUcliPluginLocator"> The Unity uCLI plugin locator dependency. </param>
+    /// <param name="unityProjectLockFileProbe"> The Unity project lock-file probe dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public UnityBatchmodeProcessLauncher (
         IUnityVersionResolver unityVersionResolver,
         IUnityEditorPathResolver unityEditorPathResolver,
         IIpcEndpointResolver endpointResolver,
-        IUnityUcliPluginLocator unityUcliPluginLocator)
+        IUnityUcliPluginLocator unityUcliPluginLocator,
+        IUnityProjectLockFileProbe unityProjectLockFileProbe)
     {
         this.unityVersionResolver = unityVersionResolver ?? throw new ArgumentNullException(nameof(unityVersionResolver));
         this.unityEditorPathResolver = unityEditorPathResolver ?? throw new ArgumentNullException(nameof(unityEditorPathResolver));
         this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
         this.unityUcliPluginLocator = unityUcliPluginLocator ?? throw new ArgumentNullException(nameof(unityUcliPluginLocator));
+        this.unityProjectLockFileProbe = unityProjectLockFileProbe ?? throw new ArgumentNullException(nameof(unityProjectLockFileProbe));
     }
 
     /// <summary> Launches one Unity batchmode daemon process for the specified project context. </summary>
@@ -109,6 +117,21 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
         string unityLogPath,
         CancellationToken cancellationToken)
     {
+        var lockFileProbeResult = unityProjectLockFileProbe.Probe(unityProject.UnityProjectRoot);
+        if (!lockFileProbeResult.IsSuccess)
+        {
+            return UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InternalError(
+                lockFileProbeResult.ErrorMessage!,
+                UcliCoreErrorCodes.InternalError));
+        }
+
+        if (lockFileProbeResult.IsLocked)
+        {
+            return UnityBatchmodeProcessLaunchResult.Failure(CreateProjectAlreadyOpenError(
+                unityProject.UnityProjectRoot,
+                lockFileProbeResult.LockFilePath));
+        }
+
         var pluginLocateResult = await unityUcliPluginLocator.Locate(
                 unityProject.UnityProjectRoot,
                 cancellationToken)
@@ -172,6 +195,18 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
             return UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InternalError(
                 $"Failed to start Unity batchmode process. {exception.Message}"));
         }
+    }
+
+    private static ExecutionError CreateProjectAlreadyOpenError (
+        string unityProjectRoot,
+        string? lockFilePath)
+    {
+        var lockFileSuffix = string.IsNullOrWhiteSpace(lockFilePath)
+            ? string.Empty
+            : $" LockFile={lockFilePath}";
+        return ExecutionError.InternalError(
+            $"Unity project is already open or locked by another Unity process. ProjectPath={unityProjectRoot}.{lockFileSuffix}",
+            UnityProcessErrorCodes.UnityProjectAlreadyOpen);
     }
 
     /// <summary> Builds Unity editor command-line argument tokens for batchmode host startup. </summary>
