@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
-using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Contracts.Configuration;
 
 namespace MackySoft.Ucli.Application.Tests.Execution.ReadIndex;

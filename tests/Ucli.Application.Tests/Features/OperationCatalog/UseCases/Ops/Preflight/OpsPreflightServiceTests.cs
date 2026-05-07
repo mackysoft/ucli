@@ -2,7 +2,6 @@ using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Preflight;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
-using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
 using static MackySoft.Ucli.Application.Tests.Helpers.ApplicationCommandInputTestHelper;

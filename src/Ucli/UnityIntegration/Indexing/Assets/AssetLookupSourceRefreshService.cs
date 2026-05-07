@@ -1,11 +1,11 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Index;
-using MackySoft.Ucli.UnityIntegration.Indexing.Assets.Access;
+using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Assets;
 
@@ -24,18 +24,18 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
         = "Failed to persist refreshed asset lookup readIndex because retry snapshot read failed.";
 
     private readonly IAssetLookupSnapshotReader assetLookupSnapshotReader;
-    private readonly IAssetLookupStore assetLookupStore;
-    private readonly IIndexInputFingerprintCalculator indexInputFingerprintCalculator;
+    private readonly IReadIndexArtifactWriter artifactWriter;
+    private readonly IReadIndexInputFingerprintProvider inputFingerprintProvider;
 
     /// <summary> Initializes a new instance of the <see cref="AssetLookupSourceRefreshService" /> class. </summary>
     public AssetLookupSourceRefreshService (
         IAssetLookupSnapshotReader assetLookupSnapshotReader,
-        IAssetLookupStore assetLookupStore,
-        IIndexInputFingerprintCalculator indexInputFingerprintCalculator)
+        IReadIndexArtifactWriter artifactWriter,
+        IReadIndexInputFingerprintProvider inputFingerprintProvider)
     {
         this.assetLookupSnapshotReader = assetLookupSnapshotReader ?? throw new ArgumentNullException(nameof(assetLookupSnapshotReader));
-        this.assetLookupStore = assetLookupStore ?? throw new ArgumentNullException(nameof(assetLookupStore));
-        this.indexInputFingerprintCalculator = indexInputFingerprintCalculator ?? throw new ArgumentNullException(nameof(indexInputFingerprintCalculator));
+        this.artifactWriter = artifactWriter ?? throw new ArgumentNullException(nameof(artifactWriter));
+        this.inputFingerprintProvider = inputFingerprintProvider ?? throw new ArgumentNullException(nameof(inputFingerprintProvider));
     }
 
     /// <inheritdoc />
@@ -45,7 +45,6 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
         UcliCommand command,
         UnityExecutionMode mode,
         TimeSpan timeout,
-        ReadIndexMode readIndexMode,
         string fallbackReason,
         bool failFast = false,
         CancellationToken cancellationToken = default)
@@ -73,7 +72,7 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
             {
                 if (response != null)
                 {
-                    persistFailure = AssetLookupAccessUtilities.CombineFallbackReasons(
+                    persistFailure = ReadIndexAccessUtilities.CombineFallbackReasons(
                         persistFailure,
                         $"{RetrySnapshotReadFailurePrefix} {attemptResult.FetchResult.Message}");
                     break;
@@ -90,8 +89,8 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
             }
         }
 
-        var combinedFallbackReason = AssetLookupAccessUtilities.CombineFallbackReasons(
-            readIndexMode == ReadIndexMode.Disabled ? "readIndex disabled by mode." : fallbackReason,
+        var combinedFallbackReason = ReadIndexAccessUtilities.CombineFallbackReasons(
+            fallbackReason,
             persistFailure);
         return AssetLookupRefreshResult.Success(response!, combinedFallbackReason);
     }
@@ -107,8 +106,8 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var snapshotBeforeRead = await indexInputFingerprintCalculator.TryCompute(
-                project.UnityProjectRoot,
+        var snapshotBeforeRead = await inputFingerprintProvider.TryCompute(
+                project,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -131,8 +130,8 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
             return (fetchResult, InputFingerprintFailureMessage, false);
         }
 
-        var snapshotAfterRead = await indexInputFingerprintCalculator.TryCompute(
-                project.UnityProjectRoot,
+        var snapshotAfterRead = await inputFingerprintProvider.TryCompute(
+                project,
                 cancellationToken)
             .ConfigureAwait(false);
         if (snapshotAfterRead == null)
@@ -149,7 +148,7 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
 
         try
         {
-            await assetLookupStore.Write(
+            await artifactWriter.WriteAssetLookups(
                     project.RepositoryRoot,
                     project.ProjectFingerprint,
                     fetchResult.Response!.GeneratedAtUtc,

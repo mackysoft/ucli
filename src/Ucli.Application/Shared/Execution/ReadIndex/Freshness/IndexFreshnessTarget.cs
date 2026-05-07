@@ -8,4 +8,5 @@ internal enum IndexFreshnessTarget
     SchemasCatalog,
     AssetSearchLookup,
     GuidPathLookup,
+    SceneTreeLite,
 }

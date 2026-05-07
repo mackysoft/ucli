@@ -1,9 +1,8 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Index;
+using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 
 namespace MackySoft.Ucli.Tests.Scenes;
@@ -17,8 +16,8 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
         var reader = new StubSceneTreeLiteSnapshotReader();
         var response = CreateResponse("Assets/Scenes/Main.unity", "Root");
         reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Success(response));
-        var store = new StubSceneTreeLiteStore();
-        var calculator = new StubSceneTreeLiteSourceHashCalculator();
+        var store = new StubReadIndexArtifactWriter();
+        var calculator = new StubReadIndexSceneSourceHashProvider();
         calculator.Enqueue("hash-1");
         calculator.Enqueue("hash-1");
         var service = new SceneTreeLiteSourceRefreshService(reader, store, calculator);
@@ -29,7 +28,6 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             UcliCommandIds.Query,
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
-            ReadIndexMode.AllowStale,
             "Assets/Scenes/Main.unity",
             "readIndex stale.",
             failFast: true,
@@ -54,8 +52,8 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
         var firstResponse = CreateResponse("Assets/Scenes/Main.unity", "First");
         reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Success(firstResponse));
         reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Failure("retry read timed out", IpcErrorCodes.InternalError));
-        var store = new StubSceneTreeLiteStore();
-        var calculator = new StubSceneTreeLiteSourceHashCalculator();
+        var store = new StubReadIndexArtifactWriter();
+        var calculator = new StubReadIndexSceneSourceHashProvider();
         calculator.Enqueue("hash-1");
         calculator.Enqueue("hash-2");
         calculator.Enqueue("hash-2");
@@ -67,7 +65,6 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             UcliCommandIds.Query,
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
-            ReadIndexMode.AllowStale,
             "Assets/Scenes/Main.unity",
             "readIndex stale.",
             cancellationToken: CancellationToken.None);
@@ -91,8 +88,8 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
         var reader = new StubSceneTreeLiteSnapshotReader();
         var response = CreateResponse("Packages/com.example/Scenes/Main.unity", "PackageRoot");
         reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Success(response));
-        var store = new StubSceneTreeLiteStore();
-        var calculator = new StubSceneTreeLiteSourceHashCalculator();
+        var store = new StubReadIndexArtifactWriter();
+        var calculator = new StubReadIndexSceneSourceHashProvider();
         var service = new SceneTreeLiteSourceRefreshService(reader, store, calculator);
 
         var result = await service.Refresh(
@@ -101,7 +98,6 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             UcliCommandIds.Query,
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
-            ReadIndexMode.AllowStale,
             "Packages/com.example/Scenes/Main.unity",
             "scene-tree-lite readIndex is unavailable for non-Assets scene paths.",
             cancellationToken: CancellationToken.None);
@@ -174,13 +170,13 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
         }
     }
 
-    private sealed class StubSceneTreeLiteStore : ISceneTreeLiteStore
+    private sealed class StubReadIndexArtifactWriter : IReadIndexArtifactWriter
     {
         public int CallCount { get; private set; }
 
         public string? SourceInputsHash { get; private set; }
 
-        public ValueTask Write (
+        public ValueTask WriteSceneTreeLite (
             string storageRoot,
             string projectFingerprint,
             DateTimeOffset generatedAtUtc,
@@ -194,9 +190,33 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             SourceInputsHash = sourceInputsHash;
             return ValueTask.CompletedTask;
         }
+
+        public ValueTask WriteOpsCatalog (
+            string storageRoot,
+            string projectFingerprint,
+            DateTimeOffset generatedAtUtc,
+            IReadOnlyList<IndexOpEntryJsonContract> operations,
+            string sourceInputsHash,
+            ReadIndexInputHashSnapshot? manifestInputSnapshot,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
+        public ValueTask WriteAssetLookups (
+            string storageRoot,
+            string projectFingerprint,
+            DateTimeOffset generatedAtUtc,
+            IReadOnlyList<IndexAssetSearchEntryJsonContract> assetSearchEntries,
+            IReadOnlyList<IndexGuidPathEntryJsonContract> guidPathEntries,
+            ReadIndexInputHashSnapshot inputSnapshot,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
     }
 
-    private sealed class StubSceneTreeLiteSourceHashCalculator : ISceneTreeLiteSourceHashCalculator
+    private sealed class StubReadIndexSceneSourceHashProvider : IReadIndexSceneSourceHashProvider
     {
         private readonly Queue<string?> results = new();
 
@@ -208,7 +228,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
         }
 
         public ValueTask<string?> TryCompute (
-            string projectRootPath,
+            ResolvedUnityProjectContext unityProject,
             string scenePath,
             CancellationToken cancellationToken = default)
         {
