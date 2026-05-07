@@ -46,8 +46,7 @@ public sealed class UnityOneshotIpcClientTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(unityProject.RepositoryRoot, lockProvider.LastStorageRoot);
-        Assert.Equal(unityProject.ProjectFingerprint, lockProvider.LastProjectFingerprint);
+        Assert.Same(unityProject, lockProvider.LastUnityProject);
         Assert.Equal(
             UcliStoragePathResolver.ResolveUnityLogPath(unityProject.RepositoryRoot, unityProject.ProjectFingerprint),
             launcher.LastUnityLogPath);
@@ -120,7 +119,7 @@ public sealed class UnityOneshotIpcClientTests
             launcher,
             new StubIpcEndpointResolver(new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock")),
             new StubUnityIpcTransportClient(_ => CreateSuccessResponse("unused")),
-            new StubProjectLifecycleLockProvider((_, _, _, cancellationToken) =>
+            new StubProjectLifecycleLockProvider((_, _, cancellationToken) =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 throw new TimeoutException("Timed out while waiting for lifecycle lock.");
@@ -415,10 +414,10 @@ public sealed class UnityOneshotIpcClientTests
 
     private sealed class StubProjectLifecycleLockProvider : IProjectLifecycleLockProvider
     {
-        private readonly Func<string, string, TimeSpan, CancellationToken, IAsyncDisposable> acquire;
+        private readonly Func<ResolvedUnityProjectContext, TimeSpan, CancellationToken, IAsyncDisposable> acquire;
 
         public StubProjectLifecycleLockProvider ()
-            : this((storageRoot, projectFingerprint, _, cancellationToken) =>
+            : this((_, _, cancellationToken) =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 return new NoOpAsyncDisposable();
@@ -426,25 +425,21 @@ public sealed class UnityOneshotIpcClientTests
         {
         }
 
-        public StubProjectLifecycleLockProvider (Func<string, string, TimeSpan, CancellationToken, IAsyncDisposable> acquire)
+        public StubProjectLifecycleLockProvider (Func<ResolvedUnityProjectContext, TimeSpan, CancellationToken, IAsyncDisposable> acquire)
         {
             this.acquire = acquire ?? throw new ArgumentNullException(nameof(acquire));
         }
 
-        public string? LastStorageRoot { get; private set; }
-
-        public string? LastProjectFingerprint { get; private set; }
+        public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
 
         public ValueTask<IAsyncDisposable> Acquire (
-            string storageRoot,
-            string projectFingerprint,
+            ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            LastStorageRoot = storageRoot;
-            LastProjectFingerprint = projectFingerprint;
-            return ValueTask.FromResult(acquire(storageRoot, projectFingerprint, timeout, cancellationToken));
+            LastUnityProject = unityProject;
+            return ValueTask.FromResult(acquire(unityProject, timeout, cancellationToken));
         }
     }
 

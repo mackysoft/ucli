@@ -410,6 +410,31 @@ public sealed class DaemonStartOperationTests
         Assert.Contains("lifecycle lock", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WhenWorkflowBegins_AcquiresLifecycleLockForResolvedUnityProject ()
+    {
+        var context = CreateContext("fingerprint-start-lock-context");
+        var lockProvider = new StubProjectLifecycleLockProvider();
+        var operation = CreateOperation(
+            daemonSessionStore: new StubDaemonSessionStore
+            {
+                ReadResult = DaemonSessionReadResult.Success(null),
+            },
+            daemonSessionCleanupService: new StubDaemonSessionCleanupService(),
+            daemonExistingSessionGateService: new StubDaemonExistingSessionGateService(),
+            daemonLaunchService: new StubDaemonLaunchService
+            {
+                NextResult = DaemonStartResult.Started(CreateSession(processId: 2026, projectFingerprint: context.ProjectFingerprint)),
+            },
+            lifecycleLockProvider: lockProvider);
+
+        var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Same(context, lockProvider.LastUnityProject);
+    }
+
     private static DaemonStartOperation CreateOperation (
         IDaemonSessionStore daemonSessionStore,
         IDaemonSessionCleanupService daemonSessionCleanupService,
@@ -459,12 +484,14 @@ public sealed class DaemonStartOperationTests
     {
         public bool ThrowTimeoutOnAcquire { get; set; }
 
+        public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
+
         public ValueTask<IAsyncDisposable> Acquire (
-            string storageRoot,
-            string projectFingerprint,
+            ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
+            LastUnityProject = unityProject;
             if (ThrowTimeoutOnAcquire)
             {
                 throw new TimeoutException("lock timeout");

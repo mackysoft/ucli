@@ -188,8 +188,7 @@ public sealed class DaemonStopOperationTests
         public bool ThrowTimeoutOnAcquire { get; set; }
 
         public ValueTask<IAsyncDisposable> Acquire (
-            string storageRoot,
-            string projectFingerprint,
+            ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {

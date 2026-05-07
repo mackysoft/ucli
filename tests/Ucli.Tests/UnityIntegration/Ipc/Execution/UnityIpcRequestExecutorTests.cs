@@ -886,8 +886,7 @@ public sealed class UnityIpcRequestExecutorTests
     private sealed class StubProjectLifecycleLockProvider : IProjectLifecycleLockProvider
     {
         public ValueTask<IAsyncDisposable> Acquire (
-            string storageRoot,
-            string projectFingerprint,
+            ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {

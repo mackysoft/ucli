@@ -20,11 +20,12 @@ public sealed class UnityTestExecutorTests
         var artifactPaths = CreateArtifactPaths(scope);
         scope.WriteFile("run/results.xml", "<test-run />");
         scope.WriteFile("run/editor.log", "log");
+        var lockProvider = new StubProjectLifecycleLockProvider();
 
         var executor = new UnityTestExecutor(
             new StubUnityCommandBuilder(["-batchmode"]),
             new StubProcessRunner(ProcessRunResult.Exited(0)),
-            new StubProjectLifecycleLockProvider(),
+            lockProvider,
             new StubUnityProjectLockFileProbe());
 
         var result = await executor.Execute(
@@ -35,6 +36,7 @@ public sealed class UnityTestExecutorTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(0, result.ProcessExitCode);
+        Assert.Same(configuration.UnityProject, lockProvider.LastUnityProject);
     }
 
     [Fact]
@@ -384,13 +386,15 @@ public sealed class UnityTestExecutorTests
             this.throwTimeout = throwTimeout;
         }
 
+        public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
+
         public ValueTask<IAsyncDisposable> Acquire (
-            string storageRoot,
-            string projectFingerprint,
+            ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            LastUnityProject = unityProject;
             if (throwTimeout)
             {
                 throw new TimeoutException("lock held");

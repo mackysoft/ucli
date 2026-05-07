@@ -59,11 +59,14 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
         try
         {
             lifecycleLock = await lifecycleLockProvider.Acquire(
-                    configuration.UnityProject.RepositoryRoot,
-                    configuration.UnityProject.ProjectFingerprint,
+                    configuration.UnityProject,
                     ProjectExecutionLockAcquireTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (TimeoutException)
         {
@@ -71,6 +74,13 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
                 UnityTestExecutionFailureKind.ProjectAlreadyOpen,
                 UnityProjectLockFailureMessage.CreateAlreadyOpen(configuration.UnityProject.UnityProjectRoot),
                 UnityProcessErrorCodes.UnityProjectAlreadyOpen);
+        }
+        catch (Exception exception)
+        {
+            return UnityTestExecutionResult.Failure(
+                UnityTestExecutionFailureKind.StartFailed,
+                $"Failed to acquire project lifecycle lock. {exception.Message}",
+                UcliCoreErrorCodes.InternalError);
         }
 
         await using var acquiredLifecycleLock = lifecycleLock;
