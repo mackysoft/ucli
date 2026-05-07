@@ -386,7 +386,7 @@ public sealed class SkillUninstallServiceTests
     public async Task PackageRemoverDeleteAsync_RejectsTargetRootDeletion ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "uninstall-remover-target-root");
-        var remover = new SkillInstalledPackageRemover();
+        var remover = SkillTestData.CreatePackageRemover();
 
         var result = await remover.DeleteAsync(scope.FullPath, scope.FullPath, CancellationToken.None);
 

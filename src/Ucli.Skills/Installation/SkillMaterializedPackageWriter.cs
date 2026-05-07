@@ -10,12 +10,9 @@ public sealed class SkillMaterializedPackageWriter : ISkillMaterializedPackageWr
     private readonly ISkillPackageDirectoryOperations directoryOperations;
 
     /// <summary> Initializes a new instance of the <see cref="SkillMaterializedPackageWriter" /> class. </summary>
-    public SkillMaterializedPackageWriter ()
-        : this(new SkillPackageDirectoryOperations())
-    {
-    }
-
-    internal SkillMaterializedPackageWriter (ISkillPackageDirectoryOperations directoryOperations)
+    /// <param name="directoryOperations"> The directory operations used by package transactions. </param>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="directoryOperations" /> is <see langword="null" />. </exception>
+    public SkillMaterializedPackageWriter (ISkillPackageDirectoryOperations directoryOperations)
     {
         this.directoryOperations = directoryOperations ?? throw new ArgumentNullException(nameof(directoryOperations));
     }

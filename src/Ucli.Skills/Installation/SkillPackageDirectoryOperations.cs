@@ -1,7 +1,7 @@
 namespace MackySoft.Ucli.Skills.Installation;
 
-/// <summary> Implements SKILL package directory transactions against the local file system. </summary>
-internal sealed class SkillPackageDirectoryOperations : ISkillPackageDirectoryOperations
+/// <summary> Executes SKILL package directory primitives against the local file system. </summary>
+public sealed class SkillPackageDirectoryOperations : ISkillPackageDirectoryOperations
 {
     /// <inheritdoc />
     public bool Exists (string path)

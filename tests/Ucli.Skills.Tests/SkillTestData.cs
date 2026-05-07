@@ -109,7 +109,7 @@ internal static class SkillTestData
             new SkillInstallTargetResolver(hostAdapters),
             new SkillMaterializationService(hostAdapters),
             new SkillInstalledTargetStateAnalyzer(installedPackageValidator, CreateInstalledPackageIntegrityVerifier(hostAdapters)),
-            new SkillMaterializedPackageWriter(),
+            CreatePackageWriter(),
             new SkillMaterializedPackageDiffBuilder());
     }
 
@@ -121,7 +121,7 @@ internal static class SkillTestData
             new SkillInstallTargetResolver(hostAdapters),
             new SkillMaterializationService(hostAdapters),
             new SkillInstalledTargetStateAnalyzer(installedPackageValidator, CreateInstalledPackageIntegrityVerifier(hostAdapters)),
-            packageWriter ?? new SkillMaterializedPackageWriter(),
+            packageWriter ?? CreatePackageWriter(),
             new SkillMaterializedPackageDiffBuilder());
     }
 
@@ -132,7 +132,7 @@ internal static class SkillTestData
         return new SkillUninstallService(
             new SkillInstallTargetResolver(hostAdapters),
             new SkillInstalledTargetStateAnalyzer(installedPackageValidator, CreateInstalledPackageIntegrityVerifier(hostAdapters)),
-            new SkillInstalledPackageRemover());
+            CreatePackageRemover());
     }
 
     internal static SkillInstallationScanner CreateInstallationScanner ()
@@ -142,6 +142,16 @@ internal static class SkillTestData
             hostAdapters,
             CreateInstalledManifestReader(hostAdapters),
             CreateInstalledPackageValidator(hostAdapters));
+    }
+
+    internal static SkillMaterializedPackageWriter CreatePackageWriter ()
+    {
+        return new SkillMaterializedPackageWriter(new SkillPackageDirectoryOperations());
+    }
+
+    internal static SkillInstalledPackageRemover CreatePackageRemover ()
+    {
+        return new SkillInstalledPackageRemover(new SkillPackageDirectoryOperations());
     }
 
     internal static SkillDoctorService CreateDoctorService ()

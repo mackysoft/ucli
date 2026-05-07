@@ -16,7 +16,7 @@ public sealed class SkillMaterializedPackageWriterTests
         var targetRoot = scope.CreateDirectory(".agents/skills");
         var skillDirectory = scope.CreateDirectory(Path.Combine(".agents", "skills", "sample-skill"));
         var skillPath = scope.WriteFile(Path.Combine(".agents", "skills", "sample-skill", "SKILL.md"), "# Existing\n");
-        var writer = new SkillMaterializedPackageWriter();
+        var writer = SkillTestData.CreatePackageWriter();
         var package = new SkillMaterializedPackage(
             "sample-skill",
             OpenAiSkillHostAdapter.HostKey,
@@ -69,7 +69,7 @@ public sealed class SkillMaterializedPackageWriterTests
         var targetRoot = scope.CreateDirectory(".agents/skills");
         var skillDirectory = scope.CreateDirectory(Path.Combine(".agents", "skills", "sample-skill"));
         var skillPath = scope.WriteFile(Path.Combine(".agents", "skills", "sample-skill", "SKILL.md"), "# Existing\n");
-        var writer = new SkillMaterializedPackageWriter();
+        var writer = SkillTestData.CreatePackageWriter();
         var package = new SkillMaterializedPackage(
             "sample-skill",
             OpenAiSkillHostAdapter.HostKey,
@@ -102,7 +102,7 @@ public sealed class SkillMaterializedPackageWriterTests
     {
         using var targetScope = TestDirectories.CreateTempScope("ucli-skills", "writer-target-root");
         using var outsideScope = TestDirectories.CreateTempScope("ucli-skills", "writer-outside-root");
-        var writer = new SkillMaterializedPackageWriter();
+        var writer = SkillTestData.CreatePackageWriter();
         var outsideSkillDirectory = Path.Combine(outsideScope.FullPath, "skill");
 
         var result = await writer.WriteAsync(

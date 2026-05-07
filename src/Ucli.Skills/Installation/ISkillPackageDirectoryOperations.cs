@@ -1,7 +1,7 @@
 namespace MackySoft.Ucli.Skills.Installation;
 
-/// <summary> Provides replaceable directory operations for SKILL package transactions. </summary>
-internal interface ISkillPackageDirectoryOperations
+/// <summary> Provides directory primitives used by SKILL package transactions. </summary>
+public interface ISkillPackageDirectoryOperations
 {
     /// <summary> Determines whether the directory exists. </summary>
     /// <param name="path"> The directory path to inspect. </param>

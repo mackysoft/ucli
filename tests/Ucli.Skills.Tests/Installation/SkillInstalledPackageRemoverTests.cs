@@ -34,7 +34,7 @@ public sealed class SkillInstalledPackageRemoverTests
         var targetRoot = scope.CreateDirectory(".agents/skills");
         var skillDirectory = scope.CreateDirectory(Path.Combine(".agents", "skills", "sample-skill"));
         var skillPath = scope.WriteFile(Path.Combine(".agents", "skills", "sample-skill", "SKILL.md"), "# Existing\n");
-        var remover = new SkillInstalledPackageRemover();
+        var remover = SkillTestData.CreatePackageRemover();
         var preconditionCallCount = 0;
 
         var result = await remover.DeleteAsync(
