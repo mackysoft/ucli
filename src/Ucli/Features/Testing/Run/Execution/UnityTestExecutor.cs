@@ -191,18 +191,15 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
             UnityProcessErrorCodes.UnityProjectAlreadyOpen);
     }
 
-    private static UnityTestExecutionResult? TryCreateProjectAlreadyOpenFailureFromEditorLog (
+    private UnityTestExecutionResult? TryCreateProjectAlreadyOpenFailureFromEditorLog (
         ResolvedTestRunConfiguration configuration,
         ArtifactPaths artifactPaths)
     {
-        if (!UnityProjectAlreadyOpenLogClassifier.ContainsAlreadyOpenMarker(artifactPaths.EditorLogPath))
+        if (!UnityProjectAlreadyOpenLogMarker.ExistsInFile(artifactPaths.EditorLogPath))
         {
             return null;
         }
 
-        return UnityTestExecutionResult.Failure(
-            UnityTestExecutionFailureKind.ProjectAlreadyOpen,
-            UnityProjectLockFailureMessage.CreateAlreadyOpen(configuration.UnityProject.UnityProjectRoot),
-            UnityProcessErrorCodes.UnityProjectAlreadyOpen);
+        return TryCreateProjectLockFailure(configuration.UnityProject.UnityProjectRoot);
     }
 }

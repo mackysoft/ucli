@@ -30,21 +30,26 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
     private readonly IProjectLifecycleLockProvider lifecycleLockProvider;
 
+    private readonly IUnityProjectLockFileProbe unityProjectLockFileProbe;
+
     /// <summary> Initializes a new instance of the <see cref="UnityOneshotIpcClient" /> class. </summary>
     /// <param name="batchmodeProcessLauncher"> The Unity batchmode process launcher dependency. </param>
     /// <param name="endpointResolver"> The IPC endpoint resolver dependency. </param>
     /// <param name="transportClient"> The shared IPC transport client dependency. </param>
     /// <param name="lifecycleLockProvider"> The project lifecycle lock provider dependency. </param>
+    /// <param name="unityProjectLockFileProbe"> The Unity project lock-file probe dependency. </param>
     public UnityOneshotIpcClient (
         IUnityBatchmodeProcessLauncher batchmodeProcessLauncher,
         IIpcEndpointResolver endpointResolver,
         IUnityIpcTransportClient transportClient,
-        IProjectLifecycleLockProvider lifecycleLockProvider)
+        IProjectLifecycleLockProvider lifecycleLockProvider,
+        IUnityProjectLockFileProbe unityProjectLockFileProbe)
     {
         this.batchmodeProcessLauncher = batchmodeProcessLauncher ?? throw new ArgumentNullException(nameof(batchmodeProcessLauncher));
         this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
         this.transportClient = transportClient ?? throw new ArgumentNullException(nameof(transportClient));
         this.lifecycleLockProvider = lifecycleLockProvider ?? throw new ArgumentNullException(nameof(lifecycleLockProvider));
+        this.unityProjectLockFileProbe = unityProjectLockFileProbe ?? throw new ArgumentNullException(nameof(unityProjectLockFileProbe));
     }
 
     /// <inheritdoc />
@@ -254,17 +259,35 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         }
     }
 
-    private static ExecutionError? TryCreateProjectAlreadyOpenErrorFromUnityLog (
+    private ExecutionError? TryCreateProjectAlreadyOpenErrorFromUnityLog (
         string unityProjectRoot,
         string unityLogPath)
     {
-        if (!UnityProjectAlreadyOpenLogClassifier.ContainsAlreadyOpenMarker(unityLogPath))
+        if (!UnityProjectAlreadyOpenLogMarker.ExistsInFile(unityLogPath))
+        {
+            return null;
+        }
+
+        return TryCreateProjectAlreadyOpenError(unityProjectRoot);
+    }
+
+    private ExecutionError? TryCreateProjectAlreadyOpenError (string unityProjectRoot)
+    {
+        var lockFileProbeResult = unityProjectLockFileProbe.Probe(unityProjectRoot);
+        if (!lockFileProbeResult.IsSuccess)
+        {
+            return ExecutionError.InternalError(
+                lockFileProbeResult.ErrorMessage!,
+                UcliCoreErrorCodes.InternalError);
+        }
+
+        if (!lockFileProbeResult.IsLocked)
         {
             return null;
         }
 
         return ExecutionError.InternalError(
-            UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProjectRoot),
+            UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProjectRoot, lockFileProbeResult.LockFilePath),
             UnityProcessErrorCodes.UnityProjectAlreadyOpen);
     }
 

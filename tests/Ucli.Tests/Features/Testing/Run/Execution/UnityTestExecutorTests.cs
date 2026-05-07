@@ -64,18 +64,22 @@ public sealed class UnityTestExecutorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenUnityReportsProjectAlreadyOpenInEditorLog_ReturnsProjectAlreadyOpen ()
+    public async Task Execute_WhenUnityReportsProjectAlreadyOpenInEditorLogAndLockFileExists_ReturnsProjectAlreadyOpen ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-test-executor", "already-open-log");
         var configuration = CreateConfiguration(scope);
         var artifactPaths = CreateArtifactPaths(scope);
+        var lockFilePath = scope.GetPath("UnityProject/Temp/UnityLockfile");
         scope.WriteFile("run/editor.log", "It looks like another Unity instance is running with this project open.");
 
         var executor = new UnityTestExecutor(
             new StubUnityCommandBuilder(["-batchmode"]),
             new StubProcessRunner(ProcessRunResult.Exited(1, "Unity exited.")),
             new StubProjectLifecycleLockProvider(),
-            new StubUnityProjectLockFileProbe());
+            new StubUnityProjectLockFileProbe(
+                UnityProjectLockFileProbeResult.Unlocked(lockFilePath),
+                UnityProjectLockFileProbeResult.Unlocked(lockFilePath),
+                UnityProjectLockFileProbeResult.Locked(lockFilePath)));
 
         var result = await executor.Execute(
             configuration,
@@ -86,6 +90,32 @@ public sealed class UnityTestExecutorTests
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityTestExecutionFailureKind.ProjectAlreadyOpen, result.FailureKind);
         Assert.Equal(UnityProcessErrorCodes.UnityProjectAlreadyOpen, result.ErrorCode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenUnityReportsProjectAlreadyOpenInEditorLogWithoutLockFile_ReturnsAbnormalExit ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-test-executor", "already-open-log-unlocked");
+        var configuration = CreateConfiguration(scope);
+        var artifactPaths = CreateArtifactPaths(scope);
+        scope.WriteFile("run/editor.log", "It looks like another Unity instance is running with this project open.");
+
+        var executor = new UnityTestExecutor(
+            new StubUnityCommandBuilder(["-batchmode"]),
+            new StubProcessRunner(ProcessRunResult.Exited(17, "Process exited with code 17.")),
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe());
+
+        var result = await executor.Execute(
+            configuration,
+            artifactPaths,
+            TimeSpan.FromMilliseconds(3000),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityTestExecutionFailureKind.AbnormalExit, result.FailureKind);
+        Assert.Null(result.ErrorCode);
     }
 
     [Fact]

@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Shared.Unity.ProjectLock;
 
 public sealed class DaemonStartupReadinessProbeTests
 {
@@ -227,7 +228,10 @@ public sealed class DaemonStartupReadinessProbeTests
                 path: "/tmp/unity.log",
                 sizeBytes: 256),
         };
-        var probe = CreateProbe(pingClient, logReader);
+        var probe = CreateProbe(
+            pingClient,
+            logReader,
+            UnityProjectLockFileProbeResult.Locked("/tmp/unity-project/Temp/UnityLockfile"));
 
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-already-open"),
@@ -373,9 +377,13 @@ public sealed class DaemonStartupReadinessProbeTests
 
     private static DaemonStartupReadinessProbe CreateProbe (
         StubDaemonPingInfoClient pingClient,
-        StubUnityLogReader logReader)
+        StubUnityLogReader logReader,
+        UnityProjectLockFileProbeResult? lockFileProbeResult = null)
     {
-        return new DaemonStartupReadinessProbe(pingClient, logReader);
+        return new DaemonStartupReadinessProbe(
+            pingClient,
+            logReader,
+            new StubUnityProjectLockFileProbe(lockFileProbeResult));
     }
 
     private static IpcPingResponse CreatePingPayload (
@@ -456,6 +464,21 @@ public sealed class DaemonStartupReadinessProbeTests
         {
             CallCount++;
             return ValueTask.FromResult(NextResult);
+        }
+    }
+
+    private sealed class StubUnityProjectLockFileProbe : IUnityProjectLockFileProbe
+    {
+        private readonly UnityProjectLockFileProbeResult result;
+
+        public StubUnityProjectLockFileProbe (UnityProjectLockFileProbeResult? result)
+        {
+            this.result = result ?? UnityProjectLockFileProbeResult.Unlocked("/tmp/unity-project/Temp/UnityLockfile");
+        }
+
+        public UnityProjectLockFileProbeResult Probe (string unityProjectRoot)
+        {
+            return result;
         }
     }
 }

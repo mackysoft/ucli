@@ -17,16 +17,21 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
 
     private readonly IUnityLogReader unityLogReader;
 
+    private readonly IUnityProjectLockFileProbe unityProjectLockFileProbe;
+
     /// <summary> Initializes a new instance of the <see cref="DaemonStartupReadinessProbe" /> class. </summary>
     /// <param name="daemonPingInfoClient"> The daemon ping-info client dependency. </param>
     /// <param name="unityLogReader"> The Unity log-reader dependency. </param>
+    /// <param name="unityProjectLockFileProbe"> The Unity project lock-file probe dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStartupReadinessProbe (
         IDaemonPingInfoClient daemonPingInfoClient,
-        IUnityLogReader unityLogReader)
+        IUnityLogReader unityLogReader,
+        IUnityProjectLockFileProbe unityProjectLockFileProbe)
     {
         this.daemonPingInfoClient = daemonPingInfoClient ?? throw new ArgumentNullException(nameof(daemonPingInfoClient));
         this.unityLogReader = unityLogReader ?? throw new ArgumentNullException(nameof(unityLogReader));
+        this.unityProjectLockFileProbe = unityProjectLockFileProbe ?? throw new ArgumentNullException(nameof(unityProjectLockFileProbe));
     }
 
     /// <summary> Waits until daemon startup accepts execution requests, or fails when timeout expires or startup reaches one non-waitable lifecycle state. </summary>
@@ -233,15 +238,33 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
         }
 
         var latestStartupLogText = DaemonStartupFailureLogClassifier.GetLatestStartupLogText(logReadResult.Text);
-        if (UnityProjectAlreadyOpenLogClassifier.ContainsAlreadyOpenMarkerInText(latestStartupLogText))
+        if (UnityProjectAlreadyOpenLogMarker.ExistsInText(latestStartupLogText))
         {
-            return ExecutionError.InternalError(
-                UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProject.UnityProjectRoot),
-                UnityProcessErrorCodes.UnityProjectAlreadyOpen);
+            return TryCreateProjectAlreadyOpenError(unityProject.UnityProjectRoot);
         }
 
         return DaemonStartupFailureLogClassifier.TryClassify(latestStartupLogText, out var error)
             ? error
             : null;
+    }
+
+    private ExecutionError? TryCreateProjectAlreadyOpenError (string unityProjectRoot)
+    {
+        var lockFileProbeResult = unityProjectLockFileProbe.Probe(unityProjectRoot);
+        if (!lockFileProbeResult.IsSuccess)
+        {
+            return ExecutionError.InternalError(
+                lockFileProbeResult.ErrorMessage!,
+                UcliCoreErrorCodes.InternalError);
+        }
+
+        if (!lockFileProbeResult.IsLocked)
+        {
+            return null;
+        }
+
+        return ExecutionError.InternalError(
+            UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProjectRoot, lockFileProbeResult.LockFilePath),
+            UnityProcessErrorCodes.UnityProjectAlreadyOpen);
     }
 }

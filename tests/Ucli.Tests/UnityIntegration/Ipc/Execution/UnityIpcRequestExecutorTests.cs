@@ -7,6 +7,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
@@ -538,7 +539,8 @@ public sealed class UnityIpcRequestExecutorTests
                 launcher,
                 new StubIpcEndpointResolver(new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock")),
                 oneshotTransportClient,
-                new StubProjectLifecycleLockProvider()),
+                new StubProjectLifecycleLockProvider(),
+                new StubUnityProjectLockFileProbe()),
         ];
     }
 
@@ -891,6 +893,14 @@ public sealed class UnityIpcRequestExecutorTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult<IAsyncDisposable>(new NoOpAsyncDisposable());
+        }
+    }
+
+    private sealed class StubUnityProjectLockFileProbe : IUnityProjectLockFileProbe
+    {
+        public UnityProjectLockFileProbeResult Probe (string unityProjectRoot)
+        {
+            return UnityProjectLockFileProbeResult.Unlocked("/tmp/unity-project/Temp/UnityLockfile");
         }
     }
 
