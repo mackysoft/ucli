@@ -2,12 +2,12 @@ using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Configuration;
-using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
+using MackySoft.Ucli.Tests.TestDoubles;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
@@ -846,18 +846,20 @@ public sealed class UnityIpcRequestExecutorTests
 
         public int? ExitCode => HasExited ? 0 : null;
 
-        public Task WaitForExit (CancellationToken cancellationToken = default)
+        public Task WaitForExitAsync (CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             HasExited = true;
             return Task.CompletedTask;
         }
 
-        public Task Terminate (CancellationToken cancellationToken = default)
+        public Task<ProcessTerminationResult> TerminateAsync (
+            ProcessTerminationPolicy? terminationPolicy = null,
+            CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             HasExited = true;
-            return Task.CompletedTask;
+            return Task.FromResult(ProcessTerminationResult.GracefulExited);
         }
 
         public ValueTask DisposeAsync ()
@@ -883,19 +885,6 @@ public sealed class UnityIpcRequestExecutorTests
         }
     }
 
-    private sealed class StubProjectLifecycleLockProvider : IProjectLifecycleLockProvider
-    {
-        public ValueTask<IAsyncDisposable> Acquire (
-            string storageRoot,
-            string projectFingerprint,
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult<IAsyncDisposable>(new NoOpAsyncDisposable());
-        }
-    }
-
     private sealed class StubUnityProjectLockFileProbe : IUnityProjectLockFileProbe
     {
         public UnityProjectLockFileProbeResult Probe (string unityProjectRoot)
@@ -904,11 +893,4 @@ public sealed class UnityIpcRequestExecutorTests
         }
     }
 
-    private sealed class NoOpAsyncDisposable : IAsyncDisposable
-    {
-        public ValueTask DisposeAsync ()
-        {
-            return ValueTask.CompletedTask;
-        }
-    }
 }

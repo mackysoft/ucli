@@ -14,9 +14,13 @@ internal interface IUnityBatchmodeProcessHandle : IAsyncDisposable
 
     /// <summary> Waits until the child process exits. </summary>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
-    Task WaitForExit (CancellationToken cancellationToken = default);
+    Task WaitForExitAsync (CancellationToken cancellationToken = default);
 
     /// <summary> Terminates the child process and waits until process exit completes. </summary>
+    /// <param name="terminationPolicy"> The termination policy. When omitted, force kill is used. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
-    Task Terminate (CancellationToken cancellationToken = default);
+    /// <returns> The termination result. </returns>
+    Task<ProcessTerminationResult> TerminateAsync (
+        ProcessTerminationPolicy? terminationPolicy = null,
+        CancellationToken cancellationToken = default);
 }

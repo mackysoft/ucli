@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
+using MackySoft.Ucli.Tests.TestDoubles;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
@@ -46,8 +47,8 @@ public sealed class UnityOneshotIpcClientTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(unityProject.RepositoryRoot, lockProvider.LastStorageRoot);
-        Assert.Equal(unityProject.ProjectFingerprint, lockProvider.LastProjectFingerprint);
+        var lockRequest = Assert.IsType<ProjectLifecycleLockRequest>(lockProvider.LastRequest);
+        Assert.Equal(unityProject.UnityProjectRoot, lockRequest.UnityProjectRoot);
         Assert.Equal(
             UcliStoragePathResolver.ResolveUnityLogPath(unityProject.RepositoryRoot, unityProject.ProjectFingerprint),
             launcher.LastUnityLogPath);
@@ -120,7 +121,7 @@ public sealed class UnityOneshotIpcClientTests
             launcher,
             new StubIpcEndpointResolver(new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock")),
             new StubUnityIpcTransportClient(_ => CreateSuccessResponse("unused")),
-            new StubProjectLifecycleLockProvider((_, _, _, cancellationToken) =>
+            new StubProjectLifecycleLockProvider((_, _, cancellationToken) =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 throw new TimeoutException("Timed out while waiting for lifecycle lock.");
@@ -226,7 +227,48 @@ public sealed class UnityOneshotIpcClientTests
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
         Assert.Equal(1, processHandle.TerminateCallCount);
+        Assert.NotNull(processHandle.LastTerminationPolicy);
+        Assert.Equal(ProcessTerminationMode.GracefulThenKill, processHandle.LastTerminationPolicy!.Mode);
         Assert.Equal(0, processHandle.WaitForExitCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenCleanupTerminatesProcessAndUnityLockFileRemains_ReturnsOriginalFailureWithResidualLockDiagnostic ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "request-timeout-residual-lock");
+        var unityProject = CreateUnityProject(scope);
+        var lockFilePath = scope.GetPath("UnityProject/Temp/UnityLockfile");
+        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
+        var processHandle = new StubUnityBatchmodeProcessHandle();
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var transportClient = new StubUnityIpcTransportClient(request =>
+        {
+            return request.Method switch
+            {
+                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
+                IpcMethodNames.OpsRead => throw new TimeoutException("request timed out"),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = new UnityOneshotIpcClient(
+            launcher,
+            new StubIpcEndpointResolver(endpoint),
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe(UnityProjectLockFileProbeResult.Locked(lockFilePath)));
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.Contains("uCLI terminated the Unity process, but Temp/UnityLockfile remains", result.Message, StringComparison.Ordinal);
+        Assert.Contains(lockFilePath, result.Message, StringComparison.Ordinal);
+        Assert.Equal(1, processHandle.TerminateCallCount);
     }
 
     private static ResolvedUnityProjectContext CreateUnityProject (TestDirectoryScope scope)
@@ -347,7 +389,9 @@ public sealed class UnityOneshotIpcClientTests
 
         public int TerminateCallCount { get; private set; }
 
-        public Task WaitForExit (CancellationToken cancellationToken = default)
+        public ProcessTerminationPolicy? LastTerminationPolicy { get; private set; }
+
+        public Task WaitForExitAsync (CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             WaitForExitCallCount++;
@@ -355,12 +399,15 @@ public sealed class UnityOneshotIpcClientTests
             return Task.CompletedTask;
         }
 
-        public Task Terminate (CancellationToken cancellationToken = default)
+        public Task<ProcessTerminationResult> TerminateAsync (
+            ProcessTerminationPolicy? terminationPolicy = null,
+            CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             TerminateCallCount++;
+            LastTerminationPolicy = terminationPolicy;
             HasExited = true;
-            return Task.CompletedTask;
+            return Task.FromResult(ProcessTerminationResult.GracefulExited);
         }
 
         public ValueTask DisposeAsync ()
@@ -413,41 +460,6 @@ public sealed class UnityOneshotIpcClientTests
         }
     }
 
-    private sealed class StubProjectLifecycleLockProvider : IProjectLifecycleLockProvider
-    {
-        private readonly Func<string, string, TimeSpan, CancellationToken, IAsyncDisposable> acquire;
-
-        public StubProjectLifecycleLockProvider ()
-            : this((storageRoot, projectFingerprint, _, cancellationToken) =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                return new NoOpAsyncDisposable();
-            })
-        {
-        }
-
-        public StubProjectLifecycleLockProvider (Func<string, string, TimeSpan, CancellationToken, IAsyncDisposable> acquire)
-        {
-            this.acquire = acquire ?? throw new ArgumentNullException(nameof(acquire));
-        }
-
-        public string? LastStorageRoot { get; private set; }
-
-        public string? LastProjectFingerprint { get; private set; }
-
-        public ValueTask<IAsyncDisposable> Acquire (
-            string storageRoot,
-            string projectFingerprint,
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            LastStorageRoot = storageRoot;
-            LastProjectFingerprint = projectFingerprint;
-            return ValueTask.FromResult(acquire(storageRoot, projectFingerprint, timeout, cancellationToken));
-        }
-    }
-
     private sealed class StubUnityProjectLockFileProbe : IUnityProjectLockFileProbe
     {
         private readonly UnityProjectLockFileProbeResult result;
@@ -468,11 +480,4 @@ public sealed class UnityOneshotIpcClientTests
         }
     }
 
-    private sealed class NoOpAsyncDisposable : IAsyncDisposable
-    {
-        public ValueTask DisposeAsync ()
-        {
-            return ValueTask.CompletedTask;
-        }
-    }
 }

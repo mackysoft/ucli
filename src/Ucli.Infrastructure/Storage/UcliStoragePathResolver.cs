@@ -506,19 +506,6 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.UnityLogFileName);
     }
 
-    /// <summary> Resolves the absolute path to daemon <c>lifecycle.lock</c>. </summary>
-    /// <param name="storageRoot"> The storage-root path. </param>
-    /// <param name="projectFingerprint"> The project fingerprint value. </param>
-    /// <returns> The absolute lifecycle-lock file path. </returns>
-    public static string ResolveLifecycleLockPath (
-        string storageRoot,
-        string projectFingerprint)
-    {
-        return Path.Combine(
-            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
-            UcliStoragePathNames.LifecycleLockFileName);
-    }
-
     /// <summary> Resolves the absolute path to plan-token key file under one fingerprint directory. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>

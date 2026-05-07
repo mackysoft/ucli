@@ -93,9 +93,6 @@ public static class UcliStoragePathNames
     /// <summary> Gets the launch-agent plist file name under <c>.ucli/local/supervisor</c>. </summary>
     public const string SupervisorLaunchAgentPlistFileName = "launch.agent.plist";
 
-    /// <summary> Gets the project lifecycle lock file name under one fingerprint directory. </summary>
-    public const string LifecycleLockFileName = "lifecycle.lock";
-
     /// <summary> Gets the plan-token signing key file name under one fingerprint directory. </summary>
     public const string PlanTokenKeyFileName = "plan-token.key";
 }

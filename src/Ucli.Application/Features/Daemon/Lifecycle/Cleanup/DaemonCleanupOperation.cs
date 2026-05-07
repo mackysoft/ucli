@@ -66,16 +66,24 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
         try
         {
             lockHandle = await lifecycleLockProvider.Acquire(
-                    unityProject.RepositoryRoot,
-                    unityProject.ProjectFingerprint,
+                    new ProjectLifecycleLockRequest(unityProject.UnityProjectRoot),
                     lockAcquireTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (TimeoutException exception)
         {
             return DaemonCleanupResult.Failure(ExecutionError.Timeout(
                 $"Timed out while waiting for project lifecycle lock. {exception.Message}"));
+        }
+        catch (Exception exception)
+        {
+            return DaemonCleanupResult.Failure(ExecutionError.InternalError(
+                $"Failed to acquire project lifecycle lock. {exception.Message}"));
         }
 
         await using var acquiredLock = lockHandle;

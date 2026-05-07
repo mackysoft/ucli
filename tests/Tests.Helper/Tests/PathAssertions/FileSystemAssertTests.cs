@@ -106,9 +106,9 @@ public sealed class FileSystemAssertTests
         var targetDirectoryPath = rootScope.CreateDirectory("target");
         var targetFilePath = rootScope.WriteFile(Path.Combine("target", "profile.json"), "{}");
         var symbolicLinkDirectoryPath = Path.Combine(rootScope.FullPath, "alias");
-        if (!TryCreateDirectorySymbolicLink(symbolicLinkDirectoryPath, targetDirectoryPath))
+        if (!TestSymbolicLinks.TryCreateDirectory(symbolicLinkDirectoryPath, targetDirectoryPath))
         {
-            throw SkipException.ForSkip("Skipping because symbolic link creation is not available in this environment.");
+            return;
         }
 
         var linkedFilePath = Path.Combine(symbolicLinkDirectoryPath, "profile.json");
@@ -149,24 +149,4 @@ public sealed class FileSystemAssertTests
         Assert.Contains("expected to not exist", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool TryCreateDirectorySymbolicLink (string symbolicLinkPath, string targetPath)
-    {
-        try
-        {
-            Directory.CreateSymbolicLink(symbolicLinkPath, targetPath);
-            return true;
-        }
-        catch (IOException)
-        {
-            return false;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return false;
-        }
-        catch (NotSupportedException)
-        {
-            return false;
-        }
-    }
 }

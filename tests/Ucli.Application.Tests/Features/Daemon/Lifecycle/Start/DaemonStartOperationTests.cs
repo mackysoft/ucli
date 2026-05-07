@@ -410,6 +410,32 @@ public sealed class DaemonStartOperationTests
         Assert.Contains("lifecycle lock", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WhenWorkflowBegins_AcquiresLifecycleLockForUnityProjectRoot ()
+    {
+        var context = CreateContext("fingerprint-start-lock-context");
+        var lockProvider = new StubProjectLifecycleLockProvider();
+        var operation = CreateOperation(
+            daemonSessionStore: new StubDaemonSessionStore
+            {
+                ReadResult = DaemonSessionReadResult.Success(null),
+            },
+            daemonSessionCleanupService: new StubDaemonSessionCleanupService(),
+            daemonExistingSessionGateService: new StubDaemonExistingSessionGateService(),
+            daemonLaunchService: new StubDaemonLaunchService
+            {
+                NextResult = DaemonStartResult.Started(CreateSession(processId: 2026, projectFingerprint: context.ProjectFingerprint)),
+            },
+            lifecycleLockProvider: lockProvider);
+
+        var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var lockRequest = Assert.IsType<ProjectLifecycleLockRequest>(lockProvider.LastRequest);
+        Assert.Equal(context.UnityProjectRoot, lockRequest.UnityProjectRoot);
+    }
+
     private static DaemonStartOperation CreateOperation (
         IDaemonSessionStore daemonSessionStore,
         IDaemonSessionCleanupService daemonSessionCleanupService,
@@ -453,33 +479,6 @@ public sealed class DaemonStartOperationTests
             EndpointAddress: "ucli-daemon-test-endpoint",
             ProcessId: processId,
             OwnerProcessId: ownerProcessId);
-    }
-
-    private sealed class StubProjectLifecycleLockProvider : IProjectLifecycleLockProvider
-    {
-        public bool ThrowTimeoutOnAcquire { get; set; }
-
-        public ValueTask<IAsyncDisposable> Acquire (
-            string storageRoot,
-            string projectFingerprint,
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            if (ThrowTimeoutOnAcquire)
-            {
-                throw new TimeoutException("lock timeout");
-            }
-
-            return ValueTask.FromResult<IAsyncDisposable>(new NoopAsyncDisposable());
-        }
-
-        private sealed class NoopAsyncDisposable : IAsyncDisposable
-        {
-            public ValueTask DisposeAsync ()
-            {
-                return ValueTask.CompletedTask;
-            }
-        }
     }
 
     private sealed class StubDaemonSessionStore : IDaemonSessionStore

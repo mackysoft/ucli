@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
+using MackySoft.Ucli.Tests.TestDoubles;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -20,11 +21,13 @@ public sealed class UnityTestExecutorTests
         var artifactPaths = CreateArtifactPaths(scope);
         scope.WriteFile("run/results.xml", "<test-run />");
         scope.WriteFile("run/editor.log", "log");
+        var lockProvider = new StubProjectLifecycleLockProvider();
+        var processRunner = new StubProcessRunner(ProcessRunResult.Exited(0));
 
         var executor = new UnityTestExecutor(
             new StubUnityCommandBuilder(["-batchmode"]),
-            new StubProcessRunner(ProcessRunResult.Exited(0)),
-            new StubProjectLifecycleLockProvider(),
+            processRunner,
+            lockProvider,
             new StubUnityProjectLockFileProbe());
 
         var result = await executor.Execute(
@@ -35,6 +38,10 @@ public sealed class UnityTestExecutorTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(0, result.ProcessExitCode);
+        var lockRequest = Assert.IsType<ProjectLifecycleLockRequest>(lockProvider.LastRequest);
+        Assert.Equal(configuration.UnityProject.UnityProjectRoot, lockRequest.UnityProjectRoot);
+        Assert.NotNull(processRunner.LastRequest.TerminationPolicy);
+        Assert.Equal(ProcessTerminationMode.GracefulThenKill, processRunner.LastRequest.TerminationPolicy!.Mode);
     }
 
     [Fact]
@@ -221,6 +228,72 @@ public sealed class UnityTestExecutorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenProcessTimesOutAndUnityLockFileRemains_ReturnsTimeoutWithResidualLockDiagnostic ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-test-executor", "process-timeout-residual-lock");
+        var configuration = CreateConfiguration(scope);
+        var artifactPaths = CreateArtifactPaths(scope);
+        var lockFilePath = scope.GetPath("UnityProject/Temp/UnityLockfile");
+
+        var executor = new UnityTestExecutor(
+            new StubUnityCommandBuilder(["-batchmode"]),
+            new StubProcessRunner(ProcessRunResult.TimedOut(
+                "Unity process timed out.",
+                terminationResult: ProcessTerminationResult.ForceKilled)),
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe(
+                UnityProjectLockFileProbeResult.Unlocked(lockFilePath),
+                UnityProjectLockFileProbeResult.Unlocked(lockFilePath),
+                UnityProjectLockFileProbeResult.Locked(lockFilePath)));
+
+        var result = await executor.Execute(
+            configuration,
+            artifactPaths,
+            TimeSpan.FromMilliseconds(3000),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityTestExecutionFailureKind.ProcessTimedOut, result.FailureKind);
+        Assert.Null(result.ErrorCode);
+        Assert.Contains("uCLI terminated the Unity process, but Temp/UnityLockfile remains", result.ErrorMessage, StringComparison.Ordinal);
+        Assert.Contains(lockFilePath, result.ErrorMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenProcessIsCanceledAndUnityLockFileRemains_ReturnsCanceledWithResidualLockDiagnostic ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-test-executor", "process-canceled-residual-lock");
+        var configuration = CreateConfiguration(scope);
+        var artifactPaths = CreateArtifactPaths(scope);
+        var lockFilePath = scope.GetPath("UnityProject/Temp/UnityLockfile");
+
+        var executor = new UnityTestExecutor(
+            new StubUnityCommandBuilder(["-batchmode"]),
+            new StubProcessRunner(ProcessRunResult.Canceled(
+                "Unity process was canceled.",
+                terminationResult: ProcessTerminationResult.ForceKilled)),
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe(
+                UnityProjectLockFileProbeResult.Unlocked(lockFilePath),
+                UnityProjectLockFileProbeResult.Unlocked(lockFilePath),
+                UnityProjectLockFileProbeResult.Locked(lockFilePath)));
+
+        var result = await executor.Execute(
+            configuration,
+            artifactPaths,
+            TimeSpan.FromMilliseconds(3000),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityTestExecutionFailureKind.Canceled, result.FailureKind);
+        Assert.Null(result.ErrorCode);
+        Assert.Contains("uCLI terminated the Unity process, but Temp/UnityLockfile remains", result.ErrorMessage, StringComparison.Ordinal);
+        Assert.Contains(lockFilePath, result.ErrorMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenProjectLifecycleLockIsHeld_ReturnsProjectAlreadyOpenWithoutStartingProcess ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-test-executor", "lifecycle-lock-held");
@@ -375,31 +448,6 @@ public sealed class UnityTestExecutorTests
         }
     }
 
-    private sealed class StubProjectLifecycleLockProvider : IProjectLifecycleLockProvider
-    {
-        private readonly bool throwTimeout;
-
-        public StubProjectLifecycleLockProvider (bool throwTimeout = false)
-        {
-            this.throwTimeout = throwTimeout;
-        }
-
-        public ValueTask<IAsyncDisposable> Acquire (
-            string storageRoot,
-            string projectFingerprint,
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (throwTimeout)
-            {
-                throw new TimeoutException("lock held");
-            }
-
-            return ValueTask.FromResult<IAsyncDisposable>(new NoOpAsyncDisposable());
-        }
-    }
-
     private sealed class StubUnityProjectLockFileProbe : IUnityProjectLockFileProbe
     {
         private readonly IReadOnlyList<UnityProjectLockFileProbeResult> results;
@@ -431,11 +479,4 @@ public sealed class UnityTestExecutorTests
         }
     }
 
-    private sealed class NoOpAsyncDisposable : IAsyncDisposable
-    {
-        public ValueTask DisposeAsync ()
-        {
-            return ValueTask.CompletedTask;
-        }
-    }
 }
