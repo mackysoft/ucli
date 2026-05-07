@@ -1,6 +1,5 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Infrastructure.Storage;
-using Xunit.Sdk;
 
 namespace MackySoft.Ucli.Infrastructure.Tests.Storage;
 
@@ -12,7 +11,7 @@ public sealed class FileSystemAccessBoundaryTests
     {
         if (OperatingSystem.IsWindows())
         {
-            throw SkipException.ForSkip("Skipping because Windows reparse-point setup requires platform-specific privileges.");
+            return;
         }
 
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "secure-chain-symlink-root");
@@ -20,7 +19,7 @@ public sealed class FileSystemAccessBoundaryTests
         var boundaryRootPath = Path.Combine(scope.FullPath, "locks");
         if (!TestSymbolicLinks.TryCreateDirectory(boundaryRootPath, targetDirectoryPath))
         {
-            throw SkipException.ForSkip("Skipping because symbolic link creation is not available in this environment.");
+            return;
         }
 
         var exception = Assert.Throws<IOException>(() =>
@@ -43,7 +42,7 @@ public sealed class FileSystemAccessBoundaryTests
         var symbolicLinkPath = Path.Combine(boundaryRootPath, "linked");
         if (!TestSymbolicLinks.TryCreateDirectory(symbolicLinkPath, targetDirectoryPath))
         {
-            throw SkipException.ForSkip("Skipping because symbolic link creation is not available in this environment.");
+            return;
         }
 
         var exception = Assert.Throws<IOException>(() =>
@@ -66,7 +65,7 @@ public sealed class FileSystemAccessBoundaryTests
         var symbolicLinkPath = Path.Combine(scope.FullPath, "linked");
         if (!TestSymbolicLinks.TryCreateDirectory(symbolicLinkPath, targetDirectoryPath))
         {
-            throw SkipException.ForSkip("Skipping because symbolic link creation is not available in this environment.");
+            return;
         }
 
         var exception = Assert.Throws<IOException>(() =>

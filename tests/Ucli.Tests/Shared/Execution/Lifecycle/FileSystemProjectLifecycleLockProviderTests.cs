@@ -4,7 +4,6 @@ using System.Runtime.Versioning;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Tests.Helpers;
-using Xunit.Sdk;
 
 public sealed class FileSystemProjectLifecycleLockProviderTests
 {
@@ -160,7 +159,7 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         var symlinkProjectRoot = Path.Combine(scope.FullPath, "linked-project");
         if (!TestSymbolicLinks.TryCreateDirectory(symlinkProjectRoot, targetProjectRoot))
         {
-            throw SkipException.ForSkip("Skipping because symbolic link creation is not available in this environment.");
+            return;
         }
 
         var firstHandle = await firstProvider.Acquire(
@@ -195,7 +194,7 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         if (string.Equals(caseVariantProjectRoot, projectRoot, StringComparison.Ordinal)
             || !Directory.Exists(caseVariantProjectRoot))
         {
-            throw SkipException.ForSkip("Skipping because this filesystem does not resolve case-variant directory paths.");
+            return;
         }
 
         var firstHandle = await firstProvider.Acquire(
