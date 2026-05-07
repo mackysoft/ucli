@@ -126,6 +126,98 @@ internal static class SkillsCommandResultFactory
             });
     }
 
+    /// <summary> Creates a command result for <c>skills update</c>. </summary>
+    /// <param name="result"> The update result. </param>
+    /// <param name="host"> The normalized host key. </param>
+    /// <param name="repositoryRoot"> The canonical repository root. </param>
+    /// <returns> The command result serialized to stdout. </returns>
+    public static CommandResult CreateUpdate (
+        SkillOperationResult<SkillUpdateResult> result,
+        string host,
+        string repositoryRoot)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        ArgumentException.ThrowIfNullOrWhiteSpace(host);
+        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
+
+        if (!result.IsSuccess)
+        {
+            return CreateSkillFailure(UcliCommandNames.SkillsUpdate, result.Failure!);
+        }
+
+        var updateResult = result.Value!;
+        var actions = updateResult.Actions
+            .OrderBy(static action => action.Identity.SkillName, StringComparer.Ordinal)
+            .Select(static action => new
+            {
+                action.Identity.SkillName,
+                action = ToActionLiteral(action.ActionKind),
+                action.Identity.TargetRoot,
+            })
+            .ToArray();
+
+        return CommandResult.Success(
+            command: UcliCommandNames.SkillsUpdate,
+            message: "uCLI official SKILL packages updated.",
+            payload: new
+            {
+                host,
+                scope = ProjectScopeLiteral,
+                repositoryRoot,
+                updateResult.TargetRoot,
+                actions,
+                createdCount = updateResult.Actions.Count(static action => action.ActionKind == SkillUpdateActionKind.Created),
+                updatedCount = updateResult.Actions.Count(static action => action.ActionKind == SkillUpdateActionKind.Updated),
+                noOpCount = updateResult.Actions.Count(static action => action.ActionKind == SkillUpdateActionKind.NoOp),
+            });
+    }
+
+    /// <summary> Creates a command result for <c>skills uninstall</c>. </summary>
+    /// <param name="result"> The uninstall result. </param>
+    /// <param name="host"> The normalized host key. </param>
+    /// <param name="repositoryRoot"> The canonical repository root. </param>
+    /// <returns> The command result serialized to stdout. </returns>
+    public static CommandResult CreateUninstall (
+        SkillOperationResult<SkillUninstallResult> result,
+        string host,
+        string repositoryRoot)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        ArgumentException.ThrowIfNullOrWhiteSpace(host);
+        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
+
+        if (!result.IsSuccess)
+        {
+            return CreateSkillFailure(UcliCommandNames.SkillsUninstall, result.Failure!);
+        }
+
+        var uninstallResult = result.Value!;
+        var actions = uninstallResult.Actions
+            .OrderBy(static action => action.Identity.SkillName, StringComparer.Ordinal)
+            .Select(static action => new
+            {
+                action.Identity.SkillName,
+                action = ToActionLiteral(action.ActionKind),
+                action.Identity.TargetRoot,
+            })
+            .ToArray();
+
+        return CommandResult.Success(
+            command: UcliCommandNames.SkillsUninstall,
+            message: "uCLI official SKILL packages uninstalled.",
+            payload: new
+            {
+                host,
+                scope = ProjectScopeLiteral,
+                repositoryRoot,
+                uninstallResult.TargetRoot,
+                actions,
+                deletedCount = uninstallResult.Actions.Count(static action => action.ActionKind == SkillUninstallActionKind.Deleted),
+                noOpCount = uninstallResult.Actions.Count(static action => action.ActionKind == SkillUninstallActionKind.NoOp),
+                skippedUnmanagedCount = uninstallResult.Actions.Count(static action => action.ActionKind == SkillUninstallActionKind.SkippedUnmanaged),
+            });
+    }
+
     /// <summary> Creates a command result for <c>skills doctor</c>. </summary>
     /// <param name="result"> The doctor result. </param>
     /// <param name="repositoryRoot"> The canonical repository root. </param>
@@ -227,6 +319,28 @@ internal static class SkillsCommandResultFactory
         {
             SkillInstallActionKind.Created => "created",
             SkillInstallActionKind.NoOp => "noOp",
+            _ => actionKind.ToString(),
+        };
+    }
+
+    private static string ToActionLiteral (SkillUpdateActionKind actionKind)
+    {
+        return actionKind switch
+        {
+            SkillUpdateActionKind.Created => "created",
+            SkillUpdateActionKind.Updated => "updated",
+            SkillUpdateActionKind.NoOp => "noOp",
+            _ => actionKind.ToString(),
+        };
+    }
+
+    private static string ToActionLiteral (SkillUninstallActionKind actionKind)
+    {
+        return actionKind switch
+        {
+            SkillUninstallActionKind.Deleted => "deleted",
+            SkillUninstallActionKind.NoOp => "noOp",
+            SkillUninstallActionKind.SkippedUnmanaged => "skippedUnmanaged",
             _ => actionKind.ToString(),
         };
     }

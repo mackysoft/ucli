@@ -36,7 +36,10 @@ internal static class SkillsServiceCollectionExtensions
         services.AddSingleton<SkillInstalledFileSetVerifier>();
         services.AddSingleton<SkillHostMaterializationInspector>();
         services.AddSingleton<SkillInstalledPackageValidator>();
+        services.AddSingleton<SkillInstalledPackageIntegrityVerifier>();
         services.AddSingleton<SkillInstallService>();
+        services.AddSingleton<SkillUpdateService>();
+        services.AddSingleton<SkillUninstallService>();
         services.AddSingleton<SkillInstallationScanner>();
         services.AddSingleton<SkillDoctorService>();
 
