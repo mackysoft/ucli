@@ -23,4 +23,10 @@ public static class SkillFailureCodes
 
     /// <summary> The target root appears to contain materialized output for another host. </summary>
     public const string InstallTargetHostConflict = "SKILL_INSTALL_TARGET_HOST_CONFLICT";
+
+    /// <summary> The target directory could not be read for planning. </summary>
+    public const string InstallTargetReadFailed = "SKILL_INSTALL_TARGET_READ_FAILED";
+
+    /// <summary> The target directory could not be written atomically. </summary>
+    public const string InstallTargetWriteFailed = "SKILL_INSTALL_TARGET_WRITE_FAILED";
 }

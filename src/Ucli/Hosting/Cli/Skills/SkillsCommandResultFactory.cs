@@ -108,21 +108,28 @@ internal static class SkillsCommandResultFactory
                 action.Identity.SkillName,
                 action = ToActionLiteral(action.ActionKind),
                 action.Identity.TargetRoot,
+                action.BlockedReason,
+                diffs = CreateDiffPayloads(action.Diffs),
             })
             .ToArray();
 
         return CommandResult.Success(
             command: UcliCommandNames.SkillsInstall,
-            message: "uCLI official SKILL packages installed.",
+            message: installResult.DryRun ? "uCLI official SKILL install plan generated." : "uCLI official SKILL packages installed.",
             payload: new
             {
                 host,
                 scope = ProjectScopeLiteral,
                 repositoryRoot,
                 installResult.TargetRoot,
+                installResult.DryRun,
+                installResult.Force,
+                installResult.PrintDiff,
                 actions,
                 createdCount = installResult.Actions.Count(static action => action.ActionKind == SkillInstallActionKind.Created),
+                updatedCount = installResult.Actions.Count(static action => action.ActionKind == SkillInstallActionKind.Updated),
                 noOpCount = installResult.Actions.Count(static action => action.ActionKind == SkillInstallActionKind.NoOp),
+                blockedCount = installResult.Actions.Count(static action => IsBlocked(action.ActionKind)),
             });
     }
 
@@ -153,22 +160,28 @@ internal static class SkillsCommandResultFactory
                 action.Identity.SkillName,
                 action = ToActionLiteral(action.ActionKind),
                 action.Identity.TargetRoot,
+                action.BlockedReason,
+                diffs = CreateDiffPayloads(action.Diffs),
             })
             .ToArray();
 
         return CommandResult.Success(
             command: UcliCommandNames.SkillsUpdate,
-            message: "uCLI official SKILL packages updated.",
+            message: updateResult.DryRun ? "uCLI official SKILL update plan generated." : "uCLI official SKILL packages updated.",
             payload: new
             {
                 host,
                 scope = ProjectScopeLiteral,
                 repositoryRoot,
                 updateResult.TargetRoot,
+                updateResult.DryRun,
+                updateResult.Force,
+                updateResult.PrintDiff,
                 actions,
                 createdCount = updateResult.Actions.Count(static action => action.ActionKind == SkillUpdateActionKind.Created),
                 updatedCount = updateResult.Actions.Count(static action => action.ActionKind == SkillUpdateActionKind.Updated),
                 noOpCount = updateResult.Actions.Count(static action => action.ActionKind == SkillUpdateActionKind.NoOp),
+                blockedCount = updateResult.Actions.Count(static action => IsBlocked(action.ActionKind)),
             });
     }
 
@@ -199,22 +212,27 @@ internal static class SkillsCommandResultFactory
                 action.Identity.SkillName,
                 action = ToActionLiteral(action.ActionKind),
                 action.Identity.TargetRoot,
+                action.BlockedReason,
+                diffs = CreateDiffPayloads(null),
             })
             .ToArray();
 
         return CommandResult.Success(
             command: UcliCommandNames.SkillsUninstall,
-            message: "uCLI official SKILL packages uninstalled.",
+            message: uninstallResult.DryRun ? "uCLI official SKILL uninstall plan generated." : "uCLI official SKILL packages uninstalled.",
             payload: new
             {
                 host,
                 scope = ProjectScopeLiteral,
                 repositoryRoot,
                 uninstallResult.TargetRoot,
+                uninstallResult.DryRun,
+                uninstallResult.Force,
                 actions,
                 deletedCount = uninstallResult.Actions.Count(static action => action.ActionKind == SkillUninstallActionKind.Deleted),
                 noOpCount = uninstallResult.Actions.Count(static action => action.ActionKind == SkillUninstallActionKind.NoOp),
                 skippedUnmanagedCount = uninstallResult.Actions.Count(static action => action.ActionKind == SkillUninstallActionKind.SkippedUnmanaged),
+                blockedCount = uninstallResult.Actions.Count(static action => IsBlocked(action.ActionKind)),
             });
     }
 
@@ -318,7 +336,11 @@ internal static class SkillsCommandResultFactory
         return actionKind switch
         {
             SkillInstallActionKind.Created => "created",
+            SkillInstallActionKind.Updated => "updated",
             SkillInstallActionKind.NoOp => "noOp",
+            SkillInstallActionKind.BlockedManagedOverwrite => "blockedManagedOverwrite",
+            SkillInstallActionKind.BlockedLocalModification => "blockedLocalModification",
+            SkillInstallActionKind.BlockedUnmanaged => "blockedUnmanaged",
             _ => actionKind.ToString(),
         };
     }
@@ -330,6 +352,8 @@ internal static class SkillsCommandResultFactory
             SkillUpdateActionKind.Created => "created",
             SkillUpdateActionKind.Updated => "updated",
             SkillUpdateActionKind.NoOp => "noOp",
+            SkillUpdateActionKind.BlockedLocalModification => "blockedLocalModification",
+            SkillUpdateActionKind.BlockedUnmanaged => "blockedUnmanaged",
             _ => actionKind.ToString(),
         };
     }
@@ -341,8 +365,45 @@ internal static class SkillsCommandResultFactory
             SkillUninstallActionKind.Deleted => "deleted",
             SkillUninstallActionKind.NoOp => "noOp",
             SkillUninstallActionKind.SkippedUnmanaged => "skippedUnmanaged",
+            SkillUninstallActionKind.BlockedLocalModification => "blockedLocalModification",
             _ => actionKind.ToString(),
         };
+    }
+
+    private static bool IsBlocked (SkillInstallActionKind actionKind)
+    {
+        return actionKind is SkillInstallActionKind.BlockedManagedOverwrite
+            or SkillInstallActionKind.BlockedLocalModification
+            or SkillInstallActionKind.BlockedUnmanaged;
+    }
+
+    private static bool IsBlocked (SkillUpdateActionKind actionKind)
+    {
+        return actionKind is SkillUpdateActionKind.BlockedLocalModification
+            or SkillUpdateActionKind.BlockedUnmanaged;
+    }
+
+    private static bool IsBlocked (SkillUninstallActionKind actionKind)
+    {
+        return actionKind is SkillUninstallActionKind.BlockedLocalModification;
+    }
+
+    private static object[] CreateDiffPayloads (IReadOnlyList<SkillActionDiff>? diffs)
+    {
+        return (diffs ?? Array.Empty<SkillActionDiff>())
+            .Select(static diff => new
+            {
+                files = diff.Files
+                    .Select(static file => new
+                    {
+                        relativePath = file.RelativePath,
+                        changeKind = file.ChangeKind,
+                        beforeContent = file.BeforeContent,
+                        afterContent = file.AfterContent,
+                    })
+                    .ToArray(),
+            })
+            .ToArray();
     }
 
     private static string ToSeverityLiteral (SkillDoctorSeverity severity)

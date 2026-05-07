@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Skills.Installation.Validation;
 using MackySoft.Ucli.Skills.Materialization;
 using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;
@@ -10,20 +9,28 @@ public sealed class SkillInstallService
 {
     private readonly SkillInstallTargetResolver targetResolver;
     private readonly SkillMaterializationService materializationService;
-    private readonly SkillInstalledPackageValidator installedPackageValidator;
+    private readonly SkillInstalledTargetStateAnalyzer targetStateAnalyzer;
+    private readonly ISkillMaterializedPackageWriter packageWriter;
+    private readonly SkillMaterializedPackageDiffBuilder diffBuilder;
 
     /// <summary> Initializes a new instance of the <see cref="SkillInstallService" /> class. </summary>
     /// <param name="targetResolver"> The target resolver. </param>
     /// <param name="materializationService"> The materialization service. </param>
-    /// <param name="installedPackageValidator"> The installed package validator. </param>
+    /// <param name="targetStateAnalyzer"> The installed target state analyzer. </param>
+    /// <param name="packageWriter"> The materialized package writer. </param>
+    /// <param name="diffBuilder"> The structured diff builder. </param>
     public SkillInstallService (
         SkillInstallTargetResolver targetResolver,
         SkillMaterializationService materializationService,
-        SkillInstalledPackageValidator installedPackageValidator)
+        SkillInstalledTargetStateAnalyzer targetStateAnalyzer,
+        ISkillMaterializedPackageWriter packageWriter,
+        SkillMaterializedPackageDiffBuilder diffBuilder)
     {
         this.targetResolver = targetResolver ?? throw new ArgumentNullException(nameof(targetResolver));
         this.materializationService = materializationService ?? throw new ArgumentNullException(nameof(materializationService));
-        this.installedPackageValidator = installedPackageValidator ?? throw new ArgumentNullException(nameof(installedPackageValidator));
+        this.targetStateAnalyzer = targetStateAnalyzer ?? throw new ArgumentNullException(nameof(targetStateAnalyzer));
+        this.packageWriter = packageWriter ?? throw new ArgumentNullException(nameof(packageWriter));
+        this.diffBuilder = diffBuilder ?? throw new ArgumentNullException(nameof(diffBuilder));
     }
 
     /// <summary> Installs official SKILL packages. </summary>
@@ -31,16 +38,28 @@ public sealed class SkillInstallService
     /// <param name="request"> The install request. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The install result or failure. </returns>
-    public async ValueTask<SkillOperationResult<SkillInstallResult>> InstallAsync (
+    public ValueTask<SkillOperationResult<SkillInstallResult>> InstallAsync (
         IReadOnlyList<CanonicalSkillPackage> packages,
         SkillInstallRequest request,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(packages);
-        ArgumentNullException.ThrowIfNull(request);
+        return InstallAsync(new SkillInstallInput(packages, request), cancellationToken);
+    }
+
+    /// <summary> Installs official SKILL packages. </summary>
+    /// <param name="input"> The install input. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> The install result or failure. </returns>
+    public async ValueTask<SkillOperationResult<SkillInstallResult>> InstallAsync (
+        SkillInstallInput input,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        ArgumentNullException.ThrowIfNull(input.Packages);
+        ArgumentNullException.ThrowIfNull(input.TargetRequest);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var targetResult = targetResolver.ResolveTarget(request);
+        var targetResult = targetResolver.ResolveTarget(input.TargetRequest);
         if (!targetResult.IsSuccess)
         {
             return SkillOperationResult<SkillInstallResult>.FailureResult(targetResult.Failure!.Code, targetResult.Failure.Message);
@@ -48,8 +67,8 @@ public sealed class SkillInstallService
 
         var target = targetResult.Value!;
         var targetRoot = target.TargetRoot;
-        var actions = new List<SkillInstallAction>();
-        foreach (var package in packages.OrderBy(static package => package.Manifest.SkillName, StringComparer.Ordinal))
+        var actionPlans = new List<SkillInstallActionPlan>();
+        foreach (var package in input.Packages.OrderBy(static package => package.Manifest.SkillName, StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -60,51 +79,252 @@ public sealed class SkillInstallService
             }
 
             var skillDirectory = skillDirectoryResult.Value!;
-            var identity = new SkillInstallIdentity(target.Host, request.Scope, targetRoot, package.Manifest.SkillName);
-            if (Directory.Exists(skillDirectory))
+            var identity = new SkillInstallIdentity(target.Host, input.TargetRequest.Scope, targetRoot, package.Manifest.SkillName);
+            var stateResult = await targetStateAnalyzer.AnalyzeAsync(package, skillDirectory, target.Host, cancellationToken).ConfigureAwait(false);
+            if (!stateResult.IsSuccess)
             {
-                var existingResult = await ValidateExistingTargetAsync(package, skillDirectory, target.Host, cancellationToken).ConfigureAwait(false);
-                if (!existingResult.IsSuccess)
-                {
-                    return SkillOperationResult<SkillInstallResult>.FailureResult(existingResult.Failure!.Code, existingResult.Failure.Message);
-                }
-
-                actions.Add(new SkillInstallAction(identity, SkillInstallActionKind.NoOp));
-                continue;
+                return SkillOperationResult<SkillInstallResult>.FailureResult(stateResult.Failure!.Code, stateResult.Failure.Message);
             }
 
-            var materializedResult = materializationService.Materialize(package, target.Host);
-            if (!materializedResult.IsSuccess)
-            {
-                return SkillOperationResult<SkillInstallResult>.FailureResult(materializedResult.Failure!.Code, materializedResult.Failure.Message);
-            }
-
-            var writeResult = await SkillMaterializedPackageWriter.WriteAsync(
-                    targetRoot,
+            var actionPlanResult = await CreateActionPlanAsync(
+                    package,
+                    target.Host,
                     skillDirectory,
-                    materializedResult.Value!,
+                    identity,
+                    stateResult.Value!,
+                    input,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (!writeResult.IsSuccess)
+            if (!actionPlanResult.IsSuccess)
             {
-                return SkillOperationResult<SkillInstallResult>.FailureResult(writeResult.Failure!.Code, writeResult.Failure.Message);
+                return SkillOperationResult<SkillInstallResult>.FailureResult(actionPlanResult.Failure!.Code, actionPlanResult.Failure.Message);
             }
 
-            actions.Add(new SkillInstallAction(identity, SkillInstallActionKind.Created));
+            actionPlans.Add(actionPlanResult.Value!);
         }
 
-        return SkillOperationResult<SkillInstallResult>.Success(new SkillInstallResult(targetRoot, actions));
+        if (!input.DryRun)
+        {
+            foreach (var actionPlan in actionPlans)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (actionPlan.MaterializedPackage is null)
+                {
+                    continue;
+                }
+
+                var writeResult = await packageWriter.WriteAsync(
+                        targetRoot,
+                        actionPlan.SkillDirectory,
+                        actionPlan.MaterializedPackage,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (!writeResult.IsSuccess)
+                {
+                    return SkillOperationResult<SkillInstallResult>.FailureResult(writeResult.Failure!.Code, writeResult.Failure.Message);
+                }
+            }
+        }
+
+        return SkillOperationResult<SkillInstallResult>.Success(new SkillInstallResult(
+            targetRoot,
+            actionPlans.Select(static actionPlan => actionPlan.Action).ToArray(),
+            input.DryRun,
+            input.Force,
+            input.PrintDiff));
     }
 
-    private async ValueTask<SkillOperationResult<bool>> ValidateExistingTargetAsync (
+    private async ValueTask<SkillOperationResult<SkillInstallActionPlan>> CreateActionPlanAsync (
         CanonicalSkillPackage package,
-        string skillDirectory,
         string host,
+        string skillDirectory,
+        SkillInstallIdentity identity,
+        SkillInstalledTargetState state,
+        SkillInstallInput input,
         CancellationToken cancellationToken)
     {
-        var validationResult = await installedPackageValidator.ValidateAsync(package, skillDirectory, host, cancellationToken).ConfigureAwait(false);
-        return validationResult.IsSuccess
-            ? SkillOperationResult<bool>.Success(true)
-            : SkillOperationResult<bool>.FailureResult(validationResult.Failure!.Code, validationResult.Failure.Message);
+        switch (state.Kind)
+        {
+            case SkillInstalledTargetStateKind.Missing:
+                return await CreateWriteActionPlanAsync(
+                        package,
+                        host,
+                        skillDirectory,
+                        identity,
+                        SkillInstallActionKind.Created,
+                        input,
+                        blockedReason: null,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            case SkillInstalledTargetStateKind.Current:
+                return SkillOperationResult<SkillInstallActionPlan>.Success(new SkillInstallActionPlan(
+                    new SkillInstallAction(identity, SkillInstallActionKind.NoOp),
+                    skillDirectory,
+                    null));
+            case SkillInstalledTargetStateKind.CleanOutdated:
+                return await CreateManagedMismatchActionPlanAsync(
+                        package,
+                        host,
+                        skillDirectory,
+                        identity,
+                        input,
+                        SkillInstallActionKind.BlockedManagedOverwrite,
+                        SkillBlockedReason.ManagedOverwriteRequiresForce,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            case SkillInstalledTargetStateKind.LocalModified:
+                return await CreateManagedMismatchActionPlanAsync(
+                        package,
+                        host,
+                        skillDirectory,
+                        identity,
+                        input,
+                        SkillInstallActionKind.BlockedLocalModification,
+                        SkillBlockedReason.LocalModificationRequiresForce,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            case SkillInstalledTargetStateKind.Unmanaged:
+                if (!input.DryRun)
+                {
+                    return SkillOperationResult<SkillInstallActionPlan>.FailureResult(
+                        SkillFailureCodes.InstallTargetUnmanaged,
+                        $"Target skill directory is not managed by uCLI: {skillDirectory}");
+                }
+
+                return await CreateBlockedActionPlanAsync(
+                        package,
+                        host,
+                        skillDirectory,
+                        identity,
+                        SkillInstallActionKind.BlockedUnmanaged,
+                        SkillBlockedReason.UnmanagedTarget,
+                        printDiff: false,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            default:
+                throw new ArgumentOutOfRangeException(nameof(state), state.Kind, "Unsupported target state.");
+        }
     }
+
+    private async ValueTask<SkillOperationResult<SkillInstallActionPlan>> CreateManagedMismatchActionPlanAsync (
+        CanonicalSkillPackage package,
+        string host,
+        string skillDirectory,
+        SkillInstallIdentity identity,
+        SkillInstallInput input,
+        SkillInstallActionKind blockedActionKind,
+        string blockedReason,
+        CancellationToken cancellationToken)
+    {
+        if (input.Force)
+        {
+            return await CreateWriteActionPlanAsync(
+                    package,
+                    host,
+                    skillDirectory,
+                    identity,
+                    SkillInstallActionKind.Updated,
+                    input,
+                    blockedReason: null,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        if (input.DryRun)
+        {
+            return await CreateBlockedActionPlanAsync(
+                    package,
+                    host,
+                    skillDirectory,
+                    identity,
+                    blockedActionKind,
+                    blockedReason,
+                    input.PrintDiff,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return SkillOperationResult<SkillInstallActionPlan>.FailureResult(
+            SkillFailureCodes.InstallTargetDigestMismatch,
+            $"Target skill directory differs from the canonical package. Use --force to overwrite: {skillDirectory}");
+    }
+
+    private async ValueTask<SkillOperationResult<SkillInstallActionPlan>> CreateWriteActionPlanAsync (
+        CanonicalSkillPackage package,
+        string host,
+        string skillDirectory,
+        SkillInstallIdentity identity,
+        SkillInstallActionKind actionKind,
+        SkillInstallInput input,
+        string? blockedReason,
+        CancellationToken cancellationToken)
+    {
+        var materializedResult = materializationService.Materialize(package, host);
+        if (!materializedResult.IsSuccess)
+        {
+            return SkillOperationResult<SkillInstallActionPlan>.FailureResult(materializedResult.Failure!.Code, materializedResult.Failure.Message);
+        }
+
+        var diffResult = await CreateDiffsAsync(skillDirectory, materializedResult.Value!, input.PrintDiff, cancellationToken).ConfigureAwait(false);
+        if (!diffResult.IsSuccess)
+        {
+            return SkillOperationResult<SkillInstallActionPlan>.FailureResult(diffResult.Failure!.Code, diffResult.Failure.Message);
+        }
+
+        return SkillOperationResult<SkillInstallActionPlan>.Success(new SkillInstallActionPlan(
+            new SkillInstallAction(
+                identity,
+                actionKind,
+                blockedReason,
+                diffResult.Value),
+            skillDirectory,
+            materializedResult.Value!));
+    }
+
+    private async ValueTask<SkillOperationResult<SkillInstallActionPlan>> CreateBlockedActionPlanAsync (
+        CanonicalSkillPackage package,
+        string host,
+        string skillDirectory,
+        SkillInstallIdentity identity,
+        SkillInstallActionKind actionKind,
+        string blockedReason,
+        bool printDiff,
+        CancellationToken cancellationToken)
+    {
+        var materializedResult = materializationService.Materialize(package, host);
+        if (!materializedResult.IsSuccess)
+        {
+            return SkillOperationResult<SkillInstallActionPlan>.FailureResult(materializedResult.Failure!.Code, materializedResult.Failure.Message);
+        }
+
+        var diffResult = await CreateDiffsAsync(skillDirectory, materializedResult.Value!, printDiff, cancellationToken).ConfigureAwait(false);
+        return diffResult.IsSuccess
+            ? SkillOperationResult<SkillInstallActionPlan>.Success(new SkillInstallActionPlan(
+                new SkillInstallAction(identity, actionKind, blockedReason, diffResult.Value),
+                skillDirectory,
+                null))
+            : SkillOperationResult<SkillInstallActionPlan>.FailureResult(diffResult.Failure!.Code, diffResult.Failure.Message);
+    }
+
+    private async ValueTask<SkillOperationResult<IReadOnlyList<SkillActionDiff>?>> CreateDiffsAsync (
+        string skillDirectory,
+        SkillMaterializedPackage materializedPackage,
+        bool printDiff,
+        CancellationToken cancellationToken)
+    {
+        if (!printDiff)
+        {
+            return SkillOperationResult<IReadOnlyList<SkillActionDiff>?>.Success(Array.Empty<SkillActionDiff>());
+        }
+
+        var diffResult = await diffBuilder.BuildAsync(skillDirectory, materializedPackage, cancellationToken).ConfigureAwait(false);
+        return diffResult.IsSuccess
+            ? SkillOperationResult<IReadOnlyList<SkillActionDiff>?>.Success(diffResult.Value)
+            : SkillOperationResult<IReadOnlyList<SkillActionDiff>?>.FailureResult(diffResult.Failure!.Code, diffResult.Failure.Message);
+    }
+
+    private sealed record SkillInstallActionPlan (
+        SkillInstallAction Action,
+        string SkillDirectory,
+        SkillMaterializedPackage? MaterializedPackage);
 }
