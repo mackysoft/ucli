@@ -373,7 +373,10 @@ public sealed class SkillsCliOutputContractTests
                             .HasValueKind("afterContent", JsonValueKind.String)))));
 
         var targetRoot = outputJson.RootElement.GetProperty("payload").GetProperty("targetRoot").GetString()!;
-        Assert.False(Directory.Exists(Path.Combine(targetRoot, ExpectedSkillNames[0])));
+        foreach (var skillName in ExpectedSkillNames)
+        {
+            Assert.False(Directory.Exists(Path.Combine(targetRoot, skillName)), skillName);
+        }
     }
 
     [Fact]
@@ -465,7 +468,10 @@ public sealed class SkillsCliOutputContractTests
                     .HasArrayLength("diffs", 1)));
 
         var targetRoot = outputJson.RootElement.GetProperty("payload").GetProperty("targetRoot").GetString()!;
-        Assert.False(Directory.Exists(Path.Combine(targetRoot, ExpectedSkillNames[0])));
+        foreach (var skillName in ExpectedSkillNames)
+        {
+            Assert.False(Directory.Exists(Path.Combine(targetRoot, skillName)), skillName);
+        }
     }
 
     [Fact]

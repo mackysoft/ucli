@@ -113,7 +113,7 @@ internal static class SkillTestData
             new SkillMaterializedPackageDiffBuilder());
     }
 
-    internal static SkillUpdateService CreateUpdateService ()
+    internal static SkillUpdateService CreateUpdateService (ISkillMaterializedPackageWriter? packageWriter = null)
     {
         var hostAdapters = CreateOfficialHostAdapterSet();
         var installedPackageValidator = CreateInstalledPackageValidator(hostAdapters);
@@ -121,7 +121,7 @@ internal static class SkillTestData
             new SkillInstallTargetResolver(hostAdapters),
             new SkillMaterializationService(hostAdapters),
             new SkillInstalledTargetStateAnalyzer(installedPackageValidator, CreateInstalledPackageIntegrityVerifier(hostAdapters)),
-            new SkillMaterializedPackageWriter(),
+            packageWriter ?? new SkillMaterializedPackageWriter(),
             new SkillMaterializedPackageDiffBuilder());
     }
 

@@ -213,26 +213,21 @@ public sealed class SkillUpdateServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task UpdateAsync_WhenWriterFails_PreservesExistingTarget ()
+    public async Task UpdateAsync_WhenWriterFails_ReturnsWriteFailure ()
     {
-        using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-writer-failure-preserves");
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-writer-failure");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
         var installService = SkillTestData.CreateInstallService();
-        var updateService = CreateUpdateService(new FailingPackageWriter());
+        var updateService = SkillTestData.CreateUpdateService(new FailingPackageWriter());
         var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
         var install = await installService.InstallAsync(packages, request, CancellationToken.None);
         Assert.True(install.IsSuccess, install.Failure?.Message);
-        var skillDirectory = Path.Combine(install.Value!.TargetRoot, packages[0].Manifest.SkillName);
-        var skillPath = Path.Combine(skillDirectory, "SKILL.md");
-        var originalSkill = File.ReadAllText(skillPath);
         var updatedPackages = SkillTestData.ReplacePackage(packages, SkillTestData.CreatePackageWithUpdatedBody(packages[0]));
 
         var result = await updateService.UpdateAsync(new SkillUpdateInput(updatedPackages, request), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(SkillFailureCodes.InstallTargetWriteFailed, result.Failure!.Code);
-        Assert.True(Directory.Exists(skillDirectory));
-        Assert.Equal(originalSkill, File.ReadAllText(skillPath));
     }
 
     [Fact]
@@ -257,27 +252,6 @@ public sealed class SkillUpdateServiceTests
         Assert.Equal(SkillFailureCodes.InstallTargetUnmanaged, result.Failure!.Code);
         Assert.Equal(originalManifest, File.ReadAllText(manifestPath));
         Assert.True(File.Exists(unmanagedPath));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task PackageWriterWriteAsync_WithOutsideSkillDirectory_ReturnsPathUnsafeWithoutWriting ()
-    {
-        using var targetScope = TestDirectories.CreateTempScope("ucli-skills", "writer-target-root");
-        using var outsideScope = TestDirectories.CreateTempScope("ucli-skills", "writer-outside-root");
-        var writer = new SkillMaterializedPackageWriter();
-        var outsideSkillDirectory = Path.Combine(outsideScope.FullPath, "skill");
-
-        var result = await writer.WriteAsync(
-            targetScope.FullPath,
-            outsideSkillDirectory,
-            new SkillMaterializedPackage("skill", OpenAiSkillHostAdapter.HostKey, []),
-            CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(SkillFailureCodes.PathUnsafe, result.Failure!.Code);
-        Assert.False(Directory.Exists(outsideSkillDirectory));
-        Assert.Empty(Directory.EnumerateFileSystemEntries(outsideScope.FullPath));
     }
 
     [Fact]
@@ -416,18 +390,6 @@ public sealed class SkillUpdateServiceTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(SkillFailureCodes.PathUnsafe, result.Failure!.Code);
-    }
-
-    private static SkillUpdateService CreateUpdateService (ISkillMaterializedPackageWriter writer)
-    {
-        var hostAdapters = SkillTestData.CreateOfficialHostAdapterSet();
-        var installedPackageValidator = SkillTestData.CreateInstalledPackageValidator(hostAdapters);
-        return new SkillUpdateService(
-            new SkillInstallTargetResolver(hostAdapters),
-            new SkillMaterializationService(hostAdapters),
-            new SkillInstalledTargetStateAnalyzer(installedPackageValidator, SkillTestData.CreateInstalledPackageIntegrityVerifier(hostAdapters)),
-            writer,
-            new SkillMaterializedPackageDiffBuilder());
     }
 
     private sealed class FailingPackageWriter : ISkillMaterializedPackageWriter

@@ -153,7 +153,6 @@ public sealed class SkillInstallService
                         identity,
                         SkillInstallActionKind.Created,
                         input,
-                        blockedReason: null,
                         cancellationToken)
                     .ConfigureAwait(false);
             case SkillInstalledTargetStateKind.Current:
@@ -213,7 +212,7 @@ public sealed class SkillInstallService
         SkillInstallIdentity identity,
         SkillInstallInput input,
         SkillInstallActionKind blockedActionKind,
-        string blockedReason,
+        SkillBlockedReason blockedReason,
         CancellationToken cancellationToken)
     {
         if (input.Force)
@@ -225,7 +224,6 @@ public sealed class SkillInstallService
                     identity,
                     SkillInstallActionKind.Updated,
                     input,
-                    blockedReason: null,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -256,29 +254,22 @@ public sealed class SkillInstallService
         SkillInstallIdentity identity,
         SkillInstallActionKind actionKind,
         SkillInstallInput input,
-        string? blockedReason,
         CancellationToken cancellationToken)
     {
-        var materializedResult = materializationService.Materialize(package, host);
-        if (!materializedResult.IsSuccess)
+        var packagePlanResult = await CreateMaterializedPackagePlanAsync(package, host, skillDirectory, input.PrintDiff, cancellationToken).ConfigureAwait(false);
+        if (!packagePlanResult.IsSuccess)
         {
-            return SkillOperationResult<SkillInstallActionPlan>.FailureResult(materializedResult.Failure!.Code, materializedResult.Failure.Message);
+            return SkillOperationResult<SkillInstallActionPlan>.FailureResult(packagePlanResult.Failure!.Code, packagePlanResult.Failure.Message);
         }
 
-        var diffResult = await CreateDiffsAsync(skillDirectory, materializedResult.Value!, input.PrintDiff, cancellationToken).ConfigureAwait(false);
-        if (!diffResult.IsSuccess)
-        {
-            return SkillOperationResult<SkillInstallActionPlan>.FailureResult(diffResult.Failure!.Code, diffResult.Failure.Message);
-        }
-
+        var packagePlan = packagePlanResult.Value!;
         return SkillOperationResult<SkillInstallActionPlan>.Success(new SkillInstallActionPlan(
             new SkillInstallAction(
                 identity,
                 actionKind,
-                blockedReason,
-                diffResult.Value),
+                Diffs: packagePlan.Diffs),
             skillDirectory,
-            materializedResult.Value!));
+            packagePlan.MaterializedPackage));
     }
 
     private async ValueTask<SkillOperationResult<SkillInstallActionPlan>> CreateBlockedActionPlanAsync (
@@ -287,41 +278,41 @@ public sealed class SkillInstallService
         string skillDirectory,
         SkillInstallIdentity identity,
         SkillInstallActionKind actionKind,
-        string blockedReason,
+        SkillBlockedReason blockedReason,
+        bool printDiff,
+        CancellationToken cancellationToken)
+    {
+        var packagePlanResult = await CreateMaterializedPackagePlanAsync(package, host, skillDirectory, printDiff, cancellationToken).ConfigureAwait(false);
+        return packagePlanResult.IsSuccess
+            ? SkillOperationResult<SkillInstallActionPlan>.Success(new SkillInstallActionPlan(
+                new SkillInstallAction(identity, actionKind, blockedReason, packagePlanResult.Value!.Diffs),
+                skillDirectory,
+                null))
+            : SkillOperationResult<SkillInstallActionPlan>.FailureResult(packagePlanResult.Failure!.Code, packagePlanResult.Failure.Message);
+    }
+
+    private async ValueTask<SkillOperationResult<SkillMaterializedPackagePlan>> CreateMaterializedPackagePlanAsync (
+        CanonicalSkillPackage package,
+        string host,
+        string skillDirectory,
         bool printDiff,
         CancellationToken cancellationToken)
     {
         var materializedResult = materializationService.Materialize(package, host);
         if (!materializedResult.IsSuccess)
         {
-            return SkillOperationResult<SkillInstallActionPlan>.FailureResult(materializedResult.Failure!.Code, materializedResult.Failure.Message);
+            return SkillOperationResult<SkillMaterializedPackagePlan>.FailureResult(materializedResult.Failure!.Code, materializedResult.Failure.Message);
         }
 
-        var diffResult = await CreateDiffsAsync(skillDirectory, materializedResult.Value!, printDiff, cancellationToken).ConfigureAwait(false);
+        var diffResult = await diffBuilder.BuildOptionalAsync(skillDirectory, materializedResult.Value!, printDiff, cancellationToken).ConfigureAwait(false);
         return diffResult.IsSuccess
-            ? SkillOperationResult<SkillInstallActionPlan>.Success(new SkillInstallActionPlan(
-                new SkillInstallAction(identity, actionKind, blockedReason, diffResult.Value),
-                skillDirectory,
-                null))
-            : SkillOperationResult<SkillInstallActionPlan>.FailureResult(diffResult.Failure!.Code, diffResult.Failure.Message);
+            ? SkillOperationResult<SkillMaterializedPackagePlan>.Success(new SkillMaterializedPackagePlan(materializedResult.Value!, diffResult.Value!))
+            : SkillOperationResult<SkillMaterializedPackagePlan>.FailureResult(diffResult.Failure!.Code, diffResult.Failure.Message);
     }
 
-    private async ValueTask<SkillOperationResult<IReadOnlyList<SkillActionDiff>?>> CreateDiffsAsync (
-        string skillDirectory,
-        SkillMaterializedPackage materializedPackage,
-        bool printDiff,
-        CancellationToken cancellationToken)
-    {
-        if (!printDiff)
-        {
-            return SkillOperationResult<IReadOnlyList<SkillActionDiff>?>.Success(Array.Empty<SkillActionDiff>());
-        }
-
-        var diffResult = await diffBuilder.BuildAsync(skillDirectory, materializedPackage, cancellationToken).ConfigureAwait(false);
-        return diffResult.IsSuccess
-            ? SkillOperationResult<IReadOnlyList<SkillActionDiff>?>.Success(diffResult.Value)
-            : SkillOperationResult<IReadOnlyList<SkillActionDiff>?>.FailureResult(diffResult.Failure!.Code, diffResult.Failure.Message);
-    }
+    private sealed record SkillMaterializedPackagePlan (
+        SkillMaterializedPackage MaterializedPackage,
+        IReadOnlyList<SkillActionDiff> Diffs);
 
     private sealed record SkillInstallActionPlan (
         SkillInstallAction Action,

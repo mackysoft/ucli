@@ -46,9 +46,7 @@ public sealed class SkillInstalledTargetStateAnalyzer
         var currentResult = await installedPackageValidator.ValidateAsync(package, skillDirectory, host, cancellationToken).ConfigureAwait(false);
         if (currentResult.IsSuccess)
         {
-            return SkillOperationResult<SkillInstalledTargetState>.Success(new SkillInstalledTargetState(
-                SkillInstalledTargetStateKind.Current,
-                currentResult.Value));
+            return SkillOperationResult<SkillInstalledTargetState>.Success(new SkillInstalledTargetState(SkillInstalledTargetStateKind.Current));
         }
 
         if (string.Equals(currentResult.Failure!.Code, SkillFailureCodes.InstallTargetUnmanaged, StringComparison.Ordinal))
@@ -64,9 +62,7 @@ public sealed class SkillInstalledTargetStateAnalyzer
         var integrityResult = await installedPackageIntegrityVerifier.VerifyAsync(skillDirectory, host, cancellationToken).ConfigureAwait(false);
         if (integrityResult.IsSuccess)
         {
-            return SkillOperationResult<SkillInstalledTargetState>.Success(new SkillInstalledTargetState(
-                SkillInstalledTargetStateKind.CleanOutdated,
-                integrityResult.Value));
+            return SkillOperationResult<SkillInstalledTargetState>.Success(new SkillInstalledTargetState(SkillInstalledTargetStateKind.CleanOutdated));
         }
 
         return string.Equals(integrityResult.Failure!.Code, SkillFailureCodes.InstallTargetDigestMismatch, StringComparison.Ordinal)

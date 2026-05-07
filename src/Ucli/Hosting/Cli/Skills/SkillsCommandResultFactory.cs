@@ -101,17 +101,12 @@ internal static class SkillsCommandResultFactory
         }
 
         var installResult = result.Value!;
-        var actions = installResult.Actions
-            .OrderBy(static action => action.Identity.SkillName, StringComparer.Ordinal)
-            .Select(static action => new
-            {
-                action.Identity.SkillName,
-                action = ToActionLiteral(action.ActionKind),
-                action.Identity.TargetRoot,
-                action.BlockedReason,
-                diffs = CreateDiffPayloads(action.Diffs),
-            })
-            .ToArray();
+        var actions = CreateActionPayloads(
+            installResult.Actions,
+            static action => action.Identity,
+            static action => ToActionLiteral(action.ActionKind),
+            static action => action.BlockedReason,
+            static action => action.Diffs);
 
         return CommandResult.Success(
             command: UcliCommandNames.SkillsInstall,
@@ -153,17 +148,12 @@ internal static class SkillsCommandResultFactory
         }
 
         var updateResult = result.Value!;
-        var actions = updateResult.Actions
-            .OrderBy(static action => action.Identity.SkillName, StringComparer.Ordinal)
-            .Select(static action => new
-            {
-                action.Identity.SkillName,
-                action = ToActionLiteral(action.ActionKind),
-                action.Identity.TargetRoot,
-                action.BlockedReason,
-                diffs = CreateDiffPayloads(action.Diffs),
-            })
-            .ToArray();
+        var actions = CreateActionPayloads(
+            updateResult.Actions,
+            static action => action.Identity,
+            static action => ToActionLiteral(action.ActionKind),
+            static action => action.BlockedReason,
+            static action => action.Diffs);
 
         return CommandResult.Success(
             command: UcliCommandNames.SkillsUpdate,
@@ -205,17 +195,12 @@ internal static class SkillsCommandResultFactory
         }
 
         var uninstallResult = result.Value!;
-        var actions = uninstallResult.Actions
-            .OrderBy(static action => action.Identity.SkillName, StringComparer.Ordinal)
-            .Select(static action => new
-            {
-                action.Identity.SkillName,
-                action = ToActionLiteral(action.ActionKind),
-                action.Identity.TargetRoot,
-                action.BlockedReason,
-                diffs = CreateDiffPayloads(null),
-            })
-            .ToArray();
+        var actions = CreateActionPayloads(
+            uninstallResult.Actions,
+            static action => action.Identity,
+            static action => ToActionLiteral(action.ActionKind),
+            static action => action.BlockedReason,
+            static _ => null);
 
         return CommandResult.Success(
             command: UcliCommandNames.SkillsUninstall,
@@ -386,6 +371,42 @@ internal static class SkillsCommandResultFactory
     private static bool IsBlocked (SkillUninstallActionKind actionKind)
     {
         return actionKind is SkillUninstallActionKind.BlockedLocalModification;
+    }
+
+    private static object[] CreateActionPayloads<TAction> (
+        IReadOnlyList<TAction> actions,
+        Func<TAction, SkillInstallIdentity> getIdentity,
+        Func<TAction, string> getActionLiteral,
+        Func<TAction, SkillBlockedReason?> getBlockedReason,
+        Func<TAction, IReadOnlyList<SkillActionDiff>?> getDiffs)
+    {
+        return actions
+            .OrderBy(action => getIdentity(action).SkillName, StringComparer.Ordinal)
+            .Select(action =>
+            {
+                var identity = getIdentity(action);
+                return new
+                {
+                    identity.SkillName,
+                    action = getActionLiteral(action),
+                    identity.TargetRoot,
+                    blockedReason = ToBlockedReasonLiteral(getBlockedReason(action)),
+                    diffs = CreateDiffPayloads(getDiffs(action)),
+                };
+            })
+            .ToArray();
+    }
+
+    private static string? ToBlockedReasonLiteral (SkillBlockedReason? reason)
+    {
+        return reason switch
+        {
+            null => null,
+            SkillBlockedReason.ManagedOverwriteRequiresForce => "managedOverwriteRequiresForce",
+            SkillBlockedReason.LocalModificationRequiresForce => "localModificationRequiresForce",
+            SkillBlockedReason.UnmanagedTarget => "unmanagedTarget",
+            _ => reason.Value.ToString(),
+        };
     }
 
     private static object[] CreateDiffPayloads (IReadOnlyList<SkillActionDiff>? diffs)

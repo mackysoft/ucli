@@ -101,7 +101,7 @@ public sealed class SkillMaterializedPackageWriter : ISkillMaterializedPackageWr
 
             Directory.Move(stagingDirectory, resolvedSkillDirectory);
             committed = true;
-            TryDeleteDirectory(backupDirectory);
+            DeleteDirectoryBestEffort(backupDirectory);
 
             return SkillOperationResult<bool>.Success(true);
         }
@@ -131,38 +131,35 @@ public sealed class SkillMaterializedPackageWriter : ISkillMaterializedPackageWr
         finally
         {
             var preserveBackup = !committed && movedExistingToBackup && Directory.Exists(backupDirectory);
-            TryDeleteDirectory(stagingDirectory);
+            DeleteDirectoryBestEffort(stagingDirectory);
             if (committed || !movedExistingToBackup)
             {
-                TryDeleteDirectory(backupDirectory);
+                DeleteDirectoryBestEffort(backupDirectory);
             }
 
             if (!preserveBackup)
             {
-                TryDeleteDirectory(transactionRoot);
+                DeleteDirectoryBestEffort(transactionRoot);
             }
         }
     }
 
-    private static bool TryDeleteDirectory (string path)
+    private static void DeleteDirectoryBestEffort (string path)
     {
         if (!Directory.Exists(path))
         {
-            return true;
+            return;
         }
 
         try
         {
             Directory.Delete(path, recursive: true);
-            return true;
         }
         catch (IOException)
         {
-            return false;
         }
         catch (UnauthorizedAccessException)
         {
-            return false;
         }
     }
 }

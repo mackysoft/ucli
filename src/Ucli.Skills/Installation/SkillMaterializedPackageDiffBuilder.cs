@@ -72,6 +72,23 @@ public sealed class SkillMaterializedPackageDiffBuilder
             : SkillOperationResult<IReadOnlyList<SkillActionDiff>>.Success([new SkillActionDiff(fileDiffs)]);
     }
 
+    /// <summary> Builds structured diffs when requested, or returns an empty diff list. </summary>
+    /// <param name="skillDirectory"> The target skill directory. </param>
+    /// <param name="materializedPackage"> The desired materialized package. </param>
+    /// <param name="printDiff"> Whether structured diffs should be included. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> Structured diffs, an empty list, or a path-safety/read failure. </returns>
+    public ValueTask<SkillOperationResult<IReadOnlyList<SkillActionDiff>>> BuildOptionalAsync (
+        string skillDirectory,
+        SkillMaterializedPackage materializedPackage,
+        bool printDiff,
+        CancellationToken cancellationToken = default)
+    {
+        return printDiff
+            ? BuildAsync(skillDirectory, materializedPackage, cancellationToken)
+            : ValueTask.FromResult(SkillOperationResult<IReadOnlyList<SkillActionDiff>>.Success(Array.Empty<SkillActionDiff>()));
+    }
+
     private static async ValueTask<SkillOperationResult<Dictionary<string, string>>> ReadExistingFilesAsync (
         string skillDirectory,
         CancellationToken cancellationToken)
