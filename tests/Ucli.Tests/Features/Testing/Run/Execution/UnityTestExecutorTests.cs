@@ -22,10 +22,11 @@ public sealed class UnityTestExecutorTests
         scope.WriteFile("run/results.xml", "<test-run />");
         scope.WriteFile("run/editor.log", "log");
         var lockProvider = new StubProjectLifecycleLockProvider();
+        var processRunner = new StubProcessRunner(ProcessRunResult.Exited(0));
 
         var executor = new UnityTestExecutor(
             new StubUnityCommandBuilder(["-batchmode"]),
-            new StubProcessRunner(ProcessRunResult.Exited(0)),
+            processRunner,
             lockProvider,
             new StubUnityProjectLockFileProbe());
 
@@ -39,6 +40,8 @@ public sealed class UnityTestExecutorTests
         Assert.Equal(0, result.ProcessExitCode);
         var lockRequest = Assert.IsType<ProjectLifecycleLockRequest>(lockProvider.LastRequest);
         Assert.Equal(configuration.UnityProject.UnityProjectRoot, lockRequest.UnityProjectRoot);
+        Assert.NotNull(processRunner.LastRequest.TerminationPolicy);
+        Assert.Equal(ProcessTerminationMode.GracefulThenKill, processRunner.LastRequest.TerminationPolicy!.Mode);
     }
 
     [Fact]
@@ -221,6 +224,72 @@ public sealed class UnityTestExecutorTests
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityTestExecutionFailureKind.ProcessTimedOut, result.FailureKind);
         Assert.Contains("timed out", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenProcessTimesOutAndUnityLockFileRemains_ReturnsTimeoutWithResidualLockDiagnostic ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-test-executor", "process-timeout-residual-lock");
+        var configuration = CreateConfiguration(scope);
+        var artifactPaths = CreateArtifactPaths(scope);
+        var lockFilePath = scope.GetPath("UnityProject/Temp/UnityLockfile");
+
+        var executor = new UnityTestExecutor(
+            new StubUnityCommandBuilder(["-batchmode"]),
+            new StubProcessRunner(ProcessRunResult.TimedOut(
+                "Unity process timed out.",
+                terminationResult: ProcessTerminationResult.ForceKilled)),
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe(
+                UnityProjectLockFileProbeResult.Unlocked(lockFilePath),
+                UnityProjectLockFileProbeResult.Unlocked(lockFilePath),
+                UnityProjectLockFileProbeResult.Locked(lockFilePath)));
+
+        var result = await executor.Execute(
+            configuration,
+            artifactPaths,
+            TimeSpan.FromMilliseconds(3000),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityTestExecutionFailureKind.ProcessTimedOut, result.FailureKind);
+        Assert.Null(result.ErrorCode);
+        Assert.Contains("uCLI terminated the Unity process, but Temp/UnityLockfile remains", result.ErrorMessage, StringComparison.Ordinal);
+        Assert.Contains(lockFilePath, result.ErrorMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenProcessIsCanceledAndUnityLockFileRemains_ReturnsCanceledWithResidualLockDiagnostic ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-test-executor", "process-canceled-residual-lock");
+        var configuration = CreateConfiguration(scope);
+        var artifactPaths = CreateArtifactPaths(scope);
+        var lockFilePath = scope.GetPath("UnityProject/Temp/UnityLockfile");
+
+        var executor = new UnityTestExecutor(
+            new StubUnityCommandBuilder(["-batchmode"]),
+            new StubProcessRunner(ProcessRunResult.Canceled(
+                "Unity process was canceled.",
+                terminationResult: ProcessTerminationResult.ForceKilled)),
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe(
+                UnityProjectLockFileProbeResult.Unlocked(lockFilePath),
+                UnityProjectLockFileProbeResult.Unlocked(lockFilePath),
+                UnityProjectLockFileProbeResult.Locked(lockFilePath)));
+
+        var result = await executor.Execute(
+            configuration,
+            artifactPaths,
+            TimeSpan.FromMilliseconds(3000),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityTestExecutionFailureKind.Canceled, result.FailureKind);
+        Assert.Null(result.ErrorCode);
+        Assert.Contains("uCLI terminated the Unity process, but Temp/UnityLockfile remains", result.ErrorMessage, StringComparison.Ordinal);
+        Assert.Contains(lockFilePath, result.ErrorMessage, StringComparison.Ordinal);
     }
 
     [Fact]

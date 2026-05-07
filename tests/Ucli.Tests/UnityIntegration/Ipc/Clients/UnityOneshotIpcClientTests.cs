@@ -227,7 +227,48 @@ public sealed class UnityOneshotIpcClientTests
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
         Assert.Equal(1, processHandle.TerminateCallCount);
+        Assert.NotNull(processHandle.LastTerminationPolicy);
+        Assert.Equal(ProcessTerminationMode.GracefulThenKill, processHandle.LastTerminationPolicy!.Mode);
         Assert.Equal(0, processHandle.WaitForExitCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenCleanupTerminatesProcessAndUnityLockFileRemains_ReturnsOriginalFailureWithResidualLockDiagnostic ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "request-timeout-residual-lock");
+        var unityProject = CreateUnityProject(scope);
+        var lockFilePath = scope.GetPath("UnityProject/Temp/UnityLockfile");
+        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
+        var processHandle = new StubUnityBatchmodeProcessHandle();
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var transportClient = new StubUnityIpcTransportClient(request =>
+        {
+            return request.Method switch
+            {
+                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
+                IpcMethodNames.OpsRead => throw new TimeoutException("request timed out"),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = new UnityOneshotIpcClient(
+            launcher,
+            new StubIpcEndpointResolver(endpoint),
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe(UnityProjectLockFileProbeResult.Locked(lockFilePath)));
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.Contains("uCLI terminated the Unity process, but Temp/UnityLockfile remains", result.Message, StringComparison.Ordinal);
+        Assert.Contains(lockFilePath, result.Message, StringComparison.Ordinal);
+        Assert.Equal(1, processHandle.TerminateCallCount);
     }
 
     private static ResolvedUnityProjectContext CreateUnityProject (TestDirectoryScope scope)
@@ -348,7 +389,9 @@ public sealed class UnityOneshotIpcClientTests
 
         public int TerminateCallCount { get; private set; }
 
-        public Task WaitForExit (CancellationToken cancellationToken = default)
+        public ProcessTerminationPolicy? LastTerminationPolicy { get; private set; }
+
+        public Task WaitForExitAsync (CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             WaitForExitCallCount++;
@@ -356,12 +399,15 @@ public sealed class UnityOneshotIpcClientTests
             return Task.CompletedTask;
         }
 
-        public Task Terminate (CancellationToken cancellationToken = default)
+        public Task<ProcessTerminationResult> TerminateAsync (
+            ProcessTerminationPolicy? terminationPolicy = null,
+            CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             TerminateCallCount++;
+            LastTerminationPolicy = terminationPolicy;
             HasExited = true;
-            return Task.CompletedTask;
+            return Task.FromResult(ProcessTerminationResult.GracefulExited);
         }
 
         public ValueTask DisposeAsync ()

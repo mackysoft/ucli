@@ -846,18 +846,20 @@ public sealed class UnityIpcRequestExecutorTests
 
         public int? ExitCode => HasExited ? 0 : null;
 
-        public Task WaitForExit (CancellationToken cancellationToken = default)
+        public Task WaitForExitAsync (CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             HasExited = true;
             return Task.CompletedTask;
         }
 
-        public Task Terminate (CancellationToken cancellationToken = default)
+        public Task<ProcessTerminationResult> TerminateAsync (
+            ProcessTerminationPolicy? terminationPolicy = null,
+            CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             HasExited = true;
-            return Task.CompletedTask;
+            return Task.FromResult(ProcessTerminationResult.GracefulExited);
         }
 
         public ValueTask DisposeAsync ()
