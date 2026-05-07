@@ -1,7 +1,5 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
-using MackySoft.Ucli.Application.Shared.Context.Project;
-using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Contracts.Configuration;
 
 namespace MackySoft.Ucli.Application.Tests;
@@ -12,12 +10,12 @@ public sealed class ReadIndexValidationCatalogResolverTests
     [Trait("Size", "Small")]
     public async Task Resolve_WhenReadIndexDisabled_ReturnsSyntaxOnlySuccess ()
     {
-        var snapshot = CreateSnapshot(IndexFreshness.Fresh);
-        var loader = new SpyPersistedOpsCatalogSnapshotLoader(
+        var persistedCatalog = CreatePersistedCatalogStub(IndexFreshness.Fresh);
+        var loader = new SpyPersistedOpsCatalogReader(
             PersistedOpsCatalogReadResult.Success(
-                snapshot.Entries,
-                snapshot.GeneratedAtUtc,
-                snapshot.Freshness));
+                persistedCatalog.Entries,
+                persistedCatalog.GeneratedAtUtc,
+                persistedCatalog.Freshness));
         var resolver = new ReadIndexValidationCatalogResolver(loader);
 
         var result = await resolver.Resolve(
@@ -37,9 +35,9 @@ public sealed class ReadIndexValidationCatalogResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Resolve_WhenAllowStaleAndSnapshotIsMissing_ReturnsSyntaxOnlySuccess ()
+    public async Task Resolve_WhenAllowStaleAndPersistedCatalogIsMissing_ReturnsSyntaxOnlySuccess ()
     {
-        var resolver = new ReadIndexValidationCatalogResolver(new SpyPersistedOpsCatalogSnapshotLoader(
+        var resolver = new ReadIndexValidationCatalogResolver(new SpyPersistedOpsCatalogReader(
             PersistedOpsCatalogReadResult.Failure(
                 ReadIndexErrorCodes.ReadIndexBootstrapFailed,
                 "Index contract file was not found: ops.catalog.json.")));
@@ -58,14 +56,14 @@ public sealed class ReadIndexValidationCatalogResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Resolve_WhenRequireFreshAndSnapshotIsStale_ReturnsFailureWithReadIndexHit ()
+    public async Task Resolve_WhenRequireFreshAndPersistedCatalogIsStale_ReturnsFailureWithReadIndexHit ()
     {
-        var snapshot = CreateSnapshot(IndexFreshness.Stale);
-        var resolver = new ReadIndexValidationCatalogResolver(new SpyPersistedOpsCatalogSnapshotLoader(
+        var persistedCatalog = CreatePersistedCatalogStub(IndexFreshness.Stale);
+        var resolver = new ReadIndexValidationCatalogResolver(new SpyPersistedOpsCatalogReader(
             PersistedOpsCatalogReadResult.Success(
-                snapshot.Entries,
-                snapshot.GeneratedAtUtc,
-                snapshot.Freshness)));
+                persistedCatalog.Entries,
+                persistedCatalog.GeneratedAtUtc,
+                persistedCatalog.Freshness)));
 
         var result = await resolver.Resolve(
             CreateUnityProject(),
@@ -82,9 +80,9 @@ public sealed class ReadIndexValidationCatalogResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Resolve_WhenSnapshotEntryIsMalformed_ReturnsFormatInvalidFailure ()
+    public async Task Resolve_WhenPersistedCatalogEntryIsMalformed_ReturnsFormatInvalidFailure ()
     {
-        var malformedSnapshot = new
+        var malformedPersistedCatalog = new
         {
             Entries = new IndexOpEntryJsonContract[]
             {
@@ -97,11 +95,11 @@ public sealed class ReadIndexValidationCatalogResolverTests
             GeneratedAtUtc = DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
             Freshness = IndexFreshness.Fresh,
         };
-        var resolver = new ReadIndexValidationCatalogResolver(new SpyPersistedOpsCatalogSnapshotLoader(
+        var resolver = new ReadIndexValidationCatalogResolver(new SpyPersistedOpsCatalogReader(
             PersistedOpsCatalogReadResult.Success(
-                malformedSnapshot.Entries,
-                malformedSnapshot.GeneratedAtUtc,
-                malformedSnapshot.Freshness)));
+                malformedPersistedCatalog.Entries,
+                malformedPersistedCatalog.GeneratedAtUtc,
+                malformedPersistedCatalog.Freshness)));
 
         var result = await resolver.Resolve(
             CreateUnityProject(),
@@ -117,14 +115,14 @@ public sealed class ReadIndexValidationCatalogResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Resolve_WhenSnapshotIsUsable_ReturnsMetadataBackedSuccess ()
+    public async Task Resolve_WhenPersistedCatalogIsUsable_ReturnsMetadataBackedSuccess ()
     {
-        var snapshot = CreateSnapshot(IndexFreshness.Probable);
-        var resolver = new ReadIndexValidationCatalogResolver(new SpyPersistedOpsCatalogSnapshotLoader(
+        var persistedCatalog = CreatePersistedCatalogStub(IndexFreshness.Probable);
+        var resolver = new ReadIndexValidationCatalogResolver(new SpyPersistedOpsCatalogReader(
             PersistedOpsCatalogReadResult.Success(
-                snapshot.Entries,
-                snapshot.GeneratedAtUtc,
-                snapshot.Freshness)));
+                persistedCatalog.Entries,
+                persistedCatalog.GeneratedAtUtc,
+                persistedCatalog.Freshness)));
 
         var result = await resolver.Resolve(
             CreateUnityProject(),
@@ -149,9 +147,9 @@ public sealed class ReadIndexValidationCatalogResolverTests
             PathSource: UnityProjectPathSource.CommandOption);
     }
 
-    private static PersistedOpsCatalogSnapshotStub CreateSnapshot (IndexFreshness freshness)
+    private static PersistedOpsCatalogReadResultStub CreatePersistedCatalogStub (IndexFreshness freshness)
     {
-        return new PersistedOpsCatalogSnapshotStub(
+        return new PersistedOpsCatalogReadResultStub(
             Entries:
             [
                 new IndexOpEntryJsonContract(
@@ -164,16 +162,16 @@ public sealed class ReadIndexValidationCatalogResolverTests
             Freshness: freshness);
     }
 
-    private sealed record PersistedOpsCatalogSnapshotStub (
+    private sealed record PersistedOpsCatalogReadResultStub (
         IReadOnlyList<IndexOpEntryJsonContract> Entries,
         DateTimeOffset GeneratedAtUtc,
         IndexFreshness Freshness);
 
-    private sealed class SpyPersistedOpsCatalogSnapshotLoader : IPersistedOpsCatalogReader
+    private sealed class SpyPersistedOpsCatalogReader : IPersistedOpsCatalogReader
     {
         private readonly PersistedOpsCatalogReadResult result;
 
-        public SpyPersistedOpsCatalogSnapshotLoader (PersistedOpsCatalogReadResult result)
+        public SpyPersistedOpsCatalogReader (PersistedOpsCatalogReadResult result)
         {
             this.result = result ?? throw new ArgumentNullException(nameof(result));
         }

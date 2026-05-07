@@ -1,9 +1,8 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Index;
 using MackySoft.Ucli.UnityIntegration.Indexing.Assets;
+using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.Tests.Assets;
 
@@ -16,9 +15,9 @@ public sealed class AssetLookupSourceRefreshServiceTests
         var reader = new StubAssetLookupSnapshotReader();
         var response = CreateResponse("2026-03-08T00:00:00+00:00", "Assets/Data/Stable.asset");
         reader.Enqueue(AssetLookupSnapshotFetchResult.Success(response));
-        var store = new StubAssetLookupStore();
+        var store = new StubReadIndexArtifactWriter();
         var stableSnapshot = CreateSnapshot("asset-search-1", "guid-path-1", "combined-1");
-        var calculator = new StubIndexInputFingerprintCalculator();
+        var calculator = new StubReadIndexInputFingerprintProvider();
         calculator.Enqueue(stableSnapshot);
         calculator.Enqueue(stableSnapshot);
         var service = new AssetLookupSourceRefreshService(reader, store, calculator);
@@ -29,7 +28,6 @@ public sealed class AssetLookupSourceRefreshServiceTests
             UcliCommandIds.Query,
             mode: UnityExecutionMode.Auto,
             timeout: TimeSpan.FromMilliseconds(1000),
-            readIndexMode: ReadIndexMode.AllowStale,
             fallbackReason: "readIndex stale.",
             failFast: true,
             cancellationToken: CancellationToken.None);
@@ -53,10 +51,10 @@ public sealed class AssetLookupSourceRefreshServiceTests
         reader.Enqueue(AssetLookupSnapshotFetchResult.Success(CreateResponse("2026-03-08T00:00:00+00:00", "Assets/Data/First.asset")));
         var stableResponse = CreateResponse("2026-03-08T00:01:00+00:00", "Assets/Data/Second.asset");
         reader.Enqueue(AssetLookupSnapshotFetchResult.Success(stableResponse));
-        var store = new StubAssetLookupStore();
+        var store = new StubReadIndexArtifactWriter();
         var snapshot1 = CreateSnapshot("asset-search-1", "guid-path-1", "combined-1");
         var snapshot2 = CreateSnapshot("asset-search-2", "guid-path-2", "combined-2");
-        var calculator = new StubIndexInputFingerprintCalculator();
+        var calculator = new StubReadIndexInputFingerprintProvider();
         calculator.Enqueue(snapshot1);
         calculator.Enqueue(snapshot2);
         calculator.Enqueue(snapshot2);
@@ -69,7 +67,6 @@ public sealed class AssetLookupSourceRefreshServiceTests
             UcliCommandIds.Query,
             mode: UnityExecutionMode.Auto,
             timeout: TimeSpan.FromMilliseconds(1000),
-            readIndexMode: ReadIndexMode.AllowStale,
             fallbackReason: "readIndex stale.",
             cancellationToken: CancellationToken.None);
 
@@ -91,10 +88,10 @@ public sealed class AssetLookupSourceRefreshServiceTests
         var firstResponse = CreateResponse("2026-03-08T00:00:00+00:00", "Assets/Data/First.asset");
         reader.Enqueue(AssetLookupSnapshotFetchResult.Success(firstResponse));
         reader.Enqueue(AssetLookupSnapshotFetchResult.Failure("retry read timed out", UcliCoreErrorCodes.InternalError));
-        var store = new StubAssetLookupStore();
+        var store = new StubReadIndexArtifactWriter();
         var snapshot1 = CreateSnapshot("asset-search-1", "guid-path-1", "combined-1");
         var snapshot2 = CreateSnapshot("asset-search-2", "guid-path-2", "combined-2");
-        var calculator = new StubIndexInputFingerprintCalculator();
+        var calculator = new StubReadIndexInputFingerprintProvider();
         calculator.Enqueue(snapshot1);
         calculator.Enqueue(snapshot2);
         calculator.Enqueue(snapshot2);
@@ -106,7 +103,6 @@ public sealed class AssetLookupSourceRefreshServiceTests
             UcliCommandIds.Query,
             mode: UnityExecutionMode.Auto,
             timeout: TimeSpan.FromMilliseconds(1000),
-            readIndexMode: ReadIndexMode.AllowStale,
             fallbackReason: "readIndex stale.",
             cancellationToken: CancellationToken.None);
 
@@ -129,11 +125,11 @@ public sealed class AssetLookupSourceRefreshServiceTests
         reader.Enqueue(AssetLookupSnapshotFetchResult.Success(CreateResponse("2026-03-08T00:00:00+00:00", "Assets/Data/First.asset")));
         var lastResponse = CreateResponse("2026-03-08T00:01:00+00:00", "Assets/Data/Second.asset");
         reader.Enqueue(AssetLookupSnapshotFetchResult.Success(lastResponse));
-        var store = new StubAssetLookupStore();
+        var store = new StubReadIndexArtifactWriter();
         var snapshot1 = CreateSnapshot("asset-search-1", "guid-path-1", "combined-1");
         var snapshot2 = CreateSnapshot("asset-search-2", "guid-path-2", "combined-2");
         var snapshot3 = CreateSnapshot("asset-search-3", "guid-path-3", "combined-3");
-        var calculator = new StubIndexInputFingerprintCalculator();
+        var calculator = new StubReadIndexInputFingerprintProvider();
         calculator.Enqueue(snapshot1);
         calculator.Enqueue(snapshot2);
         calculator.Enqueue(snapshot2);
@@ -146,7 +142,6 @@ public sealed class AssetLookupSourceRefreshServiceTests
             UcliCommandIds.Query,
             mode: UnityExecutionMode.Auto,
             timeout: TimeSpan.FromMilliseconds(1000),
-            readIndexMode: ReadIndexMode.AllowStale,
             fallbackReason: "readIndex stale.",
             cancellationToken: CancellationToken.None);
 
@@ -196,12 +191,12 @@ public sealed class AssetLookupSourceRefreshServiceTests
             ]);
     }
 
-    private static IndexInputHashSnapshot CreateSnapshot (
+    private static ReadIndexInputHashSnapshot CreateSnapshot (
         string assetSearchHash,
         string guidPathHash,
         string combinedHash)
     {
-        return new IndexInputHashSnapshot(
+        return new ReadIndexInputHashSnapshot(
             ScriptAssembliesHash: "script-hash",
             PackagesManifestHash: "manifest-hash",
             PackagesLockHash: "lock-hash",
@@ -246,7 +241,7 @@ public sealed class AssetLookupSourceRefreshServiceTests
         }
     }
 
-    private sealed class StubAssetLookupStore : IAssetLookupStore
+    private sealed class StubReadIndexArtifactWriter : IReadIndexArtifactWriter
     {
         public int CallCount { get; private set; }
 
@@ -254,15 +249,15 @@ public sealed class AssetLookupSourceRefreshServiceTests
 
         public IReadOnlyList<IndexAssetSearchEntryJsonContract>? AssetSearchEntries { get; private set; }
 
-        public IndexInputHashSnapshot? InputSnapshot { get; private set; }
+        public ReadIndexInputHashSnapshot? InputSnapshot { get; private set; }
 
-        public ValueTask Write (
+        public ValueTask WriteAssetLookups (
             string storageRoot,
             string projectFingerprint,
             DateTimeOffset generatedAtUtc,
             IReadOnlyList<IndexAssetSearchEntryJsonContract> assetSearchEntries,
             IReadOnlyList<IndexGuidPathEntryJsonContract> guidPathEntries,
-            IndexInputHashSnapshot inputSnapshot,
+            ReadIndexInputHashSnapshot inputSnapshot,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -272,28 +267,52 @@ public sealed class AssetLookupSourceRefreshServiceTests
             InputSnapshot = inputSnapshot;
             return ValueTask.CompletedTask;
         }
+
+        public ValueTask WriteOpsCatalog (
+            string storageRoot,
+            string projectFingerprint,
+            DateTimeOffset generatedAtUtc,
+            IReadOnlyList<IndexOpEntryJsonContract> operations,
+            string sourceInputsHash,
+            ReadIndexInputHashSnapshot? manifestInputSnapshot,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
+        public ValueTask WriteSceneTreeLite (
+            string storageRoot,
+            string projectFingerprint,
+            DateTimeOffset generatedAtUtc,
+            string scenePath,
+            IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> roots,
+            string sourceInputsHash,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
     }
 
-    private sealed class StubIndexInputFingerprintCalculator : IIndexInputFingerprintCalculator
+    private sealed class StubReadIndexInputFingerprintProvider : IReadIndexInputFingerprintProvider
     {
-        private readonly Queue<IndexInputHashSnapshot?> snapshots = new();
+        private readonly Queue<ReadIndexInputHashSnapshot?> snapshots = new();
 
         public int FullCallCount { get; private set; }
 
-        public void Enqueue (IndexInputHashSnapshot? snapshot)
+        public void Enqueue (ReadIndexInputHashSnapshot? snapshot)
         {
             snapshots.Enqueue(snapshot);
         }
 
-        public ValueTask<IndexCoreInputHashSnapshot?> TryComputeCore (
-            string projectRootPath,
+        public ValueTask<ReadIndexCoreInputHashSnapshot?> TryComputeCore (
+            ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
             throw new InvalidOperationException("Core snapshot should not be computed in asset lookup refresh tests.");
         }
 
-        public ValueTask<IndexInputHashSnapshot?> TryCompute (
-            string projectRootPath,
+        public ValueTask<ReadIndexInputHashSnapshot?> TryCompute (
+            ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

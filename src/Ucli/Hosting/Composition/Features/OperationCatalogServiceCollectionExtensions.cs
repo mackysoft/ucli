@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Persistence;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Hosting.Cli.Common.Startup;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,8 +16,7 @@ internal static class OperationCatalogServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IOpsCatalogReader, OpsCatalogReader>();
-        services.AddSingleton<IOpsCatalogInputFingerprintCalculator, InfrastructureOpsCatalogInputFingerprintCalculator>();
-        services.AddSingleton<IOpsCatalogStore, FileOpsCatalogStore>();
+        services.AddSingleton<IOpsCatalogSourceRefreshService, OpsCatalogSourceRefreshService>();
         services.AddSingleton<IOperationCatalogWarmup, OperationCatalogWarmupService>();
         return services;
     }
