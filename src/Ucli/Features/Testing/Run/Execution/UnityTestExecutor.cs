@@ -3,8 +3,8 @@ using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.Shared.Unity.Process;
+using MackySoft.Ucli.Shared.Unity.ProjectLock;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Execution;
 
