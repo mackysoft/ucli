@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
+using MackySoft.Ucli.Shared.Unity.Process;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Execution;
 
@@ -107,7 +108,8 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
                     FileName: configuration.UnityEditorPath,
                     Arguments: arguments,
                     Timeout: timeout,
-                    OutputDrainMode: ProcessOutputDrainMode.BestEffort),
+                    OutputDrainMode: ProcessOutputDrainMode.BestEffort,
+                    TerminationPolicy: UnityProcessTerminationPolicy.GracefulThenKill),
                 cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -127,12 +129,18 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
             case ProcessRunStatus.TimedOut:
                 return UnityTestExecutionResult.Failure(
                     UnityTestExecutionFailureKind.ProcessTimedOut,
-                    processRunResult.ErrorMessage ?? $"Unity process timed out after {timeout.TotalMilliseconds:0} milliseconds.");
+                    AppendPostTerminationLockFileDiagnostic(
+                        processRunResult.ErrorMessage ?? $"Unity process timed out after {timeout.TotalMilliseconds:0} milliseconds.",
+                        processRunResult.TerminationResult,
+                        configuration.UnityProject.UnityProjectRoot));
 
             case ProcessRunStatus.Canceled:
                 return UnityTestExecutionResult.Failure(
                     UnityTestExecutionFailureKind.Canceled,
-                    processRunResult.ErrorMessage ?? "Unity process execution was canceled.");
+                    AppendPostTerminationLockFileDiagnostic(
+                        processRunResult.ErrorMessage ?? "Unity process execution was canceled.",
+                        processRunResult.TerminationResult,
+                        configuration.UnityProject.UnityProjectRoot));
 
             case ProcessRunStatus.Exited:
                 if (!processRunResult.ExitCode.HasValue)
@@ -179,6 +187,9 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
         return UnityTestExecutionResult.Success(processRunResult.ExitCode!.Value);
     }
 
+    /// <summary> Creates a project-open failure when Unity reports the project-local lock file as locked. </summary>
+    /// <param name="unityProjectRoot"> The Unity project root path. Must not be null or white-space. </param>
+    /// <returns> A classified project-lock failure when Unity owns the lock file; otherwise <see langword="null" />. </returns>
     private UnityTestExecutionResult? TryCreateProjectLockFailure (string unityProjectRoot)
     {
         var lockFileProbeResult = unityProjectLockFileProbe.Probe(unityProjectRoot);
@@ -201,4 +212,28 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
             UnityProcessErrorCodes.UnityProjectAlreadyOpen);
     }
 
+    /// <summary> Appends a residual Unity lock-file diagnostic after uCLI has terminated a Unity process. </summary>
+    /// <param name="message"> The primary failure message. Must not be null. </param>
+    /// <param name="terminationResult"> The observed termination result. </param>
+    /// <param name="unityProjectRoot"> The Unity project root path. Must not be null or white-space. </param>
+    /// <returns> The original message, or the message with a residual-lock diagnostic appended. </returns>
+    private string AppendPostTerminationLockFileDiagnostic (
+        string message,
+        ProcessTerminationResult terminationResult,
+        string unityProjectRoot)
+    {
+        if (terminationResult == ProcessTerminationResult.None)
+        {
+            return message;
+        }
+
+        // NOTE: Residual UnityLockfile is diagnostic only; timeout or cancellation remains the primary failure.
+        var lockFileProbeResult = unityProjectLockFileProbe.Probe(unityProjectRoot);
+        if (!lockFileProbeResult.IsSuccess || !lockFileProbeResult.IsLocked)
+        {
+            return message;
+        }
+
+        return $"{message} {UnityProjectLockFailureMessage.CreateTerminatedProcessLockFileRemains(unityProjectRoot, lockFileProbeResult.LockFilePath!)}";
+    }
 }

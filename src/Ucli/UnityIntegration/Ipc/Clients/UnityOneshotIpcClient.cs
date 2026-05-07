@@ -8,6 +8,7 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
+using MackySoft.Ucli.Shared.Unity.Process;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Failures;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
@@ -121,9 +122,11 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
             await using var processHandle = launchResult.ProcessHandle!;
             var shouldTerminateProcess = true;
+            var terminationResult = ProcessTerminationResult.None;
+            UnityRequestExecutionResult result;
             try
             {
-                var startupProbeError = await WaitUntilReachable(
+                var startupProbeError = await WaitUntilReachableAsync(
                         unityProject,
                         sessionToken,
                         deadline,
@@ -133,39 +136,53 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                     .ConfigureAwait(false);
                 if (startupProbeError != null)
                 {
-                    return UnityRequestExecutionResult.Failure(
+                    result = UnityRequestExecutionResult.Failure(
                         UnityIpcFailureClassifier.FromExecutionError(startupProbeError));
                 }
-
-                if (!deadline.TryGetRemainingTimeout(out var requestTimeout))
+                else if (!deadline.TryGetRemainingTimeout(out var requestTimeout))
                 {
-                    return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(timeout));
+                    result = UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(timeout));
                 }
-
-                var response = await transportClient.SendAsync(
-                        unityProject.RepositoryRoot,
-                        unityProject.ProjectFingerprint,
-                        UnityIpcRequestFactory.Create(
-                            sessionToken,
-                            dispatchRequest.Method,
-                            dispatchRequest.Payload),
-                        requestTimeout,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                if (!deadline.TryGetRemainingTimeout(out var exitTimeout))
+                else
                 {
-                    return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(timeout));
+                    var response = await transportClient.SendAsync(
+                            unityProject.RepositoryRoot,
+                            unityProject.ProjectFingerprint,
+                            UnityIpcRequestFactory.Create(
+                                sessionToken,
+                                dispatchRequest.Method,
+                                dispatchRequest.Payload),
+                            requestTimeout,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    if (!deadline.TryGetRemainingTimeout(out var exitTimeout))
+                    {
+                        result = UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(timeout));
+                    }
+                    else
+                    {
+                        var exitWaitError = await WaitForExitAsync(processHandle, exitTimeout, cancellationToken).ConfigureAwait(false);
+                        if (exitWaitError != null)
+                        {
+                            result = UnityRequestExecutionResult.Failure(
+                                UnityIpcFailureClassifier.FromExecutionError(exitWaitError));
+                        }
+                        else
+                        {
+                            shouldTerminateProcess = false;
+                            result = UnityRequestExecutionResult.Success(UnityRequestResponseFactory.Create(response));
+                        }
+                    }
                 }
-
-                var exitWaitError = await WaitForExit(processHandle, exitTimeout, cancellationToken).ConfigureAwait(false);
-                if (exitWaitError != null)
-                {
-                    return UnityRequestExecutionResult.Failure(
-                        UnityIpcFailureClassifier.FromExecutionError(exitWaitError));
-                }
-
-                shouldTerminateProcess = false;
-                return UnityRequestExecutionResult.Success(UnityRequestResponseFactory.Create(response));
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                result = UnityRequestExecutionResult.Failure(
+                    UnityIpcFailureClassifier.FromOneshotDispatchException(exception, timeout));
             }
             finally
             {
@@ -174,9 +191,14 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                     // NOTE:
                     // A launched oneshot child must not outlive a failed request attempt because the shared endpoint
                     // would accept stray follow-up traffic and interfere with immediate retries.
-                    await processHandle.Terminate(CancellationToken.None).ConfigureAwait(false);
+                    terminationResult = await processHandle.TerminateAsync(
+                            UnityProcessTerminationPolicy.GracefulThenKill,
+                            CancellationToken.None)
+                        .ConfigureAwait(false);
                 }
             }
+
+            return AppendPostTerminationLockFileDiagnostic(result, terminationResult, unityProject.UnityProjectRoot);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -189,7 +211,15 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         }
     }
 
-    private async ValueTask<ExecutionError?> WaitUntilReachable (
+    /// <summary> Waits until the launched oneshot Unity process accepts the startup probe request. </summary>
+    /// <param name="unityProject"> The resolved Unity project context. </param>
+    /// <param name="sessionToken"> The session token assigned to the launched oneshot process. Must not be null or white-space. </param>
+    /// <param name="deadline"> The shared request deadline. </param>
+    /// <param name="processHandle"> The launched process handle. </param>
+    /// <param name="timeout"> The original request timeout used for diagnostics. Must be greater than <see cref="TimeSpan.Zero" />. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
+    /// <returns> <see langword="null" /> when startup is reachable; otherwise the startup failure. </returns>
+    private async ValueTask<ExecutionError?> WaitUntilReachableAsync (
         ResolvedUnityProjectContext unityProject,
         string sessionToken,
         ExecutionDeadline deadline,
@@ -254,6 +284,9 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         }
     }
 
+    /// <summary> Creates a project-open error when Unity reports the project-local lock file as locked. </summary>
+    /// <param name="unityProjectRoot"> The Unity project root path. Must not be null or white-space. </param>
+    /// <returns> A classified project-open error when Unity owns the lock file; otherwise <see langword="null" />. </returns>
     private ExecutionError? TryCreateProjectAlreadyOpenErrorFromUnityLock (string unityProjectRoot)
     {
         var lockFileProbeResult = unityProjectLockFileProbe.Probe(unityProjectRoot);
@@ -274,12 +307,47 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             UnityProcessErrorCodes.UnityProjectAlreadyOpen);
     }
 
+    /// <summary> Appends a residual Unity lock-file diagnostic after uCLI has terminated a oneshot Unity process. </summary>
+    /// <param name="result"> The primary request result. Must be a failure when <paramref name="terminationResult" /> is not <see cref="ProcessTerminationResult.None" />. </param>
+    /// <param name="terminationResult"> The observed termination result. </param>
+    /// <param name="unityProjectRoot"> The Unity project root path. Must not be null or white-space. </param>
+    /// <returns> The original result, or an equivalent failure with a residual-lock diagnostic appended. </returns>
+    private UnityRequestExecutionResult AppendPostTerminationLockFileDiagnostic (
+        UnityRequestExecutionResult result,
+        ProcessTerminationResult terminationResult,
+        string unityProjectRoot)
+    {
+        if (result.IsSuccess || terminationResult == ProcessTerminationResult.None)
+        {
+            return result;
+        }
+
+        // NOTE: Residual UnityLockfile is diagnostic only; the IPC failure code and outcome remain unchanged.
+        var lockFileProbeResult = unityProjectLockFileProbe.Probe(unityProjectRoot);
+        if (!lockFileProbeResult.IsSuccess || !lockFileProbeResult.IsLocked)
+        {
+            return result;
+        }
+
+        var failure = result.FailureInfo!;
+        return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.FromCodeAndMessage(
+            failure.Code,
+            $"{failure.Message} {UnityProjectLockFailureMessage.CreateTerminatedProcessLockFileRemains(unityProjectRoot, lockFileProbeResult.LockFilePath!)}"));
+    }
+
+    /// <summary> Returns whether a startup probe exception can be retried before the deadline expires. </summary>
+    /// <param name="exception"> The exception observed during the startup probe. Must not be <see langword="null" />. </param>
+    /// <returns> <see langword="true" /> for transient connection failures; otherwise <see langword="false" />. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="exception" /> is <see langword="null" />. </exception>
     private static bool IsStartupRetryable (Exception exception)
     {
         ArgumentNullException.ThrowIfNull(exception);
         return exception is IpcConnectTimeoutException or System.Net.Sockets.SocketException;
     }
 
+    /// <summary> Calculates one startup retry delay bounded by the remaining timeout. </summary>
+    /// <param name="remainingTimeout"> The remaining timeout budget. </param>
+    /// <returns> The retry delay, capped by the remaining timeout. </returns>
     private static TimeSpan GetRetryDelay (TimeSpan remainingTimeout)
     {
         if (remainingTimeout < StartupRetryDelay)
@@ -290,18 +358,28 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         return StartupRetryDelay;
     }
 
+    /// <summary> Creates one opaque session token for correlating the launched oneshot Unity process. </summary>
+    /// <returns> A non-empty lowercase hexadecimal token without separators. </returns>
     private static string CreateSessionToken ()
     {
         return Guid.NewGuid().ToString("N");
     }
 
+    /// <summary> Creates the startup probe request for one session token. </summary>
+    /// <param name="sessionToken"> The session token assigned to the launched oneshot process. Must not be null or white-space. </param>
+    /// <returns> The IPC ping request used to verify startup readiness. </returns>
     private static IpcRequest CreateStartupProbeRequest (string sessionToken)
     {
         var payload = IpcPayloadCodec.SerializeToElement(new IpcPingRequest(StartupProbeClientVersion));
         return UnityIpcRequestFactory.Create(sessionToken, IpcMethodNames.Ping, payload);
     }
 
-    private static async ValueTask<ExecutionError?> WaitForExit (
+    /// <summary> Waits for the launched oneshot Unity process to exit after response handling completes. </summary>
+    /// <param name="processHandle"> The launched process handle. </param>
+    /// <param name="timeout"> The maximum wait time. Must be greater than <see cref="TimeSpan.Zero" />. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
+    /// <returns> <see langword="null" /> when the process exits with code zero or without an exit code; otherwise the exit failure. </returns>
+    private static async ValueTask<ExecutionError?> WaitForExitAsync (
         IUnityBatchmodeProcessHandle processHandle,
         TimeSpan timeout,
         CancellationToken cancellationToken)
@@ -311,7 +389,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
         try
         {
-            await processHandle.WaitForExit(timeoutCancellationTokenSource.Token).ConfigureAwait(false);
+            await processHandle.WaitForExitAsync(timeoutCancellationTokenSource.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

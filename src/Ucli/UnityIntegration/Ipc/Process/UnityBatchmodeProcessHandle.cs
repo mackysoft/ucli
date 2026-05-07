@@ -24,41 +24,19 @@ internal sealed class UnityBatchmodeProcessHandle : IUnityBatchmodeProcessHandle
     public int? ExitCode => process.HasExited ? process.ExitCode : null;
 
     /// <inheritdoc />
-    public Task WaitForExit (CancellationToken cancellationToken = default)
+    public Task WaitForExitAsync (CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         return process.WaitForExitAsync(cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task Terminate (CancellationToken cancellationToken = default)
+    public Task<ProcessTerminationResult> TerminateAsync (
+        ProcessTerminationPolicy? terminationPolicy = null,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-
-        try
-        {
-            process.Kill(entireProcessTree: true);
-        }
-        catch (Exception)
-        {
-            try
-            {
-                process.Kill();
-            }
-            catch (Exception)
-            {
-                // NOTE: The child process may already be terminating by the time cleanup runs.
-            }
-        }
-
-        try
-        {
-            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (InvalidOperationException)
-        {
-            // NOTE: The child process may already be fully terminated before wait begins.
-        }
+        return ProcessTerminator.TerminateAsync(process, terminationPolicy, cancellationToken);
     }
 
     /// <inheritdoc />

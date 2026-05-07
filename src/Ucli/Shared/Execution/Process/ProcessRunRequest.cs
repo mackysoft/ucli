@@ -6,9 +6,11 @@ namespace MackySoft.Ucli.Shared.Execution.Process;
 /// <param name="Timeout"> The timeout budget. </param>
 /// <param name="CaptureStandardOutput"> Whether full standard-output text must be preserved for machine parsing. </param>
 /// <param name="OutputDrainMode"> How redirected output streams are drained after the process exits. </param>
+/// <param name="TerminationPolicy"> How the process should be terminated when timeout or cancellation requires cleanup. </param>
 internal sealed record ProcessRunRequest (
     string FileName,
     IReadOnlyList<string> Arguments,
     TimeSpan Timeout,
     bool CaptureStandardOutput = false,
-    ProcessOutputDrainMode OutputDrainMode = ProcessOutputDrainMode.WaitForCompletion);
+    ProcessOutputDrainMode OutputDrainMode = ProcessOutputDrainMode.WaitForCompletion,
+    ProcessTerminationPolicy? TerminationPolicy = null);
