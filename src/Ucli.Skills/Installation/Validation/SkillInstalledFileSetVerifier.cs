@@ -20,6 +20,7 @@ public sealed class SkillInstalledFileSetVerifier
         var expectedRelativePaths = expectedFiles
             .Select(static file => file.RelativePath)
             .ToHashSet(StringComparer.Ordinal);
+        var expectedDirectoryPaths = SkillInstalledDirectorySet.BuildParentDirectories(expectedRelativePaths);
 
         foreach (var expectedRelativePath in expectedRelativePaths.Order(StringComparer.Ordinal))
         {
@@ -50,6 +51,12 @@ public sealed class SkillInstalledFileSetVerifier
             }
         }
 
-        return SkillOperationResult<bool>.Success(true);
+        var directorySetResult = SkillInstalledDirectorySet.ContainsOnlyAllowedDirectories(skillDirectory, expectedDirectoryPaths);
+        if (!directorySetResult.IsSuccess)
+        {
+            return SkillOperationResult<bool>.FailureResult(directorySetResult.Failure!.Code, directorySetResult.Failure.Message);
+        }
+
+        return directorySetResult;
     }
 }

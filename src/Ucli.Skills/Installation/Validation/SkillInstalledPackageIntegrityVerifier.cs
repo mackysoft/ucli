@@ -236,6 +236,7 @@ public sealed class SkillInstalledPackageIntegrityVerifier
             allowedPaths.Add(hostArtifact.Path);
         }
 
+        var allowedDirectoryPaths = SkillInstalledDirectorySet.BuildParentDirectories(allowedPaths);
         foreach (var filePath in Directory.EnumerateFiles(skillDirectory, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
         {
             var resolvedPathResult = SkillPackagePathBoundary.ResolveUnderRoot(skillDirectory, filePath);
@@ -247,13 +248,20 @@ public sealed class SkillInstalledPackageIntegrityVerifier
             var relativePath = Path.GetRelativePath(skillDirectory, resolvedPathResult.Value!).Replace(Path.DirectorySeparatorChar, '/');
             if (allowedPaths.Contains(relativePath) || relativePath.StartsWith(ReferencesPrefix, StringComparison.Ordinal))
             {
+                SkillInstalledDirectorySet.AddParentDirectories(allowedDirectoryPaths, relativePath);
                 continue;
             }
 
             return SkillOperationResult<bool>.Success(false);
         }
 
-        return SkillOperationResult<bool>.Success(true);
+        var directorySetResult = SkillInstalledDirectorySet.ContainsOnlyAllowedDirectories(skillDirectory, allowedDirectoryPaths);
+        if (!directorySetResult.IsSuccess)
+        {
+            return SkillOperationResult<bool>.FailureResult(directorySetResult.Failure!.Code, directorySetResult.Failure.Message);
+        }
+
+        return directorySetResult;
     }
 
     private readonly record struct InstalledSkillBody (
