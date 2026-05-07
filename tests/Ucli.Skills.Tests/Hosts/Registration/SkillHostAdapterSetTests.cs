@@ -76,7 +76,7 @@ public sealed class SkillHostAdapterSetTests
             string hostKey,
             string projectTargetDirectory)
         {
-            Descriptor = new SkillHostDescriptor(hostKey, projectTargetDirectory);
+            Descriptor = new SkillHostDescriptor(hostKey, projectTargetDirectory, "~/.test/skills", new SkillUserTargetRootPolicy(null, null, ".test/skills"), "Reload test skills.");
         }
 
         public SkillHostDescriptor Descriptor { get; }

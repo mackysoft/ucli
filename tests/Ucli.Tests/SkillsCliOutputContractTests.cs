@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
@@ -10,7 +11,8 @@ namespace MackySoft.Ucli.Tests;
 public sealed class SkillsCliOutputContractTests
 {
     private const string HostUnsupportedCode = "SKILL_HOST_UNSUPPORTED";
-    private const string InstallTargetDigestMismatchCode = "SKILL_INSTALL_TARGET_DIGEST_MISMATCH";
+    private const string InstallTargetContentDigestMismatchCode = "SKILL_INSTALL_TARGET_CONTENT_DIGEST_MISMATCH";
+    private const string InstallTargetHostArtifactDigestMismatchCode = "SKILL_INSTALL_TARGET_HOST_ARTIFACT_DIGEST_MISMATCH";
     private const string InstallTargetHostConflictCode = "SKILL_INSTALL_TARGET_HOST_CONFLICT";
     private const string InstallTargetUnmanagedCode = "SKILL_INSTALL_TARGET_UNMANAGED";
     private const string InvalidArgumentCode = "INVALID_ARGUMENT";
@@ -109,13 +111,19 @@ public sealed class SkillsCliOutputContractTests
                 .HasArrayLength("hostArtifacts", 3))
             .HasProperty("supportedHosts", 0, static host => host
                 .HasString("host", "claude")
-                .HasString("projectTargetDirectory", ".claude/skills"))
+                .HasString("projectTargetDirectory", ".claude/skills")
+                .HasString("userTargetDirectory", "~/.claude/skills")
+                .HasValueKind("reloadGuidance", JsonValueKind.String))
             .HasProperty("supportedHosts", 1, static host => host
                 .HasString("host", "copilot")
-                .HasString("projectTargetDirectory", ".github/skills"))
+                .HasString("projectTargetDirectory", ".github/skills")
+                .HasString("userTargetDirectory", "~/.copilot/skills")
+                .HasValueKind("reloadGuidance", JsonValueKind.String))
             .HasProperty("supportedHosts", 2, static host => host
                 .HasString("host", "openai")
-                .HasString("projectTargetDirectory", ".agents/skills"));
+                .HasString("projectTargetDirectory", ".agents/skills")
+                .HasString("userTargetDirectory", "${CODEX_HOME}/skills or ~/.codex/skills")
+                .HasValueKind("reloadGuidance", JsonValueKind.String));
 
         Assert.Equal(ExpectedSkillNames, payload
             .GetProperty("skills")
@@ -150,9 +158,11 @@ public sealed class SkillsCliOutputContractTests
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
                 .HasString("host", "openai")
+                .HasString("format", "directory")
                 .HasString("outputRoot", outputRoot)
                 .HasArrayLength("skills", ExpectedSkillNames.Length)
-                .HasInt32("skillCount", ExpectedSkillNames.Length));
+                .HasInt32("skillCount", ExpectedSkillNames.Length)
+                .HasValueKind("reloadGuidance", JsonValueKind.String));
 
         foreach (var skillName in ExpectedSkillNames)
         {
@@ -160,6 +170,52 @@ public sealed class SkillsCliOutputContractTests
             Assert.True(File.Exists(Path.Combine(outputRoot, skillName, "ucli-skill.json")), skillName);
             Assert.True(File.Exists(Path.Combine(outputRoot, skillName, "agents", "openai.yaml")), skillName);
         }
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SkillsExport_WithZipFormat_WritesDeterministicReleaseZip ()
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "export-openai-zip");
+        var firstZip = scope.GetPath("skills-a.zip");
+        var secondZip = scope.GetPath("skills-b.zip");
+
+        var first = await CliProcessRunner.RunCommandWithTimeout(
+            TimeSpan.FromSeconds(45),
+            UcliCommandNames.Skills,
+            UcliCommandNames.ExportSubcommand,
+            "--host",
+            "openai",
+            "--format",
+            "zip",
+            "--output",
+            firstZip);
+        var second = await CliProcessRunner.RunCommandWithTimeout(
+            TimeSpan.FromSeconds(45),
+            UcliCommandNames.Skills,
+            UcliCommandNames.ExportSubcommand,
+            "--host",
+            "openai",
+            "--format",
+            "zip",
+            "--output",
+            secondZip);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(first.StdOut);
+        Assert.Equal((int)CliExitCode.Success, first.ExitCode);
+        Assert.Equal((int)CliExitCode.Success, second.ExitCode);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", static payload => payload
+                .HasString("format", "zip")
+                .HasValueKind("reloadGuidance", JsonValueKind.String));
+
+        Assert.Equal(await File.ReadAllBytesAsync(firstZip), await File.ReadAllBytesAsync(secondZip));
+        using var archive = ZipFile.OpenRead(firstZip);
+        var entryNames = archive.Entries.Select(static entry => entry.FullName).ToArray();
+        Assert.Equal(entryNames.Order(StringComparer.Ordinal).ToArray(), entryNames);
+        Assert.Contains($"{ExpectedSkillNames[0]}/SKILL.md", entryNames);
+        Assert.Contains($"{ExpectedSkillNames[0]}/agents/openai.yaml", entryNames);
+        Assert.DoesNotContain(entryNames, static entry => entry.EndsWith("/", StringComparison.Ordinal));
     }
 
     [Theory]
@@ -247,7 +303,7 @@ public sealed class SkillsCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", $"invalid-scope-{subcommand}");
         var repoRoot = scope.CreateDirectory("repo");
 
-        var result = await RunScopedCommand(subcommand, repoRoot, host: "openai", scope: "user", targetDir: null);
+        var result = await RunScopedCommand(subcommand, repoRoot, host: "openai", scope: "global", targetDir: null);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -333,6 +389,73 @@ public sealed class SkillsCliOutputContractTests
             Assert.True(File.Exists(Path.Combine(targetRoot, skillName, "SKILL.md")), skillName);
             Assert.True(File.Exists(Path.Combine(targetRoot, skillName, "ucli-skill.json")), skillName);
         }
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SkillsUserScope_WithExplicitTarget_InstallsDoctorsAndUninstallsWithoutRepoRoot ()
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "user-scope-explicit-target");
+        var targetRoot = scope.GetPath("user-skills");
+
+        var install = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Skills,
+            UcliCommandNames.InstallSubcommand,
+            "--host",
+            "openai",
+            "--scope",
+            "user",
+            "--targetDir",
+            targetRoot);
+        var doctor = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Skills,
+            UcliCommandNames.DoctorSubcommand,
+            "--host",
+            "openai",
+            "--scope",
+            "user",
+            "--targetDir",
+            targetRoot);
+        var uninstall = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Skills,
+            UcliCommandNames.UninstallSubcommand,
+            "--host",
+            "openai",
+            "--scope",
+            "user",
+            "--targetDir",
+            targetRoot);
+
+        using var installJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(install.StdOut);
+        Assert.Equal((int)CliExitCode.Success, install.ExitCode);
+        JsonAssert.For(installJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasString("scope", "user")
+                .IsNull("repositoryRoot")
+                .HasValueKind("targetRoot", JsonValueKind.String)
+                .HasInt32("createdCount", ExpectedSkillNames.Length)
+                .HasValueKind("reloadGuidance", JsonValueKind.String));
+        var resolvedTargetRoot = installJson.RootElement.GetProperty("payload").GetProperty("targetRoot").GetString()!;
+        Assert.True(Path.IsPathFullyQualified(resolvedTargetRoot), resolvedTargetRoot);
+        Assert.EndsWith(Path.DirectorySeparatorChar + Path.GetFileName(targetRoot), resolvedTargetRoot, StringComparison.Ordinal);
+
+        using var doctorJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(doctor.StdOut);
+        Assert.Equal((int)CliExitCode.Success, doctor.ExitCode);
+        JsonAssert.For(doctorJson.RootElement)
+            .HasProperty("payload", static payload => payload
+                .HasString("scope", "user")
+                .IsNull("repositoryRoot")
+                .HasBoolean("isHealthy", true)
+                .HasValueKind("reloadGuidance", JsonValueKind.String));
+
+        using var uninstallJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(uninstall.StdOut);
+        Assert.Equal((int)CliExitCode.Success, uninstall.ExitCode);
+        JsonAssert.For(uninstallJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasString("scope", "user")
+                .IsNull("repositoryRoot")
+                .HasInt32("deletedCount", ExpectedSkillNames.Length)
+                .HasValueKind("reloadGuidance", JsonValueKind.String));
     }
 
     [Fact]
@@ -822,13 +945,41 @@ public sealed class SkillsCliOutputContractTests
             command: UcliCommandNames.SkillsDoctor,
             status: "error",
             exitCode: (int)CliExitCode.ToolError);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, InstallTargetDigestMismatchCode);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, InstallTargetContentDigestMismatchCode);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
                 .HasBoolean("isHealthy", false)
                 .HasProperty("diagnostics", 0, static diagnostic => diagnostic
                     .HasString("severity", "error")
-                    .HasString("code", InstallTargetDigestMismatchCode)
+                    .HasString("code", InstallTargetContentDigestMismatchCode)
+                    .HasString("skillName", ExpectedSkillNames[0])));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SkillsDoctor_WithOpenAiMetadataDrift_ReturnsHostArtifactDiagnostic ()
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "doctor-openai-metadata-drift");
+        var repoRoot = scope.CreateDirectory("repo");
+        var install = await RunOpenAiInstall(repoRoot);
+        Assert.Equal((int)CliExitCode.Success, install.ExitCode);
+
+        using (var installJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(install.StdOut))
+        {
+            var targetRoot = installJson.RootElement.GetProperty("payload").GetProperty("targetRoot").GetString()!;
+            await File.AppendAllTextAsync(Path.Combine(targetRoot, ExpectedSkillNames[0], "agents", "openai.yaml"), "\n# Drifted metadata.\n");
+        }
+
+        var doctor = await RunOpenAiDoctor(repoRoot);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(doctor.StdOut);
+        Assert.Equal((int)CliExitCode.ToolError, doctor.ExitCode);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, InstallTargetHostArtifactDigestMismatchCode);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasProperty("diagnostics", 0, static diagnostic => diagnostic
+                    .HasString("severity", "error")
+                    .HasString("code", InstallTargetHostArtifactDigestMismatchCode)
                     .HasString("skillName", ExpectedSkillNames[0])));
     }
 

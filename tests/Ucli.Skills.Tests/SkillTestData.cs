@@ -157,7 +157,13 @@ internal static class SkillTestData
     internal static SkillDoctorService CreateDoctorService ()
     {
         var hostAdapters = CreateOfficialHostAdapterSet();
-        return new SkillDoctorService(hostAdapters, CreateInstalledPackageValidator(hostAdapters));
+        return new SkillDoctorService(
+            hostAdapters,
+            new SkillInstalledTargetStateAnalyzer(CreateInstalledPackageValidator(hostAdapters), CreateInstalledPackageIntegrityVerifier(hostAdapters)),
+            new SkillInstalledPackageDriftAnalyzer(
+                CreateInstalledManifestReader(hostAdapters),
+                new SkillMaterializationService(hostAdapters),
+                new SkillDigestCalculator()));
     }
 
     internal static IReadOnlyList<CanonicalSkillPackage> ReplacePackage (

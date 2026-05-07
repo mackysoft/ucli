@@ -81,7 +81,7 @@ public sealed class SkillDoctorServiceTests
         var result = await doctor.DiagnoseAsync(packages, OpenAiSkillHostAdapter.HostKey, installResult.Value.TargetRoot, CancellationToken.None);
 
         Assert.False(result.IsHealthy);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.InstallTargetDigestMismatch);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.InstallTargetContentDigestMismatch);
     }
 
     [Fact]
@@ -102,7 +102,7 @@ public sealed class SkillDoctorServiceTests
         var result = await doctor.DiagnoseAsync(packages, OpenAiSkillHostAdapter.HostKey, installResult.Value.TargetRoot, CancellationToken.None);
 
         Assert.False(result.IsHealthy);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.InstallTargetDigestMismatch);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.InstallTargetFrontmatterDigestMismatch);
     }
 
     [Fact]
@@ -151,7 +151,50 @@ public sealed class SkillDoctorServiceTests
         var result = await doctor.DiagnoseAsync(packages, OpenAiSkillHostAdapter.HostKey, installResult.Value.TargetRoot, CancellationToken.None);
 
         Assert.False(result.IsHealthy);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.InstallTargetDigestMismatch);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.InstallTargetFileSetMismatch);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task DiagnoseAsync_ReportsHostArtifactMismatch_WhenOpenAiMetadataChanged ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "doctor-openai-metadata-drift");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var installResult = await installService.InstallAsync(
+            packages,
+            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
+            CancellationToken.None);
+        Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
+        File.AppendAllText(Path.Combine(installResult.Value!.TargetRoot, packages[0].Manifest.SkillName, "agents", "openai.yaml"), "\n# Drifted metadata.\n");
+        var doctor = SkillTestData.CreateDoctorService();
+
+        var result = await doctor.DiagnoseAsync(packages, OpenAiSkillHostAdapter.HostKey, installResult.Value.TargetRoot, CancellationToken.None);
+
+        Assert.False(result.IsHealthy);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.InstallTargetHostArtifactDigestMismatch);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task DiagnoseAsync_ReportsOutdated_WhenInstalledPackageIsCleanOlderVersion ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "doctor-outdated");
+        var installedPackages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var updatedPackage = SkillTestData.CreatePackageWithUpdatedBody(installedPackages[0]);
+        var currentPackages = SkillTestData.ReplacePackage(installedPackages, updatedPackage);
+        var installService = SkillTestData.CreateInstallService();
+        var installResult = await installService.InstallAsync(
+            installedPackages,
+            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
+            CancellationToken.None);
+        Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
+        var doctor = SkillTestData.CreateDoctorService();
+
+        var result = await doctor.DiagnoseAsync(currentPackages, OpenAiSkillHostAdapter.HostKey, installResult.Value!.TargetRoot, CancellationToken.None);
+
+        Assert.False(result.IsHealthy);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.InstallTargetOutdated);
     }
 
     [Fact]
