@@ -212,21 +212,12 @@ public sealed class DaemonStartupReadinessProbeTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task WaitUntilReady_WhenDaemonLogContainsProjectAlreadyOpenMarker_ReturnsProjectAlreadyOpenImmediately ()
+    public async Task WaitUntilReady_WhenProjectLockFileExistsAfterDaemonIsNotRunning_ReturnsProjectAlreadyOpenImmediately ()
     {
         var pingClient = new StubDaemonPingInfoClient(() => ValueTask.FromException<IpcPingResponse>(new SocketException((int)SocketError.ConnectionRefused)));
         var logReader = new StubUnityLogReader
         {
-            NextResult = UnityLogReadResult.Success(
-                """
-                COMMAND LINE ARGUMENTS:
-                -projectPath
-                /tmp/unity-project
-                It looks like another Unity instance is running with this project open.
-                """,
-                truncated: false,
-                path: "/tmp/unity.log",
-                sizeBytes: 256),
+            NextResult = UnityLogReadResult.Success(string.Empty, truncated: false, path: "/tmp/unity.log", sizeBytes: 0),
         };
         var probe = CreateProbe(
             pingClient,
@@ -244,7 +235,7 @@ public sealed class DaemonStartupReadinessProbeTests
         Assert.Equal(UnityProcessErrorCodes.UnityProjectAlreadyOpen, error.Code);
         Assert.Contains("already open", error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(1, pingClient.CallCount);
-        Assert.Equal(1, logReader.CallCount);
+        Assert.Equal(0, logReader.CallCount);
     }
 
     [Fact]

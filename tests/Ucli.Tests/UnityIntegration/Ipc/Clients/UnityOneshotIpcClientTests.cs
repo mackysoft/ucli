@@ -140,17 +140,10 @@ public sealed class UnityOneshotIpcClientTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task SendAsync_WhenUnityExitsWithAlreadyOpenLog_ReturnsProjectAlreadyOpen ()
+    public async Task SendAsync_WhenUnityExitsAndLockFileExists_ReturnsProjectAlreadyOpen ()
     {
-        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "already-open-log");
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "exit-lock-file");
         var unityProject = CreateUnityProject(scope);
-        var unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(
-            unityProject.RepositoryRoot,
-            unityProject.ProjectFingerprint);
-        Directory.CreateDirectory(Path.GetDirectoryName(unityLogPath)!);
-        File.WriteAllText(
-            unityLogPath,
-            "It looks like another Unity instance is running with this project open.");
         var processHandle = new StubUnityBatchmodeProcessHandle(hasExited: true, exitCode: 1);
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var client = new UnityOneshotIpcClient(
@@ -174,17 +167,10 @@ public sealed class UnityOneshotIpcClientTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task SendAsync_WhenUnityExitsWithAlreadyOpenLogWithoutLockFile_ReturnsStartupExitFailure ()
+    public async Task SendAsync_WhenUnityExitsWithoutLockFile_ReturnsStartupExitFailure ()
     {
-        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "already-open-log-unlocked");
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "exit-unlocked");
         var unityProject = CreateUnityProject(scope);
-        var unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(
-            unityProject.RepositoryRoot,
-            unityProject.ProjectFingerprint);
-        Directory.CreateDirectory(Path.GetDirectoryName(unityLogPath)!);
-        File.WriteAllText(
-            unityLogPath,
-            "It looks like another Unity instance is running with this project open.");
         var processHandle = new StubUnityBatchmodeProcessHandle(hasExited: true, exitCode: 1);
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var client = new UnityOneshotIpcClient(

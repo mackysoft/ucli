@@ -61,7 +61,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             cancellationToken.ThrowIfCancellationRequested();
             if (daemonProcessId is int processId && !ProcessLivenessProbe.IsAlive(processId))
             {
-                var startupFailureError = await TryClassifyStartupFailureFromLatestLogText(
+                var startupFailureError = await TryClassifyStartupFailure(
                         unityProject,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -124,7 +124,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             }
             catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
             {
-                var startupFailureError = await TryClassifyStartupFailureFromLatestLogText(
+                var startupFailureError = await TryClassifyStartupFailure(
                         unityProject,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -223,10 +223,16 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.DomainReloading, StringComparison.Ordinal);
     }
 
-    private async ValueTask<ExecutionError?> TryClassifyStartupFailureFromLatestLogText (
+    private async ValueTask<ExecutionError?> TryClassifyStartupFailure (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken)
     {
+        var projectAlreadyOpenError = TryCreateProjectAlreadyOpenErrorFromUnityLock(unityProject.UnityProjectRoot);
+        if (projectAlreadyOpenError != null)
+        {
+            return projectAlreadyOpenError;
+        }
+
         var logReadResult = await unityLogReader.ReadTail(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
@@ -238,17 +244,12 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
         }
 
         var latestStartupLogText = DaemonStartupFailureLogClassifier.GetLatestStartupLogText(logReadResult.Text);
-        if (UnityProjectAlreadyOpenLogMarker.ExistsInText(latestStartupLogText))
-        {
-            return TryCreateProjectAlreadyOpenError(unityProject.UnityProjectRoot);
-        }
-
         return DaemonStartupFailureLogClassifier.TryClassify(latestStartupLogText, out var error)
             ? error
             : null;
     }
 
-    private ExecutionError? TryCreateProjectAlreadyOpenError (string unityProjectRoot)
+    private ExecutionError? TryCreateProjectAlreadyOpenErrorFromUnityLock (string unityProjectRoot)
     {
         var lockFileProbeResult = unityProjectLockFileProbe.Probe(unityProjectRoot);
         if (!lockFileProbeResult.IsSuccess)

@@ -127,7 +127,6 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 var startupProbeError = await WaitUntilReachable(
                         unityProject,
                         sessionToken,
-                        unityLogPath,
                         deadline,
                         processHandle,
                         timeout,
@@ -194,7 +193,6 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     private async ValueTask<ExecutionError?> WaitUntilReachable (
         ResolvedUnityProjectContext unityProject,
         string sessionToken,
-        string unityLogPath,
         ExecutionDeadline deadline,
         IUnityBatchmodeProcessHandle processHandle,
         TimeSpan timeout,
@@ -206,9 +204,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
             if (processHandle.HasExited)
             {
-                var projectAlreadyOpenError = TryCreateProjectAlreadyOpenErrorFromUnityLog(
-                    unityProject.UnityProjectRoot,
-                    unityLogPath);
+                var projectAlreadyOpenError = TryCreateProjectAlreadyOpenErrorFromUnityLock(unityProject.UnityProjectRoot);
                 if (projectAlreadyOpenError != null)
                 {
                     return projectAlreadyOpenError;
@@ -259,19 +255,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         }
     }
 
-    private ExecutionError? TryCreateProjectAlreadyOpenErrorFromUnityLog (
-        string unityProjectRoot,
-        string unityLogPath)
-    {
-        if (!UnityProjectAlreadyOpenLogMarker.ExistsInFile(unityLogPath))
-        {
-            return null;
-        }
-
-        return TryCreateProjectAlreadyOpenError(unityProjectRoot);
-    }
-
-    private ExecutionError? TryCreateProjectAlreadyOpenError (string unityProjectRoot)
+    private ExecutionError? TryCreateProjectAlreadyOpenErrorFromUnityLock (string unityProjectRoot)
     {
         var lockFileProbeResult = unityProjectLockFileProbe.Probe(unityProjectRoot);
         if (!lockFileProbeResult.IsSuccess)

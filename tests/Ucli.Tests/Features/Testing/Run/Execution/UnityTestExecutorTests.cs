@@ -64,13 +64,12 @@ public sealed class UnityTestExecutorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenUnityReportsProjectAlreadyOpenInEditorLogAndLockFileExists_ReturnsProjectAlreadyOpen ()
+    public async Task Execute_WhenUnityLockFileAppearsAfterAbnormalExit_ReturnsProjectAlreadyOpen ()
     {
-        using var scope = TestDirectories.CreateTempScope("unity-test-executor", "already-open-log");
+        using var scope = TestDirectories.CreateTempScope("unity-test-executor", "abnormal-exit-lock-file");
         var configuration = CreateConfiguration(scope);
         var artifactPaths = CreateArtifactPaths(scope);
         var lockFilePath = scope.GetPath("UnityProject/Temp/UnityLockfile");
-        scope.WriteFile("run/editor.log", "It looks like another Unity instance is running with this project open.");
 
         var executor = new UnityTestExecutor(
             new StubUnityCommandBuilder(["-batchmode"]),
@@ -94,12 +93,11 @@ public sealed class UnityTestExecutorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenUnityReportsProjectAlreadyOpenInEditorLogWithoutLockFile_ReturnsAbnormalExit ()
+    public async Task Execute_WhenAbnormalExitHasNoUnityLockFile_ReturnsAbnormalExit ()
     {
-        using var scope = TestDirectories.CreateTempScope("unity-test-executor", "already-open-log-unlocked");
+        using var scope = TestDirectories.CreateTempScope("unity-test-executor", "abnormal-exit-unlocked");
         var configuration = CreateConfiguration(scope);
         var artifactPaths = CreateArtifactPaths(scope);
-        scope.WriteFile("run/editor.log", "It looks like another Unity instance is running with this project open.");
 
         var executor = new UnityTestExecutor(
             new StubUnityCommandBuilder(["-batchmode"]),

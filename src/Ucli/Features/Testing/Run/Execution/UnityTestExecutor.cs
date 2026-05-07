@@ -134,10 +134,10 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
 
                 if (processRunResult.ExitCode.Value != 0 && processRunResult.ExitCode.Value != 2)
                 {
-                    var alreadyOpenFailure = TryCreateProjectAlreadyOpenFailureFromEditorLog(configuration, artifactPaths);
-                    if (alreadyOpenFailure != null)
+                    var postExecutionProjectLockFailure = TryCreateProjectLockFailure(configuration.UnityProject.UnityProjectRoot);
+                    if (postExecutionProjectLockFailure != null)
                     {
-                        return alreadyOpenFailure;
+                        return postExecutionProjectLockFailure;
                     }
 
                     return UnityTestExecutionResult.Failure(
@@ -155,10 +155,10 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
 
         if (!TestRunArtifactValidator.TryValidateGeneratedFiles(artifactPaths, out var artifactValidationError))
         {
-            var alreadyOpenFailure = TryCreateProjectAlreadyOpenFailureFromEditorLog(configuration, artifactPaths);
-            if (alreadyOpenFailure != null)
+            var postExecutionProjectLockFailure = TryCreateProjectLockFailure(configuration.UnityProject.UnityProjectRoot);
+            if (postExecutionProjectLockFailure != null)
             {
-                return alreadyOpenFailure;
+                return postExecutionProjectLockFailure;
             }
 
             return UnityTestExecutionResult.Failure(
@@ -191,15 +191,4 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
             UnityProcessErrorCodes.UnityProjectAlreadyOpen);
     }
 
-    private UnityTestExecutionResult? TryCreateProjectAlreadyOpenFailureFromEditorLog (
-        ResolvedTestRunConfiguration configuration,
-        ArtifactPaths artifactPaths)
-    {
-        if (!UnityProjectAlreadyOpenLogMarker.ExistsInFile(artifactPaths.EditorLogPath))
-        {
-            return null;
-        }
-
-        return TryCreateProjectLockFailure(configuration.UnityProject.UnityProjectRoot);
-    }
 }
