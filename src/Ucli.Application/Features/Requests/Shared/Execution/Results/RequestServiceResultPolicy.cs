@@ -79,7 +79,11 @@ internal static class RequestServiceResultPolicy
                 throw new ArgumentException("Failure errors must not contain null entries.", nameof(errors));
             }
 
-            ArgumentException.ThrowIfNullOrWhiteSpace(error.Code, nameof(errors));
+            if (!error.Code.IsValid)
+            {
+                throw new ArgumentException("Failure error code must not be empty.", nameof(errors));
+            }
+
             ArgumentException.ThrowIfNullOrWhiteSpace(error.Message, nameof(errors));
             snapshot[i] = error;
         }
@@ -96,22 +100,22 @@ internal static class RequestServiceResultPolicy
     /// <summary> Creates one operation execution error from a structured execution error. </summary>
     public static OperationExecutionError FromExecutionError (
         ExecutionError error,
-        string? errorCode = null)
+        UcliErrorCode? errorCode = null)
     {
         ArgumentNullException.ThrowIfNull(error);
         ArgumentException.ThrowIfNullOrWhiteSpace(error.Message, nameof(error));
 
         return new OperationExecutionError(
-            ResolveErrorCode(string.IsNullOrWhiteSpace(errorCode)
-                ? ExecutionErrorCodeMapper.ToCode(error)
-                : errorCode),
+            errorCode.HasValue && errorCode.Value.IsValid
+                ? errorCode.Value
+                : ExecutionErrorCodeMapper.ToCode(error),
             error.Message,
             null);
     }
 
     /// <summary> Creates one operation execution error from a transport failure. </summary>
     public static OperationExecutionError FromTransportFailure (
-        string? errorCode,
+        UcliErrorCode? errorCode,
         string? message,
         string? opId = null,
         string? fallbackMessage = null)
@@ -179,7 +183,11 @@ internal static class RequestServiceResultPolicy
                 throw new ArgumentException("Validation errors must not contain null entries.", nameof(validationErrors));
             }
 
-            ArgumentException.ThrowIfNullOrWhiteSpace(validationError.Code, nameof(validationErrors));
+            if (!validationError.Code.IsValid)
+            {
+                throw new ArgumentException("Validation error code must not be empty.", nameof(validationErrors));
+            }
+
             ArgumentException.ThrowIfNullOrWhiteSpace(validationError.Message, nameof(validationErrors));
             errors[i] = new OperationExecutionError(validationError.Code, validationError.Message, validationError.OpId);
         }
@@ -213,21 +221,16 @@ internal static class RequestServiceResultPolicy
     /// <summary> Resolves the application outcome for one structured execution error. </summary>
     public static ApplicationOutcome ResolveOutcome (
         ExecutionError error,
-        string? errorCode = null)
+        UcliErrorCode? errorCode = null)
     {
         ArgumentNullException.ThrowIfNull(error);
-        if (!string.IsNullOrWhiteSpace(errorCode))
-        {
-            return ResolveOutcome(errorCode);
-        }
-
-        return error.Kind == ExecutionErrorKind.InvalidArgument
-            ? ApplicationOutcome.InvalidArgument
-            : ApplicationOutcome.ToolError;
+        return ResolveOutcome(errorCode.HasValue && errorCode.Value.IsValid
+            ? errorCode.Value
+            : ExecutionErrorCodeMapper.ToCode(error));
     }
 
     /// <summary> Resolves the application outcome for one machine-readable error code. </summary>
-    public static ApplicationOutcome ResolveOutcome (string errorCode)
+    public static ApplicationOutcome ResolveOutcome (UcliErrorCode errorCode)
     {
         return IsInvalidArgumentErrorCode(ResolveErrorCode(errorCode))
             ? ApplicationOutcome.InvalidArgument
@@ -235,17 +238,23 @@ internal static class RequestServiceResultPolicy
     }
 
     /// <summary> Resolves the machine-readable error code used for request failures. </summary>
-    public static string ResolveErrorCode (string? errorCode)
+    public static UcliErrorCode ResolveErrorCode (UcliErrorCode? errorCode)
     {
-        return string.IsNullOrWhiteSpace(errorCode)
-            ? ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.InternalError)
-            : errorCode;
+        return errorCode.HasValue && errorCode.Value.IsValid
+            ? errorCode.Value
+            : ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.InternalError);
     }
 
-    private static bool IsInvalidArgumentErrorCode (string errorCode)
+    /// <summary> Resolves the machine-readable error code used for request failures. </summary>
+    public static UcliErrorCode ResolveErrorCode (UcliErrorCode errorCode)
     {
-        return ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(errorCode)
-            || ValidationErrorCodes.Contains(errorCode)
-            || ProjectContextErrorCodes.Contains(errorCode);
+        return errorCode.IsValid
+            ? errorCode
+            : ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.InternalError);
+    }
+
+    private static bool IsInvalidArgumentErrorCode (UcliErrorCode errorCode)
+    {
+        return ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(errorCode);
     }
 }

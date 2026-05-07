@@ -2,7 +2,6 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Contracts.Index;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -111,7 +110,7 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
         if (string.IsNullOrWhiteSpace(scenePath))
         {
             return ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Failure(
-                IpcErrorCodes.InvalidArgument,
+                UcliCoreErrorCodes.InvalidArgument,
                 "Scene path must not be empty.");
         }
 
@@ -126,13 +125,13 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
         catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
             return ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Failure(
-                IpcErrorCodes.InvalidArgument,
+                UcliCoreErrorCodes.InvalidArgument,
                 $"Index path is invalid. {ex.Message}");
         }
         catch (ArgumentException ex)
         {
             return ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Failure(
-                IpcErrorCodes.InvalidArgument,
+                UcliCoreErrorCodes.InvalidArgument,
                 ex.Message);
         }
 
@@ -152,7 +151,7 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
         if (!string.Equals(result.Value!.ScenePath, normalizedScenePath, StringComparison.Ordinal))
         {
             return ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Failure(
-                IpcErrorCodes.ReadIndexFormatInvalid,
+                ReadIndexErrorCodes.ReadIndexFormatInvalid,
                 "Index contract file 'lookups/scene-tree-lite/*.lookup.json' is malformed. scenePath does not match the requested scene path.");
         }
 
@@ -191,14 +190,14 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
         if (string.IsNullOrWhiteSpace(unityProject.RepositoryRoot))
         {
             return ReadIndexArtifactReadResult<TContract>.Failure(
-                IpcErrorCodes.InvalidArgument,
+                UcliCoreErrorCodes.InvalidArgument,
                 "Storage root path must not be empty.");
         }
 
         if (string.IsNullOrWhiteSpace(unityProject.ProjectFingerprint))
         {
             return ReadIndexArtifactReadResult<TContract>.Failure(
-                IpcErrorCodes.InvalidArgument,
+                UcliCoreErrorCodes.InvalidArgument,
                 "Project fingerprint must not be empty.");
         }
 
@@ -210,7 +209,7 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
         catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
             return ReadIndexArtifactReadResult<TContract>.Failure(
-                IpcErrorCodes.InvalidArgument,
+                UcliCoreErrorCodes.InvalidArgument,
                 $"Index path is invalid. {ex.Message}");
         }
 
@@ -236,7 +235,7 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
         if (!File.Exists(contractPath))
         {
             return ReadIndexArtifactReadResult<TContract>.Failure(
-                IpcErrorCodes.ReadIndexBootstrapFailed,
+                ReadIndexErrorCodes.ReadIndexBootstrapFailed,
                 $"Index contract file was not found: {contractName}.");
         }
 
@@ -252,13 +251,13 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
         catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
             return ReadIndexArtifactReadResult<TContract>.Failure(
-                IpcErrorCodes.InvalidArgument,
+                UcliCoreErrorCodes.InvalidArgument,
                 $"Index path is invalid: {contractPath}. {ex.Message}");
         }
         catch (Exception ex) when (IsIoFailure(ex))
         {
             return ReadIndexArtifactReadResult<TContract>.Failure(
-                IpcErrorCodes.ReadIndexBootstrapFailed,
+                ReadIndexErrorCodes.ReadIndexBootstrapFailed,
                 $"Failed to read index contract file '{contractName}'. {ex.Message}");
         }
 
@@ -270,20 +269,20 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
         catch (ArgumentException ex)
         {
             return ReadIndexArtifactReadResult<TContract>.Failure(
-                IpcErrorCodes.ReadIndexFormatInvalid,
+                ReadIndexErrorCodes.ReadIndexFormatInvalid,
                 $"Index contract file '{contractName}' is malformed. {ex.Message}");
         }
         catch (JsonException ex)
         {
             return ReadIndexArtifactReadResult<TContract>.Failure(
-                IpcErrorCodes.ReadIndexFormatInvalid,
+                ReadIndexErrorCodes.ReadIndexFormatInvalid,
                 $"Index contract file '{contractName}' is malformed. {ex.Message}");
         }
 
         if (contract == null || !validator(contract))
         {
             return ReadIndexArtifactReadResult<TContract>.Failure(
-                IpcErrorCodes.ReadIndexFormatInvalid,
+                ReadIndexErrorCodes.ReadIndexFormatInvalid,
                 $"Index contract file '{contractName}' is malformed.");
         }
 

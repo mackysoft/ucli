@@ -89,7 +89,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(conflictCount, Is.EqualTo(1));
             Assert.That(conflictResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(conflictResponse.Errors.Count, Is.EqualTo(1));
-            Assert.That(conflictResponse.Errors[0].Code, Is.EqualTo(IpcErrorCodes.RequestIdConflict));
+            Assert.That(conflictResponse.Errors[0].Code, Is.EqualTo(ExecuteRequestErrorCodes.RequestIdConflict));
         });
 
         [UnityTest]
@@ -189,8 +189,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
             try
             {
-                Assert.CatchAsync<OperationCanceledException>(async () =>
-                    await TestAwaiter.WaitAsync(waiterTask, "Waiter cancellation result", SignalWaitTimeout));
+                _ = await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(
+                    async () =>
+                    {
+                        _ = await waiterTask;
+                    },
+                    "Waiter cancellation result",
+                    SignalWaitTimeout);
+
                 Assert.That(ownerTask.IsCompleted, Is.False);
                 ownerRelease.TrySetResult(true);
 
@@ -242,7 +248,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(conflictExecutionCount, Is.EqualTo(0));
                 Assert.That(conflictResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
                 Assert.That(conflictResponse.Errors.Count, Is.EqualTo(1));
-                Assert.That(conflictResponse.Errors[0].Code, Is.EqualTo(IpcErrorCodes.RequestIdConflict));
+                Assert.That(conflictResponse.Errors[0].Code, Is.EqualTo(ExecuteRequestErrorCodes.RequestIdConflict));
             }
             finally
             {
@@ -438,7 +444,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Payload: JsonSerializer.SerializeToElement(new { opResults = Array.Empty<object>() }),
                 Errors: new[]
                 {
-                    new IpcError(IpcErrorCodes.RequestIdConflict, "request id conflict", null),
+                    new IpcError(ExecuteRequestErrorCodes.RequestIdConflict, "request id conflict", null),
                 });
         }
 

@@ -1,8 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
 using UnityExecutionModeValue = MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision.UnityExecutionMode;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
@@ -40,7 +38,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
     {
         if (!AssetLookupAccessUtilities.TryNormalizeAssetGuid(assetGuid, out var normalizedAssetGuid, out var errorMessage))
         {
-            return ValueTask.FromResult(GuidPathLookupReadResult.Failure(errorMessage, IpcErrorCodes.InvalidArgument));
+            return ValueTask.FromResult(GuidPathLookupReadResult.Failure(errorMessage, UcliCoreErrorCodes.InvalidArgument));
         }
 
         return ReadCore(
@@ -66,7 +64,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
     {
         if (!AssetLookupAccessUtilities.TryNormalizeAssetPath(assetPath, out var normalizedAssetPath, out var errorMessage))
         {
-            return ValueTask.FromResult(GuidPathLookupReadResult.Failure(errorMessage, IpcErrorCodes.InvalidArgument));
+            return ValueTask.FromResult(GuidPathLookupReadResult.Failure(errorMessage, UcliCoreErrorCodes.InvalidArgument));
         }
 
         return ReadCore(
@@ -115,7 +113,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
             .ConfigureAwait(false);
         if (!lookupResult.IsSuccess)
         {
-            if (string.Equals(lookupResult.Error!.Code, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal))
+            if (lookupResult.Error!.Code == UcliCoreErrorCodes.InvalidArgument)
             {
                 return GuidPathLookupReadResult.Failure(
                     lookupResult.Error.Message,
@@ -216,7 +214,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
             .ConfigureAwait(false);
         if (!refreshResult.IsSuccess)
         {
-            return GuidPathLookupReadResult.Failure(refreshResult.Message, refreshResult.ErrorCode!);
+            return GuidPathLookupReadResult.Failure(refreshResult.Message, refreshResult.ErrorCode!.Value);
         }
 
         var response = refreshResult.Response!;

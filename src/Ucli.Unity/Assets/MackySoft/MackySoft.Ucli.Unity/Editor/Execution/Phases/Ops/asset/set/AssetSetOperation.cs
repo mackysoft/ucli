@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using MackySoft.Ucli.Contracts;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -57,7 +58,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 out var cloneErrorMessage))
             {
                 return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
-                    Code: IpcErrorCodes.InternalError,
+                    Code: UcliCoreErrorCodes.InternalError,
                     Message: cloneErrorMessage,
                     OpId: operation.Id)));
             }
@@ -125,7 +126,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 out var cloneErrorMessage))
             {
                 return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
-                    Code: IpcErrorCodes.InternalError,
+                    Code: UcliCoreErrorCodes.InternalError,
                     Message: cloneErrorMessage,
                     OpId: operation.Id)));
             }
@@ -146,7 +147,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 && !AssetOperationUtilities.TryCopySerializedState(sandbox!, binding.UnityObject, out var copyErrorMessage))
             {
                 return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
-                    Code: IpcErrorCodes.InternalError,
+                    Code: UcliCoreErrorCodes.InternalError,
                     Message: $"Validated asset mutation could not be committed. {copyErrorMessage}",
                     OpId: operation.Id)));
             }

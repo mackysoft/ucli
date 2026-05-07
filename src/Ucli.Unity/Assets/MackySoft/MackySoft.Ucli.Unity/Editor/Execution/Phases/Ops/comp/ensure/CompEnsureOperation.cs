@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -108,7 +109,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         if (!ComponentOperationUtilities.TryCreateTemporaryComponent(validationState.ComponentType, executionContext, out component, out var errorMessage))
                         {
                             return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
-                                Code: IpcErrorCodes.InternalError,
+                                Code: UcliCoreErrorCodes.InternalError,
                                 Message: errorMessage,
                                 OpId: operation.Id)));
                         }

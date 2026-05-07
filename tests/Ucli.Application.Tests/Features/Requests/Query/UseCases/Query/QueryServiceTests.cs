@@ -3,7 +3,6 @@ using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -258,7 +257,7 @@ public sealed class QueryServiceTests
         private readonly AssetSearchLookupReadResult result;
 
         public StubAssetSearchLookupAccessService ()
-            : this(AssetSearchLookupReadResult.Failure("Asset lookup should not be read.", IpcErrorCodes.InternalError))
+            : this(AssetSearchLookupReadResult.Failure("Asset lookup should not be read.", UcliCoreErrorCodes.InternalError))
         {
         }
 
@@ -296,7 +295,7 @@ public sealed class QueryServiceTests
         private readonly SceneTreeLiteReadResult result;
 
         public StubSceneTreeLiteAccessService ()
-            : this(SceneTreeLiteReadResult.Failure("Scene tree should not be read.", IpcErrorCodes.InternalError))
+            : this(SceneTreeLiteReadResult.Failure("Scene tree should not be read.", UcliCoreErrorCodes.InternalError))
         {
         }
 

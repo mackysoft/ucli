@@ -1,7 +1,6 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Options;
@@ -67,7 +66,7 @@ internal sealed class TestRunCommand
         {
             var errorResult = TestRunCommandResultFactory.Create(TestRunServiceResult.InvalidInput(
                 normalizedModeResult.Error!.Message,
-                IpcErrorCodes.InvalidArgument));
+                UcliCoreErrorCodes.InvalidArgument));
             commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
@@ -77,7 +76,7 @@ internal sealed class TestRunCommand
         {
             var errorResult = TestRunCommandResultFactory.Create(TestRunServiceResult.InvalidInput(
                 normalizedTestPlatformResult.Error!.Message,
-                IpcErrorCodes.InvalidArgument));
+                UcliCoreErrorCodes.InvalidArgument));
             commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }

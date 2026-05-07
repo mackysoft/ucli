@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts;
-
 namespace MackySoft.Ucli.Application.Shared.Configuration;
 
 /// <summary> Defines command keys and defaults for per-command IPC timeout overrides. </summary>

@@ -99,7 +99,7 @@ public sealed class ResolveCommandTests
                     .HasString("freshness", "fresh")))
             .HasArrayLength("errors", 1)
             .HasProperty("errors", 0, error => error
-                .HasString("code", IpcErrorCodes.InternalError)
+                .HasString("code", UcliCoreErrorCodes.InternalError.Value)
                 .HasString("message", "Unity execution failed.")
                 .HasString("opId", "resolve"));
     }
@@ -125,7 +125,7 @@ public sealed class ResolveCommandTests
             UcliCommandNames.Resolve,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
     }
 
     [Fact]
@@ -144,7 +144,7 @@ public sealed class ResolveCommandTests
         Assert.Null(service.CapturedInput);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
     }
 
     [Fact]
@@ -163,7 +163,7 @@ public sealed class ResolveCommandTests
         Assert.Null(service.CapturedInput);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
     }
 
     [Fact]
@@ -182,7 +182,7 @@ public sealed class ResolveCommandTests
         Assert.Null(service.CapturedInput);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
     }
 
     private static ResolveServiceResult CreateSuccessResult ()
@@ -220,7 +220,7 @@ public sealed class ResolveCommandTests
             [],
             [
                 new OperationExecutionError(
-                    Code: IpcErrorCodes.InternalError,
+                    Code: UcliCoreErrorCodes.InternalError,
                     Message: "Unity execution failed.",
                     OpId: "resolve"),
             ],

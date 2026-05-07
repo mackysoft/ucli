@@ -3,7 +3,6 @@ using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -137,7 +136,7 @@ public sealed class ResolveServiceTests
     {
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
         var sceneTreeLiteAccessService = new StubSceneTreeLiteAccessService(
-            SceneTreeLiteReadResult.Failure("Scene-tree-lite should not be read.", IpcErrorCodes.InternalError));
+            SceneTreeLiteReadResult.Failure("Scene-tree-lite should not be read.", UcliCoreErrorCodes.InternalError));
         var unityRequestExecutor = new SpyUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateUnityResponse()));
         var service = new ResolveService(projectContextResolver, sceneTreeLiteAccessService, unityRequestExecutor);
 
@@ -209,7 +208,7 @@ public sealed class ResolveServiceTests
     public async Task Execute_WhenSceneHierarchyIndexFailureMessageIsBlank_FallsBackToUnityWithDefaultReason ()
     {
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
-        var sceneTreeLiteAccessService = new StubSceneTreeLiteAccessService(SceneTreeLiteReadResult.Failure("", IpcErrorCodes.InternalError));
+        var sceneTreeLiteAccessService = new StubSceneTreeLiteAccessService(SceneTreeLiteReadResult.Failure("", UcliCoreErrorCodes.InternalError));
         var unityRequestExecutor = new SpyUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateUnityResponse()));
         var service = new ResolveService(projectContextResolver, sceneTreeLiteAccessService, unityRequestExecutor);
 

@@ -37,7 +37,7 @@ internal sealed record ReadIndexArtifactReadResult<T> (
     /// <param name="message"> The user-facing error message. </param>
     /// <returns> The failed result. </returns>
     public static ReadIndexArtifactReadResult<T> Failure (
-        string code,
+        UcliErrorCode code,
         string message)
     {
         return Failure(new IndexServiceError(code, message));

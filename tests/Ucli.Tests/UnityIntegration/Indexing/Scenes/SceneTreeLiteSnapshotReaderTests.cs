@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 
@@ -67,7 +66,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
         Assert.Equal("index.scene-tree-lite.read failed with status 'busy'.", result.Message);
     }
 
@@ -128,7 +127,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
         Assert.Contains("scenePath does not match", result.Message, StringComparison.Ordinal);
     }
 
@@ -159,7 +158,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
         Assert.Contains("payload is invalid", result.Message, StringComparison.Ordinal);
     }
 
@@ -196,7 +195,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
         public UnityRequestPayload? LastPayload { get; private set; }
 
         public UnityRequestExecutionResult Result { get; set; }
-            = UnityRequestExecutionResultTestFactory.Failure("not configured", IpcErrorCodes.InternalError);
+            = UnityRequestExecutionResultTestFactory.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
         public ValueTask<UnityRequestExecutionResult> Execute (
             UcliCommand command,

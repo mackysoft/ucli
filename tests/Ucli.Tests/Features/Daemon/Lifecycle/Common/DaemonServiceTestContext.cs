@@ -9,7 +9,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
@@ -143,7 +142,7 @@ internal static class DaemonServiceTestContext
 
     public static IpcResponse CreateErrorResponse (
         IpcRequest request,
-        string code,
+        UcliErrorCode code,
         string message)
     {
         return new IpcResponse(

@@ -6,4 +6,5 @@ global using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 global using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 global using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 global using MackySoft.Ucli.Application.Shared.Unity.Resolution;
+global using MackySoft.Ucli.Contracts;
 global using MackySoft.Ucli.Contracts.Index;

@@ -2,7 +2,6 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Assets;
 
@@ -81,7 +80,7 @@ public sealed class AssetLookupSnapshotReaderTests
             TimeSpan.FromMilliseconds(1000));
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
         Assert.Equal("index.assets.read failed with status 'busy'.", result.Message);
     }
 
@@ -118,7 +117,7 @@ public sealed class AssetLookupSnapshotReaderTests
         var result = await reader.Read(CreateProjectContext().UnityProject, UcliConfig.CreateDefault(), UcliCommandIds.Query, UnityExecutionMode.Auto, TimeSpan.FromMilliseconds(1000));
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
         Assert.Contains("guidPathEntries must be represented in assetSearchEntries.", result.Message, StringComparison.Ordinal);
     }
 
@@ -207,7 +206,7 @@ public sealed class AssetLookupSnapshotReaderTests
         public UnityRequestPayload? LastPayload { get; private set; }
 
         public UnityRequestExecutionResult Result { get; set; }
-            = UnityRequestExecutionResultTestFactory.Failure("not configured", IpcErrorCodes.InternalError);
+            = UnityRequestExecutionResultTestFactory.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
         public ValueTask<UnityRequestExecutionResult> Execute (
             UcliCommand command,

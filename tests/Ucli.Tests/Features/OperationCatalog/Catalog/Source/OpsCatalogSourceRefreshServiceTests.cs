@@ -196,7 +196,7 @@ public sealed class OpsCatalogSourceRefreshServiceTests
             new IpcOpsReadResponse(
                 DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
                 [CreateGoDescribeEntry()])));
-        reader.Enqueue(OpsCatalogFetchResult.Failure("Unity source unavailable.", IpcErrorCodes.InternalError));
+        reader.Enqueue(OpsCatalogFetchResult.Failure("Unity source unavailable.", UcliCoreErrorCodes.InternalError));
         var fingerprintProvider = new StubReadIndexInputFingerprintProvider
         {
             Snapshot = CreateSnapshot("asset-search", "guid-path", "combined-2"),
@@ -363,7 +363,7 @@ public sealed class OpsCatalogSourceRefreshServiceTests
         public bool LastRequireReadinessGate { get; private set; }
 
         public OpsCatalogFetchResult Result { get; set; }
-            = OpsCatalogFetchResult.Failure("not configured", IpcErrorCodes.InternalError);
+            = OpsCatalogFetchResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
         public void Enqueue (OpsCatalogFetchResult result)
         {

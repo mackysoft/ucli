@@ -23,7 +23,7 @@ public sealed class CallCliOutputContractTests
             UcliCommandNames.Call,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
         Assert.Contains(UnknownOptionMessage, result.StdErr, StringComparison.Ordinal);
     }
 
@@ -79,7 +79,7 @@ public sealed class CallCliOutputContractTests
             UcliCommandNames.Call,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
         Assert.Contains("Argument '--readIndexMode' is not recognized.", result.StdErr, StringComparison.Ordinal);
     }
 
@@ -111,7 +111,7 @@ public sealed class CallCliOutputContractTests
             .HasProperty("payload", payload => payload
                 .HasArrayLength("opResults", 0))
             .HasProperty("errors", 0, error => error
-                .HasString("code", UnityExecutionModeDecisionErrorCodes.DaemonNotRunning));
+                .HasString("code", UnityExecutionModeDecisionErrorCodes.DaemonNotRunning.Value));
     }
 
     [Fact]

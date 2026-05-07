@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -71,7 +72,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 return UnityIpcResponseFactory.CreateErrorResponse(
                     request,
-                    IpcErrorCodes.InvalidArgument,
+                    UcliCoreErrorCodes.InvalidArgument,
                     exception.Message,
                     null);
             }
@@ -79,7 +80,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 return UnityIpcResponseFactory.CreateErrorResponse(
                     request,
-                    IpcErrorCodes.InternalError,
+                    UcliCoreErrorCodes.InternalError,
                     $"Scene-tree-lite snapshot read failed. {exception.Message}",
                     null);
             }

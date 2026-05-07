@@ -61,7 +61,7 @@ public sealed class OpsDescribeResultMapperTests
             string.Empty);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
     }
 
     [Fact]
@@ -90,7 +90,7 @@ public sealed class OpsDescribeResultMapperTests
             UcliPrimitiveOperationNames.Resolve);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
     }
 
     [Fact]
@@ -110,7 +110,7 @@ public sealed class OpsDescribeResultMapperTests
             UcliPrimitiveOperationNames.Resolve);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
     }
 
     [Fact]
@@ -130,7 +130,7 @@ public sealed class OpsDescribeResultMapperTests
             UcliPrimitiveOperationNames.Resolve);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
     }
 
     [Fact]
@@ -150,7 +150,7 @@ public sealed class OpsDescribeResultMapperTests
             UcliPrimitiveOperationNames.Resolve);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
     }
 
     [Fact]
@@ -172,7 +172,7 @@ public sealed class OpsDescribeResultMapperTests
         var result = mapper.Map(CreateOutput(entry), UcliPrimitiveOperationNames.Resolve);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
     }
 
     [Theory]
@@ -203,7 +203,7 @@ public sealed class OpsDescribeResultMapperTests
         var result = mapper.Map(CreateOutput(entry), UcliPrimitiveOperationNames.Resolve);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
     }
 
     private static OpsCatalogReadOutput CreateOutput (IndexOpEntryJsonContract entry)

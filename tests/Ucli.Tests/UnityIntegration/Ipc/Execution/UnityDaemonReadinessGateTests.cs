@@ -68,7 +68,7 @@ public sealed class UnityDaemonReadinessGateTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.EditorBusy, result.ErrorCode);
+        Assert.Equal(EditorLifecycleErrorCodes.EditorBusy, result.ErrorCode);
         Assert.Empty(daemonClient.Requests);
     }
 
@@ -145,7 +145,7 @@ public sealed class UnityDaemonReadinessGateTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
         Assert.Contains("probe failed", result.Message, StringComparison.Ordinal);
         Assert.Equal(1, pingClient.CallCount);
         Assert.Empty(daemonClient.Requests);
@@ -169,7 +169,7 @@ public sealed class UnityDaemonReadinessGateTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
         Assert.Empty(daemonClient.Requests);
     }
 
@@ -183,7 +183,7 @@ public sealed class UnityDaemonReadinessGateTests
             CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true));
         var daemonClient = new StubUnityIpcClient(
             UnityRequestExecutionResult.Success(UnityRequestResponseTestFactory.Create(CreateErrorResponse(
-                IpcErrorCodes.EditorBusy,
+                EditorLifecycleErrorCodes.EditorBusy,
                 "Unity editor is busy with internal work."))),
             CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient);
@@ -274,7 +274,7 @@ public sealed class UnityDaemonReadinessGateTests
     }
 
     private static IpcResponse CreateErrorResponse (
-        string code,
+        UcliErrorCode code,
         string message)
     {
         return new IpcResponse(

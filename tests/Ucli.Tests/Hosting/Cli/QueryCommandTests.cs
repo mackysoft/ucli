@@ -93,7 +93,7 @@ public sealed class QueryCommandTests
                     .HasString("source", "index")))
             .HasArrayLength("errors", 1)
             .HasProperty("errors", 0, error => error
-                .HasString("code", IpcErrorCodes.InternalError)
+                .HasString("code", UcliCoreErrorCodes.InternalError.Value)
                 .HasString("message", "Unity execution failed.")
                 .HasString("opId", "assets.find"));
     }
@@ -120,7 +120,7 @@ public sealed class QueryCommandTests
             UcliCommandNames.QueryAssetsFind,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
     }
 
     [Fact]
@@ -145,7 +145,7 @@ public sealed class QueryCommandTests
             UcliCommandNames.QueryGoDescribe,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
     }
 
     [Fact]
@@ -161,7 +161,7 @@ public sealed class QueryCommandTests
             UcliCommandNames.Query,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
         JsonAssert.For(outputJson.RootElement)
             .HasString("message", "Subcommand is required for command 'query'. Supported subcommands: assets, scene, go, comp, asset.");
     }
@@ -181,7 +181,7 @@ public sealed class QueryCommandTests
             UcliCommandNames.Query,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
         JsonAssert.For(outputJson.RootElement)
             .HasString("message", "Subcommand is required for command 'query assets'. Supported subcommands: find.");
     }
@@ -251,7 +251,7 @@ public sealed class QueryCommandTests
             [],
             [
                 new OperationExecutionError(
-                    Code: IpcErrorCodes.InternalError,
+                    Code: UcliCoreErrorCodes.InternalError,
                     Message: "Unity execution failed.",
                     OpId: "assets.find"),
             ],

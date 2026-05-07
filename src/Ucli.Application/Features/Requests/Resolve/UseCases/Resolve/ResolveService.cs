@@ -3,7 +3,6 @@ using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve.Proj
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Context;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -130,12 +129,12 @@ internal sealed class ResolveService : IResolveService
             .ConfigureAwait(false);
         if (!readResult.IsSuccess)
         {
-            if (string.Equals(readResult.ErrorCode, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal))
+            if (readResult.ErrorCode == UcliCoreErrorCodes.InvalidArgument)
             {
                 return (
                     ResolveServiceResultFactory.FromIpcError(
                         requestId,
-                        new OperationExecutionError(readResult.ErrorCode!, readResult.Message, null),
+                        new OperationExecutionError(readResult.ErrorCode!.Value, readResult.Message, null),
                         ReadIndexInfoFactory.Unity(readResult.Message)),
                     readResult.Message);
             }

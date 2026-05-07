@@ -17,7 +17,7 @@ internal static class PlanFailureResultFactory
     public static PlanServiceResult FromExecutionError (
         ExecutionError error,
         PlanExecutionOutput? output = null,
-        string? errorCode = null)
+        UcliErrorCode? errorCode = null)
     {
         ArgumentNullException.ThrowIfNull(error);
 

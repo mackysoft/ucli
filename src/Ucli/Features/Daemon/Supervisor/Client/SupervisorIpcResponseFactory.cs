@@ -30,7 +30,7 @@ internal static class SupervisorIpcResponseFactory
     /// <returns> The serialized error response. </returns>
     public static IpcResponse CreateErrorResponse (
         IpcRequest request,
-        string code,
+        UcliErrorCode code,
         string message)
     {
         return new IpcResponse(
@@ -53,8 +53,8 @@ internal static class SupervisorIpcResponseFactory
         string errorMessage)
     {
         var code = errorKind == IpcFrameReadErrorKind.PayloadTooLarge
-            ? IpcErrorCodes.IpcFrameTooLarge
-            : IpcErrorCodes.InvalidArgument;
+            ? IpcProtocolErrorCodes.IpcFrameTooLarge
+            : UcliCoreErrorCodes.InvalidArgument;
         return new IpcResponse(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: string.Empty,

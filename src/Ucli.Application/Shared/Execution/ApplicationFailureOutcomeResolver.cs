@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
 namespace MackySoft.Ucli.Application.Shared.Execution;
 
@@ -8,10 +8,8 @@ internal static class ApplicationFailureOutcomeResolver
     /// <summary> Resolves the application outcome represented by one failure code. </summary>
     /// <param name="errorCode"> The machine-readable failure code. </param>
     /// <returns> The application outcome for the specified failure code. </returns>
-    public static ApplicationOutcome Resolve (string errorCode)
+    public static ApplicationOutcome Resolve (UcliErrorCode errorCode)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(errorCode);
-
         return IsInvalidArgumentCode(errorCode)
             ? ApplicationOutcome.InvalidArgument
             : ApplicationOutcome.ToolError;
@@ -20,13 +18,15 @@ internal static class ApplicationFailureOutcomeResolver
     /// <summary> Returns whether the failure code represents a caller-correctable invalid argument. </summary>
     /// <param name="errorCode"> The machine-readable failure code. </param>
     /// <returns> <see langword="true" /> when the code maps to <see cref="ApplicationOutcome.InvalidArgument" />; otherwise <see langword="false" />. </returns>
-    public static bool IsInvalidArgumentCode (string errorCode)
+    public static bool IsInvalidArgumentCode (UcliErrorCode errorCode)
     {
-        return errorCode is IpcErrorCodes.InvalidArgument
-            or IpcErrorCodes.PlanTokenRequired
-            or IpcErrorCodes.PlanTokenInvalid
-            or IpcErrorCodes.PlanTokenExpired
-            or IpcErrorCodes.PlanTokenRequestMismatch
-            or IpcErrorCodes.StateChangedSincePlan;
+        return errorCode == UcliCoreErrorCodes.InvalidArgument
+            || errorCode == PlanTokenErrorCodes.PlanTokenRequired
+            || errorCode == PlanTokenErrorCodes.PlanTokenInvalid
+            || errorCode == PlanTokenErrorCodes.PlanTokenExpired
+            || errorCode == PlanTokenErrorCodes.PlanTokenRequestMismatch
+            || errorCode == PlanTokenErrorCodes.StateChangedSincePlan
+            || ValidationErrorCodes.Contains(errorCode)
+            || ProjectContextErrorCodes.Contains(errorCode);
     }
 }

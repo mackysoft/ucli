@@ -1,5 +1,7 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin;
@@ -43,7 +45,8 @@ public sealed class UnityBatchmodeProcessLauncherTests
             {
                 Result = UnityUcliPluginLocateResult.NotFound(ExecutionError.InvalidArgument(
                     "Unity project does not contain the uCLI Unity plugin.")),
-            });
+            },
+            new StubUnityProjectLockFileProbe());
 
         var result = await launcher.Launch(
             new ResolvedUnityProjectContext(
@@ -65,6 +68,117 @@ public sealed class UnityBatchmodeProcessLauncherTests
         Assert.Equal(0, versionResolver.CallCount);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenUnityLockFileExists_ReturnsAlreadyOpenWithoutResolvingUnityVersion ()
+    {
+        var versionResolver = new StubUnityVersionResolver();
+        var launcher = new UnityBatchmodeProcessLauncher(
+            versionResolver,
+            new StubUnityEditorPathResolver(),
+            new StubIpcEndpointResolver(),
+            new StubUnityUcliPluginLocator(),
+            new StubUnityProjectLockFileProbe(UnityProjectLockFileProbeResult.Locked("/tmp/unity-project/Temp/UnityLockfile")));
+
+        var result = await launcher.Launch(
+            new ResolvedUnityProjectContext(
+                UnityProjectRoot: "/tmp/unity-project",
+                RepositoryRoot: "/tmp/repository-root",
+                ProjectFingerprint: "project-fingerprint",
+                PathSource: UnityProjectPathSource.CommandOption),
+            new IpcOneshotBootstrapArguments(
+                ParentProcessId: 1234,
+                SessionToken: "session-token",
+                EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
+                EndpointAddress: "/tmp/ucli.sock"),
+            "/tmp/unity.log",
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(UnityProcessErrorCodes.UnityProjectAlreadyOpen, error.Code);
+        Assert.Contains("UnityLockfile", error.Message, StringComparison.Ordinal);
+        Assert.Equal(0, versionResolver.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenUnityLockFileAppearsBeforeProcessStart_ReturnsAlreadyOpen ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-batchmode-process-launcher", "lock-file-race");
+        var versionResolver = new StubUnityVersionResolver();
+        var lockFilePath = "/tmp/unity-project/Temp/UnityLockfile";
+        var lockFileProbe = new StubUnityProjectLockFileProbe(
+            UnityProjectLockFileProbeResult.Unlocked(lockFilePath),
+            UnityProjectLockFileProbeResult.Locked(lockFilePath));
+        var launcher = new UnityBatchmodeProcessLauncher(
+            versionResolver,
+            new StubUnityEditorPathResolver("/path/that/must/not/exist/ucli-unity"),
+            new StubIpcEndpointResolver(),
+            new StubUnityUcliPluginLocator(),
+            lockFileProbe);
+
+        var result = await launcher.Launch(
+            new ResolvedUnityProjectContext(
+                UnityProjectRoot: "/tmp/unity-project",
+                RepositoryRoot: "/tmp/repository-root",
+                ProjectFingerprint: "project-fingerprint",
+                PathSource: UnityProjectPathSource.CommandOption),
+            new IpcOneshotBootstrapArguments(
+                ParentProcessId: 1234,
+                SessionToken: "session-token",
+                EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
+                EndpointAddress: "/tmp/ucli.sock"),
+            scope.GetPath("unity.log"),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(2, lockFileProbe.CallCount);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(UnityProcessErrorCodes.UnityProjectAlreadyOpen, error.Code);
+        Assert.Contains("UnityLockfile", error.Message, StringComparison.Ordinal);
+        Assert.Equal(1, versionResolver.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenCanceledBeforeProcessStart_ThrowsWithoutSecondLockProbe ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-batchmode-process-launcher", "canceled-before-start");
+        using var cancellationTokenSource = new CancellationTokenSource();
+        var lockFileProbe = new StubUnityProjectLockFileProbe();
+        var launcher = new UnityBatchmodeProcessLauncher(
+            new StubUnityVersionResolver(),
+            new StubUnityEditorPathResolver("/path/that/must/not/exist/ucli-unity"),
+            new StubIpcEndpointResolver(),
+            new StubUnityUcliPluginLocator
+            {
+                OnLocate = cancellationTokenSource.Cancel,
+            },
+            lockFileProbe);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            _ = await launcher.Launch(
+                new ResolvedUnityProjectContext(
+                    UnityProjectRoot: "/tmp/unity-project",
+                    RepositoryRoot: "/tmp/repository-root",
+                    ProjectFingerprint: "project-fingerprint",
+                    PathSource: UnityProjectPathSource.CommandOption),
+                new IpcOneshotBootstrapArguments(
+                    ParentProcessId: 1234,
+                    SessionToken: "session-token",
+                    EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
+                    EndpointAddress: "/tmp/ucli.sock"),
+                scope.GetPath("unity.log"),
+                cancellationTokenSource.Token);
+        });
+
+        Assert.Equal(1, lockFileProbe.CallCount);
+    }
+
     private sealed class StubUnityVersionResolver : IUnityVersionResolver
     {
         public int CallCount { get; private set; }
@@ -80,11 +194,18 @@ public sealed class UnityBatchmodeProcessLauncherTests
 
     private sealed class StubUnityEditorPathResolver : IUnityEditorPathResolver
     {
+        private readonly string unityEditorPath;
+
+        public StubUnityEditorPathResolver (string unityEditorPath = "/Applications/Unity.app/Contents/MacOS/Unity")
+        {
+            this.unityEditorPath = unityEditorPath;
+        }
+
         public UnityEditorPathResolutionResult Resolve (
             string unityVersion,
             string? preferredUnityEditorPath)
         {
-            return UnityEditorPathResolutionResult.Success("/Applications/Unity.app/Contents/MacOS/Unity");
+            return UnityEditorPathResolutionResult.Success(unityEditorPath);
         }
     }
 
@@ -105,12 +226,46 @@ public sealed class UnityBatchmodeProcessLauncherTests
                 "/tmp/ucli-plugin.json",
                 UnityUcliPluginLocator.ExpectedProtocolVersion);
 
+        public Action? OnLocate { get; set; }
+
         public ValueTask<UnityUcliPluginLocateResult> Locate (
             string unityProjectRoot,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            OnLocate?.Invoke();
             return ValueTask.FromResult(Result);
+        }
+    }
+
+    private sealed class StubUnityProjectLockFileProbe : IUnityProjectLockFileProbe
+    {
+        private readonly IReadOnlyList<UnityProjectLockFileProbeResult> results;
+
+        private int nextResultIndex;
+
+        public StubUnityProjectLockFileProbe ()
+            : this(UnityProjectLockFileProbeResult.Unlocked("/tmp/unity-project/Temp/UnityLockfile"))
+        {
+        }
+
+        public StubUnityProjectLockFileProbe (params UnityProjectLockFileProbeResult[] results)
+        {
+            this.results = results is { Length: > 0 }
+                ? results
+                : [UnityProjectLockFileProbeResult.Unlocked("/tmp/unity-project/Temp/UnityLockfile")];
+        }
+
+        public int CallCount { get; private set; }
+
+        public UnityProjectLockFileProbeResult Probe (string unityProjectRoot)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
+
+            var resultIndex = Math.Min(nextResultIndex, results.Count - 1);
+            nextResultIndex++;
+            CallCount++;
+            return results[resultIndex];
         }
     }
 }

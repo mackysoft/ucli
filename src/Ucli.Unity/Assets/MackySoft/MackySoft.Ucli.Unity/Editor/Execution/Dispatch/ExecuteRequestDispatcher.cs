@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -128,7 +129,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             {
                 return ExecuteResponseBuilder.CreateErrorResponse(
                     context,
-                    IpcErrorCodes.InvalidArgument,
+                    UcliCoreErrorCodes.InvalidArgument,
                     "Request arguments must be a JSON object.",
                     null,
                     SerializerOptions);
@@ -141,7 +142,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     _ => DispatchCore(request, context, cancellationToken),
                     () => ExecuteResponseBuilder.CreateErrorResponse(
                         context,
-                        IpcErrorCodes.RequestIdConflict,
+                        ExecuteRequestErrorCodes.RequestIdConflict,
                         "Request id conflict. The same requestId was already used for a different request content.",
                         null,
                         SerializerOptions),
@@ -164,7 +165,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             {
                 return ExecuteResponseBuilder.CreateErrorResponse(
                     context,
-                    IpcErrorCodes.CommandNotImplemented,
+                    UcliCoreErrorCodes.CommandNotImplemented,
                     $"Execute command '{request.Command}' is not implemented.",
                     null,
                     SerializerOptions);
@@ -210,7 +211,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             {
                 return ExecuteResponseBuilder.CreateErrorResponse(
                     context,
-                    IpcErrorCodes.InternalError,
+                    UcliCoreErrorCodes.InternalError,
                     $"Unexpected error occurred while dispatching execute request. {exception.Message}",
                     null,
                     SerializerOptions);

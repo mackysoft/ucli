@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -157,7 +158,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 : readError.Message;
             errorResponse = UnityIpcResponseFactory.CreateErrorResponse(
                 request,
-                IpcErrorCodes.InvalidArgument,
+                UcliCoreErrorCodes.InvalidArgument,
                 $"{methodName} payload is invalid. {message}",
                 null);
             return false;

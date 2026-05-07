@@ -23,7 +23,7 @@ public sealed class PlanCliOutputContractTests
             UcliCommandNames.Plan,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
         Assert.Contains(UnknownOptionMessage, result.StdErr, StringComparison.Ordinal);
     }
 
@@ -42,7 +42,7 @@ public sealed class PlanCliOutputContractTests
             UcliCommandNames.Plan,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
         Assert.Contains(
             "Request property 'steps' is required.",
             outputJson.RootElement.GetProperty("message").GetString(),
@@ -66,7 +66,7 @@ public sealed class PlanCliOutputContractTests
             UcliCommandNames.Plan,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
         Assert.False(outputJson.RootElement.GetProperty("payload").EnumerateObject().MoveNext());
     }
 
@@ -96,7 +96,7 @@ public sealed class PlanCliOutputContractTests
             UcliCommandNames.Plan,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public sealed class PlanCliOutputContractTests
             UcliCommandNames.Plan,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
         AssertPayloadHasGeneratedRequestId(outputJson.RootElement);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload

@@ -3,7 +3,6 @@ using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Failures;
 
@@ -26,7 +25,7 @@ internal static class UnityIpcFailureClassifier
     public static UnityRequestFailure InternalError (string message)
     {
         return FromCodeAndMessage(
-            IpcErrorCodes.InternalError,
+            UcliCoreErrorCodes.InternalError,
             message);
     }
 
@@ -38,7 +37,7 @@ internal static class UnityIpcFailureClassifier
         ArgumentNullException.ThrowIfNull(error);
 
         return FromCodeAndMessage(
-            ExecutionErrorCodeMapper.ToCode(error.Kind),
+            ExecutionErrorCodeMapper.ToCode(error),
             error.Message);
     }
 
@@ -124,7 +123,7 @@ internal static class UnityIpcFailureClassifier
     /// <param name="message"> The user-facing failure message. </param>
     /// <returns> The classified Unity request failure. </returns>
     public static UnityRequestFailure FromCodeAndMessage (
-        string code,
+        UcliErrorCode code,
         string message)
     {
         return new UnityRequestFailure(

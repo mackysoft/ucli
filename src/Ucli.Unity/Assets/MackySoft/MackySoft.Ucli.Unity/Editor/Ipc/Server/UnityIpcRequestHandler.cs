@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -50,7 +51,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     $"requestId={request.RequestId}, method={request.Method}");
                 return UnityIpcResponseFactory.CreateErrorResponse(
                     request,
-                    IpcErrorCodes.SessionTokenRequired,
+                    IpcSessionErrorCodes.SessionTokenRequired,
                     "Session token is required.",
                     null);
             }
@@ -72,7 +73,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     exception);
                 return UnityIpcResponseFactory.CreateErrorResponse(
                     request,
-                    IpcErrorCodes.InternalError,
+                    UcliCoreErrorCodes.InternalError,
                     $"Session token validation failed. {exception.Message}",
                     null);
             }
@@ -85,7 +86,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     $"requestId={request.RequestId}, method={request.Method}");
                 return UnityIpcResponseFactory.CreateErrorResponse(
                     request,
-                    IpcErrorCodes.SessionTokenInvalid,
+                    IpcSessionErrorCodes.SessionTokenInvalid,
                     "Session token is invalid.",
                     null);
             }
@@ -98,7 +99,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     $"requestId={request.RequestId}, method={request.Method}");
                 return UnityIpcResponseFactory.CreateErrorResponse(
                     request,
-                    IpcErrorCodes.ProtocolVersionMismatch,
+                    IpcProtocolErrorCodes.ProtocolVersionMismatch,
                     $"Protocol version mismatch. Requested={request.ProtocolVersion}, Supported={IpcProtocol.CurrentVersion}.",
                     null);
             }

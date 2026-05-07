@@ -8,7 +8,6 @@ using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -200,7 +199,7 @@ public sealed class OperationExecuteServiceTests
         Assert.NotNull(result.ReadPostcondition);
         Assert.Equal(1, readPostconditionStore.WriteCallCount);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Equal("Failed to persist mutation read postcondition.", error.Message);
     }
 
@@ -429,14 +428,19 @@ public sealed class OperationExecuteServiceTests
         Assert.Equal(0, ipcRequestExecutor.CallCount);
     }
 
+    public static TheoryData<UcliErrorCode, UcliErrorCode, int> TransportFailureErrorCodeCases => new()
+    {
+        { UcliCoreErrorCodes.InvalidArgument, UcliCoreErrorCodes.InvalidArgument, (int)ApplicationOutcome.InvalidArgument },
+        { PlanTokenErrorCodes.PlanTokenInvalid, PlanTokenErrorCodes.PlanTokenInvalid, (int)ApplicationOutcome.InvalidArgument },
+        { UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, (int)ApplicationOutcome.ToolError },
+    };
+
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(IpcErrorCodes.InvalidArgument, IpcErrorCodes.InvalidArgument, (int)ApplicationOutcome.InvalidArgument)]
-    [InlineData(IpcErrorCodes.PlanTokenInvalid, IpcErrorCodes.PlanTokenInvalid, (int)ApplicationOutcome.InvalidArgument)]
-    [InlineData(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, (int)ApplicationOutcome.ToolError)]
+    [MemberData(nameof(TransportFailureErrorCodeCases))]
     public async Task Execute_WhenTransportExecutionFails_MapsExitCodeFromErrorCode (
-        string errorCode,
-        string expectedErrorCode,
+        UcliErrorCode errorCode,
+        UcliErrorCode expectedErrorCode,
         int expectedOutcome)
     {
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
@@ -475,7 +479,7 @@ public sealed class OperationExecuteServiceTests
         var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResultTestFactory.Failure(
             "execution failed",
-            IpcErrorCodes.InternalError));
+            UcliCoreErrorCodes.InternalError));
         var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore());
 
         var result = await service.Execute(
@@ -491,7 +495,7 @@ public sealed class OperationExecuteServiceTests
         Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.Equal(1, ipcRequestExecutor.CallCount);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Equal("execution failed", error.Message);
     }
 
@@ -516,7 +520,7 @@ public sealed class OperationExecuteServiceTests
                 ],
                 errors:
                 [
-                    new IpcError(IpcErrorCodes.InvalidArgument, "refresh failed", "refresh"),
+                    new IpcError(UcliCoreErrorCodes.InvalidArgument, "refresh failed", "refresh"),
                 ])));
         var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore());
 
@@ -533,7 +537,7 @@ public sealed class OperationExecuteServiceTests
         Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         Assert.Single(result.OpResults);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
         Assert.Equal("refresh", error.OpId);
     }
 
@@ -565,7 +569,7 @@ public sealed class OperationExecuteServiceTests
         Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.Empty(result.OpResults);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("payload is invalid", error.Message, StringComparison.Ordinal);
     }
 

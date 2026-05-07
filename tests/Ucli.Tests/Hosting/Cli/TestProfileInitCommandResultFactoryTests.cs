@@ -42,7 +42,7 @@ public sealed class TestProfileInitCommandResultFactoryTests
         Assert.Equal(IpcProtocol.StatusError, result.Status);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, result.Errors[0].Code);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.Errors[0].Code);
         Assert.Equal("Output path already exists.", result.Errors[0].Message);
     }
 }

@@ -1,7 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
 
@@ -28,7 +27,7 @@ internal sealed class OpsDescribeResultMapper : IOpsDescribeResultMapper
         {
             return OpsDescribeServiceResult.Failure(
                 "Operation name must not be empty.",
-                IpcErrorCodes.InvalidArgument);
+                UcliCoreErrorCodes.InvalidArgument);
         }
 
         var operation = output.Operations
@@ -37,28 +36,28 @@ internal sealed class OpsDescribeResultMapper : IOpsDescribeResultMapper
         {
             return OpsDescribeServiceResult.Failure(
                 $"Operation '{operationName}' is not available.",
-                IpcErrorCodes.InvalidArgument);
+                UcliCoreErrorCodes.InvalidArgument);
         }
 
         if (!TryParseSchema(operation.ArgsSchemaJson, out var argsSchema))
         {
             return OpsDescribeServiceResult.Failure(
                 $"Operation '{operationName}' args schema is invalid.",
-                IpcErrorCodes.InternalError);
+                UcliCoreErrorCodes.InternalError);
         }
 
         if (!TryParseOptionalSchema(operation.ResultSchemaJson, out var resultSchema))
         {
             return OpsDescribeServiceResult.Failure(
                 $"Operation '{operationName}' result schema is invalid.",
-                IpcErrorCodes.InternalError);
+                UcliCoreErrorCodes.InternalError);
         }
 
         if (!TryValidateDescribeContract(operation, out var describeError))
         {
             return OpsDescribeServiceResult.Failure(
                 $"Operation '{operationName}' describe contract is invalid: {describeError}",
-                IpcErrorCodes.InternalError);
+                UcliCoreErrorCodes.InternalError);
         }
 
         return OpsDescribeServiceResult.Success(

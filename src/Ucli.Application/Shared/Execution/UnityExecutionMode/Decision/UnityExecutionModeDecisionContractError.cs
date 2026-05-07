@@ -4,5 +4,5 @@ namespace MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decisio
 /// <param name="Code"> The machine-readable error code. </param>
 /// <param name="Message"> The human-readable error message. </param>
 internal sealed record UnityExecutionModeDecisionContractError (
-    string Code,
+    UcliErrorCode Code,
     string Message);

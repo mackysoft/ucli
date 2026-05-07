@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -40,7 +39,7 @@ public sealed class ReadIndexValidationCatalogResolverTests
     {
         var resolver = new ReadIndexValidationCatalogResolver(new SpyPersistedOpsCatalogReader(
             PersistedOpsCatalogReadResult.Failure(
-                IpcErrorCodes.ReadIndexBootstrapFailed,
+                ReadIndexErrorCodes.ReadIndexBootstrapFailed,
                 "Index contract file was not found: ops.catalog.json.")));
 
         var result = await resolver.Resolve(
@@ -72,7 +71,7 @@ public sealed class ReadIndexValidationCatalogResolverTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.ReadIndexFreshRequired, result.ErrorCode);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexFreshRequired, result.ErrorCode);
         Assert.True(result.ReadIndex.Used);
         Assert.True(result.ReadIndex.Hit);
         Assert.Equal(IndexFreshness.Stale, result.ReadIndex.Freshness);
@@ -108,7 +107,7 @@ public sealed class ReadIndexValidationCatalogResolverTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.ReadIndexFormatInvalid, result.ErrorCode);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexFormatInvalid, result.ErrorCode);
         Assert.False(result.ReadIndex.Used);
         Assert.False(result.ReadIndex.Hit);
         Assert.Contains("malformed", result.ErrorMessage, StringComparison.Ordinal);

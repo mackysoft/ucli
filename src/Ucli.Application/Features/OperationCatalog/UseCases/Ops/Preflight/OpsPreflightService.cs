@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts;
 
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Preflight;
 

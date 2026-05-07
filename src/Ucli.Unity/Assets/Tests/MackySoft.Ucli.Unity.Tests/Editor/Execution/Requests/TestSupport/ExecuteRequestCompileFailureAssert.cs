@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using NUnit.Framework;
 
@@ -25,7 +26,7 @@ namespace MackySoft.Ucli.Unity.Tests
         /// <returns> The current assertion instance. </returns>
         public ExecuteRequestCompileFailureAssert HasInvalidArgument (string expectedOpId)
         {
-            Assert.That(error.Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(error.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(error.OpId, Is.EqualTo(expectedOpId));
             return this;
         }

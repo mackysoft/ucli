@@ -3,7 +3,6 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
@@ -62,7 +61,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
             var fetchResult = await snapshotReader.Read(project, config, command, mode, timeout, scenePath, failFast, cancellationToken).ConfigureAwait(false);
             if (!fetchResult.IsSuccess)
             {
-                return SceneTreeLiteRefreshResult.Failure(fetchResult.Message, fetchResult.ErrorCode!);
+                return SceneTreeLiteRefreshResult.Failure(fetchResult.Message, fetchResult.ErrorCode!.Value);
             }
 
             var liveOnlyFallbackReason = ReadIndexAccessUtilities.CombineFallbackReasons(
@@ -95,7 +94,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
                     break;
                 }
 
-                return SceneTreeLiteRefreshResult.Failure(attemptResult.FetchResult.Message, attemptResult.FetchResult.ErrorCode!);
+                return SceneTreeLiteRefreshResult.Failure(attemptResult.FetchResult.Message, attemptResult.FetchResult.ErrorCode!.Value);
             }
 
             response = attemptResult.FetchResult.Response!;

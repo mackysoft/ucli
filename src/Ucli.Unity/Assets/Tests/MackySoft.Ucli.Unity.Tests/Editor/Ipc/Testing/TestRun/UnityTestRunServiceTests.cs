@@ -80,7 +80,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var response = await service.Execute(CreateRequest(failFast: true), CancellationToken.None).AsUniTask();
 
             Assert.That(response.IsSuccess, Is.False);
-            Assert.That(response.Error!.Code, Is.EqualTo(IpcErrorCodes.EditorBusy));
+            Assert.That(response.Error!.Code, Is.EqualTo(EditorLifecycleErrorCodes.EditorBusy));
             Assert.That(readinessGate.CallCount, Is.EqualTo(1));
             Assert.That(readinessGate.LastFailFast, Is.True);
             Assert.That(mainThreadRequestExecutor.CallCount, Is.EqualTo(0));

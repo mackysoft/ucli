@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
@@ -51,7 +50,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
         var reader = new StubSceneTreeLiteSnapshotReader();
         var firstResponse = CreateResponse("Assets/Scenes/Main.unity", "First");
         reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Success(firstResponse));
-        reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Failure("retry read timed out", IpcErrorCodes.InternalError));
+        reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Failure("retry read timed out", UcliCoreErrorCodes.InternalError));
         var store = new StubReadIndexArtifactWriter();
         var calculator = new StubReadIndexSceneSourceHashProvider();
         calculator.Enqueue("hash-1");

@@ -6,7 +6,7 @@ internal sealed record OpsCatalogSourceRefreshResult (
     DateTimeOffset? GeneratedAtUtc,
     string? FallbackReason,
     string Message,
-    string? ErrorCode)
+    UcliErrorCode? ErrorCode)
 {
     /// <summary> Gets a value indicating whether the source refresh succeeded. </summary>
     public bool IsSuccess => Operations is not null && GeneratedAtUtc.HasValue && ErrorCode is null;
@@ -29,10 +29,14 @@ internal sealed record OpsCatalogSourceRefreshResult (
     /// <summary> Creates a failed source refresh result. </summary>
     public static OpsCatalogSourceRefreshResult Failure (
         string message,
-        string errorCode)
+        UcliErrorCode errorCode)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        ArgumentException.ThrowIfNullOrWhiteSpace(errorCode);
+        if (!errorCode.IsValid)
+        {
+            throw new ArgumentException("Error code must not be empty.", nameof(errorCode));
+        }
+
         return new OpsCatalogSourceRefreshResult(null, null, null, message, errorCode);
     }
 }

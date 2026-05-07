@@ -12,10 +12,10 @@ public static class TestRunPlatformCodec
     public const string PlayMode = "playmode";
 
     /// <summary> Gets the Unity command-line literal for EditMode runs. </summary>
-    public const string UnityEditMode = "EditMode";
+    public const string UnityEditMode = EditMode;
 
     /// <summary> Gets the Unity command-line literal for PlayMode runs. </summary>
-    public const string UnityPlayMode = "PlayMode";
+    public const string UnityPlayMode = PlayMode;
 
     /// <summary> Converts one platform value to canonical contract literal. </summary>
     /// <param name="testPlatform"> The test-run platform value. </param>

@@ -19,7 +19,7 @@ internal sealed record TestRunServiceResult (
     string? RunId,
     string? ArtifactsDir,
     string? SummaryJsonPath,
-    string? ErrorCode)
+    UcliErrorCode? ErrorCode)
 {
     /// <summary> Gets the serialized result value used by command payload mapping. </summary>
     public string? ResultValue => Result switch
@@ -95,7 +95,7 @@ internal sealed record TestRunServiceResult (
     /// <returns> The invalid-input error result. </returns>
     public static TestRunServiceResult InvalidInput (
         string message,
-        string errorCode,
+        UcliErrorCode errorCode,
         string? runId = null,
         string? artifactsDir = null,
         string? summaryJsonPath = null)
@@ -120,7 +120,7 @@ internal sealed record TestRunServiceResult (
     /// <returns> The infrastructure error result. </returns>
     public static TestRunServiceResult InfraError (
         string message,
-        string errorCode,
+        UcliErrorCode errorCode,
         string? runId = null,
         string? artifactsDir = null,
         string? summaryJsonPath = null)
@@ -145,7 +145,7 @@ internal sealed record TestRunServiceResult (
     /// <returns> The tool-error result. </returns>
     public static TestRunServiceResult ToolError (
         string message,
-        string errorCode,
+        UcliErrorCode errorCode,
         string? runId = null,
         string? artifactsDir = null,
         string? summaryJsonPath = null)

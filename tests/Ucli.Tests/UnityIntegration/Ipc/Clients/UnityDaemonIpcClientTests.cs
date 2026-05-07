@@ -67,7 +67,7 @@ public sealed class UnityDaemonIpcClientTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
         Assert.Equal(1, sessionTokenProvider.CallCount);
         Assert.Equal(0, transportClient.CallCount);
     }

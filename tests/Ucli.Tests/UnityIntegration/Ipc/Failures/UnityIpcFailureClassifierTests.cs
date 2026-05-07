@@ -1,7 +1,6 @@
 using System.Net.Sockets;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Failures;
 
 namespace MackySoft.Ucli.Tests.Ipc;
@@ -41,19 +40,24 @@ public sealed class UnityIpcFailureClassifierTests
         var failure = UnityIpcFailureClassifier.FromExecutionError(
             ExecutionError.InvalidArgument("Plugin marker is missing."));
 
-        Assert.Equal(IpcErrorCodes.InvalidArgument, failure.Code);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, failure.Code);
         Assert.Equal(ApplicationOutcome.InvalidArgument, failure.Outcome);
         Assert.Equal("Plugin marker is missing.", failure.Message);
     }
 
+    public static TheoryData<UcliErrorCode> PlanTokenValidationCodeValues => new()
+    {
+        PlanTokenErrorCodes.PlanTokenRequired,
+        PlanTokenErrorCodes.PlanTokenInvalid,
+        PlanTokenErrorCodes.PlanTokenExpired,
+        PlanTokenErrorCodes.PlanTokenRequestMismatch,
+        PlanTokenErrorCodes.StateChangedSincePlan,
+    };
+
     [Theory]
-    [InlineData(IpcErrorCodes.PlanTokenRequired)]
-    [InlineData(IpcErrorCodes.PlanTokenInvalid)]
-    [InlineData(IpcErrorCodes.PlanTokenExpired)]
-    [InlineData(IpcErrorCodes.PlanTokenRequestMismatch)]
-    [InlineData(IpcErrorCodes.StateChangedSincePlan)]
+    [MemberData(nameof(PlanTokenValidationCodeValues))]
     [Trait("Size", "Small")]
-    public void FromCodeAndMessage_WithPlanTokenValidationCode_ReturnsInvalidArgumentOutcome (string code)
+    public void FromCodeAndMessage_WithPlanTokenValidationCode_ReturnsInvalidArgumentOutcome (UcliErrorCode code)
     {
         var failure = UnityIpcFailureClassifier.FromCodeAndMessage(
             code,
@@ -84,7 +88,7 @@ public sealed class UnityIpcFailureClassifierTests
             new InvalidOperationException("boom"),
             TimeSpan.FromSeconds(1));
 
-        Assert.Equal(IpcErrorCodes.InternalError, failure.Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, failure.Code);
         Assert.Equal(ApplicationOutcome.ToolError, failure.Outcome);
         Assert.Contains("Failed to execute Unity oneshot IPC request. boom", failure.Message, StringComparison.Ordinal);
     }

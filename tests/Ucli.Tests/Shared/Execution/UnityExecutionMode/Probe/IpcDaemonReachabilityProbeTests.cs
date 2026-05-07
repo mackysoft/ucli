@@ -175,8 +175,8 @@ public sealed class IpcDaemonReachabilityProbeTests
     public static IEnumerable<object[]> NotRunningConnectivityExceptions ()
     {
         yield return new object[] { new SocketException((int)SocketError.ConnectionRefused) };
-        yield return new object[] { new DaemonPingResponseException("token invalid", IpcErrorCodes.SessionTokenInvalid) };
-        yield return new object[] { new DaemonPingResponseException("token required", IpcErrorCodes.SessionTokenRequired) };
+        yield return new object[] { new DaemonPingResponseException("token invalid", IpcSessionErrorCodes.SessionTokenInvalid) };
+        yield return new object[] { new DaemonPingResponseException("token required", IpcSessionErrorCodes.SessionTokenRequired) };
     }
 
     public static IEnumerable<object[]> IoFailureExceptions ()
@@ -228,7 +228,7 @@ public sealed class IpcDaemonReachabilityProbeTests
     {
         var endpointResolver = new StubEndpointResolver(
             new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-ping-response-error"));
-        var daemonPingClient = new StubDaemonPingClient((_, _) => throw new DaemonPingResponseException("status=error", IpcErrorCodes.InternalError));
+        var daemonPingClient = new StubDaemonPingClient((_, _) => throw new DaemonPingResponseException("status=error", UcliCoreErrorCodes.InternalError));
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
 
         var result = await probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);

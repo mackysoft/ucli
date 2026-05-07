@@ -1,8 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
 using UnityExecutionModeValue = MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision.UnityExecutionMode;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
@@ -46,7 +44,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
 
         if (!AssetLookupAccessUtilities.TryNormalizeSearchQuery(query, out var normalizedQuery, out var errorMessage))
         {
-            return AssetSearchLookupReadResult.Failure(errorMessage, IpcErrorCodes.InvalidArgument);
+            return AssetSearchLookupReadResult.Failure(errorMessage, UcliCoreErrorCodes.InvalidArgument);
         }
 
         if (readIndexMode == ReadIndexMode.Disabled)
@@ -69,7 +67,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
             .ConfigureAwait(false);
         if (!lookupResult.IsSuccess)
         {
-            if (string.Equals(lookupResult.Error!.Code, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal))
+            if (lookupResult.Error!.Code == UcliCoreErrorCodes.InvalidArgument)
             {
                 return AssetSearchLookupReadResult.Failure(
                     lookupResult.Error.Message,
@@ -170,7 +168,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
             .ConfigureAwait(false);
         if (!refreshResult.IsSuccess)
         {
-            return AssetSearchLookupReadResult.Failure(refreshResult.Message, refreshResult.ErrorCode!);
+            return AssetSearchLookupReadResult.Failure(refreshResult.Message, refreshResult.ErrorCode!.Value);
         }
 
         var response = refreshResult.Response!;

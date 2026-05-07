@@ -1,8 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
 using UnityExecutionModeValue = MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision.UnityExecutionMode;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
@@ -51,12 +49,12 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
 
         if (!SceneTreeLiteAccessUtilities.TryNormalizeScenePath(scenePath, out var normalizedScenePath, out var errorMessage))
         {
-            return SceneTreeLiteReadResult.Failure(errorMessage, IpcErrorCodes.InvalidArgument);
+            return SceneTreeLiteReadResult.Failure(errorMessage, UcliCoreErrorCodes.InvalidArgument);
         }
 
         if (depth is < 0)
         {
-            return SceneTreeLiteReadResult.Failure("Property 'depth' must be greater than or equal to 0.", IpcErrorCodes.InvalidArgument);
+            return SceneTreeLiteReadResult.Failure("Property 'depth' must be greater than or equal to 0.", UcliCoreErrorCodes.InvalidArgument);
         }
 
         var isLookupEligibleScene = SceneTreeLiteAccessUtilities.IsLookupEligibleScenePath(normalizedScenePath);
@@ -65,7 +63,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
             var sourceProbeResult = await sourceProbe.EnsureCurrentAssetsSceneExists(project, normalizedScenePath, cancellationToken).ConfigureAwait(false);
             if (!sourceProbeResult.IsSuccess)
             {
-                return SceneTreeLiteReadResult.Failure(sourceProbeResult.ErrorMessage!, IpcErrorCodes.InvalidArgument);
+                return SceneTreeLiteReadResult.Failure(sourceProbeResult.ErrorMessage!, UcliCoreErrorCodes.InvalidArgument);
             }
         }
 
@@ -108,7 +106,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
             .ConfigureAwait(false);
         if (!lookupResult.IsSuccess)
         {
-            if (string.Equals(lookupResult.Error!.Code, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal))
+            if (lookupResult.Error!.Code == UcliCoreErrorCodes.InvalidArgument)
             {
                 return SceneTreeLiteReadResult.Failure(lookupResult.Error.Message, lookupResult.Error.Code);
             }
@@ -218,7 +216,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
             .ConfigureAwait(false);
         if (!refreshResult.IsSuccess)
         {
-            return SceneTreeLiteReadResult.Failure(refreshResult.Message, refreshResult.ErrorCode!);
+            return SceneTreeLiteReadResult.Failure(refreshResult.Message, refreshResult.ErrorCode!.Value);
         }
 
         var response = refreshResult.Response!;

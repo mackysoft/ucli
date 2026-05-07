@@ -6,8 +6,8 @@ using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
@@ -89,7 +89,7 @@ public sealed class UnityIpcRequestExecutorTests
                 EmptyPayload()));
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
         Assert.Contains("Failed to decide Unity execution mode.", result.Message, StringComparison.Ordinal);
         Assert.Equal(0, pluginLocator.CallCount);
         Assert.Equal(0, daemonTransportClient.CallCount);
@@ -208,7 +208,7 @@ public sealed class UnityIpcRequestExecutorTests
         {
             CreateErrorResponse(
                 "req-daemon-busy",
-                IpcErrorCodes.EditorBusy,
+                EditorLifecycleErrorCodes.EditorBusy,
                 "Unity editor is busy with internal work. Retry without --failFast or wait until lifecycleState=ready before executing request."),
             CreateResponse("req-daemon-ready"),
         });
@@ -296,7 +296,7 @@ public sealed class UnityIpcRequestExecutorTests
                     RequireReadinessGate: true))));
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.EditorBusy, result.ErrorCode);
+        Assert.Equal(EditorLifecycleErrorCodes.EditorBusy, result.ErrorCode);
         Assert.Contains("Unity editor is busy with internal work.", result.Message, StringComparison.Ordinal);
         Assert.Equal(1, readinessProbe.CallCount);
         Assert.Equal(0, daemonTransportClient.CallCount);
@@ -384,7 +384,7 @@ public sealed class UnityIpcRequestExecutorTests
                 EmptyPayload()));
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
         Assert.Equal(1, pluginLocator.CallCount);
         Assert.Equal(0, daemonTransportClient.CallCount);
         Assert.Equal(0, oneshotTransportClient.CallCount);
@@ -425,7 +425,7 @@ public sealed class UnityIpcRequestExecutorTests
                 EmptyPayload()));
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
         Assert.Equal(1, pluginLocator.CallCount);
         Assert.Equal(0, daemonTransportClient.CallCount);
         Assert.Equal(0, oneshotTransportClient.CallCount);
@@ -539,7 +539,8 @@ public sealed class UnityIpcRequestExecutorTests
                 launcher,
                 new StubIpcEndpointResolver(new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock")),
                 oneshotTransportClient,
-                new StubProjectLifecycleLockProvider()),
+                new StubProjectLifecycleLockProvider(),
+                new StubUnityProjectLockFileProbe()),
         ];
     }
 
@@ -602,7 +603,7 @@ public sealed class UnityIpcRequestExecutorTests
 
     private static IpcResponse CreateErrorResponse (
         string requestId,
-        string errorCode,
+        UcliErrorCode errorCode,
         string message)
     {
         return new IpcResponse(
@@ -892,6 +893,14 @@ public sealed class UnityIpcRequestExecutorTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult<IAsyncDisposable>(new NoOpAsyncDisposable());
+        }
+    }
+
+    private sealed class StubUnityProjectLockFileProbe : IUnityProjectLockFileProbe
+    {
+        public UnityProjectLockFileProbeResult Probe (string unityProjectRoot)
+        {
+            return UnityProjectLockFileProbeResult.Unlocked("/tmp/unity-project/Temp/UnityLockfile");
         }
     }
 

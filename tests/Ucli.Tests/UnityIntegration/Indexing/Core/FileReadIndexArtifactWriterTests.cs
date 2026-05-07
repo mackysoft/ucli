@@ -70,7 +70,7 @@ public sealed class FileReadIndexArtifactWriterTests
 
         Assert.True(catalogResult.IsSuccess);
         Assert.False(manifestResult.IsSuccess);
-        Assert.Equal(IpcErrorCodes.ReadIndexBootstrapFailed, manifestResult.Error!.Code);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexBootstrapFailed, manifestResult.Error!.Code);
         Assert.Equal(generatedAtUtc, catalogResult.Value!.GeneratedAtUtc);
         Assert.Equal("ops-hash", catalogResult.Value.SourceInputsHash);
     }

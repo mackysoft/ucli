@@ -8,6 +8,7 @@ using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.EnvironmentVariables;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Git;
+using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli.Hosting.Composition.Common;
@@ -26,6 +27,7 @@ internal static class SharedServiceCollectionExtensions
         services.AddSingleton<IEnvironmentVariableReader, ProcessEnvironmentVariableReader>();
         services.AddSingleton<IUcliConfigStore, UcliConfigStore>();
         services.AddSingleton<IProjectLifecycleLockProvider, FileSystemProjectLifecycleLockProvider>();
+        services.AddSingleton<IUnityProjectLockFileProbe, UnityProjectLockFileProbe>();
         services.AddSingleton<IProcessRunner, ProcessRunner>();
         services.AddSingleton<IGitCommandClient, GitCommandClient>();
         services.AddSingleton<IGitWorktreeListPorcelainParser, GitWorktreeListPorcelainParser>();

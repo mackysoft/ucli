@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Shared.Unity.ProjectLock;
 
 public sealed class DaemonStartupReadinessProbeTests
 {
@@ -211,6 +212,34 @@ public sealed class DaemonStartupReadinessProbeTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task WaitUntilReady_WhenProjectLockFileExistsAfterDaemonIsNotRunning_ReturnsProjectAlreadyOpenImmediately ()
+    {
+        var pingClient = new StubDaemonPingInfoClient(() => ValueTask.FromException<IpcPingResponse>(new SocketException((int)SocketError.ConnectionRefused)));
+        var logReader = new StubUnityLogReader
+        {
+            NextResult = UnityLogReadResult.Success(string.Empty, truncated: false, path: "/tmp/unity.log", sizeBytes: 0),
+        };
+        var probe = CreateProbe(
+            pingClient,
+            logReader,
+            UnityProjectLockFileProbeResult.Locked("/tmp/unity-project/Temp/UnityLockfile"));
+
+        var result = await probe.WaitUntilReady(
+            CreateContext("fingerprint-readiness-already-open"),
+            TimeSpan.FromSeconds(5),
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsReady);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(UnityProcessErrorCodes.UnityProjectAlreadyOpen, error.Code);
+        Assert.Contains("already open", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(1, pingClient.CallCount);
+        Assert.Equal(0, logReader.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenOnlyPreviousSessionHasPackageResolutionFailure_ReturnsTimeout ()
     {
         var pingClient = new StubDaemonPingInfoClient(() => ValueTask.FromException<IpcPingResponse>(new SocketException((int)SocketError.ConnectionRefused)));
@@ -339,9 +368,13 @@ public sealed class DaemonStartupReadinessProbeTests
 
     private static DaemonStartupReadinessProbe CreateProbe (
         StubDaemonPingInfoClient pingClient,
-        StubUnityLogReader logReader)
+        StubUnityLogReader logReader,
+        UnityProjectLockFileProbeResult? lockFileProbeResult = null)
     {
-        return new DaemonStartupReadinessProbe(pingClient, logReader);
+        return new DaemonStartupReadinessProbe(
+            pingClient,
+            logReader,
+            new StubUnityProjectLockFileProbe(lockFileProbeResult));
     }
 
     private static IpcPingResponse CreatePingPayload (
@@ -422,6 +455,21 @@ public sealed class DaemonStartupReadinessProbeTests
         {
             CallCount++;
             return ValueTask.FromResult(NextResult);
+        }
+    }
+
+    private sealed class StubUnityProjectLockFileProbe : IUnityProjectLockFileProbe
+    {
+        private readonly UnityProjectLockFileProbeResult result;
+
+        public StubUnityProjectLockFileProbe (UnityProjectLockFileProbeResult? result)
+        {
+            this.result = result ?? UnityProjectLockFileProbeResult.Unlocked("/tmp/unity-project/Temp/UnityLockfile");
+        }
+
+        public UnityProjectLockFileProbeResult Probe (string unityProjectRoot)
+        {
+            return result;
         }
     }
 }

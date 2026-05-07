@@ -8,11 +8,15 @@ internal sealed record UnityRequestFailure
     /// <param name="message"> The user-facing failure message. </param>
     /// <param name="outcome"> The application-level outcome represented by this failure. </param>
     public UnityRequestFailure (
-        string code,
+        UcliErrorCode code,
         string message,
         ApplicationOutcome outcome)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(code);
+        if (!code.IsValid)
+        {
+            throw new ArgumentException("Failure code must not be empty.", nameof(code));
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         if (outcome == ApplicationOutcome.Success)
         {
@@ -31,7 +35,7 @@ internal sealed record UnityRequestFailure
     }
 
     /// <summary> Gets the machine-readable failure code. </summary>
-    public string Code { get; }
+    public UcliErrorCode Code { get; }
 
     /// <summary> Gets the user-facing failure message. </summary>
     public string Message { get; }

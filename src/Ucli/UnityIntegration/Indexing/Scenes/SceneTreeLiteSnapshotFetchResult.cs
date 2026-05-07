@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 internal sealed record SceneTreeLiteSnapshotFetchResult (
     IpcIndexSceneTreeLiteReadResponse? Response,
     string Message,
-    string? ErrorCode)
+    UcliErrorCode? ErrorCode)
 {
     /// <summary> Gets a value indicating whether the snapshot fetch succeeded. </summary>
     public bool IsSuccess => Response is not null && ErrorCode is null;
@@ -21,7 +21,7 @@ internal sealed record SceneTreeLiteSnapshotFetchResult (
     /// <summary> Creates a failed snapshot fetch result. </summary>
     public static SceneTreeLiteSnapshotFetchResult Failure (
         string message,
-        string errorCode)
+        UcliErrorCode errorCode)
     {
         return new SceneTreeLiteSnapshotFetchResult(null, message, errorCode);
     }

@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts;
 using System.Collections;
 using System.IO;
 using System.Text.Json;
@@ -61,7 +62,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Payload: JsonSerializer.SerializeToElement(new { }),
                 Errors: new[]
                 {
-                    new IpcError(IpcErrorCodes.InvalidArgument, "invalid", null),
+                    new IpcError(UcliCoreErrorCodes.InvalidArgument, "invalid", null),
                 });
             var handler = CreateHandler(request, errorResponse, completionSignal);
 

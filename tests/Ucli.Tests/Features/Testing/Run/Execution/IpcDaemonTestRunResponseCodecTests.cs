@@ -64,15 +64,15 @@ public sealed class IpcDaemonTestRunResponseCodecTests
             status: IpcProtocol.StatusError,
             errors:
             [
-                new IpcError(IpcErrorCodes.InvalidArgument, "invalid", null),
+                new IpcError(UcliCoreErrorCodes.InvalidArgument, "invalid", null),
             ],
             payload: new IpcTestRunResponse(0));
 
         var success = IpcDaemonTestRunResponseCodec.TryDecode(response, out _, out var errorCode, out var errorMessage);
 
         Assert.False(success);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, errorCode);
-        Assert.Contains(IpcErrorCodes.InvalidArgument, errorMessage, StringComparison.Ordinal);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, errorCode);
+        Assert.Contains(UcliCoreErrorCodes.InvalidArgument.Value, errorMessage, StringComparison.Ordinal);
     }
 
     private static IpcResponse CreateResponse (

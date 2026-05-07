@@ -5,8 +5,6 @@ using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan;
 
@@ -130,7 +128,7 @@ internal sealed class PlanService : IPlanService
             return PlanFailureResultFactory.FromExecutionError(
                 ExecutionError.InternalError("Execute response payload is invalid. The 'planToken' field is missing."),
                 executionOutput,
-                IpcErrorCodes.InternalError);
+                UcliCoreErrorCodes.InternalError);
         }
 
         return PlanServiceResult.Success(

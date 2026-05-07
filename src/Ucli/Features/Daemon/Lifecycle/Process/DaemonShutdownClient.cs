@@ -98,10 +98,10 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
     /// <summary> Determines whether one error code indicates session-token contract failures. </summary>
     /// <param name="errorCode"> The error code to classify. </param>
     /// <returns> <see langword="true" /> when error code indicates session-token contract failure; otherwise <see langword="false" />. </returns>
-    private static bool IsSessionTokenErrorCode (string errorCode)
+    private static bool IsSessionTokenErrorCode (UcliErrorCode errorCode)
     {
-        return string.Equals(errorCode, IpcErrorCodes.SessionTokenRequired, StringComparison.Ordinal)
-            || string.Equals(errorCode, IpcErrorCodes.SessionTokenInvalid, StringComparison.Ordinal);
+        return errorCode == IpcSessionErrorCodes.SessionTokenRequired
+            || errorCode == IpcSessionErrorCodes.SessionTokenInvalid;
     }
 
     /// <summary>

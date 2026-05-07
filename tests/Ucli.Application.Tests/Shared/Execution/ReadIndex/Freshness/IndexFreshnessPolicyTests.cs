@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Execution.ReadIndex;
 
@@ -13,7 +12,7 @@ public sealed class IndexFreshnessPolicyTests
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
-        Assert.Equal(IpcErrorCodes.ReadIndexFreshRequired, result.Error.Code);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexFreshRequired, result.Error.Code);
     }
 
     [Fact]

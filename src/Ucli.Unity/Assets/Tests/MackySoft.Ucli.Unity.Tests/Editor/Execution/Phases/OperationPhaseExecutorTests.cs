@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Contracts;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -82,7 +83,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(normalizedOperation, executionContext, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.Failure!.Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(result.Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(operation.ValidateBodyCalled, Is.False);
         }
 
@@ -103,7 +104,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(normalizedOperation, executionContext, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.Failure!.Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(result.Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(operation.ValidateBodyCalled, Is.False);
         }
 
@@ -123,7 +124,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Plan(normalizedOperation, executionContext, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.Failure!.Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(result.Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(operation.PlanBodyCalled, Is.False);
         }
 
@@ -143,7 +144,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Call(normalizedOperation, executionContext, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.Failure!.Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(result.Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(operation.CallBodyCalled, Is.False);
         }
 
@@ -170,7 +171,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(normalizedOperation, executionContext, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.Failure!.Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(result.Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(
                 result.Failure.Message,
                 Is.EqualTo("Operation 'args.target.var' cannot use reserved request-local alias property 'var' in public op steps."));
@@ -202,7 +203,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(normalizedOperation, executionContext, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.Failure!.Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(result.Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(
                 result.Failure.Message,
                 Is.EqualTo("Operation 'args.target.var' cannot use reserved request-local alias property 'var' in public op steps."));
@@ -377,7 +378,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 issueResultFactory: _ => PlanTokenIssueResult.Success("unused"),
                 requestValidationResultFactory: _ => PlanTokenValidationResult.Success(),
                 validationResultFactory: _ => PlanTokenValidationResult.Failed(new OperationFailure(
-                    Code: IpcErrorCodes.PlanTokenInvalid,
+                    Code: PlanTokenErrorCodes.PlanTokenInvalid,
                     Message: "invalid token",
                     OpId: null)));
             var executor = new OperationPhaseExecutor(
@@ -393,7 +394,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(trace.IsSuccess, Is.False);
             Assert.That(trace.Errors.Count, Is.EqualTo(1));
-            Assert.That(trace.Errors[0].Code, Is.EqualTo(IpcErrorCodes.PlanTokenInvalid));
+            Assert.That(trace.Errors[0].Code, Is.EqualTo(PlanTokenErrorCodes.PlanTokenInvalid));
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Plan));
             Assert.That(trace.OperationTraces[1].Phase, Is.EqualTo(OperationPhase.Plan));
             CollectionAssert.AreEqual(new[] { OperationPhase.Validate, OperationPhase.Plan }, firstOperation.CalledPhases);
@@ -424,11 +425,11 @@ namespace MackySoft.Ucli.Unity.Tests
                         Applied: false,
                         Changed: false,
                         Touched: Array.Empty<OperationTouch>(),
-                        Failure: new OperationFailure(IpcErrorCodes.InvalidArgument, "selection no longer resolves.", "edit-1")),
+                        Failure: new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "selection no longer resolves.", "edit-1")),
                 },
                 Errors: new[]
                 {
-                    new OperationFailure(IpcErrorCodes.InvalidArgument, "selection no longer resolves.", "edit-1"),
+                    new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "selection no longer resolves.", "edit-1"),
                 },
                 PreparedOperations: Array.Empty<PreparedOperation>());
             var executor = new OperationPhaseExecutor(
@@ -438,7 +439,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     issueResultFactory: _ => throw new InvalidOperationException("Issue should not be called."),
                     requestValidationResultFactory: _ => PlanTokenValidationResult.Success(),
                     validationResultFactory: _ => PlanTokenValidationResult.Failed(new OperationFailure(
-                        IpcErrorCodes.StateChangedSincePlan,
+                        PlanTokenErrorCodes.StateChangedSincePlan,
                         "Compiled execution changed since plan token issuance.",
                         null))));
 
@@ -446,11 +447,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(trace.IsSuccess, Is.False);
             Assert.That(trace.Errors.Count, Is.EqualTo(1));
-            Assert.That(trace.Errors[0].Code, Is.EqualTo(IpcErrorCodes.StateChangedSincePlan));
+            Assert.That(trace.Errors[0].Code, Is.EqualTo(PlanTokenErrorCodes.StateChangedSincePlan));
             Assert.That(trace.Errors[0].Message, Is.EqualTo("Compiled execution changed since plan token issuance."));
             Assert.That(trace.Errors[0].OpId, Is.EqualTo("edit-1"));
             Assert.That(trace.OperationTraces[0].Failure, Is.Not.Null);
-            Assert.That(trace.OperationTraces[0].Failure!.Code, Is.EqualTo(IpcErrorCodes.StateChangedSincePlan));
+            Assert.That(trace.OperationTraces[0].Failure!.Code, Is.EqualTo(PlanTokenErrorCodes.StateChangedSincePlan));
             Assert.That(trace.OperationTraces[0].Failure!.Message, Is.EqualTo("Compiled execution changed since plan token issuance."));
         });
 
@@ -477,11 +478,11 @@ namespace MackySoft.Ucli.Unity.Tests
                         Applied: false,
                         Changed: false,
                         Touched: Array.Empty<OperationTouch>(),
-                        Failure: new OperationFailure(IpcErrorCodes.InvalidArgument, "selection no longer resolves.", "edit-1")),
+                        Failure: new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "selection no longer resolves.", "edit-1")),
                 },
                 Errors: new[]
                 {
-                    new OperationFailure(IpcErrorCodes.InvalidArgument, "selection no longer resolves.", "edit-1"),
+                    new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "selection no longer resolves.", "edit-1"),
                 },
                 PreparedOperations: Array.Empty<PreparedOperation>());
             var coordinator = new StubPlanTokenCoordinator(
@@ -497,11 +498,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(trace.IsSuccess, Is.False);
             Assert.That(trace.Errors.Count, Is.EqualTo(1));
-            Assert.That(trace.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(trace.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(trace.Errors[0].Message, Is.EqualTo("selection no longer resolves."));
             Assert.That(trace.Errors[0].OpId, Is.EqualTo("edit-1"));
             Assert.That(trace.OperationTraces[0].Failure, Is.Not.Null);
-            Assert.That(trace.OperationTraces[0].Failure!.Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(trace.OperationTraces[0].Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(trace.OperationTraces[0].Failure!.Message, Is.EqualTo("selection no longer resolves."));
             Assert.That(coordinator.ValidateCallCount, Is.EqualTo(1));
         });
@@ -511,7 +512,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenValidateFails_MarksRemainingOperationsAsSkipped () => UniTask.ToCoroutine(async () =>
         {
             var failingOperation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Failed(new OperationFailure(IpcErrorCodes.InvalidArgument, "invalid", "op-1")),
+                validateResult: OperationPhaseStepResult.Failed(new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "invalid", "op-1")),
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success());
             var skippedOperation = new RecordingPhaseOperation(
@@ -543,7 +544,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var failingOperation = new RecordingPhaseOperation(
                 validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Failed(new OperationFailure(IpcErrorCodes.InvalidArgument, "plan failed", "op-1")),
+                planResult: OperationPhaseStepResult.Failed(new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "plan failed", "op-1")),
                 callResult: OperationPhaseStepResult.Success());
             var skippedOperation = new RecordingPhaseOperation(
                 validateResult: OperationPhaseStepResult.Success(),
@@ -574,7 +575,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var failingOperation = new RecordingPhaseOperation(
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Failed(new OperationFailure(IpcErrorCodes.InvalidArgument, "call failed", "op-1")));
+                callResult: OperationPhaseStepResult.Failed(new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "call failed", "op-1")));
             var skippedOperation = new RecordingPhaseOperation(
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
@@ -613,7 +614,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Failure, Is.Not.Null);
-            Assert.That(result.Failure!.Code, Is.EqualTo(IpcErrorCodes.PlanTokenRequired));
+            Assert.That(result.Failure!.Code, Is.EqualTo(PlanTokenErrorCodes.PlanTokenRequired));
         }
 
         [Test]
@@ -688,7 +689,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var validationResult = coordinator.ValidateCall(validationRequest, traces, CreateCompiledDigestPayloadUtf8());
 
             Assert.That(validationResult.IsSuccess, Is.False);
-            Assert.That(validationResult.Failure!.Code, Is.EqualTo(IpcErrorCodes.PlanTokenExpired));
+            Assert.That(validationResult.Failure!.Code, Is.EqualTo(PlanTokenErrorCodes.PlanTokenExpired));
         }
 
         [Test]
@@ -752,7 +753,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var validationResult = coordinator.ValidateCall(modifiedRequest, traces, CreateCompiledDigestPayloadUtf8());
 
             Assert.That(validationResult.IsSuccess, Is.False);
-            Assert.That(validationResult.Failure!.Code, Is.EqualTo(IpcErrorCodes.PlanTokenRequestMismatch));
+            Assert.That(validationResult.Failure!.Code, Is.EqualTo(PlanTokenErrorCodes.PlanTokenRequestMismatch));
         }
 
         [Test]
@@ -780,7 +781,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(validationResult.IsSuccess, Is.False);
             Assert.That(validationResult.Failure, Is.Not.Null);
-            Assert.That(validationResult.Failure!.Code, Is.EqualTo(IpcErrorCodes.StateChangedSincePlan));
+            Assert.That(validationResult.Failure!.Code, Is.EqualTo(PlanTokenErrorCodes.StateChangedSincePlan));
         }
 
         [Test]
@@ -818,7 +819,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var validationResult = coordinator.ValidateCall(validationRequest, traces, CreateCompiledDigestPayloadUtf8());
 
             Assert.That(validationResult.IsSuccess, Is.False);
-            Assert.That(validationResult.Failure!.Code, Is.EqualTo(IpcErrorCodes.StateChangedSincePlan));
+            Assert.That(validationResult.Failure!.Code, Is.EqualTo(PlanTokenErrorCodes.StateChangedSincePlan));
         }
 
         [Test]
@@ -895,7 +896,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var validationResult = coordinator.ValidateCall(validationRequest, traces, CreateCompiledDigestPayloadUtf8());
 
             Assert.That(validationResult.IsSuccess, Is.False);
-            Assert.That(validationResult.Failure!.Code, Is.EqualTo(IpcErrorCodes.PlanTokenInvalid));
+            Assert.That(validationResult.Failure!.Code, Is.EqualTo(PlanTokenErrorCodes.PlanTokenInvalid));
 
             var regeneratedEncodedKey = File.ReadAllText(scope.PlanTokenKeyPath).Trim();
             Assert.DoesNotThrow(() => Convert.FromBase64String(regeneratedEncodedKey));
@@ -940,11 +941,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(trace.IsSuccess, Is.False);
             Assert.That(trace.Errors.Count, Is.EqualTo(1));
-            Assert.That(trace.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(trace.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(trace.OperationTraces.Count, Is.EqualTo(2));
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Plan));
             Assert.That(trace.OperationTraces[0].Failure, Is.Not.Null);
-            Assert.That(trace.OperationTraces[0].Failure!.Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(trace.OperationTraces[0].Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(trace.OperationTraces[1].Phase, Is.EqualTo(OperationPhase.Skipped));
             CollectionAssert.AreEqual(
                 new[] { OperationPhase.Validate, OperationPhase.Plan, OperationPhase.Plan },
@@ -1501,7 +1502,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 if (!string.Equals(lastPlannedOperationId, operation.Id, StringComparison.Ordinal))
                 {
                     return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
-                        Code: IpcErrorCodes.InternalError,
+                        Code: UcliCoreErrorCodes.InternalError,
                         Message: "Call phase was not adjacent to the latest plan of the same operation.",
                         OpId: operation.Id)));
                 }
@@ -1546,7 +1547,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 if (planCallCount >= 2)
                 {
                     return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
-                        Code: IpcErrorCodes.InvalidArgument,
+                        Code: UcliCoreErrorCodes.InvalidArgument,
                         Message: "Replay plan failed.",
                         OpId: operation.Id)));
                 }

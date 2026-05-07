@@ -5,6 +5,6 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="Message"> The human-readable error message. </param>
 /// <param name="OpId"> The related operation identifier, or <see langword="null" /> when not applicable. </param>
 public sealed record IpcError (
-    string Code,
+    UcliErrorCode Code,
     string Message,
     string? OpId);

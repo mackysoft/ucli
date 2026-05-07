@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 
@@ -9,26 +8,26 @@ internal static class ExecutionErrorCodeMapper
     /// <summary> Converts one execution error to the corresponding CLI contract error code. </summary>
     /// <param name="error"> The execution error. </param>
     /// <returns> The mapped machine-readable error code. </returns>
-    public static string ToCode (ExecutionError error)
+    public static UcliErrorCode ToCode (ExecutionError error)
     {
         ArgumentNullException.ThrowIfNull(error);
 
-        return string.IsNullOrWhiteSpace(error.Code)
-            ? ToCode(error.Kind)
-            : error.Code;
+        return error.Code.HasValue && error.Code.Value.IsValid
+            ? error.Code.Value
+            : ToCode(error.Kind);
     }
 
     /// <summary> Converts one execution-error kind to the corresponding CLI contract error code. </summary>
     /// <param name="kind"> The execution-error kind. </param>
     /// <returns> The mapped machine-readable error code. </returns>
-    public static string ToCode (ExecutionErrorKind kind)
+    public static UcliErrorCode ToCode (ExecutionErrorKind kind)
     {
         return kind switch
         {
-            ExecutionErrorKind.InvalidArgument => IpcErrorCodes.InvalidArgument,
+            ExecutionErrorKind.InvalidArgument => UcliCoreErrorCodes.InvalidArgument,
             ExecutionErrorKind.Timeout => ExecutionErrorCodes.IpcTimeout,
-            ExecutionErrorKind.InternalError => IpcErrorCodes.InternalError,
-            _ => IpcErrorCodes.InternalError,
+            ExecutionErrorKind.InternalError => UcliCoreErrorCodes.InternalError,
+            _ => UcliCoreErrorCodes.InternalError,
         };
     }
 }

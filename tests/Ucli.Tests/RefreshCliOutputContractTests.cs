@@ -22,7 +22,7 @@ public sealed class RefreshCliOutputContractTests
             UcliCommandNames.Refresh,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
         Assert.Contains(UnknownOptionMessage, result.StdErr, StringComparison.Ordinal);
     }
 
@@ -46,7 +46,7 @@ public sealed class RefreshCliOutputContractTests
             UcliCommandNames.Refresh,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
         AssertRefreshFailurePayload(outputJson.RootElement);
     }
 
@@ -70,7 +70,7 @@ public sealed class RefreshCliOutputContractTests
             UcliCommandNames.Refresh,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
         AssertRefreshFailurePayload(outputJson.RootElement);
     }
 
@@ -144,7 +144,7 @@ public sealed class RefreshCliOutputContractTests
             UcliCommandNames.Refresh,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
     }
 
     [Fact]

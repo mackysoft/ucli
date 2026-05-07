@@ -62,7 +62,7 @@ public sealed class StatusCommandTests
             UcliCommandNames.Status,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
     }
 
     private sealed class StubStatusService : IStatusService

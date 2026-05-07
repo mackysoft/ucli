@@ -1,10 +1,12 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Execution;
+using MackySoft.Ucli.Shared.Unity.ProjectLock;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
 
@@ -15,16 +17,21 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
 
     private readonly IUnityLogReader unityLogReader;
 
+    private readonly IUnityProjectLockFileProbe unityProjectLockFileProbe;
+
     /// <summary> Initializes a new instance of the <see cref="DaemonStartupReadinessProbe" /> class. </summary>
     /// <param name="daemonPingInfoClient"> The daemon ping-info client dependency. </param>
     /// <param name="unityLogReader"> The Unity log-reader dependency. </param>
+    /// <param name="unityProjectLockFileProbe"> The Unity project lock-file probe dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStartupReadinessProbe (
         IDaemonPingInfoClient daemonPingInfoClient,
-        IUnityLogReader unityLogReader)
+        IUnityLogReader unityLogReader,
+        IUnityProjectLockFileProbe unityProjectLockFileProbe)
     {
         this.daemonPingInfoClient = daemonPingInfoClient ?? throw new ArgumentNullException(nameof(daemonPingInfoClient));
         this.unityLogReader = unityLogReader ?? throw new ArgumentNullException(nameof(unityLogReader));
+        this.unityProjectLockFileProbe = unityProjectLockFileProbe ?? throw new ArgumentNullException(nameof(unityProjectLockFileProbe));
     }
 
     /// <summary> Waits until daemon startup accepts execution requests, or fails when timeout expires or startup reaches one non-waitable lifecycle state. </summary>
@@ -54,7 +61,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             cancellationToken.ThrowIfCancellationRequested();
             if (daemonProcessId is int processId && !ProcessLivenessProbe.IsAlive(processId))
             {
-                var startupFailureError = await TryClassifyStartupFailureFromLatestLogText(
+                var startupFailureError = await TryClassifyStartupFailure(
                         unityProject,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -117,7 +124,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             }
             catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
             {
-                var startupFailureError = await TryClassifyStartupFailureFromLatestLogText(
+                var startupFailureError = await TryClassifyStartupFailure(
                         unityProject,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -216,10 +223,16 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.DomainReloading, StringComparison.Ordinal);
     }
 
-    private async ValueTask<ExecutionError?> TryClassifyStartupFailureFromLatestLogText (
+    private async ValueTask<ExecutionError?> TryClassifyStartupFailure (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken)
     {
+        var projectAlreadyOpenError = TryCreateProjectAlreadyOpenErrorFromUnityLock(unityProject.UnityProjectRoot);
+        if (projectAlreadyOpenError != null)
+        {
+            return projectAlreadyOpenError;
+        }
+
         var logReadResult = await unityLogReader.ReadTail(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
@@ -234,5 +247,25 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
         return DaemonStartupFailureLogClassifier.TryClassify(latestStartupLogText, out var error)
             ? error
             : null;
+    }
+
+    private ExecutionError? TryCreateProjectAlreadyOpenErrorFromUnityLock (string unityProjectRoot)
+    {
+        var lockFileProbeResult = unityProjectLockFileProbe.Probe(unityProjectRoot);
+        if (!lockFileProbeResult.IsSuccess)
+        {
+            return ExecutionError.InternalError(
+                lockFileProbeResult.ErrorMessage!,
+                UcliCoreErrorCodes.InternalError);
+        }
+
+        if (!lockFileProbeResult.IsLocked)
+        {
+            return null;
+        }
+
+        return ExecutionError.InternalError(
+            UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProjectRoot, lockFileProbeResult.LockFilePath),
+            UnityProcessErrorCodes.UnityProjectAlreadyOpen);
     }
 }

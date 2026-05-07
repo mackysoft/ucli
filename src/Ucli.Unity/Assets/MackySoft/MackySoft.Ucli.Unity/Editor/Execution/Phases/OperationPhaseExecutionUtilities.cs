@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             string message)
         {
             return OperationPhaseStepResult.Failed(new OperationFailure(
-                Code: IpcErrorCodes.InvalidArgument,
+                Code: UcliCoreErrorCodes.InvalidArgument,
                 Message: message,
                 OpId: operationId));
         }
@@ -46,7 +47,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 if (stepResult == null)
                 {
                     return OperationPhaseStepResult.Failed(new OperationFailure(
-                        Code: IpcErrorCodes.InternalError,
+                        Code: UcliCoreErrorCodes.InternalError,
                         Message: $"Operation '{operation.Id}' returned null result at phase '{phase}'.",
                         OpId: operation.Id));
                 }
@@ -60,7 +61,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             catch (Exception exception)
             {
                 return OperationPhaseStepResult.Failed(new OperationFailure(
-                    Code: IpcErrorCodes.InternalError,
+                    Code: UcliCoreErrorCodes.InternalError,
                     Message: $"Unexpected error occurred in operation '{operation.Id}' at phase '{phase}'. {exception.Message}",
                     OpId: operation.Id));
             }

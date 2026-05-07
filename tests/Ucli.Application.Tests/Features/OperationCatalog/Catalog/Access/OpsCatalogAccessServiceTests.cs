@@ -70,7 +70,7 @@ public sealed class OpsCatalogAccessServiceTests
     {
         var persistedReader = new StubPersistedOpsCatalogReader
         {
-            Result = PersistedOpsCatalogReadResult.Failure(IpcErrorCodes.InvalidArgument, "invalid project fingerprint"),
+            Result = PersistedOpsCatalogReadResult.Failure(UcliCoreErrorCodes.InvalidArgument, "invalid project fingerprint"),
         };
         var sourceRefreshService = new StubOpsCatalogSourceRefreshService();
         var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
@@ -78,7 +78,7 @@ public sealed class OpsCatalogAccessServiceTests
         var result = await service.Read(CreatePreflightContext(ReadIndexMode.AllowStale), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
         Assert.Equal(0, sourceRefreshService.CallCount);
     }
 
@@ -163,7 +163,7 @@ public sealed class OpsCatalogAccessServiceTests
     {
         public PersistedOpsCatalogReadResult Result { get; set; }
             = PersistedOpsCatalogReadResult.Failure(
-                IpcErrorCodes.ReadIndexBootstrapFailed,
+                ReadIndexErrorCodes.ReadIndexBootstrapFailed,
                 "Index contract file was not found: ops.catalog.json.");
 
         public ValueTask<PersistedOpsCatalogReadResult> Read (
@@ -183,7 +183,7 @@ public sealed class OpsCatalogAccessServiceTests
         public string? LastFallbackReason { get; private set; }
 
         public OpsCatalogSourceRefreshResult Result { get; set; }
-            = OpsCatalogSourceRefreshResult.Failure("not configured", IpcErrorCodes.InternalError);
+            = OpsCatalogSourceRefreshResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
         public ValueTask<OpsCatalogSourceRefreshResult> Refresh (
             ResolvedUnityProjectContext project,

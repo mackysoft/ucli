@@ -30,7 +30,7 @@ public sealed class UnityCommandBuilderTests
                 configuration.UnityProject.UnityProjectRoot,
                 "-runTests",
                 "-testPlatform",
-                "EditMode",
+                "editmode",
                 "-testResults",
                 artifactPaths.ResultsXmlPath,
                 "-logFile",

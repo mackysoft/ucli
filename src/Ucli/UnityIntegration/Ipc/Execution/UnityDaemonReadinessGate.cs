@@ -151,7 +151,7 @@ internal sealed class UnityDaemonReadinessGate
                 if (readinessDecision.IsFailure)
                 {
                     return UnityIpcFailureClassifier.FromCodeAndMessage(
-                        readinessDecision.ErrorCode!,
+                        readinessDecision.ErrorCode!.Value,
                         readinessDecision.ErrorMessage!);
                 }
             }

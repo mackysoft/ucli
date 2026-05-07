@@ -154,7 +154,7 @@ public sealed class CommandResultTests
     {
         Assert.Equal(JsonValueKind.Object, JsonSerializer.SerializeToElement(result.Payload).ValueKind);
         Assert.Single(result.Errors);
-        Assert.Equal(expectedCode, result.Errors[0].Code);
+        Assert.Equal(expectedCode, result.Errors[0].Code.Value);
         Assert.Equal(expectedMessage, result.Errors[0].Message);
         Assert.Null(result.Errors[0].OpId);
     }

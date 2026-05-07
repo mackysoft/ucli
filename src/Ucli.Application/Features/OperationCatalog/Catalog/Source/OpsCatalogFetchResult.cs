@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 internal sealed record OpsCatalogFetchResult (
     IpcOpsReadResponse? Response,
     string Message,
-    string? ErrorCode)
+    UcliErrorCode? ErrorCode)
 {
     /// <summary> Gets a value indicating whether fetch succeeded. </summary>
     public bool IsSuccess => Response is not null && ErrorCode is null;
@@ -32,7 +32,7 @@ internal sealed record OpsCatalogFetchResult (
     /// <returns> The failed result. </returns>
     public static OpsCatalogFetchResult Failure (
         string message,
-        string errorCode)
+        UcliErrorCode errorCode)
     {
         return new OpsCatalogFetchResult(
             Response: null,

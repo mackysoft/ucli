@@ -8,4 +8,5 @@ global using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Deci
 global using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 global using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 global using MackySoft.Ucli.Application.Shared.Unity.Resolution;
+global using MackySoft.Ucli.Contracts;
 global using MackySoft.Ucli.Contracts.Index;

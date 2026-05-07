@@ -23,7 +23,7 @@ internal static class IpcUnityLogsResponseCodec
         {
             if (firstError is not null)
             {
-                error = string.Equals(firstError.Code, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal)
+                error = firstError.Code == UcliCoreErrorCodes.InvalidArgument
                     ? ExecutionError.InvalidArgument($"Unity logs read failed with error code '{firstError.Code}'. {firstError.Message}")
                     : ExecutionError.InternalError($"Unity logs read failed with error code '{firstError.Code}'. {firstError.Message}");
                 payload = null;

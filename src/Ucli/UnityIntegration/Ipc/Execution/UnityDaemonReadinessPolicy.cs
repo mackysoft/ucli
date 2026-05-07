@@ -24,7 +24,7 @@ internal static class UnityDaemonReadinessPolicy
         if (!IpcEditorLifecycleStateCodec.TryParse(pingResponse.LifecycleState, out var lifecycleState))
         {
             return UnityDaemonReadinessDecision.Failure(
-                IpcErrorCodes.InternalError,
+                UcliCoreErrorCodes.InternalError,
                 $"Unity editor lifecycle gate returned unsupported state '{pingResponse.LifecycleState}'.");
         }
 
@@ -36,31 +36,31 @@ internal static class UnityDaemonReadinessPolicy
         return lifecycleState switch
         {
             IpcEditorLifecycleStateCodec.Starting => UnityDaemonReadinessDecision.Failure(
-                IpcErrorCodes.EditorStarting,
+                EditorLifecycleErrorCodes.EditorStarting,
                 "Unity editor startup is still in progress. Retry without --failFast or wait until lifecycleState=ready before executing request."),
             IpcEditorLifecycleStateCodec.Busy => UnityDaemonReadinessDecision.Failure(
-                IpcErrorCodes.EditorBusy,
+                EditorLifecycleErrorCodes.EditorBusy,
                 "Unity editor is busy with internal work. Retry without --failFast or wait until lifecycleState=ready before executing request."),
             IpcEditorLifecycleStateCodec.Compiling => UnityDaemonReadinessDecision.Failure(
-                IpcErrorCodes.EditorCompiling,
+                EditorLifecycleErrorCodes.EditorCompiling,
                 "Unity editor is compiling scripts. Retry without --failFast or wait until lifecycleState=ready before executing request."),
             IpcEditorLifecycleStateCodec.DomainReloading => UnityDaemonReadinessDecision.Failure(
-                IpcErrorCodes.EditorDomainReloading,
+                EditorLifecycleErrorCodes.EditorDomainReloading,
                 "Unity editor is reloading the AppDomain. Retry after lifecycleState=ready before executing request."),
             IpcEditorLifecycleStateCodec.Playmode => UnityDaemonReadinessDecision.Failure(
-                IpcErrorCodes.EditorPlaymode,
+                EditorLifecycleErrorCodes.EditorPlaymode,
                 "Unity editor is in Play Mode. Exit Play Mode and wait until lifecycleState=ready before executing request."),
             IpcEditorLifecycleStateCodec.BlockedByModal => UnityDaemonReadinessDecision.Failure(
-                IpcErrorCodes.EditorModalBlocked,
+                EditorLifecycleErrorCodes.EditorModalBlocked,
                 "Unity editor is blocked by a modal dialog. Resolve the dialog and wait until lifecycleState=ready before executing request."),
             IpcEditorLifecycleStateCodec.SafeMode => UnityDaemonReadinessDecision.Failure(
-                IpcErrorCodes.EditorSafeMode,
+                EditorLifecycleErrorCodes.EditorSafeMode,
                 "Unity editor is in Safe Mode. Resolve compiler errors and wait until lifecycleState=ready before executing request."),
             IpcEditorLifecycleStateCodec.ShuttingDown => UnityDaemonReadinessDecision.Failure(
-                IpcErrorCodes.EditorShuttingDown,
+                EditorLifecycleErrorCodes.EditorShuttingDown,
                 "Unity editor is shutting down and cannot accept execution requests."),
             _ => UnityDaemonReadinessDecision.Failure(
-                IpcErrorCodes.InternalError,
+                UcliCoreErrorCodes.InternalError,
                 $"Unity editor lifecycle gate returned unsupported state '{lifecycleState}'."),
         };
     }
@@ -86,9 +86,9 @@ internal static class UnityDaemonReadinessPolicy
             return false;
         }
 
-        return string.Equals(firstError.Code, IpcErrorCodes.EditorStarting, StringComparison.Ordinal)
-            || string.Equals(firstError.Code, IpcErrorCodes.EditorBusy, StringComparison.Ordinal)
-            || string.Equals(firstError.Code, IpcErrorCodes.EditorCompiling, StringComparison.Ordinal);
+        return firstError.Code == EditorLifecycleErrorCodes.EditorStarting
+            || firstError.Code == EditorLifecycleErrorCodes.EditorBusy
+            || firstError.Code == EditorLifecycleErrorCodes.EditorCompiling;
     }
 
     private static bool IsWaitableLifecycleState (string lifecycleState)

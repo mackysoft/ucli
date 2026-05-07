@@ -16,7 +16,7 @@ public sealed class OpsServiceTests
     {
         var preflightService = new StubOpsPreflightService
         {
-            Result = OpsPreflightResult.Failure("invalid readIndexMode", "INVALID_ARGUMENT"),
+            Result = OpsPreflightResult.Failure("invalid readIndexMode", UcliCoreErrorCodes.InvalidArgument),
         };
         var catalogAccessService = new StubOpsCatalogAccessService();
         var listResultMapper = new StubOpsListResultMapper();
@@ -27,7 +27,7 @@ public sealed class OpsServiceTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal("invalid readIndexMode", result.Message);
-        Assert.Equal("INVALID_ARGUMENT", result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
         Assert.Equal(0, catalogAccessService.CallCount);
         Assert.Equal(0, listResultMapper.CallCount);
     }
@@ -114,7 +114,7 @@ public sealed class OpsServiceTests
         {
             Result = OpsCatalogReadResult.Success(catalogOutput, "read ok"),
         };
-        var expectedResult = OpsDescribeServiceResult.Failure("missing", "INVALID_ARGUMENT");
+        var expectedResult = OpsDescribeServiceResult.Failure("missing", UcliCoreErrorCodes.InvalidArgument);
         var listResultMapper = new StubOpsListResultMapper();
         var describeResultMapper = new StubOpsDescribeResultMapper
         {
@@ -141,7 +141,7 @@ public sealed class OpsServiceTests
 
     private sealed class StubOpsPreflightService : IOpsPreflightService
     {
-        public OpsPreflightResult Result { get; set; } = OpsPreflightResult.Failure("not configured", "INTERNAL_ERROR");
+        public OpsPreflightResult Result { get; set; } = OpsPreflightResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
         public OpsCommandInput? LastInput { get; private set; }
 
@@ -159,7 +159,7 @@ public sealed class OpsServiceTests
     {
         public int CallCount { get; private set; }
 
-        public OpsCatalogReadResult Result { get; set; } = OpsCatalogReadResult.Failure("not configured", "INTERNAL_ERROR");
+        public OpsCatalogReadResult Result { get; set; } = OpsCatalogReadResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
         public ValueTask<OpsCatalogReadResult> Read (
             OpsPreflightContext context,
@@ -177,7 +177,7 @@ public sealed class OpsServiceTests
 
         public OpsCatalogReadOutput? LastOutput { get; private set; }
 
-        public OpsListServiceResult Result { get; set; } = OpsListServiceResult.Failure("not configured", "INTERNAL_ERROR");
+        public OpsListServiceResult Result { get; set; } = OpsListServiceResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
         public OpsListServiceResult Map (OpsCatalogReadOutput output)
         {
@@ -195,7 +195,7 @@ public sealed class OpsServiceTests
 
         public string? LastOperationName { get; private set; }
 
-        public OpsDescribeServiceResult Result { get; set; } = OpsDescribeServiceResult.Failure("not configured", "INTERNAL_ERROR");
+        public OpsDescribeServiceResult Result { get; set; } = OpsDescribeServiceResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
         public OpsDescribeServiceResult Map (
             OpsCatalogReadOutput output,

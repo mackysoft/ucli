@@ -60,10 +60,13 @@ public sealed class IpcContractSerializationTests
             Payload: payload,
             Errors:
             [
-                new IpcError("COMMAND_NOT_IMPLEMENTED", "Not implemented", null),
+                new IpcError(UcliCoreErrorCodes.CommandNotImplemented, "Not implemented", null),
             ]);
 
         var json = JsonSerializer.Serialize(response, SerializerOptions);
+        using var jsonDocument = JsonDocument.Parse(json);
+        Assert.Equal("COMMAND_NOT_IMPLEMENTED", jsonDocument.RootElement.GetProperty("errors")[0].GetProperty("code").GetString());
+
         var roundTrip = JsonSerializer.Deserialize<IpcResponse>(json, SerializerOptions);
 
         Assert.NotNull(roundTrip);
@@ -71,8 +74,42 @@ public sealed class IpcContractSerializationTests
         Assert.Equal(response.RequestId, roundTrip.RequestId);
         Assert.Equal(response.Status, roundTrip.Status);
         Assert.Single(roundTrip.Errors);
-        Assert.Equal("COMMAND_NOT_IMPLEMENTED", roundTrip.Errors[0].Code);
+        Assert.Equal(UcliCoreErrorCodes.CommandNotImplemented, roundTrip.Errors[0].Code);
         Assert.Equal("Not implemented", roundTrip.Errors[0].Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UcliErrorCode_RetainsUnknownCodeValue ()
+    {
+        UcliErrorCode code = new("FUTURE_DAEMON_FAILURE");
+
+        Assert.Equal("FUTURE_DAEMON_FAILURE", code.Value);
+        Assert.Equal("FUTURE_DAEMON_FAILURE", code.ToString());
+        string rawValue = code;
+        Assert.Equal("FUTURE_DAEMON_FAILURE", rawValue);
+        Assert.Equal(new UcliErrorCode("FUTURE_DAEMON_FAILURE"), code);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    public void UcliErrorCode_RejectsBlankValue (string? value)
+    {
+        Assert.ThrowsAny<ArgumentException>(() => new UcliErrorCode(value!));
+        Assert.False(UcliErrorCode.TryCreate(value, out _));
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("""{"protocolVersion":1,"requestId":"req","status":"error","payload":{},"errors":[{"code":null,"message":"bad","opId":null}]}""")]
+    [InlineData("""{"protocolVersion":1,"requestId":"req","status":"error","payload":{},"errors":[{"code":123,"message":"bad","opId":null}]}""")]
+    [InlineData("""{"protocolVersion":1,"requestId":"req","status":"error","payload":{},"errors":[{"code":"","message":"bad","opId":null}]}""")]
+    public void IpcResponse_WhenErrorCodeJsonIsInvalid_Throws (string json)
+    {
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<IpcResponse>(json, SerializerOptions));
     }
 
     [Fact]
@@ -119,30 +156,30 @@ public sealed class IpcContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcErrorCodes_ExposeCoreAndReadIndexConstants ()
+    public void ErrorCodeDefinitions_ExposeKnownCoreAndReadIndexCodes ()
     {
-        Assert.Equal("INVALID_ARGUMENT", IpcErrorCodes.InvalidArgument);
-        Assert.Equal("NOT_INITIALIZED", IpcErrorCodes.NotInitialized);
-        Assert.Equal("SESSION_TOKEN_REQUIRED", IpcErrorCodes.SessionTokenRequired);
-        Assert.Equal("SESSION_TOKEN_INVALID", IpcErrorCodes.SessionTokenInvalid);
-        Assert.Equal("READ_INDEX_BOOTSTRAP_FAILED", IpcErrorCodes.ReadIndexBootstrapFailed);
-        Assert.Equal("READ_INDEX_FORMAT_INVALID", IpcErrorCodes.ReadIndexFormatInvalid);
-        Assert.Equal("READ_INDEX_FRESH_REQUIRED", IpcErrorCodes.ReadIndexFreshRequired);
-        Assert.Equal("PLAN_TOKEN_REQUIRED", IpcErrorCodes.PlanTokenRequired);
-        Assert.Equal("PLAN_TOKEN_INVALID", IpcErrorCodes.PlanTokenInvalid);
-        Assert.Equal("PLAN_TOKEN_EXPIRED", IpcErrorCodes.PlanTokenExpired);
-        Assert.Equal("PLAN_TOKEN_REQUEST_MISMATCH", IpcErrorCodes.PlanTokenRequestMismatch);
-        Assert.Equal("STATE_CHANGED_SINCE_PLAN", IpcErrorCodes.StateChangedSincePlan);
-        Assert.Equal("REQUEST_ID_CONFLICT", IpcErrorCodes.RequestIdConflict);
-        Assert.Equal("EDITOR_STARTING", IpcErrorCodes.EditorStarting);
-        Assert.Equal("EDITOR_BUSY", IpcErrorCodes.EditorBusy);
-        Assert.Equal("EDITOR_COMPILING", IpcErrorCodes.EditorCompiling);
-        Assert.Equal("EDITOR_DOMAIN_RELOADING", IpcErrorCodes.EditorDomainReloading);
-        Assert.Equal("EDITOR_PLAYMODE", IpcErrorCodes.EditorPlaymode);
-        Assert.Equal("EDITOR_MODAL_BLOCKED", IpcErrorCodes.EditorModalBlocked);
-        Assert.Equal("EDITOR_SAFE_MODE", IpcErrorCodes.EditorSafeMode);
-        Assert.Equal("EDITOR_SHUTTING_DOWN", IpcErrorCodes.EditorShuttingDown);
-        Assert.Equal("INTERNAL_ERROR", IpcErrorCodes.InternalError);
+        Assert.Equal("INVALID_ARGUMENT", UcliCoreErrorCodes.InvalidArgument.Value);
+        Assert.Equal("NOT_INITIALIZED", UcliCoreErrorCodes.NotInitialized.Value);
+        Assert.Equal("SESSION_TOKEN_REQUIRED", IpcSessionErrorCodes.SessionTokenRequired.Value);
+        Assert.Equal("SESSION_TOKEN_INVALID", IpcSessionErrorCodes.SessionTokenInvalid.Value);
+        Assert.Equal("READ_INDEX_BOOTSTRAP_FAILED", ReadIndexErrorCodes.ReadIndexBootstrapFailed.Value);
+        Assert.Equal("READ_INDEX_FORMAT_INVALID", ReadIndexErrorCodes.ReadIndexFormatInvalid.Value);
+        Assert.Equal("READ_INDEX_FRESH_REQUIRED", ReadIndexErrorCodes.ReadIndexFreshRequired.Value);
+        Assert.Equal("PLAN_TOKEN_REQUIRED", PlanTokenErrorCodes.PlanTokenRequired.Value);
+        Assert.Equal("PLAN_TOKEN_INVALID", PlanTokenErrorCodes.PlanTokenInvalid.Value);
+        Assert.Equal("PLAN_TOKEN_EXPIRED", PlanTokenErrorCodes.PlanTokenExpired.Value);
+        Assert.Equal("PLAN_TOKEN_REQUEST_MISMATCH", PlanTokenErrorCodes.PlanTokenRequestMismatch.Value);
+        Assert.Equal("STATE_CHANGED_SINCE_PLAN", PlanTokenErrorCodes.StateChangedSincePlan.Value);
+        Assert.Equal("REQUEST_ID_CONFLICT", ExecuteRequestErrorCodes.RequestIdConflict.Value);
+        Assert.Equal("EDITOR_STARTING", EditorLifecycleErrorCodes.EditorStarting.Value);
+        Assert.Equal("EDITOR_BUSY", EditorLifecycleErrorCodes.EditorBusy.Value);
+        Assert.Equal("EDITOR_COMPILING", EditorLifecycleErrorCodes.EditorCompiling.Value);
+        Assert.Equal("EDITOR_DOMAIN_RELOADING", EditorLifecycleErrorCodes.EditorDomainReloading.Value);
+        Assert.Equal("EDITOR_PLAYMODE", EditorLifecycleErrorCodes.EditorPlaymode.Value);
+        Assert.Equal("EDITOR_MODAL_BLOCKED", EditorLifecycleErrorCodes.EditorModalBlocked.Value);
+        Assert.Equal("EDITOR_SAFE_MODE", EditorLifecycleErrorCodes.EditorSafeMode.Value);
+        Assert.Equal("EDITOR_SHUTTING_DOWN", EditorLifecycleErrorCodes.EditorShuttingDown.Value);
+        Assert.Equal("INTERNAL_ERROR", UcliCoreErrorCodes.InternalError.Value);
     }
 
     [Fact]

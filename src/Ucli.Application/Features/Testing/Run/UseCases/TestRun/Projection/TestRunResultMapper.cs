@@ -3,7 +3,6 @@ using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Pipeline;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Projection;
 
@@ -34,7 +33,7 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
         {
             return TestRunServiceResult.InfraError(
                 "Unexpected execution pipeline state.",
-                IpcErrorCodes.InternalError,
+                UcliCoreErrorCodes.InternalError,
                 pipelineResult.Session?.RunId,
                 pipelineResult.Session?.Paths.ArtifactsDir,
                 pipelineResult.Session?.Paths.SummaryJsonPath);
@@ -75,9 +74,9 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
         {
             if (unityExecutionResult.FailureKind == UnityTestExecutionFailureKind.ClientSetupFailed)
             {
-                var setupErrorCode = string.IsNullOrWhiteSpace(unityExecutionResult.ErrorCode)
-                    ? IpcErrorCodes.InternalError
-                    : unityExecutionResult.ErrorCode!;
+                UcliErrorCode setupErrorCode = !unityExecutionResult.ErrorCode.HasValue || !unityExecutionResult.ErrorCode.Value.IsValid
+                    ? UcliCoreErrorCodes.InternalError
+                    : unityExecutionResult.ErrorCode.Value;
 
                 return TestRunServiceResult.InfraError(
                     unityExecutionResult.ErrorMessage ?? "Daemon execution setup failed.",
@@ -87,12 +86,12 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
                     summaryJsonPath: session.Paths.SummaryJsonPath);
             }
 
-            var errorCode = unityExecutionResult.FailureKind switch
+            UcliErrorCode errorCode = unityExecutionResult.FailureKind switch
             {
                 UnityTestExecutionFailureKind.Canceled => ExecutionErrorCodes.Canceled,
                 UnityTestExecutionFailureKind.IpcTimedOut => ExecutionErrorCodes.IpcTimeout,
                 UnityTestExecutionFailureKind.ProcessTimedOut => TestRunErrorCodes.UnityTestExecutionTimeout,
-                _ when !string.IsNullOrWhiteSpace(unityExecutionResult.ErrorCode) => unityExecutionResult.ErrorCode!,
+                _ when unityExecutionResult.ErrorCode.HasValue && unityExecutionResult.ErrorCode.Value.IsValid => unityExecutionResult.ErrorCode.Value,
                 _ => TestRunErrorCodes.UnityTestExecutionFailed,
             };
 

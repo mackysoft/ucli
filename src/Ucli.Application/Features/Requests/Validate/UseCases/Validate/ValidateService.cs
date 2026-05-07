@@ -101,7 +101,7 @@ internal sealed class ValidateService : IValidateService
         {
             return ValidateServiceResult.Failure(
                 requestStaticValidationPreflightResult.Error.Message,
-                requestStaticValidationPreflightResult.ErrorCode!,
+                requestStaticValidationPreflightResult.ErrorCode!.Value,
                 output);
         }
 

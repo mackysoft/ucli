@@ -104,7 +104,7 @@ public sealed class FileReadIndexArtifactReaderTests
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
         Assert.NotNull(result.Error);
-        Assert.Equal(IpcErrorCodes.ReadIndexBootstrapFailed, result.Error.Code);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexBootstrapFailed, result.Error.Code);
     }
 
     [Fact]
@@ -122,7 +122,7 @@ public sealed class FileReadIndexArtifactReaderTests
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
         Assert.NotNull(result.Error);
-        Assert.Equal(IpcErrorCodes.ReadIndexFormatInvalid, result.Error.Code);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexFormatInvalid, result.Error.Code);
     }
 
     [Fact]
@@ -177,7 +177,7 @@ public sealed class FileReadIndexArtifactReaderTests
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
         Assert.NotNull(result.Error);
-        Assert.Equal(IpcErrorCodes.ReadIndexFormatInvalid, result.Error.Code);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexFormatInvalid, result.Error.Code);
     }
 
     [Fact]
@@ -241,7 +241,7 @@ public sealed class FileReadIndexArtifactReaderTests
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
         Assert.NotNull(result.Error);
-        Assert.Equal(IpcErrorCodes.ReadIndexFormatInvalid, result.Error.Code);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexFormatInvalid, result.Error.Code);
     }
 
     [Fact]
@@ -274,7 +274,7 @@ public sealed class FileReadIndexArtifactReaderTests
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
         Assert.NotNull(result.Error);
-        Assert.Equal(IpcErrorCodes.ReadIndexFormatInvalid, result.Error.Code);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexFormatInvalid, result.Error.Code);
     }
 
     private static void WriteText (

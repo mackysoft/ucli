@@ -76,7 +76,7 @@ internal sealed record ValidateServiceResult
     /// <returns> The failed result. </returns>
     public static ValidateServiceResult Failure (
         string message,
-        string errorCode,
+        UcliErrorCode errorCode,
         ValidateExecutionOutput? output = null)
     {
         RequestServiceResultPolicy.ValidateFailureMessage(message);

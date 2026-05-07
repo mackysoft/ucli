@@ -45,7 +45,7 @@ public sealed class InitCommandResultFactoryTests
         Assert.Equal(IpcProtocol.StatusError, result.Status);
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
         Assert.Single(result.Errors);
-        Assert.Equal(IpcErrorCodes.InternalError, result.Errors[0].Code);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.Errors[0].Code);
         Assert.Equal("Failed to create .ucli directory.", result.Errors[0].Message);
     }
 }

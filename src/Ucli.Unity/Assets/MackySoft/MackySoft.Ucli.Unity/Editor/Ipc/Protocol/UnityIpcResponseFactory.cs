@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 
@@ -32,7 +33,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> The error response envelope. </returns>
         public static IpcResponse CreateErrorResponse (
             IpcRequest request,
-            string code,
+            UcliErrorCode code,
             string message,
             string opId)
         {
@@ -56,8 +57,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             string errorMessage)
         {
             var code = errorKind == IpcFrameReadErrorKind.PayloadTooLarge
-                ? IpcErrorCodes.IpcFrameTooLarge
-                : IpcErrorCodes.InvalidArgument;
+                ? IpcProtocolErrorCodes.IpcFrameTooLarge
+                : UcliCoreErrorCodes.InvalidArgument;
             return new IpcResponse(
                 ProtocolVersion: IpcProtocol.CurrentVersion,
                 RequestId: string.Empty,

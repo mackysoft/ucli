@@ -9,7 +9,7 @@ internal sealed record UnityTestExecutionResult (
     int? ProcessExitCode,
     UnityTestExecutionFailureKind? FailureKind,
     string? ErrorMessage,
-    string? ErrorCode)
+    UcliErrorCode? ErrorCode)
 {
     /// <summary> Gets a value indicating whether execution succeeded. </summary>
     public bool IsSuccess => ProcessExitCode.HasValue && FailureKind is null;
@@ -30,8 +30,14 @@ internal sealed record UnityTestExecutionResult (
     public static UnityTestExecutionResult Failure (
         UnityTestExecutionFailureKind failureKind,
         string errorMessage,
-        string? errorCode = null)
+        UcliErrorCode? errorCode = null)
     {
-        return new UnityTestExecutionResult(null, failureKind, errorMessage, errorCode);
+        return new UnityTestExecutionResult(
+            null,
+            failureKind,
+            errorMessage,
+            errorCode.HasValue && errorCode.Value.IsValid
+                ? errorCode.Value
+                : (UcliErrorCode?)null);
     }
 }

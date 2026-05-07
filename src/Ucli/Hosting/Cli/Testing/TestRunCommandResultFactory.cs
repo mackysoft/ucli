@@ -56,10 +56,10 @@ internal static class TestRunCommandResultFactory
     /// <summary> Resolves one command error-code value with internal fallback. </summary>
     /// <param name="errorCode"> The source error code. </param>
     /// <returns> The source value when present; otherwise <c>INTERNAL_ERROR</c>. </returns>
-    private static string ResolveErrorCode (string? errorCode)
+    private static UcliErrorCode ResolveErrorCode (UcliErrorCode? errorCode)
     {
-        return string.IsNullOrWhiteSpace(errorCode)
-            ? IpcErrorCodes.InternalError
-            : errorCode;
+        return !errorCode.HasValue || !errorCode.Value.IsValid
+            ? UcliCoreErrorCodes.InternalError
+            : errorCode.Value;
     }
 }

@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Assets;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
@@ -88,7 +87,7 @@ public sealed class AssetLookupSourceRefreshServiceTests
         var reader = new StubAssetLookupSnapshotReader();
         var firstResponse = CreateResponse("2026-03-08T00:00:00+00:00", "Assets/Data/First.asset");
         reader.Enqueue(AssetLookupSnapshotFetchResult.Success(firstResponse));
-        reader.Enqueue(AssetLookupSnapshotFetchResult.Failure("retry read timed out", IpcErrorCodes.InternalError));
+        reader.Enqueue(AssetLookupSnapshotFetchResult.Failure("retry read timed out", UcliCoreErrorCodes.InternalError));
         var store = new StubReadIndexArtifactWriter();
         var snapshot1 = CreateSnapshot("asset-search-1", "guid-path-1", "combined-1");
         var snapshot2 = CreateSnapshot("asset-search-2", "guid-path-2", "combined-2");

@@ -3,6 +3,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
@@ -35,7 +36,8 @@ public sealed class UnityOneshotIpcClientTests
             launcher,
             new StubIpcEndpointResolver(endpoint),
             transportClient,
-            lockProvider);
+            lockProvider,
+            new StubUnityProjectLockFileProbe());
 
         var result = await client.SendAsync(
             unityProject,
@@ -93,7 +95,8 @@ public sealed class UnityOneshotIpcClientTests
             launcher,
             new StubIpcEndpointResolver(endpoint),
             transportClient,
-            new StubProjectLifecycleLockProvider());
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe());
 
         var result = await client.SendAsync(
             unityProject,
@@ -121,7 +124,8 @@ public sealed class UnityOneshotIpcClientTests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 throw new TimeoutException("Timed out while waiting for lifecycle lock.");
-            }));
+            }),
+            new StubUnityProjectLockFileProbe());
 
         var result = await client.SendAsync(
             CreateUnityProject(scope),
@@ -132,6 +136,60 @@ public sealed class UnityOneshotIpcClientTests
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
         Assert.Equal(0, launcher.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenUnityExitsAndLockFileExists_ReturnsProjectAlreadyOpen ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "exit-lock-file");
+        var unityProject = CreateUnityProject(scope);
+        var processHandle = new StubUnityBatchmodeProcessHandle(hasExited: true, exitCode: 1);
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var client = new UnityOneshotIpcClient(
+            launcher,
+            new StubIpcEndpointResolver(new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock")),
+            new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Transport should not be called.")),
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe(
+                UnityProjectLockFileProbeResult.Locked(scope.GetPath("UnityProject/Temp/UnityLockfile"))));
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityProcessErrorCodes.UnityProjectAlreadyOpen, result.ErrorCode);
+        Assert.Equal(0, processHandle.TerminateCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenUnityExitsWithoutLockFile_ReturnsStartupExitFailure ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "exit-unlocked");
+        var unityProject = CreateUnityProject(scope);
+        var processHandle = new StubUnityBatchmodeProcessHandle(hasExited: true, exitCode: 1);
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var client = new UnityOneshotIpcClient(
+            launcher,
+            new StubIpcEndpointResolver(new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock")),
+            new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Transport should not be called.")),
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe(
+                UnityProjectLockFileProbeResult.Unlocked(scope.GetPath("UnityProject/Temp/UnityLockfile"))));
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.Contains("exited before startup readiness", result.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -156,7 +214,8 @@ public sealed class UnityOneshotIpcClientTests
             launcher,
             new StubIpcEndpointResolver(endpoint),
             transportClient,
-            new StubProjectLifecycleLockProvider());
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe());
 
         var result = await client.SendAsync(
             unityProject,
@@ -268,11 +327,21 @@ public sealed class UnityOneshotIpcClientTests
 
     private sealed class StubUnityBatchmodeProcessHandle : IUnityBatchmodeProcessHandle
     {
+        private readonly int? exitCode;
+
+        public StubUnityBatchmodeProcessHandle (
+            bool hasExited = false,
+            int? exitCode = null)
+        {
+            HasExited = hasExited;
+            this.exitCode = exitCode;
+        }
+
         public int ProcessId => 1234;
 
         public bool HasExited { get; private set; }
 
-        public int? ExitCode => HasExited ? 0 : null;
+        public int? ExitCode => HasExited ? exitCode ?? 0 : null;
 
         public int WaitForExitCallCount { get; private set; }
 
@@ -376,6 +445,26 @@ public sealed class UnityOneshotIpcClientTests
             LastStorageRoot = storageRoot;
             LastProjectFingerprint = projectFingerprint;
             return ValueTask.FromResult(acquire(storageRoot, projectFingerprint, timeout, cancellationToken));
+        }
+    }
+
+    private sealed class StubUnityProjectLockFileProbe : IUnityProjectLockFileProbe
+    {
+        private readonly UnityProjectLockFileProbeResult result;
+
+        public StubUnityProjectLockFileProbe ()
+            : this(UnityProjectLockFileProbeResult.Unlocked("/tmp/unity-project/Temp/UnityLockfile"))
+        {
+        }
+
+        public StubUnityProjectLockFileProbe (UnityProjectLockFileProbeResult result)
+        {
+            this.result = result;
+        }
+
+        public UnityProjectLockFileProbeResult Probe (string unityProjectRoot)
+        {
+            return result;
         }
     }
 

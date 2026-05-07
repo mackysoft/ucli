@@ -55,7 +55,7 @@ internal sealed record CommandResult (
             command: normalizedCommand,
             message: normalizedMessage,
             exitCode: CliExitCode.ToolError,
-            errorCode: IpcErrorCodes.CommandNotImplemented);
+            errorCode: UcliCoreErrorCodes.CommandNotImplemented);
     }
 
     /// <summary> Creates an error result for invalid command arguments. </summary>
@@ -66,13 +66,15 @@ internal sealed record CommandResult (
     public static CommandResult InvalidArgument (
         string command,
         string message,
-        string? errorCode = null)
+        UcliErrorCode? errorCode = null)
     {
         return CreateError(
             command: command,
             message: message,
             exitCode: CliExitCode.InvalidArgument,
-            errorCode: string.IsNullOrWhiteSpace(errorCode) ? IpcErrorCodes.InvalidArgument : errorCode);
+            errorCode: errorCode.HasValue && errorCode.Value.IsValid
+                ? errorCode.Value
+                : UcliCoreErrorCodes.InvalidArgument);
     }
 
     /// <summary> Creates an error result for command cancellation. </summary>
@@ -96,13 +98,15 @@ internal sealed record CommandResult (
     public static CommandResult Timeout (
         string command,
         string message,
-        string? errorCode = null)
+        UcliErrorCode? errorCode = null)
     {
         return CreateError(
             command: command,
             message: message,
             exitCode: CliExitCode.ToolError,
-            errorCode: string.IsNullOrWhiteSpace(errorCode) ? ExecutionErrorCodes.IpcTimeout : errorCode);
+            errorCode: errorCode.HasValue && errorCode.Value.IsValid
+                ? errorCode.Value
+                : ExecutionErrorCodes.IpcTimeout);
     }
 
     /// <summary> Creates an error result for unexpected runtime failures. </summary>
@@ -113,13 +117,15 @@ internal sealed record CommandResult (
     public static CommandResult InternalError (
         string command,
         string message,
-        string? errorCode = null)
+        UcliErrorCode? errorCode = null)
     {
         return CreateError(
             command: command,
             message: message,
             exitCode: CliExitCode.ToolError,
-            errorCode: string.IsNullOrWhiteSpace(errorCode) ? IpcErrorCodes.InternalError : errorCode);
+            errorCode: errorCode.HasValue && errorCode.Value.IsValid
+                ? errorCode.Value
+                : UcliCoreErrorCodes.InternalError);
     }
 
     /// <summary> Creates a normalized error result with a single error entry. </summary>
@@ -132,7 +138,7 @@ internal sealed record CommandResult (
         string command,
         string message,
         CliExitCode exitCode,
-        string errorCode)
+        UcliErrorCode errorCode)
     {
         var normalizedCommand = NormalizeCommand(command);
         var normalizedMessage = NormalizeMessage(message);

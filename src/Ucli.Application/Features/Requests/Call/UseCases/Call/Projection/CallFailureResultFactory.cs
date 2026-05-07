@@ -17,7 +17,7 @@ internal static class CallFailureResultFactory
     public static CallServiceResult FromExecutionError (
         ExecutionError error,
         CallExecutionOutput? output = null,
-        string? errorCode = null)
+        UcliErrorCode? errorCode = null)
     {
         ArgumentNullException.ThrowIfNull(error);
 

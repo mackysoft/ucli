@@ -4,7 +4,6 @@ using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -151,7 +150,7 @@ internal sealed class QueryService : IQueryService
             return QueryServiceResultFactory.FromIpcError(
                 operation.CommandName,
                 requestId,
-                new OperationExecutionError(readResult.ErrorCode!, readResult.Message, null),
+                new OperationExecutionError(readResult.ErrorCode!.Value, readResult.Message, null),
                 ReadIndexInfoFactory.Unity(readResult.Message));
         }
 
@@ -195,7 +194,7 @@ internal sealed class QueryService : IQueryService
             return QueryServiceResultFactory.FromIpcError(
                 operation.CommandName,
                 requestId,
-                new OperationExecutionError(readResult.ErrorCode!, readResult.Message, null),
+                new OperationExecutionError(readResult.ErrorCode!.Value, readResult.Message, null),
                 ReadIndexInfoFactory.Unity(readResult.Message));
         }
 

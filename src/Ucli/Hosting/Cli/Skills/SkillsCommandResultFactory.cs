@@ -259,9 +259,9 @@ internal static class SkillsCommandResultFactory
             .Where(static diagnostic => diagnostic.Severity == SkillDoctorSeverity.Error)
             .ToArray();
         var errors = errorDiagnostics.Length == 0
-            ? [new CommandError(IpcErrorCodes.InternalError, "uCLI skills doctor reported an unknown error.", null)]
+            ? [new CommandError(UcliCoreErrorCodes.InternalError, "uCLI skills doctor reported an unknown error.", null)]
             : errorDiagnostics
-                .Select(static diagnostic => new CommandError(diagnostic.Code, diagnostic.Message, null))
+                .Select(static diagnostic => new CommandError(new UcliErrorCode(diagnostic.Code), diagnostic.Message, null))
                 .ToArray();
 
         return new CommandResult(
@@ -294,7 +294,7 @@ internal static class SkillsCommandResultFactory
             Payload: new { },
             Errors:
             [
-                new CommandError(failure.Code, failure.Message, null),
+                new CommandError(new UcliErrorCode(failure.Code), failure.Message, null),
             ]);
     }
 

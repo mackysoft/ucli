@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 
@@ -42,7 +41,7 @@ internal sealed class RequestStaticValidationPreflightService : IRequestStaticVa
         {
             return RequestStaticValidationPreflightResult.Failure(
                 CreateMetadataResolutionError(
-                    validationCatalogResolutionResult.ErrorCode!,
+                    validationCatalogResolutionResult.ErrorCode!.Value,
                     validationCatalogResolutionResult.ErrorMessage!),
                 preparedRequest,
                 validationCatalogResolutionResult.ReadIndex,
@@ -77,18 +76,22 @@ internal sealed class RequestStaticValidationPreflightService : IRequestStaticVa
     }
 
     private static ExecutionError CreateMetadataResolutionError (
-        string errorCode,
+        UcliErrorCode errorCode,
         string message)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(errorCode);
+        if (!errorCode.IsValid)
+        {
+            throw new ArgumentException("Error code must not be empty.", nameof(errorCode));
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
 
-        if (string.Equals(errorCode, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal))
+        if (errorCode == UcliCoreErrorCodes.InvalidArgument)
         {
             return ExecutionError.InvalidArgument(message);
         }
 
-        if (string.Equals(errorCode, ExecutionErrorCodes.IpcTimeout, StringComparison.Ordinal))
+        if (errorCode == ExecutionErrorCodes.IpcTimeout)
         {
             return ExecutionError.Timeout(message);
         }

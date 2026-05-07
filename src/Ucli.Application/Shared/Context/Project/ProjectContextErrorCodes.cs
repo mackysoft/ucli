@@ -4,21 +4,22 @@ namespace MackySoft.Ucli.Application.Shared.Context.Project;
 internal static class ProjectContextErrorCodes
 {
     /// <summary> Gets the error code used when a project path cannot be normalized. </summary>
-    public const string ProjectPathInvalidFormat = "PROJECT_PATH_INVALID_FORMAT";
+    public static readonly UcliErrorCode ProjectPathInvalidFormat = new("PROJECT_PATH_INVALID_FORMAT");
 
     /// <summary> Gets the error code used when a project path does not exist. </summary>
-    public const string ProjectPathNotFound = "PROJECT_PATH_NOT_FOUND";
+    public static readonly UcliErrorCode ProjectPathNotFound = new("PROJECT_PATH_NOT_FOUND");
 
     /// <summary> Gets the error code used when a directory is missing required Unity project markers. </summary>
-    public const string UnityProjectMarkerMissing = "UNITY_PROJECT_MARKER_MISSING";
+    public static readonly UcliErrorCode UnityProjectMarkerMissing = new("UNITY_PROJECT_MARKER_MISSING");
 
     /// <summary> Gets a value indicating whether <paramref name="errorCode" /> is a project-context invalid-argument code. </summary>
     /// <param name="errorCode"> The machine-readable error code. </param>
     /// <returns> <see langword="true" /> when the code belongs to project-context resolution; otherwise <see langword="false" />. </returns>
-    public static bool Contains (string? errorCode)
+    public static bool Contains (UcliErrorCode? errorCode)
     {
-        return errorCode is ProjectPathInvalidFormat
-            or ProjectPathNotFound
-            or UnityProjectMarkerMissing;
+        return errorCode.HasValue
+            && (errorCode.Value == ProjectPathInvalidFormat
+                || errorCode.Value == ProjectPathNotFound
+                || errorCode.Value == UnityProjectMarkerMissing);
     }
 }

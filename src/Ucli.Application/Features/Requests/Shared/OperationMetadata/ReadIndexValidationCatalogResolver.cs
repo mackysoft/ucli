@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
@@ -42,7 +41,7 @@ internal sealed class ReadIndexValidationCatalogResolver : IReadIndexValidationC
         if (!persistedCatalogResult.IsSuccess)
         {
             return HandlePersistedCatalogReadFailure(
-                persistedCatalogResult.ErrorCode!,
+                persistedCatalogResult.ErrorCode!.Value,
                 persistedCatalogResult.ErrorMessage!,
                 readIndexMode);
         }
@@ -71,7 +70,7 @@ internal sealed class ReadIndexValidationCatalogResolver : IReadIndexValidationC
             var message = $"Index contract file 'ops.catalog.json' is malformed. {exception.Message}";
             return ReadIndexValidationCatalogResolutionResult.Failure(
                 CreateReadIndexMiss(message),
-                IpcErrorCodes.ReadIndexFormatInvalid,
+                ReadIndexErrorCodes.ReadIndexFormatInvalid,
                 message);
         }
 
@@ -84,15 +83,19 @@ internal sealed class ReadIndexValidationCatalogResolver : IReadIndexValidationC
     }
 
     private static ReadIndexValidationCatalogResolutionResult HandlePersistedCatalogReadFailure (
-        string errorCode,
+        UcliErrorCode errorCode,
         string errorMessage,
         ReadIndexMode readIndexMode)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(errorCode);
+        if (!errorCode.IsValid)
+        {
+            throw new ArgumentException("Error code must not be empty.", nameof(errorCode));
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(errorMessage);
 
         if ((readIndexMode == ReadIndexMode.AllowStale)
-            && string.Equals(errorCode, IpcErrorCodes.ReadIndexBootstrapFailed, StringComparison.Ordinal))
+            && errorCode == ReadIndexErrorCodes.ReadIndexBootstrapFailed)
         {
             return ReadIndexValidationCatalogResolutionResult.Success(
                 RequestStaticValidationCatalog.Unavailable,

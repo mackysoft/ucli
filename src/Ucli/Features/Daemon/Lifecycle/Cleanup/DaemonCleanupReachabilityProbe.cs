@@ -5,7 +5,6 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Cleanup;
@@ -87,8 +86,8 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
             return DaemonCleanupReachabilityProbeResult.Uncertain(DaemonCleanupReachabilityUncertainReason.Timeout);
         }
         catch (DaemonPingResponseException exception) when (
-            string.Equals(exception.ErrorCode, IpcErrorCodes.SessionTokenInvalid, StringComparison.Ordinal)
-            || string.Equals(exception.ErrorCode, IpcErrorCodes.SessionTokenRequired, StringComparison.Ordinal))
+            exception.ErrorCode == IpcSessionErrorCodes.SessionTokenInvalid
+            || exception.ErrorCode == IpcSessionErrorCodes.SessionTokenRequired)
         {
             return DaemonCleanupReachabilityProbeResult.Uncertain(DaemonCleanupReachabilityUncertainReason.SessionAuthenticationRejected);
         }
