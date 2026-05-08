@@ -99,4 +99,39 @@ internal static class PathStringNormalizer
 
         return NormalizeCaseForCurrentPlatform(ToSlashSeparated(pathResult.FullPath!));
     }
+
+    /// <summary> Normalizes one absolute path value for stable filesystem identity comparisons. </summary>
+    /// <param name="pathValue"> The path text value. </param>
+    /// <returns> The absolute path text with platform separator, trailing separator, and case normalization applied. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="pathValue" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="pathValue" /> cannot be normalized as a full path. </exception>
+    public static string NormalizeAbsolutePathForStableIdentity (string pathValue)
+    {
+        if (pathValue == null)
+        {
+            throw new ArgumentNullException(nameof(pathValue));
+        }
+
+        var pathResult = PathNormalizer.TryNormalizeFullPath(pathValue);
+        if (!pathResult.IsSuccess)
+        {
+            throw new ArgumentException(pathResult.DiagnosticMessage, nameof(pathValue));
+        }
+
+        var fullPath = ReplaceAltSeparatorWithPlatformSeparator(pathResult.FullPath!);
+        var pathRoot = Path.GetPathRoot(fullPath);
+        if (!string.IsNullOrEmpty(pathRoot) && string.Equals(fullPath, pathRoot, GetPathComparison()))
+        {
+            return NormalizeCaseForCurrentPlatform(fullPath);
+        }
+
+        return NormalizeCaseForCurrentPlatform(TrimTrailingDirectorySeparators(fullPath));
+    }
+
+    private static StringComparison GetPathComparison ()
+    {
+        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+    }
 }

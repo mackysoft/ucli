@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Shared.Unity.Process;
 using DiagnosticsProcess = System.Diagnostics.Process;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
@@ -9,6 +10,8 @@ namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
 /// <summary> Implements process termination checks and force-kill fallback by process identifier. </summary>
 internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminationService
 {
+    private static readonly TimeSpan PassiveExitWaitTimeoutCap = UnityProcessTerminationPolicy.GracefulThenKill.GraceTimeout;
+
     private readonly DaemonProcessIdentityAssessor daemonProcessIdentityAssessor;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonProcessTerminationService" /> class. </summary>
@@ -77,70 +80,123 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
             }
 
             var deadline = ExecutionDeadline.Start(timeout);
-            if (await WaitUntilExited(process, deadline, cancellationToken).ConfigureAwait(false))
+            // NOTE: Stop may have already sent a shutdown IPC request; Unity needs a few seconds to
+            // complete its own shutdown path and remove Temp/UnityLockfile before SIGTERM is used.
+            if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
+            {
+                return DaemonSessionStoreOperationResult.Failure(ExecutionError.Timeout(
+                    $"Timed out while waiting for daemon process '{processId.Value}' to stop."));
+            }
+
+            var passiveExitWaitTimeout = GetPassiveExitWaitTimeout(remainingTimeout);
+            if (passiveExitWaitTimeout > TimeSpan.Zero
+                && await WaitUntilExitedAsync(process, passiveExitWaitTimeout, cancellationToken).ConfigureAwait(false))
             {
                 return DaemonSessionStoreOperationResult.Success();
             }
 
-            try
+            if (!deadline.TryGetRemainingTimeout(out var terminationTimeout))
             {
-                process.Kill(entireProcessTree: true);
-            }
-            catch (Exception exception)
-            {
-                return DaemonSessionStoreOperationResult.Failure(ExecutionError.InternalError(
-                    $"Failed to force-stop daemon process '{processId.Value}'. {exception.Message}"));
+                return DaemonSessionStoreOperationResult.Failure(ExecutionError.Timeout(
+                    $"Timed out while waiting for daemon process '{processId.Value}' to stop."));
             }
 
-            return await WaitUntilExited(process, deadline, cancellationToken).ConfigureAwait(false)
-                ? DaemonSessionStoreOperationResult.Success()
-                : DaemonSessionStoreOperationResult.Failure(ExecutionError.Timeout(
-                    $"Timed out while force-stopping daemon process '{processId.Value}'."));
+            var terminationResult = await ProcessTerminator.TerminateAsync(
+                    process,
+                    CreateBoundedUnityTerminationPolicy(terminationTimeout),
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            return terminationResult == ProcessTerminationResult.ForceKillFailed
+                ? DaemonSessionStoreOperationResult.Failure(ExecutionError.Timeout(
+                    $"Timed out while force-stopping daemon process '{processId.Value}'."))
+                : DaemonSessionStoreOperationResult.Success();
         }
     }
 
-    /// <summary> Waits asynchronously until the target process exits or deadline elapses. </summary>
-    /// <param name="process"> The target process instance. </param>
-    /// <param name="deadline"> The shared timeout deadline. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> <see langword="true" /> when process exited; otherwise <see langword="false" /> when deadline elapsed. </returns>
-    private static async ValueTask<bool> WaitUntilExited (
+    /// <summary> Creates a Unity termination policy bounded by the remaining daemon-stop budget. </summary>
+    /// <param name="timeout"> The remaining timeout budget. Must be greater than <see cref="TimeSpan.Zero" />. </param>
+    /// <returns> The default Unity policy when budget allows it; otherwise a proportional policy with at least one millisecond per phase. </returns>
+    private static ProcessTerminationPolicy CreateBoundedUnityTerminationPolicy (TimeSpan timeout)
+    {
+        var defaultPolicy = UnityProcessTerminationPolicy.GracefulThenKill;
+        if (timeout >= defaultPolicy.GraceTimeout + defaultPolicy.ForceKillWaitTimeout)
+        {
+            return defaultPolicy;
+        }
+
+        var totalMilliseconds = Math.Max(2, (int)Math.Ceiling(timeout.TotalMilliseconds));
+        var graceMilliseconds = Math.Max(1, totalMilliseconds / 2);
+        var forceKillMilliseconds = Math.Max(1, totalMilliseconds - graceMilliseconds);
+        return new ProcessTerminationPolicy(
+            ProcessTerminationMode.GracefulThenKill,
+            TimeSpan.FromMilliseconds(graceMilliseconds),
+            TimeSpan.FromMilliseconds(forceKillMilliseconds));
+    }
+
+    /// <summary> Calculates the passive wait budget used before sending a termination request. </summary>
+    /// <param name="remainingTimeout"> The remaining process-stop timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
+    /// <returns> A bounded passive wait duration, or <see cref="TimeSpan.Zero" /> when the budget is too small. </returns>
+    private static TimeSpan GetPassiveExitWaitTimeout (TimeSpan remainingTimeout)
+    {
+        var totalMilliseconds = Math.Ceiling(remainingTimeout.TotalMilliseconds);
+        var fallbackPolicy = UnityProcessTerminationPolicy.GracefulThenKill;
+        var fallbackTimeout = fallbackPolicy.GraceTimeout + fallbackPolicy.ForceKillWaitTimeout;
+        var fallbackMilliseconds = Math.Ceiling(fallbackTimeout.TotalMilliseconds);
+        var passiveExitWaitBudgetMilliseconds = totalMilliseconds - fallbackMilliseconds;
+        if (passiveExitWaitBudgetMilliseconds <= 0)
+        {
+            return TimeSpan.Zero;
+        }
+
+        var passiveExitWaitMilliseconds = Math.Min(
+            PassiveExitWaitTimeoutCap.TotalMilliseconds,
+            passiveExitWaitBudgetMilliseconds);
+        return TimeSpan.FromMilliseconds(passiveExitWaitMilliseconds);
+    }
+
+    /// <summary> Waits until process exit is observed or the supplied timeout expires. </summary>
+    /// <param name="process"> The process to observe. </param>
+    /// <param name="timeout"> The maximum wait time. Must be greater than <see cref="TimeSpan.Zero" />. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
+    /// <returns> <see langword="true" /> when the process exit is observed; otherwise <see langword="false" />. </returns>
+    private static async ValueTask<bool> WaitUntilExitedAsync (
         DiagnosticsProcess process,
-        ExecutionDeadline deadline,
+        TimeSpan timeout,
         CancellationToken cancellationToken)
     {
-        while (true)
+        cancellationToken.ThrowIfCancellationRequested();
+        if (HasExited(process))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (HasExited(process))
-            {
-                return true;
-            }
+            return true;
+        }
 
-            if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
-            {
-                return false;
-            }
-
-            var retryDelayMilliseconds = Math.Min(
-                DaemonTimeouts.ProcessTerminationProbeRetryDelayMilliseconds,
-                Math.Max(1, (int)Math.Ceiling(remainingTimeout.TotalMilliseconds)));
-            await Task.Delay(retryDelayMilliseconds, cancellationToken).ConfigureAwait(false);
-
-            try
-            {
-                process.Refresh();
-            }
-            catch (InvalidOperationException)
-            {
-                return true;
-            }
+        using var timeoutCancellationTokenSource = new CancellationTokenSource(timeout);
+        using var linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            timeoutCancellationTokenSource.Token);
+        try
+        {
+            await process.WaitForExitAsync(linkedCancellationTokenSource.Token).ConfigureAwait(false);
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException) when (timeoutCancellationTokenSource.IsCancellationRequested)
+        {
+            return HasExited(process);
+        }
+        catch (InvalidOperationException)
+        {
+            return true;
         }
     }
 
-    /// <summary> Gets whether target process is already exited while tolerating post-exit access races. </summary>
-    /// <param name="process"> The target process instance. </param>
-    /// <returns> <see langword="true" /> when process already exited; otherwise <see langword="false" />. </returns>
+    /// <summary> Reads process exit state while treating post-exit access races as exited. </summary>
+    /// <param name="process"> The process to inspect. </param>
+    /// <returns> <see langword="true" /> when the process has exited or can no longer be inspected; otherwise <see langword="false" />. </returns>
     private static bool HasExited (DiagnosticsProcess process)
     {
         try

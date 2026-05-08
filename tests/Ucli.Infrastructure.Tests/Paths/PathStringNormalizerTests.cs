@@ -48,6 +48,29 @@ public sealed class PathStringNormalizerTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void NormalizeAbsolutePathForStableIdentity_TrimsTrailingSeparatorsWithoutTrimmingRoot ()
+    {
+        var fullPath = Path.GetFullPath(Path.Combine("stable-identity-root", "child"));
+        var pathWithTrailingSeparator = fullPath + Path.DirectorySeparatorChar;
+
+        var result = PathStringNormalizer.NormalizeAbsolutePathForStableIdentity(pathWithTrailingSeparator);
+
+        Assert.Equal(PathStringNormalizer.NormalizeCaseForCurrentPlatform(fullPath), result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void NormalizeAbsolutePathForStableIdentity_PreservesRootPath ()
+    {
+        var rootPath = Path.GetPathRoot(Path.GetFullPath("."))!;
+
+        var result = PathStringNormalizer.NormalizeAbsolutePathForStableIdentity(rootPath);
+
+        Assert.Equal(PathStringNormalizer.NormalizeCaseForCurrentPlatform(rootPath), result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void ToSlashSeparated_Throws_WhenValueIsNull ()
     {
         Assert.Throws<ArgumentNullException>(() =>
@@ -83,6 +106,16 @@ public sealed class PathStringNormalizerTests
         Assert.Throws<ArgumentNullException>(() =>
         {
             _ = PathStringNormalizer.TrimTrailingDirectorySeparators(null!);
+        });
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void NormalizeAbsolutePathForStableIdentity_Throws_WhenValueIsNull ()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+        {
+            _ = PathStringNormalizer.NormalizeAbsolutePathForStableIdentity(null!);
         });
     }
 }

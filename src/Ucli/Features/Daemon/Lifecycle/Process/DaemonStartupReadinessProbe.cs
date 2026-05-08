@@ -61,8 +61,9 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             cancellationToken.ThrowIfCancellationRequested();
             if (daemonProcessId is int processId && !ProcessLivenessProbe.IsAlive(processId))
             {
-                var startupFailureError = await TryClassifyStartupFailure(
+                var startupFailureError = await TryClassifyStartupFailureAsync(
                         unityProject,
+                        includeProjectLockFile: true,
                         cancellationToken)
                     .ConfigureAwait(false);
                 if (startupFailureError is not null)
@@ -124,8 +125,12 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             }
             catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
             {
-                var startupFailureError = await TryClassifyStartupFailure(
+                // NOTE:
+                // A Unity process launched by uCLI creates Temp/UnityLockfile before its IPC server
+                // is ready. Treat that lock as external only when no launched process id is known.
+                var startupFailureError = await TryClassifyStartupFailureAsync(
                         unityProject,
+                        includeProjectLockFile: daemonProcessId is null,
                         cancellationToken)
                     .ConfigureAwait(false);
                 if (startupFailureError is not null)
@@ -223,14 +228,18 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.DomainReloading, StringComparison.Ordinal);
     }
 
-    private async ValueTask<ExecutionError?> TryClassifyStartupFailure (
+    private async ValueTask<ExecutionError?> TryClassifyStartupFailureAsync (
         ResolvedUnityProjectContext unityProject,
+        bool includeProjectLockFile,
         CancellationToken cancellationToken)
     {
-        var projectAlreadyOpenError = TryCreateProjectAlreadyOpenErrorFromUnityLock(unityProject.UnityProjectRoot);
-        if (projectAlreadyOpenError != null)
+        if (includeProjectLockFile)
         {
-            return projectAlreadyOpenError;
+            var projectAlreadyOpenError = TryCreateProjectAlreadyOpenErrorFromUnityLock(unityProject.UnityProjectRoot);
+            if (projectAlreadyOpenError != null)
+            {
+                return projectAlreadyOpenError;
+            }
         }
 
         var logReadResult = await unityLogReader.ReadTail(

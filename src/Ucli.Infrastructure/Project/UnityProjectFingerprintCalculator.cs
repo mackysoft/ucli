@@ -68,22 +68,7 @@ public static class UnityProjectFingerprintCalculator
     /// <returns> The normalized path value. </returns>
     private static string NormalizePath (string pathValue)
     {
-        var fullPathResult = PathNormalizer.TryNormalizeFullPath(pathValue);
-        if (!fullPathResult.IsSuccess)
-        {
-            throw new ArgumentException(fullPathResult.DiagnosticMessage, nameof(pathValue));
-        }
-
-        var fullPath = fullPathResult.FullPath!;
-        fullPath = PathStringNormalizer.ReplaceAltSeparatorWithPlatformSeparator(fullPath);
-        var pathRoot = Path.GetPathRoot(fullPath);
-        if (!string.IsNullOrEmpty(pathRoot) && string.Equals(fullPath, pathRoot, PathComparison))
-        {
-            return PathStringNormalizer.NormalizeCaseForCurrentPlatform(fullPath);
-        }
-
-        var trimmedPath = PathStringNormalizer.TrimTrailingDirectorySeparators(fullPath);
-        return PathStringNormalizer.NormalizeCaseForCurrentPlatform(trimmedPath);
+        return PathStringNormalizer.NormalizeAbsolutePathForStableIdentity(pathValue);
     }
 
     /// <summary> Normalizes relative path fragments used for fingerprint input. </summary>

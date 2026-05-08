@@ -71,16 +71,24 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         try
         {
             lockHandle = await lifecycleLockProvider.Acquire(
-                    unityProject.RepositoryRoot,
-                    unityProject.ProjectFingerprint,
+                    new ProjectLifecycleLockRequest(unityProject.UnityProjectRoot),
                     lockAcquireTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (TimeoutException exception)
         {
             return DaemonStopResult.Failure(CreateTimeoutError(
                 $"Timed out while waiting for project lifecycle lock. {exception.Message}"));
+        }
+        catch (Exception exception)
+        {
+            return DaemonStopResult.Failure(ExecutionError.InternalError(
+                $"Failed to acquire project lifecycle lock. {exception.Message}"));
         }
 
         await using var acquiredLock = lockHandle;

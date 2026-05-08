@@ -30,4 +30,18 @@ internal static class UnityProjectLockFailureMessage
 
         return $"Unity project lock-file state could not be inspected. LockFile={lockFilePath}. {exception.Message}";
     }
+
+    /// <summary> Builds a diagnostic for a Unity lock file that remains after uCLI terminated the Unity process. </summary>
+    /// <param name="unityProjectRoot"> The Unity project root path. </param>
+    /// <param name="lockFilePath"> The Unity lock-file path. </param>
+    /// <returns> The residual-lock-file diagnostic message. </returns>
+    public static string CreateTerminatedProcessLockFileRemains (
+        string unityProjectRoot,
+        string lockFilePath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(lockFilePath);
+
+        return $"uCLI terminated the Unity process, but Temp/UnityLockfile remains. ProjectPath={unityProjectRoot}. LockFile={lockFilePath}";
+    }
 }

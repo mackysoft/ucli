@@ -91,7 +91,62 @@ public sealed class ProcessRunnerTests
 
         Assert.Equal(ProcessRunStatus.TimedOut, result.Status);
         Assert.Null(result.ExitCode);
+        Assert.Equal(ProcessTerminationResult.ForceKilled, result.TerminationResult);
         Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task RunAsync_WithGracefulThenKill_WhenProcessHandlesGracefulExit_ReturnsGracefulExited ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("process-runner", "graceful-termination");
+        var markerPath = scope.GetPath("term-marker");
+        var runner = new ProcessRunner();
+
+        var result = await TestAwaiter.WaitAsync(
+            runner.RunAsync(
+                new ProcessRunRequest(
+                    FileName: "/bin/sh",
+                    Arguments:
+                    [
+                        "-c",
+                        $"trap 'printf term > {ShellSingleQuote(markerPath)}; exit 0' TERM; while :; do sleep 1; done",
+                    ],
+                    Timeout: TimeSpan.FromMilliseconds(200),
+                    OutputDrainMode: ProcessOutputDrainMode.BestEffort,
+                    TerminationPolicy: new ProcessTerminationPolicy(
+                        ProcessTerminationMode.GracefulThenKill,
+                        TimeSpan.FromSeconds(2),
+                        TimeSpan.FromSeconds(2))),
+                CancellationToken.None),
+            "Process runner graceful termination result",
+            SignalWaitTimeout);
+
+        Assert.Equal(ProcessRunStatus.TimedOut, result.Status);
+        Assert.Equal(ProcessTerminationResult.GracefulExited, result.TerminationResult);
+        Assert.True(File.Exists(markerPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task RunAsync_WithGracefulThenKill_WhenProcessDoesNotExitGracefully_ReturnsForceKilled ()
+    {
+        var runner = new ProcessRunner();
+
+        var result = await TestAwaiter.WaitAsync(
+            runner.RunAsync(
+                CreateGracefulThenKillNonResponsiveRequest(),
+                CancellationToken.None),
+            "Process runner force-kill fallback result",
+            SignalWaitTimeout);
+
+        Assert.Equal(ProcessRunStatus.TimedOut, result.Status);
+        Assert.Equal(ProcessTerminationResult.ForceKilled, result.TerminationResult);
     }
 
     [Fact]
@@ -199,6 +254,39 @@ public sealed class ProcessRunnerTests
             OutputDrainMode: outputDrainMode);
     }
 
+    private static ProcessRunRequest CreateGracefulThenKillNonResponsiveRequest ()
+    {
+        var terminationPolicy = new ProcessTerminationPolicy(
+            ProcessTerminationMode.GracefulThenKill,
+            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromSeconds(2));
+        if (OperatingSystem.IsWindows())
+        {
+            return new ProcessRunRequest(
+                FileName: "powershell",
+                Arguments:
+                [
+                    "-NoProfile",
+                    "-Command",
+                    "Start-Sleep -Seconds 30",
+                ],
+                Timeout: TimeSpan.FromMilliseconds(200),
+                OutputDrainMode: ProcessOutputDrainMode.BestEffort,
+                TerminationPolicy: terminationPolicy);
+        }
+
+        return new ProcessRunRequest(
+            FileName: "/bin/sh",
+            Arguments:
+            [
+                "-c",
+                "trap '' TERM; while :; do sleep 1; done",
+            ],
+            Timeout: TimeSpan.FromMilliseconds(200),
+            OutputDrainMode: ProcessOutputDrainMode.BestEffort,
+            TerminationPolicy: terminationPolicy);
+    }
+
     private static ProcessRunRequest CreateExitedProcessWithInheritedOutputHandleRequest (
         TimeSpan timeout,
         ProcessOutputDrainMode outputDrainMode)
@@ -212,5 +300,10 @@ public sealed class ProcessRunnerTests
             ],
             Timeout: timeout,
             OutputDrainMode: outputDrainMode);
+    }
+
+    private static string ShellSingleQuote (string value)
+    {
+        return "'" + value.Replace("'", "'\"'\"'", StringComparison.Ordinal) + "'";
     }
 }
