@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
+using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
@@ -37,29 +38,28 @@ internal static class TestRunCommandResultFactory
                 Errors: Array.Empty<CommandError>());
         }
 
-        return new CommandResult(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            Command: UcliCommandNames.TestRun,
-            Status: IpcProtocol.StatusError,
-            ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(serviceResult.Outcome),
-            Message: serviceResult.Message,
-            Payload: payload,
-            Errors:
+        return CommandFailureProjector.Create(
+            UcliCommandNames.TestRun,
+            serviceResult.Message,
+            payload,
             [
-                new CommandError(
-                    ResolveErrorCode(serviceResult.ErrorCode),
-                    serviceResult.Message,
-                    null),
+                CreateFailure(serviceResult),
             ]);
     }
 
-    /// <summary> Resolves one command error-code value with internal fallback. </summary>
-    /// <param name="errorCode"> The source error code. </param>
-    /// <returns> The source value when present; otherwise <c>INTERNAL_ERROR</c>. </returns>
-    private static UcliErrorCode ResolveErrorCode (UcliErrorCode? errorCode)
+    private static ApplicationFailure CreateFailure (TestRunServiceResult serviceResult)
     {
-        return !errorCode.HasValue || !errorCode.Value.IsValid
-            ? UcliCoreErrorCodes.InternalError
-            : errorCode.Value;
+        var errorCode = serviceResult.ErrorCode.HasValue && serviceResult.ErrorCode.Value.IsValid
+            ? serviceResult.ErrorCode.Value
+            : UcliCoreErrorCodes.InternalError;
+        return serviceResult.ErrorKind switch
+        {
+            TestRunErrorKind.InvalidInput => ApplicationFailure.InvalidInput(serviceResult.Message, errorCode),
+            TestRunErrorKind.InfraError => ApplicationFailure.ExternalProcessFailure(
+                serviceResult.Message,
+                errorCode,
+                outcome: ApplicationOutcome.InfrastructureError),
+            _ => ApplicationFailure.ExternalProcessFailure(serviceResult.Message, errorCode),
+        };
     }
 }

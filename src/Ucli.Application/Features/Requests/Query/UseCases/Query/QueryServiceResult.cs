@@ -10,7 +10,7 @@ internal sealed record QueryServiceResult
         string commandName,
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
-        IReadOnlyList<OperationExecutionError> errors,
+        IReadOnlyList<ApplicationFailure> errors,
         ApplicationOutcome outcome,
         string message,
         ReadIndexInfo readIndex)
@@ -34,7 +34,7 @@ internal sealed record QueryServiceResult
     public IReadOnlyList<OperationExecutionOperationResult> OpResults { get; }
 
     /// <summary> Gets the machine-readable error list. </summary>
-    public IReadOnlyList<OperationExecutionError> Errors { get; }
+    public IReadOnlyList<ApplicationFailure> Errors { get; }
 
     /// <summary> Gets the application outcome associated with this result. </summary>
     public ApplicationOutcome Outcome { get; }
@@ -77,8 +77,7 @@ internal sealed record QueryServiceResult
         string commandName,
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
-        IReadOnlyList<OperationExecutionError> errors,
-        ApplicationOutcome outcome,
+        IReadOnlyList<ApplicationFailure> errors,
         string message,
         ReadIndexInfo readIndex)
     {
@@ -87,13 +86,14 @@ internal sealed record QueryServiceResult
         ArgumentNullException.ThrowIfNull(opResults);
         ArgumentNullException.ThrowIfNull(readIndex);
         RequestServiceResultPolicy.ValidateFailureMessage(message);
+        var failureErrors = RequestServiceResultPolicy.RequireFailureErrors(errors);
 
         return new QueryServiceResult(
             commandName,
             requestId,
             opResults,
-            RequestServiceResultPolicy.RequireFailureErrors(errors, outcome),
-            outcome,
+            failureErrors,
+            RequestServiceResultPolicy.ResolveFailureOutcome(failureErrors),
             message,
             readIndex);
     }

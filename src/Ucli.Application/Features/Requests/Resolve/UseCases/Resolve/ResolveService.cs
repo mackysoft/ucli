@@ -192,7 +192,6 @@ internal sealed class ResolveService : IResolveService
                 [
                     failure.Error,
                 ],
-                failure.Outcome,
                 readIndex);
         }
 
@@ -208,8 +207,7 @@ internal sealed class ResolveService : IResolveService
         return ResolveServiceResultFactory.Failure(
             requestId,
             convertedResponse.OpResults,
-            convertedResponse.Errors,
-            convertedResponse.Outcome,
+            RequestServiceResultPolicy.FromOperationErrors(convertedResponse.Errors, "uCLI resolve failed."),
             readIndex);
     }
 

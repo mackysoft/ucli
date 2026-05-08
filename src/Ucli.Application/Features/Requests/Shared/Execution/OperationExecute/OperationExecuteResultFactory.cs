@@ -40,7 +40,6 @@ internal static class OperationExecuteResultFactory
             [
                 executionError,
             ],
-            RequestServiceResultPolicy.ResolveOutcome(error),
             failureMessage);
     }
 
@@ -60,7 +59,6 @@ internal static class OperationExecuteResultFactory
             requestId,
             [],
             RequestServiceResultPolicy.FromValidationErrors(validationErrors),
-            ApplicationOutcome.InvalidArgument,
             failureMessage);
     }
 
@@ -83,21 +81,18 @@ internal static class OperationExecuteResultFactory
     /// <param name="requestId"> The request identifier. </param>
     /// <param name="opResults"> The per-step execution results. </param>
     /// <param name="errors"> The machine-readable error list. </param>
-    /// <param name="outcome"> The associated application outcome. </param>
     /// <param name="readPostcondition"> The emitted mutation read-postcondition payload. </param>
     /// <returns> The normalized operation execution result. </returns>
     public static OperationExecuteResult Failure (
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
-        IReadOnlyList<OperationExecutionError> errors,
-        ApplicationOutcome outcome,
+        IReadOnlyList<ApplicationFailure> errors,
         OperationExecutionReadPostcondition? readPostcondition = null)
     {
         return Failure(
             requestId,
             opResults,
             errors,
-            outcome,
             failureMessage: null,
             readPostcondition);
     }
@@ -106,15 +101,13 @@ internal static class OperationExecuteResultFactory
     /// <param name="requestId"> The request identifier. </param>
     /// <param name="opResults"> The per-step execution results. </param>
     /// <param name="errors"> The machine-readable error list. </param>
-    /// <param name="outcome"> The associated application outcome. </param>
     /// <param name="failureMessage"> The fallback user-facing failure message. </param>
     /// <param name="readPostcondition"> The emitted mutation read-postcondition payload. </param>
     /// <returns> The normalized operation execution result. </returns>
     public static OperationExecuteResult Failure (
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
-        IReadOnlyList<OperationExecutionError> errors,
-        ApplicationOutcome outcome,
+        IReadOnlyList<ApplicationFailure> errors,
         string? failureMessage,
         OperationExecutionReadPostcondition? readPostcondition = null)
     {
@@ -125,7 +118,6 @@ internal static class OperationExecuteResultFactory
             requestId,
             opResults,
             errors,
-            outcome,
             RequestServiceResultPolicy.ResolveFailureMessage(errors, failureMessage ?? DefaultFailureMessage),
             readPostcondition);
     }

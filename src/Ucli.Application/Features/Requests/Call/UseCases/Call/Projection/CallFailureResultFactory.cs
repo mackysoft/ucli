@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
-using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call.Projection;
@@ -27,7 +26,6 @@ internal static class CallFailureResultFactory
             [
                 executionError,
             ],
-            RequestServiceResultPolicy.ResolveOutcome(error, errorCode),
             output);
     }
 
@@ -42,7 +40,6 @@ internal static class CallFailureResultFactory
         return CallServiceResult.Failure(
             "Static validation failed.",
             RequestServiceResultPolicy.FromValidationErrors(validationErrors),
-            ApplicationOutcome.InvalidArgument,
             output);
     }
 }

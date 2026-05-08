@@ -219,12 +219,10 @@ public sealed class ResolveCommandTests
             "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
             [],
             [
-                new OperationExecutionError(
-                    Code: UcliCoreErrorCodes.InternalError,
-                    Message: "Unity execution failed.",
-                    OpId: "resolve"),
+                ApplicationFailure.InternalError(
+                    "Unity execution failed.",
+                    opId: "resolve"),
             ],
-            ApplicationOutcome.ToolError,
             new ReadIndexInfo(
                 Used: true,
                 Hit: true,

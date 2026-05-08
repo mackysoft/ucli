@@ -26,8 +26,7 @@ internal static class CallCommandResultFactory
             UcliCommandNames.Call,
             serviceResult.Message,
             payload,
-            serviceResult.Errors,
-            serviceResult.Outcome);
+            serviceResult.Errors);
     }
 
     private static object CreatePayload (CallExecutionOutput? output)

@@ -1,6 +1,4 @@
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Execution;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
@@ -14,28 +12,13 @@ internal static class RequestCommandFailureResultFactory
         string command,
         string message,
         object payload,
-        IReadOnlyList<OperationExecutionError> errors,
-        ApplicationOutcome outcome)
+        IReadOnlyList<ApplicationFailure> errors)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(command);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         ArgumentNullException.ThrowIfNull(payload);
         ArgumentNullException.ThrowIfNull(errors);
 
-        var commandErrors = new CommandError[errors.Count];
-        for (var i = 0; i < errors.Count; i++)
-        {
-            var error = errors[i];
-            commandErrors[i] = new CommandError(error.Code, error.Message, error.OpId);
-        }
-
-        return new CommandResult(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            Command: command,
-            Status: IpcProtocol.StatusError,
-            ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(outcome),
-            Message: message,
-            Payload: payload,
-            Errors: commandErrors);
+        return CommandFailureProjector.Create(command, message, payload, errors);
     }
 }

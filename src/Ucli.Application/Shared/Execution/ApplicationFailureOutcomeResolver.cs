@@ -15,6 +15,67 @@ internal static class ApplicationFailureOutcomeResolver
             : ApplicationOutcome.ToolError;
     }
 
+    /// <summary> Resolves the application outcome represented by one failure collection. </summary>
+    /// <param name="failures"> The classified failures. </param>
+    /// <returns> The application outcome represented by the collection. </returns>
+    public static ApplicationOutcome Resolve (IReadOnlyList<ApplicationFailure> failures)
+    {
+        ArgumentNullException.ThrowIfNull(failures);
+
+        if (failures.Count == 0)
+        {
+            return ApplicationOutcome.Success;
+        }
+
+        var hasInvalidArgument = false;
+        var hasInfrastructureError = false;
+        var hasTestFailure = false;
+        var hasToolError = false;
+        for (var i = 0; i < failures.Count; i++)
+        {
+            var failure = failures[i];
+            if (failure == null)
+            {
+                throw new ArgumentException("Failure collection must not contain null entries.", nameof(failures));
+            }
+
+            switch (failure.Outcome)
+            {
+                case ApplicationOutcome.InvalidArgument:
+                    hasInvalidArgument = true;
+                    break;
+                case ApplicationOutcome.InfrastructureError:
+                    hasInfrastructureError = true;
+                    break;
+                case ApplicationOutcome.TestFailure:
+                    hasTestFailure = true;
+                    break;
+                case ApplicationOutcome.ToolError:
+                    hasToolError = true;
+                    break;
+                default:
+                    throw new ArgumentException("Failure outcome must not be success.", nameof(failures));
+            }
+        }
+
+        if (hasToolError || CountTrue(hasInvalidArgument, hasInfrastructureError, hasTestFailure) > 1)
+        {
+            return ApplicationOutcome.ToolError;
+        }
+
+        if (hasInvalidArgument)
+        {
+            return ApplicationOutcome.InvalidArgument;
+        }
+
+        if (hasInfrastructureError)
+        {
+            return ApplicationOutcome.InfrastructureError;
+        }
+
+        return ApplicationOutcome.TestFailure;
+    }
+
     /// <summary> Returns whether the failure code represents a caller-correctable invalid argument. </summary>
     /// <param name="errorCode"> The machine-readable failure code. </param>
     /// <returns> <see langword="true" /> when the code maps to <see cref="ApplicationOutcome.InvalidArgument" />; otherwise <see langword="false" />. </returns>
@@ -28,5 +89,29 @@ internal static class ApplicationFailureOutcomeResolver
             || errorCode == PlanTokenErrorCodes.StateChangedSincePlan
             || ValidationErrorCodes.Contains(errorCode)
             || ProjectContextErrorCodes.Contains(errorCode);
+    }
+
+    private static int CountTrue (
+        bool first,
+        bool second,
+        bool third)
+    {
+        var count = 0;
+        if (first)
+        {
+            count++;
+        }
+
+        if (second)
+        {
+            count++;
+        }
+
+        if (third)
+        {
+            count++;
+        }
+
+        return count;
     }
 }

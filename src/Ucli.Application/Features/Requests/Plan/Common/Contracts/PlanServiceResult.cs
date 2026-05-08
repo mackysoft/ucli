@@ -9,7 +9,7 @@ internal sealed record PlanServiceResult
     private PlanServiceResult (
         PlanExecutionOutput? output,
         string message,
-        IReadOnlyList<OperationExecutionError> errors,
+        IReadOnlyList<ApplicationFailure> errors,
         ApplicationOutcome outcome)
     {
         Output = output;
@@ -25,7 +25,7 @@ internal sealed record PlanServiceResult
     public string Message { get; }
 
     /// <summary> Gets the machine-readable error list. </summary>
-    public IReadOnlyList<OperationExecutionError> Errors { get; }
+    public IReadOnlyList<ApplicationFailure> Errors { get; }
 
     /// <summary> Gets the application outcome associated with this result. </summary>
     public ApplicationOutcome Outcome { get; }
@@ -52,20 +52,19 @@ internal sealed record PlanServiceResult
     /// <summary> Creates a failed service result. </summary>
     /// <param name="message"> The failure message. </param>
     /// <param name="errors"> The machine-readable failure errors. </param>
-    /// <param name="outcome"> The associated application outcome. </param>
     /// <param name="output"> The available output payload. </param>
     /// <returns> The failed result. </returns>
     public static PlanServiceResult Failure (
         string message,
-        IReadOnlyList<OperationExecutionError> errors,
-        ApplicationOutcome outcome,
+        IReadOnlyList<ApplicationFailure> errors,
         PlanExecutionOutput? output = null)
     {
         RequestServiceResultPolicy.ValidateFailureMessage(message);
+        var failureErrors = RequestServiceResultPolicy.RequireFailureErrors(errors);
         return new PlanServiceResult(
             output,
             message,
-            RequestServiceResultPolicy.RequireFailureErrors(errors, outcome),
-            outcome);
+            failureErrors,
+            RequestServiceResultPolicy.ResolveFailureOutcome(failureErrors));
     }
 }

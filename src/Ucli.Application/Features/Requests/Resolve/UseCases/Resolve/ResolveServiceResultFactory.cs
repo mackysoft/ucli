@@ -35,7 +35,6 @@ internal static class ResolveServiceResultFactory
             [
                 executionError,
             ],
-            RequestServiceResultPolicy.ResolveOutcome(error),
             readIndex ?? ReadIndexInfoFactory.Unity(fallbackReason: null));
     }
 
@@ -51,7 +50,6 @@ internal static class ResolveServiceResultFactory
             requestId,
             [],
             [normalizedError],
-            RequestServiceResultPolicy.ResolveOutcome(normalizedError.Code),
             readIndex);
     }
 
@@ -59,8 +57,7 @@ internal static class ResolveServiceResultFactory
     public static ResolveServiceResult Failure (
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
-        IReadOnlyList<OperationExecutionError> errors,
-        ApplicationOutcome outcome,
+        IReadOnlyList<ApplicationFailure> errors,
         ReadIndexInfo readIndex)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
@@ -71,7 +68,6 @@ internal static class ResolveServiceResultFactory
             requestId,
             opResults,
             errors,
-            outcome,
             RequestServiceResultPolicy.ResolveFailureMessage(errors, FailureMessage),
             readIndex);
     }

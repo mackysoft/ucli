@@ -27,8 +27,7 @@ internal static class PlanCommandResultFactory
             UcliCommandNames.Plan,
             serviceResult.Message,
             payload,
-            serviceResult.Errors,
-            serviceResult.Outcome);
+            serviceResult.Errors);
     }
 
     private static object CreatePayload (PlanExecutionOutput? output)

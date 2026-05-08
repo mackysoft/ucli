@@ -105,7 +105,6 @@ internal sealed class PlanService : IPlanService
                 [
                     failure.Error,
                 ],
-                failure.Outcome,
                 baseOutput);
         }
 
@@ -116,10 +115,10 @@ internal sealed class PlanService : IPlanService
         };
         if (!convertedResponse.IsSuccess)
         {
+            var failures = RequestServiceResultPolicy.FromOperationErrors(convertedResponse.Errors, "uCLI plan failed.");
             return PlanServiceResult.Failure(
-                RequestServiceResultPolicy.ResolveFailureMessage(convertedResponse.Errors, "uCLI plan failed."),
-                convertedResponse.Errors,
-                convertedResponse.Outcome,
+                RequestServiceResultPolicy.ResolveFailureMessage(failures, "uCLI plan failed."),
+                failures,
                 executionOutput);
         }
 

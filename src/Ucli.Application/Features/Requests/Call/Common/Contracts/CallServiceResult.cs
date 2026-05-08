@@ -9,7 +9,7 @@ internal sealed record CallServiceResult
     private CallServiceResult (
         CallExecutionOutput? output,
         string message,
-        IReadOnlyList<OperationExecutionError> errors,
+        IReadOnlyList<ApplicationFailure> errors,
         ApplicationOutcome outcome)
     {
         Output = output;
@@ -25,7 +25,7 @@ internal sealed record CallServiceResult
     public string Message { get; }
 
     /// <summary> Gets the machine-readable error list. </summary>
-    public IReadOnlyList<OperationExecutionError> Errors { get; }
+    public IReadOnlyList<ApplicationFailure> Errors { get; }
 
     /// <summary> Gets the application outcome associated with this result. </summary>
     public ApplicationOutcome Outcome { get; }
@@ -52,20 +52,19 @@ internal sealed record CallServiceResult
     /// <summary> Creates a failed service result. </summary>
     /// <param name="message"> The failure message. </param>
     /// <param name="errors"> The machine-readable failure errors. </param>
-    /// <param name="outcome"> The associated application outcome. </param>
     /// <param name="output"> The available output payload. </param>
     /// <returns> The failed result. </returns>
     public static CallServiceResult Failure (
         string message,
-        IReadOnlyList<OperationExecutionError> errors,
-        ApplicationOutcome outcome,
+        IReadOnlyList<ApplicationFailure> errors,
         CallExecutionOutput? output = null)
     {
         RequestServiceResultPolicy.ValidateFailureMessage(message);
+        var failureErrors = RequestServiceResultPolicy.RequireFailureErrors(errors);
         return new CallServiceResult(
             output,
             message,
-            RequestServiceResultPolicy.RequireFailureErrors(errors, outcome),
-            outcome);
+            failureErrors,
+            RequestServiceResultPolicy.ResolveFailureOutcome(failureErrors));
     }
 }

@@ -21,9 +21,8 @@ public sealed class CallCommandResultFactoryTests
         var result = CallCommandResultFactory.Create(CallServiceResult.Failure(
             "Call failed.",
             [
-                new OperationExecutionError(UcliCoreErrorCodes.InternalError, "Call failed.", null),
+                ApplicationFailure.InternalError("Call failed."),
             ],
-            ApplicationOutcome.ToolError,
             new CallExecutionOutput(
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 OpResults: [],
@@ -46,10 +45,8 @@ public sealed class CallCommandResultFactoryTests
         var result = CallCommandResultFactory.Create(CallServiceResult.Failure(
             "Call failed.",
             [
-                new OperationExecutionError(UcliCoreErrorCodes.InternalError, "Call failed.", null),
-            ],
-            ApplicationOutcome.ToolError,
-            output: null));
+                ApplicationFailure.InternalError("Call failed."),
+            ]));
 
         using var json = JsonDocument.Parse(JsonSerializer.Serialize(result, SerializerOptions));
         Assert.False(json.RootElement.GetProperty("payload").EnumerateObject().MoveNext());

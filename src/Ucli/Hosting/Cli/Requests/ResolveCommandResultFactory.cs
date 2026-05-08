@@ -31,8 +31,7 @@ internal static class ResolveCommandResultFactory
             UcliCommandNames.Resolve,
             serviceResult.Message,
             payload,
-            serviceResult.Errors,
-            serviceResult.Outcome);
+            serviceResult.Errors);
     }
 
     /// <summary> Creates one command result for <c>resolve</c> from a normalized execution error. </summary>

@@ -9,7 +9,7 @@ internal sealed record OperationExecuteResult
     private OperationExecuteResult (
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
-        IReadOnlyList<OperationExecutionError> errors,
+        IReadOnlyList<ApplicationFailure> errors,
         ApplicationOutcome outcome,
         string message,
         OperationExecutionReadPostcondition? readPostcondition)
@@ -29,7 +29,7 @@ internal sealed record OperationExecuteResult
     public IReadOnlyList<OperationExecutionOperationResult> OpResults { get; }
 
     /// <summary> Gets the machine-readable error list. </summary>
-    public IReadOnlyList<OperationExecutionError> Errors { get; }
+    public IReadOnlyList<ApplicationFailure> Errors { get; }
 
     /// <summary> Gets the application outcome associated with this response. </summary>
     public ApplicationOutcome Outcome { get; }
@@ -67,20 +67,20 @@ internal sealed record OperationExecuteResult
     internal static OperationExecuteResult Failure (
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
-        IReadOnlyList<OperationExecutionError> errors,
-        ApplicationOutcome outcome,
+        IReadOnlyList<ApplicationFailure> errors,
         string message,
         OperationExecutionReadPostcondition? readPostcondition = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
         RequestServiceResultPolicy.ValidateFailureMessage(message);
+        var failureErrors = RequestServiceResultPolicy.RequireFailureErrors(errors);
 
         return new OperationExecuteResult(
             requestId,
             opResults,
-            RequestServiceResultPolicy.RequireFailureErrors(errors, outcome),
-            outcome,
+            failureErrors,
+            RequestServiceResultPolicy.ResolveFailureOutcome(failureErrors),
             message,
             readPostcondition);
     }

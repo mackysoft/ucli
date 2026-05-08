@@ -7,10 +7,10 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 /// <summary> Provides invariant checks for request service result models. </summary>
 internal static class RequestServiceResultPolicy
 {
-    private static readonly IReadOnlyList<OperationExecutionError> EmptyErrorList = Array.AsReadOnly(Array.Empty<OperationExecutionError>());
+    private static readonly IReadOnlyList<ApplicationFailure> EmptyFailureList = Array.AsReadOnly(Array.Empty<ApplicationFailure>());
 
-    /// <summary> Gets the canonical empty error collection for successful results. </summary>
-    public static IReadOnlyList<OperationExecutionError> EmptyErrors => EmptyErrorList;
+    /// <summary> Gets the canonical empty failure collection for successful results. </summary>
+    public static IReadOnlyList<ApplicationFailure> EmptyErrors => EmptyFailureList;
 
     /// <summary> Validates one success message. </summary>
     public static void ValidateSuccessMessage (string message)
@@ -26,7 +26,7 @@ internal static class RequestServiceResultPolicy
 
     /// <summary> Resolves one failure message from errors and a fallback message. </summary>
     public static string ResolveFailureMessage (
-        IReadOnlyList<OperationExecutionError> errors,
+        IReadOnlyList<ApplicationFailure> errors,
         string fallbackMessage)
     {
         ArgumentNullException.ThrowIfNull(errors);
@@ -44,6 +44,14 @@ internal static class RequestServiceResultPolicy
         return fallbackMessage;
     }
 
+    /// <summary> Resolves one failure message from raw operation errors and a fallback message. </summary>
+    public static string ResolveOperationFailureMessage (
+        IReadOnlyList<OperationExecutionError> errors,
+        string fallbackMessage)
+    {
+        return ResolveFailureMessage(FromOperationErrors(errors, fallbackMessage), fallbackMessage);
+    }
+
     /// <summary> Validates and returns one required success output payload. </summary>
     public static TOutput RequireSuccessOutput<TOutput> (
         TOutput? output,
@@ -54,23 +62,16 @@ internal static class RequestServiceResultPolicy
         return output;
     }
 
-    /// <summary> Validates one failure result and returns an immutable error snapshot. </summary>
-    public static IReadOnlyList<OperationExecutionError> RequireFailureErrors (
-        IReadOnlyList<OperationExecutionError> errors,
-        ApplicationOutcome outcome)
+    /// <summary> Validates one failure result and returns an immutable failure snapshot. </summary>
+    public static IReadOnlyList<ApplicationFailure> RequireFailureErrors (IReadOnlyList<ApplicationFailure> errors)
     {
         ArgumentNullException.ThrowIfNull(errors);
-        if (outcome == ApplicationOutcome.Success)
-        {
-            throw new ArgumentException("Failure outcome must not be success.", nameof(outcome));
-        }
-
         if (errors.Count == 0)
         {
             throw new ArgumentException("Failure errors must not be empty.", nameof(errors));
         }
 
-        var snapshot = new OperationExecutionError[errors.Count];
+        var snapshot = new ApplicationFailure[errors.Count];
         for (var i = 0; i < errors.Count; i++)
         {
             var error = errors[i];
@@ -85,36 +86,30 @@ internal static class RequestServiceResultPolicy
             }
 
             ArgumentException.ThrowIfNullOrWhiteSpace(error.Message, nameof(errors));
-            snapshot[i] = error;
-        }
+            if (error.Outcome == ApplicationOutcome.Success)
+            {
+                throw new ArgumentException("Failure outcome must not be success.", nameof(errors));
+            }
 
-        var resolvedOutcome = ResolveOutcome(snapshot);
-        if (outcome != resolvedOutcome)
-        {
-            throw new ArgumentException("Failure outcome must match the failure error codes.", nameof(outcome));
+            snapshot[i] = error;
         }
 
         return Array.AsReadOnly(snapshot);
     }
 
-    /// <summary> Creates one operation execution error from a structured execution error. </summary>
-    public static OperationExecutionError FromExecutionError (
+    /// <summary> Creates one application failure from a structured execution error. </summary>
+    public static ApplicationFailure FromExecutionError (
         ExecutionError error,
         UcliErrorCode? errorCode = null)
     {
         ArgumentNullException.ThrowIfNull(error);
         ArgumentException.ThrowIfNullOrWhiteSpace(error.Message, nameof(error));
 
-        return new OperationExecutionError(
-            errorCode.HasValue && errorCode.Value.IsValid
-                ? errorCode.Value
-                : ExecutionErrorCodeMapper.ToCode(error),
-            error.Message,
-            null);
+        return ApplicationFailure.FromExecutionError(error, errorCode);
     }
 
-    /// <summary> Creates one operation execution error from a transport failure. </summary>
-    public static OperationExecutionError FromTransportFailure (
+    /// <summary> Creates one application failure from a transport failure. </summary>
+    public static ApplicationFailure FromTransportFailure (
         UcliErrorCode? errorCode,
         string? message,
         string? opId = null,
@@ -128,7 +123,7 @@ internal static class RequestServiceResultPolicy
             normalizedMessage = "Request execution failed.";
         }
 
-        return new OperationExecutionError(
+        return ApplicationFailure.FromCode(
             ResolveErrorCode(errorCode),
             normalizedMessage,
             opId);
@@ -139,15 +134,18 @@ internal static class RequestServiceResultPolicy
     {
         ArgumentNullException.ThrowIfNull(failure);
 
-        return new RequestServiceFailure(
-            FromTransportFailure(
-                failure.Code,
-                failure.Message),
-            failure.Outcome);
+        var kind = failure.Code == ExecutionErrorCodes.IpcTimeout
+            ? ApplicationFailureKind.Timeout
+            : ApplicationFailureKind.UnityIpcFailure;
+        return new RequestServiceFailure(ApplicationFailure.Create(
+            kind,
+            failure.Message,
+            failure.Code,
+            outcome: failure.Outcome));
     }
 
     /// <summary> Normalizes one operation execution error from an external result boundary. </summary>
-    public static OperationExecutionError NormalizeError (
+    public static ApplicationFailure NormalizeError (
         OperationExecutionError error,
         string fallbackMessage)
     {
@@ -158,14 +156,34 @@ internal static class RequestServiceResultPolicy
             : error.Message;
         ArgumentException.ThrowIfNullOrWhiteSpace(message, nameof(fallbackMessage));
 
-        return new OperationExecutionError(
+        return ApplicationFailure.FromCode(
             ResolveErrorCode(error.Code),
             message,
             error.OpId);
     }
 
-    /// <summary> Converts static validation errors into operation execution errors. </summary>
-    public static IReadOnlyList<OperationExecutionError> FromValidationErrors (
+    /// <summary> Converts raw operation execution errors into application failures. </summary>
+    public static IReadOnlyList<ApplicationFailure> FromOperationErrors (
+        IReadOnlyList<OperationExecutionError> errors,
+        string fallbackMessage)
+    {
+        ArgumentNullException.ThrowIfNull(errors);
+        if (errors.Count == 0)
+        {
+            throw new ArgumentException("Operation errors must not be empty.", nameof(errors));
+        }
+
+        var failures = new ApplicationFailure[errors.Count];
+        for (var i = 0; i < errors.Count; i++)
+        {
+            failures[i] = NormalizeError(errors[i], fallbackMessage);
+        }
+
+        return failures;
+    }
+
+    /// <summary> Converts static validation errors into application failures. </summary>
+    public static IReadOnlyList<ApplicationFailure> FromValidationErrors (
         IReadOnlyList<ValidationError> validationErrors)
     {
         ArgumentNullException.ThrowIfNull(validationErrors);
@@ -174,7 +192,7 @@ internal static class RequestServiceResultPolicy
             throw new ArgumentException("Validation errors must not be empty.", nameof(validationErrors));
         }
 
-        var errors = new OperationExecutionError[validationErrors.Count];
+        var errors = new ApplicationFailure[validationErrors.Count];
         for (var i = 0; i < validationErrors.Count; i++)
         {
             var validationError = validationErrors[i];
@@ -189,13 +207,19 @@ internal static class RequestServiceResultPolicy
             }
 
             ArgumentException.ThrowIfNullOrWhiteSpace(validationError.Message, nameof(validationErrors));
-            errors[i] = new OperationExecutionError(validationError.Code, validationError.Message, validationError.OpId);
+            errors[i] = ApplicationFailure.InvalidInput(validationError.Message, validationError.Code, validationError.OpId);
         }
 
         return errors;
     }
 
-    /// <summary> Resolves the application outcome for one machine-readable error collection. </summary>
+    /// <summary> Resolves the application outcome for one application failure collection. </summary>
+    public static ApplicationOutcome ResolveFailureOutcome (IReadOnlyList<ApplicationFailure> errors)
+    {
+        return ApplicationFailureOutcomeResolver.Resolve(errors);
+    }
+
+    /// <summary> Resolves the application outcome for one raw operation error collection. </summary>
     public static ApplicationOutcome ResolveOutcome (IReadOnlyList<OperationExecutionError> errors)
     {
         ArgumentNullException.ThrowIfNull(errors);
@@ -224,9 +248,7 @@ internal static class RequestServiceResultPolicy
         UcliErrorCode? errorCode = null)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return ResolveOutcome(errorCode.HasValue && errorCode.Value.IsValid
-            ? errorCode.Value
-            : ExecutionErrorCodeMapper.ToCode(error));
+        return FromExecutionError(error, errorCode).Outcome;
     }
 
     /// <summary> Resolves the application outcome for one machine-readable error code. </summary>

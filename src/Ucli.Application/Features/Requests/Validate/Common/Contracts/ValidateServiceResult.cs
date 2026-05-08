@@ -10,7 +10,7 @@ internal sealed record ValidateServiceResult
     private ValidateServiceResult (
         ValidateExecutionOutput? output,
         string message,
-        IReadOnlyList<OperationExecutionError> errors,
+        IReadOnlyList<ApplicationFailure> errors,
         ApplicationOutcome outcome)
     {
         Output = output;
@@ -26,7 +26,7 @@ internal sealed record ValidateServiceResult
     public string Message { get; }
 
     /// <summary> Gets the machine-readable error list. </summary>
-    public IReadOnlyList<OperationExecutionError> Errors { get; }
+    public IReadOnlyList<ApplicationFailure> Errors { get; }
 
     /// <summary> Gets the application outcome associated with this result. </summary>
     public ApplicationOutcome Outcome { get; }
@@ -62,11 +62,12 @@ internal sealed record ValidateServiceResult
     {
         var errors = RequestServiceResultPolicy.FromValidationErrors(validationErrors);
         RequestServiceResultPolicy.ValidateFailureMessage(message);
+        var failureErrors = RequestServiceResultPolicy.RequireFailureErrors(errors);
         return new ValidateServiceResult(
             output,
             message,
-            RequestServiceResultPolicy.RequireFailureErrors(errors, ApplicationOutcome.InvalidArgument),
-            ApplicationOutcome.InvalidArgument);
+            failureErrors,
+            RequestServiceResultPolicy.ResolveFailureOutcome(failureErrors));
     }
 
     /// <summary> Creates an infrastructure failure result. </summary>
@@ -81,11 +82,11 @@ internal sealed record ValidateServiceResult
     {
         RequestServiceResultPolicy.ValidateFailureMessage(message);
         var error = RequestServiceResultPolicy.FromTransportFailure(errorCode, message);
-        var outcome = RequestServiceResultPolicy.ResolveOutcome(error.Code);
+        var errors = RequestServiceResultPolicy.RequireFailureErrors([error]);
         return new ValidateServiceResult(
             output,
             message,
-            RequestServiceResultPolicy.RequireFailureErrors([error], outcome),
-            outcome);
+            errors,
+            RequestServiceResultPolicy.ResolveFailureOutcome(errors));
     }
 }

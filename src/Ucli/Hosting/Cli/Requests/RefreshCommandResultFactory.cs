@@ -36,8 +36,7 @@ internal static class RefreshCommandResultFactory
             UcliCommandNames.Refresh,
             executionResult.Message,
             payload,
-            executionResult.Errors,
-            executionResult.Outcome);
+            executionResult.Errors);
     }
 
     /// <summary> Creates one command result for <c>refresh</c> from a normalized execution error. </summary>

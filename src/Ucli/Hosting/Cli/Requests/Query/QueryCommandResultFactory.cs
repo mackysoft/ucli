@@ -31,8 +31,7 @@ internal static class QueryCommandResultFactory
             serviceResult.CommandName,
             serviceResult.Message,
             payload,
-            serviceResult.Errors,
-            serviceResult.Outcome);
+            serviceResult.Errors);
     }
 
     /// <summary> Creates one command result for a typed-query command from a normalized execution error. </summary>
