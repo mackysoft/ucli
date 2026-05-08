@@ -43,6 +43,7 @@ public sealed class SupervisorProjectCoordinatorTests
         var result = await coordinator.EnsureRunning(
                 unityProject,
                 TimeSpan.FromMilliseconds(500),
+                editorMode: null,
                 CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -84,6 +85,7 @@ public sealed class SupervisorProjectCoordinatorTests
         var result = await coordinator.EnsureRunning(
                 unityProject,
                 TimeSpan.FromMilliseconds(500),
+                editorMode: null,
                 CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -137,6 +139,7 @@ public sealed class SupervisorProjectCoordinatorTests
         var ensureRunningTask = coordinator.EnsureRunning(
                 unityProject,
                 TimeSpan.FromMilliseconds(500),
+                editorMode: null,
                 cancellationTokenSource.Token)
             .AsTask();
         try
@@ -214,7 +217,8 @@ public sealed class SupervisorProjectCoordinatorTests
             var result = await coordinator.EnsureRunning(
                     unityProject,
                     TimeSpan.FromMilliseconds(70),
-                    CancellationToken.None);
+                    editorMode: null,
+                CancellationToken.None);
 
             Assert.False(result.IsSuccess);
             Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
@@ -269,7 +273,8 @@ public sealed class SupervisorProjectCoordinatorTests
             var result = await coordinator.EnsureRunning(
                     unityProject,
                     TimeSpan.FromMilliseconds(500),
-                    CancellationToken.None);
+                    editorMode: null,
+                CancellationToken.None);
 
             Assert.False(result.IsSuccess);
             Assert.Equal(ExecutionErrorKind.InternalError, result.Error!.Kind);
@@ -331,7 +336,8 @@ public sealed class SupervisorProjectCoordinatorTests
             var ensureRunningResult = await coordinator.EnsureRunning(
                     unityProject,
                     TimeSpan.FromMilliseconds(70),
-                    CancellationToken.None);
+                    editorMode: null,
+                CancellationToken.None);
             Assert.False(ensureRunningResult.IsSuccess);
             Assert.Equal(ExecutionErrorKind.Timeout, ensureRunningResult.Error!.Kind);
             await TestAwaiter.WaitAsync(stopStarted.Task, "Daemon stop failure compensation start", SignalWaitTimeout);
@@ -393,6 +399,7 @@ public sealed class SupervisorProjectCoordinatorTests
         var ensureRunningResult = await coordinator.EnsureRunning(
                 unityProject,
                 TimeSpan.FromMilliseconds(500),
+                editorMode: null,
                 CancellationToken.None);
         Assert.True(ensureRunningResult.IsSuccess);
 
@@ -449,7 +456,8 @@ public sealed class SupervisorProjectCoordinatorTests
             var ensureRunningResult = await coordinator.EnsureRunning(
                     unityProject,
                     TimeSpan.FromMilliseconds(500),
-                    CancellationToken.None);
+                    editorMode: null,
+                CancellationToken.None);
             Assert.True(ensureRunningResult.IsSuccess);
 
             StopProcess(process);
@@ -492,6 +500,7 @@ public sealed class SupervisorProjectCoordinatorTests
         var ensureRunningResult = await coordinator.EnsureRunning(
                 unityProject,
                 TimeSpan.FromMilliseconds(500),
+                editorMode: null,
                 CancellationToken.None);
         Assert.True(ensureRunningResult.IsSuccess);
         Assert.True(coordinator.HasManagedProjects);
@@ -554,8 +563,8 @@ public sealed class SupervisorProjectCoordinatorTests
             SessionToken: "session-token",
             ProjectFingerprint: "fingerprint",
             IssuedAtUtc: new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero),
-            RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindSupervisor,
+            EditorMode: DaemonSession.EditorModeBatchmode,
+            OwnerKind: DaemonSession.OwnerKindCli,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-endpoint",
@@ -608,6 +617,7 @@ public sealed class SupervisorProjectCoordinatorTests
         public ValueTask<DaemonStartResult> Start (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
+            DaemonEditorMode? editorMode,
             CancellationToken cancellationToken = default)
         {
             return ValueTask.FromResult(StartResult);

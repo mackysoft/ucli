@@ -301,6 +301,7 @@ public sealed class UnityDaemonReadinessGateTests
             ServerVersion: "1.0.0",
             Runtime: IpcEditorRuntimeCodec.Batchmode,
             UnityVersion: "2023.2.22f1",
+            ProjectFingerprint: "project-fingerprint",
             CompileState: IpcCompileStateCodec.Ready,
             LifecycleState: lifecycleState,
             BlockingReason: canAcceptExecutionRequests ? null : IpcEditorBlockingReasonCodec.Busy,

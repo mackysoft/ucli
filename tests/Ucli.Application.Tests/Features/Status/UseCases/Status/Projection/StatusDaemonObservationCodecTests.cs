@@ -20,7 +20,7 @@ public sealed class StatusDaemonObservationCodecTests
         Assert.Null(actual.CompileGeneration);
         Assert.Null(actual.DomainReloadGeneration);
         Assert.False(actual.CanAcceptExecutionRequests);
-        Assert.Null(actual.Runtime);
+        Assert.Null(actual.EditorMode);
     }
 
     [Theory]
@@ -39,6 +39,7 @@ public sealed class StatusDaemonObservationCodecTests
             ServerVersion: " 0.5.0 ",
             Runtime: $" {IpcEditorRuntimeCodec.Batchmode} ",
             UnityVersion: "2022.3.5f1",
+            ProjectFingerprint: "project-fingerprint",
             CompileState: compileState,
             LifecycleState: " ready ",
             BlockingReason: " busy ",
@@ -58,7 +59,7 @@ public sealed class StatusDaemonObservationCodecTests
         Assert.Equal("42", actual.CompileGeneration);
         Assert.Equal("17", actual.DomainReloadGeneration);
         Assert.True(actual.CanAcceptExecutionRequests);
-        Assert.Equal(IpcEditorRuntimeCodec.Batchmode, actual.Runtime);
+        Assert.Equal(IpcEditorRuntimeCodec.Batchmode, actual.EditorMode);
     }
 
     [Fact]
@@ -69,6 +70,7 @@ public sealed class StatusDaemonObservationCodecTests
             ServerVersion: "0.5.0",
             Runtime: IpcEditorRuntimeCodec.Batchmode,
             UnityVersion: "2022.3.5f1",
+            ProjectFingerprint: "project-fingerprint",
             CompileState: "ready",
             LifecycleState: "unsupported",
             BlockingReason: "busy",
@@ -87,12 +89,13 @@ public sealed class StatusDaemonObservationCodecTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void CreateFromPing_WhenRuntimeIsUnsupported_ClearsRuntime ()
+    public void CreateFromPing_WhenRuntimeIsUnsupported_ClearsEditorMode ()
     {
         var pingResponse = new IpcPingResponse(
             ServerVersion: "0.5.0",
             Runtime: "unsupported",
             UnityVersion: "2022.3.5f1",
+            ProjectFingerprint: "project-fingerprint",
             CompileState: "ready",
             LifecycleState: "ready",
             BlockingReason: null,
@@ -104,7 +107,7 @@ public sealed class StatusDaemonObservationCodecTests
             DaemonStatusKind.Running,
             pingResponse);
 
-        Assert.Null(actual.Runtime);
+        Assert.Null(actual.EditorMode);
     }
 
     [Fact]
@@ -115,6 +118,7 @@ public sealed class StatusDaemonObservationCodecTests
             ServerVersion: "0.5.0",
             Runtime: IpcEditorRuntimeCodec.Batchmode,
             UnityVersion: "2022.3.5f1",
+            ProjectFingerprint: "project-fingerprint",
             CompileState: "ready",
             LifecycleState: "ready",
             BlockingReason: "busy",

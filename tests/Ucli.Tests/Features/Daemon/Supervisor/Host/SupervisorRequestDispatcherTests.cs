@@ -5,7 +5,9 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Ipc;
+using MackySoft.Ucli.Infrastructure.Project;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
@@ -76,7 +78,8 @@ public sealed class SupervisorRequestDispatcherTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: "bad\u0000path",
                         ProjectFingerprint: "fingerprint",
-                        TimeoutMilliseconds: 1000))));
+                        TimeoutMilliseconds: 1000,
+                        EditorMode: null))));
 
         Assert.Equal(IpcProtocol.StatusError, invalidResponse.Status);
         var invalidError = Assert.Single(invalidResponse.Errors);
@@ -117,7 +120,8 @@ public sealed class SupervisorRequestDispatcherTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: "mismatched-fingerprint",
-                        TimeoutMilliseconds: 1000))));
+                        TimeoutMilliseconds: 1000,
+                        EditorMode: null))));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -125,13 +129,75 @@ public sealed class SupervisorRequestDispatcherTests
         Assert.Contains("Project fingerprint does not match", error.Message, StringComparison.Ordinal);
     }
 
-    private static SupervisorRequestDispatcher CreateDispatcher ()
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenEditorModeIsSpecified_PassesNormalizedValueToStartOperation ()
+    {
+        var startOperation = new StubDaemonStartOperation();
+        var dispatcher = CreateDispatcher(startOperation);
+        var runtimeContext = CreateRuntimeContext();
+        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
+
+        var response = await SendRequest(
+            dispatcher,
+            runtimeContext,
+            new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "request-editor-mode",
+                SessionToken: runtimeContext.Manifest.SessionToken,
+                Method: SupervisorIpcContracts.EnsureRunningMethod,
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.EnsureRunningRequest(
+                        UnityProjectRoot: unityProjectRoot,
+                        ProjectFingerprint: projectFingerprint,
+                        TimeoutMilliseconds: 1000,
+                        EditorMode: " gui "))));
+
+        Assert.True(
+            string.Equals(IpcProtocol.StatusOk, response.Status, StringComparison.Ordinal),
+            string.Join(Environment.NewLine, response.Errors.Select(error => $"{error.Code.Value}: {error.Message}")));
+        Assert.Equal(DaemonEditorMode.Gui, startOperation.LastEditorMode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenEditorModeIsInvalid_ReturnsInvalidArgumentWithoutStartOperation ()
+    {
+        var startOperation = new StubDaemonStartOperation();
+        var dispatcher = CreateDispatcher(startOperation);
+        var runtimeContext = CreateRuntimeContext();
+        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
+
+        var response = await SendRequest(
+            dispatcher,
+            runtimeContext,
+            new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "request-invalid-editor-mode",
+                SessionToken: runtimeContext.Manifest.SessionToken,
+                Method: SupervisorIpcContracts.EnsureRunningMethod,
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.EnsureRunningRequest(
+                        UnityProjectRoot: unityProjectRoot,
+                        ProjectFingerprint: projectFingerprint,
+                        TimeoutMilliseconds: 1000,
+                        EditorMode: "unsupported"))));
+
+        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        var error = Assert.Single(response.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
+        Assert.Equal(0, startOperation.CallCount);
+    }
+
+    private static SupervisorRequestDispatcher CreateDispatcher (StubDaemonStartOperation? startOperation = null)
     {
         var activityTracker = new SupervisorActivityTracker();
         var diagnosisStore = new StubDaemonDiagnosisStore();
         var runtimeLogger = new SupervisorRuntimeLogger();
         var coordinator = new SupervisorProjectCoordinator(
-            new StubDaemonStartOperation(),
+            startOperation ?? new StubDaemonStartOperation(),
             new StubDaemonStopOperation(),
             new StubDaemonPingClient(),
             new DaemonReachabilityClassifier(),
@@ -164,7 +230,7 @@ public sealed class SupervisorRequestDispatcherTests
         SupervisorRuntimeContext runtimeContext,
         IpcRequest request)
     {
-        using var stream = new MemoryStream();
+        using var stream = new NonDisconnectingMemoryStream();
         await IpcFrameCodec.WriteModelAsync(
                 stream,
                 request,
@@ -182,14 +248,39 @@ public sealed class SupervisorRequestDispatcherTests
             .ConfigureAwait(false);
     }
 
+    private sealed class NonDisconnectingMemoryStream : MemoryStream
+    {
+        public override async ValueTask<int> ReadAsync (
+            Memory<byte> buffer,
+            CancellationToken cancellationToken = default)
+        {
+            if (Position < Length)
+            {
+                return await base.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+            }
+
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
+            return 0;
+        }
+    }
+
     private sealed class StubDaemonStartOperation : IDaemonStartOperation
     {
+        public DaemonStartResult StartResult { get; set; } = DaemonStartResult.AlreadyRunning(CreateSession());
+
+        public int CallCount { get; private set; }
+
+        public DaemonEditorMode? LastEditorMode { get; private set; }
+
         public ValueTask<DaemonStartResult> Start (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
+            DaemonEditorMode? editorMode,
             CancellationToken cancellationToken = default)
         {
-            return ValueTask.FromResult(DaemonStartResult.Started(CreateSession()));
+            CallCount++;
+            LastEditorMode = editorMode;
+            return ValueTask.FromResult(StartResult);
         }
     }
 
@@ -288,8 +379,8 @@ public sealed class SupervisorRequestDispatcherTests
             SessionToken: "session-token",
             ProjectFingerprint: "fingerprint",
             IssuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
-            RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindSupervisor,
+            EditorMode: DaemonSession.EditorModeBatchmode,
+            OwnerKind: DaemonSession.OwnerKindCli,
             CanShutdownProcess: true,
             EndpointTransportKind: "unixDomainSocket",
             EndpointAddress: "/tmp/ucli.sock",

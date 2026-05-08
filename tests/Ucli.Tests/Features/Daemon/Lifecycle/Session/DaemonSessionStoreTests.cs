@@ -38,7 +38,7 @@ public sealed class DaemonSessionStoreTests
         Assert.Equal(session.SchemaVersion, loadedSession.SchemaVersion);
         Assert.Equal(session.SessionToken, loadedSession.SessionToken);
         Assert.Equal(session.ProjectFingerprint, loadedSession.ProjectFingerprint);
-        Assert.Equal(session.RuntimeKind, loadedSession.RuntimeKind);
+        Assert.Equal(session.EditorMode, loadedSession.EditorMode);
         Assert.Equal(session.OwnerKind, loadedSession.OwnerKind);
         Assert.Equal(session.CanShutdownProcess, loadedSession.CanShutdownProcess);
         Assert.Equal(session.EndpointTransportKind, loadedSession.EndpointTransportKind);
@@ -193,15 +193,15 @@ public sealed class DaemonSessionStoreTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Write_WhenRuntimeKindIsNotBatchmode_ReturnsInvalidArgument ()
+    public async Task Write_WhenEditorModeIsUnsupported_ReturnsInvalidArgument ()
     {
-        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "invalid-runtime-kind");
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "invalid-editor-mode");
         var store = new DaemonSessionStore();
         var session = CreateSession(
-            projectFingerprint: "fingerprint-invalid-runtime-kind",
+            projectFingerprint: "fingerprint-invalid-editor-mode",
             sessionToken: "token-1") with
         {
-            RuntimeKind = "gui",
+            EditorMode = "unsupported",
         };
 
         var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
@@ -209,7 +209,7 @@ public sealed class DaemonSessionStoreTests
         Assert.False(writeResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(writeResult.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("runtimeKind", error.Message, StringComparison.Ordinal);
+        Assert.Contains("editorMode", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -262,14 +262,14 @@ public sealed class DaemonSessionStoreTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Read_WhenRuntimeKindIsNotBatchmode_ReturnsInvalidArgument ()
+    public async Task Read_WhenEditorModeIsUnsupported_ReturnsInvalidArgument ()
     {
-        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "read-invalid-runtime-kind");
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "read-invalid-editor-mode");
         var store = new DaemonSessionStore();
-        var requestedFingerprint = "fingerprint-read-invalid-runtime";
+        var requestedFingerprint = "fingerprint-read-invalid-editor-mode";
         var session = CreateSession(projectFingerprint: requestedFingerprint, sessionToken: "token-1") with
         {
-            RuntimeKind = "gui",
+            EditorMode = "unsupported",
         };
 
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, requestedFingerprint);
@@ -287,7 +287,50 @@ public sealed class DaemonSessionStoreTests
         Assert.Equal(DaemonSessionReadFailureKind.InvalidSession, readResult.FailureKind);
         var error = Assert.IsType<ExecutionError>(readResult.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("runtimeKind", error.Message, StringComparison.Ordinal);
+        Assert.Contains("editorMode", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Write_WhenOwnerKindIsUserAndCanShutdownProcessIsTrue_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "user-owner-can-shutdown-true");
+        var store = new DaemonSessionStore();
+        var session = CreateSession(
+            projectFingerprint: "fingerprint-user-owner-can-shutdown-true",
+            sessionToken: "token-1") with
+        {
+            EditorMode = DaemonSession.EditorModeGui,
+            OwnerKind = DaemonSession.OwnerKindUser,
+            CanShutdownProcess = true,
+        };
+
+        var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
+
+        Assert.False(writeResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(writeResult.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("canShutdownProcess=false", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Write_WhenGuiUserSessionCannotShutdownProcess_Succeeds ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "gui-user-owner");
+        var store = new DaemonSessionStore();
+        var session = CreateSession(
+            projectFingerprint: "fingerprint-gui-user-owner",
+            sessionToken: "token-1") with
+        {
+            EditorMode = DaemonSession.EditorModeGui,
+            OwnerKind = DaemonSession.OwnerKindUser,
+            CanShutdownProcess = false,
+        };
+
+        var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
+
+        Assert.True(writeResult.IsSuccess);
     }
 
     private static DaemonSession CreateSession (
@@ -299,8 +342,8 @@ public sealed class DaemonSessionStoreTests
             SessionToken: sessionToken,
             ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: DateTimeOffset.UtcNow,
-            RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindSupervisor,
+            EditorMode: DaemonSession.EditorModeBatchmode,
+            OwnerKind: DaemonSession.OwnerKindCli,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-test",

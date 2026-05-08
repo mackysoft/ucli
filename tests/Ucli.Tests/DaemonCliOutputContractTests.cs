@@ -43,7 +43,7 @@ public sealed class DaemonCliOutputContractTests
             .HasProperty("payload", payload => payload
                 .HasString("daemonStatus", "notRunning")
                 .IsNull("serverVersion")
-                .IsNull("runtime")
+                .IsNull("editorMode")
                 .IsNull("lifecycleState")
                 .IsNull("blockingReason")
                 .IsNull("compileState")
@@ -53,6 +53,7 @@ public sealed class DaemonCliOutputContractTests
                 .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcTimeoutDefaultDaemonStatusMilliseconds)
                 .IsNull("session")
                 .IsNull("diagnosis"));
+        Assert.False(outputJson.RootElement.GetProperty("payload").TryGetProperty("runtime", out _));
     }
 
     [Fact]
@@ -489,8 +490,8 @@ public sealed class DaemonCliOutputContractTests
                 sessionToken = "session-token",
                 projectFingerprint,
                 issuedAtUtc,
-                runtimeKind = DaemonSession.RuntimeKindBatchmode,
-                ownerKind = DaemonSession.OwnerKindSupervisor,
+                editorMode = DaemonSession.EditorModeBatchmode,
+                ownerKind = DaemonSession.OwnerKindCli,
                 canShutdownProcess = true,
                 endpointTransportKind = "namedPipe",
                 endpointAddress = "ucli-cleanup-test",

@@ -40,8 +40,8 @@ internal static class DaemonServiceTestContext
             SessionToken: "secret-token",
             ProjectFingerprint: "fingerprint",
             IssuedAtUtc: new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero),
-            RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindSupervisor,
+            EditorMode: DaemonSession.EditorModeBatchmode,
+            OwnerKind: DaemonSession.OwnerKindCli,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-endpoint",
@@ -54,7 +54,7 @@ internal static class DaemonServiceTestContext
         return new DaemonSessionOutput(
             ProjectFingerprint: "mapped-fingerprint",
             IssuedAtUtc: new DateTimeOffset(2026, 03, 05, 1, 2, 3, TimeSpan.Zero),
-            RuntimeKind: "mapped-runtime",
+            EditorMode: "mapped-editor-mode",
             OwnerKind: "mapped-owner",
             CanShutdownProcess: false,
             EndpointTransportKind: "mapped-transport",
@@ -200,16 +200,20 @@ internal static class DaemonServiceTestContext
 
         public TimeSpan LastTimeout { get; private set; }
 
+        public DaemonEditorMode? LastEditorMode { get; private set; }
+
         public CancellationToken LastCancellationToken { get; private set; }
 
         public ValueTask<DaemonStartResult> Start (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
+            DaemonEditorMode? editorMode,
             CancellationToken cancellationToken = default)
         {
             StartCallCount++;
             LastUnityProject = unityProject;
             LastTimeout = timeout;
+            LastEditorMode = editorMode;
             LastCancellationToken = cancellationToken;
             return ValueTask.FromResult(StartResult);
         }
@@ -246,6 +250,7 @@ internal static class DaemonServiceTestContext
             ServerVersion: "0.0.1",
             Runtime: "batchmode",
             UnityVersion: "6000.1.4f1",
+            ProjectFingerprint: "project-fingerprint",
             CompileState: IpcCompileStateCodec.Ready,
             LifecycleState: IpcEditorLifecycleStateCodec.Ready,
             BlockingReason: null,

@@ -88,6 +88,7 @@ public sealed class IpcDaemonPingClientTests
                     ServerVersion: "0.5.0",
                     Runtime: "batchmode",
                     UnityVersion: "2022.3.5f1",
+                    ProjectFingerprint: "project-fingerprint",
                     CompileState: "ready")));
         var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Success("resolved-token"));
         var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
@@ -139,6 +140,7 @@ public sealed class IpcDaemonPingClientTests
                     serverVersion = "0.5.0",
                     runtime = "batchmode",
                     unityVersion = "2022.3.5f1",
+                    projectFingerprint = "project-fingerprint",
                 }));
         var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Success("resolved-token"));
         var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);

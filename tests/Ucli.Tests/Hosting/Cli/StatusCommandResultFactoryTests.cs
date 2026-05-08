@@ -26,7 +26,7 @@ public sealed class StatusCommandResultFactoryTests
                 CompileGeneration: "12",
                 DomainReloadGeneration: "7",
                 CanAcceptExecutionRequests: false,
-                Runtime: "batchmode",
+                EditorMode: "batchmode",
                 TimeoutMilliseconds: 1234));
 
         var result = StatusCommandResultFactory.Create(executionResult);
@@ -47,8 +47,9 @@ public sealed class StatusCommandResultFactoryTests
             .HasString("compileGeneration", "12")
             .HasString("domainReloadGeneration", "7")
             .HasBoolean("canAcceptExecutionRequests", false)
-            .HasString("runtime", "batchmode")
+            .HasString("editorMode", "batchmode")
             .HasInt32("timeoutMilliseconds", 1234);
+        Assert.False(payload.TryGetProperty("runtime", out _));
     }
 
     [Fact]

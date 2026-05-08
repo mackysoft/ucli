@@ -25,6 +25,9 @@ public sealed class DaemonListCommandTests
             Reason: DaemonListItemReason.StaleSession,
             IssuedAtUtc: new DateTimeOffset(2026, 03, 09, 12, 0, 0, TimeSpan.Zero),
             ProcessId: 1234,
+            EditorMode: "batchmode",
+            OwnerKind: "cli",
+            CanShutdownProcess: true,
             EndpointTransportKind: "unixDomainSocket",
             EndpointAddress: "/tmp/ucli.sock",
             Diagnosis: new DaemonDiagnosisOutput(
@@ -67,6 +70,9 @@ public sealed class DaemonListCommandTests
                 .HasProperty("items", 0, staleItem => staleItem
                     .HasString("state", "stale")
                     .HasString("reason", "staleSession")
+                    .HasString("editorMode", "batchmode")
+                    .HasString("ownerKind", "cli")
+                    .HasBoolean("canShutdownProcess", true)
                     .HasProperty("diagnosis", diagnosis => diagnosis
                         .HasString("reason", "shutdownRequested")
                         .HasString("message", "daemon shutdown completed")
@@ -78,6 +84,8 @@ public sealed class DaemonListCommandTests
             .GetProperty("payload")
             .GetProperty("items")[0];
         Assert.False(itemJson.TryGetProperty("message", out _));
+        Assert.False(itemJson.TryGetProperty("runtime", out _));
+        Assert.False(itemJson.TryGetProperty("runtimeKind", out _));
     }
 
     private sealed class StubDaemonListService : IDaemonListService

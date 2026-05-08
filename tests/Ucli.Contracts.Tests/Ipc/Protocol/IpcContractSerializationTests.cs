@@ -179,6 +179,7 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("EDITOR_MODAL_BLOCKED", EditorLifecycleErrorCodes.EditorModalBlocked.Value);
         Assert.Equal("EDITOR_SAFE_MODE", EditorLifecycleErrorCodes.EditorSafeMode.Value);
         Assert.Equal("EDITOR_SHUTTING_DOWN", EditorLifecycleErrorCodes.EditorShuttingDown.Value);
+        Assert.Equal("DAEMON_EDITOR_MODE_MISMATCH", DaemonErrorCodes.DaemonEditorModeMismatch.Value);
         Assert.Equal("INTERNAL_ERROR", UcliCoreErrorCodes.InternalError.Value);
     }
 

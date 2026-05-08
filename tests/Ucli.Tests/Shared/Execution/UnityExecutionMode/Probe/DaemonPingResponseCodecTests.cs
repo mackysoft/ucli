@@ -8,7 +8,7 @@ public sealed class DaemonPingResponseCodecTests
     [Trait("Size", "Small")]
     public void TryValidateSuccessResponse_WhenResponseIsOk_ReturnsTrue ()
     {
-        var response = CreateResponse(IpcProtocol.StatusOk, Array.Empty<IpcError>(), new IpcPingResponse("0.5.0", "batchmode", "2022.3.5f1", "ready"));
+        var response = CreateResponse(IpcProtocol.StatusOk, Array.Empty<IpcError>(), CreatePayload());
 
         var result = DaemonPingResponseCodec.TryValidateSuccessResponse(response, out var error);
 
@@ -46,7 +46,12 @@ public sealed class DaemonPingResponseCodecTests
         var response = CreateResponse(
             IpcProtocol.StatusOk,
             Array.Empty<IpcError>(),
-            new IpcPingResponse(expectedServerVersion, expectedRuntime, expectedUnityVersion, expectedCompileState));
+            new IpcPingResponse(
+                ServerVersion: expectedServerVersion,
+                Runtime: expectedRuntime,
+                UnityVersion: expectedUnityVersion,
+                ProjectFingerprint: " project-fingerprint ",
+                CompileState: expectedCompileState));
 
         var result = DaemonPingResponseCodec.TryDecodePayload(response, out var payload, out var error);
 
@@ -80,7 +85,12 @@ public sealed class DaemonPingResponseCodecTests
         var response = CreateResponse(
             IpcProtocol.StatusOk,
             Array.Empty<IpcError>(),
-            new IpcPingResponse(" ", "batchmode", "2022.3.5f1", "ready"));
+            new IpcPingResponse(
+                ServerVersion: " ",
+                Runtime: "batchmode",
+                UnityVersion: "2022.3.5f1",
+                ProjectFingerprint: "project-fingerprint",
+                CompileState: "ready"));
 
         var result = DaemonPingResponseCodec.TryDecodePayload(response, out var payload, out var error);
 
@@ -102,6 +112,7 @@ public sealed class DaemonPingResponseCodecTests
                 serverVersion = "0.5.0",
                 runtime = "batchmode",
                 unityVersion = "2022.3.5f1",
+                projectFingerprint = "project-fingerprint",
             });
 
         var result = DaemonPingResponseCodec.TryDecodePayload(response, out var payload, out var error);
@@ -110,6 +121,29 @@ public sealed class DaemonPingResponseCodecTests
         Assert.NotNull(payload);
         Assert.True(string.IsNullOrWhiteSpace(payload.CompileState));
         Assert.Null(error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryDecodePayload_WhenProjectFingerprintIsMissing_ReturnsFalse ()
+    {
+        var response = CreateResponse(
+            IpcProtocol.StatusOk,
+            Array.Empty<IpcError>(),
+            new
+            {
+                serverVersion = "0.5.0",
+                runtime = "batchmode",
+                unityVersion = "2022.3.5f1",
+                compileState = "ready",
+            });
+
+        var result = DaemonPingResponseCodec.TryDecodePayload(response, out var payload, out var error);
+
+        Assert.False(result);
+        Assert.Null(payload);
+        Assert.NotNull(error);
+        Assert.Contains("required fields", error.Message, StringComparison.Ordinal);
     }
 
     private static IpcResponse CreateResponse (
@@ -121,5 +155,15 @@ public sealed class DaemonPingResponseCodecTests
             ? IpcPayloadCodec.SerializeToElement(new { })
             : IpcPayloadCodec.SerializeToElement(payload);
         return new IpcResponse(IpcProtocol.CurrentVersion, "req-1", status, payloadElement, errors);
+    }
+
+    private static IpcPingResponse CreatePayload ()
+    {
+        return new IpcPingResponse(
+            ServerVersion: "0.5.0",
+            Runtime: "batchmode",
+            UnityVersion: "2022.3.5f1",
+            ProjectFingerprint: "project-fingerprint",
+            CompileState: "ready");
     }
 }

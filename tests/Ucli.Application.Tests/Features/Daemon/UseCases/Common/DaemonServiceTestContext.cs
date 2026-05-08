@@ -42,8 +42,8 @@ internal static class DaemonServiceTestContext
             SessionToken: "secret-token",
             ProjectFingerprint: "fingerprint",
             IssuedAtUtc: new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero),
-            RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindSupervisor,
+            EditorMode: DaemonSession.EditorModeBatchmode,
+            OwnerKind: DaemonSession.OwnerKindCli,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-endpoint",
@@ -56,7 +56,7 @@ internal static class DaemonServiceTestContext
         return new DaemonSessionOutput(
             ProjectFingerprint: "mapped-fingerprint",
             IssuedAtUtc: new DateTimeOffset(2026, 03, 05, 1, 2, 3, TimeSpan.Zero),
-            RuntimeKind: "mapped-runtime",
+            EditorMode: "mapped-editor-mode",
             OwnerKind: "mapped-owner",
             CanShutdownProcess: false,
             EndpointTransportKind: "mapped-transport",
@@ -150,7 +150,7 @@ internal static class DaemonServiceTestContext
 
         public DaemonStopResult? TryStopProjectResult { get; set; }
 
-        public Func<ResolvedUnityProjectContext, TimeSpan, CancellationToken, ValueTask<DaemonStartResult>>? EnsureRunningHandler { get; set; }
+        public Func<ResolvedUnityProjectContext, TimeSpan, DaemonEditorMode?, CancellationToken, ValueTask<DaemonStartResult>>? EnsureRunningHandler { get; set; }
 
         public Func<ResolvedUnityProjectContext, TimeSpan, CancellationToken, ValueTask<DaemonStopResult?>>? TryStopProjectHandler { get; set; }
 
@@ -161,6 +161,8 @@ internal static class DaemonServiceTestContext
         public ResolvedUnityProjectContext? LastEnsureRunningUnityProject { get; private set; }
 
         public TimeSpan LastEnsureRunningTimeout { get; private set; }
+
+        public DaemonEditorMode? LastEnsureRunningEditorMode { get; private set; }
 
         public CancellationToken LastEnsureRunningCancellationToken { get; private set; }
 
@@ -173,16 +175,18 @@ internal static class DaemonServiceTestContext
         public ValueTask<DaemonStartResult> EnsureRunning (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
+            DaemonEditorMode? editorMode,
             CancellationToken cancellationToken = default)
         {
             EnsureRunningCallCount++;
             LastEnsureRunningUnityProject = unityProject;
             LastEnsureRunningTimeout = timeout;
+            LastEnsureRunningEditorMode = editorMode;
             LastEnsureRunningCancellationToken = cancellationToken;
 
             if (EnsureRunningHandler != null)
             {
-                return EnsureRunningHandler(unityProject, timeout, cancellationToken);
+                return EnsureRunningHandler(unityProject, timeout, editorMode, cancellationToken);
             }
 
             return ValueTask.FromResult(EnsureRunningResult);
@@ -238,6 +242,7 @@ internal static class DaemonServiceTestContext
             ServerVersion: "0.0.1",
             Runtime: "batchmode",
             UnityVersion: "6000.1.4f1",
+            ProjectFingerprint: "project-fingerprint",
             CompileState: IpcCompileStateCodec.Ready,
             LifecycleState: IpcEditorLifecycleStateCodec.Ready,
             BlockingReason: null,

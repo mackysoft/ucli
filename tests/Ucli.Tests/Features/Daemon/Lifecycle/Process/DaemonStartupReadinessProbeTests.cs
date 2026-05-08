@@ -455,6 +455,7 @@ public sealed class DaemonStartupReadinessProbeTests
             ServerVersion: "1.0.0",
             Runtime: IpcEditorRuntimeCodec.Batchmode,
             UnityVersion: "2023.2.22f1",
+            ProjectFingerprint: "project-fingerprint",
             CompileState: IpcCompileStateCodec.Ready,
             LifecycleState: lifecycleState,
             BlockingReason: canAcceptExecutionRequests
@@ -489,7 +490,8 @@ public sealed class DaemonStartupReadinessProbeTests
                 ServerVersion: "1.0.0",
                 Runtime: IpcEditorRuntimeCodec.Batchmode,
                 UnityVersion: "2023.2.22f1",
-                CompileState: IpcCompileStateCodec.Ready,
+                ProjectFingerprint: "project-fingerprint",
+            CompileState: IpcCompileStateCodec.Ready,
                 LifecycleState: staticLifecycleState,
                 BlockingReason: staticBlockingReason,
                 CompileGeneration: "0",

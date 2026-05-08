@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Tests.Daemon;
 
@@ -23,6 +24,7 @@ public sealed class SupervisorProjectGatewayTests
 
         var transportClient = new DaemonServiceTestContext.StubIpcTransportClient();
         var observedEnsureRunningTimeout = TimeSpan.Zero;
+        var observedEditorMode = (string?)null;
         transportClient.SendHandler = (endpoint, request, timeout, cancellationToken) =>
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -44,6 +46,7 @@ public sealed class SupervisorProjectGatewayTests
                     out SupervisorIpcContracts.EnsureRunningRequest payload,
                     out _));
                 observedEnsureRunningTimeout = TimeSpan.FromMilliseconds(payload.TimeoutMilliseconds);
+                observedEditorMode = payload.EditorMode;
                 return ValueTask.FromResult(DaemonServiceTestContext.CreateSuccessResponse(
                     request,
                     new SupervisorIpcContracts.EnsureRunningResponse(
@@ -72,13 +75,15 @@ public sealed class SupervisorProjectGatewayTests
         var result = await gateway.EnsureRunning(
             CreateUnityProject(scope.FullPath),
             TimeSpan.FromMilliseconds(900),
-            CancellationToken.None);
+            editorMode: DaemonEditorMode.Gui,
+            cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonStartStatus.Started, result.Status);
         Assert.NotNull(result.Session);
         Assert.True(observedEnsureRunningTimeout > TimeSpan.Zero);
         Assert.True(observedEnsureRunningTimeout < TimeSpan.FromMilliseconds(900));
+        Assert.Equal(DaemonEditorModeValues.Gui, observedEditorMode);
     }
 
     [Fact]
@@ -212,8 +217,8 @@ public sealed class SupervisorProjectGatewayTests
             SessionToken: "daemon-session-token",
             ProjectFingerprint: "fingerprint",
             IssuedAtUtc: new DateTimeOffset(2026, 03, 12, 1, 0, 0, TimeSpan.Zero),
-            RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindSupervisor,
+            EditorMode: DaemonSession.EditorModeBatchmode,
+            OwnerKind: DaemonSession.OwnerKindCli,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-endpoint",

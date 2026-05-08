@@ -51,8 +51,8 @@ public sealed class DaemonSessionCleanupServiceTests
                 SessionToken: "session-token",
                 ProjectFingerprint: "different-fingerprint",
                 IssuedAtUtc: DateTimeOffset.UtcNow,
-                RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-                OwnerKind: DaemonSession.OwnerKindSupervisor,
+                EditorMode: DaemonSession.EditorModeBatchmode,
+                OwnerKind: DaemonSession.OwnerKindCli,
                 CanShutdownProcess: true,
                 EndpointTransportKind: "namedPipe",
                 EndpointAddress: "ucli-daemon-test-endpoint",
@@ -179,7 +179,7 @@ public sealed class DaemonSessionCleanupServiceTests
         int? processId,
         string projectFingerprint = "fingerprint",
         int? ownerProcessId = 9876,
-        string ownerKind = DaemonSession.OwnerKindSupervisor,
+        string ownerKind = DaemonSession.OwnerKindCli,
         bool canShutdownProcess = true)
     {
         return new DaemonSession(
@@ -187,7 +187,7 @@ public sealed class DaemonSessionCleanupServiceTests
             SessionToken: "session-token",
             ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: DateTimeOffset.UtcNow,
-            RuntimeKind: DaemonSession.RuntimeKindBatchmode,
+            EditorMode: DaemonSession.EditorModeBatchmode,
             OwnerKind: ownerKind,
             CanShutdownProcess: canShutdownProcess,
             EndpointTransportKind: "namedPipe",

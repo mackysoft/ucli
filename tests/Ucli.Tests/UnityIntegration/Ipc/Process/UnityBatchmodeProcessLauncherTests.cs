@@ -18,6 +18,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
         var unityLogPath = @"C:\Users\Foo Bar\Project\.ucli\unity.log";
         var bootstrapArguments = new IpcOneshotBootstrapArguments(
             ParentProcessId: 1234,
+                ProjectFingerprint: "project-fingerprint",
             SessionToken: "session-token",
             EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
             EndpointAddress: @"\\.\pipe\ucli-oneshot");
@@ -56,6 +57,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
                 PathSource: UnityProjectPathSource.CommandOption),
             new IpcOneshotBootstrapArguments(
                 ParentProcessId: 1234,
+                ProjectFingerprint: "project-fingerprint",
                 SessionToken: "session-token",
                 EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
                 EndpointAddress: "/tmp/ucli.sock"),
@@ -88,6 +90,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
                 PathSource: UnityProjectPathSource.CommandOption),
             new IpcOneshotBootstrapArguments(
                 ParentProcessId: 1234,
+                ProjectFingerprint: "project-fingerprint",
                 SessionToken: "session-token",
                 EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
                 EndpointAddress: "/tmp/ucli.sock"),
@@ -127,6 +130,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
                 PathSource: UnityProjectPathSource.CommandOption),
             new IpcOneshotBootstrapArguments(
                 ParentProcessId: 1234,
+                ProjectFingerprint: "project-fingerprint",
                 SessionToken: "session-token",
                 EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
                 EndpointAddress: "/tmp/ucli.sock"),
@@ -169,6 +173,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
                     PathSource: UnityProjectPathSource.CommandOption),
                 new IpcOneshotBootstrapArguments(
                     ParentProcessId: 1234,
+                ProjectFingerprint: "project-fingerprint",
                     SessionToken: "session-token",
                     EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
                     EndpointAddress: "/tmp/ucli.sock"),

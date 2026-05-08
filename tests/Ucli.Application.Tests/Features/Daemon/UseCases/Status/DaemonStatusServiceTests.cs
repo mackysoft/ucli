@@ -282,6 +282,7 @@ public sealed class DaemonStatusServiceTests
                 ServerVersion: "9.9.9",
                 Runtime: "batchmode",
                 UnityVersion: "6000.1.4f1",
+                ProjectFingerprint: "project-fingerprint",
                 CompileState: IpcCompileStateCodec.Compiling,
                 LifecycleState: IpcEditorLifecycleStateCodec.DomainReloading,
                 BlockingReason: IpcEditorBlockingReasonCodec.DomainReload,
@@ -307,7 +308,7 @@ public sealed class DaemonStatusServiceTests
         var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
         Assert.Equal("9.9.9", output.ServerVersion);
-        Assert.Equal("batchmode", output.Runtime);
+        Assert.Equal("batchmode", output.EditorMode);
         Assert.Equal(IpcEditorLifecycleStateCodec.DomainReloading, output.LifecycleState);
         Assert.Equal(IpcEditorBlockingReasonCodec.DomainReload, output.BlockingReason);
         Assert.Equal(IpcCompileStateCodec.Compiling, output.CompileState);
