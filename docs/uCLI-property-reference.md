@@ -5,6 +5,7 @@
 ## 公開 CLI 出力契約
 
 公開 CLI 出力の種別と意味は [uCLI.md](uCLI.md) を正本とする。ここでは `request-response` 型で使う JSON shape だけを定義する。
+公開 CLI JSON の固定対象は専用 JSON writer、command output DTO、Golden files であり、この文書は property の意味と参照先を説明する。
 
 ### request-response 型の共通エンベロープ
 `request-response` 型の CLI JSON 出力は、次の共通エンベロープを返す。

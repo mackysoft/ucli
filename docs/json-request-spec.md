@@ -1,6 +1,7 @@
 > [!IMPORTANT]
 > この文書は、uCLI の JSON リクエスト入力契約の正本である。
 > 実行時契約とコマンド仕様は [uCLI.md](uCLI.md)、設計原則は [uCLI-design-principles.md](uCLI-design-principles.md) を参照する。
+> operation ごとの `args` / `result` / metadata は `Ucli.Contracts` と `ucli ops describe` を正本とし、この文書では request envelope と edit DSL を定義する。
 
 ## 目的
 

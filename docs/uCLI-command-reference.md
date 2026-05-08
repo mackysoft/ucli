@@ -1,6 +1,7 @@
 > [!IMPORTANT]
 > この文書は、uCLI のコマンド一覧、option table、サブコマンド規則、終了コード、実行例のリファレンスである。
 > 全体契約は [uCLI.md](uCLI.md)、JSON プロパティ定義は [uCLI-property-reference.md](uCLI-property-reference.md)、JSON リクエスト入力契約は [json-request-spec.md](json-request-spec.md) を参照する。
+> 実装登録の正本は `UcliCommandCatalog` と help output であり、この文書は利用者向けの一覧、option、エラー契約、実行例を説明する。
 >
 > 現在の公開 CLI host が登録している top-level command は `init`、`status`、`refresh`、`resolve`、`query`、`validate`、`plan`、`call`、`daemon`、`logs`、`ops`、`skills`、`test` である。
 
