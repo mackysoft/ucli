@@ -25,8 +25,9 @@ public sealed class StatusServiceTests
         var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.Running(CreateSession("session-token")));
         var daemonPingInfoClient = new StubDaemonPingInfoClient(new IpcPingResponse(
             ServerVersion: "0.5.0",
-            Runtime: "batchmode",
+            EditorMode: "batchmode",
             UnityVersion: "2022.3.5f1",
+            ProjectFingerprint: "project-fingerprint",
             CompileState: "ready",
             LifecycleState: "busy",
             BlockingReason: "busy",
@@ -52,7 +53,7 @@ public sealed class StatusServiceTests
         Assert.Equal("12", output.CompileGeneration);
         Assert.Equal("7", output.DomainReloadGeneration);
         Assert.False(output.CanAcceptExecutionRequests);
-        Assert.Equal("batchmode", output.Runtime);
+        Assert.Equal("batchmode", output.EditorMode);
         Assert.Equal(
             UcliConfig.CreateDefault().IpcTimeoutMillisecondsByCommand[UcliCommandIds.Status.Name],
             output.TimeoutMilliseconds);
@@ -70,8 +71,9 @@ public sealed class StatusServiceTests
         var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.NotRunning());
         var daemonPingInfoClient = new StubDaemonPingInfoClient(new IpcPingResponse(
             ServerVersion: "0.5.0",
-            Runtime: "batchmode",
+            EditorMode: "batchmode",
             UnityVersion: "2022.3.5f1",
+            ProjectFingerprint: "project-fingerprint",
             CompileState: "ready"));
         var service = CreateService(
             contextResolver,
@@ -92,7 +94,7 @@ public sealed class StatusServiceTests
         Assert.Null(output.CompileGeneration);
         Assert.Null(output.DomainReloadGeneration);
         Assert.False(output.CanAcceptExecutionRequests);
-        Assert.Null(output.Runtime);
+        Assert.Null(output.EditorMode);
         Assert.Equal(0, daemonPingInfoClient.CallCount);
     }
 
@@ -105,8 +107,9 @@ public sealed class StatusServiceTests
         var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.Stale(CreateSession("stale-session-token")));
         var daemonPingInfoClient = new StubDaemonPingInfoClient(new IpcPingResponse(
             ServerVersion: "0.5.0",
-            Runtime: "batchmode",
+            EditorMode: "batchmode",
             UnityVersion: "2022.3.5f1",
+            ProjectFingerprint: "project-fingerprint",
             CompileState: "ready"));
         var service = CreateService(
             contextResolver,
@@ -127,7 +130,7 @@ public sealed class StatusServiceTests
         Assert.Null(output.CompileGeneration);
         Assert.Null(output.DomainReloadGeneration);
         Assert.False(output.CanAcceptExecutionRequests);
-        Assert.Null(output.Runtime);
+        Assert.Null(output.EditorMode);
         Assert.Equal(0, daemonPingInfoClient.CallCount);
     }
 
@@ -140,8 +143,9 @@ public sealed class StatusServiceTests
         var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.NotRunning());
         var daemonPingInfoClient = new StubDaemonPingInfoClient(new IpcPingResponse(
             ServerVersion: "0.5.0",
-            Runtime: "batchmode",
+            EditorMode: "batchmode",
             UnityVersion: "2022.3.5f1",
+            ProjectFingerprint: "project-fingerprint",
             CompileState: "ready"));
         var service = CreateService(
             contextResolver,
@@ -169,8 +173,9 @@ public sealed class StatusServiceTests
         var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.NotRunning());
         var daemonPingInfoClient = new StubDaemonPingInfoClient(new IpcPingResponse(
             ServerVersion: "0.5.0",
-            Runtime: "batchmode",
+            EditorMode: "batchmode",
             UnityVersion: "2022.3.5f1",
+            ProjectFingerprint: "project-fingerprint",
             CompileState: "ready"));
         var service = CreateService(
             contextResolver,
@@ -199,8 +204,9 @@ public sealed class StatusServiceTests
             ExecutionError.InternalError("Failed to read daemon session.")));
         var daemonPingInfoClient = new StubDaemonPingInfoClient(new IpcPingResponse(
             ServerVersion: "0.5.0",
-            Runtime: "batchmode",
+            EditorMode: "batchmode",
             UnityVersion: "2022.3.5f1",
+            ProjectFingerprint: "project-fingerprint",
             CompileState: "ready"));
         var service = CreateService(
             contextResolver,
@@ -264,7 +270,7 @@ public sealed class StatusServiceTests
         Assert.Equal(DaemonStatusKind.Stale, output.DaemonStatus);
         Assert.Null(output.ServerVersion);
         Assert.Null(output.CompileState);
-        Assert.Null(output.Runtime);
+        Assert.Null(output.EditorMode);
     }
 
     [Fact]
@@ -325,8 +331,8 @@ public sealed class StatusServiceTests
             SessionToken: sessionToken,
             ProjectFingerprint: "project-fingerprint",
             IssuedAtUtc: DateTimeOffset.UtcNow,
-            RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindSupervisor,
+            EditorMode: DaemonEditorModeValues.Batchmode,
+            OwnerKind: DaemonSessionOwnerKindValues.Cli,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-status",

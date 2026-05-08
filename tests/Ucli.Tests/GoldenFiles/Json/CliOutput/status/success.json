@@ -14,7 +14,7 @@
     "compileGeneration": null,
     "domainReloadGeneration": null,
     "canAcceptExecutionRequests": false,
-    "runtime": null,
+    "editorMode": null,
     "timeoutMilliseconds": 5000
   },
   "errors": []

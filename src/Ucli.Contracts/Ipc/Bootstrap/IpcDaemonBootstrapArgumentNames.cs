@@ -6,9 +6,6 @@ public static class IpcDaemonBootstrapArgumentNames
     /// <summary> Gets the argument name that carries repository root path. </summary>
     public const string RepositoryRoot = "-ucliRepositoryRoot";
 
-    /// <summary> Gets the argument name that carries project fingerprint value. </summary>
-    public const string ProjectFingerprint = "-ucliProjectFingerprint";
-
     /// <summary> Gets the argument name that carries daemon session path. </summary>
     public const string SessionPath = "-ucliSessionPath";
 

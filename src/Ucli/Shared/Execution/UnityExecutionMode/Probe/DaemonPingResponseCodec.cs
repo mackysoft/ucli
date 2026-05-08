@@ -60,8 +60,9 @@ internal static class DaemonPingResponseCodec
         }
 
         if (string.IsNullOrWhiteSpace(parsedPayload.ServerVersion)
-            || string.IsNullOrWhiteSpace(parsedPayload.Runtime)
-            || string.IsNullOrWhiteSpace(parsedPayload.UnityVersion))
+            || string.IsNullOrWhiteSpace(parsedPayload.EditorMode)
+            || string.IsNullOrWhiteSpace(parsedPayload.UnityVersion)
+            || string.IsNullOrWhiteSpace(parsedPayload.ProjectFingerprint))
         {
             payload = null;
             error = new DaemonPingResponseException("Daemon ping payload is invalid. One or more required fields are empty.");
@@ -70,6 +71,39 @@ internal static class DaemonPingResponseCodec
 
         payload = parsedPayload;
         error = null;
+        return true;
+    }
+
+    /// <summary> Tries to decode one ping payload and validate that it belongs to the expected project. </summary>
+    /// <param name="response"> The response returned from daemon. </param>
+    /// <param name="expectedProjectFingerprint"> The expected project fingerprint. </param>
+    /// <param name="operationName"> The operation name used in validation errors. </param>
+    /// <param name="payload"> The decoded ping payload when decoding succeeds; otherwise <see langword="null" />. </param>
+    /// <param name="error"> The response decoding error when decoding fails; otherwise <see langword="null" />. </param>
+    /// <returns> <see langword="true" /> when ping payload is decoded and belongs to the expected project; otherwise <see langword="false" />. </returns>
+    public static bool TryDecodePayloadForProject (
+        IpcResponse response,
+        string expectedProjectFingerprint,
+        string operationName,
+        out IpcPingResponse? payload,
+        out DaemonPingResponseException? error)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(expectedProjectFingerprint);
+        ArgumentException.ThrowIfNullOrWhiteSpace(operationName);
+
+        if (!TryDecodePayload(response, out payload, out error))
+        {
+            return false;
+        }
+
+        if (!string.Equals(payload!.ProjectFingerprint, expectedProjectFingerprint, StringComparison.Ordinal))
+        {
+            error = new DaemonPingResponseException(
+                $"{operationName} projectFingerprint mismatch. Requested={expectedProjectFingerprint}, Actual={payload.ProjectFingerprint}.");
+            payload = null;
+            return false;
+        }
+
         return true;
     }
 }

@@ -26,7 +26,7 @@ public sealed class StatusCommandTests
                 CompileGeneration: null,
                 DomainReloadGeneration: null,
                 CanAcceptExecutionRequests: false,
-                Runtime: null,
+                EditorMode: null,
                 TimeoutMilliseconds: 1234))));
         var command = new StatusCommand(service, CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();

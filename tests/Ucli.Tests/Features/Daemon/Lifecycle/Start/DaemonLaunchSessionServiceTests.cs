@@ -20,7 +20,7 @@ public sealed class DaemonLaunchSessionServiceTests
             sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
         var context = CreateContext("fingerprint-session-init");
 
-        var result = await service.Initialize(context, CancellationToken.None);
+        var result = await service.Initialize(context, DaemonEditorMode.Batchmode, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var session = Assert.IsType<DaemonSession>(result.Session);
@@ -40,11 +40,30 @@ public sealed class DaemonLaunchSessionServiceTests
             daemonSessionStore: sessionStore,
             sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
 
-        var result = await service.Initialize(CreateContext("fingerprint-session-init-fail"), CancellationToken.None);
+        var result = await service.Initialize(CreateContext("fingerprint-session-init-fail"), DaemonEditorMode.Batchmode, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(expectedError, result.Error);
         Assert.Equal(1, sessionStore.WriteCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Initialize_WhenEditorModeIsGui_ReturnsCommandNotImplementedWithoutWritingSession ()
+    {
+        var sessionStore = new StubDaemonSessionStore();
+        var service = new DaemonLaunchSessionService(
+            endpointResolver: new StubIpcEndpointResolver(),
+            daemonSessionStore: sessionStore,
+            sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
+
+        var result = await service.Initialize(CreateContext("fingerprint-session-gui"), DaemonEditorMode.Gui, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(UcliCoreErrorCodes.CommandNotImplemented, error.Code);
+        Assert.Equal(0, sessionStore.WriteCallCount);
     }
 
     [Fact]
@@ -133,8 +152,8 @@ public sealed class DaemonLaunchSessionServiceTests
             SessionToken: "session-token",
             ProjectFingerprint: "fingerprint",
             IssuedAtUtc: DateTimeOffset.UtcNow,
-            RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindSupervisor,
+            EditorMode: DaemonEditorModeValues.Batchmode,
+            OwnerKind: DaemonSessionOwnerKindValues.Cli,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-test-endpoint",

@@ -81,11 +81,13 @@ internal sealed class SupervisorProjectCoordinator
     /// <summary> Ensures one Unity daemon is running for the specified project. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="timeout"> The command timeout. </param>
+    /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The daemon-start result. </returns>
     public async ValueTask<DaemonStartResult> EnsureRunning (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
+        DaemonEditorMode? editorMode,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -120,6 +122,7 @@ internal sealed class SupervisorProjectCoordinator
             var startResult = await daemonStartOperation.Start(
                     unityProject,
                     daemonStartTimeout,
+                    editorMode,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!startResult.IsSuccess)
@@ -296,6 +299,11 @@ internal sealed class SupervisorProjectCoordinator
         ArgumentNullException.ThrowIfNull(slot);
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(session);
+
+        if (!DaemonSessionTerminationPolicy.CanShutdownProcess(session))
+        {
+            return;
+        }
 
         if (slot.ManagedProcess != null
             && IsSameManagedProcess(slot.ManagedProcess, session))
@@ -543,26 +551,5 @@ internal sealed class SupervisorProjectCoordinator
             .Where(static x => x != null)
             .Cast<Task>()
             .ToArray();
-    }
-
-    private static ExecutionError CreateAugmentedPrimaryError (
-        ExecutionError primaryError,
-        ExecutionError? compensationError)
-    {
-        ArgumentNullException.ThrowIfNull(primaryError);
-        ArgumentNullException.ThrowIfNull(compensationError);
-
-        var message =
-            "Supervisor compensation stop failed after daemon startup had already succeeded. " +
-            $"PrimaryError={primaryError.Message} " +
-            $"CompensationError={compensationError.Message}";
-
-        return primaryError.Kind switch
-        {
-            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message),
-            ExecutionErrorKind.Timeout => ExecutionError.Timeout(message),
-            ExecutionErrorKind.InternalError => ExecutionError.InternalError(message),
-            _ => throw new ArgumentOutOfRangeException(nameof(primaryError), primaryError.Kind, "Unsupported execution error kind."),
-        };
     }
 }

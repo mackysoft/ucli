@@ -42,7 +42,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Daemon,
             IpcDaemonBootstrapArgumentNames.RepositoryRoot,
-            IpcDaemonBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
             IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
             IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
@@ -85,7 +85,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Daemon,
             IpcDaemonBootstrapArgumentNames.RepositoryRoot, "-tmp-repository",
-            IpcDaemonBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
             IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
             IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, "2026-03-09T00:00:00.0000000+00:00",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
@@ -109,6 +109,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
             IpcOneshotBootstrapArgumentNames.ParentProcessId, "123",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
             IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
             IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "2026-03-09T00:00:00.0000000+00:00",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
@@ -121,6 +122,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         Assert.Equal(IpcBatchmodeBootstrapParseError.None, error);
         var oneshotArguments = Assert.IsType<IpcOneshotBootstrapArguments>(bootstrapArguments);
         Assert.Equal(123, oneshotArguments.ParentProcessId);
+        Assert.Equal("project-fingerprint", oneshotArguments.ProjectFingerprint);
         Assert.Equal("oneshot-token", oneshotArguments.SessionToken);
         Assert.Equal(DateTimeOffset.Parse("2026-03-09T00:00:00.0000000+00:00"), oneshotArguments.ExitDeadlineUtc);
         Assert.Equal(IpcTransportKindValues.NamedPipe, oneshotArguments.EndpointTransportKind);
@@ -135,6 +137,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
             IpcOneshotBootstrapArgumentNames.ParentProcessId, "123",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
             IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
             IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "not-a-timestamp",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
@@ -180,7 +183,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Daemon,
             IpcDaemonBootstrapArgumentNames.RepositoryRoot, "/repo/root",
-            IpcDaemonBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
             IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
             IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, "not-a-timestamp",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
@@ -200,6 +203,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
     {
         IpcBatchmodeBootstrapArguments source = new IpcOneshotBootstrapArguments(
             456,
+            "project-fingerprint",
             "oneshot-token",
             new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
             IpcTransportKindValues.UnixDomainSocket,
@@ -225,6 +229,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
             IpcOneshotBootstrapArgumentNames.ParentProcessId, " ",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
             IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
             IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "2026-03-09T00:00:00.0000000+00:00",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
@@ -246,6 +251,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
             IpcOneshotBootstrapArgumentNames.ParentProcessId, "0",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
             IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
             IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "2026-03-09T00:00:00.0000000+00:00",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
@@ -267,6 +273,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
             IpcOneshotBootstrapArgumentNames.ParentProcessId, "123",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
             IpcOneshotBootstrapArgumentNames.SessionToken, " ",
             IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "2026-03-09T00:00:00.0000000+00:00",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,

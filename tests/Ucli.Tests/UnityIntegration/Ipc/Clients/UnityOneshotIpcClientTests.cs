@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
+using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.Tests.TestDoubles;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
@@ -67,6 +68,48 @@ public sealed class UnityOneshotIpcClientTests
         Assert.All(
             transportClient.Requests,
             request => Assert.Equal(bootstrapArguments.SessionToken, request.SessionToken));
+        Assert.Equal(1, processHandle.WaitForExitCallCount);
+        Assert.Equal(0, processHandle.TerminateCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenStartupPingProjectFingerprintMismatches_ReturnsFailureWithoutDispatch ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "startup-fingerprint-mismatch");
+        var unityProject = CreateUnityProject(scope);
+        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
+        var processHandle = new StubUnityBatchmodeProcessHandle();
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var transportClient = new StubUnityIpcTransportClient(request =>
+        {
+            return request.Method switch
+            {
+                IpcMethodNames.Ping => CreatePingResponse(request.RequestId, projectFingerprint: "other-project-fingerprint"),
+                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = new UnityOneshotIpcClient(
+            launcher,
+            new StubIpcEndpointResolver(endpoint),
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe());
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.Contains("projectFingerprint mismatch", result.Message, StringComparison.Ordinal);
+        Assert.Equal(2, transportClient.CallCount);
+        Assert.Equal(IpcMethodNames.Ping, transportClient.Requests[0].Method);
+        Assert.Equal(IpcMethodNames.Shutdown, transportClient.Requests[1].Method);
+        Assert.DoesNotContain(transportClient.Requests, static request => string.Equals(request.Method, IpcMethodNames.OpsRead, StringComparison.Ordinal));
         Assert.Equal(1, processHandle.WaitForExitCallCount);
         Assert.Equal(0, processHandle.TerminateCallCount);
     }
@@ -577,28 +620,13 @@ public sealed class UnityOneshotIpcClientTests
     private static IpcResponse CreatePingResponse (
         string requestId,
         string lifecycleState = IpcEditorLifecycleStateCodec.Ready,
-        bool canAcceptExecutionRequests = true)
+        bool canAcceptExecutionRequests = true,
+        string projectFingerprint = "project-fingerprint")
     {
-        var payload = IpcPayloadCodec.SerializeToElement(new IpcPingResponse(
-            ServerVersion: "1.0.0",
-            Runtime: IpcEditorRuntimeCodec.Batchmode,
-            UnityVersion: "2023.2.22f1",
-            CompileState: IpcCompileStateCodec.Ready,
-            LifecycleState: lifecycleState,
-            BlockingReason: canAcceptExecutionRequests
-                ? null
-                : lifecycleState switch
-                {
-                    IpcEditorLifecycleStateCodec.Starting => IpcEditorBlockingReasonCodec.Startup,
-                    IpcEditorLifecycleStateCodec.Busy => IpcEditorBlockingReasonCodec.Busy,
-                    IpcEditorLifecycleStateCodec.Compiling => IpcEditorBlockingReasonCodec.Compile,
-                    IpcEditorLifecycleStateCodec.DomainReloading => IpcEditorBlockingReasonCodec.DomainReload,
-                    IpcEditorLifecycleStateCodec.ShuttingDown => IpcEditorBlockingReasonCodec.Shutdown,
-                    _ => null,
-                },
-            CompileGeneration: "0",
-            DomainReloadGeneration: "0",
-            CanAcceptExecutionRequests: canAcceptExecutionRequests));
+        var payload = IpcPayloadCodec.SerializeToElement(IpcPingResponseTestFactory.Create(
+            lifecycleState: lifecycleState,
+            canAcceptExecutionRequests: canAcceptExecutionRequests,
+            projectFingerprint: projectFingerprint));
         return new IpcResponse(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: requestId,

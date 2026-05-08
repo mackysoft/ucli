@@ -18,6 +18,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
         var unityLogPath = @"C:\Users\Foo Bar\Project\.ucli\unity.log";
         var bootstrapArguments = new IpcOneshotBootstrapArguments(
             ParentProcessId: 1234,
+                ProjectFingerprint: "project-fingerprint",
             SessionToken: "session-token",
             ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
             EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
@@ -57,6 +58,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
                 PathSource: UnityProjectPathSource.CommandOption),
             new IpcOneshotBootstrapArguments(
                 ParentProcessId: 1234,
+                ProjectFingerprint: "project-fingerprint",
                 SessionToken: "session-token",
                 ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
                 EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
@@ -90,6 +92,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
                 PathSource: UnityProjectPathSource.CommandOption),
             new IpcOneshotBootstrapArguments(
                 ParentProcessId: 1234,
+                ProjectFingerprint: "project-fingerprint",
                 SessionToken: "session-token",
                 ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
                 EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
@@ -130,6 +133,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
                 PathSource: UnityProjectPathSource.CommandOption),
             new IpcOneshotBootstrapArguments(
                 ParentProcessId: 1234,
+                ProjectFingerprint: "project-fingerprint",
                 SessionToken: "session-token",
                 ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
                 EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
@@ -173,6 +177,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
                     PathSource: UnityProjectPathSource.CommandOption),
                 new IpcOneshotBootstrapArguments(
                     ParentProcessId: 1234,
+                ProjectFingerprint: "project-fingerprint",
                     SessionToken: "session-token",
                     ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
                     EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,

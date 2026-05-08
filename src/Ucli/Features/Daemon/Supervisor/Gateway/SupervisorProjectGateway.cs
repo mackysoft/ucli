@@ -37,6 +37,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
     public async ValueTask<DaemonStartResult> EnsureRunning (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
+        DaemonEditorMode? editorMode,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -70,6 +71,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                 bootstrapResult.Manifest!,
                 unityProject,
                 ensureRunningTimeout,
+                editorMode,
                 cancellationToken)
             .ConfigureAwait(false);
     }

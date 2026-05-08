@@ -5,7 +5,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 /// <param name="SessionToken"> The daemon session token used for IPC authorization. </param>
 /// <param name="ProjectFingerprint"> The project fingerprint associated with this daemon session. </param>
 /// <param name="IssuedAtUtc"> The UTC timestamp when this session was issued. </param>
-/// <param name="RuntimeKind"> The daemon runtime kind. </param>
+/// <param name="EditorMode"> The daemon Editor mode. </param>
 /// <param name="OwnerKind"> The daemon owner kind. </param>
 /// <param name="CanShutdownProcess"> Whether daemon management is allowed to shutdown the process. </param>
 /// <param name="EndpointTransportKind"> The transport kind string used by daemon endpoint. </param>
@@ -17,7 +17,7 @@ internal sealed record DaemonSession (
     string SessionToken,
     string ProjectFingerprint,
     DateTimeOffset IssuedAtUtc,
-    string RuntimeKind,
+    string EditorMode,
     string OwnerKind,
     bool CanShutdownProcess,
     string EndpointTransportKind,
@@ -27,10 +27,4 @@ internal sealed record DaemonSession (
 {
     /// <summary> Gets the schema version used by daemon session persistence. </summary>
     public const int CurrentSchemaVersion = 1;
-
-    /// <summary> Gets the runtime kind value used for CLI-started batchmode daemon sessions. </summary>
-    public const string RuntimeKindBatchmode = "batchmode";
-
-    /// <summary> Gets the owner kind value used for supervisor-managed daemon sessions. </summary>
-    public const string OwnerKindSupervisor = "supervisor";
 }

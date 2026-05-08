@@ -51,8 +51,8 @@ public sealed class DaemonSessionCleanupServiceTests
                 SessionToken: "session-token",
                 ProjectFingerprint: "different-fingerprint",
                 IssuedAtUtc: DateTimeOffset.UtcNow,
-                RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-                OwnerKind: DaemonSession.OwnerKindSupervisor,
+                EditorMode: DaemonEditorModeValues.Batchmode,
+                OwnerKind: DaemonSessionOwnerKindValues.Cli,
                 CanShutdownProcess: true,
                 EndpointTransportKind: "namedPipe",
                 EndpointAddress: "ucli-daemon-test-endpoint",
@@ -139,6 +139,34 @@ public sealed class DaemonSessionCleanupServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task CleanupStaleSessionArtifacts_WhenSessionDisallowsShutdown_CleansUpWithoutStopping ()
+    {
+        var context = CreateContext("fingerprint-cleanup-stale-user");
+        var session = CreateSession(
+            processId: 4343,
+            projectFingerprint: context.ProjectFingerprint,
+            editorMode: DaemonEditorModeValues.Gui,
+            ownerKind: DaemonSessionOwnerKindValues.User,
+            canShutdownProcess: false);
+        var processTerminationService = new StubDaemonProcessTerminationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var artifactCleaner = new StubDaemonArtifactCleaner
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var service = new DaemonSessionCleanupService(processTerminationService, artifactCleaner);
+
+        var result = await service.CleanupStaleSessionArtifacts(context, session, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(0, processTerminationService.CallCount);
+        Assert.Equal(1, artifactCleaner.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task CleanupInvalidSessionArtifacts_WhenStopFails_PropagatesFailureWithoutCleanup ()
     {
         var context = CreateContext("fingerprint-cleanup-stop-fail");
@@ -179,7 +207,8 @@ public sealed class DaemonSessionCleanupServiceTests
         int? processId,
         string projectFingerprint = "fingerprint",
         int? ownerProcessId = 9876,
-        string ownerKind = DaemonSession.OwnerKindSupervisor,
+        string editorMode = DaemonEditorModeValues.Batchmode,
+        string ownerKind = DaemonSessionOwnerKindValues.Cli,
         bool canShutdownProcess = true)
     {
         return new DaemonSession(
@@ -187,7 +216,7 @@ public sealed class DaemonSessionCleanupServiceTests
             SessionToken: "session-token",
             ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: DateTimeOffset.UtcNow,
-            RuntimeKind: DaemonSession.RuntimeKindBatchmode,
+            EditorMode: editorMode,
             OwnerKind: ownerKind,
             CanShutdownProcess: canShutdownProcess,
             EndpointTransportKind: "namedPipe",

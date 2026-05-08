@@ -8,8 +8,8 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
     private static readonly string[] KnownArgumentNames =
     {
         IpcBatchmodeBootstrapArgumentNames.Target,
+        IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint,
         IpcDaemonBootstrapArgumentNames.RepositoryRoot,
-        IpcDaemonBootstrapArgumentNames.ProjectFingerprint,
         IpcDaemonBootstrapArgumentNames.SessionPath,
         IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc,
         IpcEndpointBootstrapArgumentNames.TransportKind,
@@ -44,7 +44,7 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
                 destination.Add(IpcBatchmodeBootstrapTargetValues.Daemon);
                 destination.Add(IpcDaemonBootstrapArgumentNames.RepositoryRoot);
                 destination.Add(daemonArguments.RepositoryRoot);
-                destination.Add(IpcDaemonBootstrapArgumentNames.ProjectFingerprint);
+                destination.Add(IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint);
                 destination.Add(daemonArguments.ProjectFingerprint);
                 destination.Add(IpcDaemonBootstrapArgumentNames.SessionPath);
                 destination.Add(daemonArguments.SessionPath);
@@ -61,6 +61,8 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
                 destination.Add(IpcBatchmodeBootstrapTargetValues.Oneshot);
                 destination.Add(IpcOneshotBootstrapArgumentNames.ParentProcessId);
                 destination.Add(oneshotArguments.ParentProcessId.ToString(CultureInfo.InvariantCulture));
+                destination.Add(IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint);
+                destination.Add(oneshotArguments.ProjectFingerprint);
                 destination.Add(IpcOneshotBootstrapArgumentNames.SessionToken);
                 destination.Add(oneshotArguments.SessionToken);
                 destination.Add(IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc);
@@ -126,7 +128,7 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
     {
         arguments = default!;
         if (!TryGetArgumentValue(args, IpcDaemonBootstrapArgumentNames.RepositoryRoot, out var repositoryRoot)
-            || !TryGetArgumentValue(args, IpcDaemonBootstrapArgumentNames.ProjectFingerprint, out var projectFingerprint)
+            || !TryGetArgumentValue(args, IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, out var projectFingerprint)
             || !TryGetArgumentValue(args, IpcDaemonBootstrapArgumentNames.SessionPath, out var sessionPath)
             || !TryGetArgumentValue(args, IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, out var sessionIssuedAtUtcText)
             || !TryGetArgumentValue(args, IpcEndpointBootstrapArgumentNames.TransportKind, out var endpointTransportKind)
@@ -172,6 +174,7 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
     {
         arguments = default!;
         if (!TryGetArgumentValue(args, IpcOneshotBootstrapArgumentNames.ParentProcessId, out var parentProcessIdText)
+            || !TryGetArgumentValue(args, IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, out var projectFingerprint)
             || !TryGetArgumentValue(args, IpcOneshotBootstrapArgumentNames.SessionToken, out var sessionToken)
             || !TryGetArgumentValue(args, IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, out var exitDeadlineUtcText)
             || !TryGetArgumentValue(args, IpcEndpointBootstrapArgumentNames.TransportKind, out var endpointTransportKind)
@@ -182,6 +185,7 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
         }
 
         if (string.IsNullOrWhiteSpace(parentProcessIdText)
+            || string.IsNullOrWhiteSpace(projectFingerprint)
             || string.IsNullOrWhiteSpace(sessionToken)
             || string.IsNullOrWhiteSpace(exitDeadlineUtcText)
             || string.IsNullOrWhiteSpace(endpointTransportKind)
@@ -205,7 +209,13 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
             return false;
         }
 
-        arguments = new IpcOneshotBootstrapArguments(parentProcessId, sessionToken, parsedExitDeadlineUtc, endpointTransportKind, endpointAddress);
+        arguments = new IpcOneshotBootstrapArguments(
+            parentProcessId,
+            projectFingerprint,
+            sessionToken,
+            parsedExitDeadlineUtc,
+            endpointTransportKind,
+            endpointAddress);
         error = IpcBatchmodeBootstrapParseError.None;
         return true;
     }

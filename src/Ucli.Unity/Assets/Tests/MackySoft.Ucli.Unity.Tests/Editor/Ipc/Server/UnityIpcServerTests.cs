@@ -399,7 +399,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Errors, Is.Empty);
             var payload = response.Payload.Deserialize<IpcPingResponse>(SerializerOptions);
             Assert.That(payload, Is.Not.Null);
-            Assert.That(payload.Runtime, Is.EqualTo("batchmode"));
+            Assert.That(payload.EditorMode, Is.EqualTo("batchmode"));
             Assert.That(string.IsNullOrWhiteSpace(payload.UnityVersion), Is.False);
             Assert.That(string.IsNullOrWhiteSpace(payload.ServerVersion), Is.False);
             var expectedServerVersion = new AssemblyServerVersionProvider().GetVersion();
@@ -741,7 +741,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var methodDispatcher = new UnityIpcMethodDispatcher(
                 new IUnityIpcMethodHandler[]
                 {
-                    new PingUnityIpcMethodHandler(new AssemblyServerVersionProvider(), new StubUnityEditorReadinessGate()),
+                    new PingUnityIpcMethodHandler(new AssemblyServerVersionProvider(), new StubUnityEditorReadinessGate(), "project-fingerprint"),
                     new ExecuteUnityIpcMethodHandler(executeRequestDispatcher),
                     new TestRunUnityIpcMethodHandler(testRunService),
                     new DaemonLogsReadUnityIpcMethodHandler(

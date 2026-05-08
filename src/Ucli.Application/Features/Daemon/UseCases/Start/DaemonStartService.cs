@@ -44,11 +44,13 @@ internal sealed class DaemonStartService : IDaemonStartService
     /// <summary> Executes one daemon-start workflow. </summary>
     /// <param name="projectPath"> The optional <c>--projectPath</c> option value. </param>
     /// <param name="timeoutMilliseconds"> The optional normalized timeout value in milliseconds. </param>
+    /// <param name="editorMode"> The optional normalized <c>--editorMode</c> value. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-start execution result. </returns>
     public async ValueTask<DaemonStartExecutionResult> Start (
         string? projectPath,
         int? timeoutMilliseconds,
+        DaemonEditorMode? editorMode,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -85,6 +87,7 @@ internal sealed class DaemonStartService : IDaemonStartService
         var startResult = await daemonProjectLifecycleGateway.EnsureRunning(
                 executionContext.Context.UnityProject,
                 ensureRunningTimeout,
+                editorMode,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!startResult.IsSuccess)

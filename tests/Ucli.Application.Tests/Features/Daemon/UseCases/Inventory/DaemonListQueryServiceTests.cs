@@ -80,6 +80,9 @@ public sealed class DaemonListQueryServiceTests
                 Assert.Equal(DaemonListItemState.Running, item.State);
                 Assert.Null(item.Reason);
                 Assert.Equal(1001, item.ProcessId);
+                Assert.Equal(DaemonEditorModeValues.Batchmode, item.EditorMode);
+                Assert.Equal(DaemonSessionOwnerKindValues.Cli, item.OwnerKind);
+                Assert.True(item.CanShutdownProcess);
                 Assert.Equal("endpoint-a", item.EndpointAddress);
                 Assert.Null(item.Diagnosis);
             },
@@ -93,6 +96,9 @@ public sealed class DaemonListQueryServiceTests
                 Assert.Equal(DaemonListItemState.Running, item.State);
                 Assert.Null(item.Reason);
                 Assert.Equal(1002, item.ProcessId);
+                Assert.Equal(DaemonEditorModeValues.Batchmode, item.EditorMode);
+                Assert.Equal(DaemonSessionOwnerKindValues.Cli, item.OwnerKind);
+                Assert.True(item.CanShutdownProcess);
                 Assert.Equal("endpoint-b", item.EndpointAddress);
                 Assert.Null(item.Diagnosis);
             });
@@ -595,8 +601,8 @@ public sealed class DaemonListQueryServiceTests
             SessionToken: "secret-token",
             ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: new DateTimeOffset(2026, 03, 09, 12, 0, 0, TimeSpan.Zero),
-            RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindSupervisor,
+            EditorMode: DaemonEditorModeValues.Batchmode,
+            OwnerKind: DaemonSessionOwnerKindValues.Cli,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: endpointAddress,

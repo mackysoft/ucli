@@ -2,7 +2,6 @@ using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.UnityIntegration.Project.Plugin;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -165,7 +164,7 @@ public sealed class PlanCliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("plan-cli-output-contract", "daemon-not-running");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        await WriteUnityPluginMarker(scope, "UnityProject");
+        await UnityProjectTestFactory.WriteUcliUnityPluginMarker(scope, "UnityProject");
 
         var result = await CliProcessRunner.RunCommandWithStandardInput(
             CreateRequestJson(),
@@ -212,25 +211,4 @@ public sealed class PlanCliOutputContractTests
         Assert.True(Guid.TryParseExact(requestId, "D", out _));
     }
 
-    private static Task WriteUnityPluginMarker (
-        TestDirectoryScope scope,
-        string unityProjectDirectoryName)
-    {
-        ArgumentNullException.ThrowIfNull(scope);
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectDirectoryName);
-
-        return scope.WriteFileAsync(
-            Path.Combine(
-                unityProjectDirectoryName,
-                "Assets",
-                "MackySoft",
-                "MackySoft.Ucli.Unity",
-                UnityUcliPluginLocator.MarkerFileName),
-            """
-            {
-              "pluginId": "com.mackysoft.ucli.unity",
-              "protocolVersion": 1
-            }
-            """);
-    }
 }

@@ -11,6 +11,9 @@ namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
 /// <param name="Reason"> The optional failure reason for non-running states. </param>
 /// <param name="IssuedAtUtc"> The daemon session issuance timestamp when valid session metadata is available; otherwise <see langword="null" />. </param>
 /// <param name="ProcessId"> The daemon process identifier when valid session metadata is available; otherwise <see langword="null" />. </param>
+/// <param name="EditorMode"> The daemon Editor mode when valid session metadata is available; otherwise <see langword="null" />. </param>
+/// <param name="OwnerKind"> The daemon owner kind when valid session metadata is available; otherwise <see langword="null" />. </param>
+/// <param name="CanShutdownProcess"> Whether daemon process shutdown is allowed when valid session metadata is available; otherwise <see langword="null" />. </param>
 /// <param name="EndpointTransportKind"> The daemon endpoint transport kind when valid session metadata is available; otherwise <see langword="null" />. </param>
 /// <param name="EndpointAddress"> The daemon endpoint address when valid session metadata is available; otherwise <see langword="null" />. </param>
 /// <param name="Diagnosis"> The daemon diagnosis values when available; otherwise <see langword="null" />. </param>
@@ -24,6 +27,9 @@ internal sealed record DaemonListItemOutput (
     DaemonListItemReason? Reason,
     DateTimeOffset? IssuedAtUtc,
     int? ProcessId,
+    string? EditorMode,
+    string? OwnerKind,
+    bool? CanShutdownProcess,
     string? EndpointTransportKind,
     string? EndpointAddress,
     DaemonDiagnosisOutput? Diagnosis);

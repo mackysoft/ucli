@@ -43,7 +43,7 @@ public sealed class DaemonCliOutputContractTests
             .HasProperty("payload", payload => payload
                 .HasString("daemonStatus", "notRunning")
                 .IsNull("serverVersion")
-                .IsNull("runtime")
+                .IsNull("editorMode")
                 .IsNull("lifecycleState")
                 .IsNull("blockingReason")
                 .IsNull("compileState")
@@ -53,6 +53,7 @@ public sealed class DaemonCliOutputContractTests
                 .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcTimeoutDefaultDaemonStatusMilliseconds)
                 .IsNull("session")
                 .IsNull("diagnosis"));
+        Assert.False(outputJson.RootElement.GetProperty("payload").TryGetProperty("runtime", out _));
     }
 
     [Fact]
@@ -164,6 +165,89 @@ public sealed class DaemonCliOutputContractTests
             outputJson.RootElement,
             expectedCode: "INVALID_ARGUMENT");
         Assert.Contains(UnknownOptionMessage, result.StdErr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Start_WithInvalidEditorMode_ReturnsInvalidArgumentErrorAsSingleJson ()
+    {
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Daemon,
+            UcliCommandNames.StartSubcommand,
+            UcliContractConstants.CliOption.EditorMode,
+            "unsupported");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.DaemonStart,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(
+            outputJson.RootElement,
+            expectedCode: "INVALID_ARGUMENT");
+        Assert.Contains("editorMode must be one of", result.StdOut, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Start_WithEditorModeBatchmode_WhenUnityPluginMarkerIsMissing_DoesNotRejectEditorModeOption ()
+    {
+        using var scope = TestDirectories.CreateTempScope("cli-output-contract", "daemon-start-batchmode-option");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Daemon,
+            UcliCommandNames.StartSubcommand,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath,
+            UcliContractConstants.CliOption.EditorMode,
+            "batchmode");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.DaemonStart,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
+        Assert.Contains("Unity project does not contain the uCLI Unity plugin", result.StdOut, StringComparison.Ordinal);
+        Assert.DoesNotContain("editorMode must be one of", result.StdOut, StringComparison.Ordinal);
+        Assert.DoesNotContain("Argument '--editorMode' is not recognized.", result.StdErr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Start_WithEditorModeGui_WhenUnityPluginMarkerExists_ReturnsCommandNotImplementedAsSingleJson ()
+    {
+        using var scope = TestDirectories.CreateTempScope("cli-output-contract", "daemon-start-gui-option");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        await UnityProjectTestFactory.WriteUcliUnityPluginMarker(scope, "UnityProject");
+
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Daemon,
+            UcliCommandNames.StartSubcommand,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath,
+            UcliContractConstants.CliOption.Timeout,
+            "30000",
+            UcliContractConstants.CliOption.EditorMode,
+            "gui");
+        await WaitForSupervisorIdleExit(scope, unityProjectPath);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.DaemonStart,
+            status: "error",
+            exitCode: (int)CliExitCode.ToolError);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.CommandNotImplemented);
+        Assert.Contains("daemon start --editorMode gui is not implemented", result.StdOut, StringComparison.Ordinal);
+        Assert.DoesNotContain("editorMode must be one of", result.StdOut, StringComparison.Ordinal);
+        Assert.DoesNotContain("Argument '--editorMode' is not recognized.", result.StdErr, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -388,6 +472,19 @@ public sealed class DaemonCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task DaemonStart_WithHelpOutput_IncludesEditorModeOption ()
+    {
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Daemon,
+            UcliCommandNames.StartSubcommand,
+            "--help");
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.Contains("--editorMode", result.StdOut, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task DaemonStop_WithHelpOutput_IncludesShortProjectPathOption ()
     {
         var result = await CliProcessRunner.RunCommand(
@@ -472,6 +569,28 @@ public sealed class DaemonCliOutputContractTests
             $"Git command failed. Args={string.Join(' ', arguments)} stdout={standardOutput} stderr={standardError}");
     }
 
+    private static async Task WaitForSupervisorIdleExit (
+        TestDirectoryScope scope,
+        string unityProjectPath)
+    {
+        var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(Path.GetFullPath(unityProjectPath));
+        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(storageRoot);
+        var deadline = TimeProvider.System.GetUtcNow().AddSeconds(15);
+
+        while (File.Exists(manifestPath) && TimeProvider.System.GetUtcNow() < deadline)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(250));
+        }
+
+        if (File.Exists(manifestPath))
+        {
+            // NOTE: The GUI-not-implemented path intentionally reaches the supervisor in #250.
+            // Preserve the scope so a Windows working-directory lock does not hide the real timeout failure.
+            scope.Preserve();
+            Assert.Fail($"Supervisor did not exit after becoming idle. Manifest={manifestPath}");
+        }
+    }
+
     private static void WriteUnsafeInvalidSession (string unityProjectPath)
     {
         var normalizedProjectPath = Path.GetFullPath(unityProjectPath);
@@ -489,8 +608,8 @@ public sealed class DaemonCliOutputContractTests
                 sessionToken = "session-token",
                 projectFingerprint,
                 issuedAtUtc,
-                runtimeKind = DaemonSession.RuntimeKindBatchmode,
-                ownerKind = DaemonSession.OwnerKindSupervisor,
+                editorMode = DaemonEditorModeValues.Batchmode,
+                ownerKind = DaemonSessionOwnerKindValues.Cli,
                 canShutdownProcess = true,
                 endpointTransportKind = "namedPipe",
                 endpointAddress = "ucli-cleanup-test",

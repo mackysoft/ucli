@@ -10,6 +10,7 @@ internal interface IDaemonProjectLifecycleGateway
     ValueTask<DaemonStartResult> EnsureRunning (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
+        DaemonEditorMode? editorMode,
         CancellationToken cancellationToken = default);
 
     /// <summary> Attempts to stop one project daemon through a host-owned lifecycle gateway. </summary>

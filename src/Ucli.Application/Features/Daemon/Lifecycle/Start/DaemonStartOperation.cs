@@ -46,6 +46,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
     /// <summary> Starts daemon lifecycle for the specified Unity project context. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="timeout"> The daemon startup timeout. </param>
+    /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon start result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
@@ -53,6 +54,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
     public async ValueTask<DaemonStartResult> Start (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
+        DaemonEditorMode? editorMode,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -116,6 +118,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                     readResult,
                     deadline,
                     diagnosisCleanupError,
+                    editorMode,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -133,6 +136,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                     unityProject,
                     readResult.Session!,
                     existingSessionGateTimeout,
+                    editorMode,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (existingSessionGateResult is not null)
@@ -148,7 +152,17 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 diagnosisCleanupError);
         }
 
-        var launchResult = await daemonLaunchService.Launch(unityProject, launchTimeout, cancellationToken).ConfigureAwait(false);
+        if (!DaemonLaunchEditorModePolicy.TryResolve(editorMode, out var launchEditorMode, out var editorModeError))
+        {
+            return CreateFailure(editorModeError!, diagnosisCleanupError);
+        }
+
+        var launchResult = await daemonLaunchService.Launch(
+                unityProject,
+                launchTimeout,
+                launchEditorMode,
+                cancellationToken)
+            .ConfigureAwait(false);
         return CreateResult(launchResult, diagnosisCleanupError);
     }
 
@@ -157,6 +171,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         DaemonSessionReadResult readResult,
         ExecutionDeadline deadline,
         ExecutionError? diagnosisCleanupError,
+        DaemonEditorMode? editorMode,
         CancellationToken cancellationToken)
     {
         if (readResult.FailureKind != DaemonSessionReadFailureKind.InvalidSession)
@@ -189,7 +204,17 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 diagnosisCleanupError);
         }
 
-        var launchResult = await daemonLaunchService.Launch(unityProject, launchTimeout, cancellationToken).ConfigureAwait(false);
+        if (!DaemonLaunchEditorModePolicy.TryResolve(editorMode, out var launchEditorMode, out var editorModeError))
+        {
+            return CreateFailure(editorModeError!, diagnosisCleanupError);
+        }
+
+        var launchResult = await daemonLaunchService.Launch(
+                unityProject,
+                launchTimeout,
+                launchEditorMode,
+                cancellationToken)
+            .ConfigureAwait(false);
         return CreateResult(launchResult, diagnosisCleanupError);
     }
 
@@ -235,9 +260,9 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
 
         return primaryError.Kind switch
         {
-            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message),
-            ExecutionErrorKind.Timeout => ExecutionError.Timeout(message),
-            ExecutionErrorKind.InternalError => ExecutionError.InternalError(message),
+            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message, primaryError.Code),
+            ExecutionErrorKind.Timeout => ExecutionError.Timeout(message, primaryError.Code),
+            ExecutionErrorKind.InternalError => ExecutionError.InternalError(message, primaryError.Code),
             _ => throw new ArgumentOutOfRangeException(nameof(primaryError), primaryError.Kind, "Unsupported execution error kind."),
         };
     }

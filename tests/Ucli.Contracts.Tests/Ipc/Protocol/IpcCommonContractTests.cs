@@ -29,6 +29,7 @@ public sealed class IpcCommonContractTests
     public void IpcBatchmodeBootstrapArgumentNames_HasStableStringValues ()
     {
         Assert.Equal("-ucliBootstrapTarget", IpcBatchmodeBootstrapArgumentNames.Target);
+        Assert.Equal("-ucliProjectFingerprint", IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint);
     }
 
     [Fact]
@@ -44,7 +45,6 @@ public sealed class IpcCommonContractTests
     public void IpcDaemonBootstrapArgumentNames_HasStableStringValues ()
     {
         Assert.Equal("-ucliRepositoryRoot", IpcDaemonBootstrapArgumentNames.RepositoryRoot);
-        Assert.Equal("-ucliProjectFingerprint", IpcDaemonBootstrapArgumentNames.ProjectFingerprint);
         Assert.Equal("-ucliSessionPath", IpcDaemonBootstrapArgumentNames.SessionPath);
     }
 

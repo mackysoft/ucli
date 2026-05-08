@@ -3,6 +3,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Execution.Mode;
@@ -84,11 +85,12 @@ public sealed class IpcDaemonPingClientTests
                 request,
                 IpcProtocol.StatusOk,
                 Array.Empty<IpcError>(),
-                new IpcPingResponse(
-                    ServerVersion: "0.5.0",
-                    Runtime: "batchmode",
-                    UnityVersion: "2022.3.5f1",
-                    CompileState: "ready")));
+                IpcPingResponseTestFactory.Create(
+                    serverVersion: "0.5.0",
+                    editorMode: "batchmode",
+                    unityVersion: "2022.3.5f1",
+                    projectFingerprint: "fingerprint",
+                    compileState: "ready")));
         var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Success("resolved-token"));
         var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
 
@@ -97,8 +99,9 @@ public sealed class IpcDaemonPingClientTests
         Assert.Equal(1, unityIpcClient.CallCount);
         Assert.Equal(1, sessionTokenProvider.CallCount);
         Assert.Equal("0.5.0", result.ServerVersion);
-        Assert.Equal("batchmode", result.Runtime);
+        Assert.Equal("batchmode", result.EditorMode);
         Assert.Equal("2022.3.5f1", result.UnityVersion);
+        Assert.Equal("fingerprint", result.ProjectFingerprint);
         Assert.Equal("ready", result.CompileState);
     }
 
@@ -137,8 +140,9 @@ public sealed class IpcDaemonPingClientTests
                 new
                 {
                     serverVersion = "0.5.0",
-                    runtime = "batchmode",
+                    editorMode = "batchmode",
                     unityVersion = "2022.3.5f1",
+                    projectFingerprint = "fingerprint",
                 }));
         var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Success("resolved-token"));
         var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
@@ -146,9 +150,35 @@ public sealed class IpcDaemonPingClientTests
         var result = await pingClient.PingAndRead(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None);
 
         Assert.Equal("0.5.0", result.ServerVersion);
-        Assert.Equal("batchmode", result.Runtime);
+        Assert.Equal("batchmode", result.EditorMode);
         Assert.Equal("2022.3.5f1", result.UnityVersion);
         Assert.True(string.IsNullOrWhiteSpace(result.CompileState));
+    }
+
+    [Theory]
+    [InlineData(nameof(IpcDaemonPingClient.Ping))]
+    [InlineData(nameof(IpcDaemonPingClient.PingAndRead))]
+    [Trait("Size", "Small")]
+    public async Task PingMethods_WhenProjectFingerprintMismatches_ThrowsDaemonPingResponseException (string methodName)
+    {
+        var unityIpcClient = new StubUnityIpcTransportClient(request =>
+            CreateResponse(
+                request,
+                IpcProtocol.StatusOk,
+                Array.Empty<IpcError>(),
+                IpcPingResponseTestFactory.Create(projectFingerprint: "different-fingerprint")));
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Success("resolved-token"));
+        var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
+
+        var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
+        {
+            await TestAwaiter.WaitAsync(
+                InvokePingMethod(pingClient, methodName).AsTask(),
+                "Mismatched project fingerprint ping result",
+                AsyncWaitTimeout);
+        });
+
+        Assert.Contains("projectFingerprint mismatch", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -277,6 +307,18 @@ public sealed class IpcDaemonPingClientTests
             PathSource: UnityProjectPathSource.CommandOption);
     }
 
+    private static ValueTask InvokePingMethod (
+        IpcDaemonPingClient pingClient,
+        string methodName)
+    {
+        return methodName switch
+        {
+            nameof(IpcDaemonPingClient.Ping) => pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None),
+            nameof(IpcDaemonPingClient.PingAndRead) => new ValueTask(pingClient.PingAndRead(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None).AsTask()),
+            _ => throw new ArgumentOutOfRangeException(nameof(methodName), methodName, "Unsupported ping method."),
+        };
+    }
+
     private sealed class StubUnityIpcTransportClient : IUnityIpcTransportClient
     {
         private readonly Func<IpcRequest, IpcResponse> responseFactory;
@@ -287,7 +329,8 @@ public sealed class IpcDaemonPingClientTests
                 CreateResponse(
                     request,
                     IpcProtocol.StatusOk,
-                    Array.Empty<IpcError>()));
+                    Array.Empty<IpcError>(),
+                    IpcPingResponseTestFactory.Create(projectFingerprint: "fingerprint")));
         }
 
         public int CallCount { get; private set; }
@@ -352,4 +395,5 @@ public sealed class IpcDaemonPingClientTests
                 : IpcPayloadCodec.SerializeToElement(payload),
             Errors: errors);
     }
+
 }

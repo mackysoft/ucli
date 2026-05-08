@@ -66,7 +66,7 @@ internal sealed class StatusService : IStatusService
             CompileGeneration: daemonObservation.CompileGeneration,
             DomainReloadGeneration: daemonObservation.DomainReloadGeneration,
             CanAcceptExecutionRequests: daemonObservation.CanAcceptExecutionRequests,
-            Runtime: daemonObservation.Runtime,
+            EditorMode: daemonObservation.EditorMode,
             TimeoutMilliseconds: checked((int)executionContext.Timeout.TotalMilliseconds));
         return StatusExecutionResult.Success(output);
     }

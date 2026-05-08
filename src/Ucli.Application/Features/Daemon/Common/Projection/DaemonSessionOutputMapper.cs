@@ -17,7 +17,7 @@ internal sealed class DaemonSessionOutputMapper : IDaemonSessionOutputMapper
         return new DaemonSessionOutput(
             ProjectFingerprint: session.ProjectFingerprint,
             IssuedAtUtc: session.IssuedAtUtc,
-            RuntimeKind: session.RuntimeKind,
+            EditorMode: session.EditorMode,
             OwnerKind: session.OwnerKind,
             CanShutdownProcess: session.CanShutdownProcess,
             EndpointTransportKind: session.EndpointTransportKind,

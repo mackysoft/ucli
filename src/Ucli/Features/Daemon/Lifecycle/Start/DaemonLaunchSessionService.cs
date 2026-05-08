@@ -32,15 +32,22 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
 
     /// <summary> Creates and persists an initial daemon session before process launch. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
+    /// <param name="editorMode"> The requested daemon Editor mode. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The launch-session persistence result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
     public async ValueTask<DaemonLaunchSessionWriteResult> Initialize (
         ResolvedUnityProjectContext unityProject,
+        DaemonEditorMode editorMode,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
+
+        if (!DaemonLaunchEditorModePolicy.TryResolve(editorMode, out var launchEditorMode, out var editorModeError))
+        {
+            return DaemonLaunchSessionWriteResult.Failure(editorModeError!);
+        }
 
         var endpoint = endpointResolver.Resolve(unityProject.RepositoryRoot, unityProject.ProjectFingerprint);
         var session = new DaemonSession(
@@ -48,8 +55,8 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
             SessionToken: sessionTokenGenerator.Create(),
             ProjectFingerprint: unityProject.ProjectFingerprint,
             IssuedAtUtc: DateTimeOffset.UtcNow,
-            RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindSupervisor,
+            EditorMode: DaemonEditorModeCodec.ToValue(launchEditorMode),
+            OwnerKind: DaemonSessionOwnerKindCodec.ToValue(DaemonSessionOwnerKind.Cli),
             CanShutdownProcess: true,
             EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
             EndpointAddress: endpoint.Address,

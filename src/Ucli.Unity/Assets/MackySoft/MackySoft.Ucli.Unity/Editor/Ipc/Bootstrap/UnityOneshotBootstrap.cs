@@ -27,6 +27,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var services = new ServiceCollection();
                 services.AddUnityIpcApplicationServices(
                     new ExactSessionTokenValidator(bootstrapArguments.SessionToken),
+                    bootstrapArguments.ProjectFingerprint,
                     NoOpDaemonLogger.Instance);
                 services.AddUnityIpcOneshotHostServices();
 

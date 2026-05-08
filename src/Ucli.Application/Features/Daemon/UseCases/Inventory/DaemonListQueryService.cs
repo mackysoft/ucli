@@ -388,6 +388,9 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             Reason: reason,
             IssuedAtUtc: session?.IssuedAtUtc,
             ProcessId: session?.ProcessId,
+            EditorMode: session?.EditorMode,
+            OwnerKind: session?.OwnerKind,
+            CanShutdownProcess: session?.CanShutdownProcess,
             EndpointTransportKind: session?.EndpointTransportKind,
             EndpointAddress: session?.EndpointAddress,
             Diagnosis: diagnosis);

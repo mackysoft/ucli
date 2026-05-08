@@ -43,7 +43,12 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         CancellationToken cancellationToken = default)
     {
         var response = await SendPingRequest(unityProject, timeout, sessionToken, cancellationToken).ConfigureAwait(false);
-        if (!DaemonPingResponseCodec.TryValidateSuccessResponse(response, out var error))
+        if (!DaemonPingResponseCodec.TryDecodePayloadForProject(
+                response,
+                unityProject.ProjectFingerprint,
+                "Daemon ping",
+                out _,
+                out var error))
         {
             throw error!;
         }
@@ -66,7 +71,12 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         CancellationToken cancellationToken = default)
     {
         var response = await SendPingRequest(unityProject, timeout, sessionToken, cancellationToken).ConfigureAwait(false);
-        if (!DaemonPingResponseCodec.TryDecodePayload(response, out var payload, out var error))
+        if (!DaemonPingResponseCodec.TryDecodePayloadForProject(
+                response,
+                unityProject.ProjectFingerprint,
+                "Daemon ping",
+                out var payload,
+                out var error))
         {
             throw error!;
         }
@@ -148,4 +158,5 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
             Method: IpcMethodNames.Ping,
             Payload: payload);
     }
+
 }

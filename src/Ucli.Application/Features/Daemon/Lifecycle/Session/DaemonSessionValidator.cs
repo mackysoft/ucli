@@ -29,7 +29,7 @@ internal sealed class DaemonSessionValidator : IDaemonSessionValidator
 
         if (string.IsNullOrWhiteSpace(session.SessionToken)
             || string.IsNullOrWhiteSpace(session.ProjectFingerprint)
-            || string.IsNullOrWhiteSpace(session.RuntimeKind)
+            || string.IsNullOrWhiteSpace(session.EditorMode)
             || string.IsNullOrWhiteSpace(session.OwnerKind)
             || string.IsNullOrWhiteSpace(session.EndpointTransportKind)
             || string.IsNullOrWhiteSpace(session.EndpointAddress))
@@ -57,24 +57,33 @@ internal sealed class DaemonSessionValidator : IDaemonSessionValidator
             return false;
         }
 
-        if (!string.Equals(session.RuntimeKind, DaemonSession.RuntimeKindBatchmode, StringComparison.Ordinal))
+        if (!DaemonEditorModeCodec.TryParse(session.EditorMode, out var editorMode))
         {
             error = ExecutionError.InvalidArgument(
-                $"Daemon session runtimeKind must be '{DaemonSession.RuntimeKindBatchmode}'. Actual: {session.RuntimeKind}. {sessionPath}");
+                $"Daemon session editorMode is invalid. Actual: {session.EditorMode}. {sessionPath}");
             return false;
         }
 
-        if (!string.Equals(session.OwnerKind, DaemonSession.OwnerKindSupervisor, StringComparison.Ordinal))
+        if (!DaemonSessionOwnerKindCodec.TryParse(session.OwnerKind, out var ownerKind))
         {
             error = ExecutionError.InvalidArgument(
-                $"Daemon session ownerKind must be '{DaemonSession.OwnerKindSupervisor}'. Actual: {session.OwnerKind}. {sessionPath}");
+                $"Daemon session ownerKind is invalid. Actual: {session.OwnerKind}. {sessionPath}");
             return false;
         }
 
-        if (!session.CanShutdownProcess)
+        if (editorMode == DaemonEditorMode.Batchmode
+            && (ownerKind != DaemonSessionOwnerKind.Cli
+                || !session.CanShutdownProcess))
         {
             error = ExecutionError.InvalidArgument(
-                $"Daemon session canShutdownProcess must be true for supervisor-owned daemon sessions. {sessionPath}");
+                $"Daemon session batchmode contract requires ownerKind='{DaemonSessionOwnerKindValues.Cli}' and canShutdownProcess=true. {sessionPath}");
+            return false;
+        }
+
+        if (ownerKind == DaemonSessionOwnerKind.User && session.CanShutdownProcess)
+        {
+            error = ExecutionError.InvalidArgument(
+                $"Daemon session ownerKind='{DaemonSessionOwnerKindValues.User}' requires canShutdownProcess=false. {sessionPath}");
             return false;
         }
 

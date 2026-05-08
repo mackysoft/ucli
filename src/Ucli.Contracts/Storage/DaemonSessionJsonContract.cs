@@ -5,7 +5,7 @@ namespace MackySoft.Ucli.Contracts.Storage;
 /// <param name="SessionToken"> The daemon session token value. </param>
 /// <param name="ProjectFingerprint"> The project fingerprint value. </param>
 /// <param name="IssuedAtUtc"> The issued-at timestamp. </param>
-/// <param name="RuntimeKind"> The daemon runtime kind value. </param>
+/// <param name="EditorMode"> The daemon Editor mode value. </param>
 /// <param name="OwnerKind"> The daemon owner kind value. </param>
 /// <param name="CanShutdownProcess"> Whether daemon process shutdown is allowed. </param>
 /// <param name="EndpointTransportKind"> The endpoint transport kind value. </param>
@@ -17,7 +17,7 @@ internal sealed record DaemonSessionJsonContract (
     string? SessionToken,
     string? ProjectFingerprint,
     DateTimeOffset IssuedAtUtc,
-    string? RuntimeKind,
+    string? EditorMode,
     string? OwnerKind,
     bool CanShutdownProcess,
     string? EndpointTransportKind,

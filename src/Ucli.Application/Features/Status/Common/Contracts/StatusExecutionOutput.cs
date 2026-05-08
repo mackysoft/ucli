@@ -12,7 +12,7 @@ namespace MackySoft.Ucli.Application.Features.Status.Common.Contracts;
 /// <param name="CompileGeneration"> The daemon compile generation when daemon is reachable; otherwise <see langword="null" />. </param>
 /// <param name="DomainReloadGeneration"> The daemon domain-reload generation when daemon is reachable; otherwise <see langword="null" />. </param>
 /// <param name="CanAcceptExecutionRequests"> Whether execution requests can currently be accepted. </param>
-/// <param name="Runtime"> The daemon runtime value when daemon is reachable; otherwise <see langword="null" />. </param>
+/// <param name="EditorMode"> The daemon Editor mode when daemon is reachable; otherwise <see langword="null" />. </param>
 /// <param name="TimeoutMilliseconds"> The effective timeout in milliseconds used for daemon status probing. </param>
 internal sealed record StatusExecutionOutput (
     DaemonStatusKind DaemonStatus,
@@ -24,5 +24,5 @@ internal sealed record StatusExecutionOutput (
     string? CompileGeneration,
     string? DomainReloadGeneration,
     bool CanAcceptExecutionRequests,
-    string? Runtime,
+    string? EditorMode,
     int TimeoutMilliseconds);

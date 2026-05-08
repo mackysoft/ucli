@@ -107,7 +107,7 @@ internal sealed class DaemonStatusService : IDaemonStatusService
 
         var daemonStatus = statusResult.Status;
         var serverVersion = (string?)null;
-        var runtime = (string?)null;
+        var editorMode = (string?)null;
         var lifecycleState = (string?)null;
         var blockingReason = (string?)null;
         var compileState = (string?)null;
@@ -143,7 +143,7 @@ internal sealed class DaemonStatusService : IDaemonStatusService
                     .ConfigureAwait(false);
                 var observation = StatusDaemonObservationCodec.CreateFromPing(statusResult.Status, pingResponse);
                 serverVersion = observation.ServerVersion;
-                runtime = observation.Runtime;
+                editorMode = observation.EditorMode;
                 lifecycleState = observation.LifecycleState;
                 blockingReason = observation.BlockingReason;
                 compileState = observation.CompileState;
@@ -209,7 +209,7 @@ internal sealed class DaemonStatusService : IDaemonStatusService
         var output = new DaemonStatusExecutionOutput(
             DaemonStatus: daemonStatus,
             ServerVersion: serverVersion,
-            Runtime: runtime,
+            EditorMode: editorMode,
             LifecycleState: lifecycleState,
             BlockingReason: blockingReason,
             CompileState: compileState,

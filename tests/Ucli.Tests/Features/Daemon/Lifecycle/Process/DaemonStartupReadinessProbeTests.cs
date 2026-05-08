@@ -7,6 +7,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
+using MackySoft.Ucli.Tests.Helpers.Ipc;
 
 public sealed class DaemonStartupReadinessProbeTests
 {
@@ -451,26 +452,9 @@ public sealed class DaemonStartupReadinessProbeTests
         string lifecycleState = IpcEditorLifecycleStateCodec.Ready,
         bool canAcceptExecutionRequests = true)
     {
-        return new IpcPingResponse(
-            ServerVersion: "1.0.0",
-            Runtime: IpcEditorRuntimeCodec.Batchmode,
-            UnityVersion: "2023.2.22f1",
-            CompileState: IpcCompileStateCodec.Ready,
-            LifecycleState: lifecycleState,
-            BlockingReason: canAcceptExecutionRequests
-                ? null
-                : lifecycleState switch
-                {
-                    IpcEditorLifecycleStateCodec.Starting => IpcEditorBlockingReasonCodec.Startup,
-                    IpcEditorLifecycleStateCodec.Busy => IpcEditorBlockingReasonCodec.Busy,
-                    IpcEditorLifecycleStateCodec.Compiling => IpcEditorBlockingReasonCodec.Compile,
-                    IpcEditorLifecycleStateCodec.DomainReloading => IpcEditorBlockingReasonCodec.DomainReload,
-                    IpcEditorLifecycleStateCodec.ShuttingDown => IpcEditorBlockingReasonCodec.Shutdown,
-                    _ => null,
-                },
-            CompileGeneration: "0",
-            DomainReloadGeneration: "0",
-            CanAcceptExecutionRequests: canAcceptExecutionRequests);
+        return IpcPingResponseTestFactory.Create(
+            lifecycleState: lifecycleState,
+            canAcceptExecutionRequests: canAcceptExecutionRequests);
     }
 
     private sealed class StubDaemonPingInfoClient : IDaemonPingInfoClient
@@ -485,16 +469,10 @@ public sealed class DaemonStartupReadinessProbeTests
         public StubDaemonPingInfoClient (
             string staticLifecycleState,
             string? staticBlockingReason)
-            : this(() => ValueTask.FromResult(new IpcPingResponse(
-                ServerVersion: "1.0.0",
-                Runtime: IpcEditorRuntimeCodec.Batchmode,
-                UnityVersion: "2023.2.22f1",
-                CompileState: IpcCompileStateCodec.Ready,
-                LifecycleState: staticLifecycleState,
-                BlockingReason: staticBlockingReason,
-                CompileGeneration: "0",
-                DomainReloadGeneration: "0",
-                CanAcceptExecutionRequests: false)))
+            : this(() => ValueTask.FromResult(IpcPingResponseTestFactory.Create(
+                lifecycleState: staticLifecycleState,
+                blockingReason: staticBlockingReason,
+                canAcceptExecutionRequests: false)))
         {
         }
 

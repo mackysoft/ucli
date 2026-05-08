@@ -5,7 +5,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 /// <summary> Represents normalized payload values for one daemon-status command execution. </summary>
 /// <param name="DaemonStatus"> The daemon-status value. </param>
 /// <param name="ServerVersion"> The daemon server version when available; otherwise <see langword="null" />. </param>
-/// <param name="Runtime"> The daemon runtime value when available; otherwise <see langword="null" />. </param>
+/// <param name="EditorMode"> The daemon Editor mode when available; otherwise <see langword="null" />. </param>
 /// <param name="LifecycleState"> The daemon lifecycle-state value when available; otherwise <see langword="null" />. </param>
 /// <param name="BlockingReason"> The daemon blocking-reason value when available; otherwise <see langword="null" />. </param>
 /// <param name="CompileState"> The daemon compile-state value when available; otherwise <see langword="null" />. </param>
@@ -18,7 +18,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 internal sealed record DaemonStatusExecutionOutput (
     DaemonStatusKind DaemonStatus,
     string? ServerVersion,
-    string? Runtime,
+    string? EditorMode,
     string? LifecycleState,
     string? BlockingReason,
     string? CompileState,

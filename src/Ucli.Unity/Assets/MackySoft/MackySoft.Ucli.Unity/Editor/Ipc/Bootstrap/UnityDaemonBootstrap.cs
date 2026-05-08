@@ -47,6 +47,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 services
                     .AddUnityIpcApplicationServices(
                         new FileBackedSessionTokenValidator(bootstrapArguments.SessionPath),
+                        bootstrapArguments.ProjectFingerprint,
                         daemonLogger)
                     .AddUnityIpcDaemonHostServices(
                         bootstrapArguments,

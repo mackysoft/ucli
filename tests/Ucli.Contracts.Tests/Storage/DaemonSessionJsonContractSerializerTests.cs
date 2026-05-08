@@ -16,8 +16,8 @@ public sealed class DaemonSessionJsonContractSerializerTests
               "sessionToken": "token-123",
               "projectFingerprint": "fingerprint-abc",
               "issuedAtUtc": "2026-03-02T00:00:00+00:00",
-              "runtimeKind": "batchmode",
-              "ownerKind": "supervisor",
+              "editorMode": "batchmode",
+              "ownerKind": "cli",
               "canShutdownProcess": true,
               "endpointTransportKind": "namedPipe",
               "endpointAddress": "ucli-daemon-endpoint",
@@ -33,8 +33,8 @@ public sealed class DaemonSessionJsonContractSerializerTests
         Assert.Equal("token-123", contract.SessionToken);
         Assert.Equal("fingerprint-abc", contract.ProjectFingerprint);
         Assert.Equal(DateTimeOffset.Parse("2026-03-02T00:00:00+00:00"), contract.IssuedAtUtc);
-        Assert.Equal("batchmode", contract.RuntimeKind);
-        Assert.Equal("supervisor", contract.OwnerKind);
+        Assert.Equal("batchmode", contract.EditorMode);
+        Assert.Equal("cli", contract.OwnerKind);
         Assert.True(contract.CanShutdownProcess);
         Assert.Equal("namedPipe", contract.EndpointTransportKind);
         Assert.Equal("ucli-daemon-endpoint", contract.EndpointAddress);
@@ -70,8 +70,8 @@ public sealed class DaemonSessionJsonContractSerializerTests
             SessionToken: "token-123",
             ProjectFingerprint: "fingerprint-abc",
             IssuedAtUtc: DateTimeOffset.Parse("2026-03-02T00:00:00+00:00"),
-            RuntimeKind: "batchmode",
-            OwnerKind: "supervisor",
+            EditorMode: "batchmode",
+            OwnerKind: "cli",
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-endpoint",
@@ -83,6 +83,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
 
         JsonAssert.For(jsonDocument.RootElement)
             .MatchesSchema(SessionJsonSchema, nameof(SessionJsonSchema));
+        Assert.False(jsonDocument.RootElement.TryGetProperty("runtimeKind", out _));
     }
 
     private static JsonSchemaNode SessionJsonSchema => JsonSchemaNode.Object(
@@ -91,7 +92,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
             .Required("sessionToken", JsonSchemaNode.Value(JsonSchemaType.String))
             .Required("projectFingerprint", JsonSchemaNode.Value(JsonSchemaType.String))
             .Required("issuedAtUtc", JsonSchemaNode.Value(JsonSchemaType.String))
-            .Required("runtimeKind", JsonSchemaNode.Value(JsonSchemaType.String))
+            .Required("editorMode", JsonSchemaNode.Value(JsonSchemaType.String))
             .Required("ownerKind", JsonSchemaNode.Value(JsonSchemaType.String))
             .Required("canShutdownProcess", JsonSchemaNode.Value(JsonSchemaType.Boolean))
             .Required("endpointTransportKind", JsonSchemaNode.Value(JsonSchemaType.String))

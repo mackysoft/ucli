@@ -32,7 +32,7 @@ public sealed class DaemonStartServiceTests
         };
         var service = CreateService(resolver, supervisorProjectGateway, mapper);
 
-        var result = await service.Start(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
+        var result = await service.Start(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStartExecutionOutput>(result.Output);
@@ -49,6 +49,32 @@ public sealed class DaemonStartServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Start_WhenEditorModeIsSpecified_PropagatesEditorModeToLifecycleGateway ()
+    {
+        var context = DaemonServiceTestContext.CreateExecutionContext(
+            timeoutMilliseconds: 1200,
+            repositoryRoot: "/tmp/repo-root");
+        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var mapper = new DaemonServiceTestContext.StubDaemonSessionOutputMapper();
+        var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway
+        {
+            EnsureRunningResult = DaemonStartResult.Started(DaemonServiceTestContext.CreateSession()),
+        };
+        var service = CreateService(resolver, supervisorProjectGateway, mapper);
+
+        var result = await service.Start(
+            projectPath: null,
+            timeoutMilliseconds: null,
+            editorMode: DaemonEditorMode.Gui,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(DaemonEditorMode.Gui, supervisorProjectGateway.LastEnsureRunningEditorMode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Start_WhenExecutionContextResolutionFails_ReturnsFailureWithoutSupervisorCall ()
     {
         var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
@@ -58,7 +84,7 @@ public sealed class DaemonStartServiceTests
         var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway();
         var service = CreateService(resolver, supervisorProjectGateway, mapper);
 
-        var result = await service.Start(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
+        var result = await service.Start(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -84,7 +110,7 @@ public sealed class DaemonStartServiceTests
         };
         var service = CreateService(resolver, supervisorProjectGateway, mapper);
 
-        var result = await service.Start(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
+        var result = await service.Start(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStartExecutionOutput>(result.Output);
@@ -108,7 +134,7 @@ public sealed class DaemonStartServiceTests
         };
         var service = CreateService(resolver, supervisorProjectGateway, mapper);
 
-        var result = await service.Start(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
+        var result = await service.Start(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -148,6 +174,7 @@ public sealed class DaemonStartServiceTests
         var result = await service.Start(
             projectPath: "/tmp/sandbox-unity",
             timeoutMilliseconds: 700,
+            editorMode: null,
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -176,7 +203,7 @@ public sealed class DaemonStartServiceTests
         var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway();
         var service = CreateService(resolver, supervisorProjectGateway, mapper, pluginVerifier);
 
-        var result = await service.Start(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
+        var result = await service.Start(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -207,7 +234,7 @@ public sealed class DaemonStartServiceTests
         };
         var service = CreateService(resolver, supervisorProjectGateway, mapper, pluginVerifier, timeProvider);
 
-        var resultTask = service.Start(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None).AsTask();
+        var resultTask = service.Start(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None).AsTask();
         await TestAwaiter.WaitAsync(pluginVerifier.Started!.Task, "Unity plugin verification start", SignalWaitTimeout);
         timeProvider.Advance(context.Timeout);
 
