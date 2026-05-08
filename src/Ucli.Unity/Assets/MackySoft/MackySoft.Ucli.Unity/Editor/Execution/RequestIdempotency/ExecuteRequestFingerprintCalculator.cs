@@ -13,7 +13,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
     /// <summary> Creates deterministic request fingerprints for request-id idempotency matching. </summary>
     internal static class ExecuteRequestFingerprintCalculator
     {
-        /// <summary> Creates one deterministic fingerprint from execute request command, arguments and plan-token. </summary>
+        /// <summary> Creates one deterministic fingerprint from execute request command, arguments, safety flags and plan-token. </summary>
         /// <param name="request"> The execute request payload. </param>
         /// <returns> The lowercase hexadecimal SHA-256 fingerprint string. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> is <see langword="null" />. </exception>
@@ -35,6 +35,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
             writer.WriteStartObject();
             writer.WritePropertyName("arguments");
             CanonicalRequestWriter.WriteCanonicalJsonValue(writer, request.Arguments);
+            writer.WriteBoolean("allowDangerous", request.AllowDangerous);
             writer.WriteString("command", request.Command);
             writer.WriteBoolean("failFast", request.FailFast);
             if (normalizedPlanToken is null)

@@ -1,8 +1,8 @@
 using System;
-using MackySoft.Ucli.Contracts;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 
@@ -26,11 +26,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <summary> Executes validate and plan steps for one operation. </summary>
         /// <param name="operation"> The normalized operation. </param>
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
+        /// <param name="operationPreflight"> Optional preflight executed after operation resolution and before validate/plan execution. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The one-operation step outcome. </returns>
         public async Task<OperationPlanStepOutcome> Execute (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
+            Func<NormalizedOperation, IUcliOperation, OperationFailure?>? operationPreflight,
             CancellationToken cancellationToken = default)
         {
             if (!operationRegistry.TryResolve(operation.Op, out var phaseOperation))
@@ -52,6 +54,25 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         Result = null,
                     },
                     Error: missingOperationFailure,
+                    PreparedOperation: null);
+            }
+
+            var preflightFailure = operationPreflight?.Invoke(operation, phaseOperation);
+            if (preflightFailure != null)
+            {
+                return new OperationPlanStepOutcome(
+                    OperationTrace: new OperationPhaseTrace(
+                        OpId: operation.Id,
+                        Op: operation.Op,
+                        Phase: OperationPhase.Validate,
+                        Applied: false,
+                        Changed: false,
+                        Touched: Array.Empty<OperationTouch>(),
+                        Failure: preflightFailure)
+                    {
+                        Result = null,
+                    },
+                    Error: preflightFailure,
                     PreparedOperation: null);
             }
 

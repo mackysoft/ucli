@@ -63,7 +63,8 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                     CreateExecuteRequestPayload(
                         preparedRequest.RequestJson,
                         UcliCommandIds.Plan,
-                        input.FailFast),
+                        input.FailFast,
+                        input.AllowDangerous),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!planExecutionResult.IsSuccess)
@@ -127,6 +128,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                     preparedRequest.RequestJson,
                     UcliCommandIds.Call,
                     input.FailFast,
+                    input.AllowDangerous,
                     effectivePlanToken),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -180,6 +182,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         string requestJson,
         UcliCommand command,
         bool failFast,
+        bool allowDangerous = false,
         string? planToken = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestJson);
@@ -189,7 +192,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         }
 
         using var document = JsonDocument.Parse(requestJson);
-        return new UnityRequestPayload.ExecuteJson(command, document.RootElement.Clone(), failFast, planToken);
+        return new UnityRequestPayload.ExecuteJson(command, document.RootElement.Clone(), failFast, allowDangerous, planToken);
     }
 
     private static CallServiceResult CreateFailure (

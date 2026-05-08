@@ -116,6 +116,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 ProtocolVersion: parsedContract.ProtocolVersion,
                 RequestId: parsedContract.RequestId,
                 SourceSteps: sourceSteps,
+                AllowDangerous: request.AllowDangerous,
                 PlanToken: normalizedPlanToken,
                 CanonicalDigestPayloadUtf8: canonicalPayload);
             return ExecuteRequestNormalizationResult.Success(normalizedRequest);

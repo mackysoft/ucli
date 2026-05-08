@@ -10,6 +10,11 @@ public sealed record IpcExecuteRequest (
     string Command,
     JsonElement Arguments)
 {
+    /// <summary> Gets a value indicating whether dangerous operations are explicitly allowed for this execute request. </summary>
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool AllowDangerous { get; init; }
+
     /// <summary> Gets a value indicating whether execution should fail immediately instead of waiting for lifecycle readiness. </summary>
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]

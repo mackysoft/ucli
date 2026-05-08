@@ -184,7 +184,7 @@ public sealed class IpcContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcExecuteRequest_SerializesPlanTokenOnlyWhenSpecified ()
+    public void IpcExecuteRequest_SerializesOptionalExecutionControlsOnlyWhenSpecified ()
     {
         var requestWithToken = new IpcExecuteRequest(
             Command: UcliCommandIds.Call,
@@ -196,11 +196,14 @@ public sealed class IpcContractSerializationTests
             }))
         {
             PlanToken = "token-value",
+            AllowDangerous = true,
         };
 
         var withTokenJson = JsonSerializer.SerializeToElement(requestWithToken, SerializerOptions);
         Assert.True(withTokenJson.TryGetProperty("planToken", out var planTokenElement));
         Assert.Equal("token-value", planTokenElement.GetString());
+        Assert.True(withTokenJson.TryGetProperty("allowDangerous", out var allowDangerousElement));
+        Assert.True(allowDangerousElement.GetBoolean());
         Assert.False(withTokenJson.TryGetProperty("failFast", out _));
 
         var requestWithoutToken = new IpcExecuteRequest(
@@ -216,6 +219,7 @@ public sealed class IpcContractSerializationTests
         };
         var withoutTokenJson = JsonSerializer.SerializeToElement(requestWithoutToken, SerializerOptions);
         Assert.False(withoutTokenJson.TryGetProperty("planToken", out _));
+        Assert.False(withoutTokenJson.TryGetProperty("allowDangerous", out _));
         Assert.True(withoutTokenJson.TryGetProperty("failFast", out var failFastElement));
         Assert.True(failFastElement.GetBoolean());
     }

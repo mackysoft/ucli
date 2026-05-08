@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Unity.Execution.PlanToken;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -13,6 +15,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Executes normalized operations through <c>validate -&gt; plan -&gt; call</c> phase pipelines. </summary>
     internal sealed class OperationPhaseExecutor : IOperationPhaseExecutor
     {
+        private static readonly UcliErrorCode OperationNotAllowedErrorCode = new UcliErrorCode("OPERATION_NOT_ALLOWED");
+
         private readonly IOperationPlanPassExecutor planPassExecutor;
 
         private readonly IOperationCallPassExecutor callPassExecutor;
@@ -93,7 +97,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             using var executionContext = new OperationExecutionContext();
-            var planPassResult = await planPassExecutor.Execute(request, executionContext, cancellationToken).ConfigureAwait(false);
+            var operationPreflight = command == PhaseExecutionCommand.Call && !request.AllowDangerous
+                ? CreateDangerousCallPreflight()
+                : null;
+            var planPassResult = await planPassExecutor.Execute(request, executionContext, operationPreflight, cancellationToken).ConfigureAwait(false);
             if (!planPassResult.IsSuccess)
             {
                 if (command == PhaseExecutionCommand.Call
@@ -173,10 +180,62 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     });
             }
 
+            if (!request.AllowDangerous
+                && !TryAuthorizeDangerousCall(planPassResult.PreparedOperations, out var dangerousCallFailure))
+            {
+                return PhaseExecutionTrace.Failure(
+                    protocolVersion: request.ProtocolVersion,
+                    requestId: request.RequestId,
+                    steps: planPassResult.CompiledSteps,
+                    operationTraces: planPassResult.OperationTraces,
+                    errors: new[]
+                    {
+                        dangerousCallFailure!,
+                    });
+            }
+
             var callPassResult = await callPassExecutor.Execute(planPassResult.PreparedOperations, executionContext, cancellationToken).ConfigureAwait(false);
             return callPassResult.IsSuccess
                 ? PhaseExecutionTrace.Success(request.ProtocolVersion, request.RequestId, planPassResult.CompiledSteps, callPassResult.OperationTraces)
                 : PhaseExecutionTrace.Failure(request.ProtocolVersion, request.RequestId, planPassResult.CompiledSteps, callPassResult.OperationTraces, callPassResult.Errors);
+        }
+
+        private static Func<NormalizedOperation, IUcliOperation, OperationFailure?> CreateDangerousCallPreflight ()
+        {
+            return static (operation, phaseOperation) =>
+            {
+                return phaseOperation.Metadata.Policy == OperationPolicy.Dangerous
+                    ? CreateDangerousCallFailure(operation)
+                    : null;
+            };
+        }
+
+        private static bool TryAuthorizeDangerousCall (
+            IReadOnlyList<PreparedOperation> preparedOperations,
+            out OperationFailure? failure)
+        {
+            for (var i = 0; i < preparedOperations.Count; i++)
+            {
+                var preparedOperation = preparedOperations[i];
+                if (preparedOperation.PhaseOperation.Metadata.Policy != OperationPolicy.Dangerous)
+                {
+                    continue;
+                }
+
+                failure = CreateDangerousCallFailure(preparedOperation.Operation);
+                return false;
+            }
+
+            failure = null;
+            return true;
+        }
+
+        private static OperationFailure CreateDangerousCallFailure (NormalizedOperation operation)
+        {
+            return new OperationFailure(
+                Code: OperationNotAllowedErrorCode,
+                Message: $"Step '{operation.Id}' requires dangerous operation '{operation.Op}'. Specify --allowDangerous to execute dangerous operations.",
+                OpId: operation.Id);
         }
 
         private static IReadOnlyList<NormalizedRequestStep> CreateUncompiledSteps (IReadOnlyList<IpcRequestContractStep> sourceSteps)

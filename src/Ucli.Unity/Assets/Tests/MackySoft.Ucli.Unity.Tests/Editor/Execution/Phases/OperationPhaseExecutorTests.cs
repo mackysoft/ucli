@@ -339,6 +339,52 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Execute_WhenCallContainsDangerousOperationWithoutAllowDangerous_DoesNotExecuteValidatePlanOrCallPhase () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
+                policy: OperationPolicy.Dangerous);
+            var executor = new OperationPhaseExecutor(CreateRegistry(("ucli.tests.dangerous", operation)));
+            var request = CreateRequest("op-1", "ucli.tests.dangerous");
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Dangerous call denied execution");
+
+            Assert.That(trace.IsSuccess, Is.False);
+            Assert.That(trace.Errors.Count, Is.EqualTo(1));
+            Assert.That(trace.Errors[0].Code.Value, Is.EqualTo("OPERATION_NOT_ALLOWED"));
+            Assert.That(trace.Errors[0].OpId, Is.EqualTo("op-1"));
+            Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Validate));
+            CollectionAssert.IsEmpty(operation.CalledPhases);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhenCallContainsDangerousOperationWithAllowDangerous_ExecutesCallPhase () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
+                policy: OperationPolicy.Dangerous);
+            var executor = new OperationPhaseExecutor(CreateRegistry(("ucli.tests.dangerous", operation)));
+            var request = CreateRequest(
+                operations: new[] { ("op-1", "ucli.tests.dangerous") },
+                planToken: null,
+                canonicalPayloadJson: "{}",
+                allowDangerous: true);
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Dangerous call allowed execution");
+
+            Assert.That(trace.IsSuccess, Is.True);
+            CollectionAssert.AreEqual(
+                new[] { OperationPhase.Validate, OperationPhase.Plan, OperationPhase.Call },
+                operation.CalledPhases);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Execute_WhenPlanSucceeds_IssuesPlanToken () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
@@ -1021,7 +1067,8 @@ namespace MackySoft.Ucli.Unity.Tests
         private static NormalizedExecuteRequest CreateRequest (
             (string OpId, string Op)[] operations,
             string? planToken,
-            string canonicalPayloadJson)
+            string canonicalPayloadJson,
+            bool allowDangerous = false)
         {
             var sourceSteps = new List<IpcRequestContractStep>(operations.Length);
             for (var i = 0; i < operations.Length; i++)
@@ -1044,6 +1091,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 ProtocolVersion: IpcProtocol.CurrentVersion,
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 SourceSteps: sourceSteps,
+                AllowDangerous: allowDangerous,
                 PlanToken: planToken,
                 CanonicalDigestPayloadUtf8: Encoding.UTF8.GetBytes(canonicalPayloadJson));
         }
@@ -1216,6 +1264,7 @@ namespace MackySoft.Ucli.Unity.Tests
             public Task<PlanPassResult> Execute (
                 NormalizedExecuteRequest request,
                 OperationExecutionContext executionContext,
+                Func<NormalizedOperation, IUcliOperation, OperationFailure?>? operationPreflight,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -1415,18 +1464,20 @@ namespace MackySoft.Ucli.Unity.Tests
             public RecordingPhaseOperation (
                 OperationPhaseStepResult validateResult,
                 OperationPhaseStepResult planResult,
-                OperationPhaseStepResult callResult)
+                OperationPhaseStepResult callResult,
+                OperationPolicy policy = OperationPolicy.Safe)
             {
                 this.validateResult = validateResult;
                 this.planResult = planResult;
                 this.callResult = callResult;
+                Metadata = new UcliOperationMetadata(
+                    operationName: "ucli.tests.recording",
+                    kind: UcliOperationKind.Query,
+                    policy: policy,
+                    describeContract: CreateDescribeContract("ucli.tests.recording"));
             }
 
-            public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-                operationName: "ucli.tests.recording",
-                kind: UcliOperationKind.Query,
-                policy: OperationPolicy.Safe,
-                describeContract: CreateDescribeContract("ucli.tests.recording"));
+            public UcliOperationMetadata Metadata { get; }
 
             public List<OperationPhase> CalledPhases { get; } = new List<OperationPhase>();
 
