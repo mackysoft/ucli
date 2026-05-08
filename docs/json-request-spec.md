@@ -116,6 +116,27 @@ public raw `op` の `args` では request-local alias selector branch の `var` 
 - `nameContains` は main asset 名に対する大小文字無視の部分一致で評価する
 - primitive `ucli.assets.find` 自体は limit / cursor を持たず、deterministic order の全件結果を返す
 
+### 代表例: `ucli.cs.eval`
+
+`ucli.cs.eval` は `operationPolicy = dangerous`、operation allowlist 一致、`ucli call --allowDangerous` の全条件を満たす場合だけ `call` できる。利用者は `ucli ops list` で operation と policy を確認し、`ucli ops describe ucli.cs.eval` の `codeContract` で entry point と `UcliCsEvalContext` API を確認する。
+
+```json
+{
+  "kind": "op",
+  "id": "eval",
+  "op": "ucli.cs.eval",
+  "args": {
+    "source": "using MackySoft.Ucli.Unity.Execution.CsEval; namespace Scratch { public static class Entry { public static object? Run(UcliCsEvalContext context) { context.Log(\"checked\"); context.DeclareNoTouchedResources(); return new { ok = true }; } } }",
+    "entryPoint": "Scratch.Entry.Run"
+  }
+}
+```
+
+- `source` は `using`、`namespace`、`class`、entry point method を含む完全な C# コンパイル単位である
+- entry point は `public static object? Run(UcliCsEvalContext context)` の同期メソッドだけを許可する
+- `plan` は任意コードを実行せず、compile status と diagnostics を返す
+- `call` の `opResults[].result` は `CsEvalResult` で、利用者コードの戻り値は `result.returnValue` に JSON 値として格納される
+
 ## `kind: "edit"` の仕様
 `edit` は、高頻度の編集を短く表現するための上位構文である。  
 `edit` は公開 DSL であり、内部では primitive `op` へ lower される。

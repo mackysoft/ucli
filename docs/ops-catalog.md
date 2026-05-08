@@ -62,7 +62,14 @@
 
 | op | kind | policy | status | 概要 | Args | Result | result 概要 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `ucli.cs.invoke` | mutation | dangerous | experimental | 指定エントリポイントの任意コードを呼び出す。 | 予定 | 予定 | 予定 |
+| `ucli.cs.eval` | mutation | dangerous | v1.0 | C# source を Unity Editor process 内で Roslyn によりインメモリコンパイルし、同期 entry point を呼び出す。 | `CsEvalArgs` | `CsEvalResult` | compile 情報、digest、call 時のログ、戻り値、touched resource 宣言 |
+
+- `args.source` は `using`、`namespace`、`class`、entry point method を含む完全な C# コンパイル単位である
+- `args.entryPoint` は `Namespace.Type.Method` 形式で、entry point は `public static object? Run(UcliCsEvalContext context)` の同期メソッドだけを許可する
+- `Task` / `Task<T>` / `ValueTask` / `ValueTask<T>`、インスタンスメソッド、引数なしメソッド、JSON 化できない戻り値は失敗する
+- `plan` は source をコンパイル・検証するだけで entry point を呼び出さない
+- `call` は直前に plan 相当の検証を再実行し、成功した場合だけ entry point を呼び出す
+- `codeContract` は Context 型、Context の public API、戻り値制約を構造化して返す
 
 ## go
 

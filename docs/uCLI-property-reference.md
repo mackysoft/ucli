@@ -317,11 +317,12 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 | `description` | string | yes | operation の目的、使いどころ、注意点 |
 | `inputs` | array | yes | ユーザー入力から `steps[].args` を組み立てるための主契約。shape は `payload.operation.inputs[]` を参照 |
 | `resultContract` | object | yes | `opResults[].result` の有無、Result contract 型名、読み方。shape は `payload.operation.resultContract` を参照 |
+| `codeContract` | object | no | source code を受け取る operation の entry point 署名、source-visible API、戻り値制約。shape は `payload.operation.codeContract` を参照 |
 | `assurance` | object | yes | 副作用と plan / touched の保証情報。shape は `payload.operation.assurance` を参照 |
 | `argsSchema` | object | yes | `steps[].args` の JSON 構造検証用 JSON Schema |
 | `resultSchema` | object \| null | yes | `opResults[].result` の JSON 構造検証用 JSON Schema。`UcliNoResult` operation では `null` |
 
-`argsSchema` / `resultSchema` は検証用 schema であり、agent 向けの主契約ではない。operation 選択、`args` の組み立て、結果解釈は `description` / `inputs[].constraints` / `inputs[].variants[].fields[].constraints` / `resultContract` / `assurance` を参照する。schema には説明文や意味制約を置かない。
+`argsSchema` / `resultSchema` は検証用 schema であり、agent 向けの主契約ではない。operation 選択、`args` の組み立て、結果解釈は `description` / `inputs[].constraints` / `inputs[].variants[].fields[].constraints` / `resultContract` / `assurance` を参照する。source code を受け取る operation の C# API は `codeContract` を参照する。schema には説明文や意味制約を置かない。
 
 #### `ucli ops describe payload.operation.inputs[]`
 
@@ -448,6 +449,55 @@ kind ごとの parameter 規則:
 `emitted:false` の operation は `opResults[].result` property 自体を出さない。`null` は返さない。この場合、`resultType` は `UcliNoResult`、`resultSchema` は `null` になる。
 
 `UcliNoResult` は `{}` または `null` を意味しない。operation 固有の result field を出力しないことを意味する。
+
+#### `ucli ops describe payload.operation.codeContract`
+
+`codeContract` は source code を受け取る operation だけが返す任意 property である。JSON wire の `args` / `result` 構造ではなく、利用者が渡す source code の entry point と利用可能な API を説明する。
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `language` | string | yes | source language。`ucli.cs.eval` は `csharp` |
+| `entryPoint` | object | yes | 利用者 source に必要な entry point。shape は `payload.operation.codeContract.entryPoint` を参照 |
+| `apiTypes` | array | yes | 利用者 source から参照するために公開された API 型。shape は `payload.operation.codeContract.apiTypes[]` を参照 |
+
+`apiTypes` の説明は対象 API の `[UcliDescription]` から生成する。説明を持たない public member または parameter がある API 型は `codeContract` 生成に失敗する。
+
+#### `ucli ops describe payload.operation.codeContract.entryPoint`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `signature` | string | yes | source に実装する entry point の C# 署名 |
+| `requiredStatic` | boolean | yes | entry point が `static` でなければならないか |
+| `parameterTypes` | string[] | yes | entry point parameter の完全修飾型名 |
+| `returnValue` | string | yes | 戻り値制約 |
+
+#### `ucli ops describe payload.operation.codeContract.apiTypes[]`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | string | yes | API 型名 |
+| `fullName` | string | yes | API 型の完全修飾名 |
+| `description` | string | yes | API 型の説明 |
+| `members` | array | yes | public API member。shape は `payload.operation.codeContract.apiTypes[].members[]` を参照 |
+
+#### `ucli ops describe payload.operation.codeContract.apiTypes[].members[]`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `kind` | `method \| property` | yes | member 種別 |
+| `name` | string | yes | member 名 |
+| `description` | string | yes | member の説明 |
+| `type` | string | property のみ | property 型 |
+| `returnType` | string | method のみ | method 戻り値型 |
+| `parameters` | array | method のみ | method parameter。shape は `payload.operation.codeContract.apiTypes[].members[].parameters[]` を参照 |
+
+#### `ucli ops describe payload.operation.codeContract.apiTypes[].members[].parameters[]`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | string | yes | parameter 名 |
+| `type` | string | yes | parameter 型 |
+| `description` | string | yes | parameter の説明 |
 
 #### `ucli ops describe payload.operation.assurance`
 
