@@ -312,6 +312,8 @@ public sealed class UnityOneshotIpcClientTests
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
         Assert.Equal(3, transportClient.CallCount);
         Assert.Equal(IpcMethodNames.Shutdown, transportClient.Requests[2].Method);
+        var bootstrapArguments = Assert.IsType<IpcOneshotBootstrapArguments>(launcher.LastBootstrapArguments);
+        Assert.Equal(bootstrapArguments.SessionToken, transportClient.Requests[2].SessionToken);
         Assert.Equal(0, processHandle.TerminateCallCount);
         Assert.Equal(1, processHandle.WaitForExitCallCount);
     }
@@ -352,6 +354,10 @@ public sealed class UnityOneshotIpcClientTests
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
         Assert.Contains(transportClient.Requests, request => string.Equals(request.Method, IpcMethodNames.Shutdown, StringComparison.Ordinal));
+        var bootstrapArguments = Assert.IsType<IpcOneshotBootstrapArguments>(launcher.LastBootstrapArguments);
+        Assert.All(
+            transportClient.Requests.Where(static request => string.Equals(request.Method, IpcMethodNames.Shutdown, StringComparison.Ordinal)),
+            request => Assert.Equal(bootstrapArguments.SessionToken, request.SessionToken));
         Assert.Equal(0, processHandle.TerminateCallCount);
         Assert.Equal(1, processHandle.WaitForExitCallCount);
     }
@@ -440,6 +446,8 @@ public sealed class UnityOneshotIpcClientTests
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
         Assert.Equal(3, transportClient.CallCount);
         Assert.Equal(IpcMethodNames.Shutdown, transportClient.Requests[2].Method);
+        var bootstrapArguments = Assert.IsType<IpcOneshotBootstrapArguments>(launcher.LastBootstrapArguments);
+        Assert.Equal(bootstrapArguments.SessionToken, transportClient.Requests[2].SessionToken);
         Assert.Equal(1, processHandle.TerminateCallCount);
         Assert.Equal(ProcessTerminationMode.GracefulThenKill, processHandle.LastTerminationPolicy!.Mode);
     }
