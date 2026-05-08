@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -11,18 +10,10 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
     internal sealed class CsEvalReturnValueSerializer
     {
         public bool TrySerialize (
-            MethodInfo method,
             object? value,
             out CsEvalReturnValue returnValue,
             out string errorMessage)
         {
-            if (method.ReturnType == typeof(void))
-            {
-                returnValue = new CsEvalReturnValue(CsEvalReturnValueKindValues.Void, value: null);
-                errorMessage = string.Empty;
-                return true;
-            }
-
             if (value == null)
             {
                 returnValue = new CsEvalReturnValue(CsEvalReturnValueKindValues.Null, value: null);

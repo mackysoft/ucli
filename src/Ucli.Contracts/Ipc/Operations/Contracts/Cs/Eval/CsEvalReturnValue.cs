@@ -16,7 +16,7 @@ public sealed record CsEvalReturnValue
     }
 
     [UcliRequired]
-    [UcliDescription("Return value kind literal: void, null, or json.")]
+    [UcliDescription("Return value kind literal: null or json.")]
     public string Kind { get; init; }
 
     [UcliDescription("JSON return value when kind is json.")]

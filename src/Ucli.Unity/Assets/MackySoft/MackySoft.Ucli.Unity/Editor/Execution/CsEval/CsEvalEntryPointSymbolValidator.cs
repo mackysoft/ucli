@@ -42,7 +42,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             if (matches.Length == 0)
             {
                 diagnostic = CsEvalDiagnosticMapper.EntryPointError(
-                    $"Entry point '{entryPoint}' must be a public static non-async method with one {typeof(UcliCsEvalContext).FullName} parameter.");
+                    $"Entry point '{entryPoint}' must be a public static object? Run method with one {typeof(UcliCsEvalContext).FullName} parameter.");
                 return false;
             }
 
@@ -65,6 +65,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 && !method.IsGenericMethod
                 && !method.IsAsync
                 && !IsTaskLike(method.ReturnType)
+                && method.ReturnType.SpecialType == SpecialType.System_Object
                 && method.Parameters.Length == 1
                 && SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, contextSymbol);
         }

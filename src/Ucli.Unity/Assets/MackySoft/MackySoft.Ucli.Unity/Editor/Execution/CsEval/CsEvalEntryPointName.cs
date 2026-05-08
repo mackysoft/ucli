@@ -7,6 +7,8 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
     /// <summary> Represents a parsed <c>Namespace.Type.Method</c> entry point name. </summary>
     internal readonly struct CsEvalEntryPointName
     {
+        public const string RequiredMethodName = "Run";
+
         public CsEvalEntryPointName (
             string typeName,
             string methodName)
@@ -31,27 +33,34 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 return false;
             }
 
-            if (!string.Equals(value, value.Trim(), StringComparison.Ordinal))
+            var entryPoint = value!;
+            if (!string.Equals(entryPoint, entryPoint.Trim(), StringComparison.Ordinal))
             {
                 errorMessage = "Entry point must not contain leading or trailing whitespace.";
                 return false;
             }
 
-            var separatorIndex = value.LastIndexOf('.');
-            if (separatorIndex <= 0 || separatorIndex == value.Length - 1)
+            var separatorIndex = entryPoint.LastIndexOf('.');
+            if (separatorIndex <= 0 || separatorIndex == entryPoint.Length - 1)
             {
                 errorMessage = "Entry point must use Namespace.Type.Method form.";
                 return false;
             }
 
-            var typeName = value.Substring(0, separatorIndex);
+            var typeName = entryPoint.Substring(0, separatorIndex);
             if (typeName.IndexOf('.') < 0)
             {
                 errorMessage = "Entry point type must include a namespace.";
                 return false;
             }
 
-            var methodName = value.Substring(separatorIndex + 1);
+            var methodName = entryPoint.Substring(separatorIndex + 1);
+            if (!string.Equals(methodName, RequiredMethodName, StringComparison.Ordinal))
+            {
+                errorMessage = $"Entry point method must be '{RequiredMethodName}'.";
+                return false;
+            }
+
             entryPointName = new CsEvalEntryPointName(typeName, methodName);
             errorMessage = string.Empty;
             return true;

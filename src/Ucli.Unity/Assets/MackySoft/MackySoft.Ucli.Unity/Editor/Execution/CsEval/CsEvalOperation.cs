@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
 using System.Threading;
@@ -102,37 +103,36 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             catch (TargetInvocationException exception) when (exception.InnerException != null)
             {
                 stopwatch.Stop();
-                var result = CreateCallResult(compilation, stopwatch.ElapsedMilliseconds, context, returnValue: null);
-                return Task.FromResult(CreateInvalidArgumentFailure(
+                return Task.FromResult(CreatePostInvocationInvalidArgumentFailure(
                     operation,
                     $"C# eval entry point threw {exception.InnerException.GetType().FullName}: {exception.InnerException.Message}",
-                    result));
+                    compilation,
+                    stopwatch.ElapsedMilliseconds,
+                    context));
             }
             catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or NotSupportedException)
             {
                 stopwatch.Stop();
-                var result = CreateCallResult(compilation, stopwatch.ElapsedMilliseconds, context, returnValue: null);
-                return Task.FromResult(CreateInvalidArgumentFailure(
+                return Task.FromResult(CreatePostInvocationInvalidArgumentFailure(
                     operation,
                     $"C# eval entry point invocation failed. {exception.Message}",
-                    result));
+                    compilation,
+                    stopwatch.ElapsedMilliseconds,
+                    context));
             }
 
             stopwatch.Stop();
-            if (!returnValueSerializer.TrySerialize(method, returnObject, out var returnValue, out var returnValueError))
+            if (!returnValueSerializer.TrySerialize(returnObject, out var returnValue, out var returnValueError))
             {
-                var result = CreateCallResult(compilation, stopwatch.ElapsedMilliseconds, context, returnValue: null);
-                return Task.FromResult(CreateInvalidArgumentFailure(operation, returnValueError, result));
+                return Task.FromResult(CreatePostInvocationInvalidArgumentFailure(
+                    operation,
+                    returnValueError,
+                    compilation,
+                    stopwatch.ElapsedMilliseconds,
+                    context));
             }
 
-            var touchedResources = CsEvalTouchedResourceMapper.CreateResult(context);
-            var touched = CsEvalTouchedResourceMapper.CreateTouches(context);
-            var changed = !string.Equals(touchedResources.State, CsEvalTouchedResourceStateValues.None, StringComparison.Ordinal);
-            return Task.FromResult(OperationPhaseStepResult.Success(
-                applied: true,
-                changed: changed,
-                touched: touched,
-                result: IpcPayloadCodec.SerializeToElement(CreateCallResult(compilation, stopwatch.ElapsedMilliseconds, context, returnValue))));
+            return Task.FromResult(CreateCallSuccess(compilation, stopwatch.ElapsedMilliseconds, context, returnValue));
         }
 
         private static UcliOperationMetadata CreateMetadata ()
@@ -162,7 +162,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 "public static object? Run(UcliCsEvalContext context)",
                 requiredStatic: true,
                 new[] { typeof(UcliCsEvalContext) },
-                "void, null, or a JSON-serializable value. Task, Task<T>, ValueTask, and ValueTask<T> are rejected.",
+                "Return null or a JSON-serializable object value. Task, Task<T>, ValueTask, and ValueTask<T> are rejected.",
                 new[] { typeof(UcliCsEvalContext) });
 
             return UcliOperationMetadata.Create<CsEvalArgs, CsEvalResult>(
@@ -177,7 +177,8 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             CsEvalCompilationResult compilation,
             long durationMilliseconds,
             UcliCsEvalContext context,
-            CsEvalReturnValue? returnValue)
+            CsEvalReturnValue? returnValue,
+            CsEvalTouchedResources touchedResources)
         {
             return new CsEvalResult(
                 compilation.SourceDigest,
@@ -187,7 +188,24 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 durationMilliseconds,
                 context.Logs,
                 returnValue,
-                CsEvalTouchedResourceMapper.CreateResult(context));
+                touchedResources);
+        }
+
+        private static OperationPhaseStepResult CreateCallSuccess (
+            CsEvalCompilationResult compilation,
+            long durationMilliseconds,
+            UcliCsEvalContext context,
+            CsEvalReturnValue returnValue)
+        {
+            var touchedResources = CsEvalTouchedResourceMapper.CreateResult(context);
+            var touched = CsEvalTouchedResourceMapper.CreateTouches(context);
+            var changed = IsChanged(touchedResources);
+            return OperationPhaseStepResult.Success(
+                    applied: true,
+                    changed: changed,
+                    touched: touched,
+                    result: IpcPayloadCodec.SerializeToElement(CreateCallResult(compilation, durationMilliseconds, context, returnValue, touchedResources)))
+                .WithReadInvalidations(CreateReadInvalidations(touchedResources, touched));
         }
 
         private static OperationPhaseStepResult CreateInvalidArgumentFailure (
@@ -201,6 +219,45 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     Message: message,
                     OpId: operation.Id),
                 result: IpcPayloadCodec.SerializeToElement(result));
+        }
+
+        private static OperationPhaseStepResult CreatePostInvocationInvalidArgumentFailure (
+            NormalizedOperation operation,
+            string message,
+            CsEvalCompilationResult compilation,
+            long durationMilliseconds,
+            UcliCsEvalContext context)
+        {
+            var touchedResources = CsEvalTouchedResourceMapper.CreateResult(context);
+            var touched = CsEvalTouchedResourceMapper.CreateTouches(context);
+            var changed = IsChanged(touchedResources);
+            return OperationPhaseStepResult.Failed(
+                    new OperationFailure(
+                        Code: UcliCoreErrorCodes.InvalidArgument,
+                        Message: message,
+                        OpId: operation.Id),
+                    applied: true,
+                    changed: changed,
+                    touched: touched,
+                    result: IpcPayloadCodec.SerializeToElement(CreateCallResult(compilation, durationMilliseconds, context, returnValue: null, touchedResources)))
+                .WithReadInvalidations(CreateReadInvalidations(touchedResources, touched));
+        }
+
+        private static bool IsChanged (CsEvalTouchedResources touchedResources)
+        {
+            return !string.Equals(touchedResources.State, CsEvalTouchedResourceStateValues.None, StringComparison.Ordinal);
+        }
+
+        private static IReadOnlyList<OperationReadInvalidation> CreateReadInvalidations (
+            CsEvalTouchedResources touchedResources,
+            IReadOnlyList<OperationTouch> touched)
+        {
+            if (string.Equals(touchedResources.State, CsEvalTouchedResourceStateValues.Unknown, StringComparison.Ordinal))
+            {
+                return OperationReadInvalidationUtilities.CreateUnknownMutation();
+            }
+
+            return OperationReadInvalidationUtilities.CreateForExplicitTouches(touched);
         }
     }
 }

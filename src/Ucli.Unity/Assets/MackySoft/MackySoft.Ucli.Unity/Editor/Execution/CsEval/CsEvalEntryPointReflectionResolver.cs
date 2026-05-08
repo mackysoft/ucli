@@ -36,7 +36,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 .ToArray();
             if (matches.Length == 0)
             {
-                errorMessage = $"Entry point '{entryPoint}' must be a public static non-async method with one {typeof(UcliCsEvalContext).FullName} parameter.";
+                errorMessage = $"Entry point '{entryPoint}' must be a public static object? Run method with one {typeof(UcliCsEvalContext).FullName} parameter.";
                 return false;
             }
 
@@ -57,6 +57,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             return !method.IsGenericMethod
                 && method.GetCustomAttribute<AsyncStateMachineAttribute>() == null
                 && !IsTaskLike(method.ReturnType)
+                && method.ReturnType == typeof(object)
                 && parameters.Length == 1
                 && parameters[0].ParameterType == typeof(UcliCsEvalContext);
         }
