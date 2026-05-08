@@ -151,7 +151,7 @@ public sealed class DaemonStopOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Stop_WhenSessionDoesNotAllowShutdown_ReturnsInvalidArgumentWithoutShutdown ()
+    public async Task Stop_WhenUserOwnedGuiSessionDoesNotAllowProcessShutdown_InvalidatesEndpointOnly ()
     {
         var sessionStore = new StubDaemonSessionStore
         {
@@ -161,9 +161,15 @@ public sealed class DaemonStopOperationTests
                 canShutdownProcess: false,
                 editorMode: DaemonEditorModeValues.Gui)),
         };
-        var shutdownClient = new StubDaemonShutdownClient();
+        var shutdownClient = new StubDaemonShutdownClient
+        {
+            NextResult = DaemonShutdownAttemptResult.Failure(ExecutionError.InternalError("shutdown ignored")),
+        };
         var processTerminationService = new StubDaemonProcessTerminationService();
-        var artifactCleaner = new StubDaemonArtifactCleaner();
+        var artifactCleaner = new StubDaemonArtifactCleaner
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
         var operation = new DaemonStopOperation(
             lifecycleLockProvider: new StubProjectLifecycleLockProvider(),
             daemonSessionStore: sessionStore,
@@ -173,12 +179,51 @@ public sealed class DaemonStopOperationTests
 
         var result = await operation.Stop(CreateContext("fingerprint-stop-disallowed"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
-        Assert.Equal(DaemonStopStatus.Failed, result.Status);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Equal(0, shutdownClient.CallCount);
+        Assert.Equal(DaemonStopStatus.Stopped, result.Status);
+        Assert.Null(result.Error);
+        Assert.Equal(1, shutdownClient.CallCount);
         Assert.Equal(0, processTerminationService.CallCount);
-        Assert.Equal(0, artifactCleaner.CallCount);
+        Assert.Equal(1, artifactCleaner.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Stop_WhenCliOwnedGuiSessionAllowsProcessShutdown_TerminatesProcess ()
+    {
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Success(CreateSession(
+                processId: 654,
+                ownerKind: DaemonSessionOwnerKindValues.Cli,
+                canShutdownProcess: true,
+                editorMode: DaemonEditorModeValues.Gui)),
+        };
+        var shutdownClient = new StubDaemonShutdownClient
+        {
+            NextResult = DaemonShutdownAttemptResult.Success(),
+        };
+        var processTerminationService = new StubDaemonProcessTerminationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var artifactCleaner = new StubDaemonArtifactCleaner
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var operation = new DaemonStopOperation(
+            lifecycleLockProvider: new StubProjectLifecycleLockProvider(),
+            daemonSessionStore: sessionStore,
+            shutdownClient: shutdownClient,
+            processTerminationService: processTerminationService,
+            artifactCleaner: artifactCleaner);
+
+        var result = await operation.Stop(CreateContext("fingerprint-stop-cli-gui"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.Equal(DaemonStopStatus.Stopped, result.Status);
+        Assert.Equal(1, shutdownClient.CallCount);
+        Assert.Equal(1, processTerminationService.CallCount);
+        Assert.Equal(654, processTerminationService.LastProcessId);
+        Assert.Equal(1, artifactCleaner.CallCount);
     }
 
     [Fact]

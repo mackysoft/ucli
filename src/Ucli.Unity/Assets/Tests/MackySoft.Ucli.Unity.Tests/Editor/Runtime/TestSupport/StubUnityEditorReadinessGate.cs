@@ -9,9 +9,6 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     internal sealed class StubUnityEditorReadinessGate : IUnityEditorReadinessGate
     {
-        private static readonly UnityEditorExecutionReadinessResult ReadyResult =
-            UnityEditorExecutionReadinessResult.Ready(CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true));
-
         private readonly TaskCompletionSource<UnityEditorExecutionReadinessResult>? completionSource;
 
         private readonly TaskCompletionSource<bool> waitObserved =
@@ -20,7 +17,12 @@ namespace MackySoft.Ucli.Unity.Tests
         private UnityEditorExecutionReadinessResult currentResult;
 
         public StubUnityEditorReadinessGate ()
-            : this(ReadyResult, null)
+            : this(IpcEditorRuntimeCodec.Batchmode)
+        {
+        }
+
+        public StubUnityEditorReadinessGate (string editorMode)
+            : this(UnityEditorExecutionReadinessResult.Ready(CreateSnapshot(editorMode, IpcEditorLifecycleStateCodec.Ready, null, true)), null)
         {
         }
 
@@ -42,6 +44,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new StubUnityEditorReadinessGate(
                 CreateBlockedResult(
+                    IpcEditorRuntimeCodec.Batchmode,
                     IpcEditorLifecycleStateCodec.Busy,
                     IpcEditorBlockingReasonCodec.Busy,
                     EditorLifecycleErrorCodes.EditorBusy,
@@ -56,7 +59,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
         public void Release ()
         {
-            currentResult = ReadyResult;
+            currentResult = UnityEditorExecutionReadinessResult.Ready(CreateSnapshot(
+                currentResult.Snapshot.Runtime,
+                IpcEditorLifecycleStateCodec.Ready,
+                null,
+                true));
             completionSource?.TrySetResult(currentResult);
         }
 
@@ -77,23 +84,25 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 
         private static UnityEditorExecutionReadinessResult CreateBlockedResult (
+            string editorMode,
             string lifecycleState,
             string? blockingReason,
             UcliErrorCode errorCode,
             string errorMessage)
         {
             return UnityEditorExecutionReadinessResult.Blocked(
-                CreateSnapshot(lifecycleState, blockingReason, false),
+                CreateSnapshot(editorMode, lifecycleState, blockingReason, false),
                 new IpcError(errorCode, errorMessage, null));
         }
 
         private static UnityEditorLifecycleSnapshot CreateSnapshot (
+            string editorMode,
             string lifecycleState,
             string? blockingReason,
             bool canAcceptExecutionRequests)
         {
             return new UnityEditorLifecycleSnapshot(
-                Runtime: "batchmode",
+                Runtime: editorMode,
                 LifecycleState: lifecycleState,
                 BlockingReason: blockingReason,
                 CompileState: IpcCompileStateCodec.Ready,

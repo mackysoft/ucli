@@ -144,6 +144,30 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(afterUpdate.CanAcceptExecutionRequests, Is.True);
         }
 
+        [Test]
+        [Category("Size.Small")]
+        public void CaptureSnapshot_WhenRuntimeIsGui_ReturnsGuiRuntime ()
+        {
+            var telemetryState = new UnityEditorLifecycleTelemetryState(
+                compileGeneration: 4,
+                domainReloadGeneration: 9,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false);
+            var gate = new UnityEditorReadinessGate(
+                IpcEditorRuntimeCodec.Gui,
+                telemetryState,
+                static () => false,
+                static () => false,
+                static () => false);
+
+            var snapshot = gate.CaptureSnapshot();
+
+            Assert.That(snapshot.Runtime, Is.EqualTo(IpcEditorRuntimeCodec.Gui));
+            Assert.That(snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Ready));
+            Assert.That(snapshot.CanAcceptExecutionRequests, Is.True);
+        }
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator CaptureSnapshot_WhenPlaymodeIsActive_ReturnsPlaymodeSnapshot () => UniTask.ToCoroutine(async () =>

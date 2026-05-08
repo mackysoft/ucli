@@ -59,6 +59,24 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator PingHandler_WhenRuntimeIsGui_ReturnsGuiEditorMode () => UniTask.ToCoroutine(async () =>
+        {
+            var handler = new PingUnityIpcMethodHandler(
+                new StubServerVersionProvider("1.2.3"),
+                new StubUnityEditorReadinessGate(IpcEditorRuntimeCodec.Gui),
+                "project-fingerprint");
+            var request = CreatePingRequest("req-ping-gui", new IpcPingRequest("client"));
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPingResponse payload, out _), Is.True);
+            Assert.That(payload.EditorMode, Is.EqualTo(IpcEditorRuntimeCodec.Gui));
+            Assert.That(payload.ProjectFingerprint, Is.EqualTo("project-fingerprint"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator PingHandler_WhenStartupIsPending_DoesNotConsumeStarting () => UniTask.ToCoroutine(async () =>
         {
             var telemetryState = new UnityEditorLifecycleTelemetryState(
