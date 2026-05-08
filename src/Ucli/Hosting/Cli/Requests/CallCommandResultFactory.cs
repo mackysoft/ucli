@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
+using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -22,12 +23,11 @@ internal static class CallCommandResultFactory
                 payload: payload);
         }
 
-        return RequestCommandFailureResultFactory.Create(
+        return CommandFailureProjector.Create(
             UcliCommandNames.Call,
             serviceResult.Message,
             payload,
-            serviceResult.Errors,
-            serviceResult.Outcome);
+            serviceResult.Errors);
     }
 
     private static object CreatePayload (CallExecutionOutput? output)

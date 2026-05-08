@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
-using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Postprocessing;
@@ -40,7 +39,6 @@ internal static class ExecuteResponseReadPostconditionProcessor
             response with
             {
                 Errors = AppendError(response.Errors, persistenceError),
-                Outcome = ApplicationOutcome.ToolError,
             },
             persistenceError);
     }

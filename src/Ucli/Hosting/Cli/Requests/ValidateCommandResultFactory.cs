@@ -30,12 +30,11 @@ internal static class ValidateCommandResultFactory
                 payload: payload);
         }
 
-        return RequestCommandFailureResultFactory.Create(
+        return CommandFailureProjector.Create(
             UcliCommandNames.Validate,
             serviceResult.Message,
             payload,
-            serviceResult.Errors,
-            serviceResult.Outcome);
+            serviceResult.Errors);
     }
 
     /// <summary> Creates one invalid-execution command result for <c>validate</c>. </summary>

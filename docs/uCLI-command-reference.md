@@ -116,6 +116,23 @@
 - timeout
   - 既定待機の timeout も既存の `IPC_TIMEOUT` を使用する。
 
+### 失敗分類と終了コード
+公開 CLI JSON は、失敗分類にかかわらず既存の共通エンベロープを返す。`status`、`exitCode`、`message`、`errors[]` の field shape は変わらない。内部失敗分類は、次の規則で既存の終了コードへ投影する。
+
+| Failure kind | 代表例 | `exitCode` |
+| --- | --- | --- |
+| `InvalidInput` | option 不正、JSON request 不正、static validation failure | `3` |
+| `ConfigurationError` | `.ucli` 設定不備、解決不能な設定値 | `3` |
+| `EnvironmentError` | 実行環境の前提不足 | `4` |
+| `UnityIpcFailure` | Unity IPC 応答失敗、lifecycle failure、daemon failure | `4` |
+| `ExternalProcessFailure` | 外部プロセス起動・実行失敗 | `4` |
+| `ContractViolation` | IPC 応答や内部契約の不整合 | `4` |
+| `Timeout` | IPC timeout、readiness wait timeout | `4` |
+| `Canceled` | 実行キャンセル | `4` |
+| `InternalError` | 予期しない内部障害 | `4` |
+
+`ucli test run` だけはテスト実行結果を追加で区別し、テスト失敗は `exitCode=1`、Unity テスト実行基盤の失敗は `exitCode=2` を返す。機械判定用の詳細は終了コードだけでなく `errors[].code` を正とし、未知の `errors[].code` は汎用失敗として扱う。
+
 ## `ucli daemon`
 デーモンの起動、停止、安全な残骸掃除、状態確認、登録一覧取得を行う管理コマンド。
 

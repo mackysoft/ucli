@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call.Projection;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Phase;
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Shared.Execution;
 
@@ -100,12 +99,11 @@ internal sealed class CallService : ICallService
             return CallServiceResult.Failure(
                 dangerousValidationFailure.Message,
                 [
-                    new OperationExecutionError(
-                        dangerousValidationFailure.Code,
+                    ApplicationFailure.InvalidInput(
                         dangerousValidationFailure.Message,
+                        dangerousValidationFailure.Code,
                         dangerousValidationFailure.OpId),
                 ],
-                ApplicationOutcome.InvalidArgument,
                 baseOutput);
         }
 

@@ -4,7 +4,6 @@ using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
-using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -148,14 +147,13 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
-            var failure = RequestServiceResultPolicy.FromUnityRequestFailure(executionResult.FailureInfo!);
+            var failure = RequestFailureNormalizer.FromUnityRequestFailure(executionResult.FailureInfo!);
             return OperationExecuteResultFactory.Failure(
                 requestId,
                 [],
                 [
-                    failure.Error,
+                    failure,
                 ],
-                failure.Outcome,
                 definition.FailureMessage);
         }
 
@@ -180,8 +178,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         return OperationExecuteResultFactory.Failure(
             requestId,
             convertedResponse.OpResults,
-            convertedResponse.Errors,
-            convertedResponse.Outcome,
+            RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, definition.FailureMessage),
             definition.FailureMessage,
             convertedResponse.ReadPostcondition);
     }
@@ -229,16 +226,15 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
-            var failure = RequestServiceResultPolicy.FromUnityRequestFailure(executionResult.FailureInfo!);
+            var failure = RequestFailureNormalizer.FromUnityRequestFailure(executionResult.FailureInfo!);
             return (
                 null,
                 OperationExecuteResultFactory.Failure(
                     requestId,
                     [],
                     [
-                        failure.Error,
+                        failure,
                     ],
-                    failure.Outcome,
                     definition.FailureMessage));
         }
 
@@ -250,8 +246,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 OperationExecuteResultFactory.Failure(
                     requestId,
                     convertedResponse.OpResults,
-                    convertedResponse.Errors,
-                    convertedResponse.Outcome,
+                    RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, definition.FailureMessage),
                     definition.FailureMessage));
         }
 
@@ -263,11 +258,10 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                     requestId,
                     convertedResponse.OpResults,
                     [
-                        RequestServiceResultPolicy.FromTransportFailure(
+                        RequestFailureNormalizer.FromTransportFailure(
                             UcliCoreErrorCodes.InternalError,
                             "Execute response payload is invalid. The 'planToken' field is missing."),
                     ],
-                    ApplicationOutcome.ToolError,
                     definition.FailureMessage));
         }
 

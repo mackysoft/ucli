@@ -37,29 +37,12 @@ internal static class TestRunCommandResultFactory
                 Errors: Array.Empty<CommandError>());
         }
 
-        return new CommandResult(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            Command: UcliCommandNames.TestRun,
-            Status: IpcProtocol.StatusError,
-            ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(serviceResult.Outcome),
-            Message: serviceResult.Message,
-            Payload: payload,
-            Errors:
+        return CommandFailureProjector.Create(
+            UcliCommandNames.TestRun,
+            serviceResult.Message,
+            payload,
             [
-                new CommandError(
-                    ResolveErrorCode(serviceResult.ErrorCode),
-                    serviceResult.Message,
-                    null),
+                serviceResult.Failure!,
             ]);
-    }
-
-    /// <summary> Resolves one command error-code value with internal fallback. </summary>
-    /// <param name="errorCode"> The source error code. </param>
-    /// <returns> The source value when present; otherwise <c>INTERNAL_ERROR</c>. </returns>
-    private static UcliErrorCode ResolveErrorCode (UcliErrorCode? errorCode)
-    {
-        return !errorCode.HasValue || !errorCode.Value.IsValid
-            ? UcliCoreErrorCodes.InternalError
-            : errorCode.Value;
     }
 }

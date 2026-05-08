@@ -185,14 +185,13 @@ internal sealed class ResolveService : IResolveService
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
-            var failure = RequestServiceResultPolicy.FromUnityRequestFailure(executionResult.FailureInfo!);
+            var failure = RequestFailureNormalizer.FromUnityRequestFailure(executionResult.FailureInfo!);
             return ResolveServiceResultFactory.Failure(
                 requestId,
                 [],
                 [
-                    failure.Error,
+                    failure,
                 ],
-                failure.Outcome,
                 readIndex);
         }
 
@@ -208,8 +207,7 @@ internal sealed class ResolveService : IResolveService
         return ResolveServiceResultFactory.Failure(
             requestId,
             convertedResponse.OpResults,
-            convertedResponse.Errors,
-            convertedResponse.Outcome,
+            RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, "uCLI resolve failed."),
             readIndex);
     }
 

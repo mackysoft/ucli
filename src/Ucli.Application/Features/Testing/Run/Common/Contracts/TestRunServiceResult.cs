@@ -3,24 +3,82 @@ using MackySoft.Ucli.Application.Shared.Execution;
 namespace MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 
 /// <summary> Represents normalized output returned from test-run core service. </summary>
-/// <param name="Result"> The pass/fail result when execution reaches test result evaluation; otherwise <see langword="null" />. </param>
-/// <param name="ErrorKind"> The normalized error kind when execution fails; otherwise <see langword="null" />. </param>
-/// <param name="Outcome"> The application outcome. </param>
-/// <param name="Message"> The user-facing execution message. </param>
-/// <param name="RunId"> The run identifier when artifacts session exists; otherwise <see langword="null" />. </param>
-/// <param name="ArtifactsDir"> The run artifacts directory path when available; otherwise <see langword="null" />. </param>
-/// <param name="SummaryJsonPath"> The summary JSON path when available; otherwise <see langword="null" />. </param>
-/// <param name="ErrorCode"> The machine-readable error code when execution fails; otherwise <see langword="null" />. </param>
-internal sealed record TestRunServiceResult (
-    TestRunResultKind? Result,
-    TestRunErrorKind? ErrorKind,
-    ApplicationOutcome Outcome,
-    string Message,
-    string? RunId,
-    string? ArtifactsDir,
-    string? SummaryJsonPath,
-    UcliErrorCode? ErrorCode)
+internal sealed record TestRunServiceResult
 {
+    private TestRunServiceResult (
+        TestRunResultKind? result,
+        TestRunErrorKind? errorKind,
+        ApplicationFailure? failure,
+        string message,
+        string? runId,
+        string? artifactsDir,
+        string? summaryJsonPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+
+        if (errorKind is null)
+        {
+            if (result is null)
+            {
+                throw new ArgumentException("Successful test-run result must contain a result value.", nameof(result));
+            }
+
+            if (failure is not null)
+            {
+                throw new ArgumentException("Successful test-run result must not contain a failure.", nameof(failure));
+            }
+        }
+        else
+        {
+            if (result is not null)
+            {
+                throw new ArgumentException("Failed test-run result must not contain a pass/fail result.", nameof(result));
+            }
+
+            ArgumentNullException.ThrowIfNull(failure);
+        }
+
+        Result = result;
+        ErrorKind = errorKind;
+        Failure = failure;
+        Message = message;
+        RunId = runId;
+        ArtifactsDir = artifactsDir;
+        SummaryJsonPath = summaryJsonPath;
+    }
+
+    /// <summary> Gets the pass/fail result when execution reaches test result evaluation. </summary>
+    public TestRunResultKind? Result { get; }
+
+    /// <summary> Gets the payload error kind when execution fails before test result evaluation. </summary>
+    public TestRunErrorKind? ErrorKind { get; }
+
+    /// <summary> Gets the classified failure when execution fails before test result evaluation. </summary>
+    public ApplicationFailure? Failure { get; }
+
+    /// <summary> Gets the application outcome. </summary>
+    public ApplicationOutcome Outcome => Failure?.Outcome ?? Result switch
+    {
+        TestRunResultKind.Pass => ApplicationOutcome.Success,
+        TestRunResultKind.Fail => ApplicationOutcome.TestFailure,
+        _ => ApplicationOutcome.ToolError,
+    };
+
+    /// <summary> Gets the user-facing execution message. </summary>
+    public string Message { get; }
+
+    /// <summary> Gets the run identifier when artifacts session exists. </summary>
+    public string? RunId { get; }
+
+    /// <summary> Gets the run artifacts directory path when available. </summary>
+    public string? ArtifactsDir { get; }
+
+    /// <summary> Gets the summary JSON path when available. </summary>
+    public string? SummaryJsonPath { get; }
+
+    /// <summary> Gets the machine-readable error code when execution fails. </summary>
+    public UcliErrorCode? ErrorCode => Failure?.Code;
+
     /// <summary> Gets the serialized result value used by command payload mapping. </summary>
     public string? ResultValue => Result switch
     {
@@ -53,14 +111,13 @@ internal sealed record TestRunServiceResult (
         string summaryJsonPath)
     {
         return new TestRunServiceResult(
-            Result: TestRunResultKind.Pass,
-            ErrorKind: null,
-            Outcome: ApplicationOutcome.Success,
-            Message: message,
-            RunId: runId,
-            ArtifactsDir: artifactsDir,
-            SummaryJsonPath: summaryJsonPath,
-            ErrorCode: null);
+            result: TestRunResultKind.Pass,
+            errorKind: null,
+            failure: null,
+            message: message,
+            runId: runId,
+            artifactsDir: artifactsDir,
+            summaryJsonPath: summaryJsonPath);
     }
 
     /// <summary> Creates a success result with fail state. </summary>
@@ -76,14 +133,13 @@ internal sealed record TestRunServiceResult (
         string summaryJsonPath)
     {
         return new TestRunServiceResult(
-            Result: TestRunResultKind.Fail,
-            ErrorKind: null,
-            Outcome: ApplicationOutcome.TestFailure,
-            Message: message,
-            RunId: runId,
-            ArtifactsDir: artifactsDir,
-            SummaryJsonPath: summaryJsonPath,
-            ErrorCode: null);
+            result: TestRunResultKind.Fail,
+            errorKind: null,
+            failure: null,
+            message: message,
+            runId: runId,
+            artifactsDir: artifactsDir,
+            summaryJsonPath: summaryJsonPath);
     }
 
     /// <summary> Creates an invalid-input error result. </summary>
@@ -101,14 +157,13 @@ internal sealed record TestRunServiceResult (
         string? summaryJsonPath = null)
     {
         return new TestRunServiceResult(
-            Result: null,
-            ErrorKind: TestRunErrorKind.InvalidInput,
-            Outcome: ApplicationOutcome.InvalidArgument,
-            Message: message,
-            RunId: runId,
-            ArtifactsDir: artifactsDir,
-            SummaryJsonPath: summaryJsonPath,
-            ErrorCode: errorCode);
+            result: null,
+            errorKind: TestRunErrorKind.InvalidInput,
+            failure: ApplicationFailure.InvalidInput(message, errorCode),
+            message: message,
+            runId: runId,
+            artifactsDir: artifactsDir,
+            summaryJsonPath: summaryJsonPath);
     }
 
     /// <summary> Creates an infrastructure error result. </summary>
@@ -126,14 +181,16 @@ internal sealed record TestRunServiceResult (
         string? summaryJsonPath = null)
     {
         return new TestRunServiceResult(
-            Result: null,
-            ErrorKind: TestRunErrorKind.InfraError,
-            Outcome: ApplicationOutcome.InfrastructureError,
-            Message: message,
-            RunId: runId,
-            ArtifactsDir: artifactsDir,
-            SummaryJsonPath: summaryJsonPath,
-            ErrorCode: errorCode);
+            result: null,
+            errorKind: TestRunErrorKind.InfraError,
+            failure: ApplicationFailure.ExternalProcessFailure(
+                message,
+                errorCode,
+                outcome: ApplicationOutcome.InfrastructureError),
+            message: message,
+            runId: runId,
+            artifactsDir: artifactsDir,
+            summaryJsonPath: summaryJsonPath);
     }
 
     /// <summary> Creates a tool-error result. </summary>
@@ -151,13 +208,29 @@ internal sealed record TestRunServiceResult (
         string? summaryJsonPath = null)
     {
         return new TestRunServiceResult(
-            Result: null,
-            ErrorKind: TestRunErrorKind.ToolError,
-            Outcome: ApplicationOutcome.ToolError,
-            Message: message,
-            RunId: runId,
-            ArtifactsDir: artifactsDir,
-            SummaryJsonPath: summaryJsonPath,
-            ErrorCode: errorCode);
+            result: null,
+            errorKind: TestRunErrorKind.ToolError,
+            failure: CreateToolFailure(message, errorCode),
+            message: message,
+            runId: runId,
+            artifactsDir: artifactsDir,
+            summaryJsonPath: summaryJsonPath);
+    }
+
+    private static ApplicationFailure CreateToolFailure (
+        string message,
+        UcliErrorCode errorCode)
+    {
+        if (errorCode == ExecutionErrorCodes.IpcTimeout || errorCode == TestRunErrorCodes.UnityTestExecutionTimeout)
+        {
+            return ApplicationFailure.Timeout(message, errorCode);
+        }
+
+        if (errorCode == ExecutionErrorCodes.Canceled)
+        {
+            return ApplicationFailure.Canceled(message, errorCode);
+        }
+
+        return ApplicationFailure.ExternalProcessFailure(message, errorCode);
     }
 }
