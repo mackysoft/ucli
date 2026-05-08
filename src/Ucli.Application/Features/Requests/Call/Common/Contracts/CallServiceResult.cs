@@ -9,13 +9,11 @@ internal sealed record CallServiceResult
     private CallServiceResult (
         CallExecutionOutput? output,
         string message,
-        IReadOnlyList<ApplicationFailure> errors,
-        ApplicationOutcome outcome)
+        IReadOnlyList<ApplicationFailure> errors)
     {
         Output = output;
         Message = message;
         Errors = errors;
-        Outcome = outcome;
     }
 
     /// <summary> Gets the output payload when available. </summary>
@@ -28,10 +26,12 @@ internal sealed record CallServiceResult
     public IReadOnlyList<ApplicationFailure> Errors { get; }
 
     /// <summary> Gets the application outcome associated with this result. </summary>
-    public ApplicationOutcome Outcome { get; }
+    public ApplicationOutcome Outcome => Errors.Count == 0
+        ? ApplicationOutcome.Success
+        : ApplicationFailureOutcomeResolver.Resolve(Errors);
 
     /// <summary> Gets a value indicating whether the service execution succeeded. </summary>
-    public bool IsSuccess => Outcome == ApplicationOutcome.Success;
+    public bool IsSuccess => Errors.Count == 0;
 
     /// <summary> Creates a successful service result. </summary>
     /// <param name="output"> The successful output. </param>
@@ -41,12 +41,13 @@ internal sealed record CallServiceResult
         CallExecutionOutput output,
         string message)
     {
-        RequestServiceResultPolicy.ValidateSuccessMessage(message);
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        ArgumentNullException.ThrowIfNull(output);
+
         return new CallServiceResult(
-            RequestServiceResultPolicy.RequireSuccessOutput(output, nameof(output)),
+            output,
             message,
-            RequestServiceResultPolicy.EmptyErrors,
-            ApplicationOutcome.Success);
+            RequestServiceResultInvariants.EmptyErrors);
     }
 
     /// <summary> Creates a failed service result. </summary>
@@ -59,12 +60,12 @@ internal sealed record CallServiceResult
         IReadOnlyList<ApplicationFailure> errors,
         CallExecutionOutput? output = null)
     {
-        RequestServiceResultPolicy.ValidateFailureMessage(message);
-        var failureErrors = RequestServiceResultPolicy.RequireFailureErrors(errors);
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        var failureErrors = RequestServiceResultInvariants.RequireFailureErrors(errors);
+
         return new CallServiceResult(
             output,
             message,
-            failureErrors,
-            RequestServiceResultPolicy.ResolveFailureOutcome(failureErrors));
+            failureErrors);
     }
 }

@@ -47,7 +47,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             if (!deadline.TryGetRemainingTimeout(out var planTimeout))
             {
                 return CreateFailure(
-                    RequestServiceResultPolicy.FromTransportFailure(
+                    RequestFailureNormalizer.FromTransportFailure(
                         ExecutionErrorCodes.IpcTimeout,
                         "Timed out before Unity IPC plan request could begin."),
                     baseOutput);
@@ -67,7 +67,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                 .ConfigureAwait(false);
             if (!planExecutionResult.IsSuccess)
             {
-                var failure = RequestServiceResultPolicy.FromUnityRequestFailure(planExecutionResult.FailureInfo!);
+                var failure = RequestFailureNormalizer.FromUnityRequestFailure(planExecutionResult.FailureInfo!);
                 return CreateFailure(
                     failure,
                     baseOutput);
@@ -82,9 +82,9 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
 
             if (!convertedPlanResponse.IsSuccess)
             {
-                var failures = RequestServiceResultPolicy.FromOperationErrors(convertedPlanResponse.Errors, "uCLI call pre-plan failed.");
+                var failures = RequestFailureNormalizer.FromOperationErrors(convertedPlanResponse.Errors, "uCLI call pre-plan failed.");
                 return CallServiceResult.Failure(
-                    RequestServiceResultPolicy.ResolveFailureMessage(failures, "uCLI call pre-plan failed."),
+                    RequestFailureNormalizer.ResolveMessage(failures, "uCLI call pre-plan failed."),
                     failures,
                     baseOutput);
             }
@@ -92,7 +92,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             if (string.IsNullOrWhiteSpace(convertedPlanResponse.PlanToken))
             {
                 return CreateFailure(
-                    RequestServiceResultPolicy.FromTransportFailure(
+                    RequestFailureNormalizer.FromTransportFailure(
                         UcliCoreErrorCodes.InternalError,
                         "Execute response payload is invalid. The 'planToken' field is missing."),
                     baseOutput);
@@ -107,7 +107,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         if (!deadline.TryGetRemainingTimeout(out var callTimeout))
         {
             return CreateFailure(
-                RequestServiceResultPolicy.FromTransportFailure(
+                RequestFailureNormalizer.FromTransportFailure(
                     ExecutionErrorCodes.IpcTimeout,
                     "Timed out before Unity IPC call request could begin."),
                 baseOutput);
@@ -128,7 +128,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             .ConfigureAwait(false);
         if (!callExecutionResult.IsSuccess)
         {
-            var failure = RequestServiceResultPolicy.FromUnityRequestFailure(callExecutionResult.FailureInfo!);
+            var failure = RequestFailureNormalizer.FromUnityRequestFailure(callExecutionResult.FailureInfo!);
             return CreateFailure(
                 failure,
                 baseOutput);
@@ -150,7 +150,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         convertedCallResponse = postprocessedCallResponse.Response;
         if (postprocessedCallResponse.PersistenceError != null)
         {
-            var failures = RequestServiceResultPolicy.FromOperationErrors(convertedCallResponse.Errors, "uCLI call failed.");
+            var failures = RequestFailureNormalizer.FromOperationErrors(convertedCallResponse.Errors, "uCLI call failed.");
             return CallServiceResult.Failure(
                 postprocessedCallResponse.PersistenceError.Message,
                 failures,
@@ -159,9 +159,9 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
 
         if (!convertedCallResponse.IsSuccess)
         {
-            var failures = RequestServiceResultPolicy.FromOperationErrors(convertedCallResponse.Errors, "uCLI call failed.");
+            var failures = RequestFailureNormalizer.FromOperationErrors(convertedCallResponse.Errors, "uCLI call failed.");
             return CallServiceResult.Failure(
-                RequestServiceResultPolicy.ResolveFailureMessage(failures, "uCLI call failed."),
+                RequestFailureNormalizer.ResolveMessage(failures, "uCLI call failed."),
                 failures,
                 executionOutput);
         }

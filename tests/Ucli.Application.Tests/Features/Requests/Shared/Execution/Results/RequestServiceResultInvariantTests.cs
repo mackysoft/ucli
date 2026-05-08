@@ -79,7 +79,7 @@ public sealed class RequestServiceResultInvariantTests
                 outcome: ApplicationOutcome.InfrastructureError),
         ];
 
-        Assert.Equal(ApplicationOutcome.ToolError, RequestServiceResultPolicy.ResolveFailureOutcome(errors));
+        Assert.Equal(ApplicationOutcome.ToolError, ApplicationFailureOutcomeResolver.Resolve(errors));
 
         var result = PlanServiceResult.Failure("Plan failed.", errors);
 
@@ -127,7 +127,7 @@ public sealed class RequestServiceResultInvariantTests
             null!,
         ];
 
-        Assert.ThrowsAny<ArgumentException>(() => RequestServiceResultPolicy.ResolveFailureOutcome(errors));
+        Assert.ThrowsAny<ArgumentException>(() => ApplicationFailureOutcomeResolver.Resolve(errors));
         Assert.ThrowsAny<ArgumentException>(() => PlanServiceResult.Failure("Plan failed.", errors));
         Assert.ThrowsAny<ArgumentException>(() => QueryServiceResultFactory.Failure("query assets find", RequestId, [], errors, "Query failed.", readIndex));
     }
@@ -141,7 +141,7 @@ public sealed class RequestServiceResultInvariantTests
             null!,
         ];
 
-        Assert.ThrowsAny<ArgumentException>(() => RequestServiceResultPolicy.FromValidationErrors(validationErrors));
+        Assert.ThrowsAny<ArgumentException>(() => RequestFailureNormalizer.FromValidationErrors(validationErrors));
         Assert.ThrowsAny<ArgumentException>(() => OperationExecuteResultFactory.FromValidationErrors(RequestId, validationErrors));
         Assert.ThrowsAny<ArgumentException>(() => ValidateServiceResult.ValidationFailure(
             new ValidateExecutionOutput(CreateReadIndexInfo()),
@@ -240,7 +240,7 @@ public sealed class RequestServiceResultInvariantTests
     public void UnknownErrorCode_IsPreservedAndMapsToToolError ()
     {
         var futureErrorCode = new UcliErrorCode("FUTURE_TRANSPORT_FAILURE");
-        var error = RequestServiceResultPolicy.FromTransportFailure(
+        var error = RequestFailureNormalizer.FromTransportFailure(
             errorCode: futureErrorCode,
             message: "Future transport failed.");
 
@@ -253,7 +253,7 @@ public sealed class RequestServiceResultInvariantTests
     [Trait("Size", "Small")]
     public void Failure_FromTransportFailure_NormalizesBlankBoundaryMessage ()
     {
-        var error = RequestServiceResultPolicy.FromTransportFailure(errorCode: default(UcliErrorCode), message: "");
+        var error = RequestFailureNormalizer.FromTransportFailure(errorCode: default(UcliErrorCode), message: "");
 
         Assert.Equal(ApplicationFailureKind.InternalError, error.Kind);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
@@ -269,7 +269,7 @@ public sealed class RequestServiceResultInvariantTests
             PlanTokenErrorCodes.PlanTokenInvalid,
             "Plan token is invalid.");
 
-        var requestFailure = RequestServiceResultPolicy.FromUnityRequestFailure(failure);
+        var requestFailure = RequestFailureNormalizer.FromUnityRequestFailure(failure);
 
         Assert.Equal(ApplicationFailureKind.InvalidInput, requestFailure.Kind);
         Assert.Equal(PlanTokenErrorCodes.PlanTokenInvalid, requestFailure.Code);

@@ -73,15 +73,9 @@ public sealed class TestRunCommandResultFactoryTests
     [Trait("Size", "Small")]
     public void Create_WithMissingErrorCode_FallsBackToInternalError ()
     {
-        var serviceResult = new TestRunServiceResult(
-            Result: null,
-            ErrorKind: TestRunErrorKind.InfraError,
-            Outcome: ApplicationOutcome.InfrastructureError,
-            Message: "Unexpected execution pipeline state.",
-            RunId: null,
-            ArtifactsDir: null,
-            SummaryJsonPath: null,
-            ErrorCode: null);
+        var serviceResult = TestRunServiceResult.InfraError(
+            "Unexpected execution pipeline state.",
+            default);
 
         var result = TestRunCommandResultFactory.Create(serviceResult);
 

@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
-using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
@@ -43,23 +42,7 @@ internal static class TestRunCommandResultFactory
             serviceResult.Message,
             payload,
             [
-                CreateFailure(serviceResult),
+                serviceResult.Failure!,
             ]);
-    }
-
-    private static ApplicationFailure CreateFailure (TestRunServiceResult serviceResult)
-    {
-        var errorCode = serviceResult.ErrorCode.HasValue && serviceResult.ErrorCode.Value.IsValid
-            ? serviceResult.ErrorCode.Value
-            : UcliCoreErrorCodes.InternalError;
-        return serviceResult.ErrorKind switch
-        {
-            TestRunErrorKind.InvalidInput => ApplicationFailure.InvalidInput(serviceResult.Message, errorCode),
-            TestRunErrorKind.InfraError => ApplicationFailure.ExternalProcessFailure(
-                serviceResult.Message,
-                errorCode,
-                outcome: ApplicationOutcome.InfrastructureError),
-            _ => ApplicationFailure.ExternalProcessFailure(serviceResult.Message, errorCode),
-        };
     }
 }

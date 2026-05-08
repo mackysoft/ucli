@@ -33,7 +33,7 @@ internal static class OperationExecuteResultFactory
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(error);
 
-        var executionError = RequestServiceResultPolicy.FromExecutionError(error);
+        var executionError = ApplicationFailure.FromExecutionError(error);
         return Failure(
             requestId,
             [],
@@ -58,7 +58,7 @@ internal static class OperationExecuteResultFactory
         return Failure(
             requestId,
             [],
-            RequestServiceResultPolicy.FromValidationErrors(validationErrors),
+            RequestFailureNormalizer.FromValidationErrors(validationErrors),
             failureMessage);
     }
 
@@ -118,7 +118,7 @@ internal static class OperationExecuteResultFactory
             requestId,
             opResults,
             errors,
-            RequestServiceResultPolicy.ResolveFailureMessage(errors, failureMessage ?? DefaultFailureMessage),
+            RequestFailureNormalizer.ResolveMessage(errors, failureMessage ?? DefaultFailureMessage),
             readPostcondition);
     }
 }

@@ -35,7 +35,7 @@ internal static class QueryServiceResultFactory
     {
         ArgumentNullException.ThrowIfNull(error);
 
-        var executionError = RequestServiceResultPolicy.FromExecutionError(error);
+        var executionError = ApplicationFailure.FromExecutionError(error);
         return Failure(
             commandName,
             requestId,
@@ -55,7 +55,7 @@ internal static class QueryServiceResultFactory
         ReadIndexInfo readIndex)
     {
         ArgumentNullException.ThrowIfNull(error);
-        var normalizedError = RequestServiceResultPolicy.NormalizeError(error, FailureMessage);
+        var normalizedError = RequestFailureNormalizer.FromOperationError(error, FailureMessage);
         return Failure(
             commandName,
             requestId,

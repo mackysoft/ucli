@@ -309,16 +309,8 @@ internal static class SkillsCommandResultFactory
 
         return CommandFailureProjector.Create(
             command,
-            CreateSkillFailure(failure),
+            SkillFailureApplicationFailureMapper.Map(failure),
             new { });
-    }
-
-    private static ApplicationFailure CreateSkillFailure (SkillFailure failure)
-    {
-        var code = new UcliErrorCode(failure.Code.Value);
-        return IsInvalidArgumentFailureCode(failure.Code)
-            ? ApplicationFailure.InvalidInput(failure.Message, code)
-            : ApplicationFailure.InternalError(failure.Message, code);
     }
 
     private static string[] CreateSkillNameList (IReadOnlyList<CanonicalSkillPackage> packages)
@@ -327,11 +319,6 @@ internal static class SkillsCommandResultFactory
             .Select(static package => package.Manifest.SkillName)
             .Order(StringComparer.Ordinal)
             .ToArray();
-    }
-
-    private static bool IsInvalidArgumentFailureCode (SkillFailureCode code)
-    {
-        return code == SkillFailureCodes.HostUnsupported || code == SkillFailureCodes.PathUnsafe;
     }
 
     private static string ToScopeLiteral (SkillScopeKind scope)

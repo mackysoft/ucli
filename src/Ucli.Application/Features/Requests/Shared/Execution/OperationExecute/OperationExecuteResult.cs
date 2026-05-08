@@ -10,14 +10,12 @@ internal sealed record OperationExecuteResult
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
-        ApplicationOutcome outcome,
         string message,
         OperationExecutionReadPostcondition? readPostcondition)
     {
         RequestId = requestId;
         OpResults = opResults;
         Errors = errors;
-        Outcome = outcome;
         Message = message;
         ReadPostcondition = readPostcondition;
     }
@@ -32,7 +30,9 @@ internal sealed record OperationExecuteResult
     public IReadOnlyList<ApplicationFailure> Errors { get; }
 
     /// <summary> Gets the application outcome associated with this response. </summary>
-    public ApplicationOutcome Outcome { get; }
+    public ApplicationOutcome Outcome => Errors.Count == 0
+        ? ApplicationOutcome.Success
+        : ApplicationFailureOutcomeResolver.Resolve(Errors);
 
     /// <summary> Gets the user-facing result message. </summary>
     public string Message { get; }
@@ -41,7 +41,7 @@ internal sealed record OperationExecuteResult
     public OperationExecutionReadPostcondition? ReadPostcondition { get; }
 
     /// <summary> Gets a value indicating whether the operation execution succeeded. </summary>
-    public bool IsSuccess => Outcome == ApplicationOutcome.Success;
+    public bool IsSuccess => Errors.Count == 0;
 
     /// <summary> Creates one successful operation execution result. </summary>
     internal static OperationExecuteResult Success (
@@ -52,13 +52,12 @@ internal sealed record OperationExecuteResult
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
-        RequestServiceResultPolicy.ValidateSuccessMessage(message);
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
 
         return new OperationExecuteResult(
             requestId,
             opResults,
-            RequestServiceResultPolicy.EmptyErrors,
-            ApplicationOutcome.Success,
+            RequestServiceResultInvariants.EmptyErrors,
             message,
             readPostcondition);
     }
@@ -73,14 +72,13 @@ internal sealed record OperationExecuteResult
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
-        RequestServiceResultPolicy.ValidateFailureMessage(message);
-        var failureErrors = RequestServiceResultPolicy.RequireFailureErrors(errors);
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        var failureErrors = RequestServiceResultInvariants.RequireFailureErrors(errors);
 
         return new OperationExecuteResult(
             requestId,
             opResults,
             failureErrors,
-            RequestServiceResultPolicy.ResolveFailureOutcome(failureErrors),
             message,
             readPostcondition);
     }

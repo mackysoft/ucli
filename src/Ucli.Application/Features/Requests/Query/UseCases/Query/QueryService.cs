@@ -239,7 +239,7 @@ internal sealed class QueryService : IQueryService
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
-            var failure = RequestServiceResultPolicy.FromUnityRequestFailure(executionResult.FailureInfo!);
+            var failure = RequestFailureNormalizer.FromUnityRequestFailure(executionResult.FailureInfo!);
             return QueryServiceResultFactory.Failure(
                 operation.CommandName,
                 requestId,
@@ -261,13 +261,13 @@ internal sealed class QueryService : IQueryService
                 readIndex);
         }
 
-        var failures = RequestServiceResultPolicy.FromOperationErrors(convertedResponse.Errors, "uCLI query failed.");
+        var failures = RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, "uCLI query failed.");
         return QueryServiceResultFactory.Failure(
             operation.CommandName,
             requestId,
             convertedResponse.OpResults,
             failures,
-            RequestServiceResultPolicy.ResolveFailureMessage(failures, "uCLI query failed."),
+            RequestFailureNormalizer.ResolveMessage(failures, "uCLI query failed."),
             readIndex);
     }
 

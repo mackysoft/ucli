@@ -28,7 +28,7 @@ internal static class ResolveServiceResultFactory
     {
         ArgumentNullException.ThrowIfNull(error);
 
-        var executionError = RequestServiceResultPolicy.FromExecutionError(error);
+        var executionError = ApplicationFailure.FromExecutionError(error);
         return Failure(
             requestId,
             [],
@@ -45,7 +45,7 @@ internal static class ResolveServiceResultFactory
         ReadIndexInfo readIndex)
     {
         ArgumentNullException.ThrowIfNull(error);
-        var normalizedError = RequestServiceResultPolicy.NormalizeError(error, FailureMessage);
+        var normalizedError = RequestFailureNormalizer.FromOperationError(error, FailureMessage);
         return Failure(
             requestId,
             [],
@@ -68,7 +68,7 @@ internal static class ResolveServiceResultFactory
             requestId,
             opResults,
             errors,
-            RequestServiceResultPolicy.ResolveFailureMessage(errors, FailureMessage),
+            RequestFailureNormalizer.ResolveMessage(errors, FailureMessage),
             readIndex);
     }
 }
