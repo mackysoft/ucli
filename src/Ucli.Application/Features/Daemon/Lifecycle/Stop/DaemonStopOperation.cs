@@ -110,6 +110,16 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         var session = readResult.Session!;
         if (!DaemonSessionTerminationPolicy.CanShutdownProcess(session))
         {
+            if (DaemonSessionTerminationPolicy.CanStopEndpointOnly(session))
+            {
+                return await StopEndpointOnlySession(
+                        unityProject,
+                        session,
+                        deadline,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             return DaemonStopResult.Failure(ExecutionError.InvalidArgument(
                 "Daemon session does not allow process shutdown."));
         }
@@ -170,6 +180,28 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         }
 
         return DaemonStopResult.Stopped();
+    }
+
+    private async ValueTask<DaemonStopResult> StopEndpointOnlySession (
+        ResolvedUnityProjectContext unityProject,
+        DaemonSession session,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken)
+    {
+        if (deadline.TryGetRemainingTimeout(out var shutdownTimeout))
+        {
+            _ = await shutdownClient.SendShutdown(
+                    unityProject,
+                    session,
+                    shutdownTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        var cleanupResult = await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
+        return cleanupResult.IsSuccess
+            ? DaemonStopResult.Stopped()
+            : DaemonStopResult.Failure(cleanupResult.Error!);
     }
 
     private static ExecutionError CreateTimeoutError (string message)

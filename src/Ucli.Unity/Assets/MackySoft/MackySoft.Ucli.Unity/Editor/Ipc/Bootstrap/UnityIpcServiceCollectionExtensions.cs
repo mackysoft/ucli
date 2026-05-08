@@ -15,12 +15,14 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="sessionTokenValidator"> The session-token validator used by the host. </param>
         /// <param name="projectFingerprint"> The project fingerprint served by the host. </param>
         /// <param name="daemonLogger"> The daemon logger used by the host. </param>
+        /// <param name="editorMode"> The daemon Editor mode reported by lifecycle snapshots. </param>
         /// <returns> The updated service collection. </returns>
         public static IServiceCollection AddUnityIpcApplicationServices (
             this IServiceCollection services,
             ISessionTokenValidator sessionTokenValidator,
             string projectFingerprint,
-            IDaemonLogger daemonLogger)
+            IDaemonLogger daemonLogger,
+            string editorMode = IpcEditorRuntimeCodec.Batchmode)
         {
             if (services == null)
             {
@@ -44,7 +46,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             // NOTE:
             // Project owner exposes static helpers only, so service composition starts from Runtime.
-            services.AddUnityRuntimeServices();
+            services.AddUnityRuntimeServices(editorMode);
             services.AddUnityIndexServices();
             services.AddUnityExecutionServices();
             services.AddSingleton<ISessionTokenValidator>(sessionTokenValidator);

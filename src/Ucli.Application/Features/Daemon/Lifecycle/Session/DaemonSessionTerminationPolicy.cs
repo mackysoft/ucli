@@ -12,11 +12,27 @@ internal static class DaemonSessionTerminationPolicy
         ArgumentNullException.ThrowIfNull(session);
 
         return session.SchemaVersion == DaemonSession.CurrentSchemaVersion
-            && DaemonEditorModeCodec.TryParse(session.EditorMode, out var editorMode)
-            && editorMode == DaemonEditorMode.Batchmode
+            && DaemonEditorModeCodec.TryParse(session.EditorMode, out _)
             && DaemonSessionOwnerKindCodec.TryParse(session.OwnerKind, out var ownerKind)
             && ownerKind == DaemonSessionOwnerKind.Cli
             && session.CanShutdownProcess
+            && session.OwnerProcessId is > 0;
+    }
+
+    /// <summary> Determines whether one daemon session should only invalidate endpoint/session artifacts on stop. </summary>
+    /// <param name="session"> The daemon session metadata. </param>
+    /// <returns><see langword="true" /> when stop should not terminate the Unity process; otherwise <see langword="false" />.</returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="session" /> is <see langword="null" />. </exception>
+    public static bool CanStopEndpointOnly (DaemonSession session)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+
+        return session.SchemaVersion == DaemonSession.CurrentSchemaVersion
+            && DaemonEditorModeCodec.TryParse(session.EditorMode, out var editorMode)
+            && editorMode == DaemonEditorMode.Gui
+            && DaemonSessionOwnerKindCodec.TryParse(session.OwnerKind, out var ownerKind)
+            && ownerKind == DaemonSessionOwnerKind.User
+            && !session.CanShutdownProcess
             && session.OwnerProcessId is > 0;
     }
 

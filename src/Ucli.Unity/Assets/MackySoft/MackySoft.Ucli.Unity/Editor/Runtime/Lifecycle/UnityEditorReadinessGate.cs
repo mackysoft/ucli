@@ -14,6 +14,8 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         private readonly UnityEditorLifecycleTelemetryState lifecycleTelemetryState;
 
+        private readonly string runtime;
+
         private readonly Func<bool> isCompilingProvider;
 
         private readonly Func<bool> isUpdatingProvider;
@@ -33,7 +35,15 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         /// <summary> Initializes a new instance of the <see cref="UnityEditorReadinessGate" /> class. </summary>
         public UnityEditorReadinessGate ()
+            : this(IpcEditorRuntimeCodec.Batchmode)
+        {
+        }
+
+        /// <summary> Initializes a new instance of the <see cref="UnityEditorReadinessGate" /> class. </summary>
+        /// <param name="runtime"> The daemon Editor mode reported by lifecycle snapshots. </param>
+        public UnityEditorReadinessGate (string runtime)
             : this(
+                runtime,
                 sharedLifecycleTelemetryState,
                 static () => EditorApplication.isCompiling,
                 static () => EditorApplication.isUpdating,
@@ -50,6 +60,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <param name="lifecycleTelemetryState"> The mutable lifecycle telemetry state to observe. </param>
         internal UnityEditorReadinessGate (UnityEditorLifecycleTelemetryState lifecycleTelemetryState)
             : this(
+                IpcEditorRuntimeCodec.Batchmode,
                 lifecycleTelemetryState,
                 static () => EditorApplication.isCompiling,
                 static () => EditorApplication.isUpdating,
@@ -73,6 +84,33 @@ namespace MackySoft.Ucli.Unity.Runtime
             Func<bool> isUpdatingProvider,
             Func<bool> isPlaymodeActiveProvider)
             : this(
+                IpcEditorRuntimeCodec.Batchmode,
+                lifecycleTelemetryState,
+                isCompilingProvider,
+                isUpdatingProvider,
+                isPlaymodeActiveProvider,
+                static handler => AssemblyReloadEvents.beforeAssemblyReload += handler,
+                static handler => AssemblyReloadEvents.beforeAssemblyReload -= handler,
+                static handler => EditorApplication.quitting += handler,
+                static handler => EditorApplication.quitting -= handler,
+                subscribeToEditorEvents: false)
+        {
+        }
+
+        /// <summary> Initializes a new instance of the <see cref="UnityEditorReadinessGate" /> class. </summary>
+        /// <param name="runtime"> The daemon Editor mode reported by lifecycle snapshots. </param>
+        /// <param name="lifecycleTelemetryState"> The mutable lifecycle telemetry state to observe. </param>
+        /// <param name="isCompilingProvider"> The compile-state observer. </param>
+        /// <param name="isUpdatingProvider"> The update-state observer. </param>
+        /// <param name="isPlaymodeActiveProvider"> The Play Mode observer. </param>
+        internal UnityEditorReadinessGate (
+            string runtime,
+            UnityEditorLifecycleTelemetryState lifecycleTelemetryState,
+            Func<bool> isCompilingProvider,
+            Func<bool> isUpdatingProvider,
+            Func<bool> isPlaymodeActiveProvider)
+            : this(
+                runtime,
                 lifecycleTelemetryState,
                 isCompilingProvider,
                 isUpdatingProvider,
@@ -104,6 +142,7 @@ namespace MackySoft.Ucli.Unity.Runtime
             Action<Action> quittingSubscriber,
             Action<Action> quittingUnsubscriber)
             : this(
+                IpcEditorRuntimeCodec.Batchmode,
                 lifecycleTelemetryState,
                 isCompilingProvider,
                 isUpdatingProvider,
@@ -117,6 +156,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         }
 
         private UnityEditorReadinessGate (
+            string runtime,
             UnityEditorLifecycleTelemetryState lifecycleTelemetryState,
             Func<bool> isCompilingProvider,
             Func<bool> isUpdatingProvider,
@@ -128,6 +168,12 @@ namespace MackySoft.Ucli.Unity.Runtime
             bool subscribeToEditorEvents)
         {
             this.lifecycleTelemetryState = lifecycleTelemetryState;
+            if (!IpcEditorRuntimeCodec.TryParse(runtime, out var normalizedRuntime))
+            {
+                throw new ArgumentException("runtime must be batchmode or gui.", nameof(runtime));
+            }
+
+            this.runtime = normalizedRuntime!;
             this.isCompilingProvider = isCompilingProvider ?? throw new ArgumentNullException(nameof(isCompilingProvider));
             this.isUpdatingProvider = isUpdatingProvider ?? throw new ArgumentNullException(nameof(isUpdatingProvider));
             this.isPlaymodeActiveProvider = isPlaymodeActiveProvider ?? throw new ArgumentNullException(nameof(isPlaymodeActiveProvider));
@@ -172,10 +218,8 @@ namespace MackySoft.Ucli.Unity.Runtime
             var blockingReason = UnityEditorExecutionReadinessPolicy.ResolveBlockingReason(lifecycleState);
             var canAcceptExecutionRequests = string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, System.StringComparison.Ordinal);
 
-            // TODO: Add GUI / non-batchmode runtime detection when lifecycle telemetry is supported
-            // outside the batchmode IPC host. Current runtime reporting is batchmode-only.
             return new UnityEditorLifecycleSnapshot(
-                Runtime: IpcEditorRuntimeCodec.Batchmode,
+                Runtime: runtime,
                 LifecycleState: lifecycleState,
                 BlockingReason: blockingReason,
                 CompileState: compileState,
