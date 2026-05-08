@@ -7,7 +7,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 
-/// <summary> Reads one persisted-preview scene-tree-lite snapshot through the shared Unity IPC execution path. </summary>
+/// <summary> Reads one scene-tree-lite snapshot through the shared Unity IPC execution path. </summary>
 internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
 {
     private readonly IUnityRequestExecutor ipcRequestExecutor;
@@ -19,7 +19,7 @@ internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
     }
 
     /// <inheritdoc />
-    public async ValueTask<SceneTreeLiteSnapshotFetchResult> Read (
+    public async ValueTask<SceneTreeLiteSnapshotFetchResult> ReadAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,
@@ -27,6 +27,7 @@ internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
         TimeSpan timeout,
         string scenePath,
         bool failFast = false,
+        bool loadedSceneOnly = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -43,7 +44,7 @@ internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
                 project,
                 new UnityRequestPayload.Raw(
                     IpcMethodNames.IndexSceneTreeLiteRead,
-                    IpcPayloadCodec.SerializeToElement(new IpcIndexSceneTreeLiteReadRequest(scenePath, failFast))),
+                    IpcPayloadCodec.SerializeToElement(new IpcIndexSceneTreeLiteReadRequest(scenePath, failFast, loadedSceneOnly))),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
@@ -103,6 +104,13 @@ internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
         {
             return SceneTreeLiteSnapshotFetchResult.Failure(
                 $"{responseSourceName} payload is invalid. {rootsError}",
+                UcliCoreErrorCodes.InternalError);
+        }
+
+        if (payload.SourceState == null || payload.SourceState.Kind == SceneTreeSourceStateKind.Unspecified)
+        {
+            return SceneTreeLiteSnapshotFetchResult.Failure(
+                $"{responseSourceName} payload is invalid. sourceState is required.",
                 UcliCoreErrorCodes.InternalError);
         }
 

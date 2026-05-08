@@ -61,7 +61,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             try
             {
-                var responsePayload = await sceneTreeLiteSnapshotBuilder.Build(payload.ScenePath, cancellationToken);
+                var responsePayload = await sceneTreeLiteSnapshotBuilder.BuildAsync(
+                    payload.ScenePath,
+                    payload.LoadedSceneOnly,
+                    cancellationToken);
                 return UnityIpcResponseFactory.CreateSuccessResponse(request, responsePayload);
             }
             catch (OperationCanceledException)

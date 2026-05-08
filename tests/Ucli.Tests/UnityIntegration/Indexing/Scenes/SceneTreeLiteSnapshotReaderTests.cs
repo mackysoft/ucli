@@ -14,17 +14,11 @@ public sealed class SceneTreeLiteSnapshotReaderTests
         var executor = new StubUnityIpcRequestExecutor
         {
             Result = UnityRequestExecutionResult.Success(CreateSuccessResponse(
-                new IpcIndexSceneTreeLiteReadResponse(
-                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
-                    ScenePath: "Assets/Scenes/Main.unity",
-                    Roots:
-                    [
-                        new IndexSceneTreeLiteNodeJsonContract("Root", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
-                    ]))),
+                CreatePayload("Assets/Scenes/Main.unity", "Root"))),
         };
         var reader = new SceneTreeLiteSnapshotReader(executor);
 
-        var result = await reader.Read(
+        var result = await reader.ReadAsync(
             CreateProject(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -32,6 +26,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             TimeSpan.FromSeconds(1),
             "Assets/Scenes/Main.unity",
             failFast: true,
+            loadedSceneOnly: true,
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -41,6 +36,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcIndexSceneTreeLiteReadRequest payload, out _));
         Assert.Equal("Assets/Scenes/Main.unity", payload.ScenePath);
         Assert.True(payload.FailFast);
+        Assert.True(payload.LoadedSceneOnly);
         Assert.Single(result.Response!.Roots!);
     }
 
@@ -56,7 +52,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
         };
         var reader = new SceneTreeLiteSnapshotReader(executor);
 
-        var result = await reader.Read(
+        var result = await reader.ReadAsync(
             CreateProject(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -77,17 +73,11 @@ public sealed class SceneTreeLiteSnapshotReaderTests
         var executor = new StubUnityIpcRequestExecutor
         {
             Result = UnityRequestExecutionResult.Success(CreateSuccessResponse(
-                new IpcIndexSceneTreeLiteReadResponse(
-                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
-                    ScenePath: "Assets/Scenes/Main.unity",
-                    Roots:
-                    [
-                        new IndexSceneTreeLiteNodeJsonContract(" ", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
-                    ]))),
+                CreatePayload("Assets/Scenes/Main.unity", " "))),
         };
         var reader = new SceneTreeLiteSnapshotReader(executor);
 
-        var result = await reader.Read(
+        var result = await reader.ReadAsync(
             CreateProject(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -107,17 +97,11 @@ public sealed class SceneTreeLiteSnapshotReaderTests
         var executor = new StubUnityIpcRequestExecutor
         {
             Result = UnityRequestExecutionResult.Success(CreateSuccessResponse(
-                new IpcIndexSceneTreeLiteReadResponse(
-                    GeneratedAtUtc: DateTimeOffset.UtcNow,
-                    ScenePath: "Assets/Scenes/Other.unity",
-                    Roots:
-                    [
-                        new IndexSceneTreeLiteNodeJsonContract("Root", string.Empty, Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
-                    ]))),
+                CreatePayload("Assets/Scenes/Other.unity", "Root"))),
         };
         var reader = new SceneTreeLiteSnapshotReader(executor);
 
-        var result = await reader.Read(
+        var result = await reader.ReadAsync(
             CreateProject(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -144,11 +128,12 @@ public sealed class SceneTreeLiteSnapshotReaderTests
                     Roots:
                     [
                         new IndexSceneTreeLiteNodeJsonContract("Root", string.Empty, null),
-                    ]))),
+                    ],
+                    SourceState: CreateSourceState()))),
         };
         var reader = new SceneTreeLiteSnapshotReader(executor);
 
-        var result = await reader.Read(
+        var result = await reader.ReadAsync(
             CreateProject(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -174,6 +159,25 @@ public sealed class SceneTreeLiteSnapshotReaderTests
     private static UnityRequestResponse CreateSuccessResponse (object payload)
     {
         return CreateResponse(IpcProtocol.StatusOk, payload);
+    }
+
+    private static IpcIndexSceneTreeLiteReadResponse CreatePayload (
+        string scenePath,
+        string rootName)
+    {
+        return new IpcIndexSceneTreeLiteReadResponse(
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
+            ScenePath: scenePath,
+            Roots:
+            [
+                new IndexSceneTreeLiteNodeJsonContract(rootName, "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+            ],
+            SourceState: CreateSourceState());
+    }
+
+    private static SceneTreeSourceState CreateSourceState ()
+    {
+        return new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false);
     }
 
     private static UnityRequestResponse CreateResponse (

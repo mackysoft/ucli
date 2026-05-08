@@ -31,6 +31,7 @@ public sealed class ResolveServiceTests
                                 Children: []),
                         ]),
                 ],
+                SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.ReadIndex, isDirty: false),
                 AccessInfo: new SceneTreeLiteAccessInfo(
                     Used: true,
                     Hit: true,
@@ -102,6 +103,7 @@ public sealed class ResolveServiceTests
                                 Children: []),
                         ]),
                 ],
+                SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.ReadIndex, isDirty: false),
                 AccessInfo: new SceneTreeLiteAccessInfo(
                     Used: true,
                     Hit: true,
@@ -178,6 +180,7 @@ public sealed class ResolveServiceTests
                 [
                     new IndexSceneTreeLiteNodeJsonContract("Root", "GlobalObjectId_V1-1-2-3-4-5-6", []),
                 ],
+                SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.ReadIndex, isDirty: false),
                 AccessInfo: new SceneTreeLiteAccessInfo(
                     Used: true,
                     Hit: true,
@@ -322,7 +325,7 @@ public sealed class ResolveServiceTests
 
         public bool CapturedFailFast { get; private set; }
 
-        public ValueTask<SceneTreeLiteReadResult> Read (
+        public ValueTask<SceneTreeLiteReadResult> ReadAsync (
             ResolvedUnityProjectContext project,
             UcliConfig config,
             UcliCommand command,

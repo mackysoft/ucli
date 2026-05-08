@@ -9,10 +9,12 @@ public sealed record SceneTreeResult
     [JsonConstructor]
     public SceneTreeResult (
         SceneAssetPath path,
-        IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> roots)
+        IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> roots,
+        SceneTreeSourceState sourceState)
     {
         Path = path;
         Roots = roots;
+        SourceState = sourceState;
     }
 
     [UcliRequired]
@@ -22,4 +24,8 @@ public sealed record SceneTreeResult
     [UcliRequired]
     [UcliDescription("Root GameObjects in the scene.")]
     public IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> Roots { get; init; }
+
+    [UcliRequired]
+    [UcliDescription("Source state used to build the scene tree.")]
+    public SceneTreeSourceState SourceState { get; init; }
 }

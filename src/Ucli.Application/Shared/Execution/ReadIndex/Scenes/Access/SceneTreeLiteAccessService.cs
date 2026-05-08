@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using UnityExecutionModeValue = MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision.UnityExecutionMode;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
@@ -13,6 +14,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
     private readonly IMutationReadPostconditionStore mutationReadPostconditionStore;
     private readonly ISceneTreeLiteSourceRefreshService sourceRefreshService;
     private readonly ISceneTreeLiteSourceProbe sourceProbe;
+    private readonly ISceneTreeLiteDirtySourceProbeService dirtySourceProbeService;
 
     /// <summary> Initializes a new instance of the <see cref="SceneTreeLiteAccessService" /> class. </summary>
     public SceneTreeLiteAccessService (
@@ -21,16 +23,35 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
         IMutationReadPostconditionStore mutationReadPostconditionStore,
         ISceneTreeLiteSourceRefreshService sourceRefreshService,
         ISceneTreeLiteSourceProbe sourceProbe)
+        : this(
+            artifactReader,
+            freshnessEvaluator,
+            mutationReadPostconditionStore,
+            sourceRefreshService,
+            sourceProbe,
+            NoOpSceneTreeLiteDirtySourceProbeService.Instance)
+    {
+    }
+
+    /// <summary> Initializes a new instance of the <see cref="SceneTreeLiteAccessService" /> class. </summary>
+    public SceneTreeLiteAccessService (
+        IReadIndexArtifactReader artifactReader,
+        IReadIndexFreshnessEvaluator freshnessEvaluator,
+        IMutationReadPostconditionStore mutationReadPostconditionStore,
+        ISceneTreeLiteSourceRefreshService sourceRefreshService,
+        ISceneTreeLiteSourceProbe sourceProbe,
+        ISceneTreeLiteDirtySourceProbeService dirtySourceProbeService)
     {
         this.artifactReader = artifactReader ?? throw new ArgumentNullException(nameof(artifactReader));
         this.freshnessEvaluator = freshnessEvaluator ?? throw new ArgumentNullException(nameof(freshnessEvaluator));
         this.mutationReadPostconditionStore = mutationReadPostconditionStore ?? throw new ArgumentNullException(nameof(mutationReadPostconditionStore));
         this.sourceRefreshService = sourceRefreshService ?? throw new ArgumentNullException(nameof(sourceRefreshService));
         this.sourceProbe = sourceProbe ?? throw new ArgumentNullException(nameof(sourceProbe));
+        this.dirtySourceProbeService = dirtySourceProbeService ?? throw new ArgumentNullException(nameof(dirtySourceProbeService));
     }
 
     /// <inheritdoc />
-    public async ValueTask<SceneTreeLiteReadResult> Read (
+    public async ValueTask<SceneTreeLiteReadResult> ReadAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,
@@ -60,7 +81,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
         var isLookupEligibleScene = SceneTreeLiteAccessUtilities.IsLookupEligibleScenePath(normalizedScenePath);
         if (isLookupEligibleScene)
         {
-            var sourceProbeResult = await sourceProbe.EnsureCurrentAssetsSceneExists(project, normalizedScenePath, cancellationToken).ConfigureAwait(false);
+            var sourceProbeResult = await sourceProbe.EnsureCurrentAssetsSceneExistsAsync(project, normalizedScenePath, cancellationToken).ConfigureAwait(false);
             if (!sourceProbeResult.IsSuccess)
             {
                 return SceneTreeLiteReadResult.Failure(sourceProbeResult.ErrorMessage!, UcliCoreErrorCodes.InvalidArgument);
@@ -69,7 +90,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
 
         if (readIndexMode == ReadIndexMode.Disabled)
         {
-            return await ReadFromSource(
+            return await ReadFromSourceAsync(
                     project,
                     config,
                     command,
@@ -83,9 +104,29 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                 .ConfigureAwait(false);
         }
 
+        if (isLookupEligibleScene)
+        {
+            var dirtySourceProbeResult = await dirtySourceProbeService.ProbeAsync(
+                    project,
+                    config,
+                    command,
+                    mode,
+                    timeout,
+                    normalizedScenePath,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (dirtySourceProbeResult.HasDirtySource)
+            {
+                return CreateSourceReadResult(
+                    dirtySourceProbeResult.Response!,
+                    depth,
+                    dirtySourceProbeResult.FallbackReason);
+            }
+        }
+
         if (!isLookupEligibleScene)
         {
-            return await ReadFromSource(
+            return await ReadFromSourceAsync(
                     project,
                     config,
                     command,
@@ -111,7 +152,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                 return SceneTreeLiteReadResult.Failure(lookupResult.Error.Message, lookupResult.Error.Code);
             }
 
-            return await ReadFromSource(
+            return await ReadFromSourceAsync(
                     project,
                     config,
                     command,
@@ -134,7 +175,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
             .ConfigureAwait(false);
         if (!readPostconditionEvaluation.CanUseIndex)
         {
-            return await ReadFromSource(
+            return await ReadFromSourceAsync(
                     project,
                     config,
                     command,
@@ -167,6 +208,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                 new SceneTreeLiteReadOutput(
                     lookupResult.Value.ScenePath!,
                     SceneTreeLiteAccessUtilities.TrimToDepth(lookupResult.Value.Roots!, depth),
+                    new SceneTreeSourceState(SceneTreeSourceStateKind.ReadIndex, isDirty: false),
                     new SceneTreeLiteAccessInfo(
                         Used: true,
                         Hit: true,
@@ -177,7 +219,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                 "Scene-tree-lite read completed.");
         }
 
-        return await ReadFromSource(
+        return await ReadFromSourceAsync(
                 project,
                 config,
                 command,
@@ -191,7 +233,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
             .ConfigureAwait(false);
     }
 
-    private async ValueTask<SceneTreeLiteReadResult> ReadFromSource (
+    private async ValueTask<SceneTreeLiteReadResult> ReadFromSourceAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,
@@ -203,7 +245,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
         bool failFast,
         CancellationToken cancellationToken)
     {
-        var refreshResult = await sourceRefreshService.Refresh(
+        var refreshResult = await sourceRefreshService.RefreshAsync(
                 project,
                 config,
                 command,
@@ -219,18 +261,48 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
             return SceneTreeLiteReadResult.Failure(refreshResult.Message, refreshResult.ErrorCode!.Value);
         }
 
-        var response = refreshResult.Response!;
+        return CreateSourceReadResult(
+            refreshResult.Response!,
+            depth,
+            refreshResult.FallbackReason);
+    }
+
+    private static SceneTreeLiteReadResult CreateSourceReadResult (
+        IpcIndexSceneTreeLiteReadResponse response,
+        int? depth,
+        string? fallbackReason)
+    {
+        ArgumentNullException.ThrowIfNull(response);
         return SceneTreeLiteReadResult.Success(
             new SceneTreeLiteReadOutput(
                 response.ScenePath,
                 SceneTreeLiteAccessUtilities.TrimToDepth(response.Roots!, depth),
+                response.SourceState,
                 new SceneTreeLiteAccessInfo(
                     Used: false,
                     Hit: true,
                     Source: SceneTreeLiteSource.Source,
                     Freshness: IndexFreshness.Fresh,
                     GeneratedAtUtc: response.GeneratedAtUtc,
-                    FallbackReason: refreshResult.FallbackReason)),
+                    FallbackReason: fallbackReason)),
             "Scene-tree-lite read completed.");
+    }
+
+    private sealed class NoOpSceneTreeLiteDirtySourceProbeService : ISceneTreeLiteDirtySourceProbeService
+    {
+        public static NoOpSceneTreeLiteDirtySourceProbeService Instance { get; } = new();
+
+        public ValueTask<SceneTreeLiteDirtySourceProbeResult> ProbeAsync (
+            ResolvedUnityProjectContext project,
+            UcliConfig config,
+            UcliCommand command,
+            UnityExecutionModeValue mode,
+            TimeSpan timeout,
+            string scenePath,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(SceneTreeLiteDirtySourceProbeResult.NotAvailable("dirty source probe is not configured."));
+        }
     }
 }

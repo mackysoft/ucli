@@ -55,6 +55,7 @@ internal static class UnityIntegrationServiceCollectionExtensions
         services.AddSingleton<ISceneTreeLiteSourceHashCalculator, SceneTreeLiteSourceHashCalculator>();
         services.AddSingleton<ISceneTreeLiteSourceProbe, FileSceneTreeLiteSourceProbe>();
         services.AddSingleton<ISceneTreeLiteSnapshotReader, SceneTreeLiteSnapshotReader>();
+        services.AddSingleton<ISceneTreeLiteDirtySourceProbeService, SceneTreeLiteDirtySourceProbeService>();
         services.AddSingleton<ISceneTreeLiteSourceRefreshService, SceneTreeLiteSourceRefreshService>();
         services.AddSingleton<IPersistedOpsCatalogPersistenceArtifactsReader, PersistedOpsCatalogPersistenceArtifactsReader>();
         services.AddSingleton<IIpcEndpointResolver, IpcEndpointResolver>();

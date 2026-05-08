@@ -9,12 +9,13 @@ using MackySoft.Ucli.Unity.Project;
 
 namespace MackySoft.Ucli.Unity.Index
 {
-    /// <summary> Builds one deterministic scene-tree-lite snapshot from persisted preview scene contents. </summary>
+    /// <summary> Builds one deterministic scene-tree-lite snapshot from current scene state. </summary>
     internal sealed class SceneTreeLiteSnapshotBuilder : ISceneTreeLiteSnapshotBuilder
     {
         /// <inheritdoc />
-        public ValueTask<IpcIndexSceneTreeLiteReadResponse> Build (
+        public ValueTask<IpcIndexSceneTreeLiteReadResponse> BuildAsync (
             string scenePath,
+            bool loadedSceneOnly = false,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -24,8 +25,13 @@ namespace MackySoft.Ucli.Unity.Index
             }
 
             var normalizedScenePath = UnityAssetPathUtility.NormalizeAssetPath(scenePath);
-            if (!PersistedPreviewSceneLease.TryOpen(
+            var policy = loadedSceneOnly
+                ? SceneSourceResolver.Policy.LoadedOnly
+                : SceneSourceResolver.Policy.LoadedOrPersistedPreview;
+            if (!SceneSourceResolver.TryAcquire(
                     normalizedScenePath,
+                    policy,
+                    executionContext: null,
                     out var sceneLease,
                     out var errorMessage))
             {
@@ -40,7 +46,8 @@ namespace MackySoft.Ucli.Unity.Index
                 return new ValueTask<IpcIndexSceneTreeLiteReadResponse>(new IpcIndexSceneTreeLiteReadResponse(
                     GeneratedAtUtc: DateTimeOffset.UtcNow,
                     ScenePath: normalizedScenePath,
-                    Roots: roots));
+                    Roots: roots,
+                    SourceState: sceneLease.CreateSourceState()));
             }
         }
     }

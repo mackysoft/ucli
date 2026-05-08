@@ -3,18 +3,16 @@ using UnityExecutionModeValue = MackySoft.Ucli.Application.Shared.Execution.Unit
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 
-/// <summary> Refreshes scene-tree-lite data from Unity source snapshots and persists eligible snapshots on a best-effort basis. </summary>
-internal interface ISceneTreeLiteSourceRefreshService
+/// <summary> Probes for dirty loaded scene-tree-lite source data without using persisted previews. </summary>
+internal interface ISceneTreeLiteDirtySourceProbeService
 {
-    /// <summary> Reads one scene-tree-lite snapshot from source and persists it when possible. </summary>
-    ValueTask<SceneTreeLiteRefreshResult> RefreshAsync (
+    /// <summary> Probes the Unity daemon for a dirty loaded scene snapshot. </summary>
+    ValueTask<SceneTreeLiteDirtySourceProbeResult> ProbeAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,
         UnityExecutionModeValue mode,
         TimeSpan timeout,
         string scenePath,
-        string fallbackReason,
-        bool failFast = false,
         CancellationToken cancellationToken = default);
 }

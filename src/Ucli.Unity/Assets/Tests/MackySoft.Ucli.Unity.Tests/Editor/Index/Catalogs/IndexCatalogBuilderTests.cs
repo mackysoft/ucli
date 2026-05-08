@@ -336,12 +336,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var loadedSceneCountBeforeBuild = SceneManager.sceneCount;
 
             var builder = new SceneTreeLiteSnapshotBuilder();
-            var response = await builder.Build(scenePath, CancellationToken.None);
+            var response = await builder.BuildAsync(scenePath, cancellationToken: CancellationToken.None);
             var roots = response.Roots;
             var activeSceneAfterBuild = SceneManager.GetActiveScene();
             var resolvedSceneAfterBuild = SceneManager.GetSceneByPath(scenePath);
 
             Assert.That(response.ScenePath, Is.EqualTo(scenePath));
+            Assert.That(response.SourceState.Kind, Is.EqualTo(SceneTreeSourceStateKind.PersistedPreview));
+            Assert.That(response.SourceState.IsDirty, Is.False);
             Assert.That(roots, Is.Not.Null);
             var nonNullRoots = roots!;
             Assert.That(SceneManager.sceneCount, Is.EqualTo(loadedSceneCountBeforeBuild));
@@ -357,6 +359,27 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(firstRootChildren[0].GlobalObjectId, Is.EqualTo(childGlobalObjectId));
             Assert.That(nonNullRoots[1].Name, Is.EqualTo("SecondRoot"));
             Assert.That(nonNullRoots[1].GlobalObjectId, Is.EqualTo(secondRootGlobalObjectId));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator SceneTreeLiteSnapshotBuilder_Build_WhenSceneIsLoadedDirty_ReturnsLoadedDirtyTree () => UniTask.ToCoroutine(async () =>
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(IndexCatalogBuilderTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("SavedRoot");
+            Assert.That(EditorSceneManager.SaveScene(scene, scenePath), Is.True);
+            _ = new GameObject("UnsavedRoot");
+            EditorSceneManager.MarkSceneDirty(scene);
+
+            var builder = new SceneTreeLiteSnapshotBuilder();
+            var response = await builder.BuildAsync(scenePath, cancellationToken: CancellationToken.None);
+            var roots = response.Roots!;
+
+            Assert.That(response.SourceState.Kind, Is.EqualTo(SceneTreeSourceStateKind.LoadedScene));
+            Assert.That(response.SourceState.IsDirty, Is.True);
+            Assert.That(roots.Select(static root => root.Name), Is.EquivalentTo(new[] { "SavedRoot", "UnsavedRoot" }));
         });
 
         private static string ResolveProjectRootPath ()

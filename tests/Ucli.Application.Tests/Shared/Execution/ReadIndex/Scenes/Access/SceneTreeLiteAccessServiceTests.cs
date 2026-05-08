@@ -33,7 +33,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         var refreshService = new StubSceneTreeLiteSourceRefreshService();
         var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
 
-        var result = await service.Read(
+        var result = await service.ReadAsync(
             project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -60,6 +60,117 @@ public sealed class SceneTreeLiteAccessServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Read_WhenDirtyLoadedSourceProbeSucceeds_ReturnsSourceBeforeReadingIndex ()
+    {
+        using var scope = TestDirectories.CreateTempScope("scene-tree-lite-access", "dirty-probe-source");
+        var project = CreateProject(scope);
+        WriteSceneFile(project.UnityProjectRoot, "Assets/Scenes/Main.unity");
+        var indexReader = new StubReadIndexArtifactReader
+        {
+            SceneTreeLiteLookupResult = ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Success(
+                new IndexSceneTreeLiteLookupJsonContract(
+                    SchemaVersion: 1,
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
+                    ScenePath: "Assets/Scenes/Main.unity",
+                    SourceInputsHash: "scene-hash",
+                    Roots: CreateTree())),
+        };
+        var dirtyResponse = new IpcIndexSceneTreeLiteReadResponse(
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:02:00+00:00"),
+            ScenePath: "Assets/Scenes/Main.unity",
+            Roots:
+            [
+                new IndexSceneTreeLiteNodeJsonContract("DirtyRoot", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+            ],
+            SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.LoadedScene, isDirty: true));
+        var dirtyProbeService = new StubSceneTreeLiteDirtySourceProbeService
+        {
+            Result = SceneTreeLiteDirtySourceProbeResult.DirtySource(dirtyResponse, "Dirty loaded scene is open in Unity daemon."),
+        };
+        var refreshService = new StubSceneTreeLiteSourceRefreshService();
+        var service = new SceneTreeLiteAccessService(
+            indexReader,
+            new StubSceneTreeLiteFreshnessEvaluator(),
+            new TestMutationReadPostconditionStore(),
+            refreshService,
+            new StubSceneTreeLiteSourceProbe(),
+            dirtyProbeService);
+
+        var result = await service.ReadAsync(
+            project,
+            UcliConfig.CreateDefault(),
+            UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
+            TimeSpan.FromSeconds(1),
+            ReadIndexMode.AllowStale,
+            "Assets/Scenes/Main.unity",
+            depth: null,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(SceneTreeLiteSource.Source, result.Output!.AccessInfo.Source);
+        Assert.Equal(SceneTreeSourceStateKind.LoadedScene, result.Output.SourceState.Kind);
+        Assert.True(result.Output.SourceState.IsDirty);
+        Assert.Equal("DirtyRoot", result.Output.Roots[0].Name);
+        Assert.Equal(1, dirtyProbeService.CallCount);
+        Assert.Equal(0, indexReader.SceneTreeLiteLookupCallCount);
+        Assert.Equal(0, refreshService.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenDirtyLoadedSourceProbeIsUnavailable_UsesIndex ()
+    {
+        using var scope = TestDirectories.CreateTempScope("scene-tree-lite-access", "dirty-probe-index");
+        var project = CreateProject(scope);
+        WriteSceneFile(project.UnityProjectRoot, "Assets/Scenes/Main.unity");
+        var indexReader = new StubReadIndexArtifactReader
+        {
+            SceneTreeLiteLookupResult = ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Success(
+                new IndexSceneTreeLiteLookupJsonContract(
+                    SchemaVersion: 1,
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
+                    ScenePath: "Assets/Scenes/Main.unity",
+                    SourceInputsHash: "scene-hash",
+                    Roots: CreateTree())),
+        };
+        var freshnessEvaluator = new StubSceneTreeLiteFreshnessEvaluator
+        {
+            Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh),
+        };
+        var dirtyProbeService = new StubSceneTreeLiteDirtySourceProbeService
+        {
+            Result = SceneTreeLiteDirtySourceProbeResult.NotAvailable("Unity daemon scene is not dirty loaded source."),
+        };
+        var service = new SceneTreeLiteAccessService(
+            indexReader,
+            freshnessEvaluator,
+            new TestMutationReadPostconditionStore(),
+            new StubSceneTreeLiteSourceRefreshService(),
+            new StubSceneTreeLiteSourceProbe(),
+            dirtyProbeService);
+
+        var result = await service.ReadAsync(
+            project,
+            UcliConfig.CreateDefault(),
+            UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
+            TimeSpan.FromSeconds(1),
+            ReadIndexMode.RequireFresh,
+            "Assets/Scenes/Main.unity",
+            depth: null,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(SceneTreeLiteSource.Index, result.Output!.AccessInfo.Source);
+        Assert.Equal(SceneTreeSourceStateKind.ReadIndex, result.Output.SourceState.Kind);
+        Assert.False(result.Output.SourceState.IsDirty);
+        Assert.Equal(1, dirtyProbeService.CallCount);
+        Assert.Equal(1, indexReader.SceneTreeLiteLookupCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Read_WhenDepthIsZero_RemovesAllChildren ()
     {
         using var scope = TestDirectories.CreateTempScope("scene-tree-lite-access", "depth-zero");
@@ -81,7 +192,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         };
         var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService(), new StubSceneTreeLiteSourceProbe());
 
-        var result = await service.Read(
+        var result = await service.ReadAsync(
             project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -119,7 +230,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         };
         var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService(), new StubSceneTreeLiteSourceProbe());
 
-        var result = await service.Read(
+        var result = await service.ReadAsync(
             project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -170,7 +281,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         };
         var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
 
-        var result = await service.Read(
+        var result = await service.ReadAsync(
             project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -236,7 +347,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         };
         var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService, new StubSceneTreeLiteSourceProbe());
 
-        var result = await service.Read(
+        var result = await service.ReadAsync(
             project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -297,7 +408,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         };
         var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService, new StubSceneTreeLiteSourceProbe());
 
-        var result = await service.Read(
+        var result = await service.ReadAsync(
             project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -350,7 +461,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         var refreshService = new StubSceneTreeLiteSourceRefreshService();
         var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService, new StubSceneTreeLiteSourceProbe());
 
-        var result = await service.Read(
+        var result = await service.ReadAsync(
             project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -385,7 +496,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         var indexReader = new StubReadIndexArtifactReader();
         var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
 
-        var result = await service.Read(
+        var result = await service.ReadAsync(
             project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -423,7 +534,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         var indexReader = new StubReadIndexArtifactReader();
         var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
 
-        var result = await service.Read(
+        var result = await service.ReadAsync(
             project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -464,7 +575,7 @@ public sealed class SceneTreeLiteAccessServiceTests
             new StubSceneTreeLiteSourceRefreshService(),
             new StubSceneTreeLiteSourceProbe(SceneTreeLiteSourceProbeResult.Failure("Scene path could not be resolved: Assets/Scenes/Main.unity")));
 
-        var result = await service.Read(
+        var result = await service.ReadAsync(
             project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -490,7 +601,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         var indexReader = new StubReadIndexArtifactReader();
         var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService(), new StubSceneTreeLiteSourceProbe());
 
-        var result = await service.Read(
+        var result = await service.ReadAsync(
             project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -519,7 +630,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         var indexReader = new StubReadIndexArtifactReader();
         var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService(), new StubSceneTreeLiteSourceProbe());
 
-        var result = await service.Read(
+        var result = await service.ReadAsync(
             project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -560,7 +671,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         };
         var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
 
-        var result = await service.Read(
+        var result = await service.ReadAsync(
             project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -601,7 +712,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         };
         var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
 
-        var result = await service.Read(
+        var result = await service.ReadAsync(
             project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -736,7 +847,7 @@ public sealed class SceneTreeLiteAccessServiceTests
             this.result = result;
         }
 
-        public ValueTask<SceneTreeLiteSourceProbeResult> EnsureCurrentAssetsSceneExists (
+        public ValueTask<SceneTreeLiteSourceProbeResult> EnsureCurrentAssetsSceneExistsAsync (
             ResolvedUnityProjectContext project,
             string scenePath,
             CancellationToken cancellationToken = default)
@@ -757,7 +868,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         public SceneTreeLiteRefreshResult Result { get; set; }
             = SceneTreeLiteRefreshResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
-        public ValueTask<SceneTreeLiteRefreshResult> Refresh (
+        public ValueTask<SceneTreeLiteRefreshResult> RefreshAsync (
             ResolvedUnityProjectContext project,
             UcliConfig config,
             UcliCommand command,
@@ -772,6 +883,28 @@ public sealed class SceneTreeLiteAccessServiceTests
             CallCount++;
             LastMode = mode;
             LastFailFast = failFast;
+            return ValueTask.FromResult(Result);
+        }
+    }
+
+    private sealed class StubSceneTreeLiteDirtySourceProbeService : ISceneTreeLiteDirtySourceProbeService
+    {
+        public int CallCount { get; private set; }
+
+        public SceneTreeLiteDirtySourceProbeResult Result { get; set; }
+            = SceneTreeLiteDirtySourceProbeResult.NotAvailable("not configured");
+
+        public ValueTask<SceneTreeLiteDirtySourceProbeResult> ProbeAsync (
+            ResolvedUnityProjectContext project,
+            UcliConfig config,
+            UcliCommand command,
+            UnityExecutionMode mode,
+            TimeSpan timeout,
+            string scenePath,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            CallCount++;
             return ValueTask.FromResult(Result);
         }
     }

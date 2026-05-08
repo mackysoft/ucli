@@ -103,9 +103,11 @@ public sealed class UcliOperationJsonSchemaGeneratorTests
             .GetProperty("properties")
             .GetProperty("roots")
             .GetProperty("items");
+        var required = root.GetProperty("required").EnumerateArray().Select(static item => item.GetString()).ToArray();
 
         var nodeRef = "#/$defs/" + nameof(IndexSceneTreeLiteNodeJsonContract);
         Assert.Equal(nodeRef, rootsItems.GetProperty("$ref").GetString());
+        Assert.Contains("sourceState", required);
 
         var nodeSchema = root
             .GetProperty("$defs")

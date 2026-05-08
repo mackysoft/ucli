@@ -394,17 +394,22 @@ public sealed class IpcContractSerializationTests
                             GlobalObjectId: string.Empty,
                             Children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
                     ]),
-            ]);
+            ],
+            SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.LoadedScene, isDirty: true));
 
         using var requestDocument = JsonDocument.Parse(JsonSerializer.Serialize(requestPayload, SerializerOptions));
         using var responseDocument = JsonDocument.Parse(JsonSerializer.Serialize(responsePayload, SerializerOptions));
 
         JsonAssert.For(requestDocument.RootElement)
             .HasString("scenePath", "Assets/Scenes/Sample.unity")
-            .HasBoolean("failFast", false);
+            .HasBoolean("failFast", false)
+            .HasBoolean("loadedSceneOnly", false);
         JsonAssert.For(responseDocument.RootElement)
             .HasString("generatedAtUtc", "2026-03-06T00:00:00+00:00")
             .HasString("scenePath", "Assets/Scenes/Sample.unity")
+            .HasProperty("sourceState", state => state
+                .HasString("kind", "loadedScene")
+                .HasBoolean("isDirty", true))
             .HasArrayLength("roots", 1)
             .HasProperty("roots", 0, node => node
                 .HasString("name", "Root")

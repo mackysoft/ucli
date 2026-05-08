@@ -395,13 +395,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var handler = new IndexSceneTreeLiteReadUnityIpcMethodHandler(
                 new StubSceneTreeLiteSnapshotBuilder(
-                    scenePath => new IpcIndexSceneTreeLiteReadResponse(
-                        GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
-                        ScenePath: scenePath,
-                        Roots: new[]
-                        {
-                            new IndexSceneTreeLiteNodeJsonContract("Root", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
-                        })),
+                    scenePath => CreateIndexSceneTreeLiteReadResponse(scenePath, "Root")),
                 new StubUnityEditorReadinessGate());
             var request = CreateIndexSceneTreeLiteReadRequest(
                 "req-index-scene-tree-lite-valid",
@@ -421,10 +415,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator IndexSceneTreeLiteReadHandler_WhenFailFastAndEditorIsBusy_ReturnsReadinessErrorWithoutBuildingSnapshot () => UniTask.ToCoroutine(async () =>
         {
             var builder = new StubSceneTreeLiteSnapshotBuilder(
-                scenePath => new IpcIndexSceneTreeLiteReadResponse(
-                    GeneratedAtUtc: DateTimeOffset.UtcNow,
-                    ScenePath: scenePath,
-                    Roots: Array.Empty<IndexSceneTreeLiteNodeJsonContract>()));
+                scenePath => CreateIndexSceneTreeLiteReadResponse(scenePath, "Root"));
             var readinessGate = StubUnityEditorReadinessGate.CreatePending();
             var handler = new IndexSceneTreeLiteReadUnityIpcMethodHandler(builder, readinessGate);
             var request = CreateIndexSceneTreeLiteReadRequest(
@@ -447,10 +438,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var handler = new IndexSceneTreeLiteReadUnityIpcMethodHandler(
                 new StubSceneTreeLiteSnapshotBuilder(
-                    scenePath => new IpcIndexSceneTreeLiteReadResponse(
-                        GeneratedAtUtc: DateTimeOffset.UtcNow,
-                        ScenePath: scenePath,
-                        Roots: Array.Empty<IndexSceneTreeLiteNodeJsonContract>())),
+                    scenePath => CreateIndexSceneTreeLiteReadResponse(scenePath, "Root")),
                 new StubUnityEditorReadinessGate());
             var request = CreateIndexSceneTreeLiteReadRequest("req-index-scene-tree-lite-invalid", 123);
 
@@ -890,6 +878,20 @@ namespace MackySoft.Ucli.Unity.Tests
             return CreateRequest(requestId, IpcMethodNames.IndexSceneTreeLiteRead, payload);
         }
 
+        private static IpcIndexSceneTreeLiteReadResponse CreateIndexSceneTreeLiteReadResponse (
+            string scenePath,
+            string rootName)
+        {
+            return new IpcIndexSceneTreeLiteReadResponse(
+                GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
+                ScenePath: scenePath,
+                Roots: new[]
+                {
+                    new IndexSceneTreeLiteNodeJsonContract(rootName, "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+                },
+                SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false));
+        }
+
         private static IpcRequest CreateShutdownRequest (
             string requestId,
             object payload)
@@ -1005,8 +1007,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public int CallCount { get; private set; }
 
-            public ValueTask<IpcIndexSceneTreeLiteReadResponse> Build (
+            public ValueTask<IpcIndexSceneTreeLiteReadResponse> BuildAsync (
                 string scenePath,
+                bool loadedSceneOnly = false,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
