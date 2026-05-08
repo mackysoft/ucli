@@ -212,6 +212,43 @@ public sealed class DaemonStartupReadinessProbeTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task WaitUntilReady_WhenLaunchedProcessIsAliveAndProjectLockFileExists_RetriesUntilReady ()
+    {
+        var attempt = 0;
+        var pingClient = new StubDaemonPingInfoClient(() =>
+        {
+            attempt++;
+            return attempt == 1
+                ? ValueTask.FromException<IpcPingResponse>(new SocketException((int)SocketError.ConnectionRefused))
+                : ValueTask.FromResult(CreatePingPayload(canAcceptExecutionRequests: true));
+        });
+        var logReader = new StubUnityLogReader
+        {
+            NextResult = UnityLogReadResult.Success(
+                "daemon bootstrap in progress\n",
+                truncated: false,
+                path: "/tmp/unity.log",
+                sizeBytes: 32),
+        };
+        var probe = CreateProbe(
+            pingClient,
+            logReader,
+            UnityProjectLockFileProbeResult.Locked("/tmp/unity-project/Temp/UnityLockfile"));
+
+        var result = await probe.WaitUntilReady(
+            CreateContext("fingerprint-readiness-lock-during-startup"),
+            TimeSpan.FromSeconds(5),
+            daemonProcessId: Environment.ProcessId,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsReady);
+        Assert.Null(result.Error);
+        Assert.Equal(2, pingClient.CallCount);
+        Assert.Equal(1, logReader.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenProjectLockFileExistsAfterDaemonIsNotRunning_ReturnsProjectAlreadyOpenImmediately ()
     {
         var pingClient = new StubDaemonPingInfoClient(() => ValueTask.FromException<IpcPingResponse>(new SocketException((int)SocketError.ConnectionRefused)));
@@ -303,6 +340,39 @@ public sealed class DaemonStartupReadinessProbeTests
         Assert.Contains($"ProcessId={int.MaxValue}", error.Message, StringComparison.Ordinal);
         Assert.Equal(0, pingClient.CallCount);
         Assert.Equal(1, logReader.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WaitUntilReady_WhenDaemonProcessExitedAndProjectLockFileExists_ReturnsProjectAlreadyOpenImmediately ()
+    {
+        var pingClient = new StubDaemonPingInfoClient(static () => ValueTask.FromResult(CreatePingPayload(canAcceptExecutionRequests: true)));
+        var logReader = new StubUnityLogReader
+        {
+            NextResult = UnityLogReadResult.Success(
+                "daemon bootstrap in progress\n",
+                truncated: false,
+                path: "/tmp/unity.log",
+                sizeBytes: 32),
+        };
+        var probe = CreateProbe(
+            pingClient,
+            logReader,
+            UnityProjectLockFileProbeResult.Locked("/tmp/unity-project/Temp/UnityLockfile"));
+
+        var result = await probe.WaitUntilReady(
+            CreateContext("fingerprint-readiness-exited-lock-file"),
+            TimeSpan.FromSeconds(5),
+            daemonProcessId: int.MaxValue,
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsReady);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(UnityProcessErrorCodes.UnityProjectAlreadyOpen, error.Code);
+        Assert.Contains("already open", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, pingClient.CallCount);
+        Assert.Equal(0, logReader.CallCount);
     }
 
     [Fact]
