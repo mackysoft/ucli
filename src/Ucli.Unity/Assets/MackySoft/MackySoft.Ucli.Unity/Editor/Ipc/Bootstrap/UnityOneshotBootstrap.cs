@@ -13,7 +13,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         /// <summary> Starts one oneshot bootstrap after batchmode initialization is ready. </summary>
         /// <returns> A task that completes after the request finishes and process exit is requested. </returns>
-        internal static async Task Start (IpcOneshotBootstrapArguments bootstrapArguments)
+        internal static async Task StartAsync (IpcOneshotBootstrapArguments bootstrapArguments)
         {
             if (bootstrapArguments == null)
             {
@@ -48,7 +48,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         return;
                     }
 
-                    var requestCompletionTask = completionSignal.Wait(CancellationToken.None);
+                    var requestCompletionTask = completionSignal.WaitAsync(CancellationToken.None);
                     var serverTerminationTask = server.WaitForTermination(CancellationToken.None);
                     var deadlineTask = deadlineWatcher.WaitAsync();
                     var completedTask = await Task.WhenAny(requestCompletionTask, serverTerminationTask, deadlineTask);

@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         [Test]
         [Category("Size.Small")]
-        public void OnEditorUpdate_WhenDeadlinePassed_CompletesWaitAndRequestsExit ()
+        public void OnEditorUpdate_WhenDeadlinePassed_CompletesWaitAsyncAndRequestsExit ()
         {
             var now = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
             var editorTime = 0d;
@@ -25,7 +25,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void OnEditorUpdate_WhenBeforeDeadline_DoesNotCompleteWait ()
+        public void OnEditorUpdate_WhenBeforeDeadline_DoesNotCompleteWaitAsync ()
         {
             var now = new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero);
             var editorTime = 0d;
@@ -42,7 +42,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Dispose_WhenDeadlinePassesAfterDisposal_DoesNotCompleteWait ()
+        public void Dispose_WhenDeadlinePassesAfterDisposal_DoesNotCompleteWaitAsync ()
         {
             var now = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
             var editorTime = 0d;
