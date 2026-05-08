@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Daemon;
@@ -52,6 +53,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, projectFingerprint);
+            var sessionDirectoryPath = Path.GetDirectoryName(sessionPath)
+                ?? throw new InvalidOperationException($"GUI session directory path could not be resolved: {sessionPath}");
+            FileSystemAccessBoundary.EnsureSecureDirectory(sessionDirectoryPath);
+
             var issuedAtUtc = DateTimeOffset.UtcNow;
             var sessionToken = CreateSessionToken();
             var sessionContract = new DaemonSessionJsonContract(
@@ -67,10 +72,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ProcessId: Process.GetCurrentProcess().Id,
                 OwnerProcessId: sessionOptions.OwnerProcessId);
             var json = DaemonSessionJsonContractSerializer.Serialize(sessionContract) + Environment.NewLine;
-            var sessionDirectoryPath = Path.GetDirectoryName(sessionPath)
-                ?? throw new InvalidOperationException($"GUI session directory path could not be resolved: {sessionPath}");
-            FileSystemAccessBoundary.EnsureSecureDirectory(sessionDirectoryPath);
-            await FileUtilities.WriteAllTextAtomically(sessionPath, json, cancellationToken).ConfigureAwait(false);
+            await WriteSessionJsonCreateNew(sessionPath, json, cancellationToken).ConfigureAwait(false);
             FileSystemAccessBoundary.EnsureSecureFile(sessionPath);
             return new UnityGuiSessionRegistration(
                 sessionPath,
@@ -88,6 +90,18 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(registration));
             }
 
+            if (!File.Exists(registration.SessionPath))
+            {
+                return;
+            }
+
+            var json = File.ReadAllText(registration.SessionPath);
+            var sessionContract = DaemonSessionJsonContractSerializer.Deserialize(json);
+            if ((sessionContract == null) || !MatchesRegistration(registration, sessionContract))
+            {
+                return;
+            }
+
             FileUtilities.DeleteIfExists(registration.SessionPath);
             if (registration.Endpoint.TransportKind != IpcTransportKind.UnixDomainSocket)
             {
@@ -98,6 +112,67 @@ namespace MackySoft.Ucli.Unity.Ipc
             UnixSocketPathUtilities.DeleteEmptyFallbackDirectoryIfPresent(
                 registration.Endpoint.Address,
                 UcliIpcEndpointNames.DaemonAddressPrefix);
+        }
+
+        private static async Task WriteSessionJsonCreateNew (
+            string sessionPath,
+            string json,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                await WriteSessionJsonCreateNewCore(sessionPath, json, cancellationToken).ConfigureAwait(false);
+            }
+            catch (IOException exception) when (File.Exists(sessionPath))
+            {
+                throw new InvalidOperationException($"GUI session already exists: {sessionPath}", exception);
+            }
+        }
+
+        private static async Task WriteSessionJsonCreateNewCore (
+            string sessionPath,
+            string json,
+            CancellationToken cancellationToken)
+        {
+            var temporaryPath = sessionPath + $".tmp.{Guid.NewGuid():N}";
+
+            try
+            {
+                using (var stream = new FileStream(
+                    temporaryPath,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None,
+                    bufferSize: 4096,
+                    useAsync: true))
+                {
+                    var buffer = Encoding.UTF8.GetBytes(json);
+                    await stream.WriteAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false);
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+                File.Move(temporaryPath, sessionPath);
+            }
+            finally
+            {
+                FileUtilities.DeleteIfExists(temporaryPath);
+            }
+        }
+
+        private static bool MatchesRegistration (
+            UnityGuiSessionRegistration registration,
+            DaemonSessionJsonContract sessionContract)
+        {
+            return sessionContract.SchemaVersion == DaemonSessionStorageContract.CurrentSchemaVersion
+                && sessionContract.IssuedAtUtc == registration.IssuedAtUtc
+                && sessionContract.CanShutdownProcess == registration.CanShutdownProcess
+                && sessionContract.ProcessId == Process.GetCurrentProcess().Id
+                && string.Equals(sessionContract.EditorMode, DaemonEditorModeValues.Gui, StringComparison.Ordinal)
+                && string.Equals(
+                    sessionContract.EndpointTransportKind,
+                    IpcTransportKindCodec.ToValue(registration.Endpoint.TransportKind),
+                    StringComparison.Ordinal)
+                && string.Equals(sessionContract.EndpointAddress, registration.Endpoint.Address, StringComparison.Ordinal);
         }
 
         private static string CreateSessionToken ()

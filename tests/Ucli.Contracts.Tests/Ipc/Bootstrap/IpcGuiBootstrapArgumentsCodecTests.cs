@@ -154,27 +154,4 @@ public sealed class IpcGuiBootstrapArgumentsCodecTests
         Assert.Equal(IpcGuiBootstrapParseErrorKind.InvalidRequiredValue, error.Kind);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void AppendTokens_ThenTryParse_RoundTripsValues ()
-    {
-        var args = CreateGuiBootstrapArgs(new IpcGuiBootstrapArguments(OwnerProcessId: 789, CanShutdownProcess: false));
-
-        var parsed = IpcGuiBootstrapArgumentsCodec.TryParse(args, out var bootstrapArguments, out var error);
-
-        Assert.True(parsed);
-        Assert.Equal(IpcGuiBootstrapParseError.None, error);
-        Assert.Equal(789, bootstrapArguments.OwnerProcessId);
-        Assert.False(bootstrapArguments.CanShutdownProcess);
-    }
-
-    private static IReadOnlyList<string> CreateGuiBootstrapArgs (IpcGuiBootstrapArguments arguments)
-    {
-        var args = new List<string>
-        {
-            "Unity",
-        };
-        IpcGuiBootstrapArgumentsCodec.AppendTokens(args, arguments);
-        return args;
-    }
 }

@@ -105,6 +105,98 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Write_WhenSessionAlreadyExists_DoesNotOverwriteSessionJson () => UniTask.ToCoroutine(async () =>
+        {
+            var storageRoot = CreateStorageRoot();
+            try
+            {
+                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, "fingerprint");
+                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
+                Assert.That(sessionDirectoryPath, Is.Not.Null);
+                Directory.CreateDirectory(sessionDirectoryPath!);
+                WriteSessionContract(
+                    sessionPath,
+                    new DaemonSessionJsonContract(
+                        SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+                        SessionToken: "existing-session-token",
+                        ProjectFingerprint: "fingerprint",
+                        IssuedAtUtc: DateTimeOffset.UtcNow,
+                        EditorMode: DaemonEditorModeValues.Batchmode,
+                        OwnerKind: DaemonSessionOwnerKindValues.Cli,
+                        CanShutdownProcess: true,
+                        EndpointTransportKind: IpcTransportKindValues.NamedPipe,
+                        EndpointAddress: "ucli-existing-session",
+                        ProcessId: 123,
+                        OwnerProcessId: 123));
+
+                InvalidOperationException exception = null;
+                try
+                {
+                    await WriteSession(
+                        storageRoot,
+                        UnityGuiBootstrapSessionOptions.Create(null));
+                }
+                catch (InvalidOperationException caughtException)
+                {
+                    exception = caughtException;
+                }
+
+                Assert.That(exception, Is.Not.Null);
+                Assert.That(exception.Message, Does.Contain("GUI session already exists"));
+                var contract = ReadSessionContract(storageRoot);
+                Assert.That(contract.SessionToken, Is.EqualTo("existing-session-token"));
+                Assert.That(contract.EditorMode, Is.EqualTo(DaemonEditorModeValues.Batchmode));
+                Assert.That(contract.EndpointAddress, Is.EqualTo("ucli-existing-session"));
+            }
+            finally
+            {
+                DeleteDirectory(storageRoot);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Delete_WhenSessionWasReplaced_LeavesCurrentSessionAndEndpointResidue () => UniTask.ToCoroutine(async () =>
+        {
+            var storageRoot = CreateStorageRoot();
+            try
+            {
+                var endpointResiduePath = Path.Combine(storageRoot, "ipc.sock");
+                var registration = await WriteSession(
+                    storageRoot,
+                    UnityGuiBootstrapSessionOptions.Create(null),
+                    new IpcEndpoint(IpcTransportKind.UnixDomainSocket, endpointResiduePath));
+                File.WriteAllText(endpointResiduePath, "socket residue placeholder");
+                var originalContract = ReadSessionContract(storageRoot);
+                var replacementContract = originalContract with
+                {
+                    SessionToken = "replacement-session-token",
+                    IssuedAtUtc = originalContract.IssuedAtUtc.AddSeconds(1),
+                    EditorMode = DaemonEditorModeValues.Batchmode,
+                    OwnerKind = DaemonSessionOwnerKindValues.Cli,
+                    CanShutdownProcess = true,
+                    ProcessId = 456,
+                    OwnerProcessId = 456,
+                };
+                WriteSessionContract(registration.SessionPath, replacementContract);
+
+                UnityGuiSessionPersistence.Delete(registration);
+
+                Assert.That(File.Exists(registration.SessionPath), Is.True);
+                Assert.That(File.Exists(endpointResiduePath), Is.True);
+                var contract = ReadSessionContract(storageRoot);
+                Assert.That(contract.SessionToken, Is.EqualTo("replacement-session-token"));
+                Assert.That(contract.EditorMode, Is.EqualTo(DaemonEditorModeValues.Batchmode));
+                Assert.That(contract.ProcessId, Is.EqualTo(456));
+            }
+            finally
+            {
+                DeleteDirectory(storageRoot);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Write_AfterDelete_ReRegistersWithNewToken () => UniTask.ToCoroutine(async () =>
         {
             var storageRoot = CreateStorageRoot();
@@ -132,12 +224,13 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static UniTask<UnityGuiSessionRegistration> WriteSession (
             string storageRoot,
-        UnityGuiBootstrapSessionOptions sessionOptions)
+            UnityGuiBootstrapSessionOptions sessionOptions,
+            IpcEndpoint endpoint = null)
         {
             return UnityGuiSessionPersistence.Write(
                     storageRoot,
                     "fingerprint",
-                    new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-session-tests"),
+                    endpoint ?? new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-session-tests"),
                     sessionOptions,
                     CancellationToken.None)
                 .AsUniTask();
@@ -150,6 +243,15 @@ namespace MackySoft.Ucli.Unity.Tests
             var contract = DaemonSessionJsonContractSerializer.Deserialize(json);
             Assert.That(contract, Is.Not.Null);
             return contract!;
+        }
+
+        private static void WriteSessionContract (
+            string sessionPath,
+            DaemonSessionJsonContract contract)
+        {
+            File.WriteAllText(
+                sessionPath,
+                DaemonSessionJsonContractSerializer.Serialize(contract) + Environment.NewLine);
         }
 
         private static string CreateStorageRoot ()
