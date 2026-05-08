@@ -1,6 +1,7 @@
 using System;
 using MackySoft.Ucli.Contracts;
 using System.Collections;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -499,6 +500,68 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Result!.Value.GetProperty("path").GetString(), Is.EqualTo(scenePath));
             Assert.That(result.Result.Value.GetProperty("roots").GetArrayLength(), Is.EqualTo(1));
             Assert.That(result.Result.Value.GetProperty("roots")[0].GetProperty("children").GetArrayLength(), Is.EqualTo(1));
+            Assert.That(result.Result.Value.GetProperty("sourceState").GetProperty("kind").GetString(), Is.EqualTo(SceneTreeSourceStateKindValues.LoadedScene));
+            Assert.That(result.Result.Value.GetProperty("sourceState").GetProperty("isDirty").GetBoolean(), Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Tree_Call_WhenSceneIsLoadedDirty_ReturnsUnsavedRoots () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new SceneTreeOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("SavedRoot");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            _ = new GameObject("UnsavedRoot");
+            EditorSceneManager.MarkSceneDirty(scene);
+            var requestOperation = CreateOperation(
+                opId: "op-tree",
+                opName: UcliPrimitiveOperationNames.SceneTree,
+                args: new
+                {
+                    path = scenePath,
+                });
+
+            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertSuccess(result, applied: true, changed: false);
+            Assert.That(result.Result.HasValue, Is.True);
+            var roots = result.Result!.Value.GetProperty("roots");
+            Assert.That(roots.EnumerateArray().Select(static root => root.GetProperty("name").GetString()), Is.EquivalentTo(new[] { "SavedRoot", "UnsavedRoot" }));
+            Assert.That(result.Result.Value.GetProperty("sourceState").GetProperty("kind").GetString(), Is.EqualTo(SceneTreeSourceStateKindValues.LoadedScene));
+            Assert.That(result.Result.Value.GetProperty("sourceState").GetProperty("isDirty").GetBoolean(), Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Tree_Call_WhenSceneIsNotLoaded_ReadsPersistedPreview () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new SceneTreeOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("SavedRoot");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var requestOperation = CreateOperation(
+                opId: "op-tree",
+                opName: UcliPrimitiveOperationNames.SceneTree,
+                args: new
+                {
+                    path = scenePath,
+                });
+
+            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertSuccess(result, applied: true, changed: false);
+            Assert.That(result.Result.HasValue, Is.True);
+            var roots = result.Result!.Value.GetProperty("roots");
+            Assert.That(roots.GetArrayLength(), Is.EqualTo(1));
+            Assert.That(roots[0].GetProperty("name").GetString(), Is.EqualTo("SavedRoot"));
+            Assert.That(result.Result.Value.GetProperty("sourceState").GetProperty("kind").GetString(), Is.EqualTo(SceneTreeSourceStateKindValues.PersistedPreview));
+            Assert.That(result.Result.Value.GetProperty("sourceState").GetProperty("isDirty").GetBoolean(), Is.False);
         });
 
         [UnityTest]
@@ -562,6 +625,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(roots.GetArrayLength(), Is.EqualTo(1));
             Assert.That(roots[0].GetProperty("name").GetString(), Is.EqualTo("RenamedRoot"));
             Assert.That(roots[0].GetProperty("globalObjectId").GetString(), Is.EqualTo(expectedGlobalObjectId));
+            Assert.That(result.Result.Value.GetProperty("sourceState").GetProperty("kind").GetString(), Is.EqualTo(SceneTreeSourceStateKindValues.TemporaryScene));
         });
 
         [UnityTest]

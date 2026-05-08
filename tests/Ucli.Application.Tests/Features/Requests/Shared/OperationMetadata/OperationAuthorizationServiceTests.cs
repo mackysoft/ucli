@@ -12,7 +12,7 @@ public sealed class OperationAuthorizationServiceTests
     public static TheoryData<string, string, string, string, string> AllowedAuthorizationCases => new()
     {
         { UcliPrimitiveOperationNames.SceneOpen, "command", "safe", "safe", "^ucli\\." },
-        { "ucli.cs.invoke", "mutation", "dangerous", "dangerous", "^ucli\\." },
+        { UcliPrimitiveOperationNames.CsEval, "mutation", "dangerous", "dangerous", "^ucli\\." },
     };
 
     public static TheoryData<string, string, string, string, string, string?> DeniedAuthorizationCases => new()

@@ -62,6 +62,7 @@ public sealed class IpcCommonContractTests
     {
         Assert.Equal("-ucliOneshotParentProcessId", IpcOneshotBootstrapArgumentNames.ParentProcessId);
         Assert.Equal("-ucliOneshotSessionToken", IpcOneshotBootstrapArgumentNames.SessionToken);
+        Assert.Equal("-ucliOneshotExitDeadlineUtc", IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc);
     }
 
     [Fact]

@@ -36,12 +36,14 @@ public sealed class UnityIpcRequestBuilderTests
             UcliCommandIds.Plan,
             executeArguments,
             FailFast: true,
+            AllowDangerous: true,
             PlanToken: "plan-token"));
 
         Assert.Equal(IpcMethodNames.Execute, request.Method);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcExecuteRequest payload, out _));
         Assert.Equal(UcliCommandIds.Plan.Name, payload.Command);
         Assert.True(payload.FailFast);
+        Assert.True(payload.AllowDangerous);
         Assert.Equal("plan-token", payload.PlanToken);
         Assert.Equal(executeArguments.GetRawText(), payload.Arguments.GetRawText());
     }
@@ -63,12 +65,14 @@ public sealed class UnityIpcRequestBuilderTests
             "asset.create",
             args,
             FailFast: false,
+            AllowDangerous: true,
             PlanToken: "plan-token"));
 
         Assert.Equal(IpcMethodNames.Execute, request.Method);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcExecuteRequest payload, out _));
         Assert.Equal(UcliCommandIds.Call.Name, payload.Command);
         Assert.False(payload.FailFast);
+        Assert.True(payload.AllowDangerous);
         Assert.Equal("plan-token", payload.PlanToken);
         Assert.Equal(IpcProtocol.CurrentVersion, payload.Arguments.GetProperty("protocolVersion").GetInt32());
         Assert.Equal("request-1", payload.Arguments.GetProperty("requestId").GetString());

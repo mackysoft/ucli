@@ -19,6 +19,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
         var bootstrapArguments = new IpcOneshotBootstrapArguments(
             ParentProcessId: 1234,
             SessionToken: "session-token",
+            ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
             EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
             EndpointAddress: @"\\.\pipe\ucli-oneshot");
 
@@ -57,6 +58,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
             new IpcOneshotBootstrapArguments(
                 ParentProcessId: 1234,
                 SessionToken: "session-token",
+                ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
                 EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
                 EndpointAddress: "/tmp/ucli.sock"),
             "/tmp/unity.log",
@@ -89,6 +91,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
             new IpcOneshotBootstrapArguments(
                 ParentProcessId: 1234,
                 SessionToken: "session-token",
+                ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
                 EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
                 EndpointAddress: "/tmp/ucli.sock"),
             "/tmp/unity.log",
@@ -128,6 +131,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
             new IpcOneshotBootstrapArguments(
                 ParentProcessId: 1234,
                 SessionToken: "session-token",
+                ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
                 EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
                 EndpointAddress: "/tmp/ucli.sock"),
             scope.GetPath("unity.log"),
@@ -170,6 +174,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
                 new IpcOneshotBootstrapArguments(
                     ParentProcessId: 1234,
                     SessionToken: "session-token",
+                    ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
                     EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
                     EndpointAddress: "/tmp/ucli.sock"),
                 scope.GetPath("unity.log"),

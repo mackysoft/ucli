@@ -15,7 +15,7 @@
     "resolve": null,
     "query": null,
     "refresh": null,
-    "ops": null,
+    "ops": 120000,
     "daemon.start": null,
     "daemon.stop": null,
     "daemon.status": null

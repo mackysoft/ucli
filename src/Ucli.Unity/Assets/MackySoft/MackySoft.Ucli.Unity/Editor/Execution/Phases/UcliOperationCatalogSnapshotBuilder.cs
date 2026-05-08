@@ -44,6 +44,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         Inputs = describeContract.Inputs,
                         ResultContract = describeContract.ResultContract,
                         Assurance = describeContract.Assurance,
+                        CodeContract = describeContract.CodeContract,
                     };
                 }));
 

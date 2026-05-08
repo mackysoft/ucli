@@ -80,7 +80,7 @@ internal sealed class QueryService : IQueryService
 
         return input.Operation switch
         {
-            QueryAssetsFindOperationRequest assetsFind => await ExecuteAssetsFind(
+            QueryAssetsFindOperationRequest assetsFind => await ExecuteAssetsFindAsync(
                     requestId,
                     assetsFind,
                     projectContext,
@@ -91,7 +91,7 @@ internal sealed class QueryService : IQueryService
                     cancellationToken)
                 .ConfigureAwait(false),
 
-            QuerySceneTreeOperationRequest sceneTree => await ExecuteSceneTree(
+            QuerySceneTreeOperationRequest sceneTree => await ExecuteSceneTreeAsync(
                     requestId,
                     input,
                     sceneTree,
@@ -102,7 +102,7 @@ internal sealed class QueryService : IQueryService
                     cancellationToken)
                 .ConfigureAwait(false),
 
-            QueryUnityOperationRequest unityOperation => await ExecuteInUnity(
+            QueryUnityOperationRequest unityOperation => await ExecuteInUnityAsync(
                     requestId,
                     input,
                     unityOperation,
@@ -121,7 +121,7 @@ internal sealed class QueryService : IQueryService
         };
     }
 
-    private async ValueTask<QueryServiceResult> ExecuteAssetsFind (
+    private async ValueTask<QueryServiceResult> ExecuteAssetsFindAsync (
         string requestId,
         QueryAssetsFindOperationRequest operation,
         ProjectContext projectContext,
@@ -167,7 +167,7 @@ internal sealed class QueryService : IQueryService
             ReadIndexInfoFactory.FromAssetLookupAccess(output.AccessInfo));
     }
 
-    private async ValueTask<QueryServiceResult> ExecuteSceneTree (
+    private async ValueTask<QueryServiceResult> ExecuteSceneTreeAsync (
         string requestId,
         QueryCommandInput input,
         QuerySceneTreeOperationRequest operation,
@@ -177,7 +177,7 @@ internal sealed class QueryService : IQueryService
         ReadIndexMode readIndexMode,
         CancellationToken cancellationToken)
     {
-        var readResult = await sceneTreeLiteAccessService.Read(
+        var readResult = await sceneTreeLiteAccessService.ReadAsync(
                 projectContext.UnityProject,
                 projectContext.Config,
                 UcliCommandIds.Query,
@@ -206,12 +206,12 @@ internal sealed class QueryService : IQueryService
             [
                 CreatePlanOperationResult(
                     operation,
-                    JsonSerializer.SerializeToElement(CreateSceneTreeResult(output.ScenePath, windowedRoots), IpcJsonSerializerOptions.Default)),
+                    JsonSerializer.SerializeToElement(CreateSceneTreeResult(output.ScenePath, windowedRoots, output.SourceState), IpcJsonSerializerOptions.Default)),
             ],
             ReadIndexInfoFactory.FromSceneTreeLiteAccess(output.AccessInfo));
     }
 
-    private async ValueTask<QueryServiceResult> ExecuteInUnity (
+    private async ValueTask<QueryServiceResult> ExecuteInUnityAsync (
         string requestId,
         QueryCommandInput input,
         QueryUnityOperationRequest operation,
@@ -302,11 +302,13 @@ internal sealed class QueryService : IQueryService
 
     private static SceneTreeResult CreateSceneTreeResult (
         string scenePath,
-        QueryWindowResult<IndexSceneTreeLiteNodeJsonContract> windowedRoots)
+        QueryWindowResult<IndexSceneTreeLiteNodeJsonContract> windowedRoots,
+        SceneTreeSourceState sourceState)
     {
         return new SceneTreeResult(
             Path: scenePath,
             Roots: windowedRoots.Items,
+            SourceState: sourceState,
             Window: windowedRoots.Window);
     }
 
@@ -330,5 +332,6 @@ internal sealed class QueryService : IQueryService
     private sealed record SceneTreeResult (
         string Path,
         IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> Roots,
+        SceneTreeSourceState SourceState,
         QueryWindowInfo Window);
 }

@@ -15,6 +15,7 @@ internal abstract record UnityRequestPayload
         UcliCommand Command,
         JsonElement ExecuteArguments,
         bool FailFast,
+        bool AllowDangerous = false,
         string? PlanToken = null) : UnityRequestPayload;
 
     /// <summary> Represents a single-operation execute request prepared by application orchestration. </summary>
@@ -25,5 +26,6 @@ internal abstract record UnityRequestPayload
         string OperationName,
         JsonElement Args,
         bool FailFast,
+        bool AllowDangerous = false,
         string? PlanToken = null) : UnityRequestPayload;
 }

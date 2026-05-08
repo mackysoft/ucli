@@ -25,6 +25,7 @@ internal sealed class UnityIpcRequestBuilder
                     executeJson.Command,
                     executeJson.ExecuteArguments,
                     executeJson.FailFast,
+                    executeJson.AllowDangerous,
                     executeJson.PlanToken)),
             UnityRequestPayload.ExecuteOperation executeOperation => new UnityIpcDispatchRequest(
                 IpcMethodNames.Execute,
@@ -36,6 +37,7 @@ internal sealed class UnityIpcRequestBuilder
                         executeOperation.OperationName,
                         executeOperation.Args),
                     executeOperation.FailFast,
+                    executeOperation.AllowDangerous,
                     executeOperation.PlanToken)),
             _ => throw new ArgumentOutOfRangeException(nameof(request), request, "Unsupported Unity request payload."),
         };
@@ -72,6 +74,7 @@ internal sealed class UnityIpcRequestBuilder
         UcliCommand command,
         JsonElement executeArguments,
         bool failFast,
+        bool allowDangerous,
         string? planToken)
     {
         if (!command.IsValid)
@@ -81,6 +84,7 @@ internal sealed class UnityIpcRequestBuilder
 
         return IpcPayloadCodec.SerializeToElement(new IpcExecuteRequest(command, executeArguments)
         {
+            AllowDangerous = allowDangerous,
             FailFast = failFast,
             PlanToken = planToken,
         });

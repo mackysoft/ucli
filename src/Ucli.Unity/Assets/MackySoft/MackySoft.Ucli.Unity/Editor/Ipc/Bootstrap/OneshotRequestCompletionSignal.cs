@@ -20,7 +20,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Waits until the oneshot request-response exchange completes. </summary>
         /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
         /// <returns> A task that completes when request handling finishes. </returns>
-        internal Task Wait (CancellationToken cancellationToken)
+        internal Task WaitAsync (CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 

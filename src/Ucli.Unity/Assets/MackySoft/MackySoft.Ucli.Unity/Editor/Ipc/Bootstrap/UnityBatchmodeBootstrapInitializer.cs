@@ -52,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     break;
 
                 case IpcOneshotBootstrapArguments oneshotBootstrapArguments:
-                    _ = UnityOneshotBootstrap.Start(oneshotBootstrapArguments);
+                    _ = UnityOneshotBootstrap.StartAsync(oneshotBootstrapArguments);
                     break;
 
                 default:

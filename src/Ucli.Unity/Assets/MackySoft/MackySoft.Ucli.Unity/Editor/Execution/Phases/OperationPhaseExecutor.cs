@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Unity.Execution.PlanToken;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -19,11 +20,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private readonly IPlanTokenCoordinator planTokenCoordinator;
 
+        private readonly IDangerousOperationCallAuthorizer dangerousOperationCallAuthorizer;
+
         /// <summary> Initializes a new instance of the <see cref="OperationPhaseExecutor" /> class. </summary>
         /// <param name="operationRegistry"> The phase-operation registry dependency. </param>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="operationRegistry" /> is <see langword="null" />. </exception>
         public OperationPhaseExecutor (IPhaseOperationRegistry operationRegistry)
-            : this(operationRegistry, new PlanTokenCoordinator())
+            : this(operationRegistry, new PlanTokenCoordinator(), new DangerousOperationCallAuthorizer())
         {
         }
 
@@ -34,10 +37,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public OperationPhaseExecutor (
             IPhaseOperationRegistry operationRegistry,
             IPlanTokenCoordinator planTokenCoordinator)
+            : this(operationRegistry, planTokenCoordinator, new DangerousOperationCallAuthorizer())
+        {
+        }
+
+        internal OperationPhaseExecutor (
+            IPhaseOperationRegistry operationRegistry,
+            IPlanTokenCoordinator planTokenCoordinator,
+            IDangerousOperationCallAuthorizer dangerousOperationCallAuthorizer)
             : this(
                 new OperationPlanPassExecutor(operationRegistry),
                 new OperationCallPassExecutor(),
-                planTokenCoordinator)
+                planTokenCoordinator,
+                dangerousOperationCallAuthorizer)
         {
         }
 
@@ -49,11 +61,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         internal OperationPhaseExecutor (
             IOperationPlanPassExecutor planPassExecutor,
             IOperationCallPassExecutor callPassExecutor,
-            IPlanTokenCoordinator planTokenCoordinator)
+            IPlanTokenCoordinator planTokenCoordinator,
+            IDangerousOperationCallAuthorizer dangerousOperationCallAuthorizer)
         {
             this.planPassExecutor = planPassExecutor ?? throw new ArgumentNullException(nameof(planPassExecutor));
             this.callPassExecutor = callPassExecutor ?? throw new ArgumentNullException(nameof(callPassExecutor));
             this.planTokenCoordinator = planTokenCoordinator ?? throw new ArgumentNullException(nameof(planTokenCoordinator));
+            this.dangerousOperationCallAuthorizer = dangerousOperationCallAuthorizer ?? throw new ArgumentNullException(nameof(dangerousOperationCallAuthorizer));
         }
 
         /// <summary> Executes one normalized request through the specified command phase-flow. </summary>
@@ -93,7 +107,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             using var executionContext = new OperationExecutionContext();
-            var planPassResult = await planPassExecutor.Execute(request, executionContext, cancellationToken).ConfigureAwait(false);
+            var operationPreflight = command == PhaseExecutionCommand.Call && !request.AllowDangerous
+                ? CreateDangerousCallPreflight()
+                : null;
+            var planPassResult = await planPassExecutor.Execute(request, executionContext, operationPreflight, cancellationToken).ConfigureAwait(false);
             if (!planPassResult.IsSuccess)
             {
                 if (command == PhaseExecutionCommand.Call
@@ -173,10 +190,33 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     });
             }
 
+            if (!dangerousOperationCallAuthorizer.TryAuthorize(planPassResult.PreparedOperations, request.AllowDangerous, out var dangerousCallFailure))
+            {
+                return PhaseExecutionTrace.Failure(
+                    protocolVersion: request.ProtocolVersion,
+                    requestId: request.RequestId,
+                    steps: planPassResult.CompiledSteps,
+                    operationTraces: planPassResult.OperationTraces,
+                    errors: new[]
+                    {
+                        dangerousCallFailure!,
+                    });
+            }
+
             var callPassResult = await callPassExecutor.Execute(planPassResult.PreparedOperations, executionContext, cancellationToken).ConfigureAwait(false);
             return callPassResult.IsSuccess
                 ? PhaseExecutionTrace.Success(request.ProtocolVersion, request.RequestId, planPassResult.CompiledSteps, callPassResult.OperationTraces)
                 : PhaseExecutionTrace.Failure(request.ProtocolVersion, request.RequestId, planPassResult.CompiledSteps, callPassResult.OperationTraces, callPassResult.Errors);
+        }
+
+        private static Func<NormalizedOperation, IUcliOperation, OperationFailure?> CreateDangerousCallPreflight ()
+        {
+            return static (operation, phaseOperation) =>
+            {
+                return phaseOperation.Metadata.Policy == OperationPolicy.Dangerous
+                    ? DangerousOperationCallAuthorizer.CreateAllowDangerousFailure(operation)
+                    : null;
+            };
         }
 
         private static IReadOnlyList<NormalizedRequestStep> CreateUncompiledSteps (IReadOnlyList<IpcRequestContractStep> sourceSteps)

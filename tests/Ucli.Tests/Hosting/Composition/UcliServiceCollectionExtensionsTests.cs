@@ -29,6 +29,7 @@ public sealed class UcliServiceCollectionExtensionsTests
         Assert.NotNull(serviceProvider.GetRequiredService<IOpsCatalogSourceRefreshService>());
         Assert.NotNull(serviceProvider.GetRequiredService<IAssetLookupSourceRefreshService>());
         Assert.NotNull(serviceProvider.GetRequiredService<ISceneTreeLiteSourceRefreshService>());
+        Assert.NotNull(serviceProvider.GetRequiredService<ISceneTreeLiteDirtySourceProbeService>());
         Assert.NotNull(serviceProvider.GetRequiredService<IPersistedOpsCatalogPersistenceArtifactsReader>());
     }
 }

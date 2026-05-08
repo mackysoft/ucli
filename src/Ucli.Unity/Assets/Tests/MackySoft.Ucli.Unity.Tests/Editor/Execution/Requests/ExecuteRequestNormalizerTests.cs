@@ -1723,6 +1723,29 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void Normalize_WhenAllowDangerousIsSpecified_StoresAllowDangerous ()
+        {
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Call,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = Array.Empty<object>(),
+                });
+            request = request with
+            {
+                AllowDangerous = true,
+            };
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Request!.AllowDangerous, Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void Normalize_WhenCommandIsValidate_ReturnsInvalidArgumentError ()
         {
             var request = CreateExecuteRequest(

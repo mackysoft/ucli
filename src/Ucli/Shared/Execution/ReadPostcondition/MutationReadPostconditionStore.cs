@@ -196,9 +196,14 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
                 return requirement with { ScenePath = null };
 
             case IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite:
+                if (requirement.ScenePath == null)
+                {
+                    return requirement;
+                }
+
                 if (string.IsNullOrWhiteSpace(requirement.ScenePath))
                 {
-                    throw new ArgumentException("scenePath is required for scene-tree-lite read postconditions.", nameof(requirement));
+                    throw new ArgumentException("scenePath must be omitted or non-empty for scene-tree-lite read postconditions.", nameof(requirement));
                 }
 
                 return requirement with

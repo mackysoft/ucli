@@ -2,6 +2,8 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 
 internal static class UcliOperationDescribeContractValidator
 {
+    private const string SupportedCodeLanguageCSharp = "csharp";
+
     private const int MaxArgsPathLength = 256;
 
     private const int MaxArgsPathSegmentCount = 16;
@@ -20,7 +22,8 @@ internal static class UcliOperationDescribeContractValidator
 
         if (!TryValidatePublicRawOpInputs(describeContract.Inputs, ownerName, out errorMessage)
             || !TryValidateResultContract(describeContract.ResultContract, ownerName, out errorMessage)
-            || !TryValidateAssurance(describeContract.Assurance, ownerName, out errorMessage))
+            || !TryValidateAssurance(describeContract.Assurance, ownerName, out errorMessage)
+            || !TryValidateCodeContract(describeContract.CodeContract, ownerName, out errorMessage))
         {
             return false;
         }
@@ -354,6 +357,178 @@ internal static class UcliOperationDescribeContractValidator
             if (!IsSupportedTouchedKind(assurance.TouchedKinds[i]))
             {
                 errorMessage = $"{ownerName} has an unsupported touched kind.";
+                return false;
+            }
+        }
+
+        errorMessage = string.Empty;
+        return true;
+    }
+
+    private static bool TryValidateCodeContract (
+        UcliOperationCodeContract? codeContract,
+        string ownerName,
+        out string errorMessage)
+    {
+        if (codeContract == null)
+        {
+            errorMessage = string.Empty;
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(codeContract.Language)
+            || codeContract.EntryPoint == null
+            || string.IsNullOrWhiteSpace(codeContract.EntryPoint.Signature)
+            || string.IsNullOrWhiteSpace(codeContract.EntryPoint.MatchRule)
+            || codeContract.EntryPoint.ParameterTypes == null
+            || string.IsNullOrWhiteSpace(codeContract.EntryPoint.ReturnValue)
+            || codeContract.SourceForms == null
+            || codeContract.SourceForms.Count == 0
+            || codeContract.ApiTypes == null)
+        {
+            errorMessage = $"{ownerName} has invalid codeContract metadata.";
+            return false;
+        }
+
+        if (!IsSupportedCodeLanguage(codeContract.Language))
+        {
+            errorMessage = $"{ownerName} has an unsupported codeContract language.";
+            return false;
+        }
+
+        for (var parameterTypeIndex = 0; parameterTypeIndex < codeContract.EntryPoint.ParameterTypes.Count; parameterTypeIndex++)
+        {
+            if (string.IsNullOrWhiteSpace(codeContract.EntryPoint.ParameterTypes[parameterTypeIndex]))
+            {
+                errorMessage = $"{ownerName} has an invalid codeContract entry point parameter type.";
+                return false;
+            }
+        }
+
+        for (var sourceFormIndex = 0; sourceFormIndex < codeContract.SourceForms.Count; sourceFormIndex++)
+        {
+            var sourceForm = codeContract.SourceForms[sourceFormIndex];
+            if (sourceForm == null
+                || string.IsNullOrWhiteSpace(sourceForm.Kind)
+                || string.IsNullOrWhiteSpace(sourceForm.Description))
+            {
+                errorMessage = $"{ownerName} has an invalid codeContract source form at index {sourceFormIndex}.";
+                return false;
+            }
+
+            if (!IsSupportedCodeSourceFormKind(sourceForm.Kind))
+            {
+                errorMessage = $"{ownerName} has an unsupported codeContract source form at index {sourceFormIndex}.";
+                return false;
+            }
+        }
+
+        for (var typeIndex = 0; typeIndex < codeContract.ApiTypes.Count; typeIndex++)
+        {
+            if (!TryValidateCodeApiType(codeContract.ApiTypes[typeIndex], typeIndex, ownerName, out errorMessage))
+            {
+                return false;
+            }
+        }
+
+        errorMessage = string.Empty;
+        return true;
+    }
+
+    private static bool IsSupportedCodeLanguage (string language)
+    {
+        return string.Equals(language, SupportedCodeLanguageCSharp, StringComparison.Ordinal);
+    }
+
+    private static bool IsSupportedCodeSourceFormKind (string kind)
+    {
+        return kind switch
+        {
+            CsEvalSourceKindValues.CompilationUnit => true,
+            CsEvalSourceKindValues.Snippet => true,
+            _ => false,
+        };
+    }
+
+    private static bool TryValidateCodeApiType (
+        UcliCodeApiTypeContract? apiType,
+        int typeIndex,
+        string ownerName,
+        out string errorMessage)
+    {
+        if (apiType == null
+            || string.IsNullOrWhiteSpace(apiType.Name)
+            || string.IsNullOrWhiteSpace(apiType.FullName)
+            || string.IsNullOrWhiteSpace(apiType.Description)
+            || apiType.Members == null)
+        {
+            errorMessage = $"{ownerName} has an invalid codeContract api type at index {typeIndex}.";
+            return false;
+        }
+
+        var memberNames = new HashSet<string>(StringComparer.Ordinal);
+        for (var memberIndex = 0; memberIndex < apiType.Members.Count; memberIndex++)
+        {
+            if (!TryValidateCodeApiMember(apiType.Members[memberIndex], memberIndex, ownerName, memberNames, out errorMessage))
+            {
+                return false;
+            }
+        }
+
+        errorMessage = string.Empty;
+        return true;
+    }
+
+    private static bool TryValidateCodeApiMember (
+        UcliCodeApiMemberContract? member,
+        int memberIndex,
+        string ownerName,
+        HashSet<string> memberNames,
+        out string errorMessage)
+    {
+        if (member == null
+            || string.IsNullOrWhiteSpace(member.Kind)
+            || string.IsNullOrWhiteSpace(member.Name)
+            || string.IsNullOrWhiteSpace(member.Description)
+            || !memberNames.Add(member.Name + ":" + member.Kind))
+        {
+            errorMessage = $"{ownerName} has an invalid codeContract api member at index {memberIndex}.";
+            return false;
+        }
+
+        if (member.Kind == UcliCodeApiMemberKindValues.Property)
+        {
+            if (string.IsNullOrWhiteSpace(member.Type)
+                || member.ReturnType != null
+                || member.Parameters == null
+                || member.Parameters.Count != 0)
+            {
+                errorMessage = $"{ownerName} has an invalid codeContract property member at index {memberIndex}.";
+                return false;
+            }
+
+            errorMessage = string.Empty;
+            return true;
+        }
+
+        if (member.Kind != UcliCodeApiMemberKindValues.Method
+            || member.Type != null
+            || string.IsNullOrWhiteSpace(member.ReturnType)
+            || member.Parameters == null)
+        {
+            errorMessage = $"{ownerName} has an invalid codeContract method member at index {memberIndex}.";
+            return false;
+        }
+
+        for (var parameterIndex = 0; parameterIndex < member.Parameters.Count; parameterIndex++)
+        {
+            var parameter = member.Parameters[parameterIndex];
+            if (parameter == null
+                || string.IsNullOrWhiteSpace(parameter.Name)
+                || string.IsNullOrWhiteSpace(parameter.Type)
+                || string.IsNullOrWhiteSpace(parameter.Description))
+            {
+                errorMessage = $"{ownerName} has an invalid codeContract method parameter at index {parameterIndex}.";
                 return false;
             }
         }
