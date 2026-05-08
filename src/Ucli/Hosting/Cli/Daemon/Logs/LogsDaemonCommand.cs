@@ -2,6 +2,7 @@ using System.Text.Json;
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
@@ -72,7 +73,9 @@ internal sealed class LogsDaemonCommand
 
             if (!LogsOutputFormatCodec.TryParse(format, out var outputFormat, out var formatErrorMessage))
             {
-                var invalidFormatResult = CommandResult.InvalidArgument(UcliCommandNames.LogsDaemon, formatErrorMessage!);
+                var invalidFormatResult = CommandResultFactory.FromExecutionError(
+                    UcliCommandNames.LogsDaemon,
+                    ExecutionError.InvalidArgument(formatErrorMessage!));
                 commandResultWriter.WriteToStandardOutput(invalidFormatResult);
                 return invalidFormatResult.ExitCode;
             }

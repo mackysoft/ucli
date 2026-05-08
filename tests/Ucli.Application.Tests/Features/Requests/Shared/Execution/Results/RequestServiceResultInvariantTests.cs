@@ -59,64 +59,62 @@ public sealed class RequestServiceResultInvariantTests
         var readIndex = CreateReadIndexInfo();
         var validateOutput = new ValidateExecutionOutput(readIndex);
 
-        Assert.ThrowsAny<ArgumentException>(() => PlanServiceResult.Failure("Plan failed.", [], ApplicationOutcome.ToolError));
-        Assert.ThrowsAny<ArgumentException>(() => CallServiceResult.Failure("Call failed.", [], ApplicationOutcome.ToolError));
-        Assert.ThrowsAny<ArgumentException>(() => QueryServiceResultFactory.Failure("query assets find", RequestId, [], [], ApplicationOutcome.ToolError, "Query failed.", readIndex));
-        Assert.ThrowsAny<ArgumentException>(() => ResolveServiceResultFactory.Failure(RequestId, [], [], ApplicationOutcome.ToolError, readIndex));
+        Assert.ThrowsAny<ArgumentException>(() => PlanServiceResult.Failure("Plan failed.", []));
+        Assert.ThrowsAny<ArgumentException>(() => CallServiceResult.Failure("Call failed.", []));
+        Assert.ThrowsAny<ArgumentException>(() => QueryServiceResultFactory.Failure("query assets find", RequestId, [], [], "Query failed.", readIndex));
+        Assert.ThrowsAny<ArgumentException>(() => ResolveServiceResultFactory.Failure(RequestId, [], [], readIndex));
         Assert.ThrowsAny<ArgumentException>(() => ValidateServiceResult.ValidationFailure(validateOutput, "Static validation failed.", []));
-        Assert.ThrowsAny<ArgumentException>(() => OperationExecuteResultFactory.Failure(RequestId, [], [], ApplicationOutcome.ToolError));
+        Assert.ThrowsAny<ArgumentException>(() => OperationExecuteResultFactory.Failure(RequestId, [], []));
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Failure_WhenOutcomeIsSuccess_Throws ()
+    public void Failure_WhenFailureOutcomesAreMixed_ResolvesToolError ()
     {
-        var readIndex = CreateReadIndexInfo();
-        var errors = CreateErrors();
-
-        Assert.ThrowsAny<ArgumentException>(() => PlanServiceResult.Failure("Plan failed.", errors, ApplicationOutcome.Success));
-        Assert.ThrowsAny<ArgumentException>(() => CallServiceResult.Failure("Call failed.", errors, ApplicationOutcome.Success));
-        Assert.ThrowsAny<ArgumentException>(() => QueryServiceResultFactory.Failure("query assets find", RequestId, [], errors, ApplicationOutcome.Success, "Query failed.", readIndex));
-        Assert.ThrowsAny<ArgumentException>(() => ResolveServiceResultFactory.Failure(RequestId, [], errors, ApplicationOutcome.Success, readIndex));
-        Assert.ThrowsAny<ArgumentException>(() => OperationExecuteResultFactory.Failure(RequestId, [], errors, ApplicationOutcome.Success));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Failure_WhenOutcomeDoesNotMatchErrorCodes_Throws ()
-    {
-        var readIndex = CreateReadIndexInfo();
-
-        AssertOutcomeMismatchThrows((errors, outcome) => PlanServiceResult.Failure("Plan failed.", errors, outcome));
-        AssertOutcomeMismatchThrows((errors, outcome) => CallServiceResult.Failure("Call failed.", errors, outcome));
-        AssertOutcomeMismatchThrows((errors, outcome) => QueryServiceResultFactory.Failure("query assets find", RequestId, [], errors, outcome, "Query failed.", readIndex));
-        AssertOutcomeMismatchThrows((errors, outcome) => ResolveServiceResultFactory.Failure(RequestId, [], errors, outcome, readIndex));
-        AssertOutcomeMismatchThrows((errors, outcome) => OperationExecuteResultFactory.Failure(RequestId, [], errors, outcome));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Failure_WhenInvalidArgumentAndToolErrorsAreMixed_ResolvesToolError ()
-    {
-        var readIndex = CreateReadIndexInfo();
-        OperationExecutionError[] errors =
+        ApplicationFailure[] errors =
         [
-            new OperationExecutionError(UcliCoreErrorCodes.InvalidArgument, "Invalid argument.", null),
-            new OperationExecutionError(UcliCoreErrorCodes.InternalError, "Internal error.", null),
+            ApplicationFailure.InvalidInput("Invalid argument."),
+            ApplicationFailure.ExternalProcessFailure(
+                "Infrastructure failed.",
+                outcome: ApplicationOutcome.InfrastructureError),
         ];
 
-        Assert.Equal(ApplicationOutcome.ToolError, RequestServiceResultPolicy.ResolveOutcome(errors));
-        Assert.ThrowsAny<ArgumentException>(() => PlanServiceResult.Failure("Plan failed.", errors, ApplicationOutcome.InvalidArgument));
+        Assert.Equal(ApplicationOutcome.ToolError, ApplicationFailureOutcomeResolver.Resolve(errors));
 
-        var result = QueryServiceResultFactory.Failure(
-            "query assets find",
-            RequestId,
-            [],
-            errors,
-            ApplicationOutcome.ToolError,
-            "Query failed.",
-            readIndex);
+        var result = PlanServiceResult.Failure("Plan failed.", errors);
+
         Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Failure_WhenOnlyInvalidInputFailuresExist_ResolvesInvalidArgument ()
+    {
+        ApplicationFailure[] errors =
+        [
+            ApplicationFailure.InvalidInput("Invalid argument."),
+            ApplicationFailure.ConfigurationError("Configuration is invalid."),
+        ];
+
+        var result = CallServiceResult.Failure("Call failed.", errors);
+
+        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Failure_WhenOnlyInfrastructureFailuresExist_ResolvesInfrastructureError ()
+    {
+        ApplicationFailure[] errors =
+        [
+            ApplicationFailure.ExternalProcessFailure(
+                "Unity test infrastructure failed.",
+                outcome: ApplicationOutcome.InfrastructureError),
+        ];
+
+        var result = OperationExecuteResultFactory.Failure(RequestId, [], errors);
+
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
     }
 
     [Fact]
@@ -124,14 +122,14 @@ public sealed class RequestServiceResultInvariantTests
     public void Failure_WhenErrorCollectionContainsNull_Throws ()
     {
         var readIndex = CreateReadIndexInfo();
-        OperationExecutionError[] errors =
+        ApplicationFailure[] errors =
         [
             null!,
         ];
 
-        Assert.ThrowsAny<ArgumentException>(() => RequestServiceResultPolicy.ResolveOutcome(errors));
-        Assert.ThrowsAny<ArgumentException>(() => PlanServiceResult.Failure("Plan failed.", errors, ApplicationOutcome.ToolError));
-        Assert.ThrowsAny<ArgumentException>(() => QueryServiceResultFactory.Failure("query assets find", RequestId, [], errors, ApplicationOutcome.ToolError, "Query failed.", readIndex));
+        Assert.ThrowsAny<ArgumentException>(() => ApplicationFailureOutcomeResolver.Resolve(errors));
+        Assert.ThrowsAny<ArgumentException>(() => PlanServiceResult.Failure("Plan failed.", errors));
+        Assert.ThrowsAny<ArgumentException>(() => QueryServiceResultFactory.Failure("query assets find", RequestId, [], errors, "Query failed.", readIndex));
     }
 
     [Fact]
@@ -143,46 +141,12 @@ public sealed class RequestServiceResultInvariantTests
             null!,
         ];
 
-        Assert.ThrowsAny<ArgumentException>(() => RequestServiceResultPolicy.FromValidationErrors(validationErrors));
+        Assert.ThrowsAny<ArgumentException>(() => RequestFailureNormalizer.FromValidationErrors(validationErrors));
         Assert.ThrowsAny<ArgumentException>(() => OperationExecuteResultFactory.FromValidationErrors(RequestId, validationErrors));
         Assert.ThrowsAny<ArgumentException>(() => ValidateServiceResult.ValidationFailure(
             new ValidateExecutionOutput(CreateReadIndexInfo()),
             "Static validation failed.",
             validationErrors));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Failure_WhenErrorCodeIsMissing_Throws ()
-    {
-        var readIndex = CreateReadIndexInfo();
-        OperationExecutionError[] errors =
-        [
-            new OperationExecutionError(default, "Failure message.", null),
-        ];
-
-        Assert.ThrowsAny<ArgumentException>(() => PlanServiceResult.Failure("Plan failed.", errors, ApplicationOutcome.ToolError));
-        Assert.ThrowsAny<ArgumentException>(() => CallServiceResult.Failure("Call failed.", errors, ApplicationOutcome.ToolError));
-        Assert.ThrowsAny<ArgumentException>(() => QueryServiceResultFactory.Failure("query assets find", RequestId, [], errors, ApplicationOutcome.ToolError, "Query failed.", readIndex));
-        Assert.ThrowsAny<ArgumentException>(() => ResolveServiceResultFactory.Failure(RequestId, [], errors, ApplicationOutcome.ToolError, readIndex));
-        Assert.ThrowsAny<ArgumentException>(() => OperationExecuteResultFactory.Failure(RequestId, [], errors, ApplicationOutcome.ToolError));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Failure_WhenErrorMessageIsMissing_Throws ()
-    {
-        var readIndex = CreateReadIndexInfo();
-        OperationExecutionError[] errors =
-        [
-            new OperationExecutionError(UcliCoreErrorCodes.InternalError, "", null),
-        ];
-
-        Assert.ThrowsAny<ArgumentException>(() => PlanServiceResult.Failure("Plan failed.", errors, ApplicationOutcome.ToolError));
-        Assert.ThrowsAny<ArgumentException>(() => CallServiceResult.Failure("Call failed.", errors, ApplicationOutcome.ToolError));
-        Assert.ThrowsAny<ArgumentException>(() => QueryServiceResultFactory.Failure("query assets find", RequestId, [], errors, ApplicationOutcome.ToolError, "Query failed.", readIndex));
-        Assert.ThrowsAny<ArgumentException>(() => ResolveServiceResultFactory.Failure(RequestId, [], errors, ApplicationOutcome.ToolError, readIndex));
-        Assert.ThrowsAny<ArgumentException>(() => OperationExecuteResultFactory.Failure(RequestId, [], errors, ApplicationOutcome.ToolError));
     }
 
     [Fact]
@@ -193,11 +157,11 @@ public sealed class RequestServiceResultInvariantTests
         var errors = CreateErrors();
         var validateOutput = new ValidateExecutionOutput(readIndex);
 
-        Assert.ThrowsAny<ArgumentException>(() => PlanServiceResult.Failure("", errors, ApplicationOutcome.ToolError));
-        Assert.ThrowsAny<ArgumentException>(() => CallServiceResult.Failure("", errors, ApplicationOutcome.ToolError));
-        Assert.ThrowsAny<ArgumentException>(() => QueryServiceResultFactory.Failure("query assets find", RequestId, [], errors, ApplicationOutcome.ToolError, "", readIndex));
-        Assert.ThrowsAny<ArgumentException>(() => ResolveServiceResult.Failure(RequestId, [], errors, ApplicationOutcome.ToolError, "", readIndex));
-        Assert.ThrowsAny<ArgumentException>(() => OperationExecuteResult.Failure(RequestId, [], errors, ApplicationOutcome.ToolError, ""));
+        Assert.ThrowsAny<ArgumentException>(() => PlanServiceResult.Failure("", errors));
+        Assert.ThrowsAny<ArgumentException>(() => CallServiceResult.Failure("", errors));
+        Assert.ThrowsAny<ArgumentException>(() => QueryServiceResultFactory.Failure("query assets find", RequestId, [], errors, "", readIndex));
+        Assert.ThrowsAny<ArgumentException>(() => ResolveServiceResult.Failure(RequestId, [], errors, "", readIndex));
+        Assert.ThrowsAny<ArgumentException>(() => OperationExecuteResult.Failure(RequestId, [], errors, ""));
         Assert.ThrowsAny<ArgumentException>(() => ValidateServiceResult.Failure("", UcliCoreErrorCodes.InternalError, validateOutput));
     }
 
@@ -211,6 +175,7 @@ public sealed class RequestServiceResultInvariantTests
 
         Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         var error = Assert.Single(result.Errors);
+        Assert.Equal(ApplicationFailureKind.InvalidInput, error.Kind);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
     }
 
@@ -225,6 +190,7 @@ public sealed class RequestServiceResultInvariantTests
             CreateReadIndexInfo());
 
         var queryError = Assert.Single(queryResult.Errors);
+        Assert.Equal(ApplicationFailureKind.InternalError, queryError.Kind);
         Assert.Equal(UcliCoreErrorCodes.InternalError, queryError.Code);
         Assert.Equal("uCLI query failed.", queryError.Message);
         Assert.Equal(ApplicationOutcome.ToolError, queryResult.Outcome);
@@ -235,6 +201,7 @@ public sealed class RequestServiceResultInvariantTests
             CreateReadIndexInfo());
 
         var resolveError = Assert.Single(resolveResult.Errors);
+        Assert.Equal(ApplicationFailureKind.InternalError, resolveError.Kind);
         Assert.Equal(UcliCoreErrorCodes.InternalError, resolveError.Code);
         Assert.Equal("uCLI resolve failed.", resolveError.Message);
         Assert.Equal("uCLI resolve failed.", resolveResult.Message);
@@ -248,7 +215,7 @@ public sealed class RequestServiceResultInvariantTests
     {
         var validationError = new ValidationError(errorCode, "Validation failed.", "step-1");
 
-        Assert.Equal(ApplicationOutcome.InvalidArgument, RequestServiceResultPolicy.ResolveOutcome(errorCode));
+        Assert.True(ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(errorCode));
 
         var operationResult = OperationExecuteResultFactory.FromValidationErrors(
             RequestId,
@@ -273,75 +240,70 @@ public sealed class RequestServiceResultInvariantTests
     public void UnknownErrorCode_IsPreservedAndMapsToToolError ()
     {
         var futureErrorCode = new UcliErrorCode("FUTURE_TRANSPORT_FAILURE");
-        var error = RequestServiceResultPolicy.FromTransportFailure(
+        var error = RequestFailureNormalizer.FromTransportFailure(
             errorCode: futureErrorCode,
             message: "Future transport failed.");
 
         Assert.Equal(futureErrorCode, error.Code);
-        Assert.Equal(ApplicationOutcome.ToolError, RequestServiceResultPolicy.ResolveOutcome(error.Code));
+        Assert.Equal(ApplicationOutcome.ToolError, error.Outcome);
+        Assert.False(ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(error.Code));
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void Failure_FromTransportFailure_NormalizesBlankBoundaryMessage ()
     {
-        var error = RequestServiceResultPolicy.FromTransportFailure(errorCode: default(UcliErrorCode), message: "");
+        var error = RequestFailureNormalizer.FromTransportFailure(errorCode: default(UcliErrorCode), message: "");
 
+        Assert.Equal(ApplicationFailureKind.InternalError, error.Kind);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Equal("Request execution failed.", error.Message);
-        Assert.Equal(ApplicationOutcome.ToolError, RequestServiceResultPolicy.ResolveOutcome(error.Code));
+        Assert.Equal(ApplicationOutcome.ToolError, error.Outcome);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Failure_FromUnityRequestFailure_PreservesClassifiedOutcome ()
+    public void Failure_FromUnityRequestFailure_ReclassifiesInvalidArgumentCode ()
     {
         var failure = new UnityRequestFailure(
             PlanTokenErrorCodes.PlanTokenInvalid,
-            "Plan token is invalid.",
-            ApplicationOutcome.InvalidArgument);
+            "Plan token is invalid.");
 
-        var requestFailure = RequestServiceResultPolicy.FromUnityRequestFailure(failure);
+        var requestFailure = RequestFailureNormalizer.FromUnityRequestFailure(failure);
 
-        Assert.Equal(PlanTokenErrorCodes.PlanTokenInvalid, requestFailure.Error.Code);
+        Assert.Equal(ApplicationFailureKind.InvalidInput, requestFailure.Kind);
+        Assert.Equal(PlanTokenErrorCodes.PlanTokenInvalid, requestFailure.Code);
         Assert.Equal("Plan token is invalid.", requestFailure.Message);
         Assert.Equal(ApplicationOutcome.InvalidArgument, requestFailure.Outcome);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void UnityRequestFailure_WhenOutcomeDoesNotMatchCode_Throws ()
+    public void UnityRequestFailure_WhenCodeOrMessageIsMissing_Throws ()
     {
         Assert.ThrowsAny<ArgumentException>(() => new UnityRequestFailure(
+            default,
+            "Invalid argument."));
+        Assert.ThrowsAny<ArgumentException>(() => new UnityRequestFailure(
             UcliCoreErrorCodes.InvalidArgument,
-            "Invalid argument.",
-            ApplicationOutcome.ToolError));
+            ""));
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void Failure_Errors_AreReturnedAsReadOnlySnapshot ()
     {
-        var inputErrors = new List<OperationExecutionError>(CreateErrors());
+        var inputErrors = new List<ApplicationFailure>(CreateErrors());
         var result = PlanServiceResult.Failure(
             "Plan failed.",
-            inputErrors,
-            ApplicationOutcome.ToolError);
+            inputErrors);
 
-        inputErrors[0] = new OperationExecutionError(UcliCoreErrorCodes.InvalidArgument, "Changed message.", null);
+        inputErrors[0] = ApplicationFailure.InvalidInput("Changed message.");
 
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        var collection = Assert.IsAssignableFrom<ICollection<OperationExecutionError>>(result.Errors);
+        var collection = Assert.IsAssignableFrom<ICollection<ApplicationFailure>>(result.Errors);
         Assert.True(collection.IsReadOnly);
-    }
-
-    private static IReadOnlyList<OperationExecutionError> CreateErrors ()
-    {
-        return
-        [
-            new OperationExecutionError(UcliCoreErrorCodes.InternalError, "Failure message.", null),
-        ];
     }
 
     public static TheoryData<UcliErrorCode> InvalidArgumentErrorCodeValues ()
@@ -372,20 +334,12 @@ public sealed class RequestServiceResultInvariantTests
         };
     }
 
-    private static void AssertOutcomeMismatchThrows (
-        Action<IReadOnlyList<OperationExecutionError>, ApplicationOutcome> createFailure)
+    private static IReadOnlyList<ApplicationFailure> CreateErrors ()
     {
-        OperationExecutionError[] invalidArgumentErrors =
+        return
         [
-            new OperationExecutionError(UcliCoreErrorCodes.InvalidArgument, "Invalid argument.", null),
+            ApplicationFailure.InternalError("Failure message."),
         ];
-        OperationExecutionError[] internalErrors =
-        [
-            new OperationExecutionError(UcliCoreErrorCodes.InternalError, "Internal error.", null),
-        ];
-
-        Assert.ThrowsAny<ArgumentException>(() => createFailure(invalidArgumentErrors, ApplicationOutcome.ToolError));
-        Assert.ThrowsAny<ArgumentException>(() => createFailure(internalErrors, ApplicationOutcome.InvalidArgument));
     }
 
     private static ReadIndexInfo CreateReadIndexInfo ()

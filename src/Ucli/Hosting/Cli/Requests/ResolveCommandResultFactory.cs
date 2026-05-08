@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
+using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -27,12 +28,11 @@ internal static class ResolveCommandResultFactory
                 payload: payload);
         }
 
-        return RequestCommandFailureResultFactory.Create(
+        return CommandFailureProjector.Create(
             UcliCommandNames.Resolve,
             serviceResult.Message,
             payload,
-            serviceResult.Errors,
-            serviceResult.Outcome);
+            serviceResult.Errors);
     }
 
     /// <summary> Creates one command result for <c>resolve</c> from a normalized execution error. </summary>

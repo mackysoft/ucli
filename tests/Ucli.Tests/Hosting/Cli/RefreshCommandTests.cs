@@ -84,12 +84,10 @@ public sealed class RefreshCommandTests
             "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
             [],
             [
-                new OperationExecutionError(
-                    UcliCoreErrorCodes.InternalError,
+                ApplicationFailure.InternalError(
                     "Unity execution failed.",
-                    "refresh"),
+                    opId: "refresh"),
             ],
-            ApplicationOutcome.ToolError,
             "uCLI refresh failed.");
         var service = new StubRefreshService((_, _) => ValueTask.FromResult(failureResult));
         var command = new RefreshCommand(service, CommandResultTestWriter.Create());

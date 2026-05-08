@@ -1,5 +1,6 @@
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
+using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Skills.Distribution;
 using MackySoft.Ucli.Skills.Doctor;
 using MackySoft.Ucli.Skills.Hosts.Registration;
@@ -283,19 +284,16 @@ internal static class SkillsCommandResultFactory
             .Where(static diagnostic => diagnostic.Severity == SkillDoctorSeverity.Error)
             .ToArray();
         var errors = errorDiagnostics.Length == 0
-            ? [new CommandError(UcliCoreErrorCodes.InternalError, "uCLI skills doctor reported an unknown error.", null)]
+            ? [ApplicationFailure.InternalError("uCLI skills doctor reported an unknown error.")]
             : errorDiagnostics
-                .Select(static diagnostic => new CommandError(new UcliErrorCode(diagnostic.Code), diagnostic.Message, null))
+                .Select(static diagnostic => ApplicationFailure.InternalError(diagnostic.Message, new UcliErrorCode(diagnostic.Code)))
                 .ToArray();
 
-        return new CommandResult(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            Command: UcliCommandNames.SkillsDoctor,
-            Status: IpcProtocol.StatusError,
-            ExitCode: (int)CliExitCode.ToolError,
-            Message: "uCLI skills doctor reported errors.",
-            Payload: payload,
-            Errors: errors);
+        return CommandFailureProjector.Create(
+            UcliCommandNames.SkillsDoctor,
+            "uCLI skills doctor reported errors.",
+            payload,
+            errors);
     }
 
     /// <summary> Creates one command failure from a SKILL library failure. </summary>
@@ -309,17 +307,10 @@ internal static class SkillsCommandResultFactory
         ArgumentException.ThrowIfNullOrWhiteSpace(command);
         ArgumentNullException.ThrowIfNull(failure);
 
-        return new CommandResult(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            Command: command,
-            Status: IpcProtocol.StatusError,
-            ExitCode: (int)ResolveExitCode(failure.Code),
-            Message: failure.Message,
-            Payload: new { },
-            Errors:
-            [
-                new CommandError(new UcliErrorCode(failure.Code.Value), failure.Message, null),
-            ]);
+        return CommandFailureProjector.Create(
+            command,
+            SkillFailureApplicationFailureMapper.Map(failure),
+            new { });
     }
 
     private static string[] CreateSkillNameList (IReadOnlyList<CanonicalSkillPackage> packages)
@@ -328,13 +319,6 @@ internal static class SkillsCommandResultFactory
             .Select(static package => package.Manifest.SkillName)
             .Order(StringComparer.Ordinal)
             .ToArray();
-    }
-
-    private static CliExitCode ResolveExitCode (SkillFailureCode code)
-    {
-        return code == SkillFailureCodes.HostUnsupported || code == SkillFailureCodes.PathUnsafe
-            ? CliExitCode.InvalidArgument
-            : CliExitCode.ToolError;
     }
 
     private static string ToScopeLiteral (SkillScopeKind scope)

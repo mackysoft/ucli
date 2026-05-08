@@ -99,13 +99,12 @@ internal sealed class PlanService : IPlanService
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
-            var failure = RequestServiceResultPolicy.FromUnityRequestFailure(executionResult.FailureInfo!);
+            var failure = RequestFailureNormalizer.FromUnityRequestFailure(executionResult.FailureInfo!);
             return PlanServiceResult.Failure(
                 failure.Message,
                 [
-                    failure.Error,
+                    failure,
                 ],
-                failure.Outcome,
                 baseOutput);
         }
 
@@ -116,10 +115,10 @@ internal sealed class PlanService : IPlanService
         };
         if (!convertedResponse.IsSuccess)
         {
+            var failures = RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, "uCLI plan failed.");
             return PlanServiceResult.Failure(
-                RequestServiceResultPolicy.ResolveFailureMessage(convertedResponse.Errors, "uCLI plan failed."),
-                convertedResponse.Errors,
-                convertedResponse.Outcome,
+                RequestFailureNormalizer.ResolveMessage(failures, "uCLI plan failed."),
+                failures,
                 executionOutput);
         }
 

@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
@@ -128,7 +127,6 @@ internal static class UnityIpcFailureClassifier
     {
         return new UnityRequestFailure(
             code,
-            message,
-            ApplicationFailureOutcomeResolver.Resolve(code));
+            message);
     }
 }

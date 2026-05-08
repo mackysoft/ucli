@@ -2,6 +2,7 @@ using System.Text.Json;
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
@@ -78,7 +79,9 @@ internal sealed class LogsUnityCommand
 
             if (!LogsOutputFormatCodec.TryParse(format, out var outputFormat, out var formatErrorMessage))
             {
-                var invalidFormatResult = CommandResult.InvalidArgument(UcliCommandNames.LogsUnity, formatErrorMessage!);
+                var invalidFormatResult = CommandResultFactory.FromExecutionError(
+                    UcliCommandNames.LogsUnity,
+                    ExecutionError.InvalidArgument(formatErrorMessage!));
                 commandResultWriter.WriteToStandardOutput(invalidFormatResult);
                 return invalidFormatResult.ExitCode;
             }
