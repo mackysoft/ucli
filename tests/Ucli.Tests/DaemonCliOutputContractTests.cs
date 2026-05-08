@@ -235,6 +235,7 @@ public sealed class DaemonCliOutputContractTests
             "30000",
             UcliContractConstants.CliOption.EditorMode,
             "gui");
+        await WaitForSupervisorIdleExit(scope, unityProjectPath);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
@@ -566,6 +567,28 @@ public sealed class DaemonCliOutputContractTests
         Assert.True(
             process.ExitCode == 0,
             $"Git command failed. Args={string.Join(' ', arguments)} stdout={standardOutput} stderr={standardError}");
+    }
+
+    private static async Task WaitForSupervisorIdleExit (
+        TestDirectoryScope scope,
+        string unityProjectPath)
+    {
+        var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(Path.GetFullPath(unityProjectPath));
+        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(storageRoot);
+        var deadline = TimeProvider.System.GetUtcNow().AddSeconds(15);
+
+        while (File.Exists(manifestPath) && TimeProvider.System.GetUtcNow() < deadline)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(250));
+        }
+
+        if (File.Exists(manifestPath))
+        {
+            // NOTE: The GUI-not-implemented path intentionally reaches the supervisor in #250.
+            // Preserve the scope so a Windows working-directory lock does not hide the real timeout failure.
+            scope.Preserve();
+            Assert.Fail($"Supervisor did not exit after becoming idle. Manifest={manifestPath}");
+        }
     }
 
     private static void WriteUnsafeInvalidSession (string unityProjectPath)
