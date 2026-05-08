@@ -22,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         public PingUnityIpcMethodHandler (
             IServerVersionProvider serverVersionProvider,
             IUnityEditorReadinessGate readinessGate,
-            string projectFingerprint = "unknown",
+            string projectFingerprint,
             IDaemonLogger daemonLogger = null)
         {
             this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));

@@ -108,7 +108,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         }
 
         var session = readResult.Session!;
-        if (!session.CanShutdownProcess)
+        if (!DaemonSessionTerminationPolicy.CanShutdownProcess(session))
         {
             return DaemonStopResult.Failure(ExecutionError.InvalidArgument(
                 "Daemon session does not allow process shutdown."));
@@ -128,6 +128,12 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
             return notRunningCleanupResult.IsSuccess
                 ? DaemonStopResult.Stopped()
                 : DaemonStopResult.Failure(notRunningCleanupResult.Error!);
+        }
+
+        if (!shutdownResult.IsSuccess
+            && !DaemonSessionTerminationPolicy.TryGetTerminationTarget(session, out _, out _))
+        {
+            return DaemonStopResult.Failure(shutdownResult.Error!);
         }
 
         if (!deadline.TryGetRemainingTimeout(out var processTerminationTimeout))
@@ -177,15 +183,18 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
-        var stopProcessResult = await processTerminationService.EnsureStopped(
-                session.ProcessId,
-                session.IssuedAtUtc,
-                timeout,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!stopProcessResult.IsSuccess)
+        if (DaemonSessionTerminationPolicy.TryGetTerminationTarget(session, out var processId, out var issuedAtUtc))
         {
-            return stopProcessResult;
+            var stopProcessResult = await processTerminationService.EnsureStopped(
+                    processId,
+                    issuedAtUtc,
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!stopProcessResult.IsSuccess)
+            {
+                return stopProcessResult;
+            }
         }
 
         return await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);

@@ -25,7 +25,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator PingHandler_WhenPayloadIsValid_ReturnsOkResponse () => UniTask.ToCoroutine(async () =>
         {
-            var handler = new PingUnityIpcMethodHandler(new StubServerVersionProvider("1.2.3"), new StubUnityEditorReadinessGate());
+            var handler = new PingUnityIpcMethodHandler(new StubServerVersionProvider("1.2.3"), new StubUnityEditorReadinessGate(), "project-fingerprint");
             var request = CreatePingRequest("req-ping-valid", new IpcPingRequest("client"));
 
             var response = await handler.Handle(request, CancellationToken.None);
@@ -35,6 +35,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPingResponse payload, out _), Is.True);
             Assert.That(payload.ServerVersion, Is.EqualTo("1.2.3"));
             Assert.That(payload.Runtime, Is.EqualTo("batchmode"));
+            Assert.That(payload.ProjectFingerprint, Is.EqualTo("project-fingerprint"));
             Assert.That(payload.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Ready));
             Assert.That(payload.BlockingReason, Is.Null);
             Assert.That(payload.CompileGeneration, Is.EqualTo("1"));
@@ -46,7 +47,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator PingHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
-            var handler = new PingUnityIpcMethodHandler(new StubServerVersionProvider("1.2.3"), new StubUnityEditorReadinessGate());
+            var handler = new PingUnityIpcMethodHandler(new StubServerVersionProvider("1.2.3"), new StubUnityEditorReadinessGate(), "project-fingerprint");
             var request = CreatePingRequest("req-ping-invalid", 123);
 
             var response = await handler.Handle(request, CancellationToken.None);
@@ -72,7 +73,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     telemetryState,
                     static () => false,
                     static () => false,
-                    static () => false));
+                    static () => false),
+                "project-fingerprint");
 
             var firstResponse = await handler.Handle(CreatePingRequest("req-ping-starting-1", new IpcPingRequest("client")), CancellationToken.None);
             var secondResponse = await handler.Handle(CreatePingRequest("req-ping-starting-2", new IpcPingRequest("client")), CancellationToken.None);
@@ -109,7 +111,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     telemetryState,
                     static () => false,
                     static () => false,
-                    static () => true));
+                    static () => true),
+                "project-fingerprint");
 
             var response = await handler.Handle(CreatePingRequest("req-ping-playmode", new IpcPingRequest("client")), CancellationToken.None);
 

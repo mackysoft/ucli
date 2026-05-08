@@ -43,10 +43,12 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         CancellationToken cancellationToken = default)
     {
         var response = await SendPingRequest(unityProject, timeout, sessionToken, cancellationToken).ConfigureAwait(false);
-        if (!DaemonPingResponseCodec.TryValidateSuccessResponse(response, out var error))
+        if (!DaemonPingResponseCodec.TryDecodePayload(response, out var payload, out var error))
         {
             throw error!;
         }
+
+        ValidateProjectFingerprint(unityProject, payload!);
     }
 
     /// <summary> Sends one ping request and returns decoded ping payload values. </summary>
@@ -71,6 +73,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
             throw error!;
         }
 
+        ValidateProjectFingerprint(unityProject, payload!);
         return payload!;
     }
 
@@ -147,5 +150,19 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
             SessionToken: sessionToken,
             Method: IpcMethodNames.Ping,
             Payload: payload);
+    }
+
+    private static void ValidateProjectFingerprint (
+        ResolvedUnityProjectContext unityProject,
+        IpcPingResponse payload)
+    {
+        ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(payload);
+
+        if (!string.Equals(payload.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
+        {
+            throw new DaemonPingResponseException(
+                $"Daemon ping projectFingerprint mismatch. Requested={unityProject.ProjectFingerprint}, Actual={payload.ProjectFingerprint}.");
+        }
     }
 }

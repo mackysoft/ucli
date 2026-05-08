@@ -80,6 +80,9 @@ public sealed class DaemonListQueryServiceTests
                 Assert.Equal(DaemonListItemState.Running, item.State);
                 Assert.Null(item.Reason);
                 Assert.Equal(1001, item.ProcessId);
+                Assert.Equal(DaemonSession.EditorModeBatchmode, item.EditorMode);
+                Assert.Equal(DaemonSession.OwnerKindCli, item.OwnerKind);
+                Assert.True(item.CanShutdownProcess);
                 Assert.Equal("endpoint-a", item.EndpointAddress);
                 Assert.Null(item.Diagnosis);
             },
@@ -93,6 +96,9 @@ public sealed class DaemonListQueryServiceTests
                 Assert.Equal(DaemonListItemState.Running, item.State);
                 Assert.Null(item.Reason);
                 Assert.Equal(1002, item.ProcessId);
+                Assert.Equal(DaemonSession.EditorModeBatchmode, item.EditorMode);
+                Assert.Equal(DaemonSession.OwnerKindCli, item.OwnerKind);
+                Assert.True(item.CanShutdownProcess);
                 Assert.Equal("endpoint-b", item.EndpointAddress);
                 Assert.Null(item.Diagnosis);
             });

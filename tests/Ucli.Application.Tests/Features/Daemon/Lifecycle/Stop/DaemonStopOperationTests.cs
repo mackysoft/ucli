@@ -88,6 +88,101 @@ public sealed class DaemonStopOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Stop_WhenProcessIdIsMissing_CleansUpAfterShutdownWithoutProcessTermination ()
+    {
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Success(CreateSession(processId: null)),
+        };
+        var shutdownClient = new StubDaemonShutdownClient
+        {
+            NextResult = DaemonShutdownAttemptResult.Success(),
+        };
+        var processTerminationService = new StubDaemonProcessTerminationService();
+        var artifactCleaner = new StubDaemonArtifactCleaner
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var operation = new DaemonStopOperation(
+            lifecycleLockProvider: new StubProjectLifecycleLockProvider(),
+            daemonSessionStore: sessionStore,
+            shutdownClient: shutdownClient,
+            processTerminationService: processTerminationService,
+            artifactCleaner: artifactCleaner);
+
+        var result = await operation.Stop(CreateContext("fingerprint-stop-pidless"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.Equal(DaemonStopStatus.Stopped, result.Status);
+        Assert.Equal(1, shutdownClient.CallCount);
+        Assert.Equal(0, processTerminationService.CallCount);
+        Assert.Equal(1, artifactCleaner.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Stop_WhenProcessIdIsMissingAndShutdownFails_ReturnsShutdownFailureWithoutCleanup ()
+    {
+        var shutdownError = ExecutionError.InternalError("shutdown failed");
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Success(CreateSession(processId: null)),
+        };
+        var shutdownClient = new StubDaemonShutdownClient
+        {
+            NextResult = DaemonShutdownAttemptResult.Failure(shutdownError),
+        };
+        var processTerminationService = new StubDaemonProcessTerminationService();
+        var artifactCleaner = new StubDaemonArtifactCleaner();
+        var operation = new DaemonStopOperation(
+            lifecycleLockProvider: new StubProjectLifecycleLockProvider(),
+            daemonSessionStore: sessionStore,
+            shutdownClient: shutdownClient,
+            processTerminationService: processTerminationService,
+            artifactCleaner: artifactCleaner);
+
+        var result = await operation.Stop(CreateContext("fingerprint-stop-pidless-failure"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.Equal(DaemonStopStatus.Failed, result.Status);
+        Assert.Equal(shutdownError, result.Error);
+        Assert.Equal(1, shutdownClient.CallCount);
+        Assert.Equal(0, processTerminationService.CallCount);
+        Assert.Equal(0, artifactCleaner.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Stop_WhenSessionDoesNotAllowShutdown_ReturnsInvalidArgumentWithoutShutdown ()
+    {
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Success(CreateSession(
+                processId: 456,
+                ownerKind: DaemonSession.OwnerKindUser,
+                canShutdownProcess: false,
+                editorMode: DaemonSession.EditorModeGui)),
+        };
+        var shutdownClient = new StubDaemonShutdownClient();
+        var processTerminationService = new StubDaemonProcessTerminationService();
+        var artifactCleaner = new StubDaemonArtifactCleaner();
+        var operation = new DaemonStopOperation(
+            lifecycleLockProvider: new StubProjectLifecycleLockProvider(),
+            daemonSessionStore: sessionStore,
+            shutdownClient: shutdownClient,
+            processTerminationService: processTerminationService,
+            artifactCleaner: artifactCleaner);
+
+        var result = await operation.Stop(CreateContext("fingerprint-stop-disallowed"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.Equal(DaemonStopStatus.Failed, result.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Equal(0, shutdownClient.CallCount);
+        Assert.Equal(0, processTerminationService.CallCount);
+        Assert.Equal(0, artifactCleaner.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Stop_WhenWorkflowBegins_AcquiresLifecycleLockForUnityProjectRoot ()
     {
         var context = CreateContext("fingerprint-stop-lock-context");
@@ -186,16 +281,20 @@ public sealed class DaemonStopOperationTests
             PathSource: UnityProjectPathSource.CommandOption);
     }
 
-    private static DaemonSession CreateSession (int? processId)
+    private static DaemonSession CreateSession (
+        int? processId,
+        string editorMode = DaemonSession.EditorModeBatchmode,
+        string ownerKind = DaemonSession.OwnerKindCli,
+        bool canShutdownProcess = true)
     {
         return new DaemonSession(
             SchemaVersion: DaemonSession.CurrentSchemaVersion,
             SessionToken: "session-token",
             ProjectFingerprint: "fingerprint",
             IssuedAtUtc: DateTimeOffset.UtcNow,
-            EditorMode: DaemonSession.EditorModeBatchmode,
-            OwnerKind: DaemonSession.OwnerKindCli,
-            CanShutdownProcess: true,
+            EditorMode: editorMode,
+            OwnerKind: ownerKind,
+            CanShutdownProcess: canShutdownProcess,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-test-endpoint",
             ProcessId: processId,

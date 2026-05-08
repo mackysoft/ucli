@@ -8,7 +8,6 @@ namespace MackySoft.Ucli.Application.Tests.Daemon;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Storage;
 
 public sealed class DaemonStartOperationTests
 {
@@ -80,7 +79,7 @@ public sealed class DaemonStartOperationTests
     {
         var context = CreateContext("fingerprint-start-delete-diagnosis-augmented");
         var diagnosisDeleteError = ExecutionError.InternalError("diagnosis delete failed");
-        var launchError = ExecutionError.InternalError("launch failed");
+        var launchError = ExecutionError.InternalError("launch failed", UcliCoreErrorCodes.CommandNotImplemented);
         var diagnosisStore = new StubDaemonDiagnosisStore
         {
             DeleteResult = DaemonDiagnosisStoreOperationResult.Failure(diagnosisDeleteError),
@@ -106,9 +105,43 @@ public sealed class DaemonStartOperationTests
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(UcliCoreErrorCodes.CommandNotImplemented, error.Code);
         Assert.Contains("diagnosis cleanup failed", error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(launchError.Message, error.Message, StringComparison.Ordinal);
         Assert.Contains(diagnosisDeleteError.Message, error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WhenDiagnosisDeleteFailsAndGuiEditorModeRequiresFreshLaunch_PreservesCommandNotImplementedCode ()
+    {
+        var context = CreateContext("fingerprint-start-delete-diagnosis-gui");
+        var diagnosisStore = new StubDaemonDiagnosisStore
+        {
+            DeleteResult = DaemonDiagnosisStoreOperationResult.Failure(ExecutionError.InternalError("diagnosis delete failed")),
+        };
+        var launchService = new StubDaemonLaunchService();
+        var operation = CreateOperation(
+            daemonSessionStore: new StubDaemonSessionStore
+            {
+                ReadResult = DaemonSessionReadResult.Success(null),
+            },
+            daemonSessionCleanupService: new StubDaemonSessionCleanupService(),
+            daemonExistingSessionGateService: new StubDaemonExistingSessionGateService(),
+            daemonLaunchService: launchService,
+            daemonDiagnosisStore: diagnosisStore);
+
+        var result = await operation.Start(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: DaemonEditorMode.Gui,
+            cancellationToken: CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(UcliCoreErrorCodes.CommandNotImplemented, error.Code);
+        Assert.Contains("diagnosis cleanup failed", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, launchService.CallCount);
     }
 
     [Fact]

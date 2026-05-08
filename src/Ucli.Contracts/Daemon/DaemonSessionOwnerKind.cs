@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Contracts.Storage;
+namespace MackySoft.Ucli.Contracts.Daemon;
 
 /// <summary> Defines supported daemon session owner kinds. </summary>
 public enum DaemonSessionOwnerKind

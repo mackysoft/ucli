@@ -42,7 +42,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Daemon,
             IpcDaemonBootstrapArgumentNames.RepositoryRoot,
-            IpcDaemonBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
             IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
             IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
@@ -84,7 +84,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Daemon,
             IpcDaemonBootstrapArgumentNames.RepositoryRoot, "-tmp-repository",
-            IpcDaemonBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
             IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
             IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, "2026-03-09T00:00:00.0000000+00:00",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
@@ -108,7 +108,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
             IpcOneshotBootstrapArgumentNames.ParentProcessId, "123",
-            IpcDaemonBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
             IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
             IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
@@ -158,7 +158,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Daemon,
             IpcDaemonBootstrapArgumentNames.RepositoryRoot, "/repo/root",
-            IpcDaemonBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
             IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
             IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, "not-a-timestamp",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
@@ -203,7 +203,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
             IpcOneshotBootstrapArgumentNames.ParentProcessId, " ",
-            IpcDaemonBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
             IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
             IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
@@ -224,7 +224,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
             IpcOneshotBootstrapArgumentNames.ParentProcessId, "0",
-            IpcDaemonBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
             IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
             IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
@@ -245,7 +245,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
             IpcOneshotBootstrapArgumentNames.ParentProcessId, "123",
-            IpcDaemonBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
             IpcOneshotBootstrapArgumentNames.SessionToken, " ",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
             IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",

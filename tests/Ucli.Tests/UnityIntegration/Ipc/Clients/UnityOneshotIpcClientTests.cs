@@ -70,6 +70,44 @@ public sealed class UnityOneshotIpcClientTests
         Assert.Equal(0, processHandle.TerminateCallCount);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenStartupPingProjectFingerprintMismatches_ReturnsFailureWithoutDispatch ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "startup-fingerprint-mismatch");
+        var unityProject = CreateUnityProject(scope);
+        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
+        var processHandle = new StubUnityBatchmodeProcessHandle();
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var transportClient = new StubUnityIpcTransportClient(request =>
+        {
+            return request.Method switch
+            {
+                IpcMethodNames.Ping => CreatePingResponse(request.RequestId, projectFingerprint: "other-project-fingerprint"),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = new UnityOneshotIpcClient(
+            launcher,
+            new StubIpcEndpointResolver(endpoint),
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe());
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.Contains("projectFingerprint mismatch", result.Message, StringComparison.Ordinal);
+        Assert.Equal(1, transportClient.CallCount);
+        Assert.Equal(IpcMethodNames.Ping, transportClient.Requests[0].Method);
+        Assert.Equal(1, processHandle.TerminateCallCount);
+    }
+
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(IpcEditorLifecycleStateCodec.Starting)]
@@ -398,13 +436,14 @@ public sealed class UnityOneshotIpcClientTests
     private static IpcResponse CreatePingResponse (
         string requestId,
         string lifecycleState = IpcEditorLifecycleStateCodec.Ready,
-        bool canAcceptExecutionRequests = true)
+        bool canAcceptExecutionRequests = true,
+        string projectFingerprint = "project-fingerprint")
     {
         var payload = IpcPayloadCodec.SerializeToElement(new IpcPingResponse(
             ServerVersion: "1.0.0",
             Runtime: IpcEditorRuntimeCodec.Batchmode,
             UnityVersion: "2023.2.22f1",
-            ProjectFingerprint: "project-fingerprint",
+            ProjectFingerprint: projectFingerprint,
             CompileState: IpcCompileStateCodec.Ready,
             LifecycleState: lifecycleState,
             BlockingReason: canAcceptExecutionRequests

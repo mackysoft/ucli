@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Contracts.Text;
 
-namespace MackySoft.Ucli.Contracts.Storage;
+namespace MackySoft.Ucli.Contracts.Daemon;
 
 /// <summary> Converts daemon Editor mode values to canonical contract literals. </summary>
 public static class DaemonEditorModeCodec

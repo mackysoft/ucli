@@ -13,11 +13,13 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Registers shared IPC application services and method handlers. </summary>
         /// <param name="services"> The target service collection. </param>
         /// <param name="sessionTokenValidator"> The session-token validator used by the host. </param>
+        /// <param name="projectFingerprint"> The project fingerprint served by the host. </param>
         /// <param name="daemonLogger"> The daemon logger used by the host. </param>
         /// <returns> The updated service collection. </returns>
         public static IServiceCollection AddUnityIpcApplicationServices (
             this IServiceCollection services,
             ISessionTokenValidator sessionTokenValidator,
+            string projectFingerprint,
             IDaemonLogger daemonLogger)
         {
             if (services == null)
@@ -33,6 +35,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (daemonLogger == null)
             {
                 throw new ArgumentNullException(nameof(daemonLogger));
+            }
+
+            if (string.IsNullOrWhiteSpace(projectFingerprint))
+            {
+                throw new ArgumentException("projectFingerprint must not be empty.", nameof(projectFingerprint));
             }
 
             // NOTE:
@@ -53,7 +60,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return new PingUnityIpcMethodHandler(
                     serviceProvider.GetRequiredService<IServerVersionProvider>(),
                     serviceProvider.GetRequiredService<IUnityEditorReadinessGate>(),
-                    ResolveProjectFingerprint(serviceProvider),
+                    projectFingerprint,
                     serviceProvider.GetRequiredService<IDaemonLogger>());
             });
             services.AddSingleton<IUnityIpcMethodHandler, ExecuteUnityIpcMethodHandler>();
@@ -65,23 +72,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
             services.AddSingleton<IUnityIpcRequestProcessor, UnityIpcRequestProcessor>();
             return services;
-        }
-
-        private static string ResolveProjectFingerprint (IServiceProvider serviceProvider)
-        {
-            var daemonBootstrapArguments = serviceProvider.GetService<IpcDaemonBootstrapArguments>();
-            if (daemonBootstrapArguments != null)
-            {
-                return daemonBootstrapArguments.ProjectFingerprint;
-            }
-
-            var oneshotBootstrapArguments = serviceProvider.GetService<IpcOneshotBootstrapArguments>();
-            if (oneshotBootstrapArguments != null)
-            {
-                return oneshotBootstrapArguments.ProjectFingerprint;
-            }
-
-            return "unknown";
         }
 
         /// <summary> Registers daemon-only transport, logging, and lifetime services. </summary>

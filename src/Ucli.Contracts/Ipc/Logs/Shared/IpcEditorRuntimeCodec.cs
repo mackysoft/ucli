@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
@@ -6,10 +7,10 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 public static class IpcEditorRuntimeCodec
 {
     /// <summary> Gets the runtime value used by Unity batchmode hosts. </summary>
-    public const string Batchmode = "batchmode";
+    public const string Batchmode = DaemonEditorModeValues.Batchmode;
 
     /// <summary> Gets the runtime value used by Unity GUI hosts. </summary>
-    public const string Gui = "gui";
+    public const string Gui = DaemonEditorModeValues.Gui;
 
     private static readonly string[] CanonicalLiterals =
     {

@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts.Storage;
-
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 
 /// <summary> Launches daemon process and applies startup-compensation workflow when start fails. </summary>

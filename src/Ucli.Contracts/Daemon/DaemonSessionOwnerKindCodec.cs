@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Contracts.Text;
 
-namespace MackySoft.Ucli.Contracts.Storage;
+namespace MackySoft.Ucli.Contracts.Daemon;
 
 /// <summary> Converts daemon session owner-kind values to canonical contract literals. </summary>
 public static class DaemonSessionOwnerKindCodec

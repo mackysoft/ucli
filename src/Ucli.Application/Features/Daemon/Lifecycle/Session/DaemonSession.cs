@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts.Storage;
-
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
 /// <summary> Represents persisted daemon session metadata bound to one project fingerprint. </summary>

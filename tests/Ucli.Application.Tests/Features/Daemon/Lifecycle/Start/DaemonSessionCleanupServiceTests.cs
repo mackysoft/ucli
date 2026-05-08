@@ -139,6 +139,34 @@ public sealed class DaemonSessionCleanupServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task CleanupStaleSessionArtifacts_WhenSessionDisallowsShutdown_CleansUpWithoutStopping ()
+    {
+        var context = CreateContext("fingerprint-cleanup-stale-user");
+        var session = CreateSession(
+            processId: 4343,
+            projectFingerprint: context.ProjectFingerprint,
+            editorMode: DaemonSession.EditorModeGui,
+            ownerKind: DaemonSession.OwnerKindUser,
+            canShutdownProcess: false);
+        var processTerminationService = new StubDaemonProcessTerminationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var artifactCleaner = new StubDaemonArtifactCleaner
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var service = new DaemonSessionCleanupService(processTerminationService, artifactCleaner);
+
+        var result = await service.CleanupStaleSessionArtifacts(context, session, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(0, processTerminationService.CallCount);
+        Assert.Equal(1, artifactCleaner.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task CleanupInvalidSessionArtifacts_WhenStopFails_PropagatesFailureWithoutCleanup ()
     {
         var context = CreateContext("fingerprint-cleanup-stop-fail");
@@ -179,6 +207,7 @@ public sealed class DaemonSessionCleanupServiceTests
         int? processId,
         string projectFingerprint = "fingerprint",
         int? ownerProcessId = 9876,
+        string editorMode = DaemonSession.EditorModeBatchmode,
         string ownerKind = DaemonSession.OwnerKindCli,
         bool canShutdownProcess = true)
     {
@@ -187,7 +216,7 @@ public sealed class DaemonSessionCleanupServiceTests
             SessionToken: "session-token",
             ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: DateTimeOffset.UtcNow,
-            EditorMode: DaemonSession.EditorModeBatchmode,
+            EditorMode: editorMode,
             OwnerKind: ownerKind,
             CanShutdownProcess: canShutdownProcess,
             EndpointTransportKind: "namedPipe",

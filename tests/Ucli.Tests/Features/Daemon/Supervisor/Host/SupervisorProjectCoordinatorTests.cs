@@ -98,6 +98,41 @@ public sealed class SupervisorProjectCoordinatorTests
     }
 
     [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureRunning_WhenUserOwnedGuiSessionIsAlreadyRunning_DoesNotRegisterManagedProcess ()
+    {
+        var unityProject = CreateUnityProject();
+        var userOwnedSession = CreateSession(
+            processId: 4242,
+            editorMode: DaemonSession.EditorModeGui,
+            ownerKind: DaemonSession.OwnerKindUser,
+            canShutdownProcess: false);
+        var startOperation = new StubDaemonStartOperation
+        {
+            StartResult = DaemonStartResult.AlreadyRunning(userOwnedSession),
+        };
+        var pingClient = new StubDaemonPingClient();
+        var coordinator = CreateCoordinator(
+            startOperation,
+            new StubDaemonStopOperation(),
+            pingClient,
+            new StubDaemonDiagnosisStore(),
+            new StubDaemonSessionStore());
+
+        var result = await coordinator.EnsureRunning(
+                unityProject,
+                TimeSpan.FromMilliseconds(500),
+                editorMode: DaemonEditorMode.Gui,
+                CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(DaemonStartStatus.AlreadyRunning, result.Status);
+        Assert.False(coordinator.HasManagedProjects);
+        Assert.False(coordinator.HasActiveProjectWork);
+        Assert.Equal(0, pingClient.PingCallCount);
+    }
+
+    [Fact]
     [Trait("Size", "Medium")]
     public async Task EnsureRunning_WhenStabilityVerificationIsCanceled_StopsStartedDaemonAndKeepsItManaged ()
     {
@@ -556,16 +591,20 @@ public sealed class SupervisorProjectCoordinatorTests
             PathSource: UnityProjectPathSource.CommandOption);
     }
 
-    private static DaemonSession CreateSession (int? processId)
+    private static DaemonSession CreateSession (
+        int? processId,
+        string editorMode = DaemonSession.EditorModeBatchmode,
+        string ownerKind = DaemonSession.OwnerKindCli,
+        bool canShutdownProcess = true)
     {
         return new DaemonSession(
             SchemaVersion: DaemonSession.CurrentSchemaVersion,
             SessionToken: "session-token",
             ProjectFingerprint: "fingerprint",
             IssuedAtUtc: new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero),
-            EditorMode: DaemonSession.EditorModeBatchmode,
-            OwnerKind: DaemonSession.OwnerKindCli,
-            CanShutdownProcess: true,
+            EditorMode: editorMode,
+            OwnerKind: ownerKind,
+            CanShutdownProcess: canShutdownProcess,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: processId,

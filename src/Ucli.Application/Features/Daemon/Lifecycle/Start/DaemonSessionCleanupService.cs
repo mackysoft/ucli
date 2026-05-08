@@ -2,7 +2,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 
@@ -85,15 +84,18 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
         ArgumentNullException.ThrowIfNull(session);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        var stopResult = await processTerminationService.EnsureStopped(
-                session.ProcessId,
-                session.IssuedAtUtc,
-                timeout,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!stopResult.IsSuccess)
+        if (TryGetSessionStopTarget(session, unityProject, out var processId, out var issuedAtUtc))
         {
-            return stopResult;
+            var stopResult = await processTerminationService.EnsureStopped(
+                    processId,
+                    issuedAtUtc,
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!stopResult.IsSuccess)
+            {
+                return stopResult;
+            }
         }
 
         return await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
@@ -158,34 +160,26 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
             return false;
         }
 
+        return TryGetSessionStopTarget(session, unityProject, out processId, out issuedAtUtc);
+    }
+
+    private static bool TryGetSessionStopTarget (
+        DaemonSession session,
+        ResolvedUnityProjectContext unityProject,
+        out int processId,
+        out DateTimeOffset issuedAtUtc)
+    {
+        processId = default;
+        issuedAtUtc = default;
+
+        if (!string.Equals(session.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
         // NOTE:
-        // invalid-session cleanup must not terminate daemons launched by a different local
-        // implementation shape. Only snapshots that still prove current supervisor ownership
-        // are allowed to drive process termination.
-        if (session.SchemaVersion != DaemonSession.CurrentSchemaVersion
-            || !DaemonEditorModeCodec.TryParse(session.EditorMode, out var editorMode)
-            || editorMode != DaemonEditorMode.Batchmode
-            || !DaemonSessionOwnerKindCodec.TryParse(session.OwnerKind, out var ownerKind)
-            || ownerKind != DaemonSessionOwnerKind.Cli
-            || !session.CanShutdownProcess
-            || session.OwnerProcessId is not int ownerProcessId
-            || ownerProcessId <= 0)
-        {
-            return false;
-        }
-
-        if (session.ProcessId is not int candidateProcessId || candidateProcessId <= 0)
-        {
-            return false;
-        }
-
-        if (session.IssuedAtUtc == default)
-        {
-            return false;
-        }
-
-        processId = candidateProcessId;
-        issuedAtUtc = session.IssuedAtUtc;
-        return true;
+        // Cleanup may only terminate processes owned by the current uCLI batchmode
+        // contract. User-owned GUI sessions can be stale without granting process shutdown.
+        return DaemonSessionTerminationPolicy.TryGetTerminationTarget(session, out processId, out issuedAtUtc);
     }
 }

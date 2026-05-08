@@ -741,7 +741,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var methodDispatcher = new UnityIpcMethodDispatcher(
                 new IUnityIpcMethodHandler[]
                 {
-                    new PingUnityIpcMethodHandler(new AssemblyServerVersionProvider(), new StubUnityEditorReadinessGate()),
+                    new PingUnityIpcMethodHandler(new AssemblyServerVersionProvider(), new StubUnityEditorReadinessGate(), "project-fingerprint"),
                     new ExecuteUnityIpcMethodHandler(executeRequestDispatcher),
                     new TestRunUnityIpcMethodHandler(testRunService),
                     new DaemonLogsReadUnityIpcMethodHandler(

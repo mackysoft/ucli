@@ -2,7 +2,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 
@@ -288,9 +287,9 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
 
         return primaryError.Kind switch
         {
-            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message),
-            ExecutionErrorKind.Timeout => ExecutionError.Timeout(message),
-            ExecutionErrorKind.InternalError => ExecutionError.InternalError(message),
+            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message, primaryError.Code),
+            ExecutionErrorKind.Timeout => ExecutionError.Timeout(message, primaryError.Code),
+            ExecutionErrorKind.InternalError => ExecutionError.InternalError(message, primaryError.Code),
             _ => throw new ArgumentOutOfRangeException(nameof(primaryError), primaryError.Kind, "Unsupported execution error kind."),
         };
     }

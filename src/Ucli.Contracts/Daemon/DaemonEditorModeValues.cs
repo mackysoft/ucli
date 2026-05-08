@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Contracts.Storage;
+namespace MackySoft.Ucli.Contracts.Daemon;
 
 /// <summary> Defines daemon Editor mode contract literal values. </summary>
 public static class DaemonEditorModeValues

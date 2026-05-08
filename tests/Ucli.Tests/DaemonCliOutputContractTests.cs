@@ -169,6 +169,88 @@ public sealed class DaemonCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task Start_WithInvalidEditorMode_ReturnsInvalidArgumentErrorAsSingleJson ()
+    {
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Daemon,
+            UcliCommandNames.StartSubcommand,
+            UcliContractConstants.CliOption.EditorMode,
+            "unsupported");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.DaemonStart,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(
+            outputJson.RootElement,
+            expectedCode: "INVALID_ARGUMENT");
+        Assert.Contains("editorMode must be one of", result.StdOut, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Start_WithEditorModeBatchmode_WhenUnityPluginMarkerIsMissing_DoesNotRejectEditorModeOption ()
+    {
+        using var scope = TestDirectories.CreateTempScope("cli-output-contract", "daemon-start-batchmode-option");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Daemon,
+            UcliCommandNames.StartSubcommand,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath,
+            UcliContractConstants.CliOption.EditorMode,
+            "batchmode");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.DaemonStart,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
+        Assert.Contains("Unity project does not contain the uCLI Unity plugin", result.StdOut, StringComparison.Ordinal);
+        Assert.DoesNotContain("editorMode must be one of", result.StdOut, StringComparison.Ordinal);
+        Assert.DoesNotContain("Argument '--editorMode' is not recognized.", result.StdErr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Start_WithEditorModeGui_WhenUnityPluginMarkerExists_ReturnsCommandNotImplementedAsSingleJson ()
+    {
+        using var scope = TestDirectories.CreateTempScope("cli-output-contract", "daemon-start-gui-option");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        await WriteUnityPluginMarker(scope, "UnityProject");
+
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Daemon,
+            UcliCommandNames.StartSubcommand,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath,
+            UcliContractConstants.CliOption.Timeout,
+            "30000",
+            UcliContractConstants.CliOption.EditorMode,
+            "gui");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.DaemonStart,
+            status: "error",
+            exitCode: (int)CliExitCode.ToolError);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.CommandNotImplemented);
+        Assert.Contains("daemon start --editorMode gui is not implemented", result.StdOut, StringComparison.Ordinal);
+        Assert.DoesNotContain("editorMode must be one of", result.StdOut, StringComparison.Ordinal);
+        Assert.DoesNotContain("Argument '--editorMode' is not recognized.", result.StdErr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task Stop_WithUnknownOption_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
         var result = await CliProcessRunner.RunCommand(
@@ -389,6 +471,19 @@ public sealed class DaemonCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task DaemonStart_WithHelpOutput_IncludesEditorModeOption ()
+    {
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Daemon,
+            UcliCommandNames.StartSubcommand,
+            "--help");
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.Contains("--editorMode", result.StdOut, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task DaemonStop_WithHelpOutput_IncludesShortProjectPathOption ()
     {
         var result = await CliProcessRunner.RunCommand(
@@ -442,6 +537,28 @@ public sealed class DaemonCliOutputContractTests
     private static Task InitializeGitRepository (TestDirectoryScope scope)
     {
         return RunGit(scope.FullPath, "init");
+    }
+
+    private static Task WriteUnityPluginMarker (
+        TestDirectoryScope scope,
+        string unityProjectDirectoryName)
+    {
+        ArgumentNullException.ThrowIfNull(scope);
+        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectDirectoryName);
+
+        return scope.WriteFileAsync(
+            Path.Combine(
+                unityProjectDirectoryName,
+                "Assets",
+                "MackySoft",
+                "MackySoft.Ucli.Unity",
+                "ucli-plugin.json"),
+            """
+            {
+              "pluginId": "com.mackysoft.ucli.unity",
+              "protocolVersion": 1
+            }
+            """);
     }
 
     private static async Task RunGit (

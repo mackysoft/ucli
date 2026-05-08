@@ -7,7 +7,6 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Host;
 
@@ -301,6 +300,11 @@ internal sealed class SupervisorProjectCoordinator
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(session);
 
+        if (!DaemonSessionTerminationPolicy.CanShutdownProcess(session))
+        {
+            return;
+        }
+
         if (slot.ManagedProcess != null
             && IsSameManagedProcess(slot.ManagedProcess, session))
         {
@@ -547,26 +551,5 @@ internal sealed class SupervisorProjectCoordinator
             .Where(static x => x != null)
             .Cast<Task>()
             .ToArray();
-    }
-
-    private static ExecutionError CreateAugmentedPrimaryError (
-        ExecutionError primaryError,
-        ExecutionError? compensationError)
-    {
-        ArgumentNullException.ThrowIfNull(primaryError);
-        ArgumentNullException.ThrowIfNull(compensationError);
-
-        var message =
-            "Supervisor compensation stop failed after daemon startup had already succeeded. " +
-            $"PrimaryError={primaryError.Message} " +
-            $"CompensationError={compensationError.Message}";
-
-        return primaryError.Kind switch
-        {
-            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message),
-            ExecutionErrorKind.Timeout => ExecutionError.Timeout(message),
-            ExecutionErrorKind.InternalError => ExecutionError.InternalError(message),
-            _ => throw new ArgumentOutOfRangeException(nameof(primaryError), primaryError.Kind, "Unsupported execution error kind."),
-        };
     }
 }

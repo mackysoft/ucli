@@ -88,7 +88,7 @@ public sealed class IpcDaemonPingClientTests
                     ServerVersion: "0.5.0",
                     Runtime: "batchmode",
                     UnityVersion: "2022.3.5f1",
-                    ProjectFingerprint: "project-fingerprint",
+                    ProjectFingerprint: "fingerprint",
                     CompileState: "ready")));
         var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Success("resolved-token"));
         var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
@@ -100,6 +100,7 @@ public sealed class IpcDaemonPingClientTests
         Assert.Equal("0.5.0", result.ServerVersion);
         Assert.Equal("batchmode", result.Runtime);
         Assert.Equal("2022.3.5f1", result.UnityVersion);
+        Assert.Equal("fingerprint", result.ProjectFingerprint);
         Assert.Equal("ready", result.CompileState);
     }
 
@@ -140,7 +141,7 @@ public sealed class IpcDaemonPingClientTests
                     serverVersion = "0.5.0",
                     runtime = "batchmode",
                     unityVersion = "2022.3.5f1",
-                    projectFingerprint = "project-fingerprint",
+                    projectFingerprint = "fingerprint",
                 }));
         var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Success("resolved-token"));
         var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
@@ -151,6 +152,54 @@ public sealed class IpcDaemonPingClientTests
         Assert.Equal("batchmode", result.Runtime);
         Assert.Equal("2022.3.5f1", result.UnityVersion);
         Assert.True(string.IsNullOrWhiteSpace(result.CompileState));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Ping_WhenProjectFingerprintMismatches_ThrowsDaemonPingResponseException ()
+    {
+        var unityIpcClient = new StubUnityIpcTransportClient(request =>
+            CreateResponse(
+                request,
+                IpcProtocol.StatusOk,
+                Array.Empty<IpcError>(),
+                CreatePingPayload("different-fingerprint")));
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Success("resolved-token"));
+        var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
+
+        var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
+        {
+            await TestAwaiter.WaitAsync(
+                pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None).AsTask(),
+                "Mismatched project fingerprint ping result",
+                AsyncWaitTimeout);
+        });
+
+        Assert.Contains("projectFingerprint mismatch", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task PingAndRead_WhenProjectFingerprintMismatches_ThrowsDaemonPingResponseException ()
+    {
+        var unityIpcClient = new StubUnityIpcTransportClient(request =>
+            CreateResponse(
+                request,
+                IpcProtocol.StatusOk,
+                Array.Empty<IpcError>(),
+                CreatePingPayload("different-fingerprint")));
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Success("resolved-token"));
+        var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
+
+        var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
+        {
+            await TestAwaiter.WaitAsync(
+                pingClient.PingAndRead(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None).AsTask(),
+                "Mismatched project fingerprint ping payload",
+                AsyncWaitTimeout);
+        });
+
+        Assert.Contains("projectFingerprint mismatch", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -289,7 +338,8 @@ public sealed class IpcDaemonPingClientTests
                 CreateResponse(
                     request,
                     IpcProtocol.StatusOk,
-                    Array.Empty<IpcError>()));
+                    Array.Empty<IpcError>(),
+                    CreatePingPayload()));
         }
 
         public int CallCount { get; private set; }
@@ -353,5 +403,15 @@ public sealed class IpcDaemonPingClientTests
                 ? JsonDocument.Parse("{}").RootElement.Clone()
                 : IpcPayloadCodec.SerializeToElement(payload),
             Errors: errors);
+    }
+
+    private static IpcPingResponse CreatePingPayload (string projectFingerprint = "fingerprint")
+    {
+        return new IpcPingResponse(
+            ServerVersion: "0.5.0",
+            Runtime: "batchmode",
+            UnityVersion: "2022.3.5f1",
+            ProjectFingerprint: projectFingerprint,
+            CompileState: "ready");
     }
 }

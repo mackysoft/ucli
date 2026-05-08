@@ -5,6 +5,7 @@ global using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 global using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 global using MackySoft.Ucli.Application.Shared.Unity.Resolution;
 global using MackySoft.Ucli.Contracts;
+global using MackySoft.Ucli.Contracts.Daemon;
 global using MackySoft.Ucli.Contracts.Index;
 global using MackySoft.Ucli.Features.Daemon.Lifecycle.Cleanup;
 global using MackySoft.Ucli.Features.Daemon.Lifecycle.Diagnosis;

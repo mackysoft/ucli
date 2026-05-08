@@ -276,7 +276,13 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                         $"Unity oneshot startup probe returned an invalid response. {error!.Message}");
                 }
 
-                var readinessDecision = UnityDaemonReadinessPolicy.Evaluate(payload!, failFast);
+                if (!string.Equals(payload!.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
+                {
+                    return ExecutionError.InternalError(
+                        $"Unity oneshot startup probe projectFingerprint mismatch. Requested={unityProject.ProjectFingerprint}, Actual={payload.ProjectFingerprint}.");
+                }
+
+                var readinessDecision = UnityDaemonReadinessPolicy.Evaluate(payload, failFast);
                 if (readinessDecision.IsReady)
                 {
                     return null;
