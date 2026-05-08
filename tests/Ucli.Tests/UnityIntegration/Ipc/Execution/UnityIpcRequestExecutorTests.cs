@@ -7,6 +7,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
+using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.Tests.TestDoubles;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
@@ -634,30 +635,9 @@ public sealed class UnityIpcRequestExecutorTests
         string lifecycleState,
         bool canAcceptExecutionRequests)
     {
-        return new IpcPingResponse(
-            ServerVersion: "1.0.0",
-            Runtime: IpcEditorRuntimeCodec.Batchmode,
-            UnityVersion: "2023.2.22f1",
-            ProjectFingerprint: "project-fingerprint",
-            CompileState: IpcCompileStateCodec.Ready,
-            LifecycleState: lifecycleState,
-            BlockingReason: canAcceptExecutionRequests
-                ? null
-                : lifecycleState switch
-                {
-                    IpcEditorLifecycleStateCodec.Starting => IpcEditorBlockingReasonCodec.Startup,
-                    IpcEditorLifecycleStateCodec.Busy => IpcEditorBlockingReasonCodec.Busy,
-                    IpcEditorLifecycleStateCodec.Compiling => IpcEditorBlockingReasonCodec.Compile,
-                    IpcEditorLifecycleStateCodec.DomainReloading => IpcEditorBlockingReasonCodec.DomainReload,
-                    IpcEditorLifecycleStateCodec.Playmode => IpcEditorBlockingReasonCodec.PlayMode,
-                    IpcEditorLifecycleStateCodec.BlockedByModal => IpcEditorBlockingReasonCodec.ModalDialog,
-                    IpcEditorLifecycleStateCodec.SafeMode => IpcEditorBlockingReasonCodec.SafeMode,
-                    IpcEditorLifecycleStateCodec.ShuttingDown => IpcEditorBlockingReasonCodec.Shutdown,
-                    _ => null,
-                },
-            CompileGeneration: "0",
-            DomainReloadGeneration: "0",
-            CanAcceptExecutionRequests: canAcceptExecutionRequests);
+        return IpcPingResponseTestFactory.Create(
+            lifecycleState: lifecycleState,
+            canAcceptExecutionRequests: canAcceptExecutionRequests);
     }
 
     private sealed class StubModeDecisionService : IUnityExecutionModeDecisionService

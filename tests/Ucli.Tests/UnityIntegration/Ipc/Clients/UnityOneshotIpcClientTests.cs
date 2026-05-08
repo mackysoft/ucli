@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
+using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.Tests.TestDoubles;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
@@ -439,27 +440,10 @@ public sealed class UnityOneshotIpcClientTests
         bool canAcceptExecutionRequests = true,
         string projectFingerprint = "project-fingerprint")
     {
-        var payload = IpcPayloadCodec.SerializeToElement(new IpcPingResponse(
-            ServerVersion: "1.0.0",
-            Runtime: IpcEditorRuntimeCodec.Batchmode,
-            UnityVersion: "2023.2.22f1",
-            ProjectFingerprint: projectFingerprint,
-            CompileState: IpcCompileStateCodec.Ready,
-            LifecycleState: lifecycleState,
-            BlockingReason: canAcceptExecutionRequests
-                ? null
-                : lifecycleState switch
-                {
-                    IpcEditorLifecycleStateCodec.Starting => IpcEditorBlockingReasonCodec.Startup,
-                    IpcEditorLifecycleStateCodec.Busy => IpcEditorBlockingReasonCodec.Busy,
-                    IpcEditorLifecycleStateCodec.Compiling => IpcEditorBlockingReasonCodec.Compile,
-                    IpcEditorLifecycleStateCodec.DomainReloading => IpcEditorBlockingReasonCodec.DomainReload,
-                    IpcEditorLifecycleStateCodec.ShuttingDown => IpcEditorBlockingReasonCodec.Shutdown,
-                    _ => null,
-                },
-            CompileGeneration: "0",
-            DomainReloadGeneration: "0",
-            CanAcceptExecutionRequests: canAcceptExecutionRequests));
+        var payload = IpcPayloadCodec.SerializeToElement(IpcPingResponseTestFactory.Create(
+            lifecycleState: lifecycleState,
+            canAcceptExecutionRequests: canAcceptExecutionRequests,
+            projectFingerprint: projectFingerprint));
         return new IpcResponse(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: requestId,

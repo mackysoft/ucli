@@ -89,7 +89,7 @@ public sealed class CallCliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("call-cli-output-contract", "daemon-not-running");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        await WriteUnityPluginMarker(scope, "UnityProject");
+        await UnityProjectTestFactory.WriteUcliUnityPluginMarker(scope, "UnityProject");
 
         var result = await CliProcessRunner.RunCommandWithStandardInput(
             CreateRequestJson(),
@@ -178,25 +178,4 @@ public sealed class CallCliOutputContractTests
         Assert.True(Guid.TryParseExact(requestId, "D", out _));
     }
 
-    private static Task WriteUnityPluginMarker (
-        TestDirectoryScope scope,
-        string unityProjectDirectoryName)
-    {
-        ArgumentNullException.ThrowIfNull(scope);
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectDirectoryName);
-
-        return scope.WriteFileAsync(
-            Path.Combine(
-                unityProjectDirectoryName,
-                "Assets",
-                "MackySoft",
-                "MackySoft.Ucli.Unity",
-                "ucli-plugin.json"),
-            """
-            {
-              "pluginId": "com.mackysoft.ucli.unity",
-              "protocolVersion": 1
-            }
-            """);
-    }
 }

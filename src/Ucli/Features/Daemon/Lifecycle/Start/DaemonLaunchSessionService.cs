@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Shared.Context.Project;
-using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
@@ -45,11 +44,9 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
 
-        if (editorMode != DaemonEditorMode.Batchmode)
+        if (!DaemonLaunchEditorModePolicy.TryResolve(editorMode, out var launchEditorMode, out var editorModeError))
         {
-            return DaemonLaunchSessionWriteResult.Failure(ExecutionError.InternalError(
-                "daemon start --editorMode gui is not implemented until GUI Editor attach and launch support is available.",
-                UcliCoreErrorCodes.CommandNotImplemented));
+            return DaemonLaunchSessionWriteResult.Failure(editorModeError!);
         }
 
         var endpoint = endpointResolver.Resolve(unityProject.RepositoryRoot, unityProject.ProjectFingerprint);
@@ -58,7 +55,7 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
             SessionToken: sessionTokenGenerator.Create(),
             ProjectFingerprint: unityProject.ProjectFingerprint,
             IssuedAtUtc: DateTimeOffset.UtcNow,
-            EditorMode: DaemonEditorModeCodec.ToValue(editorMode),
+            EditorMode: DaemonEditorModeCodec.ToValue(launchEditorMode),
             OwnerKind: DaemonSessionOwnerKindCodec.ToValue(DaemonSessionOwnerKind.Cli),
             CanShutdownProcess: true,
             EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),

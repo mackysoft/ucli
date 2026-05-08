@@ -34,7 +34,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Errors, Is.Empty);
             Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPingResponse payload, out _), Is.True);
             Assert.That(payload.ServerVersion, Is.EqualTo("1.2.3"));
-            Assert.That(payload.Runtime, Is.EqualTo("batchmode"));
+            Assert.That(payload.EditorMode, Is.EqualTo("batchmode"));
             Assert.That(payload.ProjectFingerprint, Is.EqualTo("project-fingerprint"));
             Assert.That(payload.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Ready));
             Assert.That(payload.BlockingReason, Is.Null);

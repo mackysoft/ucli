@@ -104,8 +104,8 @@ public sealed class SupervisorProjectCoordinatorTests
         var unityProject = CreateUnityProject();
         var userOwnedSession = CreateSession(
             processId: 4242,
-            editorMode: DaemonSession.EditorModeGui,
-            ownerKind: DaemonSession.OwnerKindUser,
+            editorMode: DaemonEditorModeValues.Gui,
+            ownerKind: DaemonSessionOwnerKindValues.User,
             canShutdownProcess: false);
         var startOperation = new StubDaemonStartOperation
         {
@@ -593,8 +593,8 @@ public sealed class SupervisorProjectCoordinatorTests
 
     private static DaemonSession CreateSession (
         int? processId,
-        string editorMode = DaemonSession.EditorModeBatchmode,
-        string ownerKind = DaemonSession.OwnerKindCli,
+        string editorMode = DaemonEditorModeValues.Batchmode,
+        string ownerKind = DaemonSessionOwnerKindValues.Cli,
         bool canShutdownProcess = true)
     {
         return new DaemonSession(

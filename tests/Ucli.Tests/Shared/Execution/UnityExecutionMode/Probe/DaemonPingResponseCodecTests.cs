@@ -48,7 +48,7 @@ public sealed class DaemonPingResponseCodecTests
             Array.Empty<IpcError>(),
             new IpcPingResponse(
                 ServerVersion: expectedServerVersion,
-                Runtime: expectedRuntime,
+                EditorMode: expectedRuntime,
                 UnityVersion: expectedUnityVersion,
                 ProjectFingerprint: " project-fingerprint ",
                 CompileState: expectedCompileState));
@@ -58,7 +58,7 @@ public sealed class DaemonPingResponseCodecTests
         Assert.True(result);
         Assert.NotNull(payload);
         Assert.Equal(expectedServerVersion, payload.ServerVersion);
-        Assert.Equal(expectedRuntime, payload.Runtime);
+        Assert.Equal(expectedRuntime, payload.EditorMode);
         Assert.Equal(expectedUnityVersion, payload.UnityVersion);
         Assert.Equal(expectedCompileState, payload.CompileState);
         Assert.Null(error);
@@ -87,7 +87,7 @@ public sealed class DaemonPingResponseCodecTests
             Array.Empty<IpcError>(),
             new IpcPingResponse(
                 ServerVersion: " ",
-                Runtime: "batchmode",
+                EditorMode: "batchmode",
                 UnityVersion: "2022.3.5f1",
                 ProjectFingerprint: "project-fingerprint",
                 CompileState: "ready"));
@@ -110,7 +110,7 @@ public sealed class DaemonPingResponseCodecTests
             new
             {
                 serverVersion = "0.5.0",
-                runtime = "batchmode",
+                editorMode = "batchmode",
                 unityVersion = "2022.3.5f1",
                 projectFingerprint = "project-fingerprint",
             });
@@ -133,7 +133,7 @@ public sealed class DaemonPingResponseCodecTests
             new
             {
                 serverVersion = "0.5.0",
-                runtime = "batchmode",
+                editorMode = "batchmode",
                 unityVersion = "2022.3.5f1",
                 compileState = "ready",
             });
@@ -143,7 +143,68 @@ public sealed class DaemonPingResponseCodecTests
         Assert.False(result);
         Assert.Null(payload);
         Assert.NotNull(error);
-        Assert.Contains("required fields", error.Message, StringComparison.Ordinal);
+        Assert.Contains("payload is invalid", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryDecodePayload_WhenOnlyLegacyRuntimeFieldExists_ReturnsFalse ()
+    {
+        var response = CreateResponse(
+            IpcProtocol.StatusOk,
+            Array.Empty<IpcError>(),
+            new
+            {
+                serverVersion = "0.5.0",
+                runtime = "batchmode",
+                unityVersion = "2022.3.5f1",
+                projectFingerprint = "project-fingerprint",
+                compileState = "ready",
+            });
+
+        var result = DaemonPingResponseCodec.TryDecodePayload(response, out var payload, out var error);
+
+        Assert.False(result);
+        Assert.Null(payload);
+        Assert.NotNull(error);
+        Assert.Contains("payload is invalid", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryDecodePayloadForProject_WhenProjectFingerprintMatches_ReturnsTrue ()
+    {
+        var response = CreateResponse(IpcProtocol.StatusOk, Array.Empty<IpcError>(), CreatePayload());
+
+        var result = DaemonPingResponseCodec.TryDecodePayloadForProject(
+            response,
+            "project-fingerprint",
+            "Daemon ping",
+            out var payload,
+            out var error);
+
+        Assert.True(result);
+        Assert.NotNull(payload);
+        Assert.Null(error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryDecodePayloadForProject_WhenProjectFingerprintMismatches_ReturnsFalse ()
+    {
+        var response = CreateResponse(IpcProtocol.StatusOk, Array.Empty<IpcError>(), CreatePayload());
+
+        var result = DaemonPingResponseCodec.TryDecodePayloadForProject(
+            response,
+            "different-fingerprint",
+            "Daemon ping",
+            out var payload,
+            out var error);
+
+        Assert.False(result);
+        Assert.Null(payload);
+        Assert.NotNull(error);
+        Assert.Contains("projectFingerprint mismatch", error.Message, StringComparison.Ordinal);
     }
 
     private static IpcResponse CreateResponse (
@@ -161,7 +222,7 @@ public sealed class DaemonPingResponseCodecTests
     {
         return new IpcPingResponse(
             ServerVersion: "0.5.0",
-            Runtime: "batchmode",
+            EditorMode: "batchmode",
             UnityVersion: "2022.3.5f1",
             ProjectFingerprint: "project-fingerprint",
             CompileState: "ready");

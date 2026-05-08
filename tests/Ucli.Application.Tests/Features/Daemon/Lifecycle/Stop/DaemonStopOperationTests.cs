@@ -157,9 +157,9 @@ public sealed class DaemonStopOperationTests
         {
             ReadResult = DaemonSessionReadResult.Success(CreateSession(
                 processId: 456,
-                ownerKind: DaemonSession.OwnerKindUser,
+                ownerKind: DaemonSessionOwnerKindValues.User,
                 canShutdownProcess: false,
-                editorMode: DaemonSession.EditorModeGui)),
+                editorMode: DaemonEditorModeValues.Gui)),
         };
         var shutdownClient = new StubDaemonShutdownClient();
         var processTerminationService = new StubDaemonProcessTerminationService();
@@ -283,8 +283,8 @@ public sealed class DaemonStopOperationTests
 
     private static DaemonSession CreateSession (
         int? processId,
-        string editorMode = DaemonSession.EditorModeBatchmode,
-        string ownerKind = DaemonSession.OwnerKindCli,
+        string editorMode = DaemonEditorModeValues.Batchmode,
+        string ownerKind = DaemonSessionOwnerKindValues.Cli,
         bool canShutdownProcess = true)
     {
         return new DaemonSession(

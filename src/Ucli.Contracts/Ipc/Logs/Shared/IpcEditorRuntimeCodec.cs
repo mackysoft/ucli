@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Daemon;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -12,12 +11,6 @@ public static class IpcEditorRuntimeCodec
     /// <summary> Gets the runtime value used by Unity GUI hosts. </summary>
     public const string Gui = DaemonEditorModeValues.Gui;
 
-    private static readonly string[] CanonicalLiterals =
-    {
-        Batchmode,
-        Gui,
-    };
-
     /// <summary> Tries to normalize one raw runtime literal. </summary>
     /// <param name="value"> The optional raw literal. </param>
     /// <param name="runtime"> The canonical literal on success; otherwise <see langword="null" />. </param>
@@ -26,10 +19,13 @@ public static class IpcEditorRuntimeCodec
         string? value,
         out string? runtime)
     {
-        return LiteralCodecUtilities.TryNormalizeLiteral(
-            value,
-            CanonicalLiterals,
-            StringComparison.Ordinal,
-            out runtime);
+        if (DaemonEditorModeCodec.TryParse(value, out var editorMode))
+        {
+            runtime = DaemonEditorModeCodec.ToValue(editorMode);
+            return true;
+        }
+
+        runtime = null;
+        return false;
     }
 }

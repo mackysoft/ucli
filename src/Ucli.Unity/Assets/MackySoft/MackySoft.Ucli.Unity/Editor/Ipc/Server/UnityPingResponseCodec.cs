@@ -42,7 +42,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             return new IpcPingResponse(
                 ServerVersion: serverVersion,
-                Runtime: snapshot.Runtime,
+                EditorMode: snapshot.Runtime,
                 UnityVersion: unityVersion,
                 ProjectFingerprint: projectFingerprint,
                 CompileState: snapshot.CompileState,

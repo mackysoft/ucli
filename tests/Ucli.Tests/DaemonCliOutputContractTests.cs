@@ -224,7 +224,7 @@ public sealed class DaemonCliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "daemon-start-gui-option");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        await WriteUnityPluginMarker(scope, "UnityProject");
+        await UnityProjectTestFactory.WriteUcliUnityPluginMarker(scope, "UnityProject");
 
         var result = await CliProcessRunner.RunCommand(
             UcliCommandNames.Daemon,
@@ -539,28 +539,6 @@ public sealed class DaemonCliOutputContractTests
         return RunGit(scope.FullPath, "init");
     }
 
-    private static Task WriteUnityPluginMarker (
-        TestDirectoryScope scope,
-        string unityProjectDirectoryName)
-    {
-        ArgumentNullException.ThrowIfNull(scope);
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectDirectoryName);
-
-        return scope.WriteFileAsync(
-            Path.Combine(
-                unityProjectDirectoryName,
-                "Assets",
-                "MackySoft",
-                "MackySoft.Ucli.Unity",
-                "ucli-plugin.json"),
-            """
-            {
-              "pluginId": "com.mackysoft.ucli.unity",
-              "protocolVersion": 1
-            }
-            """);
-    }
-
     private static async Task RunGit (
         string workingDirectory,
         params string[] arguments)
@@ -607,8 +585,8 @@ public sealed class DaemonCliOutputContractTests
                 sessionToken = "session-token",
                 projectFingerprint,
                 issuedAtUtc,
-                editorMode = DaemonSession.EditorModeBatchmode,
-                ownerKind = DaemonSession.OwnerKindCli,
+                editorMode = DaemonEditorModeValues.Batchmode,
+                ownerKind = DaemonSessionOwnerKindValues.Cli,
                 canShutdownProcess = true,
                 endpointTransportKind = "namedPipe",
                 endpointAddress = "ucli-cleanup-test",

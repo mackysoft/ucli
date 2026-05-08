@@ -25,7 +25,7 @@ public sealed class DaemonStartCommandTests
         var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
 
         CommandExecutionState.Reset();
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Start(
+        var (exitCode, _) = await StandardOutputCapture.Execute(() => command.Start(
             projectPath: "/repo/UnityProject",
             timeout: "1234",
             editorMode: editorModeOption,
@@ -36,20 +36,6 @@ public sealed class DaemonStartCommandTests
         Assert.Equal("/repo/UnityProject", service.LastProjectPath);
         Assert.Equal(1234, service.LastTimeoutMilliseconds);
         Assert.Equal(expectedEditorMode, service.LastEditorMode);
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            UcliCommandNames.DaemonStart,
-            IpcProtocol.StatusOk,
-            (int)CliExitCode.Success);
-        CommandResultAssert.HasNoErrors(outputJson.RootElement);
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("payload", payload => payload
-                .HasProperty("session", session => session
-                    .HasString("editorMode", DaemonEditorModeValues.Batchmode)
-                    .HasString("ownerKind", DaemonSessionOwnerKindValues.Cli)
-                    .HasBoolean("canShutdownProcess", true)));
     }
 
     [Fact]

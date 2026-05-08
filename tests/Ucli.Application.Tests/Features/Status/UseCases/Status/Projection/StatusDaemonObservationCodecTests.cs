@@ -37,7 +37,7 @@ public sealed class StatusDaemonObservationCodecTests
     {
         var pingResponse = new IpcPingResponse(
             ServerVersion: " 0.5.0 ",
-            Runtime: $" {IpcEditorRuntimeCodec.Batchmode} ",
+            EditorMode: $" {DaemonEditorModeValues.Batchmode} ",
             UnityVersion: "2022.3.5f1",
             ProjectFingerprint: "project-fingerprint",
             CompileState: compileState,
@@ -59,7 +59,7 @@ public sealed class StatusDaemonObservationCodecTests
         Assert.Equal("42", actual.CompileGeneration);
         Assert.Equal("17", actual.DomainReloadGeneration);
         Assert.True(actual.CanAcceptExecutionRequests);
-        Assert.Equal(IpcEditorRuntimeCodec.Batchmode, actual.EditorMode);
+        Assert.Equal(DaemonEditorModeValues.Batchmode, actual.EditorMode);
     }
 
     [Fact]
@@ -68,7 +68,7 @@ public sealed class StatusDaemonObservationCodecTests
     {
         var pingResponse = new IpcPingResponse(
             ServerVersion: "0.5.0",
-            Runtime: IpcEditorRuntimeCodec.Batchmode,
+            EditorMode: DaemonEditorModeValues.Batchmode,
             UnityVersion: "2022.3.5f1",
             ProjectFingerprint: "project-fingerprint",
             CompileState: "ready",
@@ -89,11 +89,11 @@ public sealed class StatusDaemonObservationCodecTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void CreateFromPing_WhenRuntimeIsUnsupported_ClearsEditorMode ()
+    public void CreateFromPing_WhenEditorModeIsUnsupported_ClearsEditorMode ()
     {
         var pingResponse = new IpcPingResponse(
             ServerVersion: "0.5.0",
-            Runtime: "unsupported",
+            EditorMode: "unsupported",
             UnityVersion: "2022.3.5f1",
             ProjectFingerprint: "project-fingerprint",
             CompileState: "ready",
@@ -116,7 +116,7 @@ public sealed class StatusDaemonObservationCodecTests
     {
         var pingResponse = new IpcPingResponse(
             ServerVersion: "0.5.0",
-            Runtime: IpcEditorRuntimeCodec.Batchmode,
+            EditorMode: DaemonEditorModeValues.Batchmode,
             UnityVersion: "2022.3.5f1",
             ProjectFingerprint: "project-fingerprint",
             CompileState: "ready",

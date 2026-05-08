@@ -43,12 +43,15 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         CancellationToken cancellationToken = default)
     {
         var response = await SendPingRequest(unityProject, timeout, sessionToken, cancellationToken).ConfigureAwait(false);
-        if (!DaemonPingResponseCodec.TryDecodePayload(response, out var payload, out var error))
+        if (!DaemonPingResponseCodec.TryDecodePayloadForProject(
+                response,
+                unityProject.ProjectFingerprint,
+                "Daemon ping",
+                out _,
+                out var error))
         {
             throw error!;
         }
-
-        ValidateProjectFingerprint(unityProject, payload!);
     }
 
     /// <summary> Sends one ping request and returns decoded ping payload values. </summary>
@@ -68,12 +71,16 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         CancellationToken cancellationToken = default)
     {
         var response = await SendPingRequest(unityProject, timeout, sessionToken, cancellationToken).ConfigureAwait(false);
-        if (!DaemonPingResponseCodec.TryDecodePayload(response, out var payload, out var error))
+        if (!DaemonPingResponseCodec.TryDecodePayloadForProject(
+                response,
+                unityProject.ProjectFingerprint,
+                "Daemon ping",
+                out var payload,
+                out var error))
         {
             throw error!;
         }
 
-        ValidateProjectFingerprint(unityProject, payload!);
         return payload!;
     }
 
@@ -152,17 +159,4 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
             Payload: payload);
     }
 
-    private static void ValidateProjectFingerprint (
-        ResolvedUnityProjectContext unityProject,
-        IpcPingResponse payload)
-    {
-        ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentNullException.ThrowIfNull(payload);
-
-        if (!string.Equals(payload.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
-        {
-            throw new DaemonPingResponseException(
-                $"Daemon ping projectFingerprint mismatch. Requested={unityProject.ProjectFingerprint}, Actual={payload.ProjectFingerprint}.");
-        }
-    }
 }

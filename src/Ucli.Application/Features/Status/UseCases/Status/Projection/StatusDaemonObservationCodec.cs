@@ -58,8 +58,8 @@ internal static class StatusDaemonObservationCodec
             CompileGeneration: StringValueNormalizer.TrimToNull(pingResponse.CompileGeneration),
             DomainReloadGeneration: StringValueNormalizer.TrimToNull(pingResponse.DomainReloadGeneration),
             CanAcceptExecutionRequests: canAcceptExecutionRequests,
-            EditorMode: IpcEditorRuntimeCodec.TryParse(pingResponse.Runtime, out var editorMode)
-                ? editorMode
+            EditorMode: DaemonEditorModeCodec.TryParse(pingResponse.EditorMode, out var editorMode)
+                ? DaemonEditorModeCodec.ToValue(editorMode)
                 : null);
     }
 }

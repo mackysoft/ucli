@@ -300,8 +300,8 @@ public sealed class DaemonSessionStoreTests
             projectFingerprint: "fingerprint-user-owner-can-shutdown-true",
             sessionToken: "token-1") with
         {
-            EditorMode = DaemonSession.EditorModeGui,
-            OwnerKind = DaemonSession.OwnerKindUser,
+            EditorMode = DaemonEditorModeValues.Gui,
+            OwnerKind = DaemonSessionOwnerKindValues.User,
             CanShutdownProcess = true,
         };
 
@@ -323,8 +323,8 @@ public sealed class DaemonSessionStoreTests
             projectFingerprint: "fingerprint-gui-user-owner",
             sessionToken: "token-1") with
         {
-            EditorMode = DaemonSession.EditorModeGui,
-            OwnerKind = DaemonSession.OwnerKindUser,
+            EditorMode = DaemonEditorModeValues.Gui,
+            OwnerKind = DaemonSessionOwnerKindValues.User,
             CanShutdownProcess = false,
         };
 
@@ -342,8 +342,8 @@ public sealed class DaemonSessionStoreTests
             SessionToken: sessionToken,
             ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: DateTimeOffset.UtcNow,
-            EditorMode: DaemonSession.EditorModeBatchmode,
-            OwnerKind: DaemonSession.OwnerKindCli,
+            EditorMode: DaemonEditorModeValues.Batchmode,
+            OwnerKind: DaemonSessionOwnerKindValues.Cli,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-test",

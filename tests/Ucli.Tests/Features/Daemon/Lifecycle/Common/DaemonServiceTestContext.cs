@@ -40,8 +40,8 @@ internal static class DaemonServiceTestContext
             SessionToken: "secret-token",
             ProjectFingerprint: "fingerprint",
             IssuedAtUtc: new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero),
-            EditorMode: DaemonSession.EditorModeBatchmode,
-            OwnerKind: DaemonSession.OwnerKindCli,
+            EditorMode: DaemonEditorModeValues.Batchmode,
+            OwnerKind: DaemonSessionOwnerKindValues.Cli,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-endpoint",
@@ -248,7 +248,7 @@ internal static class DaemonServiceTestContext
     {
         public IpcPingResponse Response { get; set; } = new(
             ServerVersion: "0.0.1",
-            Runtime: "batchmode",
+            EditorMode: "batchmode",
             UnityVersion: "6000.1.4f1",
             ProjectFingerprint: "project-fingerprint",
             CompileState: IpcCompileStateCodec.Ready,

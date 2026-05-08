@@ -270,16 +270,15 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                         attemptTimeout,
                         cancellationToken)
                     .ConfigureAwait(false);
-                if (!DaemonPingResponseCodec.TryDecodePayload(pingResponse, out var payload, out var error))
+                if (!DaemonPingResponseCodec.TryDecodePayloadForProject(
+                        pingResponse,
+                        unityProject.ProjectFingerprint,
+                        "Unity oneshot startup probe",
+                        out var payload,
+                        out var error))
                 {
                     return ExecutionError.InternalError(
                         $"Unity oneshot startup probe returned an invalid response. {error!.Message}");
-                }
-
-                if (!string.Equals(payload!.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
-                {
-                    return ExecutionError.InternalError(
-                        $"Unity oneshot startup probe projectFingerprint mismatch. Requested={unityProject.ProjectFingerprint}, Actual={payload.ProjectFingerprint}.");
                 }
 
                 var readinessDecision = UnityDaemonReadinessPolicy.Evaluate(payload, failFast);

@@ -27,16 +27,4 @@ internal sealed record DaemonSession (
 {
     /// <summary> Gets the schema version used by daemon session persistence. </summary>
     public const int CurrentSchemaVersion = 1;
-
-    /// <summary> Gets the Editor mode value used for batchmode daemon sessions. </summary>
-    public const string EditorModeBatchmode = DaemonEditorModeValues.Batchmode;
-
-    /// <summary> Gets the Editor mode value used for GUI Editor daemon sessions. </summary>
-    public const string EditorModeGui = DaemonEditorModeValues.Gui;
-
-    /// <summary> Gets the owner kind value used for CLI-owned daemon sessions. </summary>
-    public const string OwnerKindCli = DaemonSessionOwnerKindValues.Cli;
-
-    /// <summary> Gets the owner kind value used for user-owned GUI Editor sessions. </summary>
-    public const string OwnerKindUser = DaemonSessionOwnerKindValues.User;
 }

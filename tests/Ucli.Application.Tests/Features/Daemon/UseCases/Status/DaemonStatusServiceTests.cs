@@ -280,7 +280,7 @@ public sealed class DaemonStatusServiceTests
         {
             Response = new IpcPingResponse(
                 ServerVersion: "9.9.9",
-                Runtime: "batchmode",
+                EditorMode: "batchmode",
                 UnityVersion: "6000.1.4f1",
                 ProjectFingerprint: "project-fingerprint",
                 CompileState: IpcCompileStateCodec.Compiling,

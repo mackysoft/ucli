@@ -4,6 +4,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
@@ -297,17 +298,9 @@ public sealed class UnityDaemonReadinessGateTests
         string lifecycleState,
         bool canAcceptExecutionRequests)
     {
-        return new IpcPingResponse(
-            ServerVersion: "1.0.0",
-            Runtime: IpcEditorRuntimeCodec.Batchmode,
-            UnityVersion: "2023.2.22f1",
-            ProjectFingerprint: "project-fingerprint",
-            CompileState: IpcCompileStateCodec.Ready,
-            LifecycleState: lifecycleState,
-            BlockingReason: canAcceptExecutionRequests ? null : IpcEditorBlockingReasonCodec.Busy,
-            CompileGeneration: "0",
-            DomainReloadGeneration: "0",
-            CanAcceptExecutionRequests: canAcceptExecutionRequests);
+        return IpcPingResponseTestFactory.Create(
+            lifecycleState: lifecycleState,
+            canAcceptExecutionRequests: canAcceptExecutionRequests);
     }
 
     private sealed class StubDaemonPingInfoClient : IDaemonPingInfoClient

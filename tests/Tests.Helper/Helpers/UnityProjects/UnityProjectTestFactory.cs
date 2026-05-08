@@ -5,6 +5,14 @@ internal static class UnityProjectTestFactory
 {
     private const string DefaultProjectVersionContent = "m_EditorVersion: 6000.1.4f1";
 
+    private const string UcliUnityPluginMarkerContent =
+        """
+        {
+          "pluginId": "com.mackysoft.ucli.unity",
+          "protocolVersion": 1
+        }
+        """;
+
     /// <summary> Creates a minimal valid UnityProject structure with <c>ProjectVersion.txt</c>. </summary>
     /// <param name="scope"> The root test-directory scope. </param>
     /// <param name="projectRelativePath"> The relative project path under the scope root. </param>
@@ -25,5 +33,26 @@ internal static class UnityProjectTestFactory
             projectVersionContent);
 
         return scope.GetPath(projectRelativePath);
+    }
+
+    /// <summary> Writes the uCLI Unity plugin marker under a minimal Unity project. </summary>
+    /// <param name="scope"> The root test-directory scope. </param>
+    /// <param name="projectRelativePath"> The relative project path under the scope root. </param>
+    /// <returns> A task that resolves to the written marker file path. </returns>
+    internal static Task<string> WriteUcliUnityPluginMarker (
+        TestDirectoryScope scope,
+        string projectRelativePath)
+    {
+        ArgumentNullException.ThrowIfNull(scope);
+        ArgumentException.ThrowIfNullOrWhiteSpace(projectRelativePath);
+
+        return scope.WriteFileAsync(
+            Path.Combine(
+                projectRelativePath,
+                "Assets",
+                "MackySoft",
+                "MackySoft.Ucli.Unity",
+                "ucli-plugin.json"),
+            UcliUnityPluginMarkerContent);
     }
 }

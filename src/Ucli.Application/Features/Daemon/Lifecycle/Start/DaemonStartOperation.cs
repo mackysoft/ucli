@@ -152,7 +152,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 diagnosisCleanupError);
         }
 
-        if (!TryResolveLaunchEditorMode(editorMode, out var launchEditorMode, out var editorModeError))
+        if (!DaemonLaunchEditorModePolicy.TryResolve(editorMode, out var launchEditorMode, out var editorModeError))
         {
             return CreateFailure(editorModeError!, diagnosisCleanupError);
         }
@@ -204,7 +204,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 diagnosisCleanupError);
         }
 
-        if (!TryResolveLaunchEditorMode(editorMode, out var launchEditorMode, out var editorModeError))
+        if (!DaemonLaunchEditorModePolicy.TryResolve(editorMode, out var launchEditorMode, out var editorModeError))
         {
             return CreateFailure(editorModeError!, diagnosisCleanupError);
         }
@@ -216,33 +216,6 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 cancellationToken)
             .ConfigureAwait(false);
         return CreateResult(launchResult, diagnosisCleanupError);
-    }
-
-    private static bool TryResolveLaunchEditorMode (
-        DaemonEditorMode? editorMode,
-        out DaemonEditorMode launchEditorMode,
-        out ExecutionError? error)
-    {
-        if (editorMode is null or DaemonEditorMode.Batchmode)
-        {
-            launchEditorMode = DaemonEditorMode.Batchmode;
-            error = null;
-            return true;
-        }
-
-        if (editorMode == DaemonEditorMode.Gui)
-        {
-            launchEditorMode = default;
-            error = ExecutionError.InternalError(
-                "daemon start --editorMode gui is not implemented until GUI Editor attach and launch support is available.",
-                UcliCoreErrorCodes.CommandNotImplemented);
-            return false;
-        }
-
-        launchEditorMode = default;
-        error = ExecutionError.InvalidArgument(
-            $"daemon start editorMode is invalid. Actual: {editorMode}.");
-        return false;
     }
 
     private static DaemonStartResult CreateFailure (
