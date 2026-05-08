@@ -156,7 +156,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
             return (fetchResult, SourceHashFailureMessage, false);
         }
 
-        if (IsDirtyLiveSource(fetchResult.Response!.SourceState))
+        if (SceneTreeSourceStatePolicy.IsDirtyLiveSource(fetchResult.Response!.SourceState))
         {
             return (fetchResult, DirtyLiveSourcePersistenceSkippedMessage, false);
         }
@@ -195,10 +195,4 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
         }
     }
 
-    private static bool IsDirtyLiveSource (SceneTreeSourceState sourceState)
-    {
-        return sourceState.IsDirty
-            && sourceState.Kind != SceneTreeSourceStateKind.PersistedPreview
-            && sourceState.Kind != SceneTreeSourceStateKind.ReadIndex;
-    }
 }

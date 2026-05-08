@@ -115,8 +115,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 Scene scene,
                 SceneTreeSourceStateKind sourceKind)
             {
-                return sourceKind != SceneTreeSourceStateKind.PersistedPreview
-                    && sourceKind != SceneTreeSourceStateKind.ReadIndex
+                return SceneTreeSourceStatePolicy.IsLiveSourceKind(sourceKind)
                     && scene.isDirty;
             }
         }

@@ -58,15 +58,8 @@ internal sealed class SceneTreeLiteDirtySourceProbeService : ISceneTreeLiteDirty
         }
 
         var response = fetchResult.Response!;
-        return IsDirtyLiveSource(response.SourceState)
+        return SceneTreeSourceStatePolicy.IsDirtyLiveSource(response.SourceState)
             ? SceneTreeLiteDirtySourceProbeResult.DirtySource(response, DirtyLoadedSceneFallbackReason)
             : SceneTreeLiteDirtySourceProbeResult.NotAvailable("Unity daemon scene is not dirty loaded source.");
-    }
-
-    private static bool IsDirtyLiveSource (SceneTreeSourceState sourceState)
-    {
-        return sourceState.IsDirty
-            && sourceState.Kind != SceneTreeSourceStateKind.PersistedPreview
-            && sourceState.Kind != SceneTreeSourceStateKind.ReadIndex;
     }
 }

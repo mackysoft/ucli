@@ -363,6 +363,31 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator SceneTreeLiteSnapshotBuilder_Build_WhenLoadedSceneOnlyAndSceneIsNotLoaded_FailsWithoutOpeningPreview () => UniTask.ToCoroutine(async () =>
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(IndexCatalogBuilderTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("PersistedRoot");
+            Assert.That(EditorSceneManager.SaveScene(scene, scenePath), Is.True);
+            var activeSceneBeforeBuild = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var activeSceneHandleBeforeBuild = activeSceneBeforeBuild.handle;
+            var loadedSceneCountBeforeBuild = SceneManager.sceneCount;
+            var builder = new SceneTreeLiteSnapshotBuilder();
+
+            var exception = await AsyncExceptionCapture.CaptureAsync<ArgumentException>(async () =>
+            {
+                await builder.BuildAsync(scenePath, loadedSceneOnly: true, cancellationToken: CancellationToken.None).AsUniTask();
+            }, "Loaded-scene-only scene-tree-lite read", AsyncWaitTimeout);
+
+            Assert.That(exception.ParamName, Is.EqualTo("scenePath"));
+            Assert.That(SceneManager.sceneCount, Is.EqualTo(loadedSceneCountBeforeBuild));
+            Assert.That(SceneManager.GetActiveScene().handle, Is.EqualTo(activeSceneHandleBeforeBuild));
+            Assert.That(SceneManager.GetSceneByPath(scenePath).IsValid(), Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator SceneTreeLiteSnapshotBuilder_Build_WhenSceneIsLoadedDirty_ReturnsLoadedDirtyTree () => UniTask.ToCoroutine(async () =>
         {
             using var scope = new EditorTestScope();
