@@ -7,7 +7,7 @@ using MackySoft.Ucli.Infrastructure.Storage;
 namespace MackySoft.Ucli.Infrastructure.Ipc;
 
 /// <summary> Resolves shared uCLI IPC endpoints from storage and project identity values. </summary>
-public static class UcliIpcEndpointResolver
+internal static class UcliIpcEndpointResolver
 {
     /// <summary> Resolves the daemon transport endpoint for the given project identity. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>

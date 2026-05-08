@@ -66,7 +66,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     registration,
                     server: null,
                     unityLogCaptureService: null,
-                    serviceProvider: new ThrowingServiceProvider(),
+                    serviceProvider: new SpyServiceProvider(throwOnDispose: true),
                     daemonLogger: NoOpDaemonLogger.Instance);
 
                 Assert.That(File.Exists(registration.SessionPath), Is.False);
@@ -90,7 +90,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-bootstrap-tests"),
                     UnityGuiBootstrapSessionOptions.Create(null),
                     CancellationToken.None);
-                var server = new ThrowingUnityIpcServer();
+                var server = new SpyUnityIpcServer(throwOnStop: true);
                 var logCapture = new SpyDisposable();
                 var serviceProvider = new SpyServiceProvider();
 
@@ -127,6 +127,13 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class SpyUnityIpcServer : IUnityIpcServer
         {
+            private readonly bool throwOnStop;
+
+            public SpyUnityIpcServer (bool throwOnStop = false)
+            {
+                this.throwOnStop = throwOnStop;
+            }
+
             public int StopCallCount { get; private set; }
 
             public Task Start (
@@ -139,30 +146,12 @@ namespace MackySoft.Ucli.Unity.Tests
             public Task Stop (CancellationToken cancellationToken = default)
             {
                 StopCallCount++;
+                if (throwOnStop)
+                {
+                    throw new InvalidOperationException("stop failed");
+                }
+
                 return Task.CompletedTask;
-            }
-
-            public Task WaitForTermination (CancellationToken cancellationToken = default)
-            {
-                return Task.CompletedTask;
-            }
-        }
-
-        private sealed class ThrowingUnityIpcServer : IUnityIpcServer
-        {
-            public int StopCallCount { get; private set; }
-
-            public Task Start (
-                IpcEndpoint endpoint,
-                CancellationToken cancellationToken = default)
-            {
-                return Task.CompletedTask;
-            }
-
-            public Task Stop (CancellationToken cancellationToken = default)
-            {
-                StopCallCount++;
-                throw new InvalidOperationException("stop failed");
             }
 
             public Task WaitForTermination (CancellationToken cancellationToken = default)
@@ -181,21 +170,15 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private sealed class ThrowingServiceProvider : IServiceProvider, IDisposable
-        {
-            public object GetService (Type serviceType)
-            {
-                return null;
-            }
-
-            public void Dispose ()
-            {
-                throw new InvalidOperationException("dispose failed");
-            }
-        }
-
         private sealed class SpyServiceProvider : IServiceProvider, IDisposable
         {
+            private readonly bool throwOnDispose;
+
+            public SpyServiceProvider (bool throwOnDispose = false)
+            {
+                this.throwOnDispose = throwOnDispose;
+            }
+
             public int DisposeCallCount { get; private set; }
 
             public object GetService (Type serviceType)
@@ -206,6 +189,10 @@ namespace MackySoft.Ucli.Unity.Tests
             public void Dispose ()
             {
                 DisposeCallCount++;
+                if (throwOnDispose)
+                {
+                    throw new InvalidOperationException("dispose failed");
+                }
             }
         }
     }

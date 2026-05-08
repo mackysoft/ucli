@@ -8,7 +8,16 @@ public sealed class IpcGuiBootstrapArgumentsCodecTests
     [Trait("Size", "Small")]
     public void TryParse_WhenGuiBootstrapArgumentsExist_ReturnsPayload ()
     {
-        var args = CreateGuiBootstrapArgs(new IpcGuiBootstrapArguments(OwnerProcessId: 123, CanShutdownProcess: true));
+        var args = new[]
+        {
+            "Unity",
+            IpcGuiBootstrapArgumentNames.Target,
+            IpcGuiBootstrapTargetValues.Daemon,
+            IpcGuiBootstrapArgumentNames.OwnerProcessId,
+            "123",
+            IpcGuiBootstrapArgumentNames.CanShutdownProcess,
+            "true",
+        };
 
         var parsed = IpcGuiBootstrapArgumentsCodec.TryParse(args, out var bootstrapArguments, out var error);
 

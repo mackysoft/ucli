@@ -73,10 +73,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             await FileUtilities.WriteAllTextAtomically(sessionPath, json, cancellationToken).ConfigureAwait(false);
             FileSystemAccessBoundary.EnsureSecureFile(sessionPath);
             return new UnityGuiSessionRegistration(
-                storageRoot,
-                projectFingerprint,
                 sessionPath,
-                sessionToken,
                 issuedAtUtc,
                 endpoint,
                 sessionOptions.CanShutdownProcess);

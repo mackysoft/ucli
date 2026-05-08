@@ -82,7 +82,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 lock (SyncRoot)
                 {
                     activeState = nextState;
-                    nextState.RunTask = Monitor(nextState);
+                    _ = Monitor(nextState);
                 }
 
                 EnsureEditorLifecycleSubscriptions();
@@ -346,8 +346,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             public IServiceProvider ServiceProvider { get; }
 
             public IDaemonLogger DaemonLogger { get; }
-
-            public Task RunTask { get; set; }
 
             public bool TryBeginStop ()
             {

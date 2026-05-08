@@ -57,9 +57,9 @@ public static class IpcGuiBootstrapArgumentsCodec
             return false;
         }
 
-        if (!TryGetArgumentValue(args, IpcGuiBootstrapArgumentNames.Target, out var target))
+        if (!IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcGuiBootstrapArgumentNames.Target, out var target))
         {
-            if (ContainsArgumentName(args, IpcGuiBootstrapArgumentNames.Target))
+            if (IpcBootstrapArgumentReader.ContainsArgumentName(args, IpcGuiBootstrapArgumentNames.Target))
             {
                 error = new IpcGuiBootstrapParseError(
                     IpcGuiBootstrapParseErrorKind.InvalidTarget,
@@ -81,8 +81,8 @@ public static class IpcGuiBootstrapArgumentsCodec
             return false;
         }
 
-        if (!TryGetArgumentValue(args, IpcGuiBootstrapArgumentNames.OwnerProcessId, out var ownerProcessIdText)
-            || !TryGetArgumentValue(args, IpcGuiBootstrapArgumentNames.CanShutdownProcess, out var canShutdownProcessText))
+        if (!IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcGuiBootstrapArgumentNames.OwnerProcessId, out var ownerProcessIdText)
+            || !IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcGuiBootstrapArgumentNames.CanShutdownProcess, out var canShutdownProcessText))
         {
             error = new IpcGuiBootstrapParseError(
                 IpcGuiBootstrapParseErrorKind.MissingRequiredArguments,
@@ -112,57 +112,4 @@ public static class IpcGuiBootstrapArgumentsCodec
         return true;
     }
 
-    private static bool TryGetArgumentValue (
-        IReadOnlyList<string> args,
-        string argumentName,
-        out string value)
-    {
-        value = string.Empty;
-        for (var i = 0; i < args.Count - 1; i++)
-        {
-            if (!string.Equals(args[i], argumentName, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            var nextToken = args[i + 1];
-            if (IsKnownArgumentName(nextToken))
-            {
-                continue;
-            }
-
-            value = nextToken;
-            return true;
-        }
-
-        return false;
-    }
-
-    private static bool ContainsArgumentName (
-        IReadOnlyList<string> args,
-        string argumentName)
-    {
-        for (var i = 0; i < args.Count; i++)
-        {
-            if (string.Equals(args[i], argumentName, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool IsKnownArgumentName (string token)
-    {
-        for (var i = 0; i < KnownArgumentNames.Length; i++)
-        {
-            if (string.Equals(token, KnownArgumentNames[i], StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }

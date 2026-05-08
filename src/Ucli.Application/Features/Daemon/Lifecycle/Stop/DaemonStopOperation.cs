@@ -108,18 +108,19 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         }
 
         var session = readResult.Session!;
-        if (!DaemonSessionTerminationPolicy.CanShutdownProcess(session))
+        var stopCapability = DaemonSessionTerminationPolicy.ResolveStopCapability(session);
+        if (stopCapability == DaemonSessionTerminationPolicy.StopCapability.EndpointOnly)
         {
-            if (DaemonSessionTerminationPolicy.CanStopEndpointOnly(session))
-            {
-                return await StopEndpointOnlySession(
-                        unityProject,
-                        session,
-                        deadline,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            }
+            return await StopEndpointOnlySession(
+                    unityProject,
+                    session,
+                    deadline,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
 
+        if (stopCapability != DaemonSessionTerminationPolicy.StopCapability.ProcessShutdown)
+        {
             return DaemonStopResult.Failure(ExecutionError.InvalidArgument(
                 "Daemon session does not allow process shutdown."));
         }

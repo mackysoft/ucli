@@ -23,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                var registration = await WriteSession(
+                await WriteSession(
                     storageRoot,
                     UnityGuiBootstrapSessionOptions.Create(null));
 
@@ -36,7 +36,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(contract.OwnerProcessId, Is.EqualTo(Process.GetCurrentProcess().Id));
                 Assert.That(contract.EndpointTransportKind, Is.EqualTo(IpcTransportKindValues.NamedPipe));
                 Assert.That(contract.EndpointAddress, Is.EqualTo("ucli-gui-session-tests"));
-                Assert.That(contract.SessionToken, Is.EqualTo(registration.SessionToken));
+                Assert.That(contract.SessionToken, Is.Not.Null.And.Not.Empty);
                 Assert.That(contract.ProjectFingerprint, Is.EqualTo("fingerprint"));
             }
             finally
@@ -80,10 +80,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 var registration = await WriteSession(
                     storageRoot,
                     UnityGuiBootstrapSessionOptions.Create(null));
+                var sessionToken = ReadSessionContract(storageRoot).SessionToken;
                 var validator = new FileBackedSessionTokenValidator(registration.SessionPath);
 
                 Assert.That(
-                    await validator.Validate(registration.SessionToken, CancellationToken.None),
+                    await validator.Validate(sessionToken, CancellationToken.None),
                     Is.True);
                 Assert.That(
                     await validator.Validate("wrong-session-token", CancellationToken.None),
@@ -93,7 +94,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(File.Exists(registration.SessionPath), Is.False);
                 Assert.That(
-                    await validator.Validate(registration.SessionToken, CancellationToken.None),
+                    await validator.Validate(sessionToken, CancellationToken.None),
                     Is.False);
             }
             finally
@@ -112,13 +113,15 @@ namespace MackySoft.Ucli.Unity.Tests
                 var firstRegistration = await WriteSession(
                     storageRoot,
                     UnityGuiBootstrapSessionOptions.Create(null));
+                var firstSessionToken = ReadSessionContract(storageRoot).SessionToken;
                 UnityGuiSessionPersistence.Delete(firstRegistration);
 
                 var secondRegistration = await WriteSession(
                     storageRoot,
                     UnityGuiBootstrapSessionOptions.Create(null));
+                var secondSessionToken = ReadSessionContract(storageRoot).SessionToken;
 
-                Assert.That(secondRegistration.SessionToken, Is.Not.EqualTo(firstRegistration.SessionToken));
+                Assert.That(secondSessionToken, Is.Not.EqualTo(firstSessionToken));
                 Assert.That(File.Exists(secondRegistration.SessionPath), Is.True);
             }
             finally
