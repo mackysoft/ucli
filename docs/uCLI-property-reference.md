@@ -696,7 +696,8 @@ subset で使用できる語彙は `type`、`properties`、`required`、`additio
       "additionalProperties": false,
       "required": [
         "path",
-        "roots"
+        "roots",
+        "sourceState"
       ],
       "properties": {
         "path": {
@@ -707,6 +708,9 @@ subset で使用できる語彙は `type`、`properties`、`required`、`additio
           "items": {
             "$ref": "#/$defs/IndexSceneTreeLiteNodeJsonContract"
           }
+        },
+        "sourceState": {
+          "$ref": "#/$defs/SceneTreeSourceState"
         }
       },
       "$defs": {
@@ -730,6 +734,22 @@ subset で使用できる語彙は `type`、`properties`、`required`、`additio
               "items": {
                 "$ref": "#/$defs/IndexSceneTreeLiteNodeJsonContract"
               }
+            }
+          }
+        },
+        "SceneTreeSourceState": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "isDirty"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string"
+            },
+            "isDirty": {
+              "type": "boolean"
             }
           }
         }
