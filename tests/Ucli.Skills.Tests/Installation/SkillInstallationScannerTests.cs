@@ -24,7 +24,7 @@ public sealed class SkillInstallationScannerTests
         Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
         var scanner = SkillTestData.CreateInstallationScanner();
 
-        var scanResult = await scanner.ScanAsync(packages, installResult.Value!.TargetRoot, OpenAiSkillHostAdapter.HostKey, CancellationToken.None);
+        var scanResult = await scanner.ScanAsync(packages, installResult.Value!.TargetRoot, OpenAiSkillHostAdapter.HostKey, cancellationToken: CancellationToken.None);
 
         Assert.True(scanResult.IsSuccess, scanResult.Failure?.Message);
         Assert.Equal(SkillTestData.ExpectedSkillNames, scanResult.Value!.Select(static skill => skill.Identity.SkillName).Order(StringComparer.Ordinal).ToArray());
@@ -53,8 +53,8 @@ public sealed class SkillInstallationScannerTests
             packages,
             installResult.Value!.TargetRoot,
             OpenAiSkillHostAdapter.HostKey,
-            CancellationToken.None,
-            SkillScopeKind.User);
+            SkillScopeKind.User,
+            CancellationToken.None);
 
         Assert.True(scanResult.IsSuccess, scanResult.Failure?.Message);
         Assert.All(scanResult.Value!, static skill => Assert.Equal(SkillScopeKind.User, skill.Identity.Scope));
@@ -67,7 +67,7 @@ public sealed class SkillInstallationScannerTests
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "scan-unsupported-host");
         var scanner = SkillTestData.CreateInstallationScanner();
 
-        var result = await scanner.ScanAsync(Array.Empty<CanonicalSkillPackage>(), scope.FullPath, "generic", CancellationToken.None);
+        var result = await scanner.ScanAsync(Array.Empty<CanonicalSkillPackage>(), scope.FullPath, "generic", cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(SkillFailureCodes.HostUnsupported, result.Failure!.Code);
@@ -83,7 +83,7 @@ public sealed class SkillInstallationScannerTests
         scope.WriteFile(".agents/skills/sample-skill/ucli-skill.json", "{}");
         var scanner = SkillTestData.CreateInstallationScanner();
 
-        var result = await scanner.ScanAsync(packages, targetRoot, OpenAiSkillHostAdapter.HostKey, CancellationToken.None);
+        var result = await scanner.ScanAsync(packages, targetRoot, OpenAiSkillHostAdapter.HostKey, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(SkillFailureCodes.ManifestInvalid, result.Failure!.Code);
@@ -100,7 +100,7 @@ public sealed class SkillInstallationScannerTests
         scope.WriteFile(".agents/skills/not-the-skill/ucli-skill.json", manifest);
         var scanner = SkillTestData.CreateInstallationScanner();
 
-        var result = await scanner.ScanAsync(packages, targetRoot, OpenAiSkillHostAdapter.HostKey, CancellationToken.None);
+        var result = await scanner.ScanAsync(packages, targetRoot, OpenAiSkillHostAdapter.HostKey, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(SkillFailureCodes.ManifestInvalid, result.Failure!.Code);
@@ -120,7 +120,7 @@ public sealed class SkillInstallationScannerTests
         Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
         var scanner = SkillTestData.CreateInstallationScanner();
 
-        var scanResult = await scanner.ScanAsync(packages, installResult.Value!.TargetRoot, OpenAiSkillHostAdapter.HostKey, CancellationToken.None);
+        var scanResult = await scanner.ScanAsync(packages, installResult.Value!.TargetRoot, OpenAiSkillHostAdapter.HostKey, cancellationToken: CancellationToken.None);
 
         Assert.False(scanResult.IsSuccess);
         Assert.Equal(SkillFailureCodes.InstallTargetHostConflict, scanResult.Failure!.Code);
@@ -141,7 +141,7 @@ public sealed class SkillInstallationScannerTests
         File.AppendAllText(Path.Combine(installResult.Value!.TargetRoot, packages[0].Manifest.SkillName, "SKILL.md"), "\nInjected instruction.\n");
         var scanner = SkillTestData.CreateInstallationScanner();
 
-        var scanResult = await scanner.ScanAsync(packages, installResult.Value.TargetRoot, OpenAiSkillHostAdapter.HostKey, CancellationToken.None);
+        var scanResult = await scanner.ScanAsync(packages, installResult.Value.TargetRoot, OpenAiSkillHostAdapter.HostKey, cancellationToken: CancellationToken.None);
 
         Assert.False(scanResult.IsSuccess);
         Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, scanResult.Failure!.Code);
@@ -162,7 +162,7 @@ public sealed class SkillInstallationScannerTests
         File.WriteAllText(Path.Combine(installResult.Value!.TargetRoot, packages[0].Manifest.SkillName, "references", "extra.md"), "# Extra\n");
         var scanner = SkillTestData.CreateInstallationScanner();
 
-        var scanResult = await scanner.ScanAsync(packages, installResult.Value.TargetRoot, OpenAiSkillHostAdapter.HostKey, CancellationToken.None);
+        var scanResult = await scanner.ScanAsync(packages, installResult.Value.TargetRoot, OpenAiSkillHostAdapter.HostKey, cancellationToken: CancellationToken.None);
 
         Assert.False(scanResult.IsSuccess);
         Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, scanResult.Failure!.Code);
@@ -183,7 +183,7 @@ public sealed class SkillInstallationScannerTests
         scope.WriteFile(".agents/skills/external-skill/ucli-skill.json", serializer.Serialize(externalManifest));
         var scanner = SkillTestData.CreateInstallationScanner();
 
-        var scanResult = await scanner.ScanAsync(packages, targetRoot, OpenAiSkillHostAdapter.HostKey, CancellationToken.None);
+        var scanResult = await scanner.ScanAsync(packages, targetRoot, OpenAiSkillHostAdapter.HostKey, cancellationToken: CancellationToken.None);
 
         Assert.False(scanResult.IsSuccess);
         Assert.Equal(SkillFailureCodes.InstallTargetUnmanaged, scanResult.Failure!.Code);
@@ -205,7 +205,7 @@ public sealed class SkillInstallationScannerTests
         scope.WriteFile(".agents/skills/external-skill/ucli-skill.json", serializer.Serialize(externalManifest));
         var scanner = SkillTestData.CreateInstallationScanner();
 
-        var scanResult = await scanner.ScanAsync(packages, targetRoot, OpenAiSkillHostAdapter.HostKey, CancellationToken.None);
+        var scanResult = await scanner.ScanAsync(packages, targetRoot, OpenAiSkillHostAdapter.HostKey, cancellationToken: CancellationToken.None);
 
         Assert.False(scanResult.IsSuccess);
         Assert.Equal(SkillFailureCodes.ManifestInvalid, scanResult.Failure!.Code);
@@ -226,7 +226,7 @@ public sealed class SkillInstallationScannerTests
         scope.WriteFile(Path.Combine(".agents", "skills", "unmanaged", "nested", "ucli-skill.json"), "{}");
         var scanner = SkillTestData.CreateInstallationScanner();
 
-        var scanResult = await scanner.ScanAsync(packages, installResult.Value!.TargetRoot, OpenAiSkillHostAdapter.HostKey, CancellationToken.None);
+        var scanResult = await scanner.ScanAsync(packages, installResult.Value!.TargetRoot, OpenAiSkillHostAdapter.HostKey, cancellationToken: CancellationToken.None);
 
         Assert.True(scanResult.IsSuccess, scanResult.Failure?.Message);
         Assert.Equal(SkillTestData.ExpectedSkillNames.Length, scanResult.Value!.Count);
