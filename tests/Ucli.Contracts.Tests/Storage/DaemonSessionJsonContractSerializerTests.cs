@@ -29,7 +29,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
         var contract = DaemonSessionJsonContractSerializer.Deserialize(Json);
 
         Assert.NotNull(contract);
-        Assert.Equal(1, contract.SchemaVersion);
+        Assert.Equal(DaemonSessionStorageContract.CurrentSchemaVersion, contract.SchemaVersion);
         Assert.Equal("token-123", contract.SessionToken);
         Assert.Equal("fingerprint-abc", contract.ProjectFingerprint);
         Assert.Equal(DateTimeOffset.Parse("2026-03-02T00:00:00+00:00"), contract.IssuedAtUtc);
@@ -66,7 +66,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
     public void Serialize_WithContract_WritesCamelCaseFields ()
     {
         var contract = new DaemonSessionJsonContract(
-            SchemaVersion: 1,
+            SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
             SessionToken: "token-123",
             ProjectFingerprint: "fingerprint-abc",
             IssuedAtUtc: DateTimeOffset.Parse("2026-03-02T00:00:00+00:00"),

@@ -28,6 +28,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     UnityGuiBootstrapSessionOptions.Create(null));
 
                 var contract = ReadSessionContract(storageRoot);
+                Assert.That(contract.SchemaVersion, Is.EqualTo(DaemonSessionStorageContract.CurrentSchemaVersion));
                 Assert.That(contract.EditorMode, Is.EqualTo(DaemonEditorModeValues.Gui));
                 Assert.That(contract.OwnerKind, Is.EqualTo(DaemonSessionOwnerKindValues.User));
                 Assert.That(contract.CanShutdownProcess, Is.False);
@@ -84,6 +85,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(
                     await validator.Validate(registration.SessionToken, CancellationToken.None),
                     Is.True);
+                Assert.That(
+                    await validator.Validate("wrong-session-token", CancellationToken.None),
+                    Is.False);
 
                 UnityGuiSessionPersistence.Delete(registration);
 

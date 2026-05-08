@@ -80,6 +80,26 @@ public sealed class IpcGuiBootstrapArgumentsCodecTests
         Assert.Equal(IpcGuiBootstrapParseErrorKind.InvalidTarget, error.Kind);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryParse_WhenTargetMarkerHasNoValue_ReturnsInvalidTarget ()
+    {
+        var args = new[]
+        {
+            "Unity",
+            IpcGuiBootstrapArgumentNames.Target,
+            IpcGuiBootstrapArgumentNames.OwnerProcessId,
+            "123",
+            IpcGuiBootstrapArgumentNames.CanShutdownProcess,
+            "true",
+        };
+
+        var parsed = IpcGuiBootstrapArgumentsCodec.TryParse(args, out _, out var error);
+
+        Assert.False(parsed);
+        Assert.Equal(IpcGuiBootstrapParseErrorKind.InvalidTarget, error.Kind);
+    }
+
     [Theory]
     [Trait("Size", "Small")]
     [InlineData("0")]
