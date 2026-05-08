@@ -9,9 +9,6 @@ namespace MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 /// <summary> Probes daemon-loaded scene state before scene-tree-lite read-index reads. </summary>
 internal sealed class SceneTreeLiteDirtySourceProbeService : ISceneTreeLiteDirtySourceProbeService
 {
-    private const string DirtyLoadedSceneFallbackReason
-        = "Dirty loaded scene is open in Unity daemon.";
-
     private readonly ISceneTreeLiteSnapshotReader snapshotReader;
 
     /// <summary> Initializes a new instance of the <see cref="SceneTreeLiteDirtySourceProbeService" /> class. </summary>
@@ -59,7 +56,7 @@ internal sealed class SceneTreeLiteDirtySourceProbeService : ISceneTreeLiteDirty
 
         var response = fetchResult.Response!;
         return SceneTreeSourceStatePolicy.IsDirtyLiveSource(response.SourceState)
-            ? SceneTreeLiteDirtySourceProbeResult.DirtySource(response, DirtyLoadedSceneFallbackReason)
+            ? SceneTreeLiteDirtySourceProbeResult.DirtySource(response, "Dirty loaded scene is open in Unity daemon.")
             : SceneTreeLiteDirtySourceProbeResult.NotAvailable("Unity daemon scene is not dirty loaded source.");
     }
 }
