@@ -363,12 +363,18 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Execute_WhenCallContainsDangerousOperationWithAllowDangerous_ExecutesCallPhase () => UniTask.ToCoroutine(async () =>
         {
+            using var scope = new PlanTokenTestScope();
+            scope.WriteConfigJson("{\"operationPolicy\":\"dangerous\",\"operationAllowlist\":[\"^ucli\\\\.tests\\\\.\"]}");
+            var environment = scope.CreateEnvironment();
             var operation = new RecordingPhaseOperation(
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
                 policy: OperationPolicy.Dangerous);
-            var executor = new OperationPhaseExecutor(CreateRegistry(("ucli.tests.dangerous", operation)));
+            var executor = new OperationPhaseExecutor(
+                CreateRegistry(("ucli.tests.dangerous", operation)),
+                new PlanTokenCoordinator(environment),
+                new DangerousOperationCallAuthorizer(environment));
             var request = CreateRequest(
                 operations: new[] { ("op-1", "ucli.tests.dangerous") },
                 planToken: null,
@@ -381,6 +387,37 @@ namespace MackySoft.Ucli.Unity.Tests
             CollectionAssert.AreEqual(
                 new[] { OperationPhase.Validate, OperationPhase.Plan, OperationPhase.Call },
                 operation.CalledPhases);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhenDangerousAllowFlagSetButConfigPolicyBlocks_DoesNotExecuteCallPhase () => UniTask.ToCoroutine(async () =>
+        {
+            using var scope = new PlanTokenTestScope();
+            scope.WriteConfigJson("{\"operationPolicy\":\"safe\",\"operationAllowlist\":[\"^ucli\\\\.tests\\\\.\"]}");
+            var environment = scope.CreateEnvironment();
+            var operation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
+                policy: OperationPolicy.Dangerous);
+            var executor = new OperationPhaseExecutor(
+                CreateRegistry(("ucli.tests.dangerous", operation)),
+                new PlanTokenCoordinator(environment),
+                new DangerousOperationCallAuthorizer(environment));
+            var request = CreateRequest(
+                operations: new[] { ("op-1", "ucli.tests.dangerous") },
+                planToken: null,
+                canonicalPayloadJson: "{}",
+                allowDangerous: true);
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Dangerous call blocked by Unity-side config");
+
+            Assert.That(trace.IsSuccess, Is.False);
+            Assert.That(trace.Errors.Count, Is.EqualTo(1));
+            Assert.That(trace.Errors[0].Code.Value, Is.EqualTo("OPERATION_NOT_ALLOWED"));
+            Assert.That(trace.Errors[0].Message, Does.Contain("operationPolicy='safe'"));
+            CollectionAssert.AreEqual(new[] { OperationPhase.Validate, OperationPhase.Plan }, operation.CalledPhases);
         });
 
         [UnityTest]
@@ -487,7 +524,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     validationResultFactory: _ => PlanTokenValidationResult.Failed(new OperationFailure(
                         PlanTokenErrorCodes.StateChangedSincePlan,
                         "Compiled execution changed since plan token issuance.",
-                        null))));
+                        null))),
+                new DangerousOperationCallAuthorizer());
 
             var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Call compile failure should map to compiled execution drift");
 
@@ -538,7 +576,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var executor = new OperationPhaseExecutor(
                 new StubPlanPassExecutor(planPassResult),
                 new OperationCallPassExecutor(),
-                coordinator);
+                coordinator,
+                new DangerousOperationCallAuthorizer());
 
             var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Legacy-compatible token should preserve compile failure");
 
