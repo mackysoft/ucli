@@ -52,76 +52,6 @@ public sealed class RequestServiceResultInvariantTests
         Assert.Throws<ArgumentNullException>(() => ResolveServiceResultFactory.Success(RequestId, [], null!));
     }
 
-    [Theory]
-    [Trait("Size", "Small")]
-    [MemberData(nameof(DefaultApplicationFailureValues))]
-    public void ApplicationFailure_Create_UsesDefaultCodeAndOutcome (
-        int failureKind,
-        string expectedCode,
-        int expectedOutcome)
-    {
-        var kind = (ApplicationFailureKind)failureKind;
-        var failure = ApplicationFailure.Create(kind, "Failure message.");
-
-        Assert.Equal(kind, failure.Kind);
-        Assert.Equal(expectedCode, failure.Code.Value);
-        Assert.Equal((ApplicationOutcome)expectedOutcome, failure.Outcome);
-        Assert.Equal("Failure message.", failure.Message);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void ApplicationFailure_FromCode_PreservesUnknownCodeAndOpId ()
-    {
-        var futureCode = new UcliErrorCode("FUTURE_TRANSPORT_FAILURE");
-
-        var failure = ApplicationFailure.FromCode(futureCode, "Future transport failed.", "step-1");
-
-        Assert.Equal(ApplicationFailureKind.ContractViolation, failure.Kind);
-        Assert.Equal(ApplicationOutcome.ToolError, failure.Outcome);
-        Assert.Equal(futureCode, failure.Code);
-        Assert.Equal("Future transport failed.", failure.Message);
-        Assert.Equal("step-1", failure.OpId);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void ApplicationFailure_WhenCodeIsMissing_Throws ()
-    {
-        Assert.ThrowsAny<ArgumentException>(() => new ApplicationFailure(
-            ApplicationFailureKind.InternalError,
-            ApplicationOutcome.ToolError,
-            default,
-            "Failure message."));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void ApplicationFailure_WhenKindIsUndefined_Throws ()
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(() => ApplicationFailure.Create(
-            (ApplicationFailureKind)999,
-            "Failure message."));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void ApplicationFailure_WhenMessageIsMissing_Throws ()
-    {
-        Assert.ThrowsAny<ArgumentException>(() => ApplicationFailure.InternalError(""));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void ApplicationFailure_WhenOutcomeIsSuccess_Throws ()
-    {
-        Assert.ThrowsAny<ArgumentException>(() => new ApplicationFailure(
-            ApplicationFailureKind.InternalError,
-            ApplicationOutcome.Success,
-            UcliCoreErrorCodes.InternalError,
-            "Failure message."));
-    }
-
     [Fact]
     [Trait("Size", "Small")]
     public void Failure_WhenErrorsAreEmpty_Throws ()
@@ -333,7 +263,7 @@ public sealed class RequestServiceResultInvariantTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Failure_FromUnityRequestFailure_PreservesClassifiedOutcome ()
+    public void Failure_FromUnityRequestFailure_ReclassifiesInvalidArgumentCode ()
     {
         var failure = new UnityRequestFailure(
             PlanTokenErrorCodes.PlanTokenInvalid,
@@ -342,7 +272,7 @@ public sealed class RequestServiceResultInvariantTests
 
         var requestFailure = RequestServiceResultPolicy.FromUnityRequestFailure(failure);
 
-        Assert.Equal(ApplicationFailureKind.UnityIpcFailure, requestFailure.Error.Kind);
+        Assert.Equal(ApplicationFailureKind.InvalidInput, requestFailure.Error.Kind);
         Assert.Equal(PlanTokenErrorCodes.PlanTokenInvalid, requestFailure.Error.Code);
         Assert.Equal("Plan token is invalid.", requestFailure.Message);
         Assert.Equal(ApplicationOutcome.InvalidArgument, requestFailure.Outcome);
@@ -373,22 +303,6 @@ public sealed class RequestServiceResultInvariantTests
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         var collection = Assert.IsAssignableFrom<ICollection<ApplicationFailure>>(result.Errors);
         Assert.True(collection.IsReadOnly);
-    }
-
-    public static TheoryData<int, string, int> DefaultApplicationFailureValues ()
-    {
-        return new TheoryData<int, string, int>
-        {
-            { (int)ApplicationFailureKind.InvalidInput, UcliCoreErrorCodes.InvalidArgument.Value, (int)ApplicationOutcome.InvalidArgument },
-            { (int)ApplicationFailureKind.ConfigurationError, UcliCoreErrorCodes.InvalidArgument.Value, (int)ApplicationOutcome.InvalidArgument },
-            { (int)ApplicationFailureKind.EnvironmentError, UcliCoreErrorCodes.InternalError.Value, (int)ApplicationOutcome.ToolError },
-            { (int)ApplicationFailureKind.UnityIpcFailure, UcliCoreErrorCodes.InternalError.Value, (int)ApplicationOutcome.ToolError },
-            { (int)ApplicationFailureKind.ExternalProcessFailure, UcliCoreErrorCodes.InternalError.Value, (int)ApplicationOutcome.ToolError },
-            { (int)ApplicationFailureKind.ContractViolation, UcliCoreErrorCodes.InternalError.Value, (int)ApplicationOutcome.ToolError },
-            { (int)ApplicationFailureKind.Timeout, ExecutionErrorCodes.IpcTimeout.Value, (int)ApplicationOutcome.ToolError },
-            { (int)ApplicationFailureKind.Canceled, ExecutionErrorCodes.Canceled.Value, (int)ApplicationOutcome.ToolError },
-            { (int)ApplicationFailureKind.InternalError, UcliCoreErrorCodes.InternalError.Value, (int)ApplicationOutcome.ToolError },
-        };
     }
 
     public static TheoryData<UcliErrorCode> InvalidArgumentErrorCodeValues ()

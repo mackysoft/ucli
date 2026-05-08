@@ -29,7 +29,6 @@ internal static class ApplicationFailureOutcomeResolver
 
         var hasInvalidArgument = false;
         var hasInfrastructureError = false;
-        var hasTestFailure = false;
         var hasToolError = false;
         for (var i = 0; i < failures.Count; i++)
         {
@@ -47,9 +46,6 @@ internal static class ApplicationFailureOutcomeResolver
                 case ApplicationOutcome.InfrastructureError:
                     hasInfrastructureError = true;
                     break;
-                case ApplicationOutcome.TestFailure:
-                    hasTestFailure = true;
-                    break;
                 case ApplicationOutcome.ToolError:
                     hasToolError = true;
                     break;
@@ -58,7 +54,7 @@ internal static class ApplicationFailureOutcomeResolver
             }
         }
 
-        if (hasToolError || CountTrue(hasInvalidArgument, hasInfrastructureError, hasTestFailure) > 1)
+        if (hasToolError || (hasInvalidArgument && hasInfrastructureError))
         {
             return ApplicationOutcome.ToolError;
         }
@@ -73,7 +69,7 @@ internal static class ApplicationFailureOutcomeResolver
             return ApplicationOutcome.InfrastructureError;
         }
 
-        return ApplicationOutcome.TestFailure;
+        return ApplicationOutcome.ToolError;
     }
 
     /// <summary> Returns whether the failure code represents a caller-correctable invalid argument. </summary>
@@ -91,27 +87,4 @@ internal static class ApplicationFailureOutcomeResolver
             || ProjectContextErrorCodes.Contains(errorCode);
     }
 
-    private static int CountTrue (
-        bool first,
-        bool second,
-        bool third)
-    {
-        var count = 0;
-        if (first)
-        {
-            count++;
-        }
-
-        if (second)
-        {
-            count++;
-        }
-
-        if (third)
-        {
-            count++;
-        }
-
-        return count;
-    }
 }

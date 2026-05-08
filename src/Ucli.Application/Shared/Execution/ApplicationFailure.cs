@@ -23,16 +23,12 @@ internal sealed record ApplicationFailure
             throw new ArgumentOutOfRangeException(nameof(kind), kind, "Failure kind is not defined.");
         }
 
-        if (outcome == ApplicationOutcome.Success)
-        {
-            throw new ArgumentException("Failure outcome must not be success.", nameof(outcome));
-        }
-
         if (!code.IsValid)
         {
             throw new ArgumentException("Failure code must not be empty.", nameof(code));
         }
 
+        ValidateOutcome(kind, outcome);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
 
         Kind = kind;
@@ -68,7 +64,7 @@ internal sealed record ApplicationFailure
         var resolvedCode = ResolveCode(kind, code);
         return new ApplicationFailure(
             kind,
-            outcome ?? ResolveOutcome(kind, resolvedCode),
+            outcome ?? ResolveOutcome(kind),
             resolvedCode,
             message,
             opId);
@@ -249,15 +245,31 @@ internal sealed record ApplicationFailure
             or ApplicationFailureKind.InternalError;
     }
 
-    private static ApplicationOutcome ResolveOutcome (
-        ApplicationFailureKind kind,
-        UcliErrorCode code)
+    private static ApplicationOutcome ResolveOutcome (ApplicationFailureKind kind)
     {
         return kind switch
         {
             ApplicationFailureKind.InvalidInput => ApplicationOutcome.InvalidArgument,
             ApplicationFailureKind.ConfigurationError => ApplicationOutcome.InvalidArgument,
-            _ => ApplicationFailureOutcomeResolver.Resolve(code),
+            _ => ApplicationOutcome.ToolError,
         };
+    }
+
+    private static void ValidateOutcome (
+        ApplicationFailureKind kind,
+        ApplicationOutcome outcome)
+    {
+        var isValid = kind switch
+        {
+            ApplicationFailureKind.InvalidInput => outcome == ApplicationOutcome.InvalidArgument,
+            ApplicationFailureKind.ConfigurationError => outcome == ApplicationOutcome.InvalidArgument,
+            ApplicationFailureKind.ExternalProcessFailure => outcome is ApplicationOutcome.ToolError or ApplicationOutcome.InfrastructureError,
+            _ => outcome == ApplicationOutcome.ToolError,
+        };
+
+        if (!isValid)
+        {
+            throw new ArgumentException("Failure outcome must match the failure kind.", nameof(outcome));
+        }
     }
 }

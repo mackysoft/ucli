@@ -98,4 +98,33 @@ public sealed class TestRunCommandResultFactoryTests
             .IsNull("artifactsDir")
             .IsNull("summaryJsonPath");
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Create_WithInfrastructureErrorAndInvalidArgumentCode_ReturnsInfrastructureExitCode ()
+    {
+        const string message = "Daemon session token could not be resolved.";
+        var serviceResult = TestRunServiceResult.InfraError(
+            message,
+            UcliCoreErrorCodes.InvalidArgument,
+            runId: "run-id",
+            artifactsDir: "/tmp/artifacts",
+            summaryJsonPath: "/tmp/artifacts/summary.json");
+
+        var result = TestRunCommandResultFactory.Create(serviceResult);
+
+        Assert.Equal("error", result.Status);
+        Assert.Equal(2, result.ExitCode);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
+        Assert.Equal(message, error.Message);
+
+        var payload = JsonSerializer.SerializeToElement(result.Payload);
+        JsonAssert.For(payload)
+            .IsNull("result")
+            .HasString("errorKind", "infraError")
+            .HasString("runId", "run-id")
+            .HasString("artifactsDir", "/tmp/artifacts")
+            .HasString("summaryJsonPath", "/tmp/artifacts/summary.json");
+    }
 }

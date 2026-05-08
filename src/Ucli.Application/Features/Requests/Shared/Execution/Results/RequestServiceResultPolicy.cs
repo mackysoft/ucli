@@ -134,14 +134,17 @@ internal static class RequestServiceResultPolicy
     {
         ArgumentNullException.ThrowIfNull(failure);
 
-        var kind = failure.Code == ExecutionErrorCodes.IpcTimeout
-            ? ApplicationFailureKind.Timeout
-            : ApplicationFailureKind.UnityIpcFailure;
-        return new RequestServiceFailure(ApplicationFailure.Create(
-            kind,
-            failure.Message,
-            failure.Code,
-            outcome: failure.Outcome));
+        if (failure.Code == ExecutionErrorCodes.IpcTimeout)
+        {
+            return new RequestServiceFailure(ApplicationFailure.Timeout(failure.Message, failure.Code));
+        }
+
+        if (IsInvalidArgumentErrorCode(failure.Code))
+        {
+            return new RequestServiceFailure(ApplicationFailure.InvalidInput(failure.Message, failure.Code));
+        }
+
+        return new RequestServiceFailure(ApplicationFailure.UnityIpcFailure(failure.Message, failure.Code));
     }
 
     /// <summary> Normalizes one operation execution error from an external result boundary. </summary>
@@ -217,29 +220,6 @@ internal static class RequestServiceResultPolicy
     public static ApplicationOutcome ResolveFailureOutcome (IReadOnlyList<ApplicationFailure> errors)
     {
         return ApplicationFailureOutcomeResolver.Resolve(errors);
-    }
-
-    /// <summary> Resolves the application outcome for one raw operation error collection. </summary>
-    public static ApplicationOutcome ResolveOutcome (IReadOnlyList<OperationExecutionError> errors)
-    {
-        ArgumentNullException.ThrowIfNull(errors);
-
-        if (errors.Count == 0)
-        {
-            return ApplicationOutcome.Success;
-        }
-
-        for (var i = 0; i < errors.Count; i++)
-        {
-            if (errors[i] == null)
-            {
-                throw new ArgumentException("Failure errors must not contain null entries.", nameof(errors));
-            }
-        }
-
-        return errors.All(static error => ResolveOutcome(error.Code) == ApplicationOutcome.InvalidArgument)
-            ? ApplicationOutcome.InvalidArgument
-            : ApplicationOutcome.ToolError;
     }
 
     /// <summary> Resolves the application outcome for one structured execution error. </summary>

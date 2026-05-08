@@ -39,7 +39,6 @@ internal static class ExecuteResponseConverter
         return new ExecuteResponseConversionResult(
             OpResults: OperationExecutionModelMapper.MapOpResults(validatedPayload.OpResults),
             Errors: normalizedErrors,
-            Outcome: RequestServiceResultPolicy.ResolveOutcome(normalizedErrors),
             PlanToken: validatedPayload.PlanToken,
             ReadPostcondition: OperationExecutionModelMapper.MapReadPostcondition(validatedPayload.ReadPostcondition));
     }
@@ -268,7 +267,6 @@ internal static class ExecuteResponseConverter
         return new ExecuteResponseConversionResult(
             OpResults: [],
             Errors: errors,
-            Outcome: RequestServiceResultPolicy.ResolveOutcome(errors),
             PlanToken: null,
             ReadPostcondition: null);
     }

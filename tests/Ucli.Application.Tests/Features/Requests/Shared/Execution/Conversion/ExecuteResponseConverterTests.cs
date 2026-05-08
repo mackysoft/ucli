@@ -18,7 +18,6 @@ public sealed class ExecuteResponseConverterTests
         var result = ExecuteResponseConverter.Convert(response);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("opResults[0]", error.Message, StringComparison.Ordinal);
@@ -42,7 +41,6 @@ public sealed class ExecuteResponseConverterTests
         var result = ExecuteResponseConverter.Convert(response);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("opResults[0].touched", error.Message, StringComparison.Ordinal);
@@ -112,7 +110,6 @@ public sealed class ExecuteResponseConverterTests
         var result = ExecuteResponseConverter.Convert(response);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("readPostcondition.requirements", error.Message, StringComparison.Ordinal);
@@ -229,7 +226,6 @@ public sealed class ExecuteResponseConverterTests
         var result = ExecuteResponseConverter.Convert(response);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("'errors' field", error.Message, StringComparison.Ordinal);
@@ -275,7 +271,7 @@ public sealed class ExecuteResponseConverterTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Convert_WhenPlanTokenValidationFails_ReturnsInvalidArgumentOutcome ()
+    public void Convert_WhenPlanTokenValidationFails_PreservesOperationErrorCode ()
     {
         var response = new UnityRequestResponse(
             Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse([])),
@@ -288,7 +284,6 @@ public sealed class ExecuteResponseConverterTests
         var result = ExecuteResponseConverter.Convert(response);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         Assert.Equal(PlanTokenErrorCodes.PlanTokenInvalid, Assert.Single(result.Errors).Code);
     }
 
