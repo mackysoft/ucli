@@ -1,4 +1,6 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
+using MackySoft.Ucli.Contracts.Ipc;
+using static MackySoft.Ucli.Application.Tests.Helpers.OperationCatalog.OperationCatalogTestFixtures;
 
 namespace MackySoft.Ucli.Application.Tests.Ops.Source;
 
@@ -18,8 +20,69 @@ public sealed class PersistedOpsCatalogReaderTests
         var result = await reader.Read(CreateUnityProject(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(error.Code, result.ErrorCode);
-        Assert.Equal(error.Message, result.ErrorMessage);
+        Assert.Equal(PersistedOpsCatalogReadFailureKind.Unavailable, result.ReadFailure!.Kind);
+        Assert.Equal(error.Code, result.ReadFailure.ErrorCode);
+        Assert.Equal(error.Message, result.ReadFailure.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenOpsCatalogPathInputIsInvalid_ReturnsInvalidArgumentFailure ()
+    {
+        var error = new IndexServiceError(
+            UcliCoreErrorCodes.InvalidArgument,
+            "Project fingerprint must not be empty.");
+        var reader = new PersistedOpsCatalogReader(
+            new StubReadIndexArtifactReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Failure(error)),
+            new StubIndexFreshnessEvaluator(IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh)));
+
+        var result = await reader.Read(CreateUnityProject(), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(PersistedOpsCatalogReadFailureKind.InvalidArgument, result.ReadFailure!.Kind);
+        Assert.Equal(error.Code, result.ReadFailure.ErrorCode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenOpsCatalogContractIsMalformed_ReturnsMalformedFailure ()
+    {
+        var error = new IndexServiceError(
+            ReadIndexErrorCodes.ReadIndexFormatInvalid,
+            "Index contract file 'ops.catalog.json' is malformed.");
+        var reader = new PersistedOpsCatalogReader(
+            new StubReadIndexArtifactReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Failure(error)),
+            new StubIndexFreshnessEvaluator(IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh)));
+
+        var result = await reader.Read(CreateUnityProject(), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(PersistedOpsCatalogReadFailureKind.Malformed, result.ReadFailure!.Kind);
+        Assert.Equal(error.Code, result.ReadFailure.ErrorCode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenLoadedOpsCatalogEntriesAreInvalid_ReturnsMalformedFailureWithoutObservingFreshness ()
+    {
+        var freshnessEvaluator = new StubIndexFreshnessEvaluator(
+            IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh));
+        var reader = new PersistedOpsCatalogReader(
+            new StubReadIndexArtifactReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Success(
+                CreateCatalog(new IndexOpEntryJsonContract(
+                    Name: UcliPrimitiveOperationNames.GoDescribe,
+                    Kind: "query",
+                    Policy: "safe",
+                    ArgsSchemaJson: "\"not-an-object\"")))),
+            freshnessEvaluator);
+
+        var result = await reader.Read(CreateUnityProject(), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(PersistedOpsCatalogReadFailureKind.Malformed, result.ReadFailure!.Kind);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexFormatInvalid, result.ReadFailure.ErrorCode);
+        Assert.Contains("ops.catalog.json", result.ReadFailure.Message, StringComparison.Ordinal);
+        Assert.Equal(0, freshnessEvaluator.ObserveCallCount);
     }
 
     [Fact]
@@ -38,8 +101,9 @@ public sealed class PersistedOpsCatalogReaderTests
         var result = await reader.Read(CreateUnityProject(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(error.Code, result.ErrorCode);
-        Assert.Equal(error.Message, result.ErrorMessage);
+        Assert.Equal(PersistedOpsCatalogReadFailureKind.FreshnessUnavailable, result.ReadFailure!.Kind);
+        Assert.Equal(error.Code, result.ReadFailure.ErrorCode);
+        Assert.Equal(error.Message, result.ReadFailure.Message);
     }
 
     [Fact]
@@ -57,8 +121,8 @@ public sealed class PersistedOpsCatalogReaderTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(IndexFreshness.Probable, result.Freshness);
-        Assert.Equal(DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"), result.GeneratedAtUtc);
-        Assert.Single(result.Entries!);
+        Assert.Equal(DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"), result.Snapshot!.GeneratedAtUtc);
+        Assert.Single(result.Snapshot.Operations);
         Assert.Same(unityProject, freshnessEvaluator.LastUnityProject);
         Assert.Equal(IndexFreshnessTarget.OpsCatalog, freshnessEvaluator.LastTarget);
         Assert.Equal("source-hash", freshnessEvaluator.LastPersistedSourceInputsHash);
@@ -76,17 +140,18 @@ public sealed class PersistedOpsCatalogReaderTests
 
     private static IndexOpsCatalogJsonContract CreateCatalog ()
     {
+        return CreateCatalog(CreateGoDescribeEntry());
+    }
+
+    private static IndexOpsCatalogJsonContract CreateCatalog (IndexOpEntryJsonContract entry)
+    {
         return new IndexOpsCatalogJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
             SourceInputsHash: "source-hash",
             Entries:
             [
-                new IndexOpEntryJsonContract(
-                    Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                    Kind: "query",
-                    Policy: "safe",
-                    ArgsSchemaJson: """{"type":"object"}"""),
+                entry,
             ]);
     }
 

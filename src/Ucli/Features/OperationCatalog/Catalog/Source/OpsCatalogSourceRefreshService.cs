@@ -3,7 +3,6 @@ using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
@@ -59,7 +58,7 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         ArgumentException.ThrowIfNullOrWhiteSpace(fallbackReason);
 
-        IpcOpsReadResponse? response = null;
+        OpsCatalogSnapshot? snapshot = null;
         string? persistFailure = null;
         for (var attempt = 0; attempt < MaxCatalogStabilityAttempts; attempt++)
         {
@@ -73,7 +72,7 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
                 .ConfigureAwait(false);
             if (!attemptResult.FetchResult.IsSuccess)
             {
-                if (response != null)
+                if (snapshot != null)
                 {
                     persistFailure = ReadIndexAccessUtilities.CombineFallbackReasons(
                         persistFailure,
@@ -86,7 +85,7 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
                     attemptResult.FetchResult.ErrorCode!.Value);
             }
 
-            response = attemptResult.FetchResult.Response!;
+            snapshot = attemptResult.FetchResult.Snapshot!;
             persistFailure = attemptResult.PersistFailure;
             if (!attemptResult.ShouldRetry)
             {
@@ -96,8 +95,7 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
 
         var combinedFallbackReason = ReadIndexAccessUtilities.CombineFallbackReasons(fallbackReason, persistFailure);
         return OpsCatalogSourceRefreshResult.Success(
-            response!.Operations!.ToArray(),
-            response.GeneratedAtUtc,
+            snapshot!,
             combinedFallbackReason);
     }
 
@@ -158,8 +156,8 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
             await artifactWriter.WriteOpsCatalog(
                     project.RepositoryRoot,
                     project.ProjectFingerprint,
-                    fetchResult.Response!.GeneratedAtUtc,
-                    fetchResult.Response.Operations!.ToArray(),
+                    fetchResult.Snapshot!.GeneratedAtUtc,
+                    fetchResult.Snapshot.Operations,
                     persistenceInput.SourceInputsHash,
                     persistenceInput.ManifestInputSnapshot,
                     cancellationToken)

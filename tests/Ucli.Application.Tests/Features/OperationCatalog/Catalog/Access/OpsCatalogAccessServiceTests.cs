@@ -4,22 +4,42 @@ using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
+using static MackySoft.Ucli.Application.Tests.Helpers.OperationCatalog.OperationCatalogTestFixtures;
 
 namespace MackySoft.Ucli.Application.Tests.Ops.Access;
 
 public sealed class OpsCatalogAccessServiceTests
 {
+    public static TheoryData<string, UcliErrorCode, string> SourceFallbackFailures =>
+        new()
+        {
+            {
+                nameof(PersistedOpsCatalogReadFailureKind.Unavailable),
+                ReadIndexErrorCodes.ReadIndexBootstrapFailed,
+                "Index contract file was not found: ops.catalog.json."
+            },
+            {
+                nameof(PersistedOpsCatalogReadFailureKind.Malformed),
+                ReadIndexErrorCodes.ReadIndexFormatInvalid,
+                "Index contract file 'ops.catalog.json' is malformed."
+            },
+            {
+                nameof(PersistedOpsCatalogReadFailureKind.FreshnessUnavailable),
+                ReadIndexErrorCodes.ReadIndexFreshRequired,
+                "readIndex freshness could not be observed."
+            },
+        };
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Read_WhenAllowStaleIndexExists_ReturnsPersistedCatalog ()
     {
         var persistedReader = new StubPersistedOpsCatalogReader
         {
-            Result = PersistedOpsCatalogReadResult.Success(
-                [CreateGoDescribeEntry()],
+            Result = CreatePersistedReadResult(
                 DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-                IndexFreshness.Probable),
+                IndexFreshness.Probable,
+                [CreateGoDescribeEntry()]),
         };
         var sourceRefreshService = new StubOpsCatalogSourceRefreshService();
         var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
@@ -40,15 +60,15 @@ public sealed class OpsCatalogAccessServiceTests
     {
         var persistedReader = new StubPersistedOpsCatalogReader
         {
-            Result = PersistedOpsCatalogReadResult.Success(
-                [CreateGoDescribeEntry()],
+            Result = CreatePersistedReadResult(
                 DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-                IndexFreshness.Stale),
+                IndexFreshness.Stale,
+                [CreateGoDescribeEntry()]),
         };
         var generatedAtUtc = DateTimeOffset.Parse("2026-03-07T00:00:00+00:00");
         var sourceRefreshService = new StubOpsCatalogSourceRefreshService
         {
-            Result = OpsCatalogSourceRefreshResult.Success([CreateSceneSaveEntry()], generatedAtUtc, "Existing ops index freshness is 'stale'."),
+            Result = CreateSourceRefreshResult(generatedAtUtc, [CreateSceneSaveEntry()], "Existing ops index freshness is 'stale'."),
         };
         var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
 
@@ -64,13 +84,50 @@ public sealed class OpsCatalogAccessServiceTests
         Assert.Equal("Existing ops index freshness is 'stale'.", sourceRefreshService.LastFallbackReason);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [MemberData(nameof(SourceFallbackFailures))]
+    public async Task Read_WhenPersistedReadReturnsFallbackFailure_FallsBackToSource (
+        string failureKindName,
+        UcliErrorCode errorCode,
+        string failureMessage)
+    {
+        var failureKind = Enum.Parse<PersistedOpsCatalogReadFailureKind>(failureKindName);
+        var persistedReader = new StubPersistedOpsCatalogReader
+        {
+            Result = PersistedOpsCatalogReadResult.Failure(
+                new PersistedOpsCatalogReadFailure(
+                    failureKind,
+                    errorCode,
+                    failureMessage)),
+        };
+        var generatedAtUtc = DateTimeOffset.Parse("2026-03-07T00:00:00+00:00");
+        var sourceRefreshService = new StubOpsCatalogSourceRefreshService
+        {
+            Result = CreateSourceRefreshResult(generatedAtUtc, [CreateSceneSaveEntry()], failureMessage),
+        };
+        var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
+
+        var result = await service.Read(CreatePreflightContext(ReadIndexMode.RequireFresh), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(OpsCatalogSource.Source, result.Output!.AccessInfo.Source);
+        Assert.False(result.Output.AccessInfo.Used);
+        Assert.Equal(generatedAtUtc, result.Output.AccessInfo.GeneratedAtUtc);
+        Assert.Equal(failureMessage, sourceRefreshService.LastFallbackReason);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Read_WhenPersistedReadReturnsInvalidArgument_ReturnsFailureWithoutSourceFallback ()
     {
         var persistedReader = new StubPersistedOpsCatalogReader
         {
-            Result = PersistedOpsCatalogReadResult.Failure(UcliCoreErrorCodes.InvalidArgument, "invalid project fingerprint"),
+            Result = PersistedOpsCatalogReadResult.Failure(
+                new PersistedOpsCatalogReadFailure(
+                    PersistedOpsCatalogReadFailureKind.InvalidArgument,
+                    UcliCoreErrorCodes.InvalidArgument,
+                    "invalid project fingerprint")),
         };
         var sourceRefreshService = new StubOpsCatalogSourceRefreshService();
         var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
@@ -89,7 +146,7 @@ public sealed class OpsCatalogAccessServiceTests
         var generatedAtUtc = DateTimeOffset.Parse("2026-03-07T00:00:00+00:00");
         var sourceRefreshService = new StubOpsCatalogSourceRefreshService
         {
-            Result = OpsCatalogSourceRefreshResult.Success([CreateGoDescribeEntry()], generatedAtUtc, "readIndex disabled by mode."),
+            Result = CreateSourceRefreshResult(generatedAtUtc, [CreateGoDescribeEntry()], "readIndex disabled by mode."),
         };
         var service = new OpsCatalogAccessService(new StubPersistedOpsCatalogReader(), sourceRefreshService);
 
@@ -118,53 +175,14 @@ public sealed class OpsCatalogAccessServiceTests
             true);
     }
 
-    private static IndexOpEntryJsonContract CreateGoDescribeEntry ()
-    {
-        return new IndexOpEntryJsonContract(
-            Name: UcliPrimitiveOperationNames.GoDescribe,
-            Kind: "query",
-            Policy: "safe",
-            ArgsSchemaJson: """{"type":"object"}""",
-            ResultSchemaJson: """{"type":"object"}""")
-        {
-            Description = "Returns a GameObject description including components and child hierarchy.",
-            Inputs = Array.Empty<UcliOperationInputContract>(),
-            ResultContract = UcliOperationResultContract.One<GameObjectDescriptionResult>("GameObject description result."),
-            Assurance = new UcliOperationAssuranceContract(
-                Array.Empty<string>(),
-                mayDirty: false,
-                mayPersist: false,
-                Array.Empty<string>(),
-                UcliOperationPlanModeValues.ObservesLiveUnity),
-        };
-    }
-
-    private static IndexOpEntryJsonContract CreateSceneSaveEntry ()
-    {
-        return new IndexOpEntryJsonContract(
-            Name: UcliPrimitiveOperationNames.SceneSave,
-            Kind: "mutation",
-            Policy: "advanced",
-            ArgsSchemaJson: """{"type":"object"}""")
-        {
-            Description = "Saves a Unity scene asset.",
-            Inputs = Array.Empty<UcliOperationInputContract>(),
-            ResultContract = UcliOperationResultContract.NoResult("No operation-specific result is emitted."),
-            Assurance = new UcliOperationAssuranceContract(
-                Array.Empty<string>(),
-                mayDirty: false,
-                mayPersist: true,
-                Array.Empty<string>(),
-                UcliOperationPlanModeValues.ObservesLiveUnity),
-        };
-    }
-
     private sealed class StubPersistedOpsCatalogReader : IPersistedOpsCatalogReader
     {
         public PersistedOpsCatalogReadResult Result { get; set; }
             = PersistedOpsCatalogReadResult.Failure(
-                ReadIndexErrorCodes.ReadIndexBootstrapFailed,
-                "Index contract file was not found: ops.catalog.json.");
+                new PersistedOpsCatalogReadFailure(
+                    PersistedOpsCatalogReadFailureKind.Unavailable,
+                    ReadIndexErrorCodes.ReadIndexBootstrapFailed,
+                    "Index contract file was not found: ops.catalog.json."));
 
         public ValueTask<PersistedOpsCatalogReadResult> Read (
             ResolvedUnityProjectContext unityProject,

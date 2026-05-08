@@ -20,7 +20,7 @@ internal sealed class OpsListResultMapper : IOpsListResultMapper
     {
         ArgumentNullException.ThrowIfNull(output);
 
-        var operations = output.Operations
+        var operations = output.Snapshot.Operations
             .OrderBy(static operation => operation.Name, StringComparer.Ordinal)
             .Select(static operation => new OpsOperationListItem(
                 Name: operation.Name!,

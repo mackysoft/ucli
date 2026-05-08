@@ -49,9 +49,9 @@ public sealed class OpsCatalogReaderTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.NotNull(result.Response);
-        Assert.Single(result.Response.Operations!);
-        Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, result.Response.Operations![0].Name);
+        Assert.NotNull(result.Snapshot);
+        Assert.Single(result.Snapshot.Operations);
+        Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, result.Snapshot.Operations[0].Name);
         Assert.Equal(UcliCommandIds.Ops, executor.Command.Name);
         var request = Assert.IsType<UnityRequestPayload.Raw>(executor.Payload);
         Assert.Equal(IpcMethodNames.OpsRead, request.Method);

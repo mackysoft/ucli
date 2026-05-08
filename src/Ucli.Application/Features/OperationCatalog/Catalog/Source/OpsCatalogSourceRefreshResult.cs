@@ -2,25 +2,20 @@ namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 
 /// <summary> Represents one ops-catalog source refresh result. </summary>
 internal sealed record OpsCatalogSourceRefreshResult (
-    IReadOnlyList<IndexOpEntryJsonContract>? Operations,
-    DateTimeOffset? GeneratedAtUtc,
+    OpsCatalogSnapshot? Snapshot,
     string? FallbackReason,
     string Message,
     UcliErrorCode? ErrorCode)
 {
     /// <summary> Gets a value indicating whether the source refresh succeeded. </summary>
-    public bool IsSuccess => Operations is not null && GeneratedAtUtc.HasValue && ErrorCode is null;
+    public bool IsSuccess => Snapshot is not null && ErrorCode is null;
 
     /// <summary> Creates a successful source refresh result. </summary>
-    public static OpsCatalogSourceRefreshResult Success (
-        IReadOnlyList<IndexOpEntryJsonContract> operations,
-        DateTimeOffset generatedAtUtc,
-        string? fallbackReason)
+    public static OpsCatalogSourceRefreshResult Success (OpsCatalogSnapshot snapshot, string? fallbackReason)
     {
-        ArgumentNullException.ThrowIfNull(operations);
+        ArgumentNullException.ThrowIfNull(snapshot);
         return new OpsCatalogSourceRefreshResult(
-            operations,
-            generatedAtUtc,
+            snapshot,
             fallbackReason,
             "Ops catalog refresh completed.",
             null);
@@ -37,6 +32,6 @@ internal sealed record OpsCatalogSourceRefreshResult (
             throw new ArgumentException("Error code must not be empty.", nameof(errorCode));
         }
 
-        return new OpsCatalogSourceRefreshResult(null, null, null, message, errorCode);
+        return new OpsCatalogSourceRefreshResult(null, null, message, errorCode);
     }
 }

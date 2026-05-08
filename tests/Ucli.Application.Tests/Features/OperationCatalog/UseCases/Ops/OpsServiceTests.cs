@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Prefligh
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using static MackySoft.Ucli.Application.Tests.Helpers.ApplicationCommandInputTestHelper;
+using static MackySoft.Ucli.Application.Tests.Helpers.OperationCatalog.OperationCatalogTestFixtures;
 
 namespace MackySoft.Ucli.Application.Tests.Ops;
 
@@ -42,14 +43,11 @@ public sealed class OpsServiceTests
             Result = OpsPreflightResult.Success(preflightContext),
         };
         var catalogOutput = new OpsCatalogReadOutput(
-            Operations:
-            [
-                new MackySoft.Ucli.Contracts.Index.IndexOpEntryJsonContract(
-                    Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave,
-                    Kind: "mutation",
-                    Policy: "advanced",
-                    ArgsSchemaJson: """{"type":"object"}"""),
-            ],
+            Snapshot: CreateSnapshot(
+                DateTimeOffset.UtcNow,
+                [
+                    CreateSceneSaveEntry(),
+                ]),
             AccessInfo: new OpsCatalogAccessInfo(
                 true,
                 true,
@@ -102,7 +100,9 @@ public sealed class OpsServiceTests
             Result = OpsPreflightResult.Success(preflightContext),
         };
         var catalogOutput = new OpsCatalogReadOutput(
-            Operations: Array.Empty<MackySoft.Ucli.Contracts.Index.IndexOpEntryJsonContract>(),
+            Snapshot: CreateSnapshot(
+                DateTimeOffset.UtcNow,
+                Array.Empty<IndexOpEntryJsonContract>()),
             AccessInfo: new OpsCatalogAccessInfo(
                 true,
                 true,
@@ -207,4 +207,5 @@ public sealed class OpsServiceTests
             return Result;
         }
     }
+
 }

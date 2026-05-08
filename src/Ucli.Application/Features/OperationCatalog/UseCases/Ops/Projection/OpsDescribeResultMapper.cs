@@ -30,7 +30,7 @@ internal sealed class OpsDescribeResultMapper : IOpsDescribeResultMapper
                 UcliCoreErrorCodes.InvalidArgument);
         }
 
-        var operation = output.Operations
+        var operation = output.Snapshot.Operations
             .FirstOrDefault(operation => string.Equals(operation.Name, operationName, StringComparison.Ordinal));
         if (operation == null)
         {
