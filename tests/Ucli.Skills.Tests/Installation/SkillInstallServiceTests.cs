@@ -303,7 +303,7 @@ public sealed class SkillInstallServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task InstallAsync_RejectsModifiedCanonicalManifest ()
+    public async Task InstallAsync_RejectsLocallyModifiedInstalledManifest ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-manifest-drift");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
@@ -313,14 +313,16 @@ public sealed class SkillInstallServiceTests
         Assert.True(created.IsSuccess, created.Failure?.Message);
 
         var manifestPath = Path.Combine(created.Value!.TargetRoot, packages[0].Manifest.SkillName, "ucli-skill.json");
-        var originalDigest = packages[0].Manifest.HostArtifacts[0].MaterializedFrontmatterDigest;
+        var originalDigest = packages[0].Manifest.HostArtifacts
+            .Single(static artifact => artifact.Host == OpenAiSkillHostAdapter.HostKey)
+            .Digest!;
         var manifestText = File.ReadAllText(manifestPath).Replace(originalDigest, "sha256:" + new string('f', 64), StringComparison.Ordinal);
         File.WriteAllText(manifestPath, manifestText);
 
         var result = await service.InstallAsync(packages, request, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(SkillFailureCodes.ManifestInvalid, result.Failure!.Code);
+        Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, result.Failure!.Code);
     }
 
     [Fact]

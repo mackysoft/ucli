@@ -34,12 +34,14 @@ internal sealed class SkillsExportCommand
     /// <summary> Executes the skills export command and emits the JSON result contract. </summary>
     /// <param name="host"> Required target host (claude|copilot|openai). </param>
     /// <param name="output"> Required output directory. </param>
+    /// <param name="format"> Optional output format (directory|zip). </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.ExportSubcommand)]
     public async Task<int> Export (
         string? host = null,
         string? output = null,
+        string? format = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -50,6 +52,16 @@ internal sealed class SkillsExportCommand
             host,
             hostAdapters,
             out var errorResult);
+        if (errorResult is not null)
+        {
+            commandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
+        var normalizedFormat = SkillsCommandOptionNormalizer.NormalizeExportFormat(
+            UcliCommandNames.SkillsExport,
+            format,
+            out errorResult);
         if (errorResult is not null)
         {
             commandResultWriter.WriteToStandardOutput(errorResult);
@@ -79,9 +91,11 @@ internal sealed class SkillsExportCommand
                 packagesResult.Value!,
                 normalizedHost!,
                 outputRoot!,
+                normalizedFormat!.Value,
                 cancellationToken)
             .ConfigureAwait(false);
-        var commandResult = SkillsCommandResultFactory.CreateExport(exportResult, packagesResult.Value!, normalizedHost!);
+        var reloadGuidance = hostAdapters.GetAdapter(normalizedHost!).Value!.Descriptor.ReloadGuidance;
+        var commandResult = SkillsCommandResultFactory.CreateExport(exportResult, packagesResult.Value!, normalizedHost!, normalizedFormat.Value, reloadGuidance);
         commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }

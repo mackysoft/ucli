@@ -9,21 +9,35 @@ internal static class CliProcessRunner
 
     public static Task<CommandExecutionResult> RunCommand (params string[] args)
     {
-        return RunCommandCore(args, null, null);
+        return RunCommandCore(args, null, null, ProcessTimeout);
+    }
+
+    public static Task<CommandExecutionResult> RunCommandWithTimeout (
+        TimeSpan processTimeout,
+        params string[] args)
+    {
+        return RunCommandCore(args, null, null, processTimeout);
+    }
+
+    public static Task<CommandExecutionResult> RunCommandWithEnvironment (
+        IReadOnlyDictionary<string, string?> environmentVariables,
+        params string[] args)
+    {
+        return RunCommandCore(args, null, null, ProcessTimeout, environmentVariables);
     }
 
     public static Task<CommandExecutionResult> RunCommandWithStandardInput (
         string standardInput,
         params string[] args)
     {
-        return RunCommandCore(args, null, standardInput);
+        return RunCommandCore(args, null, standardInput, ProcessTimeout);
     }
 
     public static Task<CommandExecutionResult> RunCommandWithWorkingDirectory (
         string workingDirectory,
         params string[] args)
     {
-        return RunCommandCore(args, workingDirectory, null);
+        return RunCommandCore(args, workingDirectory, null, ProcessTimeout);
     }
 
     public static Task<CommandExecutionResult> RunCommandWithWorkingDirectoryAndStandardInput (
@@ -31,13 +45,15 @@ internal static class CliProcessRunner
         string standardInput,
         params string[] args)
     {
-        return RunCommandCore(args, workingDirectory, standardInput);
+        return RunCommandCore(args, workingDirectory, standardInput, ProcessTimeout);
     }
 
     private static async Task<CommandExecutionResult> RunCommandCore (
         string[] args,
         string? workingDirectory,
-        string? standardInput)
+        string? standardInput,
+        TimeSpan processTimeout,
+        IReadOnlyDictionary<string, string?>? environmentVariables = null)
     {
         // NOTE:
         // This helper executes the built CLI process to validate stdout/stderr and exit-code
@@ -56,6 +72,20 @@ internal static class CliProcessRunner
         if (!string.IsNullOrWhiteSpace(workingDirectory))
         {
             startInfo.WorkingDirectory = workingDirectory;
+        }
+
+        if (environmentVariables is not null)
+        {
+            foreach (var (key, value) in environmentVariables)
+            {
+                if (value is null)
+                {
+                    startInfo.Environment.Remove(key);
+                    continue;
+                }
+
+                startInfo.Environment[key] = value;
+            }
         }
 
         startInfo.ArgumentList.Add(toolPath);
@@ -77,7 +107,7 @@ internal static class CliProcessRunner
         var stdOutTask = process.StandardOutput.ReadToEndAsync();
         var stdErrTask = process.StandardError.ReadToEndAsync();
 
-        using var timeoutCts = new CancellationTokenSource(ProcessTimeout);
+        using var timeoutCts = new CancellationTokenSource(processTimeout);
         try
         {
             await process.WaitForExitAsync(timeoutCts.Token);
@@ -89,7 +119,7 @@ internal static class CliProcessRunner
                 process.Kill(entireProcessTree: true);
             }
 
-            throw new TimeoutException($"ucli process timed out after {ProcessTimeout.TotalSeconds} seconds.");
+            throw new TimeoutException($"ucli process timed out after {processTimeout.TotalSeconds} seconds.");
         }
 
         return new CommandExecutionResult(

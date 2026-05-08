@@ -59,6 +59,31 @@ public sealed class SkillUpdateServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task UpdateAsync_UpdatesCleanOutdatedPackage_WhenOnlyOpenAiMetadataChanged ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-openai-metadata-outdated");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var updateService = SkillTestData.CreateUpdateService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var install = await installService.InstallAsync(packages, request, CancellationToken.None);
+        Assert.True(install.IsSuccess, install.Failure?.Message);
+        var updatedPackages = SkillTestData.ReplacePackage(packages, SkillTestData.CreatePackageWithUpdatedOpenAiMetadata(packages[0]));
+
+        var result = await updateService.UpdateAsync(new SkillUpdateInput(updatedPackages, request), CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Failure?.Message);
+        var action = result.Value!.Actions.Single(action => action.Identity.SkillName == packages[0].Manifest.SkillName);
+        Assert.Equal(SkillUpdateActionKind.Updated, action.ActionKind);
+        Assert.All(result.Value.Actions.Where(action => action.Identity.SkillName != packages[0].Manifest.SkillName), static action =>
+            Assert.Equal(SkillUpdateActionKind.NoOp, action.ActionKind));
+        var expectedMetadata = updatedPackages[0].Files.Single(static file => file.RelativePath == "agents/openai.yaml").Content;
+        var actualMetadata = File.ReadAllText(Path.Combine(result.Value.TargetRoot, packages[0].Manifest.SkillName, "agents", "openai.yaml"));
+        Assert.Equal(expectedMetadata, actualMetadata);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task UpdateAsync_RejectsExistingUnmanagedTarget ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-unmanaged");
@@ -90,6 +115,55 @@ public sealed class SkillUpdateServiceTests
         File.AppendAllText(Path.Combine(install.Value!.TargetRoot, packages[0].Manifest.SkillName, "SKILL.md"), "\nInjected instruction.\n");
 
         var result = await updateService.UpdateAsync(new SkillUpdateInput(packages, request), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, result.Failure!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task UpdateAsync_RejectsManifestOnlyLocalModification ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-manifest-only-local-modification");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var updateService = SkillTestData.CreateUpdateService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var install = await installService.InstallAsync(packages, request, CancellationToken.None);
+        Assert.True(install.IsSuccess, install.Failure?.Message);
+        var manifestPath = Path.Combine(install.Value!.TargetRoot, packages[0].Manifest.SkillName, "ucli-skill.json");
+        var manifestText = File.ReadAllText(manifestPath).Replace(
+            packages[0].Manifest.DisplayName,
+            packages[0].Manifest.DisplayName + " Local",
+            StringComparison.Ordinal);
+        File.WriteAllText(manifestPath, manifestText);
+
+        var result = await updateService.UpdateAsync(new SkillUpdateInput(packages, request), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, result.Failure!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task UpdateAsync_RejectsManifestOnlyLocalModification_WhenInstalledPackageIsOtherwiseOutdated ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "update-outdated-manifest-local-modification");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var updateService = SkillTestData.CreateUpdateService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var install = await installService.InstallAsync(packages, request, CancellationToken.None);
+        Assert.True(install.IsSuccess, install.Failure?.Message);
+        var manifestPath = Path.Combine(install.Value!.TargetRoot, packages[0].Manifest.SkillName, "ucli-skill.json");
+        var manifestText = File.ReadAllText(manifestPath).Replace(
+            packages[0].Manifest.DisplayName,
+            packages[0].Manifest.DisplayName + " Local",
+            StringComparison.Ordinal);
+        File.WriteAllText(manifestPath, manifestText);
+        var updatedPackages = SkillTestData.ReplacePackage(packages, SkillTestData.CreatePackageWithUpdatedBody(packages[0]));
+
+        var result = await updateService.UpdateAsync(new SkillUpdateInput(updatedPackages, request), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, result.Failure!.Code);

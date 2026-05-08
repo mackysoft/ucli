@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
+using MackySoft.Ucli.Skills.Distribution;
 using MackySoft.Ucli.Skills.Hosts.Registration;
 using MackySoft.Ucli.Skills.Installation;
 
@@ -8,6 +9,9 @@ namespace MackySoft.Ucli.Hosting.Cli.Skills;
 internal static class SkillsCommandOptionNormalizer
 {
     private const string ProjectScopeLiteral = "project";
+    private const string UserScopeLiteral = "user";
+    private const string DirectoryExportFormatLiteral = "directory";
+    private const string ZipExportFormatLiteral = "zip";
 
     /// <summary> Normalizes a required host option to its canonical host key. </summary>
     /// <param name="command"> The command name used for error results. </param>
@@ -41,12 +45,12 @@ internal static class SkillsCommandOptionNormalizer
         return adapterResult.Value!.Descriptor.HostKey;
     }
 
-    /// <summary> Normalizes a required project scope option. </summary>
+    /// <summary> Normalizes a required scope option. </summary>
     /// <param name="command"> The command name used for error results. </param>
     /// <param name="scope"> The raw scope option. </param>
     /// <param name="errorResult"> The emitted error result when normalization fails. </param>
     /// <returns> The normalized scope kind, or <see langword="null" /> when normalization fails. </returns>
-    public static SkillScopeKind? NormalizeProjectScope (
+    public static SkillScopeKind? NormalizeScope (
         string command,
         string? scope,
         out CommandResult? errorResult)
@@ -60,13 +64,73 @@ internal static class SkillsCommandOptionNormalizer
             return null;
         }
 
-        if (!string.Equals(scope, ProjectScopeLiteral, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(scope, ProjectScopeLiteral, StringComparison.OrdinalIgnoreCase))
         {
-            errorResult = CommandResult.InvalidArgument(command, $"Unsupported SKILL scope: {scope}. Supported scopes: {ProjectScopeLiteral}.");
+            return SkillScopeKind.Project;
+        }
+
+        if (string.Equals(scope, UserScopeLiteral, StringComparison.OrdinalIgnoreCase))
+        {
+            return SkillScopeKind.User;
+        }
+
+        errorResult = CommandResult.InvalidArgument(command, $"Unsupported SKILL scope: {scope}. Supported scopes: {ProjectScopeLiteral}, {UserScopeLiteral}.");
+        return null;
+    }
+
+    /// <summary> Validates repository root usage for a resolved scope. </summary>
+    /// <param name="command"> The command name used for error results. </param>
+    /// <param name="scope"> The normalized scope. </param>
+    /// <param name="repoRoot"> The raw repository root option. </param>
+    /// <param name="errorResult"> The emitted error result when normalization fails. </param>
+    /// <returns> The full repository root for project scope; otherwise <see langword="null" />. </returns>
+    public static string? NormalizeRepositoryRootForScope (
+        string command,
+        SkillScopeKind scope,
+        string? repoRoot,
+        out CommandResult? errorResult)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(command);
+
+        errorResult = null;
+        if (scope == SkillScopeKind.User)
+        {
+            if (!string.IsNullOrWhiteSpace(repoRoot))
+            {
+                errorResult = CommandResult.InvalidArgument(command, "Option '--repoRoot' is not supported when '--scope user' is used.");
+            }
+
             return null;
         }
 
-        return SkillScopeKind.Project;
+        return NormalizeRequiredFullPath(command, "repoRoot", repoRoot, out errorResult);
+    }
+
+    /// <summary> Normalizes the optional export format. </summary>
+    /// <param name="command"> The command name used for error results. </param>
+    /// <param name="format"> The raw format option. </param>
+    /// <param name="errorResult"> The emitted error result when normalization fails. </param>
+    /// <returns> The normalized export format, or <see langword="null" /> when normalization fails. </returns>
+    public static SkillExportFormat? NormalizeExportFormat (
+        string command,
+        string? format,
+        out CommandResult? errorResult)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(command);
+
+        errorResult = null;
+        if (string.IsNullOrWhiteSpace(format) || string.Equals(format, DirectoryExportFormatLiteral, StringComparison.OrdinalIgnoreCase))
+        {
+            return SkillExportFormat.Directory;
+        }
+
+        if (string.Equals(format, ZipExportFormatLiteral, StringComparison.OrdinalIgnoreCase))
+        {
+            return SkillExportFormat.Zip;
+        }
+
+        errorResult = CommandResult.InvalidArgument(command, $"Unsupported SKILL export format: {format}. Supported formats: {DirectoryExportFormatLiteral}, {ZipExportFormatLiteral}.");
+        return null;
     }
 
     /// <summary> Normalizes a required filesystem path option to a full path. </summary>

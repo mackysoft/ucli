@@ -68,14 +68,6 @@ public sealed class SkillInstalledPackageValidator
                 $"Installed SKILL contentDigest does not match canonical package: {package.Manifest.SkillName}");
         }
 
-        var canonicalManifestText = package.Files.Single(static file => file.RelativePath == "ucli-skill.json").Content;
-        if (!string.Equals(installedManifest.ManifestText, canonicalManifestText, StringComparison.Ordinal))
-        {
-            return SkillOperationResult<SkillManifest>.FailureResult(
-                SkillFailureCodes.ManifestInvalid,
-                $"ucli-skill.json does not match the canonical manifest: {package.Manifest.SkillName}");
-        }
-
         var materializedResult = materializationService.Materialize(package, host);
         if (!materializedResult.IsSuccess)
         {
@@ -120,7 +112,7 @@ public sealed class SkillInstalledPackageValidator
         if (!hostMatchResult.Value)
         {
             return SkillOperationResult<SkillManifest>.FailureResult(
-                SkillFailureCodes.InstallTargetHostConflict,
+                SkillFailureCodes.InstallTargetDigestMismatch,
                 $"Installed skill directory is not materialized for requested host: {skillDirectory}");
         }
 
@@ -131,9 +123,22 @@ public sealed class SkillInstalledPackageValidator
         }
 
         return fileSetResult.Value
-            ? SkillOperationResult<SkillManifest>.Success(manifest)
+            ? ValidateCanonicalManifestText(package, installedManifest.ManifestText, manifest)
             : SkillOperationResult<SkillManifest>.FailureResult(
                 SkillFailureCodes.InstallTargetDigestMismatch,
                 $"Installed SKILL file set does not match materialized package: {package.Manifest.SkillName}");
+    }
+
+    private static SkillOperationResult<SkillManifest> ValidateCanonicalManifestText (
+        CanonicalSkillPackage package,
+        string installedManifestText,
+        SkillManifest manifest)
+    {
+        var canonicalManifestText = package.Files.Single(static file => file.RelativePath == "ucli-skill.json").Content;
+        return string.Equals(installedManifestText, canonicalManifestText, StringComparison.Ordinal)
+            ? SkillOperationResult<SkillManifest>.Success(manifest)
+            : SkillOperationResult<SkillManifest>.FailureResult(
+                SkillFailureCodes.InstallTargetDigestMismatch,
+                $"Installed SKILL manifest does not match canonical package: {package.Manifest.SkillName}");
     }
 }

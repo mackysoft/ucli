@@ -81,7 +81,7 @@ public sealed class SkillDoctorServiceTests
         var result = await doctor.DiagnoseAsync(packages, OpenAiSkillHostAdapter.HostKey, installResult.Value.TargetRoot, CancellationToken.None);
 
         Assert.False(result.IsHealthy);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.InstallTargetDigestMismatch);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.InstallTargetContentDigestMismatch);
     }
 
     [Fact]
@@ -102,12 +102,12 @@ public sealed class SkillDoctorServiceTests
         var result = await doctor.DiagnoseAsync(packages, OpenAiSkillHostAdapter.HostKey, installResult.Value.TargetRoot, CancellationToken.None);
 
         Assert.False(result.IsHealthy);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.InstallTargetDigestMismatch);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.InstallTargetFrontmatterDigestMismatch);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task DiagnoseAsync_ReportsInvalidManifest_WhenCanonicalManifestChanged ()
+    public async Task DiagnoseAsync_ReportsInvalidManifest_WhenInstalledManifestArtifactDigestChanged ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "doctor-manifest-drift");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
@@ -118,7 +118,9 @@ public sealed class SkillDoctorServiceTests
             CancellationToken.None);
         Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
         var manifestPath = Path.Combine(installResult.Value!.TargetRoot, packages[0].Manifest.SkillName, "ucli-skill.json");
-        var originalDigest = packages[0].Manifest.HostArtifacts[0].MaterializedFrontmatterDigest;
+        var originalDigest = packages[0].Manifest.HostArtifacts
+            .Single(static artifact => artifact.Host == OpenAiSkillHostAdapter.HostKey)
+            .Digest!;
         var manifestText = File.ReadAllText(manifestPath).Replace(originalDigest, "sha256:" + new string('f', 64), StringComparison.Ordinal);
         File.WriteAllText(manifestPath, manifestText);
         var doctor = SkillTestData.CreateDoctorService();
@@ -126,7 +128,7 @@ public sealed class SkillDoctorServiceTests
         var result = await doctor.DiagnoseAsync(packages, OpenAiSkillHostAdapter.HostKey, installResult.Value.TargetRoot, CancellationToken.None);
 
         Assert.False(result.IsHealthy);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.ManifestInvalid);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.InstallTargetHostArtifactDigestMismatch);
     }
 
     [Fact]
@@ -151,7 +153,117 @@ public sealed class SkillDoctorServiceTests
         var result = await doctor.DiagnoseAsync(packages, OpenAiSkillHostAdapter.HostKey, installResult.Value.TargetRoot, CancellationToken.None);
 
         Assert.False(result.IsHealthy);
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.InstallTargetDigestMismatch);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.InstallTargetFileSetMismatch);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task DiagnoseAsync_ReportsFileSetMismatch_WhenInstalledEmptyDirectoryIsUnexpected ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "doctor-extra-empty-directory");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var installResult = await installService.InstallAsync(
+            packages,
+            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
+            CancellationToken.None);
+        Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
+        Directory.CreateDirectory(Path.Combine(installResult.Value!.TargetRoot, packages[0].Manifest.SkillName, "empty"));
+        var doctor = SkillTestData.CreateDoctorService();
+
+        var result = await doctor.DiagnoseAsync(packages, OpenAiSkillHostAdapter.HostKey, installResult.Value.TargetRoot, CancellationToken.None);
+
+        Assert.False(result.IsHealthy);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.InstallTargetFileSetMismatch);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task DiagnoseAsync_ReportsHostArtifactMismatch_WhenOpenAiMetadataChanged ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "doctor-openai-metadata-drift");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var installResult = await installService.InstallAsync(
+            packages,
+            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
+            CancellationToken.None);
+        Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
+        File.AppendAllText(Path.Combine(installResult.Value!.TargetRoot, packages[0].Manifest.SkillName, "agents", "openai.yaml"), "\n# Drifted metadata.\n");
+        var doctor = SkillTestData.CreateDoctorService();
+
+        var result = await doctor.DiagnoseAsync(packages, OpenAiSkillHostAdapter.HostKey, installResult.Value.TargetRoot, CancellationToken.None);
+
+        Assert.False(result.IsHealthy);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.InstallTargetHostArtifactDigestMismatch);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task DiagnoseAsync_ReportsOutdated_WhenInstalledPackageIsCleanOlderVersion ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "doctor-outdated");
+        var installedPackages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var updatedPackage = SkillTestData.CreatePackageWithUpdatedBody(installedPackages[0]);
+        var currentPackages = SkillTestData.ReplacePackage(installedPackages, updatedPackage);
+        var installService = SkillTestData.CreateInstallService();
+        var installResult = await installService.InstallAsync(
+            installedPackages,
+            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
+            CancellationToken.None);
+        Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
+        var doctor = SkillTestData.CreateDoctorService();
+
+        var result = await doctor.DiagnoseAsync(currentPackages, OpenAiSkillHostAdapter.HostKey, installResult.Value!.TargetRoot, CancellationToken.None);
+
+        Assert.False(result.IsHealthy);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.InstallTargetOutdated);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task DiagnoseAsync_ReportsOutdated_WhenOnlyOpenAiMetadataChangedInCanonicalPackage ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "doctor-openai-metadata-outdated");
+        var installedPackages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var currentPackages = SkillTestData.ReplacePackage(
+            installedPackages,
+            SkillTestData.CreatePackageWithUpdatedOpenAiMetadata(installedPackages[0]));
+        var installService = SkillTestData.CreateInstallService();
+        var installResult = await installService.InstallAsync(
+            installedPackages,
+            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
+            CancellationToken.None);
+        Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
+        var doctor = SkillTestData.CreateDoctorService();
+
+        var result = await doctor.DiagnoseAsync(currentPackages, OpenAiSkillHostAdapter.HostKey, installResult.Value!.TargetRoot, CancellationToken.None);
+
+        Assert.False(result.IsHealthy);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.InstallTargetOutdated);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task DiagnoseAsync_ReportsOutdated_WhenOnlyOpenAiMetadataChangedForClaudePackage ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "doctor-claude-openai-metadata-outdated");
+        var installedPackages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var currentPackages = SkillTestData.ReplacePackage(
+            installedPackages,
+            SkillTestData.CreatePackageWithUpdatedOpenAiMetadata(installedPackages[0]));
+        var installService = SkillTestData.CreateInstallService();
+        var installResult = await installService.InstallAsync(
+            installedPackages,
+            new SkillInstallRequest(ClaudeSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
+            CancellationToken.None);
+        Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
+        var doctor = SkillTestData.CreateDoctorService();
+
+        var result = await doctor.DiagnoseAsync(currentPackages, ClaudeSkillHostAdapter.HostKey, installResult.Value!.TargetRoot, CancellationToken.None);
+
+        Assert.False(result.IsHealthy);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.InstallTargetOutdated);
     }
 
     [Fact]

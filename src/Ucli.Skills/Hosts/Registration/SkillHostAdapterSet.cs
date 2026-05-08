@@ -27,6 +27,26 @@ public sealed class SkillHostAdapterSet
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(adapter.Descriptor.HostKey, nameof(adapters));
             ArgumentException.ThrowIfNullOrWhiteSpace(adapter.Descriptor.ProjectTargetDirectory, nameof(adapters));
+            ArgumentException.ThrowIfNullOrWhiteSpace(adapter.Descriptor.UserTargetDirectory, nameof(adapters));
+            ArgumentNullException.ThrowIfNull(adapter.Descriptor.UserTargetRootPolicy, nameof(adapters));
+            if (!SkillRelativePath.IsSafeFilePath(adapter.Descriptor.UserTargetRootPolicy.HomeRelativeDirectory))
+            {
+                throw new ArgumentException("Host adapter home-relative user target directory must be a safe relative path.", nameof(adapters));
+            }
+
+            if (string.IsNullOrWhiteSpace(adapter.Descriptor.UserTargetRootPolicy.EnvironmentVariableName)
+                && !string.IsNullOrWhiteSpace(adapter.Descriptor.UserTargetRootPolicy.EnvironmentVariableChildDirectory))
+            {
+                throw new ArgumentException("Host adapter environment variable child directory requires an environment variable name.", nameof(adapters));
+            }
+
+            if (!string.IsNullOrWhiteSpace(adapter.Descriptor.UserTargetRootPolicy.EnvironmentVariableChildDirectory)
+                && !SkillRelativePath.IsSafeFilePath(adapter.Descriptor.UserTargetRootPolicy.EnvironmentVariableChildDirectory))
+            {
+                throw new ArgumentException("Host adapter environment variable child directory must be a safe relative path.", nameof(adapters));
+            }
+
+            ArgumentException.ThrowIfNullOrWhiteSpace(adapter.Descriptor.ReloadGuidance, nameof(adapters));
         }
 
         var duplicateHost = adapterArray

@@ -1,5 +1,6 @@
+using MackySoft.Ucli.Skills.Doctor.Diagnostics;
 using MackySoft.Ucli.Skills.Hosts.Registration;
-using MackySoft.Ucli.Skills.Installation.Validation;
+using MackySoft.Ucli.Skills.Installation;
 using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;
 
@@ -9,17 +10,21 @@ namespace MackySoft.Ucli.Skills.Doctor;
 public sealed class SkillDoctorService
 {
     private readonly SkillHostAdapterSet hostAdapters;
-    private readonly SkillInstalledPackageValidator installedPackageValidator;
+    private readonly SkillInstalledTargetStateAnalyzer targetStateAnalyzer;
+    private readonly SkillInstalledPackageDriftAnalyzer driftAnalyzer;
 
     /// <summary> Initializes a new instance of the <see cref="SkillDoctorService" /> class. </summary>
     /// <param name="hostAdapters"> The supported host adapter set. </param>
-    /// <param name="installedPackageValidator"> The installed package validator. </param>
+    /// <param name="targetStateAnalyzer"> The installed target state analyzer. </param>
+    /// <param name="driftAnalyzer"> The local drift analyzer. </param>
     public SkillDoctorService (
         SkillHostAdapterSet hostAdapters,
-        SkillInstalledPackageValidator installedPackageValidator)
+        SkillInstalledTargetStateAnalyzer targetStateAnalyzer,
+        SkillInstalledPackageDriftAnalyzer driftAnalyzer)
     {
         this.hostAdapters = hostAdapters ?? throw new ArgumentNullException(nameof(hostAdapters));
-        this.installedPackageValidator = installedPackageValidator ?? throw new ArgumentNullException(nameof(installedPackageValidator));
+        this.targetStateAnalyzer = targetStateAnalyzer ?? throw new ArgumentNullException(nameof(targetStateAnalyzer));
+        this.driftAnalyzer = driftAnalyzer ?? throw new ArgumentNullException(nameof(driftAnalyzer));
     }
 
     /// <summary> Diagnoses one host target root against canonical packages. </summary>
@@ -95,10 +100,47 @@ public sealed class SkillDoctorService
             return;
         }
 
-        var validationResult = await installedPackageValidator.ValidateAsync(package, skillDirectory, host, cancellationToken).ConfigureAwait(false);
-        if (!validationResult.IsSuccess)
+        var stateResult = await targetStateAnalyzer.AnalyzeAsync(package, skillDirectory, host, cancellationToken).ConfigureAwait(false);
+        if (!stateResult.IsSuccess)
         {
-            diagnostics.Add(SkillDoctorDiagnostic.Error(validationResult.Failure!.Code, validationResult.Failure.Message, package.Manifest.SkillName));
+            diagnostics.Add(SkillDoctorDiagnostic.Error(stateResult.Failure!.Code, stateResult.Failure.Message, package.Manifest.SkillName));
+            return;
+        }
+
+        switch (stateResult.Value!.Kind)
+        {
+            case SkillInstalledTargetStateKind.Current:
+                return;
+            case SkillInstalledTargetStateKind.Missing:
+                diagnostics.Add(SkillDoctorDiagnostic.Error(SkillFailureCodes.InstallTargetUnmanaged, "Skill directory is missing.", package.Manifest.SkillName));
+                return;
+            case SkillInstalledTargetStateKind.CleanOutdated:
+                diagnostics.Add(SkillDoctorDiagnostic.Error(
+                    SkillFailureCodes.InstallTargetOutdated,
+                    "Installed SKILL package is clean but older than the bundled official package.",
+                    package.Manifest.SkillName));
+                return;
+            case SkillInstalledTargetStateKind.Unmanaged:
+                diagnostics.Add(SkillDoctorDiagnostic.Error(
+                    SkillFailureCodes.InstallTargetUnmanaged,
+                    "Skill directory is not managed by uCLI.",
+                    package.Manifest.SkillName));
+                return;
+            case SkillInstalledTargetStateKind.LocalModified:
+                var driftResult = await driftAnalyzer.AnalyzeAsync(package, skillDirectory, host, cancellationToken).ConfigureAwait(false);
+                if (!driftResult.IsSuccess)
+                {
+                    diagnostics.Add(SkillDoctorDiagnostic.Error(driftResult.Failure!.Code, driftResult.Failure.Message, package.Manifest.SkillName));
+                    return;
+                }
+
+                diagnostics.Add(SkillDoctorDiagnostic.Error(
+                    driftResult.Value!.Code,
+                    driftResult.Value.Message,
+                    package.Manifest.SkillName));
+                return;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(stateResult), stateResult.Value.Kind, "Unsupported target state.");
         }
     }
 }

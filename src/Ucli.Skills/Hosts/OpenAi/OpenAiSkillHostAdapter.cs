@@ -10,7 +10,12 @@ public sealed class OpenAiSkillHostAdapter : ISkillHostAdapter
     public const string HostKey = "openai";
 
     /// <inheritdoc />
-    public SkillHostDescriptor Descriptor { get; } = new(HostKey, ".agents/skills");
+    public SkillHostDescriptor Descriptor { get; } = new(
+        HostKey,
+        ".agents/skills",
+        "${CODEX_HOME}/skills or ~/.codex/skills",
+        new SkillUserTargetRootPolicy("CODEX_HOME", "skills", ".codex/skills"),
+        "Restart the Codex session or app to reload installed or updated skills.");
 
     /// <inheritdoc />
     public string MetadataArtifactPath => "agents/openai.yaml";

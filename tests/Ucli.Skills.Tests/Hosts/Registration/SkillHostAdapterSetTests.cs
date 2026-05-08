@@ -50,6 +50,51 @@ public sealed class SkillHostAdapterSetTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Constructor_AllowsEnvironmentVariableRootWithoutChildDirectory ()
+    {
+        var adapterSet = new SkillHostAdapterSet(
+        [
+            new TestSkillHostAdapter(
+                "alpha",
+                ".alpha/skills",
+                new SkillUserTargetRootPolicy("ALPHA_HOME", null, ".alpha/skills")),
+        ]);
+
+        Assert.Equal("alpha", adapterSet.Adapters.Single().Descriptor.HostKey);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_RejectsUnsafeHomeRelativeUserTargetDirectory ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new SkillHostAdapterSet(
+        [
+            new TestSkillHostAdapter(
+                "alpha",
+                ".alpha/skills",
+                new SkillUserTargetRootPolicy(null, null, "../outside")),
+        ]));
+
+        Assert.Contains("home-relative user target directory", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_RejectsEnvironmentChildDirectoryWithoutEnvironmentVariable ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new SkillHostAdapterSet(
+        [
+            new TestSkillHostAdapter(
+                "alpha",
+                ".alpha/skills",
+                new SkillUserTargetRootPolicy(null, "skills", ".alpha/skills")),
+        ]));
+
+        Assert.Contains("requires an environment variable name", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Constructor_RejectsEmptyAdapters ()
     {
         var exception = Assert.Throws<ArgumentException>(() => new SkillHostAdapterSet([]));
@@ -74,9 +119,15 @@ public sealed class SkillHostAdapterSetTests
     {
         public TestSkillHostAdapter (
             string hostKey,
-            string projectTargetDirectory)
+            string projectTargetDirectory,
+            SkillUserTargetRootPolicy? userTargetRootPolicy = null)
         {
-            Descriptor = new SkillHostDescriptor(hostKey, projectTargetDirectory);
+            Descriptor = new SkillHostDescriptor(
+                hostKey,
+                projectTargetDirectory,
+                "~/.test/skills",
+                userTargetRootPolicy ?? new SkillUserTargetRootPolicy(null, null, ".test/skills"),
+                "Reload test skills.");
         }
 
         public SkillHostDescriptor Descriptor { get; }

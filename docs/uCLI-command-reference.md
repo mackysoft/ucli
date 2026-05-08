@@ -34,13 +34,16 @@
   - `mode` / `timeout` は readIndex hit 時も妥当性を検証し、不正値は `INVALID_ARGUMENT` を返す。
 - `ucli skills`
   - `list` は bundled official SKILL と supported host を返す。
-  - `export --host <host> --output <dir>` は指定 host 向けに公式 SKILL を一括 materialize する。
+  - `list` の `supportedHosts[]` は `host`、`projectTargetDirectory`、`userTargetDirectory`、`reloadGuidance` を返す。
+  - `export --host <host> --format directory --output <dir>` は指定 host 向けに公式 SKILL を一括 materialize する。`--format` 未指定時は `directory` とする。
+  - `export --host <host> --format zip --output <file>` は release 用 zip を deterministic に生成する。
   - `install --host <host> --scope project --repoRoot <path>` は未導入の公式 SKILL を一括導入し、既存 target は暗黙上書きしない。
   - `update --host <host> --scope project --repoRoot <path>` は未導入の公式 SKILL を作成し、clean な旧版だけを更新し、最新なら no-op とする。
   - `uninstall --host <host> --scope project --repoRoot <path>` は clean な uCLI 管理済み公式 SKILL だけを削除し、`ucli-skill.json` が無い directory は unmanaged として残す。
   - `doctor --host <host> --scope project --repoRoot <path>` は指定 host の SKILL 配布物だけを診断する。
-  - `install` / `update` / `uninstall` / `doctor` は `--targetDir <path>` を任意で受け付けるが、project scope では repository root 配下に限定する。
-  - 成功時 payload は `host`、`scope`、`repositoryRoot`、`targetRoot` を返す。`update` は `createdCount` / `updatedCount` / `noOpCount`、`uninstall` は `deletedCount` / `noOpCount` / `skippedUnmanagedCount` を返す。
+  - `install` / `update` / `uninstall` / `doctor` は `--scope user` も受け付ける。user scope では `--repoRoot` を受け付けず、`--targetDir` 未指定時は host 既定 user target を使う。
+  - `--targetDir <path>` は任意で受け付ける。project scope では repository root 配下に限定し、user scope では absolute path だけ許可する。
+  - 成功時 payload は `host`、`scope`、`repositoryRoot`、`targetRoot`、`reloadGuidance` を返す。user scope では `repositoryRoot` は `null` になる。`update` は `createdCount` / `updatedCount` / `noOpCount`、`uninstall` は `deletedCount` / `noOpCount` / `skippedUnmanagedCount` を返す。
 - `ucli status`
   - daemon と lifecycle の状態を JSON で返す。
   - `--timeout <int>` で daemon 状態確認タイムアウトを上書きする。

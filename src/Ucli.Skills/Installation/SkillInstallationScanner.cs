@@ -30,12 +30,14 @@ public sealed class SkillInstallationScanner
     /// <param name="packages"> The canonical packages used for digest verification. </param>
     /// <param name="targetRoot"> The host target root. </param>
     /// <param name="host"> The host used for install identity. </param>
+    /// <param name="scope"> The install scope used for install identity. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The installed skill list or manifest failure. </returns>
     public async ValueTask<SkillOperationResult<IReadOnlyList<SkillInstalledSkill>>> ScanAsync (
         IReadOnlyList<CanonicalSkillPackage> packages,
         string targetRoot,
         string host,
+        SkillScopeKind scope = SkillScopeKind.Project,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(packages);
@@ -110,7 +112,7 @@ public sealed class SkillInstallationScanner
             }
 
             installedSkills.Add(new SkillInstalledSkill(
-                new SkillInstallIdentity(hostKey, SkillScopeKind.Project, fullTargetRoot, manifest.SkillName),
+                new SkillInstallIdentity(hostKey, scope, fullTargetRoot, manifest.SkillName),
                 resolvedSkillDirectory,
                 validationResult.Value!));
         }

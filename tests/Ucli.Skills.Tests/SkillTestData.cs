@@ -1,8 +1,11 @@
 using MackySoft.Ucli.Skills.Digests;
 using MackySoft.Ucli.Skills.Distribution;
 using MackySoft.Ucli.Skills.Doctor;
+using MackySoft.Ucli.Skills.Doctor.Diagnostics;
 using MackySoft.Ucli.Skills.Generation;
+using MackySoft.Ucli.Skills.Hosts.Contracts;
 using MackySoft.Ucli.Skills.Hosts.Official;
+using MackySoft.Ucli.Skills.Hosts.OpenAi;
 using MackySoft.Ucli.Skills.Hosts.Registration;
 using MackySoft.Ucli.Skills.Installation;
 using MackySoft.Ucli.Skills.Installation.Validation;
@@ -106,7 +109,7 @@ internal static class SkillTestData
         var hostAdapters = CreateOfficialHostAdapterSet();
         var installedPackageValidator = CreateInstalledPackageValidator(hostAdapters);
         return new SkillInstallService(
-            new SkillInstallTargetResolver(hostAdapters),
+            new SkillInstallTargetResolver(hostAdapters, new SkillUserTargetRootResolver()),
             new SkillMaterializationService(hostAdapters),
             new SkillInstalledTargetStateAnalyzer(installedPackageValidator, CreateInstalledPackageIntegrityVerifier(hostAdapters)),
             CreatePackageWriter(),
@@ -118,7 +121,7 @@ internal static class SkillTestData
         var hostAdapters = CreateOfficialHostAdapterSet();
         var installedPackageValidator = CreateInstalledPackageValidator(hostAdapters);
         return new SkillUpdateService(
-            new SkillInstallTargetResolver(hostAdapters),
+            new SkillInstallTargetResolver(hostAdapters, new SkillUserTargetRootResolver()),
             new SkillMaterializationService(hostAdapters),
             new SkillInstalledTargetStateAnalyzer(installedPackageValidator, CreateInstalledPackageIntegrityVerifier(hostAdapters)),
             packageWriter ?? CreatePackageWriter(),
@@ -130,7 +133,7 @@ internal static class SkillTestData
         var hostAdapters = CreateOfficialHostAdapterSet();
         var installedPackageValidator = CreateInstalledPackageValidator(hostAdapters);
         return new SkillUninstallService(
-            new SkillInstallTargetResolver(hostAdapters),
+            new SkillInstallTargetResolver(hostAdapters, new SkillUserTargetRootResolver()),
             new SkillInstalledTargetStateAnalyzer(installedPackageValidator, CreateInstalledPackageIntegrityVerifier(hostAdapters)),
             CreatePackageRemover());
     }
@@ -157,7 +160,14 @@ internal static class SkillTestData
     internal static SkillDoctorService CreateDoctorService ()
     {
         var hostAdapters = CreateOfficialHostAdapterSet();
-        return new SkillDoctorService(hostAdapters, CreateInstalledPackageValidator(hostAdapters));
+        return new SkillDoctorService(
+            hostAdapters,
+            new SkillInstalledTargetStateAnalyzer(CreateInstalledPackageValidator(hostAdapters), CreateInstalledPackageIntegrityVerifier(hostAdapters)),
+            new SkillInstalledPackageDriftAnalyzer(
+                CreateInstalledManifestReader(hostAdapters),
+                new SkillMaterializationService(hostAdapters),
+                new SkillInstalledFileSetVerifier(),
+                new SkillDigestCalculator()));
     }
 
     internal static IReadOnlyList<CanonicalSkillPackage> ReplacePackage (
@@ -198,6 +208,70 @@ internal static class SkillTestData
         };
     }
 
+    internal static CanonicalSkillPackage CreatePackageWithUpdatedOpenAiMetadata (CanonicalSkillPackage package)
+    {
+        var manifest = package.Manifest with
+        {
+            DisplayName = package.Manifest.DisplayName + " Updated",
+        };
+        var metadata = new SkillHostMetadata(manifest.SkillName, manifest.DisplayName, manifest.Description);
+        var hostAdapters = CreateOfficialHostAdapterSet();
+        var digestCalculator = new SkillDigestCalculator();
+        string? openAiMetadata = null;
+        var hostArtifacts = new List<SkillHostArtifactManifest>();
+        foreach (var artifact in manifest.HostArtifacts.OrderBy(static artifact => artifact.Host, StringComparer.Ordinal))
+        {
+            var adapterResult = hostAdapters.GetAdapter(artifact.Host);
+            Assert.True(adapterResult.IsSuccess, adapterResult.Failure?.Message);
+            var adapter = adapterResult.Value!;
+            var artifacts = adapter.BuildArtifacts(metadata);
+            var frontmatterDigest = digestCalculator.ComputeSingleFileDigest("SKILL.md.frontmatter", artifacts.Frontmatter);
+            var metadataDigest = artifacts.MetadataContent is null || adapter.MetadataArtifactPath is null
+                ? null
+                : digestCalculator.ComputeSingleFileDigest(adapter.MetadataArtifactPath, artifacts.MetadataContent);
+
+            if (string.Equals(adapter.Descriptor.HostKey, OpenAiSkillHostAdapter.HostKey, StringComparison.Ordinal))
+            {
+                openAiMetadata = artifacts.MetadataContent;
+            }
+
+            hostArtifacts.Add(new SkillHostArtifactManifest(
+                adapter.Descriptor.HostKey,
+                adapter.MetadataArtifactPath,
+                metadataDigest,
+                frontmatterDigest));
+        }
+
+        manifest = manifest with
+        {
+            HostArtifacts = hostArtifacts.ToArray(),
+        };
+        var manifestText = new SkillManifestJsonSerializer().Serialize(manifest);
+        var files = package.Files
+            .Select(file =>
+            {
+                if (string.Equals(file.RelativePath, "ucli-skill.json", StringComparison.Ordinal))
+                {
+                    return SkillPackageFile.Create("ucli-skill.json", manifestText);
+                }
+
+                if (string.Equals(file.RelativePath, "agents/openai.yaml", StringComparison.Ordinal))
+                {
+                    Assert.NotNull(openAiMetadata);
+                    return SkillPackageFile.Create("agents/openai.yaml", openAiMetadata!);
+                }
+
+                return file;
+            })
+            .ToArray();
+
+        return package with
+        {
+            Manifest = manifest,
+            Files = files,
+        };
+    }
+
     internal static CanonicalSkillPackage WithFileEnumerationCallback (
         CanonicalSkillPackage package,
         Action callback)
@@ -222,6 +296,8 @@ internal static class SkillTestData
     {
         return new SkillInstalledPackageIntegrityVerifier(
             CreateInstalledManifestReader(hostAdapters),
+            hostAdapters,
+            new SkillManifestJsonSerializer(),
             new SkillHostMaterializationInspector(hostAdapters, new SkillDigestCalculator()),
             new SkillDigestCalculator());
     }
