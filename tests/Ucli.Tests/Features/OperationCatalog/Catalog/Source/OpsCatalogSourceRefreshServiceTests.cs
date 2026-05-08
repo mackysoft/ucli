@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
+using static MackySoft.Ucli.Tests.Features.OperationCatalog.OperationCatalogTestFixtures;
 
 namespace MackySoft.Ucli.Tests.Features.OperationCatalog.Catalog.Source;
 
@@ -15,8 +16,7 @@ public sealed class OpsCatalogSourceRefreshServiceTests
         var generatedAtUtc = DateTimeOffset.Parse("2026-03-07T00:00:00+00:00");
         var reader = new StubOpsCatalogReader
         {
-            Result = OpsCatalogFetchResult.Success(
-                new IpcOpsReadResponse(generatedAtUtc, [CreateGoDescribeEntry()])),
+            Result = CreateFetchResult(generatedAtUtc, [CreateGoDescribeEntry()]),
         };
         var fingerprintProvider = new StubReadIndexInputFingerprintProvider
         {
@@ -57,10 +57,9 @@ public sealed class OpsCatalogSourceRefreshServiceTests
     {
         var reader = new StubOpsCatalogReader
         {
-            Result = OpsCatalogFetchResult.Success(
-                new IpcOpsReadResponse(
-                    DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
-                    [CreateGoDescribeEntry()])),
+            Result = CreateFetchResult(
+                DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
+                [CreateGoDescribeEntry()]),
         };
         var persistedArtifactsReader = new StubPersistedOpsCatalogPersistenceArtifactsReader
         {
@@ -112,10 +111,9 @@ public sealed class OpsCatalogSourceRefreshServiceTests
     {
         var reader = new StubOpsCatalogReader
         {
-            Result = OpsCatalogFetchResult.Success(
-                new IpcOpsReadResponse(
-                    DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
-                    [CreateGoDescribeEntry()])),
+            Result = CreateFetchResult(
+                DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
+                [CreateGoDescribeEntry()]),
         };
         var artifactWriter = new StubReadIndexArtifactWriter
         {
@@ -152,10 +150,9 @@ public sealed class OpsCatalogSourceRefreshServiceTests
     {
         var reader = new StubOpsCatalogReader
         {
-            Result = OpsCatalogFetchResult.Success(
-                new IpcOpsReadResponse(
-                    DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
-                    [CreateGoDescribeEntry()])),
+            Result = CreateFetchResult(
+                DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
+                [CreateGoDescribeEntry()]),
         };
         var fingerprintProvider = new StubReadIndexInputFingerprintProvider
         {
@@ -192,10 +189,9 @@ public sealed class OpsCatalogSourceRefreshServiceTests
     public async Task Refresh_ReturnsFirstSourceResultWithRetryFailureReason_WhenRetryCatalogReadFails ()
     {
         var reader = new StubOpsCatalogReader();
-        reader.Enqueue(OpsCatalogFetchResult.Success(
-            new IpcOpsReadResponse(
-                DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
-                [CreateGoDescribeEntry()])));
+        reader.Enqueue(CreateFetchResult(
+            DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
+            [CreateGoDescribeEntry()]));
         reader.Enqueue(OpsCatalogFetchResult.Failure("Unity source unavailable.", UcliCoreErrorCodes.InternalError));
         var fingerprintProvider = new StubReadIndexInputFingerprintProvider
         {
@@ -221,8 +217,8 @@ public sealed class OpsCatalogSourceRefreshServiceTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Single(result.Operations!);
-        Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, result.Operations![0].Name);
+        Assert.Single(result.Snapshot!.Operations);
+        Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, result.Snapshot.Operations[0].Name);
         Assert.Contains("readIndex stale.", result.FallbackReason!, StringComparison.Ordinal);
         Assert.Contains("project inputs changed while the catalog was being read", result.FallbackReason!, StringComparison.Ordinal);
         Assert.Contains("retry catalog read failed. Unity source unavailable.", result.FallbackReason!, StringComparison.Ordinal);
@@ -236,14 +232,12 @@ public sealed class OpsCatalogSourceRefreshServiceTests
     public async Task Refresh_RetriesAndPersists_WhenCoreInputsChangeDuringFirstCatalogRead ()
     {
         var reader = new StubOpsCatalogReader();
-        reader.Enqueue(OpsCatalogFetchResult.Success(
-            new IpcOpsReadResponse(
-                DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
-                [CreateGoDescribeEntry()])));
-        reader.Enqueue(OpsCatalogFetchResult.Success(
-            new IpcOpsReadResponse(
-                DateTimeOffset.Parse("2026-03-07T00:01:00+00:00"),
-                [CreateSceneSaveEntry()])));
+        reader.Enqueue(CreateFetchResult(
+            DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
+            [CreateGoDescribeEntry()]));
+        reader.Enqueue(CreateFetchResult(
+            DateTimeOffset.Parse("2026-03-07T00:01:00+00:00"),
+            [CreateSceneSaveEntry()]));
         var fingerprintProvider = new StubReadIndexInputFingerprintProvider
         {
             Snapshot = CreateSnapshot("asset-search", "guid-path", "combined-2"),
@@ -269,8 +263,8 @@ public sealed class OpsCatalogSourceRefreshServiceTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Single(result.Operations!);
-        Assert.Equal(UcliPrimitiveOperationNames.SceneSave, result.Operations![0].Name);
+        Assert.Single(result.Snapshot!.Operations);
+        Assert.Equal(UcliPrimitiveOperationNames.SceneSave, result.Snapshot.Operations[0].Name);
         Assert.Equal(2, reader.CallCount);
         Assert.Equal(4, fingerprintProvider.CoreCallCount);
         Assert.Equal(1, artifactWriter.OpsCatalogCallCount);
@@ -284,48 +278,6 @@ public sealed class OpsCatalogSourceRefreshServiceTests
             RepositoryRoot: "/repo",
             ProjectFingerprint: "project-fingerprint",
             PathSource: UnityProjectPathSource.CommandOption);
-    }
-
-    private static IndexOpEntryJsonContract CreateGoDescribeEntry ()
-    {
-        return new IndexOpEntryJsonContract(
-            Name: UcliPrimitiveOperationNames.GoDescribe,
-            Kind: "query",
-            Policy: "safe",
-            ArgsSchemaJson: """{"type":"object"}""",
-            ResultSchemaJson: """{"type":"object"}""")
-        {
-            Description = "Returns a GameObject description including components and child hierarchy.",
-            Inputs = Array.Empty<UcliOperationInputContract>(),
-            ResultContract = UcliOperationResultContract.One<GameObjectDescriptionResult>("GameObject description result."),
-            Assurance = new UcliOperationAssuranceContract(
-                Array.Empty<string>(),
-                mayDirty: false,
-                mayPersist: false,
-                Array.Empty<string>(),
-                UcliOperationPlanModeValues.ObservesLiveUnity),
-        };
-    }
-
-    private static IndexOpEntryJsonContract CreateSceneSaveEntry ()
-    {
-        return new IndexOpEntryJsonContract(
-            Name: UcliPrimitiveOperationNames.SceneSave,
-            Kind: "mutation",
-            Policy: "advanced",
-            ArgsSchemaJson: """{"type":"object"}""",
-            ResultSchemaJson: """{"type":"object"}""")
-        {
-            Description = "Saves a Unity scene asset.",
-            Inputs = Array.Empty<UcliOperationInputContract>(),
-            ResultContract = UcliOperationResultContract.NoResult("No operation-specific result is emitted."),
-            Assurance = new UcliOperationAssuranceContract(
-                Array.Empty<string>(),
-                mayDirty: false,
-                mayPersist: true,
-                Array.Empty<string>(),
-                UcliOperationPlanModeValues.ObservesLiveUnity),
-        };
     }
 
     private static ReadIndexCoreInputHashSnapshot CreateCoreSnapshot (string combinedHash)

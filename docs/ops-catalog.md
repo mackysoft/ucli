@@ -8,6 +8,21 @@
 
 `ucli.prefab.applyOverrides` と `ucli.prefab.revertOverrides` は全モードで edit lowering 専用 primitive とする。ユーザー入力 JSON の raw `kind:"op"` から直接呼び出された場合は `INVALID_ARGUMENT` で拒否する。
 
+## Catalog pipeline
+
+Operation catalog は Unity 側で生成した operation 登録を `IndexOpEntryJsonContract` に変換し、同じ entry contract を live IPC、readIndex 永続化、CLI 表示、静的検証で共有する。
+
+処理順は次の通りである。
+
+```text
+Unity 生成 -> 契約検証 -> source snapshot -> best-effort 永続化 -> persisted load + freshness -> access policy -> CLI projection
+```
+
+- `IndexOpEntryJsonContract.name` / `kind` / `policy` / `argsSchemaJson` / `resultSchemaJson` は request validation 用 descriptor として使う
+- `ops list` は同じ entry から `name` / `kind` / `policy` だけを表示用 model へ投影する
+- `ops describe` は同じ entry から `description` / `inputs` / `resultContract` / `assurance` / schema object を表示用 model へ投影する
+- persisted catalog の読み込み失敗は access policy で分類し、CLI projection は永続化ファイルや freshness 計算の詳細へ依存しない
+
 ## Play Mode 変更での扱い
 
 `--allowPlayMode` 付きの Play Mode 変更では、`kind:"edit"` の lowering から発生する Scene / GameObject / Component / Prefab / Asset / ProjectSettings 操作だけを許可する。公開 query-only request を許可するための契約ではない。

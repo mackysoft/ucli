@@ -41,71 +41,50 @@ internal sealed class ReadIndexValidationCatalogResolver : IReadIndexValidationC
         if (!persistedCatalogResult.IsSuccess)
         {
             return HandlePersistedCatalogReadFailure(
-                persistedCatalogResult.ErrorCode!.Value,
-                persistedCatalogResult.ErrorMessage!,
+                persistedCatalogResult.ReadFailure!,
                 readIndexMode);
         }
 
         var freshness = persistedCatalogResult.Freshness!.Value;
-        var generatedAtUtc = persistedCatalogResult.GeneratedAtUtc!.Value;
+        var snapshot = persistedCatalogResult.Snapshot!;
         var freshnessResult = IndexFreshnessPolicy.ApplyModeConstraint(readIndexMode, freshness);
         if (!freshnessResult.IsSuccess)
         {
             return ReadIndexValidationCatalogResolutionResult.Failure(
                 CreateReadIndexHit(
                     freshnessResult.Freshness,
-                    generatedAtUtc,
+                    snapshot.GeneratedAtUtc,
                     freshnessResult.Error!.Message),
                 freshnessResult.Error.Code,
                 freshnessResult.Error.Message);
         }
 
-        IReadOnlyList<UcliOperationDescriptor> operations;
-        try
-        {
-            operations = OperationDescriptorMapper.Map(persistedCatalogResult.Entries!, cancellationToken);
-        }
-        catch (InvalidOperationException exception)
-        {
-            var message = $"Index contract file 'ops.catalog.json' is malformed. {exception.Message}";
-            return ReadIndexValidationCatalogResolutionResult.Failure(
-                CreateReadIndexMiss(message),
-                ReadIndexErrorCodes.ReadIndexFormatInvalid,
-                message);
-        }
-
         return ReadIndexValidationCatalogResolutionResult.Success(
-            RequestStaticValidationCatalog.Available(operations),
+            RequestStaticValidationCatalog.Available(OperationDescriptorMapper.Map(snapshot.Operations, cancellationToken)),
             CreateReadIndexHit(
                 freshness,
-                generatedAtUtc,
+                snapshot.GeneratedAtUtc,
                 fallbackReason: null));
     }
 
     private static ReadIndexValidationCatalogResolutionResult HandlePersistedCatalogReadFailure (
-        UcliErrorCode errorCode,
-        string errorMessage,
+        PersistedOpsCatalogReadFailure failure,
         ReadIndexMode readIndexMode)
     {
-        if (!errorCode.IsValid)
-        {
-            throw new ArgumentException("Error code must not be empty.", nameof(errorCode));
-        }
-
-        ArgumentException.ThrowIfNullOrWhiteSpace(errorMessage);
+        ArgumentNullException.ThrowIfNull(failure);
 
         if ((readIndexMode == ReadIndexMode.AllowStale)
-            && errorCode == ReadIndexErrorCodes.ReadIndexBootstrapFailed)
+            && failure.Kind == PersistedOpsCatalogReadFailureKind.Unavailable)
         {
             return ReadIndexValidationCatalogResolutionResult.Success(
                 RequestStaticValidationCatalog.Unavailable,
-                CreateReadIndexMiss(errorMessage));
+                CreateReadIndexMiss(failure.Message));
         }
 
         return ReadIndexValidationCatalogResolutionResult.Failure(
-            CreateReadIndexMiss(errorMessage),
-            errorCode,
-            errorMessage);
+            CreateReadIndexMiss(failure.Message),
+            failure.ErrorCode,
+            failure.Message);
     }
 
     private static ReadIndexInfo CreateReadIndexMiss (string fallbackReason)

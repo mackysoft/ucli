@@ -1,6 +1,9 @@
+using System.Reflection;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
+using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
 using MackySoft.Ucli.Contracts.Ipc;
+using static MackySoft.Ucli.Application.Tests.Helpers.OperationCatalog.OperationCatalogTestFixtures;
 
 namespace MackySoft.Ucli.Application.Tests.Ops.Mapping;
 
@@ -13,23 +16,13 @@ public sealed class OpsDescribeResultMapperTests
         var mapper = new OpsDescribeResultMapper(new OpsReadIndexInfoMapper());
 
         var result = mapper.Map(
-            new OpsCatalogReadOutput(
-                Operations:
-                [
-                    CreateDescribedEntry(
-                        name: UcliPrimitiveOperationNames.Resolve,
-                        kind: "query",
-                        policy: "safe",
-                        argsSchemaJson: """{"type":"object"}""",
-                        resultSchemaJson: """{"type":"object","properties":{"globalObjectId":{"type":"string"}}}"""),
-                ],
-                AccessInfo: new OpsCatalogAccessInfo(
-                    true,
-                    true,
-                    OpsCatalogSource.Index,
-                    MackySoft.Ucli.Contracts.Index.IndexFreshness.Fresh,
-                    DateTimeOffset.UtcNow,
-                    null)),
+            CreateReadOutput(
+                CreateDescribedEntry(
+                    name: UcliPrimitiveOperationNames.Resolve,
+                    kind: "query",
+                    policy: "safe",
+                    argsSchemaJson: """{"type":"object"}""",
+                    resultSchemaJson: """{"type":"object","properties":{"globalObjectId":{"type":"string"}}}""")),
             UcliPrimitiveOperationNames.Resolve);
 
         Assert.True(result.IsSuccess);
@@ -57,7 +50,7 @@ public sealed class OpsDescribeResultMapperTests
             CodeContract = CreateCodeContract(),
         };
 
-        var result = mapper.Map(CreateOutput(entry), UcliPrimitiveOperationNames.CsEval);
+        var result = mapper.Map(CreateReadOutput(entry), UcliPrimitiveOperationNames.CsEval);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Output!.Operation.CodeContract);
@@ -73,15 +66,7 @@ public sealed class OpsDescribeResultMapperTests
         var mapper = new OpsDescribeResultMapper(new OpsReadIndexInfoMapper());
 
         var result = mapper.Map(
-            new OpsCatalogReadOutput(
-                Operations: Array.Empty<MackySoft.Ucli.Contracts.Index.IndexOpEntryJsonContract>(),
-                AccessInfo: new OpsCatalogAccessInfo(
-                    true,
-                    true,
-                    OpsCatalogSource.Index,
-                    MackySoft.Ucli.Contracts.Index.IndexFreshness.Fresh,
-                    DateTimeOffset.UtcNow,
-                    null)),
+            CreateReadOutput(Array.Empty<IndexOpEntryJsonContract>()),
             string.Empty);
 
         Assert.False(result.IsSuccess);
@@ -95,22 +80,12 @@ public sealed class OpsDescribeResultMapperTests
         var mapper = new OpsDescribeResultMapper(new OpsReadIndexInfoMapper());
 
         var result = mapper.Map(
-            new OpsCatalogReadOutput(
-                Operations:
-                [
-                    CreateDescribedEntry(
-                        name: UcliPrimitiveOperationNames.Resolve,
-                        kind: "query",
-                        policy: "safe",
-                        argsSchemaJson: "\"not-an-object\""),
-                ],
-                AccessInfo: new OpsCatalogAccessInfo(
-                    true,
-                    true,
-                    OpsCatalogSource.Index,
-                    MackySoft.Ucli.Contracts.Index.IndexFreshness.Fresh,
-                    DateTimeOffset.UtcNow,
-                    null)),
+            CreateUncheckedOutput(
+                CreateDescribedEntry(
+                    name: UcliPrimitiveOperationNames.Resolve,
+                    kind: "query",
+                    policy: "safe",
+                    argsSchemaJson: "\"not-an-object\"")),
             UcliPrimitiveOperationNames.Resolve);
 
         Assert.False(result.IsSuccess);
@@ -124,7 +99,7 @@ public sealed class OpsDescribeResultMapperTests
         var mapper = new OpsDescribeResultMapper(new OpsReadIndexInfoMapper());
 
         var result = mapper.Map(
-            CreateOutput(
+            CreateUncheckedOutput(
                 CreateDescribedEntry(
                     name: UcliPrimitiveOperationNames.Resolve,
                     kind: "query",
@@ -144,7 +119,7 @@ public sealed class OpsDescribeResultMapperTests
         var mapper = new OpsDescribeResultMapper(new OpsReadIndexInfoMapper());
 
         var result = mapper.Map(
-            CreateOutput(
+            CreateUncheckedOutput(
                 CreateDescribedEntry(
                     name: UcliPrimitiveOperationNames.Resolve,
                     kind: "query",
@@ -164,7 +139,7 @@ public sealed class OpsDescribeResultMapperTests
         var mapper = new OpsDescribeResultMapper(new OpsReadIndexInfoMapper());
 
         var result = mapper.Map(
-            CreateOutput(
+            CreateUncheckedOutput(
                 CreateDescribedEntry(
                     name: UcliPrimitiveOperationNames.Resolve,
                     kind: "query",
@@ -193,7 +168,7 @@ public sealed class OpsDescribeResultMapperTests
             ResultContract = UcliOperationResultContract.NoResult("No result."),
         };
 
-        var result = mapper.Map(CreateOutput(entry), UcliPrimitiveOperationNames.Resolve);
+        var result = mapper.Map(CreateUncheckedOutput(entry), UcliPrimitiveOperationNames.Resolve);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
@@ -224,19 +199,31 @@ public sealed class OpsDescribeResultMapperTests
             _ => throw new ArgumentOutOfRangeException(nameof(missingField), missingField, "Unsupported field."),
         };
 
-        var result = mapper.Map(CreateOutput(entry), UcliPrimitiveOperationNames.Resolve);
+        var result = mapper.Map(CreateUncheckedOutput(entry), UcliPrimitiveOperationNames.Resolve);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
     }
 
-    private static OpsCatalogReadOutput CreateOutput (IndexOpEntryJsonContract entry)
+    private static OpsCatalogReadOutput CreateReadOutput (IndexOpEntryJsonContract entry)
+    {
+        return CreateReadOutput([entry]);
+    }
+
+    private static OpsCatalogReadOutput CreateReadOutput (IReadOnlyList<IndexOpEntryJsonContract> entries)
+    {
+        return CreateOutput(CreateSnapshot(DateTimeOffset.UtcNow, entries));
+    }
+
+    private static OpsCatalogReadOutput CreateUncheckedOutput (IndexOpEntryJsonContract entry)
+    {
+        return CreateOutput(CreateUncheckedSnapshot(entry));
+    }
+
+    private static OpsCatalogReadOutput CreateOutput (OpsCatalogSnapshot snapshot)
     {
         return new OpsCatalogReadOutput(
-            Operations:
-            [
-                entry,
-            ],
+            Snapshot: snapshot,
             AccessInfo: new OpsCatalogAccessInfo(
                 true,
                 true,
@@ -244,6 +231,17 @@ public sealed class OpsDescribeResultMapperTests
                 MackySoft.Ucli.Contracts.Index.IndexFreshness.Fresh,
                 DateTimeOffset.UtcNow,
                 null));
+    }
+
+    private static OpsCatalogSnapshot CreateUncheckedSnapshot (params IndexOpEntryJsonContract[] entries)
+    {
+        var constructor = typeof(OpsCatalogSnapshot).GetConstructor(
+            BindingFlags.Instance | BindingFlags.NonPublic,
+            binder: null,
+            types: [typeof(DateTimeOffset), typeof(IReadOnlyList<IndexOpEntryJsonContract>)],
+            modifiers: null)
+            ?? throw new InvalidOperationException("OpsCatalogSnapshot constructor was not found.");
+        return (OpsCatalogSnapshot)constructor.Invoke([DateTimeOffset.UtcNow, entries]);
     }
 
     private static IndexOpEntryJsonContract CreateDescribedEntry (

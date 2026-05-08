@@ -1,65 +1,46 @@
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 
 /// <summary> Represents the result of reading one persisted ops catalog. </summary>
-/// <param name="Entries"> The persisted ops entries on success; otherwise <see langword="null" />. </param>
-/// <param name="GeneratedAtUtc"> The persisted generation timestamp on success; otherwise <see langword="null" />. </param>
+/// <param name="Snapshot"> The persisted catalog snapshot on success; otherwise <see langword="null" />. </param>
 /// <param name="Freshness"> The observed persisted freshness on success; otherwise <see langword="null" />. </param>
-/// <param name="ErrorCode"> The machine-readable failure code on failure; otherwise <see langword="null" />. </param>
-/// <param name="ErrorMessage"> The user-facing failure message on failure; otherwise <see langword="null" />. </param>
+/// <param name="ReadFailure"> The classified failure on failure; otherwise <see langword="null" />. </param>
 internal sealed record PersistedOpsCatalogReadResult (
-    IReadOnlyList<IndexOpEntryJsonContract>? Entries,
-    DateTimeOffset? GeneratedAtUtc,
+    OpsCatalogSnapshot? Snapshot,
     IndexFreshness? Freshness,
-    UcliErrorCode? ErrorCode,
-    string? ErrorMessage)
+    PersistedOpsCatalogReadFailure? ReadFailure)
 {
     /// <summary> Gets a value indicating whether reading succeeded. </summary>
-    public bool IsSuccess => Entries is not null
-        && GeneratedAtUtc.HasValue
+    public bool IsSuccess => Snapshot is not null
         && Freshness.HasValue
-        && ErrorCode is null
-        && string.IsNullOrWhiteSpace(ErrorMessage);
+        && ReadFailure is null;
 
     /// <summary> Creates a successful persisted-catalog read result. </summary>
-    /// <param name="entries"> The persisted ops entries. </param>
-    /// <param name="generatedAtUtc"> The persisted generation timestamp. </param>
+    /// <param name="snapshot"> The persisted catalog snapshot. </param>
     /// <param name="freshness"> The observed persisted freshness. </param>
     /// <returns> The successful read result. </returns>
     public static PersistedOpsCatalogReadResult Success (
-        IReadOnlyList<IndexOpEntryJsonContract> entries,
-        DateTimeOffset generatedAtUtc,
+        OpsCatalogSnapshot snapshot,
         IndexFreshness freshness)
     {
-        ArgumentNullException.ThrowIfNull(entries);
+        ArgumentNullException.ThrowIfNull(snapshot);
 
         return new PersistedOpsCatalogReadResult(
-            Entries: entries,
-            GeneratedAtUtc: generatedAtUtc,
+            Snapshot: snapshot,
             Freshness: freshness,
-            ErrorCode: null,
-            ErrorMessage: null);
+            ReadFailure: null);
     }
 
     /// <summary> Creates a failed persisted-catalog read result. </summary>
-    /// <param name="errorCode"> The machine-readable failure code. </param>
-    /// <param name="errorMessage"> The user-facing failure message. </param>
+    /// <param name="failure"> The classified failure. </param>
     /// <returns> The failed read result. </returns>
-    public static PersistedOpsCatalogReadResult Failure (
-        UcliErrorCode errorCode,
-        string errorMessage)
+    public static PersistedOpsCatalogReadResult Failure (PersistedOpsCatalogReadFailure failure)
     {
-        if (!errorCode.IsValid)
-        {
-            throw new ArgumentException("Error code must not be empty.", nameof(errorCode));
-        }
-
-        ArgumentException.ThrowIfNullOrWhiteSpace(errorMessage);
+        ArgumentNullException.ThrowIfNull(failure);
 
         return new PersistedOpsCatalogReadResult(
-            Entries: null,
-            GeneratedAtUtc: null,
+            Snapshot: null,
             Freshness: null,
-            ErrorCode: errorCode,
-            ErrorMessage: errorMessage);
+            ReadFailure: failure);
     }
+
 }
