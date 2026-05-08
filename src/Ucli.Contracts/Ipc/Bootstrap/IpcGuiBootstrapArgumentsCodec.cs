@@ -49,8 +49,24 @@ public static class IpcGuiBootstrapArgumentsCodec
         out IpcGuiBootstrapParseError error)
     {
         arguments = default!;
-        if (args == null || !TryGetArgumentValue(args, IpcGuiBootstrapArgumentNames.Target, out var target))
+        if (args == null)
         {
+            error = new IpcGuiBootstrapParseError(
+                IpcGuiBootstrapParseErrorKind.MissingTarget,
+                "uCLI GUI bootstrap target is missing.");
+            return false;
+        }
+
+        if (!TryGetArgumentValue(args, IpcGuiBootstrapArgumentNames.Target, out var target))
+        {
+            if (ContainsArgumentName(args, IpcGuiBootstrapArgumentNames.Target))
+            {
+                error = new IpcGuiBootstrapParseError(
+                    IpcGuiBootstrapParseErrorKind.InvalidTarget,
+                    "uCLI GUI bootstrap target value is missing.");
+                return false;
+            }
+
             error = new IpcGuiBootstrapParseError(
                 IpcGuiBootstrapParseErrorKind.MissingTarget,
                 "uCLI GUI bootstrap target is missing.");
@@ -117,6 +133,21 @@ public static class IpcGuiBootstrapArgumentsCodec
 
             value = nextToken;
             return true;
+        }
+
+        return false;
+    }
+
+    private static bool ContainsArgumentName (
+        IReadOnlyList<string> args,
+        string argumentName)
+    {
+        for (var i = 0; i < args.Count; i++)
+        {
+            if (string.Equals(args[i], argumentName, StringComparison.Ordinal))
+            {
+                return true;
+            }
         }
 
         return false;

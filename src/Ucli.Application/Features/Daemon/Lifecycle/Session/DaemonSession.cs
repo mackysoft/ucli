@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Storage;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
 /// <summary> Represents persisted daemon session metadata bound to one project fingerprint. </summary>
@@ -26,5 +28,5 @@ internal sealed record DaemonSession (
     int? OwnerProcessId)
 {
     /// <summary> Gets the schema version used by daemon session persistence. </summary>
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = DaemonSessionStorageContract.CurrentSchemaVersion;
 }

@@ -31,7 +31,7 @@ internal static class DaemonSessionTerminationPolicy
             && DaemonEditorModeCodec.TryParse(session.EditorMode, out var editorMode)
             && editorMode == DaemonEditorMode.Gui
             && DaemonSessionOwnerKindCodec.TryParse(session.OwnerKind, out var ownerKind)
-            && ownerKind == DaemonSessionOwnerKind.User
+            && (ownerKind == DaemonSessionOwnerKind.User || ownerKind == DaemonSessionOwnerKind.Cli)
             && !session.CanShutdownProcess
             && session.OwnerProcessId is > 0;
     }

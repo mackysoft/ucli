@@ -55,7 +55,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             var issuedAtUtc = DateTimeOffset.UtcNow;
             var sessionToken = CreateSessionToken();
             var sessionContract = new DaemonSessionJsonContract(
-                SchemaVersion: 1,
+                SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
                 SessionToken: sessionToken,
                 ProjectFingerprint: projectFingerprint,
                 IssuedAtUtc: issuedAtUtc,

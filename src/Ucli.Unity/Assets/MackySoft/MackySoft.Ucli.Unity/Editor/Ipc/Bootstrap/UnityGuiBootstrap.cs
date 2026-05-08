@@ -29,6 +29,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             var daemonLogStream = new DaemonLogRingBuffer();
             var daemonLogger = new DaemonLogger(daemonLogStream);
             ActiveGuiBootstrapState nextState = null;
+            UnityGuiSessionRegistration registration = null;
+            IUnityIpcServer server = null;
+            UnityLogCaptureService unityLogCaptureService = null;
+            IServiceProvider serviceProvider = null;
             try
             {
                 var projectRoot = UnityProjectPathResolver.ResolveProjectRootPath();
@@ -36,7 +40,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var projectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, projectRoot);
                 var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(storageRoot, projectFingerprint);
                 var sessionOptions = UnityGuiBootstrapSessionOptions.Create(bootstrapArguments);
-                var registration = await UnityGuiSessionPersistence.Write(
+                registration = await UnityGuiSessionPersistence.Write(
                     storageRoot,
                     projectFingerprint,
                     endpoint,
@@ -61,10 +65,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                         daemonBootstrapArguments,
                         daemonLogStream);
 
-                var serviceProvider = services.BuildServiceProvider();
-                var server = serviceProvider.GetRequiredService<IUnityIpcServer>();
+                serviceProvider = services.BuildServiceProvider();
+                server = serviceProvider.GetRequiredService<IUnityIpcServer>();
                 var shutdownSignal = serviceProvider.GetRequiredService<IDaemonShutdownSignal>();
-                var unityLogCaptureService = serviceProvider.GetRequiredService<UnityLogCaptureService>();
+                unityLogCaptureService = serviceProvider.GetRequiredService<UnityLogCaptureService>();
                 unityLogCaptureService.Start();
 
                 await server.Start(endpoint, CancellationToken.None);
@@ -75,10 +79,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                     unityLogCaptureService,
                     serviceProvider,
                     daemonLogger);
-                nextState.RunTask = Monitor(nextState);
                 lock (SyncRoot)
                 {
                     activeState = nextState;
+                    nextState.RunTask = Monitor(nextState);
                 }
 
                 EnsureEditorLifecycleSubscriptions();
@@ -95,8 +99,17 @@ namespace MackySoft.Ucli.Unity.Ipc
                 Debug.LogException(exception);
                 if (nextState != null)
                 {
+                    ClearActiveState(nextState);
                     await StopState(nextState, requestProcessExit: false);
+                    return;
                 }
+
+                await CleanupFailedStart(
+                    registration,
+                    server,
+                    unityLogCaptureService,
+                    serviceProvider,
+                    daemonLogger);
             }
         }
 
@@ -176,48 +189,117 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return;
             }
 
-            try
-            {
-                await state.Server.Stop(CancellationToken.None);
-            }
-            catch (Exception exception)
-            {
-                state.DaemonLogger.Warning(
-                    DaemonLogCategories.Lifecycle,
-                    $"GUI IPC server stop failed. {exception.Message}");
-            }
-
-            try
-            {
-                state.UnityLogCaptureService.Dispose();
-            }
-            catch (Exception exception)
-            {
-                state.DaemonLogger.Warning(
-                    DaemonLogCategories.Lifecycle,
-                    $"GUI Unity log capture disposal failed. {exception.Message}");
-            }
-
-            try
-            {
-                UnityGuiSessionPersistence.Delete(state.Registration);
-            }
-            catch (Exception exception)
-            {
-                state.DaemonLogger.Warning(
-                    DaemonLogCategories.Lifecycle,
-                    $"GUI session cleanup failed. {exception.Message}");
-            }
-
-            if (state.ServiceProvider is IDisposable disposableServiceProvider)
-            {
-                disposableServiceProvider.Dispose();
-            }
+            await ReleaseResources(
+                state.Registration,
+                state.Server,
+                state.UnityLogCaptureService,
+                state.ServiceProvider,
+                state.DaemonLogger,
+                cleanupContext: null);
 
             if (requestProcessExit)
             {
                 EditorApplication.Exit(0);
             }
+        }
+
+        /// <summary> Releases resources that may have been acquired before GUI bootstrap startup failed. </summary>
+        /// <param name="registration"> The persisted session registration when already written. </param>
+        /// <param name="server"> The IPC server instance when already resolved. </param>
+        /// <param name="unityLogCaptureService"> The Unity log capture service when already resolved. </param>
+        /// <param name="serviceProvider"> The service provider when already built. </param>
+        /// <param name="daemonLogger"> The logger used to report cleanup failures. </param>
+        /// <returns> A task that completes after all available resources are released. </returns>
+        internal static async Task CleanupFailedStart (
+            UnityGuiSessionRegistration registration,
+            IUnityIpcServer server,
+            IDisposable unityLogCaptureService,
+            IServiceProvider serviceProvider,
+            IDaemonLogger daemonLogger)
+        {
+            await ReleaseResources(
+                registration,
+                server,
+                unityLogCaptureService,
+                serviceProvider,
+                daemonLogger,
+                cleanupContext: "after failed startup");
+        }
+
+        private static async Task ReleaseResources (
+            UnityGuiSessionRegistration registration,
+            IUnityIpcServer server,
+            IDisposable unityLogCaptureService,
+            IServiceProvider serviceProvider,
+            IDaemonLogger daemonLogger,
+            string cleanupContext)
+        {
+            daemonLogger ??= NoOpDaemonLogger.Instance;
+            if (server != null)
+            {
+                try
+                {
+                    await server.Stop(CancellationToken.None);
+                }
+                catch (Exception exception)
+                {
+                    daemonLogger.Warning(
+                        DaemonLogCategories.Lifecycle,
+                        FormatCleanupFailureMessage("GUI IPC server stop", cleanupContext, exception));
+                }
+            }
+
+            if (unityLogCaptureService != null)
+            {
+                try
+                {
+                    unityLogCaptureService.Dispose();
+                }
+                catch (Exception exception)
+                {
+                    daemonLogger.Warning(
+                        DaemonLogCategories.Lifecycle,
+                        FormatCleanupFailureMessage("GUI Unity log capture disposal", cleanupContext, exception));
+                }
+            }
+
+            if (registration != null)
+            {
+                try
+                {
+                    UnityGuiSessionPersistence.Delete(registration);
+                }
+                catch (Exception exception)
+                {
+                    daemonLogger.Warning(
+                        DaemonLogCategories.Lifecycle,
+                        FormatCleanupFailureMessage("GUI session cleanup", cleanupContext, exception));
+                }
+            }
+
+            if (serviceProvider is IDisposable disposableServiceProvider)
+            {
+                try
+                {
+                    disposableServiceProvider.Dispose();
+                }
+                catch (Exception exception)
+                {
+                    daemonLogger.Warning(
+                        DaemonLogCategories.Lifecycle,
+                        FormatCleanupFailureMessage("GUI service provider disposal", cleanupContext, exception));
+                }
+            }
+        }
+
+        private static string FormatCleanupFailureMessage (
+            string operation,
+            string cleanupContext,
+            Exception exception)
+        {
+            return string.IsNullOrEmpty(cleanupContext)
+                ? $"{operation} failed. {exception.Message}"
+                : $"{operation} {cleanupContext} failed. {exception.Message}";
         }
 
         private static void EnsureEditorLifecycleSubscriptions ()
