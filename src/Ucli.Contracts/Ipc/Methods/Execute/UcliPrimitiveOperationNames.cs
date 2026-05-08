@@ -18,6 +18,9 @@ public static class UcliPrimitiveOperationNames
     /// <summary> Gets the primitive operation name for <c>ucli.assets.find</c>. </summary>
     public const string AssetsFind = "ucli.assets.find";
 
+    /// <summary> Gets the primitive operation name for <c>ucli.cs.eval</c>. </summary>
+    public const string CsEval = "ucli.cs.eval";
+
     /// <summary> Gets the primitive operation name for <c>ucli.comp.ensure</c>. </summary>
     public const string CompEnsure = "ucli.comp.ensure";
 

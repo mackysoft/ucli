@@ -235,7 +235,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 source.Description,
                 CopyInputs(source.Inputs),
                 CopyResultContract(source.ResultContract),
-                CopyAssurance(source.Assurance));
+                CopyAssurance(source.Assurance),
+                CopyCodeContract(source.CodeContract));
         }
 
         private static IReadOnlyList<UcliOperationInputContract>? CopyInputs (IReadOnlyList<UcliOperationInputContract>? source)
@@ -354,6 +355,94 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 source.MayPersist,
                 CopyStrings(source.TouchedKinds),
                 source.PlanMode);
+        }
+
+        private static UcliOperationCodeContract? CopyCodeContract (UcliOperationCodeContract? source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            return new UcliOperationCodeContract(
+                source.Language,
+                CopyCodeEntryPoint(source.EntryPoint),
+                CopyCodeApiTypes(source.ApiTypes));
+        }
+
+        private static UcliCodeEntryPointContract? CopyCodeEntryPoint (UcliCodeEntryPointContract? source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            return new UcliCodeEntryPointContract(
+                source.Signature,
+                source.RequiredStatic,
+                CopyStrings(source.ParameterTypes),
+                source.ReturnValue);
+        }
+
+        private static IReadOnlyList<UcliCodeApiTypeContract>? CopyCodeApiTypes (IReadOnlyList<UcliCodeApiTypeContract>? source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            var apiTypes = new UcliCodeApiTypeContract[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                apiTypes[i] = new UcliCodeApiTypeContract(
+                    source[i].Name,
+                    source[i].FullName,
+                    source[i].Description,
+                    CopyCodeApiMembers(source[i].Members));
+            }
+
+            return apiTypes;
+        }
+
+        private static IReadOnlyList<UcliCodeApiMemberContract>? CopyCodeApiMembers (IReadOnlyList<UcliCodeApiMemberContract>? source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            var members = new UcliCodeApiMemberContract[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                members[i] = new UcliCodeApiMemberContract(
+                    source[i].Kind,
+                    source[i].Name,
+                    source[i].Description,
+                    source[i].Type,
+                    source[i].ReturnType,
+                    CopyCodeApiParameters(source[i].Parameters));
+            }
+
+            return members;
+        }
+
+        private static IReadOnlyList<UcliCodeApiParameterContract>? CopyCodeApiParameters (IReadOnlyList<UcliCodeApiParameterContract>? source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            var parameters = new UcliCodeApiParameterContract[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                parameters[i] = new UcliCodeApiParameterContract(
+                    source[i].Name,
+                    source[i].Type,
+                    source[i].Description);
+            }
+
+            return parameters;
         }
 
         private static IReadOnlyList<string>? CopyStrings (IReadOnlyList<string>? source)

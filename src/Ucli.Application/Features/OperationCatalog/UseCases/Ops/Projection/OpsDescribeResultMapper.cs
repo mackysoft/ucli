@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
 
@@ -70,6 +71,7 @@ internal sealed class OpsDescribeResultMapper : IOpsDescribeResultMapper
                     inputs: operation.Inputs!,
                     resultContract: operation.ResultContract!,
                     assurance: operation.Assurance!,
+                    codeContract: operation.CodeContract,
                     argsSchema: argsSchema,
                     resultSchema: resultSchema),
                 ReadIndex: readIndexInfoMapper.Map(output.AccessInfo)),
@@ -167,6 +169,18 @@ internal sealed class OpsDescribeResultMapper : IOpsDescribeResultMapper
             || string.IsNullOrWhiteSpace(operation.Assurance.PlanMode))
         {
             error = "assurance is incomplete.";
+            return false;
+        }
+
+        var describeContract = new UcliOperationDescribeContract(
+            operation.Description,
+            operation.Inputs,
+            operation.ResultContract,
+            operation.Assurance,
+            operation.CodeContract);
+        if (!UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describeContract, "operation", out var describeError))
+        {
+            error = describeError;
             return false;
         }
 
