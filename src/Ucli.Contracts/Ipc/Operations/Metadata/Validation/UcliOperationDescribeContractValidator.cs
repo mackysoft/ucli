@@ -2,6 +2,8 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 
 internal static class UcliOperationDescribeContractValidator
 {
+    private const string SupportedCodeLanguageCSharp = "csharp";
+
     private const int MaxArgsPathLength = 256;
 
     private const int MaxArgsPathSegmentCount = 16;
@@ -388,6 +390,12 @@ internal static class UcliOperationDescribeContractValidator
             return false;
         }
 
+        if (!IsSupportedCodeLanguage(codeContract.Language))
+        {
+            errorMessage = $"{ownerName} has an unsupported codeContract language.";
+            return false;
+        }
+
         for (var parameterTypeIndex = 0; parameterTypeIndex < codeContract.EntryPoint.ParameterTypes.Count; parameterTypeIndex++)
         {
             if (string.IsNullOrWhiteSpace(codeContract.EntryPoint.ParameterTypes[parameterTypeIndex]))
@@ -407,6 +415,12 @@ internal static class UcliOperationDescribeContractValidator
                 errorMessage = $"{ownerName} has an invalid codeContract source form at index {sourceFormIndex}.";
                 return false;
             }
+
+            if (!IsSupportedCodeSourceFormKind(sourceForm.Kind))
+            {
+                errorMessage = $"{ownerName} has an unsupported codeContract source form at index {sourceFormIndex}.";
+                return false;
+            }
         }
 
         for (var typeIndex = 0; typeIndex < codeContract.ApiTypes.Count; typeIndex++)
@@ -419,6 +433,21 @@ internal static class UcliOperationDescribeContractValidator
 
         errorMessage = string.Empty;
         return true;
+    }
+
+    private static bool IsSupportedCodeLanguage (string language)
+    {
+        return string.Equals(language, SupportedCodeLanguageCSharp, StringComparison.Ordinal);
+    }
+
+    private static bool IsSupportedCodeSourceFormKind (string kind)
+    {
+        return kind switch
+        {
+            CsEvalSourceKindValues.CompilationUnit => true,
+            CsEvalSourceKindValues.Snippet => true,
+            _ => false,
+        };
     }
 
     private static bool TryValidateCodeApiType (

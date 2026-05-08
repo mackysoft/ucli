@@ -345,6 +345,37 @@ public sealed class UcliOperationDescribeContractValidatorTests
         Assert.Equal("Test contract has invalid codeContract metadata.", errorMessage);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpDescribeContract_WhenCodeContractLanguageIsUnsupported_ReturnsFalse ()
+    {
+        var describe = CreateValidDescribeContract();
+        describe.CodeContract = CreateValidCodeContract();
+        describe.CodeContract.Language = "python";
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Test contract has an unsupported codeContract language.", errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpDescribeContract_WhenCodeContractSourceFormIsUnsupported_ReturnsFalse ()
+    {
+        var describe = CreateValidDescribeContract();
+        describe.CodeContract = CreateValidCodeContract();
+        describe.CodeContract.SourceForms =
+        [
+            new UcliCodeSourceFormContract("not-supported", "Unsupported source form."),
+        ];
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Test contract has an unsupported codeContract source form at index 0.", errorMessage);
+    }
+
     private static UcliOperationDescribeContract CreateValidDescribeContract ()
     {
         return UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
