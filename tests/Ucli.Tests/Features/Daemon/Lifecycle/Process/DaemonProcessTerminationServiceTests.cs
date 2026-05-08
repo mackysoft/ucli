@@ -92,7 +92,7 @@ public sealed class DaemonProcessTerminationServiceTests
             var result = await service.EnsureStopped(
                 process.Id,
                 DateTimeOffset.UtcNow,
-                TimeSpan.FromSeconds(5),
+                TimeSpan.FromSeconds(10),
                 CancellationToken.None);
 
             Assert.True(result.IsSuccess);
@@ -109,7 +109,7 @@ public sealed class DaemonProcessTerminationServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task EnsureStopped_WhenMatchingProcessExitsDuringPassiveWait_DoesNotRequestGracefulTermination ()
+    public async Task EnsureStopped_WhenExtraTimeoutBudgetAndMatchingProcessExitsDuringPassiveWait_DoesNotRequestGracefulTermination ()
     {
         if (OperatingSystem.IsWindows())
         {
@@ -139,7 +139,101 @@ public sealed class DaemonProcessTerminationServiceTests
             var result = await service.EnsureStopped(
                 process.Id,
                 DateTimeOffset.UtcNow,
+                TimeSpan.FromSeconds(15),
+                CancellationToken.None);
+
+            Assert.True(result.IsSuccess);
+            Assert.False(File.Exists(markerPath));
+        }
+        finally
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureStopped_WhenDefaultTimeoutAndMatchingProcessExitsAfterOneSecond_RequestsGracefulTermination ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("daemon-process-termination", "delayed-passive-exit");
+        var readyPath = scope.GetPath("ready-marker");
+        var markerPath = scope.GetPath("term-marker");
+        using var process = Process.Start(new ProcessStartInfo
+        {
+            FileName = "/bin/sh",
+            ArgumentList =
+            {
+                "-c",
+                $"trap 'printf term > {ShellSingleQuote(markerPath)}; exit 0' TERM; printf ready > {ShellSingleQuote(readyPath)}; sleep 1; exit 0",
+            },
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        }) ?? throw new InvalidOperationException("Test process could not be started.");
+        var service = CreateService();
+
+        try
+        {
+            await WaitForFileExistsAsync(readyPath, TimeSpan.FromSeconds(5), CancellationToken.None);
+
+            var result = await service.EnsureStopped(
+                process.Id,
+                DateTimeOffset.UtcNow,
                 TimeSpan.FromSeconds(10),
+                CancellationToken.None);
+
+            Assert.True(result.IsSuccess);
+            Assert.True(File.Exists(markerPath));
+        }
+        finally
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureStopped_WhenExtraTimeoutBudgetAndMatchingProcessExitsAfterOneSecond_DoesNotRequestGracefulTermination ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("daemon-process-termination", "extra-budget-passive-exit");
+        var readyPath = scope.GetPath("ready-marker");
+        var markerPath = scope.GetPath("term-marker");
+        using var process = Process.Start(new ProcessStartInfo
+        {
+            FileName = "/bin/sh",
+            ArgumentList =
+            {
+                "-c",
+                $"trap 'printf term > {ShellSingleQuote(markerPath)}; exit 0' TERM; printf ready > {ShellSingleQuote(readyPath)}; sleep 1; exit 0",
+            },
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        }) ?? throw new InvalidOperationException("Test process could not be started.");
+        var service = CreateService();
+
+        try
+        {
+            await WaitForFileExistsAsync(readyPath, TimeSpan.FromSeconds(5), CancellationToken.None);
+
+            var result = await service.EnsureStopped(
+                process.Id,
+                DateTimeOffset.UtcNow,
+                TimeSpan.FromSeconds(15),
                 CancellationToken.None);
 
             Assert.True(result.IsSuccess);

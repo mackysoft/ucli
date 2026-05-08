@@ -15,6 +15,9 @@ internal static class SupervisorConstants
     /// <summary> Gets the retry delay used while waiting for bootstrap completion. </summary>
     public static readonly TimeSpan BootstrapPollDelay = TimeSpan.FromMilliseconds(100);
 
+    /// <summary> Gets the grace period allowed for a launched supervisor to publish a reachable manifest. </summary>
+    public static readonly TimeSpan ManifestPublicationTimeout = TimeSpan.FromSeconds(15);
+
     /// <summary> Gets the idle delay after which an unused supervisor exits. </summary>
     public static readonly TimeSpan IdleShutdownDelay = TimeSpan.FromSeconds(10);
 

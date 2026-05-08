@@ -70,11 +70,13 @@ public sealed class UnityOneshotIpcClientTests
         Assert.Equal(0, processHandle.TerminateCallCount);
     }
 
-    [Fact]
+    [Theory]
     [Trait("Size", "Small")]
-    public async Task SendAsync_WhenStartupPingReportsStarting_SendsRequestAfterFirstSuccessfulPing ()
+    [InlineData(IpcEditorLifecycleStateCodec.Starting)]
+    public async Task SendAsync_WhenStartupPingReportsWaitableState_RetriesUntilReadyBeforeSendingRequest (
+        string lifecycleState)
     {
-        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "startup-retry");
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", $"startup-retry-{lifecycleState}");
         var unityProject = CreateUnityProject(scope);
         var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
         var processHandle = new StubUnityBatchmodeProcessHandle();
@@ -86,7 +88,7 @@ public sealed class UnityOneshotIpcClientTests
             {
                 IpcMethodNames.Ping => CreatePingResponse(
                     request.RequestId,
-                    lifecycleState: ++pingAttempt == 1 ? IpcEditorLifecycleStateCodec.Starting : IpcEditorLifecycleStateCodec.Ready,
+                    lifecycleState: ++pingAttempt == 1 ? lifecycleState : IpcEditorLifecycleStateCodec.Ready,
                     canAcceptExecutionRequests: pingAttempt != 1),
                 IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
@@ -106,9 +108,88 @@ public sealed class UnityOneshotIpcClientTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(2, transportClient.CallCount);
+        Assert.Equal(3, transportClient.CallCount);
         Assert.Equal(IpcMethodNames.Ping, transportClient.Requests[0].Method);
-        Assert.Equal(IpcMethodNames.OpsRead, transportClient.Requests[1].Method);
+        Assert.Equal(IpcMethodNames.Ping, transportClient.Requests[1].Method);
+        Assert.Equal(IpcMethodNames.OpsRead, transportClient.Requests[2].Method);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenStartupPingReportsWaitableStateAndRequestIsFailFast_ReturnsLifecycleFailureWithoutDispatch ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "startup-fail-fast");
+        var unityProject = CreateUnityProject(scope);
+        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
+        var processHandle = new StubUnityBatchmodeProcessHandle();
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var transportClient = new StubUnityIpcTransportClient(request =>
+        {
+            return request.Method switch
+            {
+                IpcMethodNames.Ping => CreatePingResponse(
+                    request.RequestId,
+                    lifecycleState: IpcEditorLifecycleStateCodec.Starting,
+                    canAcceptExecutionRequests: false),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = new UnityOneshotIpcClient(
+            launcher,
+            new StubIpcEndpointResolver(endpoint),
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe());
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateOpsReadDispatchRequest(failFast: true, requireReadinessGate: true),
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(EditorLifecycleErrorCodes.EditorStarting, result.ErrorCode);
+        Assert.Equal(1, transportClient.CallCount);
+        Assert.Equal(IpcMethodNames.Ping, transportClient.Requests[0].Method);
+        Assert.Equal(1, processHandle.TerminateCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenStartupPingTimesOut_RetriesUntilReachable ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "startup-timeout-retry");
+        var unityProject = CreateUnityProject(scope);
+        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
+        var processHandle = new StubUnityBatchmodeProcessHandle();
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var pingAttempt = 0;
+        var transportClient = new StubUnityIpcTransportClient(request =>
+        {
+            return request.Method switch
+            {
+                IpcMethodNames.Ping when ++pingAttempt == 1 => throw new TimeoutException("startup ping timed out"),
+                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
+                IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = new UnityOneshotIpcClient(
+            launcher,
+            new StubIpcEndpointResolver(endpoint),
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe());
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(3, transportClient.CallCount);
+        Assert.Equal(0, processHandle.TerminateCallCount);
     }
 
     [Fact]
@@ -293,6 +374,15 @@ public sealed class UnityOneshotIpcClientTests
     private static UnityIpcDispatchRequest CreateDispatchRequest ()
     {
         return new UnityIpcDispatchRequest(IpcMethodNames.OpsRead, CreateDispatchPayload());
+    }
+
+    private static UnityIpcDispatchRequest CreateOpsReadDispatchRequest (
+        bool failFast,
+        bool requireReadinessGate)
+    {
+        return new UnityIpcDispatchRequest(
+            IpcMethodNames.OpsRead,
+            IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(failFast, requireReadinessGate)));
     }
 
     private static IpcResponse CreateSuccessResponse (string requestId)

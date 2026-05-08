@@ -10,7 +10,7 @@ namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
 /// <summary> Implements process termination checks and force-kill fallback by process identifier. </summary>
 internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminationService
 {
-    private static readonly TimeSpan PassiveExitWaitTimeoutCap = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan PassiveExitWaitTimeoutCap = UnityProcessTerminationPolicy.GracefulThenKill.GraceTimeout;
 
     private readonly DaemonProcessIdentityAssessor daemonProcessIdentityAssessor;
 
@@ -80,8 +80,15 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
             }
 
             var deadline = ExecutionDeadline.Start(timeout);
-            // NOTE: Stop may have already sent a shutdown IPC request; give Unity a short chance to exit normally first.
-            var passiveExitWaitTimeout = GetPassiveExitWaitTimeout(timeout);
+            // NOTE: Stop may have already sent a shutdown IPC request; Unity needs a few seconds to
+            // complete its own shutdown path and remove Temp/UnityLockfile before SIGTERM is used.
+            if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
+            {
+                return DaemonSessionStoreOperationResult.Failure(ExecutionError.Timeout(
+                    $"Timed out while waiting for daemon process '{processId.Value}' to stop."));
+            }
+
+            var passiveExitWaitTimeout = GetPassiveExitWaitTimeout(remainingTimeout);
             if (passiveExitWaitTimeout > TimeSpan.Zero
                 && await WaitUntilExitedAsync(process, passiveExitWaitTimeout, cancellationToken).ConfigureAwait(false))
             {
@@ -128,19 +135,23 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
     }
 
     /// <summary> Calculates the passive wait budget used before sending a termination request. </summary>
-    /// <param name="timeout"> The total process-stop timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
+    /// <param name="remainingTimeout"> The remaining process-stop timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <returns> A bounded passive wait duration, or <see cref="TimeSpan.Zero" /> when the budget is too small. </returns>
-    private static TimeSpan GetPassiveExitWaitTimeout (TimeSpan timeout)
+    private static TimeSpan GetPassiveExitWaitTimeout (TimeSpan remainingTimeout)
     {
-        var totalMilliseconds = Math.Ceiling(timeout.TotalMilliseconds);
-        if (totalMilliseconds <= 2)
+        var totalMilliseconds = Math.Ceiling(remainingTimeout.TotalMilliseconds);
+        var fallbackPolicy = UnityProcessTerminationPolicy.GracefulThenKill;
+        var fallbackTimeout = fallbackPolicy.GraceTimeout + fallbackPolicy.ForceKillWaitTimeout;
+        var fallbackMilliseconds = Math.Ceiling(fallbackTimeout.TotalMilliseconds);
+        var passiveExitWaitBudgetMilliseconds = totalMilliseconds - fallbackMilliseconds;
+        if (passiveExitWaitBudgetMilliseconds <= 0)
         {
             return TimeSpan.Zero;
         }
 
         var passiveExitWaitMilliseconds = Math.Min(
             PassiveExitWaitTimeoutCap.TotalMilliseconds,
-            totalMilliseconds - 2);
+            passiveExitWaitBudgetMilliseconds);
         return TimeSpan.FromMilliseconds(passiveExitWaitMilliseconds);
     }
 
