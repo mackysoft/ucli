@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using static MackySoft.Ucli.Application.Tests.Helpers.OperationCatalog.OperationCatalogTestFixtures;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -144,20 +145,35 @@ public sealed class OperationCatalogDiscoveryServiceTests
             ReceivedFailFast = failFast;
             ReceivedRequireReadinessGate = requireReadinessGate;
 
-            return ValueTask.FromResult(OpsCatalogFetchResult.Success(new IpcOpsReadResponse(
-                GeneratedAtUtc: DateTimeOffset.UtcNow,
-                Operations:
-                [
-                    new IndexOpEntryJsonContract(
-                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen,
-                        Kind: "query",
-                        Policy: "safe",
-                        ArgsSchemaJson: JsonSerializer.Serialize(new
+            var describe = UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
+                "Opens a Unity scene asset in the editor.",
+                new UcliOperationAssuranceContract(
+                    Array.Empty<UcliOperationSideEffect>(),
+                    mayDirty: false,
+                    mayPersist: false,
+                    Array.Empty<string>(),
+                    UcliOperationPlanMode.ObservesLiveUnity));
+
+            return ValueTask.FromResult(OpsCatalogFetchResult.Success(
+                CreateSnapshot(
+                    DateTimeOffset.UtcNow,
+                    [
+                        new IndexOpEntryJsonContract(
+                            Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen,
+                            Kind: "command",
+                            Policy: "safe",
+                            ArgsSchemaJson: JsonSerializer.Serialize(new
+                            {
+                                type = "object",
+                                additionalProperties = false,
+                            }))
                         {
-                            type = "object",
-                            additionalProperties = false,
-                        })),
-                ])));
+                            Description = describe.Description,
+                            Inputs = describe.Inputs,
+                            ResultContract = describe.ResultContract,
+                            Assurance = describe.Assurance,
+                        },
+                    ])));
         }
     }
 

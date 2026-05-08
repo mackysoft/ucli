@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Contracts.Configuration;
+using static MackySoft.Ucli.Application.Tests.Helpers.OperationCatalog.OperationCatalogTestFixtures;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -10,12 +11,11 @@ public sealed class ReadIndexValidationCatalogResolverTests
     [Trait("Size", "Small")]
     public async Task Resolve_WhenReadIndexDisabled_ReturnsSyntaxOnlySuccess ()
     {
-        var persistedCatalog = CreatePersistedCatalogStub(IndexFreshness.Fresh);
         var loader = new SpyPersistedOpsCatalogReader(
-            PersistedOpsCatalogReadResult.Success(
-                persistedCatalog.Entries,
-                persistedCatalog.GeneratedAtUtc,
-                persistedCatalog.Freshness));
+            CreatePersistedReadResult(
+                DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+                IndexFreshness.Fresh,
+                [CreateGoDescribeEntry()]));
         var resolver = new ReadIndexValidationCatalogResolver(loader);
 
         var result = await resolver.Resolve(
@@ -39,8 +39,10 @@ public sealed class ReadIndexValidationCatalogResolverTests
     {
         var resolver = new ReadIndexValidationCatalogResolver(new SpyPersistedOpsCatalogReader(
             PersistedOpsCatalogReadResult.Failure(
-                ReadIndexErrorCodes.ReadIndexBootstrapFailed,
-                "Index contract file was not found: ops.catalog.json.")));
+                new PersistedOpsCatalogReadFailure(
+                    PersistedOpsCatalogReadFailureKind.Unavailable,
+                    ReadIndexErrorCodes.ReadIndexBootstrapFailed,
+                    "Index contract file was not found: ops.catalog.json."))));
 
         var result = await resolver.Resolve(
             CreateUnityProject(),
@@ -58,12 +60,11 @@ public sealed class ReadIndexValidationCatalogResolverTests
     [Trait("Size", "Small")]
     public async Task Resolve_WhenRequireFreshAndPersistedCatalogIsStale_ReturnsFailureWithReadIndexHit ()
     {
-        var persistedCatalog = CreatePersistedCatalogStub(IndexFreshness.Stale);
         var resolver = new ReadIndexValidationCatalogResolver(new SpyPersistedOpsCatalogReader(
-            PersistedOpsCatalogReadResult.Success(
-                persistedCatalog.Entries,
-                persistedCatalog.GeneratedAtUtc,
-                persistedCatalog.Freshness)));
+            CreatePersistedReadResult(
+                DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+                IndexFreshness.Stale,
+                [CreateGoDescribeEntry()])));
 
         var result = await resolver.Resolve(
             CreateUnityProject(),
@@ -82,24 +83,12 @@ public sealed class ReadIndexValidationCatalogResolverTests
     [Trait("Size", "Small")]
     public async Task Resolve_WhenPersistedCatalogEntryIsMalformed_ReturnsFormatInvalidFailure ()
     {
-        var malformedPersistedCatalog = new
-        {
-            Entries = new IndexOpEntryJsonContract[]
-            {
-                new(
-                    Name: "ucli.invalid",
-                    Kind: "unsupported-kind",
-                    Policy: "safe",
-                    ArgsSchemaJson: """{"type":"object"}"""),
-            },
-            GeneratedAtUtc = DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-            Freshness = IndexFreshness.Fresh,
-        };
         var resolver = new ReadIndexValidationCatalogResolver(new SpyPersistedOpsCatalogReader(
-            PersistedOpsCatalogReadResult.Success(
-                malformedPersistedCatalog.Entries,
-                malformedPersistedCatalog.GeneratedAtUtc,
-                malformedPersistedCatalog.Freshness)));
+            PersistedOpsCatalogReadResult.Failure(
+                new PersistedOpsCatalogReadFailure(
+                    PersistedOpsCatalogReadFailureKind.Malformed,
+                    ReadIndexErrorCodes.ReadIndexFormatInvalid,
+                    "Index contract file 'ops.catalog.json' is malformed."))));
 
         var result = await resolver.Resolve(
             CreateUnityProject(),
@@ -117,12 +106,11 @@ public sealed class ReadIndexValidationCatalogResolverTests
     [Trait("Size", "Small")]
     public async Task Resolve_WhenPersistedCatalogIsUsable_ReturnsMetadataBackedSuccess ()
     {
-        var persistedCatalog = CreatePersistedCatalogStub(IndexFreshness.Probable);
         var resolver = new ReadIndexValidationCatalogResolver(new SpyPersistedOpsCatalogReader(
-            PersistedOpsCatalogReadResult.Success(
-                persistedCatalog.Entries,
-                persistedCatalog.GeneratedAtUtc,
-                persistedCatalog.Freshness)));
+            CreatePersistedReadResult(
+                DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+                IndexFreshness.Probable,
+                [CreateGoDescribeEntry()])));
 
         var result = await resolver.Resolve(
             CreateUnityProject(),
@@ -146,26 +134,6 @@ public sealed class ReadIndexValidationCatalogResolverTests
             ProjectFingerprint: "project-fingerprint",
             PathSource: UnityProjectPathSource.CommandOption);
     }
-
-    private static PersistedOpsCatalogReadResultStub CreatePersistedCatalogStub (IndexFreshness freshness)
-    {
-        return new PersistedOpsCatalogReadResultStub(
-            Entries:
-            [
-                new IndexOpEntryJsonContract(
-                    Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                    Kind: "query",
-                    Policy: "safe",
-                    ArgsSchemaJson: """{"type":"object"}"""),
-            ],
-            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-            Freshness: freshness);
-    }
-
-    private sealed record PersistedOpsCatalogReadResultStub (
-        IReadOnlyList<IndexOpEntryJsonContract> Entries,
-        DateTimeOffset GeneratedAtUtc,
-        IndexFreshness Freshness);
 
     private sealed class SpyPersistedOpsCatalogReader : IPersistedOpsCatalogReader
     {

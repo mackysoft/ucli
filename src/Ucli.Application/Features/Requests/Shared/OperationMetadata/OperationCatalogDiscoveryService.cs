@@ -67,7 +67,7 @@ internal sealed class OperationCatalogDiscoveryService : IOperationCatalogDiscov
                 catalogResult.ErrorCode);
         }
 
-        return OperationDescriptorMapper.Map(catalogResult.Response!.Operations!, cancellationToken);
+        return OperationDescriptorMapper.Map(catalogResult.Snapshot!.Operations, cancellationToken);
     }
 
     private static ExecutionError CreatePrefixedError (

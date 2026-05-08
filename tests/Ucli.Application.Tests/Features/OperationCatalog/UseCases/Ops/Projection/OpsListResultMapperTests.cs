@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
+using static MackySoft.Ucli.Application.Tests.Helpers.OperationCatalog.OperationCatalogTestFixtures;
 
 namespace MackySoft.Ucli.Application.Tests.Ops.Mapping;
 
@@ -13,19 +14,12 @@ public sealed class OpsListResultMapperTests
 
         var result = mapper.Map(
             new OpsCatalogReadOutput(
-                Operations:
-                [
-                    new MackySoft.Ucli.Contracts.Index.IndexOpEntryJsonContract(
-                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave,
-                        Kind: "mutation",
-                        Policy: "advanced",
-                        ArgsSchemaJson: """{"type":"object"}"""),
-                    new MackySoft.Ucli.Contracts.Index.IndexOpEntryJsonContract(
-                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                        Kind: "query",
-                        Policy: "safe",
-                        ArgsSchemaJson: """{"type":"object"}"""),
-                ],
+                Snapshot: CreateSnapshot(
+                    DateTimeOffset.UtcNow,
+                    [
+                        CreateSceneSaveEntry(),
+                        CreateGoDescribeEntry(),
+                    ]),
                 AccessInfo: new OpsCatalogAccessInfo(
                     true,
                     true,

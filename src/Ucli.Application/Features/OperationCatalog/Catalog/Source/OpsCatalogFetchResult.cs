@@ -1,27 +1,25 @@
-using MackySoft.Ucli.Contracts.Ipc;
-
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 
 /// <summary> Represents one operation-catalog fetch result. </summary>
-/// <param name="Response"> The catalog response on success; otherwise <see langword="null" />. </param>
+/// <param name="Snapshot"> The validated catalog snapshot on success; otherwise <see langword="null" />. </param>
 /// <param name="Message"> The user-facing result message. </param>
 /// <param name="ErrorCode"> The machine-readable error code on failure; otherwise <see langword="null" />. </param>
 internal sealed record OpsCatalogFetchResult (
-    IpcOpsReadResponse? Response,
+    OpsCatalogSnapshot? Snapshot,
     string Message,
     UcliErrorCode? ErrorCode)
 {
     /// <summary> Gets a value indicating whether fetch succeeded. </summary>
-    public bool IsSuccess => Response is not null && ErrorCode is null;
+    public bool IsSuccess => Snapshot is not null && ErrorCode is null;
 
     /// <summary> Creates a successful fetch result. </summary>
-    /// <param name="response"> The catalog response. </param>
+    /// <param name="snapshot"> The validated catalog snapshot. </param>
     /// <returns> The successful result. </returns>
-    public static OpsCatalogFetchResult Success (IpcOpsReadResponse response)
+    public static OpsCatalogFetchResult Success (OpsCatalogSnapshot snapshot)
     {
-        ArgumentNullException.ThrowIfNull(response);
+        ArgumentNullException.ThrowIfNull(snapshot);
         return new OpsCatalogFetchResult(
-            Response: response,
+            Snapshot: snapshot,
             Message: "Ops catalog read completed.",
             ErrorCode: null);
     }
@@ -35,7 +33,7 @@ internal sealed record OpsCatalogFetchResult (
         UcliErrorCode errorCode)
     {
         return new OpsCatalogFetchResult(
-            Response: null,
+            Snapshot: null,
             Message: message,
             ErrorCode: errorCode);
     }

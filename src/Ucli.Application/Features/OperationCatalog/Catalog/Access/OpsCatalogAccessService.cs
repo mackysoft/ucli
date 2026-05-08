@@ -44,33 +44,34 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
             .ConfigureAwait(false);
         if (!persistedCatalogResult.IsSuccess)
         {
-            if (persistedCatalogResult.ErrorCode == UcliCoreErrorCodes.InvalidArgument)
+            var failure = persistedCatalogResult.ReadFailure!;
+            if (failure.Kind == PersistedOpsCatalogReadFailureKind.InvalidArgument)
             {
                 return OpsCatalogReadResult.Failure(
-                    persistedCatalogResult.ErrorMessage!,
-                    UcliCoreErrorCodes.InvalidArgument);
+                    failure.Message,
+                    failure.ErrorCode);
             }
 
             return await ReadCatalogFromSource(
                     context,
-                    persistedCatalogResult.ErrorMessage!,
+                    failure.Message,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
 
         var persistedFreshness = persistedCatalogResult.Freshness!.Value;
-        var persistedGeneratedAtUtc = persistedCatalogResult.GeneratedAtUtc!.Value;
+        var persistedSnapshot = persistedCatalogResult.Snapshot!;
         if (context.ReadIndexMode == ReadIndexMode.AllowStale || persistedFreshness == IndexFreshness.Fresh)
         {
             return OpsCatalogReadResult.Success(
                 new OpsCatalogReadOutput(
-                    Operations: persistedCatalogResult.Entries!.ToArray(),
+                    Snapshot: persistedSnapshot,
                     AccessInfo: new OpsCatalogAccessInfo(
                         Used: true,
                         Hit: true,
                         Source: OpsCatalogSource.Index,
                         Freshness: persistedFreshness,
-                        GeneratedAtUtc: persistedGeneratedAtUtc,
+                        GeneratedAtUtc: persistedSnapshot.GeneratedAtUtc,
                         FallbackReason: null)),
                 "Read-index ops catalog hit.");
         }
@@ -105,13 +106,13 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
 
         return OpsCatalogReadResult.Success(
             new OpsCatalogReadOutput(
-                Operations: refreshResult.Operations!.ToArray(),
+                Snapshot: refreshResult.Snapshot!,
                 AccessInfo: new OpsCatalogAccessInfo(
                     Used: false,
                     Hit: true,
                     Source: OpsCatalogSource.Source,
                     Freshness: IndexFreshness.Fresh,
-                    GeneratedAtUtc: refreshResult.GeneratedAtUtc!.Value,
+                    GeneratedAtUtc: refreshResult.Snapshot!.GeneratedAtUtc,
                     FallbackReason: refreshResult.FallbackReason)),
             "Ops catalog read completed.");
     }

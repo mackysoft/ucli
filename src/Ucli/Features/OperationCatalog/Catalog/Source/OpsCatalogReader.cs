@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context.Project;
-using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -92,13 +91,18 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
                 UcliCoreErrorCodes.InternalError);
         }
 
-        if (!IndexCatalogContractValidator.TryValidateOpsEntries(payload.Operations, "operations", out var validationError))
+        if (!OpsCatalogSnapshot.TryCreate(
+                payload.GeneratedAtUtc,
+                payload.Operations,
+                "operations",
+                out var snapshot,
+                out var validationError))
         {
             return OpsCatalogFetchResult.Failure(
                 $"{responseSourceName} payload is invalid. {validationError}",
                 UcliCoreErrorCodes.InternalError);
         }
 
-        return OpsCatalogFetchResult.Success(payload);
+        return OpsCatalogFetchResult.Success(snapshot!);
     }
 }
