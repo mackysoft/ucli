@@ -51,6 +51,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
     /// <summary> Launches daemon lifecycle for the specified Unity project context. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="timeout"> The daemon startup timeout. </param>
+    /// <param name="editorMode"> The requested daemon Editor mode. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon start result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
@@ -58,6 +59,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
     public async ValueTask<DaemonStartResult> Launch (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
+        DaemonEditorMode editorMode,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -65,7 +67,11 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
 
-        var initializeSessionResult = await daemonLaunchSessionService.Initialize(unityProject, cancellationToken).ConfigureAwait(false);
+        var initializeSessionResult = await daemonLaunchSessionService.Initialize(
+                unityProject,
+                editorMode,
+                cancellationToken)
+            .ConfigureAwait(false);
         if (!initializeSessionResult.IsSuccess)
         {
             return DaemonStartResult.Failure(initializeSessionResult.Error!);

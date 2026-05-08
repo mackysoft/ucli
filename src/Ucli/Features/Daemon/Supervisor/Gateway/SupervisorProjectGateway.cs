@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Gateway;
@@ -37,6 +38,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
     public async ValueTask<DaemonStartResult> EnsureRunning (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
+        DaemonEditorMode? editorMode,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -70,6 +72,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                 bootstrapResult.Manifest!,
                 unityProject,
                 ensureRunningTimeout,
+                editorMode,
                 cancellationToken)
             .ConfigureAwait(false);
     }

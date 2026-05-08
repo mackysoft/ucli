@@ -30,10 +30,12 @@ internal static class SupervisorIpcContracts
     /// <param name="UnityProjectRoot"> The absolute Unity project root path. </param>
     /// <param name="ProjectFingerprint"> The Unity project fingerprint. </param>
     /// <param name="TimeoutMilliseconds"> The command timeout in milliseconds. </param>
+    /// <param name="EditorMode"> The optional requested daemon Editor mode. </param>
     internal sealed record EnsureRunningRequest (
         string UnityProjectRoot,
         string ProjectFingerprint,
-        int TimeoutMilliseconds);
+        int TimeoutMilliseconds,
+        string? EditorMode);
 
     /// <summary> Represents the payload returned after one ensure-running request. </summary>
     /// <param name="StartStatus"> The daemon start-status literal. </param>

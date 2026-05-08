@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 
@@ -40,6 +41,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="session"> The existing daemon session snapshot. </param>
     /// <param name="timeout"> The timeout used for daemon ping and stale cleanup. </param>
+    /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns>
     /// The resolved daemon start result when workflow should complete;
@@ -51,6 +53,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         TimeSpan timeout,
+        DaemonEditorMode? editorMode,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -73,6 +76,17 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
                     session.SessionToken,
                     cancellationToken)
                 .ConfigureAwait(false);
+            if (editorMode.HasValue)
+            {
+                var requestedEditorMode = DaemonEditorModeCodec.ToValue(editorMode.Value);
+                if (!string.Equals(session.EditorMode, requestedEditorMode, StringComparison.Ordinal))
+                {
+                    return DaemonStartResult.Failure(ExecutionError.InvalidArgument(
+                        $"Requested daemon editorMode '{requestedEditorMode}' does not match running daemon editorMode '{session.EditorMode}'.",
+                        DaemonErrorCodes.DaemonEditorModeMismatch));
+                }
+            }
+
             return DaemonStartResult.AlreadyRunning(session);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

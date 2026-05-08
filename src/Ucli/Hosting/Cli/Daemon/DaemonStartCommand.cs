@@ -28,12 +28,14 @@ internal sealed class DaemonStartCommand
     /// <summary> Executes the daemon start command and emits the JSON result contract. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path. When omitted, the current working directory is used.</param>
     /// <param name="timeout"> Optional daemon start timeout in milliseconds. When omitted, timeout is resolved from config defaults. </param>
+    /// <param name="editorMode"> Optional daemon Editor mode. Supported values: batchmode, gui. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.StartSubcommand)]
     public async Task<int> Start (
         string? projectPath = null,
         string? timeout = null,
+        string? editorMode = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -49,9 +51,20 @@ internal sealed class DaemonStartCommand
             return errorResult.ExitCode;
         }
 
+        var normalizedEditorModeResult = DaemonEditorModeOptionNormalizer.Normalize(editorMode);
+        if (!normalizedEditorModeResult.IsSuccess)
+        {
+            var errorResult = CommandResultFactory.FromExecutionError(
+                UcliCommandNames.DaemonStart,
+                normalizedEditorModeResult.Error!);
+            commandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
         var executionResult = await daemonStartService.Start(
                 projectPath,
                 normalizedTimeoutResult.TimeoutMilliseconds,
+                normalizedEditorModeResult.EditorMode,
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = CreateCommandResult(executionResult);

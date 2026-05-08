@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Execution;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
@@ -88,12 +89,14 @@ internal sealed class SupervisorClient
     /// <param name="manifest"> The reachable supervisor manifest. </param>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="timeout"> The command timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
+    /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The mapped daemon-start result. </returns>
     public async ValueTask<DaemonStartResult> EnsureRunning (
         SupervisorInstanceManifest manifest,
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
+        DaemonEditorMode? editorMode,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -109,7 +112,10 @@ internal sealed class SupervisorClient
                 new SupervisorIpcContracts.EnsureRunningRequest(
                     UnityProjectRoot: unityProject.UnityProjectRoot,
                     ProjectFingerprint: unityProject.ProjectFingerprint,
-                    TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds)));
+                    TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
+                    EditorMode: editorMode.HasValue
+                        ? DaemonEditorModeCodec.ToValue(editorMode.Value)
+                        : null));
             var response = await Send(manifest, request, timeout, cancellationToken).ConfigureAwait(false);
             if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
             {
@@ -270,14 +276,19 @@ internal sealed class SupervisorClient
 
         if (firstError.Code == UcliCoreErrorCodes.InvalidArgument)
         {
-            return ExecutionError.InvalidArgument(firstError.Message);
+            return ExecutionError.InvalidArgument(firstError.Message, firstError.Code);
         }
 
         if (firstError.Code == ExecutionErrorCodes.IpcTimeout)
         {
-            return ExecutionError.Timeout(firstError.Message);
+            return ExecutionError.Timeout(firstError.Message, firstError.Code);
         }
 
-        return ExecutionError.InternalError(firstError.Message);
+        if (firstError.Code == DaemonErrorCodes.DaemonEditorModeMismatch)
+        {
+            return ExecutionError.InvalidArgument(firstError.Message, firstError.Code);
+        }
+
+        return ExecutionError.InternalError(firstError.Message, firstError.Code);
     }
 }

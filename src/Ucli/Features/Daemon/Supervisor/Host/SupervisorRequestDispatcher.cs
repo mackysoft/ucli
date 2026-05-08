@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
 
@@ -150,6 +151,20 @@ internal sealed class SupervisorRequestDispatcher
                 $"Supervisor ensureRunning timeout must be greater than zero. Actual={payload.TimeoutMilliseconds}.");
         }
 
+        var editorMode = (DaemonEditorMode?)null;
+        if (payload.EditorMode != null)
+        {
+            if (!DaemonEditorModeCodec.TryParse(payload.EditorMode, out var parsedEditorMode))
+            {
+                return SupervisorIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    UcliCoreErrorCodes.InvalidArgument,
+                    $"Supervisor ensureRunning editorMode is invalid. Actual={payload.EditorMode}.");
+            }
+
+            editorMode = parsedEditorMode;
+        }
+
         await using var requestLifetime = SupervisorRequestLifetime.Start(stream, timeout, cancellationToken);
 
         DaemonStartResult startResult;
@@ -158,6 +173,7 @@ internal sealed class SupervisorRequestDispatcher
             startResult = await projectCoordinator.EnsureRunning(
                     projectContextResult.Context!,
                     timeout,
+                    editorMode,
                     requestLifetime.CancellationToken)
                 .ConfigureAwait(false);
         }
@@ -347,7 +363,7 @@ internal sealed class SupervisorRequestDispatcher
     {
         return SupervisorIpcResponseFactory.CreateErrorResponse(
             request,
-            ExecutionErrorCodeMapper.ToCode(error.Kind),
+            ExecutionErrorCodeMapper.ToCode(error),
             error.Message);
     }
 

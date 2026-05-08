@@ -7,6 +7,7 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Host;
 
@@ -81,11 +82,13 @@ internal sealed class SupervisorProjectCoordinator
     /// <summary> Ensures one Unity daemon is running for the specified project. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="timeout"> The command timeout. </param>
+    /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The daemon-start result. </returns>
     public async ValueTask<DaemonStartResult> EnsureRunning (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
+        DaemonEditorMode? editorMode,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -120,6 +123,7 @@ internal sealed class SupervisorProjectCoordinator
             var startResult = await daemonStartOperation.Start(
                     unityProject,
                     daemonStartTimeout,
+                    editorMode,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!startResult.IsSuccess)

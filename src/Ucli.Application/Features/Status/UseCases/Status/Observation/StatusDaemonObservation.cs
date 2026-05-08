@@ -11,7 +11,7 @@ namespace MackySoft.Ucli.Application.Features.Status.UseCases.Status.Observation
 /// <param name="CompileGeneration"> The daemon compile generation when reachable. </param>
 /// <param name="DomainReloadGeneration"> The daemon domain-reload generation when reachable. </param>
 /// <param name="CanAcceptExecutionRequests"> Whether the daemon can currently accept execution requests. </param>
-/// <param name="Runtime"> The daemon runtime value when reachable. </param>
+/// <param name="EditorMode"> The daemon Editor mode when reachable. </param>
 internal sealed record StatusDaemonObservation (
     DaemonStatusKind DaemonStatus,
     string? ServerVersion,
@@ -21,4 +21,4 @@ internal sealed record StatusDaemonObservation (
     string? CompileGeneration,
     string? DomainReloadGeneration,
     bool CanAcceptExecutionRequests,
-    string? Runtime);
+    string? EditorMode);

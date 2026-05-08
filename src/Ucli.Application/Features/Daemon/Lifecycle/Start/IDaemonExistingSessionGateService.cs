@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 
@@ -12,6 +13,7 @@ internal interface IDaemonExistingSessionGateService
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="session"> The existing daemon session snapshot. </param>
     /// <param name="timeout"> The timeout used for daemon ping and stale cleanup. </param>
+    /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns>
     /// The resolved daemon start result when workflow should complete;
@@ -21,5 +23,6 @@ internal interface IDaemonExistingSessionGateService
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         TimeSpan timeout,
+        DaemonEditorMode? editorMode,
         CancellationToken cancellationToken = default);
 }

@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 
@@ -46,6 +47,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
     /// <summary> Starts daemon lifecycle for the specified Unity project context. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="timeout"> The daemon startup timeout. </param>
+    /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon start result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
@@ -53,6 +55,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
     public async ValueTask<DaemonStartResult> Start (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
+        DaemonEditorMode? editorMode,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -116,6 +119,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                     readResult,
                     deadline,
                     diagnosisCleanupError,
+                    editorMode,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -133,6 +137,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                     unityProject,
                     readResult.Session!,
                     existingSessionGateTimeout,
+                    editorMode,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (existingSessionGateResult is not null)
@@ -148,7 +153,17 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 diagnosisCleanupError);
         }
 
-        var launchResult = await daemonLaunchService.Launch(unityProject, launchTimeout, cancellationToken).ConfigureAwait(false);
+        if (!TryResolveLaunchEditorMode(editorMode, out var launchEditorMode, out var editorModeError))
+        {
+            return CreateFailure(editorModeError!, diagnosisCleanupError);
+        }
+
+        var launchResult = await daemonLaunchService.Launch(
+                unityProject,
+                launchTimeout,
+                launchEditorMode,
+                cancellationToken)
+            .ConfigureAwait(false);
         return CreateResult(launchResult, diagnosisCleanupError);
     }
 
@@ -157,6 +172,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         DaemonSessionReadResult readResult,
         ExecutionDeadline deadline,
         ExecutionError? diagnosisCleanupError,
+        DaemonEditorMode? editorMode,
         CancellationToken cancellationToken)
     {
         if (readResult.FailureKind != DaemonSessionReadFailureKind.InvalidSession)
@@ -189,8 +205,45 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 diagnosisCleanupError);
         }
 
-        var launchResult = await daemonLaunchService.Launch(unityProject, launchTimeout, cancellationToken).ConfigureAwait(false);
+        if (!TryResolveLaunchEditorMode(editorMode, out var launchEditorMode, out var editorModeError))
+        {
+            return CreateFailure(editorModeError!, diagnosisCleanupError);
+        }
+
+        var launchResult = await daemonLaunchService.Launch(
+                unityProject,
+                launchTimeout,
+                launchEditorMode,
+                cancellationToken)
+            .ConfigureAwait(false);
         return CreateResult(launchResult, diagnosisCleanupError);
+    }
+
+    private static bool TryResolveLaunchEditorMode (
+        DaemonEditorMode? editorMode,
+        out DaemonEditorMode launchEditorMode,
+        out ExecutionError? error)
+    {
+        if (editorMode is null or DaemonEditorMode.Batchmode)
+        {
+            launchEditorMode = DaemonEditorMode.Batchmode;
+            error = null;
+            return true;
+        }
+
+        if (editorMode == DaemonEditorMode.Gui)
+        {
+            launchEditorMode = default;
+            error = ExecutionError.InternalError(
+                "daemon start --editorMode gui is not implemented until GUI Editor attach and launch support is available.",
+                UcliCoreErrorCodes.CommandNotImplemented);
+            return false;
+        }
+
+        launchEditorMode = default;
+        error = ExecutionError.InvalidArgument(
+            $"daemon start editorMode is invalid. Actual: {editorMode}.");
+        return false;
     }
 
     private static DaemonStartResult CreateFailure (

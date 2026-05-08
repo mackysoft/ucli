@@ -110,6 +110,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                     unityProject,
                     new IpcOneshotBootstrapArguments(
                         ParentProcessId: Environment.ProcessId,
+                        ProjectFingerprint: unityProject.ProjectFingerprint,
                         SessionToken: sessionToken,
                         EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
                         EndpointAddress: endpoint.Address),

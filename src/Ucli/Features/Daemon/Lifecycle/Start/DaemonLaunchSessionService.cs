@@ -1,7 +1,9 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Start;
@@ -32,15 +34,24 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
 
     /// <summary> Creates and persists an initial daemon session before process launch. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
+    /// <param name="editorMode"> The requested daemon Editor mode. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The launch-session persistence result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
     public async ValueTask<DaemonLaunchSessionWriteResult> Initialize (
         ResolvedUnityProjectContext unityProject,
+        DaemonEditorMode editorMode,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
+
+        if (editorMode != DaemonEditorMode.Batchmode)
+        {
+            return DaemonLaunchSessionWriteResult.Failure(ExecutionError.InternalError(
+                "daemon start --editorMode gui is not implemented until GUI Editor attach and launch support is available.",
+                UcliCoreErrorCodes.CommandNotImplemented));
+        }
 
         var endpoint = endpointResolver.Resolve(unityProject.RepositoryRoot, unityProject.ProjectFingerprint);
         var session = new DaemonSession(
@@ -48,8 +59,8 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
             SessionToken: sessionTokenGenerator.Create(),
             ProjectFingerprint: unityProject.ProjectFingerprint,
             IssuedAtUtc: DateTimeOffset.UtcNow,
-            RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindSupervisor,
+            EditorMode: DaemonEditorModeCodec.ToValue(editorMode),
+            OwnerKind: DaemonSessionOwnerKindCodec.ToValue(DaemonSessionOwnerKind.Cli),
             CanShutdownProcess: true,
             EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
             EndpointAddress: endpoint.Address,

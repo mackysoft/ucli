@@ -22,7 +22,7 @@ internal static class StatusDaemonObservationCodec
             CompileGeneration: null,
             DomainReloadGeneration: null,
             CanAcceptExecutionRequests: false,
-            Runtime: null);
+            EditorMode: null);
     }
 
     /// <summary> Creates observation values for daemon states where ping details are available. </summary>
@@ -58,8 +58,8 @@ internal static class StatusDaemonObservationCodec
             CompileGeneration: StringValueNormalizer.TrimToNull(pingResponse.CompileGeneration),
             DomainReloadGeneration: StringValueNormalizer.TrimToNull(pingResponse.DomainReloadGeneration),
             CanAcceptExecutionRequests: canAcceptExecutionRequests,
-            Runtime: IpcEditorRuntimeCodec.TryParse(pingResponse.Runtime, out var runtime)
-                ? runtime
+            EditorMode: IpcEditorRuntimeCodec.TryParse(pingResponse.Runtime, out var editorMode)
+                ? editorMode
                 : null);
     }
 }

@@ -13,17 +13,26 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly IServerVersionProvider serverVersionProvider;
         private readonly IUnityEditorReadinessGate readinessGate;
+        private readonly string projectFingerprint;
         private readonly IDaemonLogger daemonLogger;
 
         /// <summary> Initializes a new instance of the <see cref="PingUnityIpcMethodHandler" /> class. </summary>
         /// <param name="serverVersionProvider"> The server-version provider dependency. </param>
+        /// <param name="projectFingerprint"> The project fingerprint served by this IPC host. </param>
         public PingUnityIpcMethodHandler (
             IServerVersionProvider serverVersionProvider,
             IUnityEditorReadinessGate readinessGate,
+            string projectFingerprint = "unknown",
             IDaemonLogger daemonLogger = null)
         {
             this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
             this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
+            if (string.IsNullOrWhiteSpace(projectFingerprint))
+            {
+                throw new ArgumentException("projectFingerprint must not be empty.", nameof(projectFingerprint));
+            }
+
+            this.projectFingerprint = projectFingerprint;
             this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
         }
 
@@ -58,6 +67,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             var payload = UnityPingResponseCodec.CreatePayload(
                 Application.unityVersion,
                 serverVersionProvider.GetVersion(),
+                projectFingerprint,
                 readinessGate.CaptureSnapshot());
             return new ValueTask<IpcResponse>(UnityIpcResponseFactory.CreateSuccessResponse(request, payload));
         }

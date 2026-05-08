@@ -48,7 +48,14 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityTestResultsXmlWriter, UnityTestResultsXmlWriter>();
             services.AddSingleton<IUnityTestRunService, UnityTestRunService>();
             services.AddSingleton<IServerVersionProvider, AssemblyServerVersionProvider>();
-            services.AddSingleton<IUnityIpcMethodHandler, PingUnityIpcMethodHandler>();
+            services.AddSingleton<IUnityIpcMethodHandler>(serviceProvider =>
+            {
+                return new PingUnityIpcMethodHandler(
+                    serviceProvider.GetRequiredService<IServerVersionProvider>(),
+                    serviceProvider.GetRequiredService<IUnityEditorReadinessGate>(),
+                    ResolveProjectFingerprint(serviceProvider),
+                    serviceProvider.GetRequiredService<IDaemonLogger>());
+            });
             services.AddSingleton<IUnityIpcMethodHandler, ExecuteUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, TestRunUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, OpsReadUnityIpcMethodHandler>();
@@ -58,6 +65,23 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
             services.AddSingleton<IUnityIpcRequestProcessor, UnityIpcRequestProcessor>();
             return services;
+        }
+
+        private static string ResolveProjectFingerprint (IServiceProvider serviceProvider)
+        {
+            var daemonBootstrapArguments = serviceProvider.GetService<IpcDaemonBootstrapArguments>();
+            if (daemonBootstrapArguments != null)
+            {
+                return daemonBootstrapArguments.ProjectFingerprint;
+            }
+
+            var oneshotBootstrapArguments = serviceProvider.GetService<IpcOneshotBootstrapArguments>();
+            if (oneshotBootstrapArguments != null)
+            {
+                return oneshotBootstrapArguments.ProjectFingerprint;
+            }
+
+            return "unknown";
         }
 
         /// <summary> Registers daemon-only transport, logging, and lifetime services. </summary>

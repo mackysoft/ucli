@@ -77,7 +77,7 @@ internal sealed class DaemonStatusCommand
                 {
                     daemonStatus = DaemonCommandOutputProjector.ToStatus(output.DaemonStatus),
                     serverVersion = output.ServerVersion,
-                    runtime = output.Runtime,
+                    editorMode = output.EditorMode,
                     lifecycleState = output.LifecycleState,
                     blockingReason = output.BlockingReason,
                     compileState = output.CompileState,

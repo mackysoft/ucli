@@ -3,7 +3,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 /// <summary> Represents normalized session payload values returned by daemon command workflows. </summary>
 /// <param name="ProjectFingerprint"> The project fingerprint associated with daemon session. </param>
 /// <param name="IssuedAtUtc"> The UTC timestamp when daemon session was issued. </param>
-/// <param name="RuntimeKind"> The daemon runtime kind. </param>
+/// <param name="EditorMode"> The daemon Editor mode. </param>
 /// <param name="OwnerKind"> The daemon owner kind. </param>
 /// <param name="CanShutdownProcess"> Whether daemon session allows process shutdown. </param>
 /// <param name="EndpointTransportKind"> The IPC endpoint transport kind literal. </param>
@@ -13,7 +13,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 internal sealed record DaemonSessionOutput (
     string ProjectFingerprint,
     DateTimeOffset IssuedAtUtc,
-    string RuntimeKind,
+    string EditorMode,
     string OwnerKind,
     bool CanShutdownProcess,
     string EndpointTransportKind,

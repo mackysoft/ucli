@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 
@@ -162,8 +163,10 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
         // implementation shape. Only snapshots that still prove current supervisor ownership
         // are allowed to drive process termination.
         if (session.SchemaVersion != DaemonSession.CurrentSchemaVersion
-            || !string.Equals(session.RuntimeKind, DaemonSession.RuntimeKindBatchmode, StringComparison.Ordinal)
-            || !string.Equals(session.OwnerKind, DaemonSession.OwnerKindSupervisor, StringComparison.Ordinal)
+            || !DaemonEditorModeCodec.TryParse(session.EditorMode, out var editorMode)
+            || editorMode != DaemonEditorMode.Batchmode
+            || !DaemonSessionOwnerKindCodec.TryParse(session.OwnerKind, out var ownerKind)
+            || ownerKind != DaemonSessionOwnerKind.Cli
             || !session.CanShutdownProcess
             || session.OwnerProcessId is not int ownerProcessId
             || ownerProcessId <= 0)
