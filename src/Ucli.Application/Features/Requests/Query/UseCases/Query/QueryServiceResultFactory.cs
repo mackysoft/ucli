@@ -35,7 +35,7 @@ internal static class QueryServiceResultFactory
     {
         ArgumentNullException.ThrowIfNull(error);
 
-        var executionError = RequestServiceResultPolicy.FromExecutionError(error);
+        var executionError = ApplicationFailure.FromExecutionError(error);
         return Failure(
             commandName,
             requestId,
@@ -43,7 +43,6 @@ internal static class QueryServiceResultFactory
             [
                 executionError,
             ],
-            RequestServiceResultPolicy.ResolveOutcome(error),
             error.Message,
             readIndex ?? ReadIndexInfoFactory.Unity(fallbackReason: null));
     }
@@ -56,13 +55,12 @@ internal static class QueryServiceResultFactory
         ReadIndexInfo readIndex)
     {
         ArgumentNullException.ThrowIfNull(error);
-        var normalizedError = RequestServiceResultPolicy.NormalizeError(error, FailureMessage);
+        var normalizedError = RequestFailureNormalizer.FromOperationError(error, FailureMessage);
         return Failure(
             commandName,
             requestId,
             [],
             [normalizedError],
-            RequestServiceResultPolicy.ResolveOutcome(normalizedError.Code),
             normalizedError.Message,
             readIndex);
     }
@@ -72,8 +70,7 @@ internal static class QueryServiceResultFactory
         string commandName,
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
-        IReadOnlyList<OperationExecutionError> errors,
-        ApplicationOutcome outcome,
+        IReadOnlyList<ApplicationFailure> errors,
         string message,
         ReadIndexInfo readIndex)
     {
@@ -87,7 +84,6 @@ internal static class QueryServiceResultFactory
             requestId,
             opResults,
             errors,
-            outcome,
             message,
             readIndex);
     }

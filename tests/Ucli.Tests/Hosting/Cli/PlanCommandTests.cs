@@ -80,12 +80,11 @@ public sealed class PlanCommandTests
         var service = new StubPlanService((_, _) => ValueTask.FromResult(PlanServiceResult.Failure(
             "Static validation failed.",
             [
-                new OperationExecutionError(
-                    ValidationErrorCodes.OperationArgsInvalid,
+                ApplicationFailure.InvalidInput(
                     "Operation args are invalid.",
+                    ValidationErrorCodes.OperationArgsInvalid,
                     "step-1"),
             ],
-            ApplicationOutcome.InvalidArgument,
             new PlanExecutionOutput(
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 OpResults: [],

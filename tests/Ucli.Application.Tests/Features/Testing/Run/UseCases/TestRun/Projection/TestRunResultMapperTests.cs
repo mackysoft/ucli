@@ -28,6 +28,7 @@ public sealed class TestRunResultMapperTests
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
         Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.Equal(ApplicationFailureKind.Timeout, result.Failure!.Kind);
         Assert.Equal(session.RunId, result.RunId);
         Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
         Assert.Equal(session.Paths.SummaryJsonPath, result.SummaryJsonPath);
@@ -68,6 +69,7 @@ public sealed class TestRunResultMapperTests
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
         Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
+        Assert.Equal(ApplicationFailureKind.ExternalProcessFailure, result.Failure!.Kind);
         Assert.Equal(session.RunId, result.RunId);
         Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
         Assert.Equal(session.Paths.SummaryJsonPath, result.SummaryJsonPath);
