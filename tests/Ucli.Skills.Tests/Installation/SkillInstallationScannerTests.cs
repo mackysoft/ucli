@@ -37,6 +37,31 @@ public sealed class SkillInstallationScannerTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task ScanAsync_UsesRequestedScopeInInstalledIdentity ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "scan-user-scope");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var installResult = await installService.InstallAsync(
+            packages,
+            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
+            CancellationToken.None);
+        Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
+        var scanner = SkillTestData.CreateInstallationScanner();
+
+        var scanResult = await scanner.ScanAsync(
+            packages,
+            installResult.Value!.TargetRoot,
+            OpenAiSkillHostAdapter.HostKey,
+            CancellationToken.None,
+            SkillScopeKind.User);
+
+        Assert.True(scanResult.IsSuccess, scanResult.Failure?.Message);
+        Assert.All(scanResult.Value!, static skill => Assert.Equal(SkillScopeKind.User, skill.Identity.Scope));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task ScanAsync_ReturnsUnsupportedHostFailure_WhenHostIsUnknown ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "scan-unsupported-host");

@@ -1,4 +1,6 @@
 using MackySoft.Ucli.Skills.Digests;
+using MackySoft.Ucli.Skills.Hosts.Contracts;
+using MackySoft.Ucli.Skills.Hosts.Registration;
 using MackySoft.Ucli.Skills.Manifests;
 using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;
@@ -14,19 +16,27 @@ public sealed class SkillInstalledPackageIntegrityVerifier
     private const string ReferencesPrefix = "references/";
 
     private readonly SkillInstalledManifestReader installedManifestReader;
+    private readonly SkillHostAdapterSet hostAdapters;
+    private readonly SkillManifestJsonSerializer manifestSerializer;
     private readonly SkillHostMaterializationInspector hostInspector;
     private readonly SkillDigestCalculator digestCalculator;
 
     /// <summary> Initializes a new instance of the <see cref="SkillInstalledPackageIntegrityVerifier" /> class. </summary>
     /// <param name="installedManifestReader"> The installed manifest reader. </param>
+    /// <param name="hostAdapters"> The supported host adapter set. </param>
+    /// <param name="manifestSerializer"> The manifest serializer. </param>
     /// <param name="hostInspector"> The host materialization inspector. </param>
     /// <param name="digestCalculator"> The digest calculator. </param>
     public SkillInstalledPackageIntegrityVerifier (
         SkillInstalledManifestReader installedManifestReader,
+        SkillHostAdapterSet hostAdapters,
+        SkillManifestJsonSerializer manifestSerializer,
         SkillHostMaterializationInspector hostInspector,
         SkillDigestCalculator digestCalculator)
     {
         this.installedManifestReader = installedManifestReader ?? throw new ArgumentNullException(nameof(installedManifestReader));
+        this.hostAdapters = hostAdapters ?? throw new ArgumentNullException(nameof(hostAdapters));
+        this.manifestSerializer = manifestSerializer ?? throw new ArgumentNullException(nameof(manifestSerializer));
         this.hostInspector = hostInspector ?? throw new ArgumentNullException(nameof(hostInspector));
         this.digestCalculator = digestCalculator ?? throw new ArgumentNullException(nameof(digestCalculator));
     }
@@ -53,7 +63,21 @@ public sealed class SkillInstalledPackageIntegrityVerifier
                 installedManifestResult.Failure.Message);
         }
 
-        var manifest = installedManifestResult.Value!.Manifest;
+        var installedManifest = installedManifestResult.Value!;
+        var manifest = installedManifest.Manifest;
+        var manifestIntegrityResult = VerifyInstalledManifestIntegrity(installedManifest);
+        if (!manifestIntegrityResult.IsSuccess)
+        {
+            return SkillOperationResult<SkillManifest>.FailureResult(manifestIntegrityResult.Failure!.Code, manifestIntegrityResult.Failure.Message);
+        }
+
+        if (!manifestIntegrityResult.Value)
+        {
+            return SkillOperationResult<SkillManifest>.FailureResult(
+                SkillFailureCodes.InstallTargetDigestMismatch,
+                $"Installed SKILL manifest does not match its generated host artifact metadata: {manifest.SkillName}");
+        }
+
         var differentHostResult = await hostInspector.MatchesDifferentHostAsync(skillDirectory, manifest, host, cancellationToken).ConfigureAwait(false);
         if (!differentHostResult.IsSuccess)
         {
@@ -104,6 +128,62 @@ public sealed class SkillInstalledPackageIntegrityVerifier
             : SkillOperationResult<SkillManifest>.FailureResult(
                 SkillFailureCodes.InstallTargetDigestMismatch,
                 $"Installed SKILL file set contains unmanaged files: {manifest.SkillName}");
+    }
+
+    private SkillOperationResult<bool> VerifyInstalledManifestIntegrity (SkillInstalledManifest installedManifest)
+    {
+        if (!string.Equals(installedManifest.ManifestText, manifestSerializer.Serialize(installedManifest.Manifest), StringComparison.Ordinal))
+        {
+            return SkillOperationResult<bool>.Success(false);
+        }
+
+        var manifest = installedManifest.Manifest;
+        var metadata = new SkillHostMetadata(manifest.SkillName, manifest.DisplayName, manifest.Description);
+        var artifactByHost = manifest.HostArtifacts.ToDictionary(static artifact => artifact.Host, StringComparer.Ordinal);
+        foreach (var adapter in hostAdapters.Adapters)
+        {
+            if (!artifactByHost.TryGetValue(adapter.Descriptor.HostKey, out var artifact))
+            {
+                return SkillOperationResult<bool>.FailureResult(
+                    SkillFailureCodes.ManifestInvalid,
+                    $"Manifest host artifact '{adapter.Descriptor.HostKey}' is missing.");
+            }
+
+            var artifacts = adapter.BuildArtifacts(metadata);
+            var frontmatterDigest = digestCalculator.ComputeSingleFileDigest("SKILL.md.frontmatter", artifacts.Frontmatter);
+            if (!string.Equals(artifact.MaterializedFrontmatterDigest, frontmatterDigest, StringComparison.Ordinal))
+            {
+                return SkillOperationResult<bool>.Success(false);
+            }
+
+            if (adapter.MetadataArtifactPath is null)
+            {
+                if (artifact.Path is not null || artifact.Digest is not null)
+                {
+                    return SkillOperationResult<bool>.FailureResult(
+                        SkillFailureCodes.ManifestInvalid,
+                        $"Manifest host artifact '{artifact.Host}' must not contain metadata artifact fields.");
+                }
+
+                continue;
+            }
+
+            if (artifacts.MetadataContent is null)
+            {
+                return SkillOperationResult<bool>.FailureResult(
+                    SkillFailureCodes.ManifestInvalid,
+                    $"Host adapter '{adapter.Descriptor.HostKey}' did not generate metadata content.");
+            }
+
+            var metadataDigest = digestCalculator.ComputeSingleFileDigest(adapter.MetadataArtifactPath, artifacts.MetadataContent);
+            if (!string.Equals(artifact.Path, adapter.MetadataArtifactPath, StringComparison.Ordinal)
+                || !string.Equals(artifact.Digest, metadataDigest, StringComparison.Ordinal))
+            {
+                return SkillOperationResult<bool>.Success(false);
+            }
+        }
+
+        return SkillOperationResult<bool>.Success(true);
     }
 
     private async ValueTask<SkillOperationResult<bool>> VerifyInstalledContentDigestAsync (

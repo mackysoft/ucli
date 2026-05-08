@@ -19,6 +19,13 @@ internal static class CliProcessRunner
         return RunCommandCore(args, null, null, processTimeout);
     }
 
+    public static Task<CommandExecutionResult> RunCommandWithEnvironment (
+        IReadOnlyDictionary<string, string?> environmentVariables,
+        params string[] args)
+    {
+        return RunCommandCore(args, null, null, ProcessTimeout, environmentVariables);
+    }
+
     public static Task<CommandExecutionResult> RunCommandWithStandardInput (
         string standardInput,
         params string[] args)
@@ -45,7 +52,8 @@ internal static class CliProcessRunner
         string[] args,
         string? workingDirectory,
         string? standardInput,
-        TimeSpan processTimeout)
+        TimeSpan processTimeout,
+        IReadOnlyDictionary<string, string?>? environmentVariables = null)
     {
         // NOTE:
         // This helper executes the built CLI process to validate stdout/stderr and exit-code
@@ -64,6 +72,20 @@ internal static class CliProcessRunner
         if (!string.IsNullOrWhiteSpace(workingDirectory))
         {
             startInfo.WorkingDirectory = workingDirectory;
+        }
+
+        if (environmentVariables is not null)
+        {
+            foreach (var (key, value) in environmentVariables)
+            {
+                if (value is null)
+                {
+                    startInfo.Environment.Remove(key);
+                    continue;
+                }
+
+                startInfo.Environment[key] = value;
+            }
         }
 
         startInfo.ArgumentList.Add(toolPath);

@@ -5,17 +5,11 @@ using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Skills.Installation;
 
-/// <summary> Resolves project-scope SKILL target roots. </summary>
+/// <summary> Resolves project- and user-scope SKILL target roots. </summary>
 public sealed class SkillInstallTargetResolver
 {
     private readonly SkillHostAdapterSet hostAdapters;
     private readonly SkillUserTargetRootResolver userTargetRootResolver;
-
-    /// <summary> Initializes a new instance of the <see cref="SkillInstallTargetResolver" /> class. </summary>
-    /// <param name="hostAdapters"> The supported host adapter set. </param>
-    public SkillInstallTargetResolver (SkillHostAdapterSet hostAdapters) : this(hostAdapters, new SkillUserTargetRootResolver())
-    {
-    }
 
     /// <summary> Initializes a new instance of the <see cref="SkillInstallTargetResolver" /> class. </summary>
     /// <param name="hostAdapters"> The supported host adapter set. </param>
@@ -90,14 +84,20 @@ public sealed class SkillInstallTargetResolver
 
         if (!string.IsNullOrWhiteSpace(request.TargetRoot))
         {
-            if (!Path.IsPathRooted(request.TargetRoot))
+            if (!Path.IsPathFullyQualified(request.TargetRoot))
             {
                 return SkillOperationResult<SkillResolvedInstallTarget>.FailureResult(
                     SkillFailureCodes.PathUnsafe,
                     "User-scope SKILL targetDir must be an absolute path.");
             }
 
-            var fullTargetRoot = Path.GetFullPath(request.TargetRoot);
+            var fullTargetRootResult = GetFullPath(request.TargetRoot, SkillFailureCodes.PathUnsafe, "User-scope SKILL targetDir is invalid.");
+            if (!fullTargetRootResult.IsSuccess)
+            {
+                return SkillOperationResult<SkillResolvedInstallTarget>.FailureResult(fullTargetRootResult.Failure!.Code, fullTargetRootResult.Failure.Message);
+            }
+
+            var fullTargetRoot = fullTargetRootResult.Value!;
             var explicitTargetResult = SkillPackagePathBoundary.ResolveUnderRoot(fullTargetRoot, fullTargetRoot);
             return explicitTargetResult.IsSuccess
                 ? SkillOperationResult<SkillResolvedInstallTarget>.Success(new SkillResolvedInstallTarget(descriptor.HostKey, explicitTargetResult.Value!))
@@ -115,5 +115,20 @@ public sealed class SkillInstallTargetResolver
         return resolvedTargetRoot.IsSuccess
             ? SkillOperationResult<SkillResolvedInstallTarget>.Success(new SkillResolvedInstallTarget(descriptor.HostKey, resolvedTargetRoot.Value!))
             : SkillOperationResult<SkillResolvedInstallTarget>.FailureResult(resolvedTargetRoot.Failure!.Code, resolvedTargetRoot.Failure.Message);
+    }
+
+    private static SkillOperationResult<string> GetFullPath (
+        string path,
+        SkillFailureCode failureCode,
+        string message)
+    {
+        try
+        {
+            return SkillOperationResult<string>.Success(Path.GetFullPath(path));
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return SkillOperationResult<string>.FailureResult(failureCode, $"{message} {ex.Message}");
+        }
     }
 }

@@ -141,6 +141,7 @@ public sealed class SkillExportService
         }
 
         var temporaryPath = Path.Combine(outputDirectory, $".{Path.GetFileName(fullOutputPath)}.{Guid.NewGuid():N}.tmp");
+        var committed = false;
         try
         {
             Directory.CreateDirectory(outputDirectory);
@@ -160,14 +161,21 @@ public sealed class SkillExportService
             }
 
             File.Move(temporaryPath, fullOutputPath, overwrite: true);
+            committed = true;
             return SkillOperationResult<string>.Success(fullOutputPath);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {
-            TryDeleteTemporaryFile(temporaryPath);
             return SkillOperationResult<string>.FailureResult(
                 SkillFailureCodes.InstallTargetWriteFailed,
                 $"Failed to export SKILL zip: {fullOutputPath}. {ex.Message}");
+        }
+        finally
+        {
+            if (!committed)
+            {
+                TryDeleteTemporaryFile(temporaryPath);
+            }
         }
     }
 

@@ -23,6 +23,7 @@ public sealed class ProjectBoundaryTests
     [Theory]
     [Trait("Size", "Small")]
     [InlineData("Distribution", "MackySoft.Ucli.Skills.Installation")]
+    [InlineData("Installation", "MackySoft.Ucli.Skills.Doctor")]
     [InlineData("Materialization", "MackySoft.Ucli.Skills.Installation")]
     [InlineData("Packaging", "MackySoft.Ucli.Skills.Installation")]
     [InlineData("Packaging", "MackySoft.Ucli.Skills.Materialization")]
@@ -232,11 +233,25 @@ public sealed class ProjectBoundaryTests
                     $"{adapter.GetType().Name}.HostKey",
                     adapter.Descriptor.HostKey,
                     adapter.Descriptor.ProjectTargetDirectory,
+                    adapter.Descriptor.UserTargetDirectory,
+                    adapter.Descriptor.UserTargetRootPolicy.HomeRelativeDirectory,
+                    adapter.Descriptor.ReloadGuidance,
                 };
 
                 if (adapter.MetadataArtifactPath is not null)
                 {
                     references.Add(adapter.MetadataArtifactPath);
+                }
+
+                if (!string.IsNullOrWhiteSpace(adapter.Descriptor.UserTargetRootPolicy.EnvironmentVariableName))
+                {
+                    references.Add(adapter.Descriptor.UserTargetRootPolicy.EnvironmentVariableName);
+                }
+
+                if (!string.IsNullOrWhiteSpace(adapter.Descriptor.UserTargetRootPolicy.EnvironmentVariableChildDirectory)
+                    && !string.Equals(adapter.Descriptor.UserTargetRootPolicy.EnvironmentVariableChildDirectory, "skills", StringComparison.Ordinal))
+                {
+                    references.Add(adapter.Descriptor.UserTargetRootPolicy.EnvironmentVariableChildDirectory);
                 }
 
                 return references;

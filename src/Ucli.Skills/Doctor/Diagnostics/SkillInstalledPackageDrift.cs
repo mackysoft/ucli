@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Skills.Shared;
 
-namespace MackySoft.Ucli.Skills.Installation.Validation;
+namespace MackySoft.Ucli.Skills.Doctor.Diagnostics;
 
 /// <summary> Represents the primary local drift category for one installed SKILL package. </summary>
 /// <param name="Code"> The machine-readable drift code. </param>

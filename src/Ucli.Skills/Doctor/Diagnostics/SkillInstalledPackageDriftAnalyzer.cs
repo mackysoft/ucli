@@ -1,10 +1,11 @@
 using MackySoft.Ucli.Skills.Digests;
+using MackySoft.Ucli.Skills.Installation.Validation;
 using MackySoft.Ucli.Skills.Manifests;
 using MackySoft.Ucli.Skills.Materialization;
 using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;
 
-namespace MackySoft.Ucli.Skills.Installation.Validation;
+namespace MackySoft.Ucli.Skills.Doctor.Diagnostics;
 
 /// <summary> Classifies local drift in one installed SKILL package for doctor diagnostics. </summary>
 public sealed class SkillInstalledPackageDriftAnalyzer
@@ -15,19 +16,23 @@ public sealed class SkillInstalledPackageDriftAnalyzer
 
     private readonly SkillInstalledManifestReader installedManifestReader;
     private readonly SkillMaterializationService materializationService;
+    private readonly SkillInstalledFileSetVerifier fileSetVerifier;
     private readonly SkillDigestCalculator digestCalculator;
 
     /// <summary> Initializes a new instance of the <see cref="SkillInstalledPackageDriftAnalyzer" /> class. </summary>
     /// <param name="installedManifestReader"> The installed manifest reader. </param>
     /// <param name="materializationService"> The materialization service. </param>
+    /// <param name="fileSetVerifier"> The installed materialized file-set verifier. </param>
     /// <param name="digestCalculator"> The digest calculator. </param>
     public SkillInstalledPackageDriftAnalyzer (
         SkillInstalledManifestReader installedManifestReader,
         SkillMaterializationService materializationService,
+        SkillInstalledFileSetVerifier fileSetVerifier,
         SkillDigestCalculator digestCalculator)
     {
         this.installedManifestReader = installedManifestReader ?? throw new ArgumentNullException(nameof(installedManifestReader));
         this.materializationService = materializationService ?? throw new ArgumentNullException(nameof(materializationService));
+        this.fileSetVerifier = fileSetVerifier ?? throw new ArgumentNullException(nameof(fileSetVerifier));
         this.digestCalculator = digestCalculator ?? throw new ArgumentNullException(nameof(digestCalculator));
     }
 
@@ -103,20 +108,17 @@ public sealed class SkillInstalledPackageDriftAnalyzer
             return SkillOperationResult<SkillInstalledPackageDrift>.FailureResult(materializedResult.Failure!.Code, materializedResult.Failure.Message);
         }
 
-        var expectedPaths = materializedResult.Value!.Files
-            .Select(static file => file.RelativePath)
-            .ToHashSet(StringComparer.Ordinal);
-        var installedPathsResult = ReadInstalledFilePaths(skillDirectory);
-        if (!installedPathsResult.IsSuccess)
+        var fileSetResult = fileSetVerifier.MatchesExpectedFiles(skillDirectory, materializedResult.Value!.Files);
+        if (!fileSetResult.IsSuccess)
         {
-            return SkillOperationResult<SkillInstalledPackageDrift>.FailureResult(installedPathsResult.Failure!.Code, installedPathsResult.Failure.Message);
+            return SkillOperationResult<SkillInstalledPackageDrift>.FailureResult(fileSetResult.Failure!.Code, fileSetResult.Failure.Message);
         }
 
-        if (!expectedPaths.SetEquals(installedPathsResult.Value!))
+        if (!fileSetResult.Value)
         {
             return Drift(
                 SkillFailureCodes.InstallTargetFileSetMismatch,
-                $"Installed SKILL file set does not match materialized package: {installedManifest.SkillName}");
+                $"Installed SKILL directory set does not match materialized package: {installedManifest.SkillName}");
         }
 
         var contentDigestResult = await ComputeInstalledContentDigestAsync(skillDirectory, cancellationToken).ConfigureAwait(false);
@@ -189,24 +191,6 @@ public sealed class SkillInstalledPackageDriftAnalyzer
         var content = SkillTextNormalizer.NormalizeToLf(await File.ReadAllTextAsync(artifactPathResult.Value!, cancellationToken).ConfigureAwait(false));
         var digest = digestCalculator.ComputeSingleFileDigest(hostArtifact.Path, content);
         return SkillOperationResult<bool>.Success(string.Equals(digest, hostArtifact.Digest, StringComparison.Ordinal));
-    }
-
-    private static SkillOperationResult<HashSet<string>> ReadInstalledFilePaths (string skillDirectory)
-    {
-        var paths = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var filePath in Directory.EnumerateFiles(skillDirectory, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
-        {
-            var resolvedPathResult = SkillPackagePathBoundary.ResolveUnderRoot(skillDirectory, filePath);
-            if (!resolvedPathResult.IsSuccess)
-            {
-                return SkillOperationResult<HashSet<string>>.FailureResult(resolvedPathResult.Failure!.Code, resolvedPathResult.Failure.Message);
-            }
-
-            var relativePath = Path.GetRelativePath(skillDirectory, resolvedPathResult.Value!).Replace(Path.DirectorySeparatorChar, '/');
-            paths.Add(relativePath);
-        }
-
-        return SkillOperationResult<HashSet<string>>.Success(paths);
     }
 
     private async ValueTask<SkillOperationResult<string>> ComputeInstalledContentDigestAsync (

@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Skills.Digests;
 using MackySoft.Ucli.Skills.Distribution;
 using MackySoft.Ucli.Skills.Doctor;
+using MackySoft.Ucli.Skills.Doctor.Diagnostics;
 using MackySoft.Ucli.Skills.Hosts.Official;
 using MackySoft.Ucli.Skills.Installation;
 using MackySoft.Ucli.Skills.Installation.Validation;
@@ -30,6 +31,7 @@ internal static class SkillsServiceCollectionExtensions
         services.AddSingleton<OfficialSkillPackageProvider>();
         services.AddSingleton<SkillMaterializationService>();
         services.AddSingleton<SkillExportService>();
+        services.AddSingleton<SkillUserTargetRootResolver>();
         services.AddSingleton<SkillInstallTargetResolver>();
         services.AddSingleton<SkillInstalledManifestReader>();
         services.AddSingleton<SkillInstalledContentDigestVerifier>();

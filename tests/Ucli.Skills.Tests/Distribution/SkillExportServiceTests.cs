@@ -31,6 +31,30 @@ public sealed class SkillExportServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task ExportAsync_ZipFormat_RejectsUnsafePackageName ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "export-zip-unsafe-package");
+        var generatedPackage = (await SkillTestData.GenerateOfficialPackagesAsync()).First();
+        var package = generatedPackage with
+        {
+            Manifest = generatedPackage.Manifest with
+            {
+                SkillName = "../escape",
+            },
+        };
+        var outputPath = scope.GetPath("release.zip");
+        var service = SkillTestData.CreateExportService();
+
+        var result = await service.ExportAsync([package], OpenAiSkillHostAdapter.HostKey, outputPath, SkillExportFormat.Zip, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.PathUnsafe, result.Failure!.Code);
+        Assert.False(File.Exists(outputPath));
+        Assert.Empty(Directory.EnumerateFiles(scope.FullPath, ".release.zip.*.tmp"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task ExportAsync_RejectsExistingSkillDirectoryThatEscapesThroughSymlink ()
     {
         if (OperatingSystem.IsWindows())
@@ -61,6 +85,22 @@ public sealed class SkillExportServiceTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(SkillFailureCodes.PathUnsafe, result.Failure!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ExportAsync_ZipFormat_CleansTemporaryFile_WhenCommitFails ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "export-zip-cleanup");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var service = SkillTestData.CreateExportService();
+        var destinationDirectory = scope.CreateDirectory("release.zip");
+
+        var result = await service.ExportAsync(packages, OpenAiSkillHostAdapter.HostKey, destinationDirectory, SkillExportFormat.Zip, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.InstallTargetWriteFailed, result.Failure!.Code);
+        Assert.Empty(Directory.EnumerateFiles(scope.FullPath, $".{Path.GetFileName(destinationDirectory)}.*.tmp"));
     }
 
     [Fact]

@@ -1,4 +1,6 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Skills.Hosts.Claude;
+using MackySoft.Ucli.Skills.Hosts.Copilot;
 using MackySoft.Ucli.Skills.Hosts.OpenAi;
 using MackySoft.Ucli.Skills.Installation;
 using MackySoft.Ucli.Skills.Shared;
@@ -46,6 +48,47 @@ public sealed class SkillInstallTargetResolverTests
 
         Assert.True(result.IsSuccess, result.Failure?.Message);
         Assert.Equal(ResolveExpectedPath(Path.Combine(home, ".codex", "skills")), result.Value!.TargetRoot);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveTarget_UserScope_UsesClaudeHomeDirectory ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "target-user-claude-home");
+        var home = scope.GetPath("home");
+        var resolver = CreateResolver(home);
+
+        var result = resolver.ResolveTarget(new SkillInstallRequest(ClaudeSkillHostAdapter.HostKey, SkillScopeKind.User, null));
+
+        Assert.True(result.IsSuccess, result.Failure?.Message);
+        Assert.Equal(ResolveExpectedPath(Path.Combine(home, ".claude", "skills")), result.Value!.TargetRoot);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveTarget_UserScope_UsesCopilotHomeDirectory ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "target-user-copilot-home");
+        var home = scope.GetPath("home");
+        var resolver = CreateResolver(home);
+
+        var result = resolver.ResolveTarget(new SkillInstallRequest(CopilotSkillHostAdapter.HostKey, SkillScopeKind.User, null));
+
+        Assert.True(result.IsSuccess, result.Failure?.Message);
+        Assert.Equal(ResolveExpectedPath(Path.Combine(home, ".copilot", "skills")), result.Value!.TargetRoot);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveTarget_UserScope_RejectsRelativeCodexHome ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "target-user-relative-codex-home");
+        var resolver = CreateResolver(scope.GetPath("home"), "relative-codex-home");
+
+        var result = resolver.ResolveTarget(new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.User, null));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.UserTargetUnavailable, result.Failure!.Code);
     }
 
     [Fact]

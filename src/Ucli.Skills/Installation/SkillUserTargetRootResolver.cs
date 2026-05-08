@@ -35,15 +35,45 @@ public sealed class SkillUserTargetRootResolver
         ArgumentNullException.ThrowIfNull(descriptor);
 
         var policy = descriptor.UserTargetRootPolicy;
+        if (!SkillRelativePath.IsSafeFilePath(policy.HomeRelativeDirectory))
+        {
+            return SkillOperationResult<string>.FailureResult(
+                SkillFailureCodes.UserTargetUnavailable,
+                "Host user target home-relative directory must be a safe relative path.");
+        }
+
+        if (string.IsNullOrWhiteSpace(policy.EnvironmentVariableName)
+            && !string.IsNullOrWhiteSpace(policy.EnvironmentVariableChildDirectory))
+        {
+            return SkillOperationResult<string>.FailureResult(
+                SkillFailureCodes.UserTargetUnavailable,
+                "Host user target environment child directory requires an environment variable name.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(policy.EnvironmentVariableChildDirectory)
+            && !SkillRelativePath.IsSafeFilePath(policy.EnvironmentVariableChildDirectory))
+        {
+            return SkillOperationResult<string>.FailureResult(
+                SkillFailureCodes.UserTargetUnavailable,
+                "Host user target environment child directory must be a safe relative path.");
+        }
+
         if (!string.IsNullOrWhiteSpace(policy.EnvironmentVariableName))
         {
             var environmentRoot = environmentVariableProvider(policy.EnvironmentVariableName);
             if (!string.IsNullOrWhiteSpace(environmentRoot))
             {
+                if (!Path.IsPathFullyQualified(environmentRoot))
+                {
+                    return SkillOperationResult<string>.FailureResult(
+                        SkillFailureCodes.UserTargetUnavailable,
+                        $"Environment variable '{policy.EnvironmentVariableName}' must contain an absolute path for SKILL user scope.");
+                }
+
                 var targetRoot = string.IsNullOrWhiteSpace(policy.EnvironmentVariableChildDirectory)
                     ? environmentRoot
                     : Path.Combine(environmentRoot, policy.EnvironmentVariableChildDirectory);
-                return SkillOperationResult<string>.Success(Path.GetFullPath(targetRoot));
+                return GetFullPath(targetRoot);
             }
         }
 
@@ -60,6 +90,27 @@ public sealed class SkillUserTargetRootResolver
                 "Could not resolve the current user's home directory for SKILL user scope.");
         }
 
-        return SkillOperationResult<string>.Success(Path.GetFullPath(Path.Combine(homeDirectory, homeRelativeDirectory)));
+        if (!Path.IsPathFullyQualified(homeDirectory))
+        {
+            return SkillOperationResult<string>.FailureResult(
+                SkillFailureCodes.UserTargetUnavailable,
+                "Current user's home directory must be an absolute path for SKILL user scope.");
+        }
+
+        return GetFullPath(Path.Combine(homeDirectory, homeRelativeDirectory));
+    }
+
+    private static SkillOperationResult<string> GetFullPath (string path)
+    {
+        try
+        {
+            return SkillOperationResult<string>.Success(Path.GetFullPath(path));
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return SkillOperationResult<string>.FailureResult(
+                SkillFailureCodes.UserTargetUnavailable,
+                $"Could not resolve the SKILL user target path. {ex.Message}");
+        }
     }
 }

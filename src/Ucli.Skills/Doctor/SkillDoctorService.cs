@@ -1,6 +1,6 @@
+using MackySoft.Ucli.Skills.Doctor.Diagnostics;
 using MackySoft.Ucli.Skills.Hosts.Registration;
 using MackySoft.Ucli.Skills.Installation;
-using MackySoft.Ucli.Skills.Installation.Validation;
 using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;
 

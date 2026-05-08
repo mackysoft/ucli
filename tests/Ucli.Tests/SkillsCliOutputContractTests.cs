@@ -317,6 +317,31 @@ public sealed class SkillsCliOutputContractTests
 
     [Theory]
     [Trait("Size", "Medium")]
+    [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
+    [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
+    [InlineData(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall)]
+    [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
+    public async Task SkillsScopedSubcommand_WithUserScopeAndRepoRoot_ReturnsInvalidArgument (
+        string subcommand,
+        string expectedCommand)
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", $"user-repo-root-{subcommand}");
+        var repoRoot = scope.CreateDirectory("repo");
+
+        var result = await RunScopedCommand(subcommand, repoRoot, host: "openai", scope: "user", targetDir: null);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: expectedCommand,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, InvalidArgumentCode);
+    }
+
+    [Theory]
+    [Trait("Size", "Medium")]
     [InlineData(UcliCommandNames.ExportSubcommand, UcliCommandNames.SkillsExport)]
     [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
     [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
@@ -393,7 +418,36 @@ public sealed class SkillsCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task SkillsUserScope_WithExplicitTarget_InstallsDoctorsAndUninstallsWithoutRepoRoot ()
+    public async Task SkillsUserScope_WithoutTargetDir_UsesOpenAiCodexHomeDefault ()
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "user-scope-codex-home-default");
+        var codexHome = scope.GetPath("codex-home");
+
+        var install = await CliProcessRunner.RunCommandWithEnvironment(
+            new Dictionary<string, string?> { ["CODEX_HOME"] = codexHome },
+            UcliCommandNames.Skills,
+            UcliCommandNames.InstallSubcommand,
+            "--host",
+            "openai",
+            "--scope",
+            "user");
+
+        using var installJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(install.StdOut);
+        Assert.Equal((int)CliExitCode.Success, install.ExitCode);
+        JsonAssert.For(installJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasString("scope", "user")
+                .IsNull("repositoryRoot")
+                .HasInt32("createdCount", ExpectedSkillNames.Length)
+                .HasValueKind("reloadGuidance", JsonValueKind.String));
+        var targetRoot = installJson.RootElement.GetProperty("payload").GetProperty("targetRoot").GetString()!;
+        Assert.True(Path.IsPathFullyQualified(targetRoot), targetRoot);
+        Assert.EndsWith(Path.Combine("codex-home", "skills"), targetRoot, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SkillsUserScope_WithExplicitTarget_InstallsUpdatesDoctorsAndUninstallsWithoutRepoRoot ()
     {
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "user-scope-explicit-target");
         var targetRoot = scope.GetPath("user-skills");
@@ -401,6 +455,15 @@ public sealed class SkillsCliOutputContractTests
         var install = await CliProcessRunner.RunCommand(
             UcliCommandNames.Skills,
             UcliCommandNames.InstallSubcommand,
+            "--host",
+            "openai",
+            "--scope",
+            "user",
+            "--targetDir",
+            targetRoot);
+        var update = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Skills,
+            UcliCommandNames.UpdateSubcommand,
             "--host",
             "openai",
             "--scope",
@@ -438,6 +501,16 @@ public sealed class SkillsCliOutputContractTests
         var resolvedTargetRoot = installJson.RootElement.GetProperty("payload").GetProperty("targetRoot").GetString()!;
         Assert.True(Path.IsPathFullyQualified(resolvedTargetRoot), resolvedTargetRoot);
         Assert.EndsWith(Path.DirectorySeparatorChar + Path.GetFileName(targetRoot), resolvedTargetRoot, StringComparison.Ordinal);
+
+        using var updateJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(update.StdOut);
+        Assert.Equal((int)CliExitCode.Success, update.ExitCode);
+        JsonAssert.For(updateJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasString("scope", "user")
+                .IsNull("repositoryRoot")
+                .HasInt32("createdCount", 0)
+                .HasInt32("noOpCount", ExpectedSkillNames.Length)
+                .HasValueKind("reloadGuidance", JsonValueKind.String));
 
         using var doctorJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(doctor.StdOut);
         Assert.Equal((int)CliExitCode.Success, doctor.ExitCode);
@@ -589,6 +662,7 @@ public sealed class SkillsCliOutputContractTests
                 .HasString("scope", "project")
                 .HasString("repositoryRoot", repoRoot)
                 .HasValueKind("targetRoot", JsonValueKind.String)
+                .HasValueKind("reloadGuidance", JsonValueKind.String)
                 .HasArrayLength("actions", ExpectedSkillNames.Length)
                 .HasInt32("createdCount", ExpectedSkillNames.Length)
                 .HasInt32("updatedCount", 0)
@@ -604,6 +678,7 @@ public sealed class SkillsCliOutputContractTests
                 .HasInt32("createdCount", 0)
                 .HasInt32("updatedCount", 0)
                 .HasInt32("noOpCount", ExpectedSkillNames.Length)
+                .HasValueKind("reloadGuidance", JsonValueKind.String)
                 .HasProperty("actions", 0, static action => action
                     .HasString("action", "noOp")));
     }
