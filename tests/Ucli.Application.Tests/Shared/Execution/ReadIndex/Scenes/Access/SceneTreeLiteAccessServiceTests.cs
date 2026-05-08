@@ -254,6 +254,67 @@ public sealed class SceneTreeLiteAccessServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Read_WhenReadPostconditionTargetsAllScenes_FallsBackToSource ()
+    {
+        using var scope = TestDirectories.CreateTempScope("scene-tree-lite-access", "postcondition-wildcard-fallback");
+        var project = CreateProject(scope);
+        WriteSceneFile(project.UnityProjectRoot, "Assets/Scenes/Main.unity");
+        var indexReader = new StubReadIndexArtifactReader
+        {
+            SceneTreeLiteLookupResult = ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Success(
+                new IndexSceneTreeLiteLookupJsonContract(
+                    SchemaVersion: 1,
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
+                    ScenePath: "Assets/Scenes/Main.unity",
+                    SourceInputsHash: "scene-hash",
+                    Roots: CreateTree())),
+        };
+        var freshnessEvaluator = new StubSceneTreeLiteFreshnessEvaluator
+        {
+            Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh),
+        };
+        var readPostconditionStore = new TestMutationReadPostconditionStore
+        {
+            ReadResult = MutationReadPostconditionReadResult.Success(
+                ReadPostconditionTestFactory.Create(
+                [
+                    new IpcExecuteReadPostconditionRequirement(
+                        Surface: IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
+                        MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-15T00:00:00+00:00")),
+                ])),
+        };
+        var refreshService = new StubSceneTreeLiteSourceRefreshService
+        {
+            Result = SceneTreeLiteRefreshResult.Success(
+                new IpcIndexSceneTreeLiteReadResponse(
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-15T00:01:00+00:00"),
+                    ScenePath: "Assets/Scenes/Main.unity",
+                    Roots:
+                    [
+                        new IndexSceneTreeLiteNodeJsonContract("FreshRoot", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+                    ]),
+                "Existing scene-tree-lite index generatedAtUtc is older than mutation read postcondition."),
+        };
+        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService, new StubSceneTreeLiteSourceProbe());
+
+        var result = await service.Read(
+            project,
+            UcliConfig.CreateDefault(),
+            UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
+            TimeSpan.FromSeconds(1),
+            ReadIndexMode.AllowStale,
+            "Assets/Scenes/Main.unity",
+            depth: null,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(SceneTreeLiteSource.Source, result.Output!.AccessInfo.Source);
+        Assert.Contains("mutation read postcondition", result.Output.AccessInfo.FallbackReason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Read_WhenReadPostconditionTargetsDifferentScene_KeepsUsingIndex ()
     {
         using var scope = TestDirectories.CreateTempScope("scene-tree-lite-access", "postcondition-non-matching-scene");
