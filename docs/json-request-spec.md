@@ -133,9 +133,12 @@ public raw `op` の `args` では request-local alias selector branch の `var` 
 ```
 
 - `source` は `using`、`namespace`、`class`、entry point method を含む完全な C# コンパイル単位である
-- entry point は `public static object? Run(UcliCsEvalContext context)` の同期メソッドだけを許可する
+- `entryPoint` の method 名は `Run` に限り、entry point は `public static object? Run(UcliCsEvalContext context)` の同期メソッドだけを許可する
 - `plan` は任意コードを実行せず、compile status と diagnostics を返す
 - `call` の `opResults[].result` は `CsEvalResult` で、利用者コードの戻り値は `result.returnValue` に JSON 値として格納される
+- `UcliCsEvalContext` の touched resource 宣言は project-relative path だけを受け付ける。Scene は `.unity`、Prefab は `.prefab`、ProjectSettings は `ProjectSettings/` 配下を宣言する。`.unity` と `.prefab` は `DeclareTouchedAsset` ではなく専用 API で宣言する
+- touched resource を宣言しない `call` は `touchedResources.state = "unknown"` になり、project-wide asset search / guid path と全 Scene の scene tree read index を stale として扱う
+- timeout / cancel は同期 entry point 実行中の使用者コードを強制停止しない
 
 ## `kind: "edit"` の仕様
 `edit` は、高頻度の編集を短く表現するための上位構文である。  
