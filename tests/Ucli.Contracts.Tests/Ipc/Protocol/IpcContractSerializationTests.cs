@@ -185,7 +185,7 @@ public sealed class IpcContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcExecuteRequest_SerializesPlanTokenOnlyWhenSpecified ()
+    public void IpcExecuteRequest_SerializesOptionalExecutionControlsOnlyWhenSpecified ()
     {
         var requestWithToken = new IpcExecuteRequest(
             Command: UcliCommandIds.Call,
@@ -197,11 +197,14 @@ public sealed class IpcContractSerializationTests
             }))
         {
             PlanToken = "token-value",
+            AllowDangerous = true,
         };
 
         var withTokenJson = JsonSerializer.SerializeToElement(requestWithToken, SerializerOptions);
         Assert.True(withTokenJson.TryGetProperty("planToken", out var planTokenElement));
         Assert.Equal("token-value", planTokenElement.GetString());
+        Assert.True(withTokenJson.TryGetProperty("allowDangerous", out var allowDangerousElement));
+        Assert.True(allowDangerousElement.GetBoolean());
         Assert.False(withTokenJson.TryGetProperty("failFast", out _));
 
         var requestWithoutToken = new IpcExecuteRequest(
@@ -217,6 +220,7 @@ public sealed class IpcContractSerializationTests
         };
         var withoutTokenJson = JsonSerializer.SerializeToElement(requestWithoutToken, SerializerOptions);
         Assert.False(withoutTokenJson.TryGetProperty("planToken", out _));
+        Assert.False(withoutTokenJson.TryGetProperty("allowDangerous", out _));
         Assert.True(withoutTokenJson.TryGetProperty("failFast", out var failFastElement));
         Assert.True(failFastElement.GetBoolean());
     }
@@ -391,17 +395,22 @@ public sealed class IpcContractSerializationTests
                             GlobalObjectId: string.Empty,
                             Children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
                     ]),
-            ]);
+            ],
+            SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.LoadedScene, isDirty: true));
 
         using var requestDocument = JsonDocument.Parse(JsonSerializer.Serialize(requestPayload, SerializerOptions));
         using var responseDocument = JsonDocument.Parse(JsonSerializer.Serialize(responsePayload, SerializerOptions));
 
         JsonAssert.For(requestDocument.RootElement)
             .HasString("scenePath", "Assets/Scenes/Sample.unity")
-            .HasBoolean("failFast", false);
+            .HasBoolean("failFast", false)
+            .HasBoolean("loadedSceneOnly", false);
         JsonAssert.For(responseDocument.RootElement)
             .HasString("generatedAtUtc", "2026-03-06T00:00:00+00:00")
             .HasString("scenePath", "Assets/Scenes/Sample.unity")
+            .HasProperty("sourceState", state => state
+                .HasString("kind", "loadedScene")
+                .HasBoolean("isDirty", true))
             .HasArrayLength("roots", 1)
             .HasProperty("roots", 0, node => node
                 .HasString("name", "Root")

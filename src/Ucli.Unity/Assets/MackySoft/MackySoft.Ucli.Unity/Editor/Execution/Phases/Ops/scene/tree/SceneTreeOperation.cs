@@ -6,7 +6,6 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
-using UnityEngine.SceneManagement;
 
 #nullable enable
 
@@ -40,11 +39,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryValidateArguments(operation, args, executionContext, allowTemporaryState: true, out _, out var failure))
+            if (!TryValidateArguments(operation, args, executionContext, allowTemporaryState: true, out var validationState, out var failure))
             {
                 return Task.FromResult(failure!);
             }
 
+            validationState.SceneLease.Dispose();
             return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
         }
 
@@ -60,7 +60,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Execute(operation, args, executionContext, applied: false);
+            return ExecutePhaseAsync(operation, args, executionContext, applied: false);
         }
 
         /// <summary> Executes call phase for <c>ucli.scene.tree</c>. </summary>
@@ -75,7 +75,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Execute(operation, args, executionContext, applied: true);
+            return ExecutePhaseAsync(operation, args, executionContext, applied: true);
         }
 
         /// <summary> Executes shared plan/call flow. </summary>
@@ -83,7 +83,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="applied"> The applied flag for success. </param>
         /// <returns> The phase-step result. </returns>
-        private static Task<OperationPhaseStepResult> Execute (
+        private static Task<OperationPhaseStepResult> ExecutePhaseAsync (
             NormalizedOperation operation,
             SceneTreeArgs args,
             OperationExecutionContext executionContext,
@@ -94,17 +94,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            var tree = new SceneTreeResult(
-                validationState.ScenePath,
-                SceneTreeNodeSnapshotBuilder.BuildRoots(validationState.Scene, validationState.Depth, executionContext));
-            return Task.FromResult(OperationPhaseStepResult.Success(
-                applied: applied,
-                changed: false,
-                touched: new[]
-                {
-                    OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Scene, validationState.ScenePath)),
-                },
-                result: IpcPayloadCodec.SerializeToElement(tree)));
+            using (validationState.SceneLease)
+            {
+                var tree = new SceneTreeResult(
+                    validationState.ScenePath,
+                    SceneTreeNodeSnapshotBuilder.BuildRoots(validationState.SceneLease.Scene, validationState.Depth, executionContext),
+                    validationState.SceneLease.CreateSourceState());
+                return Task.FromResult(OperationPhaseStepResult.Success(
+                    applied: applied,
+                    changed: false,
+                    touched: new[]
+                    {
+                        OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Scene, validationState.ScenePath)),
+                    },
+                    result: IpcPayloadCodec.SerializeToElement(tree)));
+            }
         }
 
         /// <summary> Validates operation arguments and resolves loaded scene. </summary>
@@ -132,19 +136,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             var scenePath = args.Path;
-            if (!SceneOperationUtilities.TryEnsureSceneAssetExists(scenePath, out var sceneErrorMessage))
+            var policy = allowTemporaryState
+                ? SceneSourceResolver.Policy.TrackedTemporaryOrLoadedOrPersistedPreview
+                : SceneSourceResolver.Policy.LoadedOrPersistedPreview;
+            string sceneErrorMessage;
+            if (!SceneSourceResolver.TryAcquire(scenePath, policy, executionContext, out var sceneLease, out sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
                 return false;
             }
 
-            if (!GoOperationUtilities.TryResolveScene(scenePath, executionContext, allowTemporaryState, out var scene, out sceneErrorMessage))
-            {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
-                return false;
-            }
-
-            validationState = new ValidationState(scenePath, scene, args.Depth);
+            validationState = new ValidationState(scenePath, sceneLease, args.Depth);
             return true;
         }
 
@@ -152,17 +154,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             public ValidationState (
                 string scenePath,
-                Scene scene,
+                SceneSourceResolver.Lease sceneLease,
                 int? depth)
             {
                 ScenePath = scenePath;
-                Scene = scene;
+                SceneLease = sceneLease;
                 Depth = depth;
             }
 
             public string ScenePath { get; }
 
-            public Scene Scene { get; }
+            public SceneSourceResolver.Lease SceneLease { get; }
 
             public int? Depth { get; }
         }

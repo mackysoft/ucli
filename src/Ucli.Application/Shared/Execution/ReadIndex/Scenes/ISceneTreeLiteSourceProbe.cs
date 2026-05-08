@@ -4,7 +4,7 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 internal interface ISceneTreeLiteSourceProbe
 {
     /// <summary> Ensures the current project source contains the specified assets scene. </summary>
-    ValueTask<SceneTreeLiteSourceProbeResult> EnsureCurrentAssetsSceneExists (
+    ValueTask<SceneTreeLiteSourceProbeResult> EnsureCurrentAssetsSceneExistsAsync (
         ResolvedUnityProjectContext project,
         string normalizedScenePath,
         CancellationToken cancellationToken = default);

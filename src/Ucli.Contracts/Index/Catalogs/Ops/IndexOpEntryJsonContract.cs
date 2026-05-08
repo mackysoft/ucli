@@ -28,4 +28,8 @@ public sealed record IndexOpEntryJsonContract (
 
     /// <summary> Gets or initializes machine-readable assurance metadata. </summary>
     public UcliOperationAssuranceContract? Assurance { get; init; }
+
+    /// <summary> Gets or initializes optional source-facing code metadata. </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public UcliOperationCodeContract? CodeContract { get; init; }
 }

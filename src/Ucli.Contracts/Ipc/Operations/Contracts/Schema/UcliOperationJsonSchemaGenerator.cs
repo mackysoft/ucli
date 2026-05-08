@@ -82,7 +82,7 @@ public static class UcliOperationJsonSchemaGenerator
         SchemaGenerationContext context)
     {
         var actualType = Nullable.GetUnderlyingType(contractType) ?? contractType;
-        if (actualType == StringType || UcliStringValue.IsAssignableFrom(actualType))
+        if (actualType == StringType || UcliStringValue.IsAssignableFrom(actualType) || actualType.IsEnum)
         {
             WriteType(writer, "string");
             return;
@@ -207,7 +207,7 @@ public static class UcliOperationJsonSchemaGenerator
         SchemaGenerationContext context)
     {
         var actualType = Nullable.GetUnderlyingType(contractType) ?? contractType;
-        if (actualType == StringType || UcliStringValue.IsAssignableFrom(actualType))
+        if (actualType == StringType || UcliStringValue.IsAssignableFrom(actualType) || actualType.IsEnum)
         {
             WriteType(writer, "string");
             return;
@@ -295,7 +295,7 @@ public static class UcliOperationJsonSchemaGenerator
         bool includeNull)
     {
         string? schemaType = null;
-        if (actualType == StringType || UcliStringValue.IsAssignableFrom(actualType))
+        if (actualType == StringType || UcliStringValue.IsAssignableFrom(actualType) || actualType.IsEnum)
         {
             schemaType = "string";
         }

@@ -103,9 +103,11 @@ public sealed class UcliOperationJsonSchemaGeneratorTests
             .GetProperty("properties")
             .GetProperty("roots")
             .GetProperty("items");
+        var required = root.GetProperty("required").EnumerateArray().Select(static item => item.GetString()).ToArray();
 
         var nodeRef = "#/$defs/" + nameof(IndexSceneTreeLiteNodeJsonContract);
         Assert.Equal(nodeRef, rootsItems.GetProperty("$ref").GetString());
+        Assert.Contains("sourceState", required);
 
         var nodeSchema = root
             .GetProperty("$defs")
@@ -119,6 +121,54 @@ public sealed class UcliOperationJsonSchemaGeneratorTests
             .GetProperty("items")
             .GetProperty("$ref")
             .GetString());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CreateArgsSchemaJson_WhenCsEvalArgsContainsSourceOnly_RequiresSourceOnly ()
+    {
+        var schemaJson = UcliOperationJsonSchemaGenerator.CreateArgsSchemaJson(typeof(CsEvalArgs));
+
+        using var document = JsonDocument.Parse(schemaJson);
+        var root = document.RootElement;
+        var properties = root.GetProperty("properties");
+        Assert.True(properties.TryGetProperty("source", out _));
+        Assert.False(properties.TryGetProperty("entryPoint", out _));
+
+        var required = root.GetProperty("required").EnumerateArray().Select(static item => item.GetString()).ToArray();
+        Assert.Equal(new[] { "source" }, required);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CreateResultSchemaJson_WhenCsEvalResultContainsJsonAnyValue_EmitsStructuralResultSchema ()
+    {
+        var schemaJson = UcliOperationJsonSchemaGenerator.CreateResultSchemaJson(typeof(CsEvalResult));
+
+        using var document = JsonDocument.Parse(schemaJson!);
+        var root = document.RootElement;
+        Assert.Equal("object", root.GetProperty("type").GetString());
+        Assert.False(root.GetProperty("additionalProperties").GetBoolean());
+        Assert.Contains(root.GetProperty("required").EnumerateArray(), item => item.GetString() == "sourceDigest");
+        Assert.Contains(root.GetProperty("required").EnumerateArray(), item => item.GetString() == "compile");
+        Assert.DoesNotContain(root.GetProperty("required").EnumerateArray(), item => item.GetString() == "sourceKind");
+        Assert.DoesNotContain(root.GetProperty("required").EnumerateArray(), item => item.GetString() == "resolvedEntryPoint");
+        Assert.True(root.GetProperty("properties").TryGetProperty("sourceKind", out _));
+        Assert.True(root.GetProperty("properties").TryGetProperty("resolvedEntryPoint", out _));
+
+        var returnValueProperty = root
+            .GetProperty("properties")
+            .GetProperty("returnValue");
+
+        Assert.Equal("object", returnValueProperty.GetProperty("type").GetString());
+        Assert.False(returnValueProperty.GetProperty("additionalProperties").GetBoolean());
+
+        var serializedValueSchema = returnValueProperty
+            .GetProperty("properties")
+            .GetProperty("value");
+
+        Assert.Equal(JsonValueKind.Object, serializedValueSchema.ValueKind);
+        Assert.Empty(serializedValueSchema.EnumerateObject());
     }
 
     [Fact]

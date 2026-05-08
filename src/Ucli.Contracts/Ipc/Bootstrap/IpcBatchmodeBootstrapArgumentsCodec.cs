@@ -16,6 +16,7 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
         IpcEndpointBootstrapArgumentNames.Address,
         IpcOneshotBootstrapArgumentNames.ParentProcessId,
         IpcOneshotBootstrapArgumentNames.SessionToken,
+        IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc,
     };
 
     /// <summary> Appends batchmode bootstrap argument token pairs to destination list. </summary>
@@ -64,6 +65,8 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
                 destination.Add(oneshotArguments.ProjectFingerprint);
                 destination.Add(IpcOneshotBootstrapArgumentNames.SessionToken);
                 destination.Add(oneshotArguments.SessionToken);
+                destination.Add(IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc);
+                destination.Add(oneshotArguments.ExitDeadlineUtc.ToString("O", CultureInfo.InvariantCulture));
                 destination.Add(IpcEndpointBootstrapArgumentNames.TransportKind);
                 destination.Add(oneshotArguments.EndpointTransportKind);
                 destination.Add(IpcEndpointBootstrapArgumentNames.Address);
@@ -173,6 +176,7 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
         if (!TryGetArgumentValue(args, IpcOneshotBootstrapArgumentNames.ParentProcessId, out var parentProcessIdText)
             || !TryGetArgumentValue(args, IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, out var projectFingerprint)
             || !TryGetArgumentValue(args, IpcOneshotBootstrapArgumentNames.SessionToken, out var sessionToken)
+            || !TryGetArgumentValue(args, IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, out var exitDeadlineUtcText)
             || !TryGetArgumentValue(args, IpcEndpointBootstrapArgumentNames.TransportKind, out var endpointTransportKind)
             || !TryGetArgumentValue(args, IpcEndpointBootstrapArgumentNames.Address, out var endpointAddress))
         {
@@ -183,6 +187,7 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
         if (string.IsNullOrWhiteSpace(parentProcessIdText)
             || string.IsNullOrWhiteSpace(projectFingerprint)
             || string.IsNullOrWhiteSpace(sessionToken)
+            || string.IsNullOrWhiteSpace(exitDeadlineUtcText)
             || string.IsNullOrWhiteSpace(endpointTransportKind)
             || string.IsNullOrWhiteSpace(endpointAddress))
         {
@@ -197,7 +202,20 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
             return false;
         }
 
-        arguments = new IpcOneshotBootstrapArguments(parentProcessId, projectFingerprint, sessionToken, endpointTransportKind, endpointAddress);
+        if (!IpcIso8601TimestampCodec.TryParseOptionalWithTimezoneOffset(exitDeadlineUtcText, out var exitDeadlineUtc)
+            || exitDeadlineUtc is not DateTimeOffset parsedExitDeadlineUtc)
+        {
+            error = EmptyRequiredValue("uCLI oneshot bootstrap exit deadline timestamp must be a valid ISO 8601 timestamp with explicit timezone offset.");
+            return false;
+        }
+
+        arguments = new IpcOneshotBootstrapArguments(
+            parentProcessId,
+            projectFingerprint,
+            sessionToken,
+            parsedExitDeadlineUtc,
+            endpointTransportKind,
+            endpointAddress);
         error = IpcBatchmodeBootstrapParseError.None;
         return true;
     }

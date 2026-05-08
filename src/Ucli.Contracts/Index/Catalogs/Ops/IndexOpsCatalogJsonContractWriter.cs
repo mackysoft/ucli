@@ -41,6 +41,7 @@ internal sealed class IndexOpsCatalogJsonContractWriter : IndexJsonContractWrite
         WriteArray(writer, "inputs", entry.Inputs, WriteOperationInput);
         WriteOperationResultContract(writer, entry.ResultContract);
         WriteOperationAssurance(writer, entry.Assurance);
+        WriteOperationCodeContract(writer, entry.CodeContract);
         writer.WriteEndObject();
     }
 
@@ -163,6 +164,99 @@ internal sealed class IndexOpsCatalogJsonContractWriter : IndexJsonContractWrite
         writer.WriteBoolean("mayPersist", assurance.MayPersist);
         WriteStringArray(writer, "touchedKinds", assurance.TouchedKinds);
         WriteNullableString(writer, "planMode", assurance.PlanMode);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteOperationCodeContract (
+        Utf8JsonWriter writer,
+        UcliOperationCodeContract? codeContract)
+    {
+        if (codeContract == null)
+        {
+            return;
+        }
+
+        writer.WritePropertyName("codeContract");
+        writer.WriteStartObject();
+        WriteNullableString(writer, "language", codeContract.Language);
+        WriteCodeEntryPoint(writer, codeContract.EntryPoint);
+        WriteArray(writer, "sourceForms", codeContract.SourceForms, WriteCodeSourceForm);
+        WriteArray(writer, "apiTypes", codeContract.ApiTypes, WriteCodeApiType);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteCodeEntryPoint (
+        Utf8JsonWriter writer,
+        UcliCodeEntryPointContract? entryPoint)
+    {
+        writer.WritePropertyName("entryPoint");
+        if (entryPoint == null)
+        {
+            writer.WriteNullValue();
+            return;
+        }
+
+        writer.WriteStartObject();
+        WriteNullableString(writer, "signature", entryPoint.Signature);
+        WriteNullableString(writer, "matchRule", entryPoint.MatchRule);
+        writer.WriteBoolean("requiredStatic", entryPoint.RequiredStatic);
+        WriteStringArray(writer, "parameterTypes", entryPoint.ParameterTypes);
+        WriteNullableString(writer, "returnValue", entryPoint.ReturnValue);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteCodeSourceForm (
+        Utf8JsonWriter writer,
+        UcliCodeSourceFormContract sourceForm)
+    {
+        writer.WriteStartObject();
+        WriteNullableString(writer, "kind", sourceForm.Kind);
+        WriteNullableString(writer, "description", sourceForm.Description);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteCodeApiType (
+        Utf8JsonWriter writer,
+        UcliCodeApiTypeContract apiType)
+    {
+        writer.WriteStartObject();
+        WriteNullableString(writer, "name", apiType.Name);
+        WriteNullableString(writer, "fullName", apiType.FullName);
+        WriteNullableString(writer, "description", apiType.Description);
+        WriteArray(writer, "members", apiType.Members, WriteCodeApiMember);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteCodeApiMember (
+        Utf8JsonWriter writer,
+        UcliCodeApiMemberContract member)
+    {
+        writer.WriteStartObject();
+        WriteNullableString(writer, "kind", member.Kind);
+        WriteNullableString(writer, "name", member.Name);
+        WriteNullableString(writer, "description", member.Description);
+        if (member.Type != null)
+        {
+            writer.WriteString("type", member.Type);
+        }
+
+        if (member.ReturnType != null)
+        {
+            writer.WriteString("returnType", member.ReturnType);
+        }
+
+        WriteArray(writer, "parameters", member.Parameters, WriteCodeApiParameter);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteCodeApiParameter (
+        Utf8JsonWriter writer,
+        UcliCodeApiParameterContract parameter)
+    {
+        writer.WriteStartObject();
+        WriteNullableString(writer, "name", parameter.Name);
+        WriteNullableString(writer, "type", parameter.Type);
+        WriteNullableString(writer, "description", parameter.Description);
         writer.WriteEndObject();
     }
 }

@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Application.Shared.Configuration;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Tests.Configuration;
 

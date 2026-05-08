@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace MackySoft.Ucli.Application.Shared.Configuration;
+namespace MackySoft.Ucli.Contracts.Text;
 
 /// <summary> Provides reusable validation and matching helpers for regex pattern strings. </summary>
 internal static class RegexPatternUtilities
@@ -16,7 +16,11 @@ internal static class RegexPatternUtilities
         string pattern,
         out string? errorMessage)
     {
-        ArgumentNullException.ThrowIfNull(pattern);
+        if (pattern == null)
+        {
+            throw new ArgumentNullException(nameof(pattern));
+        }
+
         return TryCompilePattern(pattern, out _, out errorMessage);
     }
 
@@ -31,7 +35,10 @@ internal static class RegexPatternUtilities
         string pattern,
         out bool isMatch)
     {
-        ArgumentNullException.ThrowIfNull(input);
+        if (input == null)
+        {
+            throw new ArgumentNullException(nameof(input));
+        }
 
         if (!TryCompilePattern(pattern, out var regex, out _))
         {
@@ -61,7 +68,10 @@ internal static class RegexPatternUtilities
         out Regex? regex,
         out string? errorMessage)
     {
-        ArgumentNullException.ThrowIfNull(pattern);
+        if (pattern == null)
+        {
+            throw new ArgumentNullException(nameof(pattern));
+        }
 
         try
         {

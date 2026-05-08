@@ -396,6 +396,28 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void BuildCatalog_WhenCsEvalOperationIsExported_IncludesDangerousCodeContract ()
+        {
+            var operations = UcliOperationDiscoverer.Discover();
+
+            var snapshot = UcliOperationCatalogSnapshotBuilder.Build(operations);
+
+            var entry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.CsEval);
+            Assert.That(entry.Kind, Is.EqualTo(UcliOperationKindValues.Mutation));
+            Assert.That(entry.Policy, Is.EqualTo(OperationPolicyValues.Dangerous));
+            Assert.That(entry.ArgsSchemaJson, Does.Contain("\"source\""));
+            Assert.That(entry.ResultSchemaJson, Does.Contain("\"sourceKind\""));
+            Assert.That(entry.CodeContract, Is.Not.Null);
+            Assert.That(entry.CodeContract!.Language, Is.EqualTo("csharp"));
+            Assert.That(entry.CodeContract.EntryPoint!.MatchRule, Does.Contain("exactly one"));
+            Assert.That(entry.CodeContract.SourceForms!.Count, Is.EqualTo(2));
+            Assert.That(entry.CodeContract.SourceForms![0].Kind, Is.EqualTo(CsEvalSourceKindValues.CompilationUnit));
+            Assert.That(entry.CodeContract.SourceForms[1].Kind, Is.EqualTo(CsEvalSourceKindValues.Snippet));
+            Assert.That(entry.CodeContract.ApiTypes!.Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void BuildCatalog_WhenBuiltInOperationsAreExported_RemovesVarSelectorsFromPublicSchemas ()
         {
             var operations = UcliOperationDiscoverer.Discover();

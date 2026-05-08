@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 internal interface ISceneTreeLiteAccessService
 {
     /// <summary> Reads scene-tree-lite data for one scene path. </summary>
-    ValueTask<SceneTreeLiteReadResult> Read (
+    ValueTask<SceneTreeLiteReadResult> ReadAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,

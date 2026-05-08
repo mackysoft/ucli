@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using MackySoft.Ucli.Infrastructure.Paths;
 
@@ -27,6 +28,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             GuidPathInvalidation,
         };
 
+        private static readonly OperationReadInvalidation[] UnknownMutationInvalidations =
+        {
+            AssetSearchInvalidation,
+            GuidPathInvalidation,
+            new OperationReadInvalidation(
+                OperationReadInvalidationSurface.SceneTreeLite,
+                ScenePath: null),
+        };
+
         public static IReadOnlyList<OperationReadInvalidation> CreateAssetSearchOnly ()
         {
             return AssetSearchOnlyInvalidations;
@@ -35,6 +45,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public static IReadOnlyList<OperationReadInvalidation> CreateAssetSearchAndGuidPath ()
         {
             return AssetSearchAndGuidPathInvalidations;
+        }
+
+        public static IReadOnlyList<OperationReadInvalidation> CreateUnknownMutation ()
+        {
+            return UnknownMutationInvalidations;
         }
 
         public static IReadOnlyList<OperationReadInvalidation> CreateSceneTreeLite (string scenePath)
@@ -75,6 +90,39 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                     case OperationTouchKind.Scene:
                         invalidations.AddRange(CreateSceneTreeLite(touch.Path));
+                        break;
+                }
+            }
+
+            return invalidations;
+        }
+
+        public static IReadOnlyList<OperationReadInvalidation> CreateForExplicitTouches (IReadOnlyList<OperationTouch> touched)
+        {
+            var invalidations = new List<OperationReadInvalidation>();
+            var includesAssetLookupInvalidation = false;
+            var scenePaths = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < touched.Count; i++)
+            {
+                var touch = touched[i];
+                switch (touch.Kind)
+                {
+                    case OperationTouchKind.Asset:
+                    case OperationTouchKind.Prefab:
+                        if (!includesAssetLookupInvalidation)
+                        {
+                            invalidations.AddRange(CreateAssetSearchAndGuidPath());
+                            includesAssetLookupInvalidation = true;
+                        }
+
+                        break;
+
+                    case OperationTouchKind.Scene:
+                        if (scenePaths.Add(touch.Path))
+                        {
+                            invalidations.AddRange(CreateSceneTreeLite(touch.Path));
+                        }
+
                         break;
                 }
             }

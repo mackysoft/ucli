@@ -114,7 +114,7 @@ internal static class MutationReadPostconditionAccessEvaluator
                 continue;
             }
 
-            if (!string.Equals(requirement.ScenePath, scenePath, StringComparison.Ordinal))
+            if (!MatchesScenePath(surface, requirement.ScenePath, scenePath))
             {
                 continue;
             }
@@ -123,6 +123,16 @@ internal static class MutationReadPostconditionAccessEvaluator
         }
 
         return null;
+    }
+
+    private static bool MatchesScenePath (
+        string surface,
+        string? requirementScenePath,
+        string? scenePath)
+    {
+        return string.Equals(requirementScenePath, scenePath, StringComparison.Ordinal)
+            || (string.Equals(surface, IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite, StringComparison.Ordinal)
+                && requirementScenePath == null);
     }
 
     private static string NormalizePath (string path)

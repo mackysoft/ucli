@@ -145,6 +145,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             services.AddSingleton<IDaemonShutdownSignal, DaemonShutdownSignal>();
             services.AddSingleton<OneshotRequestCompletionSignal>();
+            services.AddSingleton<IUnityIpcMethodHandler, ShutdownUnityIpcMethodHandler>();
             services.AddSingleton<UnityIpcConnectionHandler>();
             services.AddSingleton<IUnityIpcConnectionHandler, UnityOneshotConnectionHandler>();
             services.AddSingleton<NamedPipeUnityIpcTransportListener>();

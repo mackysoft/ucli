@@ -90,6 +90,39 @@ public sealed class MutationReadPostconditionStoreTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task WriteMerged_WhenSceneTreeLiteHasNoScenePath_PersistsWildcardRequirement ()
+    {
+        using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-store", "scene-tree-lite-wildcard");
+        var store = new MutationReadPostconditionStore();
+        var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(scope.FullPath, "fingerprint-1");
+
+        var writeResult = await store.WriteMerged(
+            scope.FullPath,
+            "fingerprint-1",
+            ReadPostconditionTestFactory.Create(
+            [
+                new IpcExecuteReadPostconditionRequirement(
+                    Surface: IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
+                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00")),
+            ]),
+            CancellationToken.None);
+
+        Assert.True(writeResult.IsSuccess);
+
+        var readResult = await store.ReadOrNull(scope.FullPath, "fingerprint-1", CancellationToken.None);
+
+        Assert.True(readResult.IsSuccess);
+        var readPostcondition = Assert.IsType<OperationExecutionReadPostcondition>(readResult.ReadPostcondition);
+        var requirement = Assert.Single(readPostcondition.Requirements);
+        Assert.Equal(IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite, requirement.Surface);
+        Assert.Null(requirement.ScenePath);
+
+        using var jsonDocument = JsonDocument.Parse(File.ReadAllText(documentPath));
+        Assert.False(jsonDocument.RootElement.GetProperty("requirements")[0].TryGetProperty("scenePath", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task ReadOrNull_ReturnsInvalidArgument_WhenJsonIsMalformed ()
     {
         using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-store", "malformed-json");

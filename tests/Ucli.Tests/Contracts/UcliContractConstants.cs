@@ -69,7 +69,7 @@ internal static class UcliContractConstants
 
         public const int IpcTimeoutDefaultRefreshMilliseconds = 120000;
 
-        public const int IpcTimeoutDefaultOpsMilliseconds = 5000;
+        public const int IpcTimeoutDefaultOpsMilliseconds = 120000;
 
         public const int IpcTimeoutDefaultDaemonStartMilliseconds = 60000;
 

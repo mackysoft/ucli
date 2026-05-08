@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Project;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
@@ -64,10 +65,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             public Lease (
                 string scenePath,
                 Scene scene,
+                SceneTreeSourceStateKind sourceKind,
                 bool closeAfterUse)
             {
                 ScenePath = scenePath;
                 Scene = scene;
+                SourceKind = sourceKind;
                 this.closeAfterUse = closeAfterUse;
             }
 
@@ -82,6 +85,20 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             public Scene Scene { get; }
 
             /// <summary>
+            /// Gets the source kind that produced <see cref="Scene" />.
+            /// </summary>
+            public SceneTreeSourceStateKind SourceKind { get; }
+
+            /// <summary>
+            /// Creates the public source-state contract for this acquired scene source.
+            /// </summary>
+            /// <returns> The source-state contract. </returns>
+            public SceneTreeSourceState CreateSourceState ()
+            {
+                return new SceneTreeSourceState(SourceKind, IsDirtySource(Scene, SourceKind));
+            }
+
+            /// <summary>
             /// Releases one transient preview scene when the acquisition policy requires cleanup.
             /// </summary>
             public void Dispose ()
@@ -92,6 +109,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
 
                 PersistedPreviewSceneLease.CloseIfNeeded(Scene);
+            }
+
+            private static bool IsDirtySource (
+                Scene scene,
+                SceneTreeSourceStateKind sourceKind)
+            {
+                return SceneTreeSourceStatePolicy.IsLiveSourceKind(sourceKind)
+                    && scene.isDirty;
             }
         }
 
@@ -173,7 +198,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            lease = new Lease(previewSceneLease.ScenePath, previewSceneLease.Scene, closeAfterUse: true);
+            lease = new Lease(
+                previewSceneLease.ScenePath,
+                previewSceneLease.Scene,
+                SceneTreeSourceStateKind.PersistedPreview,
+                closeAfterUse: true);
             errorMessage = string.Empty;
             return true;
         }
@@ -190,7 +219,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            lease = new Lease(scenePath, scene, closeAfterUse: false);
+            lease = new Lease(
+                scenePath,
+                scene,
+                SceneTreeSourceStateKind.TemporaryScene,
+                closeAfterUse: false);
             errorMessage = string.Empty;
             return true;
         }
@@ -204,7 +237,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             lease = default;
             if (executionContext.TryGetTemporaryScene(scenePath, out var scene))
             {
-                lease = new Lease(scenePath, scene, closeAfterUse: false);
+                lease = new Lease(
+                    scenePath,
+                    scene,
+                    SceneTreeSourceStateKind.TemporaryScene,
+                    closeAfterUse: false);
                 errorMessage = string.Empty;
                 return true;
             }
@@ -214,7 +251,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            lease = new Lease(scenePath, scene, closeAfterUse: false);
+            lease = new Lease(
+                scenePath,
+                scene,
+                SceneTreeSourceStateKind.LoadedScene,
+                closeAfterUse: false);
             errorMessage = string.Empty;
             return true;
         }
@@ -228,14 +269,22 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             lease = default;
             if (executionContext.TryGetTemporaryScene(scenePath, out var temporaryScene))
             {
-                lease = new Lease(scenePath, temporaryScene, closeAfterUse: false);
+                lease = new Lease(
+                    scenePath,
+                    temporaryScene,
+                    SceneTreeSourceStateKind.TemporaryScene,
+                    closeAfterUse: false);
                 errorMessage = string.Empty;
                 return true;
             }
 
             if (SceneOperationUtilities.TryGetLoadedScene(scenePath, out var loadedScene, out _))
             {
-                lease = new Lease(scenePath, loadedScene, closeAfterUse: false);
+                lease = new Lease(
+                    scenePath,
+                    loadedScene,
+                    SceneTreeSourceStateKind.LoadedScene,
+                    closeAfterUse: false);
                 errorMessage = string.Empty;
                 return true;
             }
@@ -254,7 +303,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            lease = new Lease(scenePath, scene, closeAfterUse: false);
+            lease = new Lease(
+                scenePath,
+                scene,
+                SceneTreeSourceStateKind.LoadedScene,
+                closeAfterUse: false);
             errorMessage = string.Empty;
             return true;
         }
@@ -267,7 +320,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             lease = default;
             if (SceneOperationUtilities.TryGetLoadedScene(scenePath, out var loadedScene, out _))
             {
-                lease = new Lease(scenePath, loadedScene, closeAfterUse: false);
+                lease = new Lease(
+                    scenePath,
+                    loadedScene,
+                    SceneTreeSourceStateKind.LoadedScene,
+                    closeAfterUse: false);
                 errorMessage = string.Empty;
                 return true;
             }

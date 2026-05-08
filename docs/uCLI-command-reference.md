@@ -28,6 +28,7 @@
   - `list` は利用可能なオペレーション一覧を返す。
   - `describe <opName>` は特定オペレーションの agent 向け contract と検証用 schema を返す。
   - `description` / `inputs[].constraints` / `inputs[].variants[].fields[].constraints` / `resultContract` / `assurance` は operation 選択、入力構築、結果解釈の主契約である。
+  - source code を受け取る operation では `codeContract` が source forms、entry point 署名、source-visible API、戻り値制約を表す。
   - `argsSchema` / `resultSchema` は Args/Result contract 型から生成された JSON Schema であり、`steps[].args` と `opResults[].result` の JSON 構造検証だけに使う。
   - `--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--readIndexMode <disabled|allowStale|requireFresh>`、`--failFast` を受け付ける。
   - `--failFast` は live source fallback に対してのみ適用し、readIndex hit では Unity 接続も readiness wait も行わない。
@@ -93,7 +94,7 @@
 - batchmode Editor session が観測・返却する非 ready 状態は `starting`, `busy`, `compiling`, `domainReloading`, `playmode`, `shuttingDown`。GUI Editor session は `blockedByModal` と `safeMode` も返す。
 - 待機は既存の `--timeout` budget を消費し、budget を使い切った場合は `IPC_TIMEOUT` を返す。
 - `ucli ops list` / `ucli ops describe` では live source fallback に対してのみ意味を持つ。readIndex hit では readiness wait を行わない。
-- `ucli query assets find` / `ucli query scene tree` では readIndex hit 時に Unity 接続も readiness wait も行わない。live source fallback または Unity 専用 query では `--failFast` を IPC に渡す。
+- `ucli query assets find` では readIndex hit 時に Unity 接続も readiness wait も行わない。`ucli query scene tree` は daemon に dirty loaded scene があるかだけを軽く確認し、dirty loaded scene が見つかった場合は live source を優先する。live source fallback または Unity 専用 query では `--failFast` を IPC に渡す。
 - `ucli test run` では daemon-backed execution に対してのみ意味を持つ。`oneshot` と `auto -> oneshot` は従来どおり direct `-runTests` を使い、readiness wait を行わない。
 
 ### 共通エラー契約
@@ -364,9 +365,11 @@ ucli resolve --projectPath ./UnityProject --prefab Assets/Prefabs/Card.prefab --
 | `ucli query asset schema` | `ucli.asset.schema` | `--type <string>` または `--globalObjectId <string>` または `--assetGuid <string>` または `--assetPath <path>` または `--projectAssetPath <path>` |
 
 ### `query` 実行契約
-- `assets find` と `scene tree` は readIndex lookup を優先し、必要時だけ live Unity source へ fallback する。
+- `assets find` は readIndex lookup を優先し、必要時だけ live Unity source へ fallback する。
+- `scene tree` は対象 scene が Unity daemon に dirty loaded state として存在する場合、その live state を readIndex より優先する。dirty loaded state がない場合は readIndex lookup を使い、必要時だけ live Unity source へ fallback する。
 - `go describe`、`comp schema`、`asset schema` は Unity IPC `execute(command=query)` へ委譲し、Unity 側では `Validate -> Plan` を実行する。`planToken` は発行しない。
 - `scene tree` の既定 depth は `1`、`go describe` の既定 depth は `0` とする。`--fullDepth` は depth を `null` として渡す。
+- `scene tree` の source 優先順位は request-local temporary scene、loaded scene、persisted preview scene、readIndex の順とする。asset path を持たない完全未保存 scene は `--path` 契約の対象外とする。
 - `--fullDepth` と `--depth` は同時指定できない。`--depth` は `0` 以上とする。
 - `--all` は `--limit` / `--after` と同時指定できない。
 - bounded window は command/query layer で適用し、primitive operation 自体は limit / cursor を持たない。
@@ -375,7 +378,7 @@ ucli resolve --projectPath ./UnityProject --prefab Assets/Prefabs/Card.prefab --
 - 成功時 payload は `requestId`、`opResults`、`readIndex` を返す。
 - `command` はサブコマンドごとに `query.assets.find`、`query.scene.tree`、`query.go.describe`、`query.comp.schema`、`query.asset.schema` のいずれかを返す。
 - `assets find` の結果は `opResults[0].result.matches[]` と `opResults[0].result.window` に置く。
-- `scene tree` の結果は `opResults[0].result.path`、`opResults[0].result.roots[]`、`opResults[0].result.window` に置く。
+- `scene tree` の結果は `opResults[0].result.path`、`opResults[0].result.roots[]`、`opResults[0].result.sourceState`、`opResults[0].result.window` に置く。`sourceState.kind` は `temporaryScene`、`loadedScene`、`persistedPreview`、`readIndex` のいずれかで、`sourceState.isDirty` は読み取り時点の dirty state を示す。
 - `window` は `limit`、`after`、`nextCursor`、`isComplete`、`totalCount` を返す。
 - readIndex 完結時は `payload.readIndex.source=index`、`used=true` を返す。Unity fallback または Unity 専用 query では `source=unity`、`used=false` を返す。
 

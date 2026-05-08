@@ -67,7 +67,7 @@ internal sealed class ResolveService : IResolveService
         var readIndexMode = readIndexModeResult.Mode!.Value;
         if (input.Selector is ResolveSceneHierarchySelectorInput sceneHierarchySelector && readIndexMode != ReadIndexMode.Disabled)
         {
-            var indexResult = await TryResolveFromSceneTreeLiteIndex(
+            var indexResult = await TryResolveFromSceneTreeLiteIndexAsync(
                     requestId,
                     input,
                     sceneHierarchySelector,
@@ -82,7 +82,7 @@ internal sealed class ResolveService : IResolveService
                 return indexResult.CompletedResult;
             }
 
-            return await ExecuteResolveInUnity(
+            return await ExecuteResolveInUnityAsync(
                     requestId,
                     input,
                     projectContext,
@@ -94,7 +94,7 @@ internal sealed class ResolveService : IResolveService
         }
 
         var fallbackReason = ResolveFallbackReason(input.Selector, readIndexMode);
-        return await ExecuteResolveInUnity(
+        return await ExecuteResolveInUnityAsync(
                 requestId,
                 input,
                 projectContext,
@@ -105,7 +105,7 @@ internal sealed class ResolveService : IResolveService
             .ConfigureAwait(false);
     }
 
-    private async ValueTask<(ResolveServiceResult? CompletedResult, string FallbackReason)> TryResolveFromSceneTreeLiteIndex (
+    private async ValueTask<(ResolveServiceResult? CompletedResult, string FallbackReason)> TryResolveFromSceneTreeLiteIndexAsync (
         string requestId,
         ResolveCommandInput input,
         ResolveSceneHierarchySelectorInput selector,
@@ -115,7 +115,7 @@ internal sealed class ResolveService : IResolveService
         ReadIndexMode readIndexMode,
         CancellationToken cancellationToken)
     {
-        var readResult = await sceneTreeLiteAccessService.Read(
+        var readResult = await sceneTreeLiteAccessService.ReadAsync(
                 projectContext.UnityProject,
                 projectContext.Config,
                 UcliCommandIds.Resolve,
@@ -164,7 +164,7 @@ internal sealed class ResolveService : IResolveService
             string.Empty);
     }
 
-    private async ValueTask<ResolveServiceResult> ExecuteResolveInUnity (
+    private async ValueTask<ResolveServiceResult> ExecuteResolveInUnityAsync (
         string requestId,
         ResolveCommandInput input,
         ProjectContext projectContext,

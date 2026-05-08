@@ -77,7 +77,19 @@ Unity 生成 -> 契約検証 -> source snapshot -> best-effort 永続化 -> pers
 
 | op | kind | policy | status | 概要 | Args | Result | result 概要 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `ucli.cs.invoke` | mutation | dangerous | experimental | 指定エントリポイントの任意コードを呼び出す。 | 予定 | 予定 | 予定 |
+| `ucli.cs.eval` | mutation | dangerous | v1.0 | C# source を Unity Editor process 内で Roslyn によりインメモリコンパイルし、同期 entry point を呼び出す。 | `CsEvalArgs` | `CsEvalResult` | compile 情報、digest、call 時のログ、戻り値、touched resource 宣言 |
+
+- `args.source` は完全な C# コンパイル単位、または `Run` method body だけを書く snippet のどちらかである
+- 完全なコンパイル単位では source 内の `public static object? Run(UcliCsEvalContext context)` に一致するメソッドを自動解決する。一致数が 1 件以外の場合は失敗する
+- snippet は先頭の `using`、statement、明示 `return`、返り値なし、単一 expression を受け付ける。返り値なし snippet は `returnValue.kind = "null"` になる
+- `Task` / `Task<T>` / `ValueTask` / `ValueTask<T>`、`object?` 以外の戻り値、インスタンスメソッド、引数なしメソッド、JSON 化できない戻り値は失敗する
+- `plan` は source をコンパイル・検証するだけで entry point を呼び出さない
+- `call` は直前に plan 相当の検証を再実行し、成功した場合だけ entry point を呼び出す
+- `CsEvalResult.sourceKind` は `compilationUnit` または `snippet` を返す
+- `CsEvalResult.resolvedEntryPoint` は一意解決された entry point を監査用に返す。解決できない場合は省略される
+- touched resource 宣言は監査情報である。`call` 後の read index invalidation は宣言内容に関係なく安全側に倒して扱う
+- `call` の timeout / cancel は entry point 呼び出し前の検証と IPC 待機には作用するが、同期 entry point 実行中の使用者コードを強制停止しない
+- `codeContract` は source forms、entry point、uCLI が提供する Context 型、Context の public API、戻り値制約を構造化して返す。Unity API と project assembly は source から直接参照でき、`codeContract.apiTypes` は参照可能型の完全な allowlist ではない
 
 ## go
 
@@ -121,4 +133,4 @@ Unity 生成 -> 契約検証 -> source snapshot -> best-effort 永続化 -> pers
 | `ucli.scene.open` | command | safe | mvp-core | 指定 Scene が loaded であることを保証する。既に loaded なら再オープンしない。閉じている Scene を live で開くときは `OpenSceneMode.Single` を使う。 | `ScenePathArgs` | `UcliNoResult` | result は返さない |
 | `ucli.scene.query` | query | safe | mvp-core | scene context 内で selection candidate を列挙する。`/` を含む GameObject 名は `hierarchyPath` で表現できないため candidate に含めない。 | `SceneQueryArgs` | `SceneQueryResult` | `scene` と `matches[]` を返し、match は `kind`, `hierarchyPath`, `componentType` を持つ |
 | `ucli.scene.save` | mutation | advanced | mvp-core | loaded Scene に dirty または request-attributed change があるとき保存する。loaded scene 必須。`Plan` は request-local plan state と計画時に観測できる dirty を基に評価し、`Call` は保存時点の live dirty も保存し得る。 | `ScenePathArgs` | `UcliNoResult` | result は返さない |
-| `ucli.scene.tree` | query | safe | mvp-support | Sceneの階層構造を取得する。 | `SceneTreeArgs` | `SceneTreeResult` | `path` と root GameObject tree の `roots[]` を返す |
+| `ucli.scene.tree` | query | safe | mvp-support | Sceneの階層構造を取得する。loaded dirty scene があれば作業途中の階層を読み、未ロードなら保存済み asset を preview scene として読む。 | `SceneTreeArgs` | `SceneTreeResult` | `path`、root GameObject tree の `roots[]`、読み取り元の `sourceState` を返す |

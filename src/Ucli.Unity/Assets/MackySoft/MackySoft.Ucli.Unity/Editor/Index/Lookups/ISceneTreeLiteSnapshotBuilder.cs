@@ -6,12 +6,13 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Index
 {
-    /// <summary> Builds one persisted-preview scene-tree-lite snapshot for a specific scene asset. </summary>
+    /// <summary> Builds one scene-tree-lite snapshot for a specific scene asset. </summary>
     internal interface ISceneTreeLiteSnapshotBuilder
     {
-        /// <summary> Builds one persisted-preview scene-tree-lite snapshot for the specified scene path. </summary>
-        ValueTask<IpcIndexSceneTreeLiteReadResponse> Build (
+        /// <summary> Builds one scene-tree-lite snapshot for the specified scene path. </summary>
+        ValueTask<IpcIndexSceneTreeLiteReadResponse> BuildAsync (
             string scenePath,
+            bool loadedSceneOnly = false,
             CancellationToken cancellationToken = default);
     }
 }

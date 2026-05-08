@@ -269,4 +269,158 @@ public sealed class UcliOperationDescribeContractValidatorTests
         Assert.False(isValid);
         Assert.Equal("Test contract has an invalid input variant field at index 0.", errorMessage);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpDescribeContract_WhenCodeContractIsValid_ReturnsTrue ()
+    {
+        var describe = CreateValidDescribeContract();
+        describe.CodeContract = CreateValidCodeContract();
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+
+        Assert.True(isValid, errorMessage);
+        Assert.Equal(string.Empty, errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpDescribeContract_WhenCodeContractParameterDescriptionIsMissing_ReturnsFalse ()
+    {
+        var describe = CreateValidDescribeContract();
+        describe.CodeContract = new UcliOperationCodeContract(
+            "csharp",
+            new UcliCodeEntryPointContract(
+                "public static object? Run(SampleContext context)",
+                "Compiled source must contain exactly one matching Run method.",
+                requiredStatic: true,
+                new[] { "SampleContext" },
+                "JSON-serializable value."),
+            new[]
+            {
+                new UcliCodeSourceFormContract(CsEvalSourceKindValues.CompilationUnit, "Complete C# compilation unit."),
+            },
+            new[]
+            {
+                new UcliCodeApiTypeContract(
+                    "SampleContext",
+                    "SampleContext",
+                    "Sample context.",
+                    new[]
+                    {
+                        new UcliCodeApiMemberContract(
+                            UcliCodeApiMemberKindValues.Method,
+                            "Log",
+                            "Records a log message.",
+                            type: null,
+                            returnType: "void",
+                            parameters:
+                            [
+                                new UcliCodeApiParameterContract("message", "System.String", string.Empty),
+                            ]),
+                    }),
+            });
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Test contract has an invalid codeContract method parameter at index 0.", errorMessage);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    public void TryValidatePublicRawOpDescribeContract_WhenCodeContractEntryPointMatchRuleIsMissing_ReturnsFalse (
+        string? matchRule)
+    {
+        var describe = CreateValidDescribeContract();
+        describe.CodeContract = CreateValidCodeContract();
+        describe.CodeContract.EntryPoint!.MatchRule = matchRule;
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Test contract has invalid codeContract metadata.", errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpDescribeContract_WhenCodeContractLanguageIsUnsupported_ReturnsFalse ()
+    {
+        var describe = CreateValidDescribeContract();
+        describe.CodeContract = CreateValidCodeContract();
+        describe.CodeContract.Language = "python";
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Test contract has an unsupported codeContract language.", errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpDescribeContract_WhenCodeContractSourceFormIsUnsupported_ReturnsFalse ()
+    {
+        var describe = CreateValidDescribeContract();
+        describe.CodeContract = CreateValidCodeContract();
+        describe.CodeContract.SourceForms =
+        [
+            new UcliCodeSourceFormContract("not-supported", "Unsupported source form."),
+        ];
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Test contract has an unsupported codeContract source form at index 0.", errorMessage);
+    }
+
+    private static UcliOperationDescribeContract CreateValidDescribeContract ()
+    {
+        return UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
+            "Opens a Unity scene asset in the editor.",
+            new UcliOperationAssuranceContract(
+                Array.Empty<UcliOperationSideEffect>(),
+                mayDirty: false,
+                mayPersist: false,
+                Array.Empty<string>(),
+                UcliOperationPlanMode.ObservesLiveUnity));
+    }
+
+    private static UcliOperationCodeContract CreateValidCodeContract ()
+    {
+        return new UcliOperationCodeContract(
+            "csharp",
+            new UcliCodeEntryPointContract(
+                "public static object? Run(SampleContext context)",
+                "Compiled source must contain exactly one matching Run method.",
+                requiredStatic: true,
+                new[] { "SampleContext" },
+                "JSON-serializable value."),
+            new[]
+            {
+                new UcliCodeSourceFormContract(CsEvalSourceKindValues.CompilationUnit, "Complete C# compilation unit."),
+            },
+            new[]
+            {
+                new UcliCodeApiTypeContract(
+                    "SampleContext",
+                    "SampleContext",
+                    "Sample context.",
+                    new[]
+                    {
+                        new UcliCodeApiMemberContract(
+                            UcliCodeApiMemberKindValues.Method,
+                            "Log",
+                            "Records a log message.",
+                            type: null,
+                            returnType: "void",
+                            parameters:
+                            [
+                                new UcliCodeApiParameterContract("message", "System.String", "Log message."),
+                            ]),
+                    }),
+            });
+    }
 }

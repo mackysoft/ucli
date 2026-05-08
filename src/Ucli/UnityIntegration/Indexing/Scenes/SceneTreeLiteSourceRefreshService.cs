@@ -8,7 +8,7 @@ using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 
-/// <summary> Reads persisted-preview scene-tree-lite snapshots and refreshes persisted lookup artifacts on a best-effort basis. </summary>
+/// <summary> Reads scene-tree-lite source snapshots and refreshes persisted lookup artifacts on a best-effort basis. </summary>
 internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRefreshService
 {
     private const int MaxSnapshotStabilityAttempts = 2;
@@ -21,6 +21,9 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
 
     private const string RetrySnapshotReadFailurePrefix
         = "Failed to persist refreshed scene-tree-lite readIndex because retry snapshot read failed.";
+
+    private const string DirtyLiveSourcePersistenceSkippedMessage
+        = "Skipped persisting refreshed scene-tree-lite readIndex because source scene is dirty live editor state.";
 
     private readonly ISceneTreeLiteSnapshotReader snapshotReader;
     private readonly IReadIndexArtifactWriter artifactWriter;
@@ -38,7 +41,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
     }
 
     /// <inheritdoc />
-    public async ValueTask<SceneTreeLiteRefreshResult> Refresh (
+    public async ValueTask<SceneTreeLiteRefreshResult> RefreshAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,
@@ -58,7 +61,16 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
 
         if (!SceneTreeLiteAccessUtilities.IsLookupEligibleScenePath(scenePath))
         {
-            var fetchResult = await snapshotReader.Read(project, config, command, mode, timeout, scenePath, failFast, cancellationToken).ConfigureAwait(false);
+            var fetchResult = await snapshotReader.ReadAsync(
+                    project,
+                    config,
+                    command,
+                    mode,
+                    timeout,
+                    scenePath,
+                    failFast,
+                    cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
             if (!fetchResult.IsSuccess)
             {
                 return SceneTreeLiteRefreshResult.Failure(fetchResult.Message, fetchResult.ErrorCode!.Value);
@@ -74,7 +86,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
         string? persistFailure = null;
         for (var attempt = 0; attempt < MaxSnapshotStabilityAttempts; attempt++)
         {
-            var attemptResult = await TryReadAndPersistLookupArtifact(
+            var attemptResult = await TryReadAndPersistLookupArtifactAsync(
                     project,
                     config,
                     command,
@@ -111,7 +123,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
         return SceneTreeLiteRefreshResult.Success(response!, combinedFallbackReason);
     }
 
-    private async ValueTask<(SceneTreeLiteSnapshotFetchResult FetchResult, string? PersistFailure, bool ShouldRetry)> TryReadAndPersistLookupArtifact (
+    private async ValueTask<(SceneTreeLiteSnapshotFetchResult FetchResult, string? PersistFailure, bool ShouldRetry)> TryReadAndPersistLookupArtifactAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,
@@ -124,7 +136,16 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
         cancellationToken.ThrowIfCancellationRequested();
 
         var sourceHashBeforeRead = await sceneSourceHashProvider.TryCompute(project, scenePath, cancellationToken).ConfigureAwait(false);
-        var fetchResult = await snapshotReader.Read(project, config, command, mode, timeout, scenePath, failFast, cancellationToken).ConfigureAwait(false);
+        var fetchResult = await snapshotReader.ReadAsync(
+                project,
+                config,
+                command,
+                mode,
+                timeout,
+                scenePath,
+                failFast,
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
         if (!fetchResult.IsSuccess)
         {
             return (fetchResult, null, false);
@@ -133,6 +154,11 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
         if (sourceHashBeforeRead == null)
         {
             return (fetchResult, SourceHashFailureMessage, false);
+        }
+
+        if (SceneTreeSourceStatePolicy.IsDirtyLiveSource(fetchResult.Response!.SourceState))
+        {
+            return (fetchResult, DirtyLiveSourcePersistenceSkippedMessage, false);
         }
 
         var sourceHashAfterRead = await sceneSourceHashProvider.TryCompute(project, scenePath, cancellationToken).ConfigureAwait(false);
@@ -168,4 +194,5 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
             return (fetchResult, $"Failed to persist refreshed scene-tree-lite readIndex. {exception.Message}", false);
         }
     }
+
 }

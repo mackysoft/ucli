@@ -96,6 +96,7 @@ public sealed class QueryServiceTests
                 [
                     new IndexSceneTreeLiteNodeJsonContract("Root", "GlobalObjectId_V1-1-2-3-4-5-6", []),
                 ],
+                SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.ReadIndex, isDirty: false),
                 AccessInfo: new SceneTreeLiteAccessInfo(
                     Used: true,
                     Hit: true,
@@ -134,6 +135,7 @@ public sealed class QueryServiceTests
         var payload = opResult.Result!.Value;
         Assert.Equal("Assets/Scenes/Main.unity", payload.GetProperty("path").GetString());
         Assert.Equal(1, payload.GetProperty("roots").GetArrayLength());
+        Assert.Equal("readIndex", payload.GetProperty("sourceState").GetProperty("kind").GetString());
         Assert.True(payload.GetProperty("window").GetProperty("isComplete").GetBoolean());
     }
 
@@ -310,7 +312,7 @@ public sealed class QueryServiceTests
 
         public bool CapturedFailFast { get; private set; }
 
-        public ValueTask<SceneTreeLiteReadResult> Read (
+        public ValueTask<SceneTreeLiteReadResult> ReadAsync (
             ResolvedUnityProjectContext project,
             UcliConfig config,
             UcliCommand command,

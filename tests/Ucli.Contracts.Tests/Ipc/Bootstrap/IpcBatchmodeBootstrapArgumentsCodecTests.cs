@@ -64,6 +64,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
             IpcOneshotBootstrapArgumentNames.ParentProcessId,
             IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
+            IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "2026-03-09T00:00:00.0000000+00:00",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
             IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
             IpcBatchmodeBootstrapArgumentNames.Target,
@@ -110,6 +111,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
             IpcOneshotBootstrapArgumentNames.ParentProcessId, "123",
             IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
             IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
+            IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "2026-03-09T00:00:00.0000000+00:00",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
             IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
         };
@@ -122,8 +124,31 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         Assert.Equal(123, oneshotArguments.ParentProcessId);
         Assert.Equal("project-fingerprint", oneshotArguments.ProjectFingerprint);
         Assert.Equal("oneshot-token", oneshotArguments.SessionToken);
+        Assert.Equal(DateTimeOffset.Parse("2026-03-09T00:00:00.0000000+00:00"), oneshotArguments.ExitDeadlineUtc);
         Assert.Equal(IpcTransportKindValues.NamedPipe, oneshotArguments.EndpointTransportKind);
         Assert.Equal("ucli-endpoint", oneshotArguments.EndpointAddress);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryParse_WhenOneshotExitDeadlineUtcIsInvalid_ReturnsEmptyRequiredValue ()
+    {
+        var args = new[]
+        {
+            IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
+            IpcOneshotBootstrapArgumentNames.ParentProcessId, "123",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
+            IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
+            IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "not-a-timestamp",
+            IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
+            IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
+        };
+
+        var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out _, out var error);
+
+        Assert.False(parsed);
+        Assert.Equal(IpcBatchmodeBootstrapParseErrorKind.EmptyRequiredValue, error.Kind);
+        Assert.Equal("uCLI oneshot bootstrap exit deadline timestamp must be a valid ISO 8601 timestamp with explicit timezone offset.", error.Message);
     }
 
     [Fact]
@@ -180,6 +205,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
             456,
             "project-fingerprint",
             "oneshot-token",
+            new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
             IpcTransportKindValues.UnixDomainSocket,
             "/tmp/ucli.sock");
         List<string> tokens =
@@ -205,6 +231,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
             IpcOneshotBootstrapArgumentNames.ParentProcessId, " ",
             IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
             IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
+            IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "2026-03-09T00:00:00.0000000+00:00",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
             IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
         };
@@ -226,6 +253,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
             IpcOneshotBootstrapArgumentNames.ParentProcessId, "0",
             IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
             IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
+            IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "2026-03-09T00:00:00.0000000+00:00",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
             IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
         };
@@ -247,6 +275,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
             IpcOneshotBootstrapArgumentNames.ParentProcessId, "123",
             IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
             IpcOneshotBootstrapArgumentNames.SessionToken, " ",
+            IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "2026-03-09T00:00:00.0000000+00:00",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
             IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
         };

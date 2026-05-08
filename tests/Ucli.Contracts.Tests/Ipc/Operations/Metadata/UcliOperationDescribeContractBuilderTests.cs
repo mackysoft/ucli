@@ -124,4 +124,5 @@ public sealed class UcliOperationDescribeContractBuilderTests
         Assert.Equal("Asset GUID selector.", field.Description);
         Assert.Contains(field.Constraints!, constraint => constraint.Kind == UcliOperationInputConstraintKindValues.AssetGuid);
     }
+
 }

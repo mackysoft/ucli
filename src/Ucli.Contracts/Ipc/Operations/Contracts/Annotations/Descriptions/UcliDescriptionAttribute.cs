@@ -1,7 +1,7 @@
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Provides a description for operation contract documentation and linting. </summary>
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Property)]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Property | AttributeTargets.Method | AttributeTargets.Parameter)]
 public sealed class UcliDescriptionAttribute : Attribute
 {
     /// <summary> Initializes a new instance of the <see cref="UcliDescriptionAttribute" /> class. </summary>

@@ -77,6 +77,7 @@ public sealed class CallServiceTests
         Assert.Equal(UcliCommandIds.Call, executeRequest.Command);
         Assert.Equal("plan-token-1", executeRequest.PlanToken);
         Assert.True(executeRequest.FailFast);
+        Assert.False(executeRequest.AllowDangerous);
         Assert.True(preflightService.ReceivedFailFast);
         Assert.Equal(UnityExecutionMode.Oneshot, ipcRequestExecutor.Invocations[0].Mode);
         Assert.Equal(TimeSpan.FromMilliseconds(1234), ipcRequestExecutor.Invocations[0].Timeout);
@@ -147,15 +148,86 @@ public sealed class CallServiceTests
         var planRequest = Assert.IsType<UnityRequestPayload.ExecuteJson>(ipcRequestExecutor.Invocations[0].Payload);
         Assert.Equal(UcliCommandIds.Plan, planRequest.Command);
         Assert.Null(planRequest.PlanToken);
+        Assert.False(planRequest.AllowDangerous);
 
         var callRequest = Assert.IsType<UnityRequestPayload.ExecuteJson>(ipcRequestExecutor.Invocations[1].Payload);
         Assert.Equal(UcliCommandIds.Call, callRequest.Command);
         Assert.Equal("issued-plan-token", callRequest.PlanToken);
+        Assert.False(callRequest.AllowDangerous);
 
         var requestId = result.Output.RequestId;
         Assert.Equal(requestId, result.Output.Plan.RequestId);
         Assert.Equal(requestId, planRequest.ExecuteArguments.GetProperty("requestId").GetString());
         Assert.Equal(requestId, callRequest.ExecuteArguments.GetProperty("requestId").GetString());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenWithPlanAndDangerousFlagEnabled_PassesAllowDangerousToPlanAndCall ()
+    {
+        var dangerousOperationName = "ucli.test.dangerous";
+        var preparedRequest = CreatePreparedRequest(
+            requestJson: CreateOpRequestJson(dangerousOperationName),
+            request: CreateOpRequest(dangerousOperationName),
+            operationsByName: CreateOperationsByName(
+                CreateOperationDescriptor(dangerousOperationName, OperationPolicy.Dangerous)));
+        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
+            UnityRequestExecutionResult.Success(
+                CreateResponse(
+                    status: IpcProtocol.StatusOk,
+                    opResults:
+                    [
+                        new IpcExecuteOperationResult(
+                            OpId: "step-1",
+                            Op: dangerousOperationName,
+                            Phase: IpcExecuteOperationPhaseNames.Plan,
+                            Applied: false,
+                            Changed: false,
+                            Touched: []),
+                    ],
+                    errors: [],
+                    planToken: "issued-plan-token")),
+            UnityRequestExecutionResult.Success(
+                CreateResponse(
+                    status: IpcProtocol.StatusOk,
+                    opResults:
+                    [
+                        new IpcExecuteOperationResult(
+                            OpId: "step-1",
+                            Op: dangerousOperationName,
+                            Phase: IpcExecuteOperationPhaseNames.Call,
+                            Applied: true,
+                            Changed: true,
+                            Touched: []),
+                    ],
+                    errors: [],
+                    planToken: null)));
+        var service = CreateService(
+            PhaseExecutionPreflightResult.Success(preparedRequest),
+            ipcRequestExecutor);
+
+        var result = await service.Execute(
+            new CallCommandInput(
+                ProjectPath: "/repo/UnityProject",
+                Mode: NormalizeMode("daemon"),
+                TimeoutMilliseconds: NormalizeTimeout("1200"),
+                PlanToken: null,
+                WithPlan: true,
+                AllowDangerous: true,
+                FailFast: false,
+                RequestJson: """{"steps":[]}"""),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, ipcRequestExecutor.CallCount);
+        var planRequest = Assert.IsType<UnityRequestPayload.ExecuteJson>(ipcRequestExecutor.Invocations[0].Payload);
+        Assert.Equal(UcliCommandIds.Plan, planRequest.Command);
+        Assert.Null(planRequest.PlanToken);
+        Assert.True(planRequest.AllowDangerous);
+        var callRequest = Assert.IsType<UnityRequestPayload.ExecuteJson>(ipcRequestExecutor.Invocations[1].Payload);
+        Assert.Equal(UcliCommandIds.Call, callRequest.Command);
+        Assert.Equal("issued-plan-token", callRequest.PlanToken);
+        Assert.True(callRequest.AllowDangerous);
     }
 
     [Fact]
@@ -199,6 +271,54 @@ public sealed class CallServiceTests
         Assert.True(result.IsSuccess);
         var callRequest = Assert.IsType<UnityRequestPayload.ExecuteJson>(ipcRequestExecutor.Invocations[1].Payload);
         Assert.Equal("user-plan-token", callRequest.PlanToken);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenDangerousOpExistsWithFlag_PassesAllowDangerousToUnity ()
+    {
+        var dangerousOperationName = "ucli.test.dangerous";
+        var preparedRequest = CreatePreparedRequest(
+            requestJson: CreateOpRequestJson(dangerousOperationName),
+            request: CreateOpRequest(dangerousOperationName),
+            operationsByName: CreateOperationsByName(
+                CreateOperationDescriptor(dangerousOperationName, OperationPolicy.Dangerous)));
+        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
+            UnityRequestExecutionResult.Success(
+                CreateResponse(
+                    status: IpcProtocol.StatusOk,
+                    opResults:
+                    [
+                        new IpcExecuteOperationResult(
+                            OpId: "step-1",
+                            Op: dangerousOperationName,
+                            Phase: IpcExecuteOperationPhaseNames.Call,
+                            Applied: true,
+                            Changed: true,
+                            Touched: []),
+                    ],
+                    errors: [],
+                    planToken: null)));
+        var service = CreateService(
+            PhaseExecutionPreflightResult.Success(preparedRequest),
+            ipcRequestExecutor);
+
+        var result = await service.Execute(
+            new CallCommandInput(
+                ProjectPath: "/repo/UnityProject",
+                Mode: NormalizeMode(null),
+                TimeoutMilliseconds: NormalizeTimeout(null),
+                PlanToken: null,
+                WithPlan: false,
+                AllowDangerous: true,
+                FailFast: false,
+                RequestJson: """{"steps":[]}"""),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, ipcRequestExecutor.CallCount);
+        var executeRequest = Assert.IsType<UnityRequestPayload.ExecuteJson>(ipcRequestExecutor.Invocations[0].Payload);
+        Assert.True(executeRequest.AllowDangerous);
     }
 
     [Fact]

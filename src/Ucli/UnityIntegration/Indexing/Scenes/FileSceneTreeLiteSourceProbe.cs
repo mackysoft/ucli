@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 internal sealed class FileSceneTreeLiteSourceProbe : ISceneTreeLiteSourceProbe
 {
     /// <inheritdoc />
-    public ValueTask<SceneTreeLiteSourceProbeResult> EnsureCurrentAssetsSceneExists (
+    public ValueTask<SceneTreeLiteSourceProbeResult> EnsureCurrentAssetsSceneExistsAsync (
         ResolvedUnityProjectContext project,
         string normalizedScenePath,
         CancellationToken cancellationToken = default)

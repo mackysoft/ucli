@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
@@ -15,6 +16,7 @@ internal sealed class OpsOperationDetail
         IReadOnlyList<UcliOperationInputContract> inputs,
         UcliOperationResultContract resultContract,
         UcliOperationAssuranceContract assurance,
+        UcliOperationCodeContract? codeContract,
         JsonElement argsSchema,
         JsonElement? resultSchema)
     {
@@ -25,6 +27,7 @@ internal sealed class OpsOperationDetail
         Inputs = inputs;
         ResultContract = resultContract;
         Assurance = assurance;
+        CodeContract = codeContract;
         ArgsSchema = argsSchema;
         ResultSchema = resultSchema;
     }
@@ -49,6 +52,10 @@ internal sealed class OpsOperationDetail
 
     /// <summary> Gets machine-readable assurance metadata. </summary>
     public UcliOperationAssuranceContract Assurance { get; }
+
+    /// <summary> Gets optional source-facing code metadata. </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public UcliOperationCodeContract? CodeContract { get; }
 
     /// <summary> Gets the JSON schema object for operation arguments. </summary>
     public JsonElement ArgsSchema { get; }
