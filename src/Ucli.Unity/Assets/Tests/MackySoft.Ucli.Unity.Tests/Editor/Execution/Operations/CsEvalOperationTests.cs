@@ -112,6 +112,61 @@ namespace EvalScripts
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator PlanAndCall_WhenSourceIsSame_ReturnStableDigestValues () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new CsEvalOperation();
+            var source = @"
+context.DeclareNoTouchedResources();
+return new { value = 7 };
+";
+            using var planContext = new OperationExecutionContext();
+            using var callContext = new OperationExecutionContext();
+
+            var firstPlan = await operation.Plan(CreateOperation(source), planContext, CancellationToken.None);
+            var secondPlan = await operation.Plan(CreateOperation(source), planContext, CancellationToken.None);
+            var call = await operation.Call(CreateOperation(source), callContext, CancellationToken.None);
+
+            Assert.That(firstPlan.IsSuccess, Is.True);
+            Assert.That(secondPlan.IsSuccess, Is.True);
+            Assert.That(call.IsSuccess, Is.True);
+            var firstPlanPayload = firstPlan.Result!.Value;
+            var secondPlanPayload = secondPlan.Result!.Value;
+            var callPayload = call.Result!.Value;
+            var sourceDigest = firstPlanPayload.GetProperty("sourceDigest").GetString();
+            var executionDigest = firstPlanPayload.GetProperty("executionDigest").GetString();
+            Assert.That(sourceDigest, Has.Length.EqualTo(64));
+            Assert.That(executionDigest, Has.Length.EqualTo(64));
+            Assert.That(secondPlanPayload.GetProperty("sourceDigest").GetString(), Is.EqualTo(sourceDigest));
+            Assert.That(secondPlanPayload.GetProperty("executionDigest").GetString(), Is.EqualTo(executionDigest));
+            Assert.That(callPayload.GetProperty("sourceDigest").GetString(), Is.EqualTo(sourceDigest));
+            Assert.That(callPayload.GetProperty("executionDigest").GetString(), Is.EqualTo(executionDigest));
+        });
+
+        [Test]
+        [Category("Size.Small")]
+        public void ExecutionDigest_WhenSourceKindOrWrapperDiffers_ChangesDigest ()
+        {
+            var sourceDigest = new string('a', 64);
+            const string referencesIdentity = "refs";
+
+            var compilationUnitDigest = CsEvalExecutionDigestCalculator.Compute(
+                sourceDigest,
+                CsEvalSourceKindValues.CompilationUnit,
+                CsEvalSourcePreparer.NoWrapperVersion,
+                referencesIdentity);
+            var snippetDigest = CsEvalExecutionDigestCalculator.Compute(
+                sourceDigest,
+                CsEvalSourceKindValues.Snippet,
+                CsEvalSourcePreparer.SnippetWrapperVersion,
+                referencesIdentity);
+
+            Assert.That(compilationUnitDigest, Is.Not.EqualTo(snippetDigest));
+            Assert.That(compilationUnitDigest, Has.Length.EqualTo(64));
+            Assert.That(snippetDigest, Has.Length.EqualTo(64));
+        }
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Call_WhenStatementSnippetReturnsValue_ReturnsSnippetSourceKind () => UniTask.ToCoroutine(async () =>
         {
             var operation = new CsEvalOperation();
@@ -454,6 +509,138 @@ namespace EvalScripts
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Call_WhenEntryPointReturnsTaskLikeObject_FailsAfterInvocation () => UniTask.ToCoroutine(async () =>
+        {
+            var cases = new[]
+            {
+                "System.Threading.Tasks.Task.CompletedTask",
+                "System.Threading.Tasks.Task.FromResult(1)",
+                "new System.Threading.Tasks.ValueTask()",
+                "new System.Threading.Tasks.ValueTask<int>(1)",
+            };
+            var operation = new CsEvalOperation();
+            for (var i = 0; i < cases.Length; i++)
+            {
+                using var context = new OperationExecutionContext();
+                var request = CreateOperation(
+                    source: @"
+context.DeclareTouchedAsset(""Assets/Eval.asset"");
+return " + cases[i] + @";
+");
+
+                var result = await operation.Call(request, context, CancellationToken.None);
+
+                AssertInvalidArgument(result, cases[i]);
+                Assert.That(result.Applied, Is.True, cases[i]);
+                Assert.That(result.Changed, Is.True, cases[i]);
+                Assert.That(result.Touched.Count, Is.EqualTo(1), cases[i]);
+                AssertReadInvalidations(
+                    result,
+                    new OperationReadInvalidation(OperationReadInvalidationSurface.AssetSearch, ScenePath: null),
+                    new OperationReadInvalidation(OperationReadInvalidationSurface.GuidPath, ScenePath: null),
+                    new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
+                var payload = result.Result!.Value;
+                Assert.That(payload.TryGetProperty("returnValue", out _), Is.False, cases[i]);
+                Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.Declared), cases[i]);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Call_WhenEntryPointReturnsDerivedTaskObject_FailsAfterInvocation () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new CsEvalOperation();
+            using var context = new OperationExecutionContext();
+            var request = CreateOperation(
+                source: @"
+using System.Threading.Tasks;
+using MackySoft.Ucli.Unity.Execution.CsEval;
+
+namespace EvalScripts
+{
+    public sealed class DerivedTask : Task
+    {
+        public DerivedTask () : base(() => { })
+        {
+        }
+    }
+
+    public static class Entry
+    {
+        public static object Run(UcliCsEvalContext context)
+        {
+            context.DeclareTouchedAsset(""Assets/Eval.asset"");
+            return new DerivedTask();
+        }
+    }
+}
+");
+
+            var result = await operation.Call(request, context, CancellationToken.None);
+
+            AssertInvalidArgument(result);
+            Assert.That(result.Applied, Is.True);
+            Assert.That(result.Changed, Is.True);
+            Assert.That(result.Touched.Count, Is.EqualTo(1));
+            AssertReadInvalidations(
+                result,
+                new OperationReadInvalidation(OperationReadInvalidationSurface.AssetSearch, ScenePath: null),
+                new OperationReadInvalidation(OperationReadInvalidationSurface.GuidPath, ScenePath: null),
+                new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
+            var payload = result.Result!.Value;
+            Assert.That(payload.TryGetProperty("returnValue", out _), Is.False);
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.Declared));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Call_WhenReturnValueGetterThrows_FailsAfterInvocationWithTouchedResources () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new CsEvalOperation();
+            using var context = new OperationExecutionContext();
+            var request = CreateOperation(
+                source: @"
+using MackySoft.Ucli.Unity.Execution.CsEval;
+
+namespace EvalScripts
+{
+    public sealed class ThrowingReturn
+    {
+        public string Value
+        {
+            get { throw new System.NullReferenceException(""boom""); }
+        }
+    }
+
+    public static class Entry
+    {
+        public static object Run(UcliCsEvalContext context)
+        {
+            context.DeclareTouchedAsset(""Assets/Eval.asset"");
+            return new ThrowingReturn();
+        }
+    }
+}
+");
+
+            var result = await operation.Call(request, context, CancellationToken.None);
+
+            AssertInvalidArgument(result);
+            Assert.That(result.Applied, Is.True);
+            Assert.That(result.Changed, Is.True);
+            Assert.That(result.Touched.Count, Is.EqualTo(1));
+            AssertReadInvalidations(
+                result,
+                new OperationReadInvalidation(OperationReadInvalidationSurface.AssetSearch, ScenePath: null),
+                new OperationReadInvalidation(OperationReadInvalidationSurface.GuidPath, ScenePath: null),
+                new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
+            var payload = result.Result!.Value;
+            Assert.That(payload.TryGetProperty("returnValue", out _), Is.False);
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.Declared));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Call_WhenSnippetReturnValueIsTooLarge_FailsBeforeIpcSerialization () => UniTask.ToCoroutine(async () =>
         {
             var operation = new CsEvalOperation();
@@ -468,6 +655,66 @@ namespace EvalScripts
             var payload = result.Result!.Value;
             Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(CsEvalSourceKindValues.Snippet));
             Assert.That(payload.TryGetProperty("returnValue", out _), Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Plan_WhenSourceExceedsInternalGuardrail_FailsBeforeCompilation () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new CsEvalOperation();
+            using var context = new OperationExecutionContext();
+            var request = CreateOperation(new string('x', CsEvalSafetyLimits.MaxSourceBytes + 1));
+
+            var result = await operation.Plan(request, context, CancellationToken.None);
+
+            AssertInvalidArgument(result);
+            var diagnostic = result.Result!.Value.GetProperty("compile").GetProperty("diagnostics")[0];
+            Assert.That(diagnostic.GetProperty("id").GetString(), Is.EqualTo(CsEvalDiagnosticIds.SourceTooLarge));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Call_WhenLogsExceedInternalGuardrail_TruncatesLogs () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new CsEvalOperation();
+            using var context = new OperationExecutionContext();
+            var request = CreateOperation(@"
+for (var i = 0; i < " + (CsEvalSafetyLimits.MaxLogEntries + 1) + @"; i++)
+{
+    context.Log(""entry "" + i);
+}
+context.DeclareNoTouchedResources();
+");
+
+            var result = await operation.Call(request, context, CancellationToken.None);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var logs = result.Result!.Value.GetProperty("logs");
+            Assert.That(logs.GetArrayLength(), Is.EqualTo(CsEvalSafetyLimits.MaxLogEntries));
+            Assert.That(logs[logs.GetArrayLength() - 1].GetProperty("level").GetString(), Is.EqualTo(CsEvalLogLevelValues.Warning));
+            Assert.That(logs[logs.GetArrayLength() - 1].GetProperty("message").GetString(), Does.Contain("truncated"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Call_WhenTouchedResourcesExceedInternalGuardrail_ReturnsUnknownAuditState () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new CsEvalOperation();
+            using var context = new OperationExecutionContext();
+            var request = CreateOperation(@"
+for (var i = 0; i < " + (CsEvalSafetyLimits.MaxTouchedResources + 1) + @"; i++)
+{
+    context.DeclareTouchedAsset(""Assets/Eval"" + i + "".asset"");
+}
+return null;
+");
+
+            var result = await operation.Call(request, context, CancellationToken.None);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var payload = result.Result!.Value;
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.Unknown));
+            Assert.That(payload.TryGetProperty("returnValue", out _), Is.True);
         });
 
         [UnityTest]

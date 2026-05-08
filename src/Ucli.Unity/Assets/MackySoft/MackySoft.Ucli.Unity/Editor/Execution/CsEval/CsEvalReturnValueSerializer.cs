@@ -1,5 +1,6 @@
 using System;
 using System.Text.Json;
+using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 
 #nullable enable
@@ -19,6 +20,13 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 returnValue = new CsEvalReturnValue(CsEvalReturnValueKindValues.Null, value: null);
                 errorMessage = string.Empty;
                 return true;
+            }
+
+            if (IsTaskLike(value.GetType()))
+            {
+                returnValue = null!;
+                errorMessage = "Entry point returned a Task or ValueTask value. Return a synchronous JSON-serializable value instead.";
+                return false;
             }
 
             try
@@ -45,12 +53,20 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 errorMessage = string.Empty;
                 return true;
             }
-            catch (Exception exception) when (exception is JsonException or NotSupportedException or InvalidOperationException)
+            catch (Exception exception)
             {
                 returnValue = null!;
-                errorMessage = $"Entry point return value is not JSON-serializable. {exception.Message}";
+                errorMessage = $"Entry point return value is not JSON-serializable. {exception.GetType().FullName}: {exception.Message}";
                 return false;
             }
+        }
+
+        private static bool IsTaskLike (Type valueType)
+        {
+            return typeof(Task).IsAssignableFrom(valueType)
+                || valueType == typeof(ValueTask)
+                || (valueType.IsGenericType
+                    && valueType.GetGenericTypeDefinition() == typeof(ValueTask<>));
         }
     }
 }
