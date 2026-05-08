@@ -46,4 +46,13 @@ public sealed class CommandResultFactoryTests
         Assert.Equal(ProjectContextErrorCodes.ProjectPathNotFound, Assert.Single(result.Errors).Code);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void FromExecutionError_WithUnsupportedKind_Throws ()
+    {
+        var error = new ExecutionError((ExecutionErrorKind)999, "Unsupported error kind.");
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => CommandResultFactory.FromExecutionError("test", error));
+    }
+
 }

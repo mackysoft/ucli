@@ -101,10 +101,9 @@ internal sealed record ApplicationFailure
     public static ApplicationFailure UnityIpcFailure (
         string message,
         UcliErrorCode? code = null,
-        string? opId = null,
-        ApplicationOutcome? outcome = null)
+        string? opId = null)
     {
-        return Create(ApplicationFailureKind.UnityIpcFailure, message, code, opId, outcome);
+        return Create(ApplicationFailureKind.UnityIpcFailure, message, code, opId);
     }
 
     /// <summary> Creates an external-process failure. </summary>
@@ -160,22 +159,18 @@ internal sealed record ApplicationFailure
         string? opId = null)
     {
         ArgumentNullException.ThrowIfNull(error);
-
         var resolvedCode = code.HasValue && code.Value.IsValid
             ? code.Value
             : ExecutionErrorCodeMapper.ToCode(error);
 
-        if (ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(resolvedCode))
-        {
-            return InvalidInput(error.Message, resolvedCode, opId);
-        }
-
         return error.Kind switch
         {
             ExecutionErrorKind.InvalidArgument => InvalidInput(error.Message, resolvedCode, opId),
+            ExecutionErrorKind.Timeout when ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(resolvedCode) => InvalidInput(error.Message, resolvedCode, opId),
             ExecutionErrorKind.Timeout => Timeout(error.Message, resolvedCode, opId),
+            ExecutionErrorKind.InternalError when ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(resolvedCode) => InvalidInput(error.Message, resolvedCode, opId),
             ExecutionErrorKind.InternalError => InternalError(error.Message, resolvedCode, opId),
-            _ => InternalError(error.Message, resolvedCode, opId),
+            _ => throw new ArgumentOutOfRangeException(nameof(error), error.Kind, "Execution error kind is not defined."),
         };
     }
 

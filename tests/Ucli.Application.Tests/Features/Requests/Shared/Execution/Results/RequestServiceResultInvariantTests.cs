@@ -215,7 +215,7 @@ public sealed class RequestServiceResultInvariantTests
     {
         var validationError = new ValidationError(errorCode, "Validation failed.", "step-1");
 
-        Assert.Equal(ApplicationOutcome.InvalidArgument, RequestServiceResultPolicy.ResolveOutcome(errorCode));
+        Assert.True(ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(errorCode));
 
         var operationResult = OperationExecuteResultFactory.FromValidationErrors(
             RequestId,
@@ -246,7 +246,7 @@ public sealed class RequestServiceResultInvariantTests
 
         Assert.Equal(futureErrorCode, error.Code);
         Assert.Equal(ApplicationOutcome.ToolError, error.Outcome);
-        Assert.Equal(ApplicationOutcome.ToolError, RequestServiceResultPolicy.ResolveOutcome(error.Code));
+        Assert.False(ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(error.Code));
     }
 
     [Fact]
@@ -267,25 +267,26 @@ public sealed class RequestServiceResultInvariantTests
     {
         var failure = new UnityRequestFailure(
             PlanTokenErrorCodes.PlanTokenInvalid,
-            "Plan token is invalid.",
-            ApplicationOutcome.InvalidArgument);
+            "Plan token is invalid.");
 
         var requestFailure = RequestServiceResultPolicy.FromUnityRequestFailure(failure);
 
-        Assert.Equal(ApplicationFailureKind.InvalidInput, requestFailure.Error.Kind);
-        Assert.Equal(PlanTokenErrorCodes.PlanTokenInvalid, requestFailure.Error.Code);
+        Assert.Equal(ApplicationFailureKind.InvalidInput, requestFailure.Kind);
+        Assert.Equal(PlanTokenErrorCodes.PlanTokenInvalid, requestFailure.Code);
         Assert.Equal("Plan token is invalid.", requestFailure.Message);
         Assert.Equal(ApplicationOutcome.InvalidArgument, requestFailure.Outcome);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void UnityRequestFailure_WhenOutcomeDoesNotMatchCode_Throws ()
+    public void UnityRequestFailure_WhenCodeOrMessageIsMissing_Throws ()
     {
         Assert.ThrowsAny<ArgumentException>(() => new UnityRequestFailure(
+            default,
+            "Invalid argument."));
+        Assert.ThrowsAny<ArgumentException>(() => new UnityRequestFailure(
             UcliCoreErrorCodes.InvalidArgument,
-            "Invalid argument.",
-            ApplicationOutcome.ToolError));
+            ""));
     }
 
     [Fact]

@@ -103,7 +103,7 @@ internal sealed class PlanService : IPlanService
             return PlanServiceResult.Failure(
                 failure.Message,
                 [
-                    failure.Error,
+                    failure,
                 ],
                 baseOutput);
         }

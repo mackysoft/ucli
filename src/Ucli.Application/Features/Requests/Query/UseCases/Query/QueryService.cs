@@ -245,7 +245,7 @@ internal sealed class QueryService : IQueryService
                 requestId,
                 [],
                 [
-                    failure.Error,
+                    failure,
                 ],
                 failure.Message,
                 readIndex);
@@ -261,12 +261,13 @@ internal sealed class QueryService : IQueryService
                 readIndex);
         }
 
+        var failures = RequestServiceResultPolicy.FromOperationErrors(convertedResponse.Errors, "uCLI query failed.");
         return QueryServiceResultFactory.Failure(
             operation.CommandName,
             requestId,
             convertedResponse.OpResults,
-            RequestServiceResultPolicy.FromOperationErrors(convertedResponse.Errors, "uCLI query failed."),
-            RequestServiceResultPolicy.ResolveOperationFailureMessage(convertedResponse.Errors, "uCLI query failed."),
+            failures,
+            RequestServiceResultPolicy.ResolveFailureMessage(failures, "uCLI query failed."),
             readIndex);
     }
 

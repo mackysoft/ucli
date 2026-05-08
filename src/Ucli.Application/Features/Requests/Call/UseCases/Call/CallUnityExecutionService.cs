@@ -69,7 +69,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             {
                 var failure = RequestServiceResultPolicy.FromUnityRequestFailure(planExecutionResult.FailureInfo!);
                 return CreateFailure(
-                    failure.Error,
+                    failure,
                     baseOutput);
             }
 
@@ -130,7 +130,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         {
             var failure = RequestServiceResultPolicy.FromUnityRequestFailure(callExecutionResult.FailureInfo!);
             return CreateFailure(
-                failure.Error,
+                failure,
                 baseOutput);
         }
 

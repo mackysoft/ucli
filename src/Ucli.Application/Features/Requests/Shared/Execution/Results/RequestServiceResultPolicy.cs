@@ -44,14 +44,6 @@ internal static class RequestServiceResultPolicy
         return fallbackMessage;
     }
 
-    /// <summary> Resolves one failure message from raw operation errors and a fallback message. </summary>
-    public static string ResolveOperationFailureMessage (
-        IReadOnlyList<OperationExecutionError> errors,
-        string fallbackMessage)
-    {
-        return ResolveFailureMessage(FromOperationErrors(errors, fallbackMessage), fallbackMessage);
-    }
-
     /// <summary> Validates and returns one required success output payload. </summary>
     public static TOutput RequireSuccessOutput<TOutput> (
         TOutput? output,
@@ -129,22 +121,22 @@ internal static class RequestServiceResultPolicy
             opId);
     }
 
-    /// <summary> Converts one Unity request boundary failure into a request-service failure. </summary>
-    public static RequestServiceFailure FromUnityRequestFailure (UnityRequestFailure failure)
+    /// <summary> Converts one Unity request boundary failure into an application failure. </summary>
+    public static ApplicationFailure FromUnityRequestFailure (UnityRequestFailure failure)
     {
         ArgumentNullException.ThrowIfNull(failure);
 
         if (failure.Code == ExecutionErrorCodes.IpcTimeout)
         {
-            return new RequestServiceFailure(ApplicationFailure.Timeout(failure.Message, failure.Code));
+            return ApplicationFailure.Timeout(failure.Message, failure.Code);
         }
 
-        if (IsInvalidArgumentErrorCode(failure.Code))
+        if (ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(failure.Code))
         {
-            return new RequestServiceFailure(ApplicationFailure.InvalidInput(failure.Message, failure.Code));
+            return ApplicationFailure.InvalidInput(failure.Message, failure.Code);
         }
 
-        return new RequestServiceFailure(ApplicationFailure.UnityIpcFailure(failure.Message, failure.Code));
+        return ApplicationFailure.UnityIpcFailure(failure.Message, failure.Code);
     }
 
     /// <summary> Normalizes one operation execution error from an external result boundary. </summary>
@@ -222,23 +214,6 @@ internal static class RequestServiceResultPolicy
         return ApplicationFailureOutcomeResolver.Resolve(errors);
     }
 
-    /// <summary> Resolves the application outcome for one structured execution error. </summary>
-    public static ApplicationOutcome ResolveOutcome (
-        ExecutionError error,
-        UcliErrorCode? errorCode = null)
-    {
-        ArgumentNullException.ThrowIfNull(error);
-        return FromExecutionError(error, errorCode).Outcome;
-    }
-
-    /// <summary> Resolves the application outcome for one machine-readable error code. </summary>
-    public static ApplicationOutcome ResolveOutcome (UcliErrorCode errorCode)
-    {
-        return IsInvalidArgumentErrorCode(ResolveErrorCode(errorCode))
-            ? ApplicationOutcome.InvalidArgument
-            : ApplicationOutcome.ToolError;
-    }
-
     /// <summary> Resolves the machine-readable error code used for request failures. </summary>
     public static UcliErrorCode ResolveErrorCode (UcliErrorCode? errorCode)
     {
@@ -253,10 +228,5 @@ internal static class RequestServiceResultPolicy
         return errorCode.IsValid
             ? errorCode
             : ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.InternalError);
-    }
-
-    private static bool IsInvalidArgumentErrorCode (UcliErrorCode errorCode)
-    {
-        return ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(errorCode);
     }
 }

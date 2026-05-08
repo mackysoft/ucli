@@ -16,7 +16,7 @@ public sealed class UnityIpcFailureClassifierTests
             TimeSpan.FromMilliseconds(500));
 
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, failure.Code);
-        Assert.Equal(ApplicationOutcome.ToolError, failure.Outcome);
+        Assert.Equal(ApplicationOutcome.ToolError, ApplicationFailure.FromCode(failure.Code, failure.Message).Outcome);
         Assert.Contains("500 milliseconds", failure.Message, StringComparison.Ordinal);
     }
 
@@ -29,19 +29,19 @@ public sealed class UnityIpcFailureClassifierTests
             TimeSpan.FromSeconds(1));
 
         Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, failure.Code);
-        Assert.Equal(ApplicationOutcome.ToolError, failure.Outcome);
+        Assert.Equal(ApplicationOutcome.ToolError, ApplicationFailure.FromCode(failure.Code, failure.Message).Outcome);
         Assert.Contains("Unity daemon is not running.", failure.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void FromExecutionError_WithInvalidArgument_ReturnsInvalidArgumentOutcome ()
+    public void FromExecutionError_WithInvalidArgument_ReturnsInvalidArgumentCode ()
     {
         var failure = UnityIpcFailureClassifier.FromExecutionError(
             ExecutionError.InvalidArgument("Plugin marker is missing."));
 
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, failure.Code);
-        Assert.Equal(ApplicationOutcome.InvalidArgument, failure.Outcome);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, ApplicationFailure.FromCode(failure.Code, failure.Message).Outcome);
         Assert.Equal("Plugin marker is missing.", failure.Message);
     }
 
@@ -57,19 +57,19 @@ public sealed class UnityIpcFailureClassifierTests
     [Theory]
     [MemberData(nameof(PlanTokenValidationCodeValues))]
     [Trait("Size", "Small")]
-    public void FromCodeAndMessage_WithPlanTokenValidationCode_ReturnsInvalidArgumentOutcome (UcliErrorCode code)
+    public void FromCodeAndMessage_WithPlanTokenValidationCode_ReturnsCode (UcliErrorCode code)
     {
         var failure = UnityIpcFailureClassifier.FromCodeAndMessage(
             code,
             "Plan token validation failed.");
 
         Assert.Equal(code, failure.Code);
-        Assert.Equal(ApplicationOutcome.InvalidArgument, failure.Outcome);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, ApplicationFailure.FromCode(failure.Code, failure.Message).Outcome);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void FromModeDecisionContractError_WithOneshotForbidden_ReturnsToolErrorOutcome ()
+    public void FromModeDecisionContractError_WithOneshotForbidden_ReturnsCode ()
     {
         var failure = UnityIpcFailureClassifier.FromModeDecisionContractError(
             new UnityExecutionModeDecisionContractError(
@@ -77,7 +77,7 @@ public sealed class UnityIpcFailureClassifierTests
                 "Daemon is running for mode=oneshot."));
 
         Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonRunningOneshotForbidden, failure.Code);
-        Assert.Equal(ApplicationOutcome.ToolError, failure.Outcome);
+        Assert.Equal(ApplicationOutcome.ToolError, ApplicationFailure.FromCode(failure.Code, failure.Message).Outcome);
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public sealed class UnityIpcFailureClassifierTests
             TimeSpan.FromSeconds(1));
 
         Assert.Equal(UcliCoreErrorCodes.InternalError, failure.Code);
-        Assert.Equal(ApplicationOutcome.ToolError, failure.Outcome);
+        Assert.Equal(ApplicationOutcome.ToolError, ApplicationFailure.FromCode(failure.Code, failure.Message).Outcome);
         Assert.Contains("Failed to execute Unity oneshot IPC request. boom", failure.Message, StringComparison.Ordinal);
     }
 }

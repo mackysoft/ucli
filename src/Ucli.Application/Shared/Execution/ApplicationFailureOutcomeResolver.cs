@@ -5,16 +5,6 @@ namespace MackySoft.Ucli.Application.Shared.Execution;
 /// <summary> Resolves application outcomes from machine-readable failure codes. </summary>
 internal static class ApplicationFailureOutcomeResolver
 {
-    /// <summary> Resolves the application outcome represented by one failure code. </summary>
-    /// <param name="errorCode"> The machine-readable failure code. </param>
-    /// <returns> The application outcome for the specified failure code. </returns>
-    public static ApplicationOutcome Resolve (UcliErrorCode errorCode)
-    {
-        return IsInvalidArgumentCode(errorCode)
-            ? ApplicationOutcome.InvalidArgument
-            : ApplicationOutcome.ToolError;
-    }
-
     /// <summary> Resolves the application outcome represented by one failure collection. </summary>
     /// <param name="failures"> The classified failures. </param>
     /// <returns> The application outcome represented by the collection. </returns>

@@ -30,7 +30,7 @@ internal static class ValidateCommandResultFactory
                 payload: payload);
         }
 
-        return RequestCommandFailureResultFactory.Create(
+        return CommandFailureProjector.Create(
             UcliCommandNames.Validate,
             serviceResult.Message,
             payload,

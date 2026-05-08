@@ -190,7 +190,7 @@ internal sealed class ResolveService : IResolveService
                 requestId,
                 [],
                 [
-                    failure.Error,
+                    failure,
                 ],
                 readIndex);
         }

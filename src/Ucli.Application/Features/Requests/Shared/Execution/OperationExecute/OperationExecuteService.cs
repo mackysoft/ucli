@@ -152,7 +152,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 requestId,
                 [],
                 [
-                    failure.Error,
+                    failure,
                 ],
                 definition.FailureMessage);
         }
@@ -233,7 +233,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                     requestId,
                     [],
                     [
-                        failure.Error,
+                        failure,
                     ],
                     definition.FailureMessage));
         }

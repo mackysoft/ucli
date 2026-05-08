@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
+using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -32,7 +33,7 @@ internal static class RefreshCommandResultFactory
                 payload: payload);
         }
 
-        return RequestCommandFailureResultFactory.Create(
+        return CommandFailureProjector.Create(
             UcliCommandNames.Refresh,
             executionResult.Message,
             payload,
