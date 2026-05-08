@@ -33,6 +33,14 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     return false;
                 }
 
+                var valueBytes = JsonSerializer.SerializeToUtf8Bytes(jsonValue, IpcJsonSerializerOptions.Default);
+                if (valueBytes.Length > CsEvalSafetyLimits.MaxReturnValueBytes)
+                {
+                    returnValue = null!;
+                    errorMessage = "Entry point return value exceeds internal IPC safety guardrail.";
+                    return false;
+                }
+
                 returnValue = new CsEvalReturnValue(CsEvalReturnValueKindValues.Json, jsonValue);
                 errorMessage = string.Empty;
                 return true;

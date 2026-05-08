@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Cryptography;
 using Microsoft.CodeAnalysis;
@@ -23,75 +22,115 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         private static readonly CSharpCompilationOptions CompilationOptions = new CSharpCompilationOptions(
             OutputKind.DynamicallyLinkedLibrary,
             optimizationLevel: OptimizationLevel.Release,
-            allowUnsafe: false);
+            allowUnsafe: false,
+            nullableContextOptions: NullableContextOptions.Annotations);
 
         private readonly CsEvalReferenceResolver referenceResolver;
 
         private readonly CsEvalEntryPointSymbolValidator entryPointValidator;
 
-        public CsEvalCompilationService ()
-            : this(new CsEvalReferenceResolver(), new CsEvalEntryPointSymbolValidator())
-        {
-        }
+        private readonly CsEvalSourcePreparer sourcePreparer;
 
         public CsEvalCompilationService (
             CsEvalReferenceResolver referenceResolver,
-            CsEvalEntryPointSymbolValidator entryPointValidator)
+            CsEvalEntryPointSymbolValidator entryPointValidator,
+            CsEvalSourcePreparer sourcePreparer)
         {
             this.referenceResolver = referenceResolver ?? throw new ArgumentNullException(nameof(referenceResolver));
             this.entryPointValidator = entryPointValidator ?? throw new ArgumentNullException(nameof(entryPointValidator));
+            this.sourcePreparer = sourcePreparer ?? throw new ArgumentNullException(nameof(sourcePreparer));
         }
 
-        public CsEvalCompilationResult CompileAndValidate (
-            string source,
-            string entryPoint,
-            CancellationToken cancellationToken)
+        public CsEvalCompilationResult CompileAndValidate (string source)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
             var sourceDigest = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(source));
             var references = referenceResolver.Resolve();
-            var executionDigest = CsEvalExecutionDigestCalculator.Compute(sourceDigest, entryPoint, references.Identity);
-            var syntaxTree = CSharpSyntaxTree.ParseText(
-                SourceText.From(source, Encoding.UTF8),
-                ParseOptions,
-                path: "ucli.cs.eval.cs",
-                cancellationToken: cancellationToken);
-            var compilation = CSharpCompilation.Create(
-                "UcliCsEval_" + sourceDigest.Substring(0, 12),
-                new[] { syntaxTree },
-                references.References,
-                CompilationOptions);
-            var diagnostics = compilation.GetDiagnostics(cancellationToken)
-                .Select(CsEvalDiagnosticMapper.Map)
+
+            var sourceByteCount = Encoding.UTF8.GetByteCount(source);
+            var compilationUnitSource = sourcePreparer.CreateCompilationUnit(source);
+            if (sourceByteCount > CsEvalSafetyLimits.MaxSourceBytes)
+            {
+                var diagnostic = CsEvalDiagnosticMapper.Create(
+                    CsEvalDiagnosticIds.SourceTooLarge,
+                    $"C# eval source exceeds internal IPC safety guardrail. SourceBytes={sourceByteCount}.");
+                return CreateFailure(
+                    sourceDigest,
+                    compilationUnitSource.SourceKind,
+                    resolvedEntryPoint: null,
+                    entryPointName: null,
+                    CsEvalExecutionDigestCalculator.Compute(
+                        sourceDigest,
+                        compilationUnitSource.SourceKind,
+                        compilationUnitSource.WrapperVersion,
+                        references.Identity),
+                    CreateCompilation(compilationUnitSource, references),
+                    new[] { diagnostic },
+                    diagnostic.Message);
+            }
+
+            var compilationUnitResult = CompilePreparedSource(sourceDigest, references, compilationUnitSource);
+            if (compilationUnitResult.IsSuccess)
+            {
+                return compilationUnitResult;
+            }
+
+            if (!sourcePreparer.TryCreateSnippet(source, out var snippetSource, out _))
+            {
+                return compilationUnitResult;
+            }
+
+            return CompilePreparedSource(sourceDigest, references, snippetSource);
+        }
+
+        private CsEvalCompilationResult CompilePreparedSource (
+            string sourceDigest,
+            CsEvalReferenceSet references,
+            CsEvalPreparedSource preparedSource)
+        {
+            var executionDigest = CsEvalExecutionDigestCalculator.Compute(
+                sourceDigest,
+                preparedSource.SourceKind,
+                preparedSource.WrapperVersion,
+                references.Identity);
+            var compilation = CreateCompilation(preparedSource, references);
+            var diagnostics = CsEvalDiagnosticMapper.Limit(compilation.GetDiagnostics()
+                    .Where(static diagnostic => diagnostic.Severity != DiagnosticSeverity.Hidden)
+                    .Select(CsEvalDiagnosticMapper.Map))
                 .ToList();
 
             if (diagnostics.Any(static diagnostic => string.Equals(diagnostic.Severity, "error", StringComparison.Ordinal)))
             {
                 return CreateFailure(
                     sourceDigest,
-                    entryPoint,
+                    preparedSource.SourceKind,
+                    resolvedEntryPoint: null,
+                    entryPointName: null,
                     executionDigest,
                     compilation,
                     diagnostics,
                     "C# eval source failed to compile.");
             }
 
-            if (!entryPointValidator.TryValidate(compilation, entryPoint, out var entryPointDiagnostic))
+            if (!entryPointValidator.TryResolve(compilation, out var entryPointName, out var entryPointDiagnostics))
             {
-                diagnostics.Add(entryPointDiagnostic);
+                diagnostics.AddRange(entryPointDiagnostics);
+                diagnostics = CsEvalDiagnosticMapper.Limit(diagnostics).ToList();
                 return CreateFailure(
                     sourceDigest,
-                    entryPoint,
+                    preparedSource.SourceKind,
+                    resolvedEntryPoint: null,
+                    entryPointName: null,
                     executionDigest,
                     compilation,
                     diagnostics,
-                    entryPointDiagnostic.Message);
+                    entryPointDiagnostics.Count == 0 ? "C# eval source did not resolve an entry point." : entryPointDiagnostics[0].Message);
             }
 
             return new CsEvalCompilationResult(
                 sourceDigest,
-                entryPoint,
+                preparedSource.SourceKind,
+                entryPointName.DisplayName,
+                entryPointName,
                 executionDigest,
                 new CsEvalCompileResult(CsEvalCompileStatusValues.Succeeded, diagnostics),
                 compilation,
@@ -99,18 +138,32 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 failureMessage: null);
         }
 
+        private static CSharpCompilation CreateCompilation (
+            CsEvalPreparedSource preparedSource,
+            CsEvalReferenceSet references)
+        {
+            var syntaxTree = CSharpSyntaxTree.ParseText(
+                SourceText.From(preparedSource.CompilationSource, Encoding.UTF8),
+                ParseOptions,
+                path: "ucli.cs.eval.cs");
+            return CSharpCompilation.Create(
+                "UcliCsEval_" + Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(preparedSource.CompilationSource)).Substring(0, 12),
+                new[] { syntaxTree },
+                references.References,
+                CompilationOptions);
+        }
+
         public bool TryEmitAssembly (
             CSharpCompilation compilation,
-            CancellationToken cancellationToken,
             out byte[] assemblyBytes,
             out IReadOnlyList<CsEvalDiagnostic> diagnostics,
             out string errorMessage)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
             using var stream = new System.IO.MemoryStream();
-            EmitResult emitResult = compilation.Emit(stream, cancellationToken: cancellationToken);
-            diagnostics = emitResult.Diagnostics.Select(CsEvalDiagnosticMapper.Map).ToArray();
+            EmitResult emitResult = compilation.Emit(stream);
+            diagnostics = CsEvalDiagnosticMapper.Limit(emitResult.Diagnostics
+                .Where(static diagnostic => diagnostic.Severity != DiagnosticSeverity.Hidden)
+                .Select(CsEvalDiagnosticMapper.Map));
             if (!emitResult.Success)
             {
                 assemblyBytes = Array.Empty<byte>();
@@ -125,7 +178,9 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         private static CsEvalCompilationResult CreateFailure (
             string sourceDigest,
-            string entryPoint,
+            string? sourceKind,
+            string? resolvedEntryPoint,
+            CsEvalEntryPointName? entryPointName,
             string executionDigest,
             CSharpCompilation compilation,
             IReadOnlyList<CsEvalDiagnostic> diagnostics,
@@ -133,7 +188,9 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         {
             return new CsEvalCompilationResult(
                 sourceDigest,
-                entryPoint,
+                sourceKind,
+                resolvedEntryPoint,
+                entryPointName,
                 executionDigest,
                 new CsEvalCompileResult(CsEvalCompileStatusValues.Failed, diagnostics),
                 compilation,

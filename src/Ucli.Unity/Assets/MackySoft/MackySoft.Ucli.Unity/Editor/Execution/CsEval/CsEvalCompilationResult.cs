@@ -10,7 +10,9 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
     {
         public CsEvalCompilationResult (
             string sourceDigest,
-            string entryPoint,
+            string? sourceKind,
+            string? resolvedEntryPoint,
+            CsEvalEntryPointName? entryPointName,
             string executionDigest,
             CsEvalCompileResult compile,
             CSharpCompilation compilation,
@@ -18,7 +20,9 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             string? failureMessage)
         {
             SourceDigest = sourceDigest;
-            EntryPoint = entryPoint;
+            SourceKind = sourceKind;
+            ResolvedEntryPoint = resolvedEntryPoint;
+            EntryPointName = entryPointName;
             ExecutionDigest = executionDigest;
             Compile = compile;
             Compilation = compilation;
@@ -28,7 +32,11 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         public string SourceDigest { get; }
 
-        public string EntryPoint { get; }
+        public string? SourceKind { get; }
+
+        public string? ResolvedEntryPoint { get; }
+
+        public CsEvalEntryPointName? EntryPointName { get; }
 
         public string ExecutionDigest { get; }
 
@@ -44,7 +52,8 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         {
             return new CsEvalResult(
                 SourceDigest,
-                EntryPoint,
+                SourceKind,
+                ResolvedEntryPoint,
                 ExecutionDigest,
                 Compile,
                 durationMilliseconds: null,

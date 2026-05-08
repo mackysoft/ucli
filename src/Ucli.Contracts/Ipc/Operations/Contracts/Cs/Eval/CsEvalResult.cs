@@ -8,7 +8,8 @@ public sealed record CsEvalResult
     [JsonConstructor]
     public CsEvalResult (
         string sourceDigest,
-        string entryPoint,
+        string? sourceKind,
+        string? resolvedEntryPoint,
         string executionDigest,
         CsEvalCompileResult compile,
         long? durationMilliseconds,
@@ -17,7 +18,8 @@ public sealed record CsEvalResult
         CsEvalTouchedResources? touchedResources)
     {
         SourceDigest = sourceDigest;
-        EntryPoint = entryPoint;
+        SourceKind = sourceKind;
+        ResolvedEntryPoint = resolvedEntryPoint;
         ExecutionDigest = executionDigest;
         Compile = compile;
         DurationMilliseconds = durationMilliseconds;
@@ -30,9 +32,13 @@ public sealed record CsEvalResult
     [UcliDescription("SHA-256 digest of the UTF-8 source text.")]
     public string SourceDigest { get; init; }
 
-    [UcliRequired]
-    [UcliDescription("Entry point selected for the eval source.")]
-    public string EntryPoint { get; init; }
+    [UcliDescription("Eval source form used for compilation; omitted when the source form could not be classified.")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SourceKind { get; init; }
+
+    [UcliDescription("Entry point resolved from the eval source; omitted when no unique entry point was resolved.")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ResolvedEntryPoint { get; init; }
 
     [UcliRequired]
     [UcliDescription("SHA-256 digest of normalized eval execution inputs.")]

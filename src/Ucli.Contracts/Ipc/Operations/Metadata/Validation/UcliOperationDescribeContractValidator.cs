@@ -377,8 +377,11 @@ internal static class UcliOperationDescribeContractValidator
         if (string.IsNullOrWhiteSpace(codeContract.Language)
             || codeContract.EntryPoint == null
             || string.IsNullOrWhiteSpace(codeContract.EntryPoint.Signature)
+            || string.IsNullOrWhiteSpace(codeContract.EntryPoint.MatchRule)
             || codeContract.EntryPoint.ParameterTypes == null
             || string.IsNullOrWhiteSpace(codeContract.EntryPoint.ReturnValue)
+            || codeContract.SourceForms == null
+            || codeContract.SourceForms.Count == 0
             || codeContract.ApiTypes == null)
         {
             errorMessage = $"{ownerName} has invalid codeContract metadata.";
@@ -390,6 +393,18 @@ internal static class UcliOperationDescribeContractValidator
             if (string.IsNullOrWhiteSpace(codeContract.EntryPoint.ParameterTypes[parameterTypeIndex]))
             {
                 errorMessage = $"{ownerName} has an invalid codeContract entry point parameter type.";
+                return false;
+            }
+        }
+
+        for (var sourceFormIndex = 0; sourceFormIndex < codeContract.SourceForms.Count; sourceFormIndex++)
+        {
+            var sourceForm = codeContract.SourceForms[sourceFormIndex];
+            if (sourceForm == null
+                || string.IsNullOrWhiteSpace(sourceForm.Kind)
+                || string.IsNullOrWhiteSpace(sourceForm.Description))
+            {
+                errorMessage = $"{ownerName} has an invalid codeContract source form at index {sourceFormIndex}.";
                 return false;
             }
         }

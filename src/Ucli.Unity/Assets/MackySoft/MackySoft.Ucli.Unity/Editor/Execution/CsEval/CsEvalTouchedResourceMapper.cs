@@ -13,6 +13,13 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
     {
         public static CsEvalTouchedResources CreateResult (UcliCsEvalContext context)
         {
+            if (context.TouchedResourcesTruncated)
+            {
+                return new CsEvalTouchedResources(
+                    CsEvalTouchedResourceStateValues.Unknown,
+                    declared: null);
+            }
+
             if (context.DeclaredNoTouchedResources)
             {
                 return new CsEvalTouchedResources(

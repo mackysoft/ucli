@@ -180,6 +180,7 @@ internal sealed class IndexOpsCatalogJsonContractWriter : IndexJsonContractWrite
         writer.WriteStartObject();
         WriteNullableString(writer, "language", codeContract.Language);
         WriteCodeEntryPoint(writer, codeContract.EntryPoint);
+        WriteArray(writer, "sourceForms", codeContract.SourceForms, WriteCodeSourceForm);
         WriteArray(writer, "apiTypes", codeContract.ApiTypes, WriteCodeApiType);
         writer.WriteEndObject();
     }
@@ -197,9 +198,20 @@ internal sealed class IndexOpsCatalogJsonContractWriter : IndexJsonContractWrite
 
         writer.WriteStartObject();
         WriteNullableString(writer, "signature", entryPoint.Signature);
+        WriteNullableString(writer, "matchRule", entryPoint.MatchRule);
         writer.WriteBoolean("requiredStatic", entryPoint.RequiredStatic);
         WriteStringArray(writer, "parameterTypes", entryPoint.ParameterTypes);
         WriteNullableString(writer, "returnValue", entryPoint.ReturnValue);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteCodeSourceForm (
+        Utf8JsonWriter writer,
+        UcliCodeSourceFormContract sourceForm)
+    {
+        writer.WriteStartObject();
+        WriteNullableString(writer, "kind", sourceForm.Kind);
+        WriteNullableString(writer, "description", sourceForm.Description);
         writer.WriteEndObject();
     }
 

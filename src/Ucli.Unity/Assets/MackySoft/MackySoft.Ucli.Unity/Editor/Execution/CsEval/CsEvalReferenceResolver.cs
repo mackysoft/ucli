@@ -15,20 +15,22 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         public CsEvalReferenceSet Resolve ()
         {
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            var paths = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+            var assembliesByPath = new SortedDictionary<string, Assembly>(StringComparer.OrdinalIgnoreCase);
             for (var i = 0; i < assemblies.Length; i++)
             {
                 if (TryGetAssemblyLocation(assemblies[i], out var path))
                 {
-                    paths.Add(path);
+                    assembliesByPath[path] = assemblies[i];
                 }
             }
 
-            var references = paths
+            var references = assembliesByPath.Keys
                 .Select(static path => MetadataReference.CreateFromFile(path))
                 .Cast<MetadataReference>()
                 .ToArray();
-            var identity = string.Join("\n", paths.Select(CreateReferenceIdentity).OrderBy(static value => value, StringComparer.Ordinal));
+            var identity = string.Join(
+                "\n",
+                assembliesByPath.Select(static pair => CreateReferenceIdentity(pair.Value, pair.Key)).OrderBy(static value => value, StringComparer.Ordinal));
             return new CsEvalReferenceSet(references, identity);
         }
 
@@ -54,16 +56,20 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             return !string.IsNullOrWhiteSpace(path) && File.Exists(path);
         }
 
-        private static string CreateReferenceIdentity (string path)
+        private static string CreateReferenceIdentity (
+            Assembly assembly,
+            string path)
         {
+            var fileInfo = new FileInfo(path);
             try
             {
                 var assemblyName = AssemblyName.GetAssemblyName(path);
-                return $"{assemblyName.Name}/{assemblyName.Version}";
+                var moduleVersionId = assembly.ManifestModule.ModuleVersionId.ToString("D");
+                return $"{assemblyName.Name}/{assemblyName.Version}/{moduleVersionId}/{fileInfo.Length}/{fileInfo.LastWriteTimeUtc.Ticks}";
             }
             catch (Exception exception) when (exception is BadImageFormatException or FileLoadException or FileNotFoundException)
             {
-                return Path.GetFileName(path);
+                return $"{Path.GetFileName(path)}/{fileInfo.Length}/{fileInfo.LastWriteTimeUtc.Ticks}";
             }
         }
     }

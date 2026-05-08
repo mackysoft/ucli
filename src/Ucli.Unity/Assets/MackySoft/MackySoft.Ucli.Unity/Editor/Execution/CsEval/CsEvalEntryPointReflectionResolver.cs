@@ -13,36 +13,31 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
     {
         public bool TryResolve (
             Assembly assembly,
-            string entryPoint,
+            CsEvalEntryPointName entryPoint,
             out MethodInfo method,
             out string errorMessage)
         {
             method = null!;
-            if (!CsEvalEntryPointName.TryParse(entryPoint, out var entryPointName, out errorMessage))
-            {
-                return false;
-            }
-
-            var type = assembly.GetType(entryPointName.TypeName, throwOnError: false, ignoreCase: false);
+            var type = assembly.GetType(entryPoint.ReflectionTypeName, throwOnError: false, ignoreCase: false);
             if (type == null)
             {
-                errorMessage = $"Entry point type '{entryPointName.TypeName}' was not found.";
+                errorMessage = $"Resolved entry point type '{entryPoint.ReflectionTypeName}' was not found.";
                 return false;
             }
 
             var matches = type.GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .Where(candidate => string.Equals(candidate.Name, entryPointName.MethodName, StringComparison.Ordinal))
+                .Where(candidate => string.Equals(candidate.Name, entryPoint.MethodName, StringComparison.Ordinal))
                 .Where(IsCandidate)
                 .ToArray();
             if (matches.Length == 0)
             {
-                errorMessage = $"Entry point '{entryPoint}' must be a public static object? Run method with one {typeof(UcliCsEvalContext).FullName} parameter.";
+                errorMessage = $"Resolved entry point '{entryPoint.DisplayName}' was not found in the emitted assembly.";
                 return false;
             }
 
             if (matches.Length > 1)
             {
-                errorMessage = $"Entry point '{entryPoint}' is ambiguous.";
+                errorMessage = $"Resolved entry point '{entryPoint.DisplayName}' is ambiguous in the emitted assembly.";
                 return false;
             }
 

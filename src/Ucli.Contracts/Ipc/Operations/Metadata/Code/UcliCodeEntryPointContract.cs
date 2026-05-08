@@ -11,11 +11,13 @@ public sealed class UcliCodeEntryPointContract
     /// <summary> Initializes a new instance of the <see cref="UcliCodeEntryPointContract" /> class. </summary>
     public UcliCodeEntryPointContract (
         string? signature,
+        string? matchRule,
         bool requiredStatic,
         IReadOnlyList<string>? parameterTypes,
         string? returnValue)
     {
         Signature = signature;
+        MatchRule = matchRule;
         RequiredStatic = requiredStatic;
         ParameterTypes = parameterTypes;
         ReturnValue = returnValue;
@@ -23,6 +25,9 @@ public sealed class UcliCodeEntryPointContract
 
     /// <summary> Gets or sets the C# signature shown to callers. </summary>
     public string? Signature { get; set; }
+
+    /// <summary> Gets or sets the rule used to select the entry point from source code. </summary>
+    public string? MatchRule { get; set; }
 
     /// <summary> Gets or sets a value indicating whether the entry point must be static. </summary>
     public bool RequiredStatic { get; set; }

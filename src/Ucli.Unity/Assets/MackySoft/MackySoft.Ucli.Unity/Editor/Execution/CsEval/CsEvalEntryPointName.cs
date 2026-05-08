@@ -1,69 +1,30 @@
-using System;
-
 #nullable enable
 
 namespace MackySoft.Ucli.Unity.Execution.CsEval
 {
-    /// <summary> Represents a parsed <c>Namespace.Type.Method</c> entry point name. </summary>
+    /// <summary> Represents a resolved <c>ucli.cs.eval</c> entry point. </summary>
     internal readonly struct CsEvalEntryPointName
     {
         public const string RequiredMethodName = "Run";
 
+        public const string RequiredSignature = "public static object? Run(UcliCsEvalContext context)";
+
+        public const string MatchRule = "Compiled source must contain exactly one public static object? Run(UcliCsEvalContext context) method.";
+
         public CsEvalEntryPointName (
-            string typeName,
+            string displayName,
+            string reflectionTypeName,
             string methodName)
         {
-            TypeName = typeName;
+            DisplayName = displayName;
+            ReflectionTypeName = reflectionTypeName;
             MethodName = methodName;
         }
 
-        public string TypeName { get; }
+        public string DisplayName { get; }
+
+        public string ReflectionTypeName { get; }
 
         public string MethodName { get; }
-
-        public static bool TryParse (
-            string? value,
-            out CsEvalEntryPointName entryPointName,
-            out string errorMessage)
-        {
-            entryPointName = default;
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                errorMessage = "Entry point must not be empty.";
-                return false;
-            }
-
-            var entryPoint = value!;
-            if (!string.Equals(entryPoint, entryPoint.Trim(), StringComparison.Ordinal))
-            {
-                errorMessage = "Entry point must not contain leading or trailing whitespace.";
-                return false;
-            }
-
-            var separatorIndex = entryPoint.LastIndexOf('.');
-            if (separatorIndex <= 0 || separatorIndex == entryPoint.Length - 1)
-            {
-                errorMessage = "Entry point must use Namespace.Type.Method form.";
-                return false;
-            }
-
-            var typeName = entryPoint.Substring(0, separatorIndex);
-            if (typeName.IndexOf('.') < 0)
-            {
-                errorMessage = "Entry point type must include a namespace.";
-                return false;
-            }
-
-            var methodName = entryPoint.Substring(separatorIndex + 1);
-            if (!string.Equals(methodName, RequiredMethodName, StringComparison.Ordinal))
-            {
-                errorMessage = $"Entry point method must be '{RequiredMethodName}'.";
-                return false;
-            }
-
-            entryPointName = new CsEvalEntryPointName(typeName, methodName);
-            errorMessage = string.Empty;
-            return true;
-        }
     }
 }

@@ -7,20 +7,13 @@ public sealed record CsEvalArgs
 {
     [JsonConstructor]
     public CsEvalArgs (
-        string source,
-        string entryPoint)
+        string source)
     {
         Source = source;
-        EntryPoint = entryPoint;
     }
 
     [UcliRequired]
-    [UcliDescription("Complete C# compilation unit to compile in memory.")]
+    [UcliDescription("C# source to compile in memory. Accepts either a complete compilation unit or a Run method body snippet.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
     public string Source { get; init; }
-
-    [UcliRequired]
-    [UcliDescription("Fully qualified public static entry point in Namespace.Type.Method form.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
-    public string EntryPoint { get; init; }
 }

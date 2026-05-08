@@ -292,9 +292,14 @@ public sealed class UcliOperationDescribeContractValidatorTests
             "csharp",
             new UcliCodeEntryPointContract(
                 "public static object? Run(SampleContext context)",
+                "Compiled source must contain exactly one matching Run method.",
                 requiredStatic: true,
                 new[] { "SampleContext" },
                 "JSON-serializable value."),
+            new[]
+            {
+                new UcliCodeSourceFormContract(CsEvalSourceKindValues.CompilationUnit, "Complete C# compilation unit."),
+            },
             new[]
             {
                 new UcliCodeApiTypeContract(
@@ -322,6 +327,24 @@ public sealed class UcliOperationDescribeContractValidatorTests
         Assert.Equal("Test contract has an invalid codeContract method parameter at index 0.", errorMessage);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    public void TryValidatePublicRawOpDescribeContract_WhenCodeContractEntryPointMatchRuleIsMissing_ReturnsFalse (
+        string? matchRule)
+    {
+        var describe = CreateValidDescribeContract();
+        describe.CodeContract = CreateValidCodeContract();
+        describe.CodeContract.EntryPoint!.MatchRule = matchRule;
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Test contract has invalid codeContract metadata.", errorMessage);
+    }
+
     private static UcliOperationDescribeContract CreateValidDescribeContract ()
     {
         return UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
@@ -340,9 +363,14 @@ public sealed class UcliOperationDescribeContractValidatorTests
             "csharp",
             new UcliCodeEntryPointContract(
                 "public static object? Run(SampleContext context)",
+                "Compiled source must contain exactly one matching Run method.",
                 requiredStatic: true,
                 new[] { "SampleContext" },
                 "JSON-serializable value."),
+            new[]
+            {
+                new UcliCodeSourceFormContract(CsEvalSourceKindValues.CompilationUnit, "Complete C# compilation unit."),
+            },
             new[]
             {
                 new UcliCodeApiTypeContract(

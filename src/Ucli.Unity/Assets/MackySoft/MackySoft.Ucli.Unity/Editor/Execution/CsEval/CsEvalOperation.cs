@@ -18,11 +18,30 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
     [UcliOperation]
     internal sealed class CsEvalOperation : UcliOperation<CsEvalArgs, CsEvalResult>
     {
-        private readonly CsEvalCompilationService compilationService = new CsEvalCompilationService();
+        private readonly CsEvalCompilationService compilationService;
 
-        private readonly CsEvalEntryPointReflectionResolver entryPointResolver = new CsEvalEntryPointReflectionResolver();
+        private readonly CsEvalEntryPointReflectionResolver entryPointResolver;
 
-        private readonly CsEvalReturnValueSerializer returnValueSerializer = new CsEvalReturnValueSerializer();
+        private readonly CsEvalReturnValueSerializer returnValueSerializer;
+
+        public CsEvalOperation ()
+            : this(
+                new CsEvalCompilationService(new CsEvalReferenceResolver(), new CsEvalEntryPointSymbolValidator(), new CsEvalSourcePreparer()),
+                new CsEvalEntryPointReflectionResolver(),
+                new CsEvalReturnValueSerializer())
+        {
+            // NOTE: Operation discovery instantiates [UcliOperation] types through their public parameterless constructor.
+        }
+
+        internal CsEvalOperation (
+            CsEvalCompilationService compilationService,
+            CsEvalEntryPointReflectionResolver entryPointResolver,
+            CsEvalReturnValueSerializer returnValueSerializer)
+        {
+            this.compilationService = compilationService ?? throw new ArgumentNullException(nameof(compilationService));
+            this.entryPointResolver = entryPointResolver ?? throw new ArgumentNullException(nameof(entryPointResolver));
+            this.returnValueSerializer = returnValueSerializer ?? throw new ArgumentNullException(nameof(returnValueSerializer));
+        }
 
         public override UcliOperationMetadata Metadata { get; } = CreateMetadata();
 
@@ -33,11 +52,6 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!CsEvalEntryPointName.TryParse(args.EntryPoint, out _, out var entryPointError))
-            {
-                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, entryPointError));
-            }
-
             return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
         }
 
@@ -48,7 +62,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var compilation = compilationService.CompileAndValidate(args.Source, args.EntryPoint, cancellationToken);
+            var compilation = compilationService.CompileAndValidate(args.Source);
             if (!compilation.IsSuccess)
             {
                 return Task.FromResult(CreateInvalidArgumentFailure(operation, compilation.FailureMessage!, compilation.CreatePlanResult()));
@@ -67,17 +81,18 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var compilation = compilationService.CompileAndValidate(args.Source, args.EntryPoint, cancellationToken);
+            var compilation = compilationService.CompileAndValidate(args.Source);
             if (!compilation.IsSuccess)
             {
                 return Task.FromResult(CreateInvalidArgumentFailure(operation, compilation.FailureMessage!, compilation.CreatePlanResult()));
             }
 
-            if (!compilationService.TryEmitAssembly(compilation.Compilation, cancellationToken, out var assemblyBytes, out var emitDiagnostics, out var emitError))
+            if (!compilationService.TryEmitAssembly(compilation.Compilation, out var assemblyBytes, out var emitDiagnostics, out var emitError))
             {
                 var emitResult = new CsEvalResult(
                     compilation.SourceDigest,
-                    compilation.EntryPoint,
+                    compilation.SourceKind,
+                    compilation.ResolvedEntryPoint,
                     compilation.ExecutionDigest,
                     new CsEvalCompileResult(CsEvalCompileStatusValues.Failed, emitDiagnostics),
                     durationMilliseconds: null,
@@ -87,8 +102,13 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 return Task.FromResult(CreateInvalidArgumentFailure(operation, emitError, emitResult));
             }
 
+            if (compilation.EntryPointName == null)
+            {
+                return Task.FromResult(CreateInvalidArgumentFailure(operation, "C# eval source did not resolve an entry point.", compilation.CreatePlanResult()));
+            }
+
             var assembly = Assembly.Load(assemblyBytes);
-            if (!entryPointResolver.TryResolve(assembly, args.EntryPoint, out var method, out var entryPointError))
+            if (!entryPointResolver.TryResolve(assembly, compilation.EntryPointName.Value, out var method, out var entryPointError))
             {
                 return Task.FromResult(CreateInvalidArgumentFailure(operation, entryPointError, compilation.CreatePlanResult()));
             }
@@ -159,10 +179,20 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 "Compiles and executes a C# source unit in the Unity editor process as a dangerous eval operation.",
                 assurance);
             describe.CodeContract = UcliOperationCodeContractBuilder.CreateCSharp(
-                "public static object? Run(UcliCsEvalContext context)",
+                CsEvalEntryPointName.RequiredSignature,
+                CsEvalEntryPointName.MatchRule,
                 requiredStatic: true,
                 new[] { typeof(UcliCsEvalContext) },
-                "Return null or a JSON-serializable object value. Task, Task<T>, ValueTask, and ValueTask<T> are rejected.",
+                "Return null or a JSON-serializable object value; a snippet without return yields null. DTO and anonymous object serialization may execute public getters. Task, Task<T>, ValueTask, and ValueTask<T> are rejected.",
+                new[]
+                {
+                    new UcliCodeSourceFormContract(
+                        CsEvalSourceKindValues.CompilationUnit,
+                        "Complete C# compilation unit containing using directives, namespace or type declarations, and exactly one public static object? Run(UcliCsEvalContext context) method."),
+                    new UcliCodeSourceFormContract(
+                        CsEvalSourceKindValues.Snippet,
+                        "Run method body snippet. Leading using directives, statements, explicit return, no return, and one expression are accepted; snippets without return produce null."),
+                },
                 new[] { typeof(UcliCsEvalContext) });
 
             return UcliOperationMetadata.Create<CsEvalArgs, CsEvalResult>(
@@ -182,7 +212,8 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         {
             return new CsEvalResult(
                 compilation.SourceDigest,
-                compilation.EntryPoint,
+                compilation.SourceKind,
+                compilation.ResolvedEntryPoint,
                 compilation.ExecutionDigest,
                 compilation.Compile,
                 durationMilliseconds,
@@ -205,7 +236,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     changed: changed,
                     touched: touched,
                     result: IpcPayloadCodec.SerializeToElement(CreateCallResult(compilation, durationMilliseconds, context, returnValue, touchedResources)))
-                .WithReadInvalidations(CreateReadInvalidations(touchedResources, touched));
+                .WithReadInvalidations(CreateReadInvalidations());
         }
 
         private static OperationPhaseStepResult CreateInvalidArgumentFailure (
@@ -240,7 +271,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     changed: changed,
                     touched: touched,
                     result: IpcPayloadCodec.SerializeToElement(CreateCallResult(compilation, durationMilliseconds, context, returnValue: null, touchedResources)))
-                .WithReadInvalidations(CreateReadInvalidations(touchedResources, touched));
+                .WithReadInvalidations(CreateReadInvalidations());
         }
 
         private static bool IsChanged (CsEvalTouchedResources touchedResources)
@@ -248,16 +279,9 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             return !string.Equals(touchedResources.State, CsEvalTouchedResourceStateValues.None, StringComparison.Ordinal);
         }
 
-        private static IReadOnlyList<OperationReadInvalidation> CreateReadInvalidations (
-            CsEvalTouchedResources touchedResources,
-            IReadOnlyList<OperationTouch> touched)
+        private static IReadOnlyList<OperationReadInvalidation> CreateReadInvalidations ()
         {
-            if (string.Equals(touchedResources.State, CsEvalTouchedResourceStateValues.Unknown, StringComparison.Ordinal))
-            {
-                return OperationReadInvalidationUtilities.CreateUnknownMutation();
-            }
-
-            return OperationReadInvalidationUtilities.CreateForExplicitTouches(touched);
+            return OperationReadInvalidationUtilities.CreateUnknownMutation();
         }
     }
 }

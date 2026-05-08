@@ -8,14 +8,21 @@ public static class UcliOperationCodeContractBuilder
     /// <summary> Creates one C# code contract. </summary>
     public static UcliOperationCodeContract CreateCSharp (
         string entryPointSignature,
+        string entryPointMatchRule,
         bool requiredStatic,
         IReadOnlyList<Type> parameterTypes,
         string returnValue,
+        IReadOnlyList<UcliCodeSourceFormContract> sourceForms,
         IReadOnlyList<Type> apiTypes)
     {
         if (string.IsNullOrWhiteSpace(entryPointSignature))
         {
             throw new ArgumentException("Entry point signature must not be empty.", nameof(entryPointSignature));
+        }
+
+        if (string.IsNullOrWhiteSpace(entryPointMatchRule))
+        {
+            throw new ArgumentException("Entry point match rule must not be empty.", nameof(entryPointMatchRule));
         }
 
         if (parameterTypes == null)
@@ -31,6 +38,30 @@ public static class UcliOperationCodeContractBuilder
         if (apiTypes == null)
         {
             throw new ArgumentNullException(nameof(apiTypes));
+        }
+
+        if (sourceForms == null)
+        {
+            throw new ArgumentNullException(nameof(sourceForms));
+        }
+
+        if (sourceForms.Count == 0)
+        {
+            throw new ArgumentException("Source forms must not be empty.", nameof(sourceForms));
+        }
+
+        var sourceFormContracts = new UcliCodeSourceFormContract[sourceForms.Count];
+        for (var i = 0; i < sourceForms.Count; i++)
+        {
+            var sourceForm = sourceForms[i];
+            if (sourceForm == null
+                || string.IsNullOrWhiteSpace(sourceForm.Kind)
+                || string.IsNullOrWhiteSpace(sourceForm.Description))
+            {
+                throw new ArgumentException("Source form kind and description must not be empty.", nameof(sourceForms));
+            }
+
+            sourceFormContracts[i] = new UcliCodeSourceFormContract(sourceForm.Kind, sourceForm.Description);
         }
 
         var parameterTypeNames = new string[parameterTypes.Count];
@@ -49,9 +80,11 @@ public static class UcliOperationCodeContractBuilder
             "csharp",
             new UcliCodeEntryPointContract(
                 entryPointSignature,
+                entryPointMatchRule,
                 requiredStatic,
                 parameterTypeNames,
                 returnValue),
+            sourceFormContracts,
             apiTypeContracts);
     }
 

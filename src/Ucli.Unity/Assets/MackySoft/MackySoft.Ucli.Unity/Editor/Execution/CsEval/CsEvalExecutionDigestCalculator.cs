@@ -11,7 +11,8 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
     {
         public static string Compute (
             string sourceDigest,
-            string entryPoint,
+            string sourceKind,
+            string wrapperVersion,
             string referenceIdentity)
         {
             var roslynVersion = typeof(CSharpCompilation).Assembly.GetName().Version?.ToString() ?? "unknown";
@@ -19,7 +20,9 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 "\n",
                 "ucli.cs.eval",
                 sourceDigest,
-                entryPoint,
+                sourceKind,
+                wrapperVersion,
+                CsEvalEntryPointName.RequiredSignature,
                 roslynVersion,
                 referenceIdentity);
             return Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(digestInput));

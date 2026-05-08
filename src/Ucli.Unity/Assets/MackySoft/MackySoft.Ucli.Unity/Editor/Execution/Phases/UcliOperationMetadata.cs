@@ -367,6 +367,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return new UcliOperationCodeContract(
                 source.Language,
                 CopyCodeEntryPoint(source.EntryPoint),
+                CopyCodeSourceForms(source.SourceForms),
                 CopyCodeApiTypes(source.ApiTypes));
         }
 
@@ -379,9 +380,28 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             return new UcliCodeEntryPointContract(
                 source.Signature,
+                source.MatchRule,
                 source.RequiredStatic,
                 CopyStrings(source.ParameterTypes),
                 source.ReturnValue);
+        }
+
+        private static IReadOnlyList<UcliCodeSourceFormContract>? CopyCodeSourceForms (IReadOnlyList<UcliCodeSourceFormContract>? source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            var result = new UcliCodeSourceFormContract[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                result[i] = new UcliCodeSourceFormContract(
+                    source[i].Kind,
+                    source[i].Description);
+            }
+
+            return result;
         }
 
         private static IReadOnlyList<UcliCodeApiTypeContract>? CopyCodeApiTypes (IReadOnlyList<UcliCodeApiTypeContract>? source)

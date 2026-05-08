@@ -146,9 +146,14 @@ public sealed class IndexCatalogContractValidatorTests
                 "csharp",
                 new UcliCodeEntryPointContract(
                     "public static object? Run(UcliCsEvalContext context)",
+                    "Compiled source must contain exactly one matching Run method.",
                     requiredStatic: true,
                     new[] { "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext" },
                     "JSON-serializable value."),
+                new[]
+                {
+                    new UcliCodeSourceFormContract(CsEvalSourceKindValues.CompilationUnit, "Complete C# compilation unit."),
+                },
                 new[]
                 {
                     new UcliCodeApiTypeContract(

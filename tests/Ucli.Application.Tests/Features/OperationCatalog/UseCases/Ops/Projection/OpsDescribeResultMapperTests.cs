@@ -56,6 +56,8 @@ public sealed class OpsDescribeResultMapperTests
         Assert.NotNull(result.Output!.Operation.CodeContract);
         Assert.Equal("csharp", result.Output.Operation.CodeContract!.Language);
         Assert.Equal("public static object? Run(UcliCsEvalContext context)", result.Output.Operation.CodeContract.EntryPoint!.Signature);
+        Assert.Equal("Compiled source must contain exactly one matching Run method.", result.Output.Operation.CodeContract.EntryPoint.MatchRule);
+        Assert.Equal(new[] { CsEvalSourceKindValues.CompilationUnit, CsEvalSourceKindValues.Snippet }, result.Output.Operation.CodeContract.SourceForms!.Select(static form => form.Kind));
         Assert.Equal("MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext", Assert.Single(result.Output.Operation.CodeContract.ApiTypes!).FullName);
     }
 
@@ -279,9 +281,15 @@ public sealed class OpsDescribeResultMapperTests
             "csharp",
             new UcliCodeEntryPointContract(
                 "public static object? Run(UcliCsEvalContext context)",
+                "Compiled source must contain exactly one matching Run method.",
                 requiredStatic: true,
                 new[] { "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext" },
                 "JSON-serializable value."),
+            new[]
+            {
+                new UcliCodeSourceFormContract(CsEvalSourceKindValues.CompilationUnit, "Complete C# compilation unit."),
+                new UcliCodeSourceFormContract(CsEvalSourceKindValues.Snippet, "Run method body snippet."),
+            },
             new[]
             {
                 new UcliCodeApiTypeContract(

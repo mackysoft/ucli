@@ -740,9 +740,15 @@ public sealed class IndexJsonContractTests
                         "csharp",
                         new UcliCodeEntryPointContract(
                             "public static object? Run(UcliCsEvalContext context)",
+                            "Compiled source must contain exactly one matching Run method.",
                             requiredStatic: true,
                             new[] { "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext" },
                             "JSON-serializable value."),
+                        new[]
+                        {
+                            new UcliCodeSourceFormContract(CsEvalSourceKindValues.CompilationUnit, "Complete C# compilation unit."),
+                            new UcliCodeSourceFormContract(CsEvalSourceKindValues.Snippet, "Run method body snippet."),
+                        },
                         new[]
                         {
                             new UcliCodeApiTypeContract(
@@ -852,12 +858,23 @@ public sealed class IndexJsonContractTests
                         "language": "csharp",
                         "entryPoint": {
                           "signature": "public static object? Run(UcliCsEvalContext context)",
+                          "matchRule": "Compiled source must contain exactly one matching Run method.",
                           "requiredStatic": true,
                           "parameterTypes": [
                             "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext"
                           ],
                           "returnValue": "JSON-serializable value."
                         },
+                        "sourceForms": [
+                          {
+                            "kind": "compilationUnit",
+                            "description": "Complete C# compilation unit."
+                          },
+                          {
+                            "kind": "snippet",
+                            "description": "Run method body snippet."
+                          }
+                        ],
                         "apiTypes": [
                           {
                             "name": "UcliCsEvalContext",

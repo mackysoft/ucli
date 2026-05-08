@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Project;
 
@@ -22,6 +23,10 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         private readonly List<CsEvalTouchedResourceDeclaration> touchedResources = new List<CsEvalTouchedResourceDeclaration>();
 
         private bool declaredNoTouchedResources;
+
+        private bool logsTruncated;
+
+        private bool touchedResourcesTruncated;
 
         /// <summary> Records an informational eval log entry. </summary>
         /// <param name="message"> The log message text. </param>
@@ -112,6 +117,8 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         internal IReadOnlyList<CsEvalTouchedResourceDeclaration> TouchedResources => touchedResources;
 
+        internal bool TouchedResourcesTruncated => touchedResourcesTruncated;
+
         private void AddLog (
             string level,
             string message)
@@ -121,7 +128,13 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 throw new ArgumentException("Log message must not be empty.", nameof(message));
             }
 
-            logs.Add(new CsEvalLogEntry(level, message));
+            if (logs.Count >= CsEvalSafetyLimits.MaxLogEntries)
+            {
+                SetLogsTruncated();
+                return;
+            }
+
+            logs.Add(new CsEvalLogEntry(level, LimitUtf8(message, CsEvalSafetyLimits.MaxLogMessageBytes)));
         }
 
         private static string NormalizeDeclaredPath (
@@ -179,7 +192,70 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 throw new InvalidOperationException("Touched resources cannot be declared after DeclareNoTouchedResources.");
             }
 
+            if (touchedResources.Count >= CsEvalSafetyLimits.MaxTouchedResources)
+            {
+                touchedResourcesTruncated = true;
+                AddSystemWarning("C# eval touched resource declarations were truncated.");
+                return;
+            }
+
             touchedResources.Add(new CsEvalTouchedResourceDeclaration(kind, path));
+        }
+
+        private void AddSystemWarning (string message)
+        {
+            if (logs.Count >= CsEvalSafetyLimits.MaxLogEntries)
+            {
+                SetLogsTruncated();
+                return;
+            }
+
+            logs.Add(new CsEvalLogEntry(CsEvalLogLevelValues.Warning, message));
+        }
+
+        private void SetLogsTruncated ()
+        {
+            if (logsTruncated)
+            {
+                return;
+            }
+
+            logsTruncated = true;
+            var warning = new CsEvalLogEntry(CsEvalLogLevelValues.Warning, "C# eval logs were truncated.");
+            if (logs.Count == 0)
+            {
+                logs.Add(warning);
+                return;
+            }
+
+            logs[logs.Count - 1] = warning;
+        }
+
+        private static string LimitUtf8 (
+            string value,
+            int maxBytes)
+        {
+            if (Encoding.UTF8.GetByteCount(value) <= maxBytes)
+            {
+                return value;
+            }
+
+            var builder = new StringBuilder(value.Length);
+            var bytes = 0;
+            for (var i = 0; i < value.Length; i++)
+            {
+                var characterBytes = Encoding.UTF8.GetByteCount(value.Substring(i, 1));
+                if (bytes + characterBytes > maxBytes)
+                {
+                    break;
+                }
+
+                builder.Append(value[i]);
+                bytes += characterBytes;
+            }
+
+            builder.Append("...");
+            return builder.ToString();
         }
     }
 }
