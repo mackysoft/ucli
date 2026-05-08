@@ -62,7 +62,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var compilation = compilationService.CompileAndValidate(args.Source);
+            var compilation = compilationService.CompileAndValidate(args.Source, cancellationToken);
             if (!compilation.IsSuccess)
             {
                 return Task.FromResult(CreateInvalidArgumentFailure(operation, compilation.FailureMessage!, compilation.CreatePlanResult()));
@@ -81,13 +81,14 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var compilation = compilationService.CompileAndValidate(args.Source);
+            var compilation = compilationService.CompileAndValidate(args.Source, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             if (!compilation.IsSuccess)
             {
                 return Task.FromResult(CreateInvalidArgumentFailure(operation, compilation.FailureMessage!, compilation.CreatePlanResult()));
             }
 
-            if (!compilationService.TryEmitAssembly(compilation.Compilation, out var assemblyBytes, out var emitDiagnostics, out var emitError))
+            if (!compilationService.TryEmitAssembly(compilation.Compilation, cancellationToken, out var assemblyBytes, out var emitDiagnostics, out var emitError))
             {
                 var emitResult = new CsEvalResult(
                     compilation.SourceDigest,
@@ -107,12 +108,15 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 return Task.FromResult(CreateInvalidArgumentFailure(operation, "C# eval source did not resolve an entry point.", compilation.CreatePlanResult()));
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             var assembly = Assembly.Load(assemblyBytes);
+            cancellationToken.ThrowIfCancellationRequested();
             if (!entryPointResolver.TryResolve(assembly, compilation.EntryPointName.Value, out var method, out var entryPointError))
             {
                 return Task.FromResult(CreateInvalidArgumentFailure(operation, entryPointError, compilation.CreatePlanResult()));
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             var context = new UcliCsEvalContext();
             var stopwatch = Stopwatch.StartNew();
             object? returnObject;

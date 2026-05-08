@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Cryptography;
 using Microsoft.CodeAnalysis;
@@ -41,8 +42,11 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             this.sourcePreparer = sourcePreparer ?? throw new ArgumentNullException(nameof(sourcePreparer));
         }
 
-        public CsEvalCompilationResult CompileAndValidate (string source)
+        public CsEvalCompilationResult CompileAndValidate (
+            string source,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var sourceDigest = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(source));
             var references = referenceResolver.Resolve();
 
@@ -63,12 +67,12 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                         compilationUnitSource.SourceKind,
                         compilationUnitSource.WrapperVersion,
                         references.Identity),
-                    CreateCompilation(compilationUnitSource, references),
+                    CreateCompilation(compilationUnitSource, references, cancellationToken),
                     new[] { diagnostic },
                     diagnostic.Message);
             }
 
-            var compilationUnitResult = CompilePreparedSource(sourceDigest, references, compilationUnitSource);
+            var compilationUnitResult = CompilePreparedSource(sourceDigest, references, compilationUnitSource, cancellationToken);
             if (compilationUnitResult.IsSuccess)
             {
                 return compilationUnitResult;
@@ -79,21 +83,24 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 return compilationUnitResult;
             }
 
-            return CompilePreparedSource(sourceDigest, references, snippetSource);
+            return CompilePreparedSource(sourceDigest, references, snippetSource, cancellationToken);
         }
 
         private CsEvalCompilationResult CompilePreparedSource (
             string sourceDigest,
             CsEvalReferenceSet references,
-            CsEvalPreparedSource preparedSource)
+            CsEvalPreparedSource preparedSource,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var executionDigest = CsEvalExecutionDigestCalculator.Compute(
                 sourceDigest,
                 preparedSource.SourceKind,
                 preparedSource.WrapperVersion,
                 references.Identity);
-            var compilation = CreateCompilation(preparedSource, references);
-            var diagnostics = CsEvalDiagnosticMapper.Limit(compilation.GetDiagnostics()
+            var compilation = CreateCompilation(preparedSource, references, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            var diagnostics = CsEvalDiagnosticMapper.Limit(compilation.GetDiagnostics(cancellationToken)
                     .Where(static diagnostic => diagnostic.Severity != DiagnosticSeverity.Hidden)
                     .Select(CsEvalDiagnosticMapper.Map))
                 .ToList();
@@ -140,12 +147,15 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         private static CSharpCompilation CreateCompilation (
             CsEvalPreparedSource preparedSource,
-            CsEvalReferenceSet references)
+            CsEvalReferenceSet references,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var syntaxTree = CSharpSyntaxTree.ParseText(
                 SourceText.From(preparedSource.CompilationSource, Encoding.UTF8),
                 ParseOptions,
-                path: "ucli.cs.eval.cs");
+                path: "ucli.cs.eval.cs",
+                cancellationToken: cancellationToken);
             return CSharpCompilation.Create(
                 "UcliCsEval_" + Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(preparedSource.CompilationSource)).Substring(0, 12),
                 new[] { syntaxTree },
@@ -155,12 +165,14 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         public bool TryEmitAssembly (
             CSharpCompilation compilation,
+            CancellationToken cancellationToken,
             out byte[] assemblyBytes,
             out IReadOnlyList<CsEvalDiagnostic> diagnostics,
             out string errorMessage)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             using var stream = new System.IO.MemoryStream();
-            EmitResult emitResult = compilation.Emit(stream);
+            EmitResult emitResult = compilation.Emit(stream, cancellationToken: cancellationToken);
             diagnostics = CsEvalDiagnosticMapper.Limit(emitResult.Diagnostics
                 .Where(static diagnostic => diagnostic.Severity != DiagnosticSeverity.Hidden)
                 .Select(CsEvalDiagnosticMapper.Map));
