@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -30,14 +31,40 @@ namespace MackySoft.Ucli.Unity.Ipc
             CancellationToken cancellationToken = default)
         {
             var result = await innerConnectionHandler.Handle(stream, cancellationToken);
-            if (result.Request != null
-                && result.Response != null
-                && !string.Equals(result.Request.Method, IpcMethodNames.Ping, StringComparison.Ordinal))
+            if (ShouldSignalCompletion(result))
             {
                 completionSignal.Signal();
             }
 
             return result;
+        }
+
+        private static bool ShouldSignalCompletion (UnityIpcConnectionHandleResult result)
+        {
+            return result.Request != null
+                && result.Response != null
+                && !string.Equals(result.Request.Method, IpcMethodNames.Ping, StringComparison.Ordinal)
+                && !HasPreDispatchFailure(result.Response);
+        }
+
+        private static bool HasPreDispatchFailure (IpcResponse response)
+        {
+            for (var i = 0; i < response.Errors.Count; i++)
+            {
+                if (IsPreDispatchErrorCode(response.Errors[i].Code))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsPreDispatchErrorCode (UcliErrorCode errorCode)
+        {
+            return errorCode == IpcSessionErrorCodes.SessionTokenRequired
+                || errorCode == IpcSessionErrorCodes.SessionTokenInvalid
+                || errorCode == IpcProtocolErrorCodes.ProtocolVersionMismatch;
         }
     }
 }

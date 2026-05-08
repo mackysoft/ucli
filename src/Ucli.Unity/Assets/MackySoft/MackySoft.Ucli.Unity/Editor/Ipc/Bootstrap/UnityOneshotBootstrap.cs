@@ -23,6 +23,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             try
             {
                 using var parentProcessWatcher = OneshotParentProcessWatcher.Start(bootstrapArguments.ParentProcessId);
+                using var deadlineWatcher = OneshotDeadlineWatcher.Start(bootstrapArguments.ExitDeadlineUtc);
                 var services = new ServiceCollection();
                 services.AddUnityIpcApplicationServices(
                     new ExactSessionTokenValidator(bootstrapArguments.SessionToken),
@@ -49,11 +50,20 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                     var requestCompletionTask = completionSignal.Wait(CancellationToken.None);
                     var serverTerminationTask = server.WaitForTermination(CancellationToken.None);
-                    var completedTask = await Task.WhenAny(requestCompletionTask, serverTerminationTask);
+                    var deadlineTask = deadlineWatcher.WaitAsync();
+                    var completedTask = await Task.WhenAny(requestCompletionTask, serverTerminationTask, deadlineTask);
                     if (ReferenceEquals(completedTask, serverTerminationTask))
                     {
                         await serverTerminationTask;
                         throw new InvalidOperationException("IPC server loop terminated before oneshot request completion was observed.");
+                    }
+
+                    if (ReferenceEquals(completedTask, deadlineTask))
+                    {
+                        await server.Stop(CancellationToken.None);
+                        parentProcessWatcher.Dispose();
+                        EditorApplication.Exit(1);
+                        return;
                     }
 
                     await requestCompletionTask;

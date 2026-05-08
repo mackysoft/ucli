@@ -16,7 +16,7 @@ internal static class IpcTimeoutDefaults
         (UcliCommandIds.Resolve, 10000),
         (UcliCommandIds.Query, 10000),
         (UcliCommandIds.Refresh, 120000),
-        (UcliCommandIds.Ops, 5000),
+        (UcliCommandIds.Ops, 120000),
         (UcliCommandIds.DaemonStart, 60000),
         (UcliCommandIds.DaemonStop, 10000),
         (UcliCommandIds.DaemonCleanup, 3000),

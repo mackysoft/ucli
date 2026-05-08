@@ -31,6 +31,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(bootstrapArguments, Is.TypeOf<IpcOneshotBootstrapArguments>());
             Assert.That(((IpcOneshotBootstrapArguments)bootstrapArguments).ParentProcessId, Is.EqualTo(123));
             Assert.That(((IpcOneshotBootstrapArguments)bootstrapArguments).SessionToken, Is.EqualTo("oneshot-token"));
+            Assert.That(((IpcOneshotBootstrapArguments)bootstrapArguments).ExitDeadlineUtc, Is.EqualTo(new System.DateTimeOffset(2026, 03, 09, 0, 0, 0, System.TimeSpan.Zero)));
             Assert.That(((IpcOneshotBootstrapArguments)bootstrapArguments).EndpointTransportKind, Is.EqualTo("unixDomainSocket"));
             Assert.That(((IpcOneshotBootstrapArguments)bootstrapArguments).EndpointAddress, Is.EqualTo("/tmp/ucli.sock"));
         }
@@ -82,6 +83,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new IpcOneshotBootstrapArguments(
                     123,
                     "oneshot-token",
+                    new System.DateTimeOffset(2026, 03, 09, 0, 0, 0, System.TimeSpan.Zero),
                     "unixDomainSocket",
                     "/tmp/ucli.sock"));
             return args;

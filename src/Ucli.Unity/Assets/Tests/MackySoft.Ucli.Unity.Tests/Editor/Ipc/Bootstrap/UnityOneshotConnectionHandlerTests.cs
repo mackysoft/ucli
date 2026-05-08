@@ -1,11 +1,11 @@
 using System;
-using MackySoft.Ucli.Contracts;
 using System.Collections;
 using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
@@ -51,19 +51,27 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Handle_WhenShutdownRequestHandled_SignalsCompletion () => UniTask.ToCoroutine(async () =>
+        {
+            var completionSignal = new OneshotRequestCompletionSignal();
+            var request = CreateRequest(IpcMethodNames.Shutdown, JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")));
+            var handler = CreateHandler(request, CreateSuccessResponse(request.RequestId), completionSignal);
+
+            using var stream = await CreateStream(request);
+            var handledResult = await handler.Handle(stream, CancellationToken.None);
+
+            Assert.That(handledResult.Request, Is.Not.Null);
+            Assert.That(handledResult.Request.Method, Is.EqualTo(IpcMethodNames.Shutdown));
+            Assert.That(completionSignal.IsCompleted, Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Handle_WhenNonPingRequestReturnsError_SignalsCompletion () => UniTask.ToCoroutine(async () =>
         {
             var completionSignal = new OneshotRequestCompletionSignal();
             var request = CreateRequest(IpcMethodNames.OpsRead, JsonSerializer.SerializeToElement(new IpcOpsReadRequest()));
-            var errorResponse = new IpcResponse(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: request.RequestId,
-                Status: IpcProtocol.StatusError,
-                Payload: JsonSerializer.SerializeToElement(new { }),
-                Errors: new[]
-                {
-                    new IpcError(UcliCoreErrorCodes.InvalidArgument, "invalid", null),
-                });
+            var errorResponse = CreateErrorResponse(request.RequestId, UcliCoreErrorCodes.InvalidArgument);
             var handler = CreateHandler(request, errorResponse, completionSignal);
 
             using var stream = await CreateStream(request);
@@ -72,6 +80,38 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(handledResult.Request, Is.Not.Null);
             Assert.That(handledResult.Request.Method, Is.EqualTo(IpcMethodNames.OpsRead));
             Assert.That(completionSignal.IsCompleted, Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Handle_WhenSessionTokenFailureHandled_DoesNotSignalCompletion () => UniTask.ToCoroutine(async () =>
+        {
+            var completionSignal = new OneshotRequestCompletionSignal();
+            var request = CreateRequest(IpcMethodNames.OpsRead, JsonSerializer.SerializeToElement(new IpcOpsReadRequest()));
+            var handler = CreateHandler(request, CreateErrorResponse(request.RequestId, IpcSessionErrorCodes.SessionTokenInvalid), completionSignal);
+
+            using var stream = await CreateStream(request);
+            var handledResult = await handler.Handle(stream, CancellationToken.None);
+
+            Assert.That(handledResult.Request, Is.Not.Null);
+            Assert.That(handledResult.Request.Method, Is.EqualTo(IpcMethodNames.OpsRead));
+            Assert.That(completionSignal.IsCompleted, Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Handle_WhenProtocolMismatchHandled_DoesNotSignalCompletion () => UniTask.ToCoroutine(async () =>
+        {
+            var completionSignal = new OneshotRequestCompletionSignal();
+            var request = CreateRequest(IpcMethodNames.OpsRead, JsonSerializer.SerializeToElement(new IpcOpsReadRequest()));
+            var handler = CreateHandler(request, CreateErrorResponse(request.RequestId, IpcProtocolErrorCodes.ProtocolVersionMismatch), completionSignal);
+
+            using var stream = await CreateStream(request);
+            var handledResult = await handler.Handle(stream, CancellationToken.None);
+
+            Assert.That(handledResult.Request, Is.Not.Null);
+            Assert.That(handledResult.Request.Method, Is.EqualTo(IpcMethodNames.OpsRead));
+            Assert.That(completionSignal.IsCompleted, Is.False);
         });
 
         private static UnityOneshotConnectionHandler CreateHandler (
@@ -143,6 +183,21 @@ namespace MackySoft.Ucli.Unity.Tests
                 Status: IpcProtocol.StatusOk,
                 Payload: JsonSerializer.SerializeToElement(new { ok = true }),
                 Errors: System.Array.Empty<IpcError>());
+        }
+
+        private static IpcResponse CreateErrorResponse (
+            string requestId,
+            UcliErrorCode errorCode)
+        {
+            return new IpcResponse(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: requestId,
+                Status: IpcProtocol.StatusError,
+                Payload: JsonSerializer.SerializeToElement(new { }),
+                Errors: new[]
+                {
+                    new IpcError(errorCode, "error", null),
+                });
         }
 
         private sealed class StubDaemonShutdownSignal : IDaemonShutdownSignal
