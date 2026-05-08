@@ -118,7 +118,7 @@ public raw `op` の `args` では request-local alias selector branch の `var` 
 
 ### 代表例: `ucli.cs.eval`
 
-`ucli.cs.eval` は `operationPolicy = dangerous`、operation allowlist 一致、`ucli call --allowDangerous` の全条件を満たす場合だけ `call` できる。利用者は `ucli ops list` で operation と policy を確認し、`ucli ops describe ucli.cs.eval` の `codeContract` で entry point と `UcliCsEvalContext` API を確認する。
+`ucli.cs.eval` は `operationPolicy = dangerous`、operation allowlist 一致、`ucli call --allowDangerous` の全条件を満たす場合だけ `call` できる。利用者は `ucli ops list` で operation と policy を確認し、`ucli ops describe ucli.cs.eval` の `codeContract` で source forms、entry point、`UcliCsEvalContext` API を確認する。
 
 ```json
 {
@@ -126,18 +126,19 @@ public raw `op` の `args` では request-local alias selector branch の `var` 
   "id": "eval",
   "op": "ucli.cs.eval",
   "args": {
-    "source": "using MackySoft.Ucli.Unity.Execution.CsEval; namespace Scratch { public static class Entry { public static object? Run(UcliCsEvalContext context) { context.Log(\"checked\"); context.DeclareNoTouchedResources(); return new { ok = true }; } } }",
-    "entryPoint": "Scratch.Entry.Run"
+    "source": "context.Log(\"checked\"); context.DeclareNoTouchedResources(); return new { ok = true };"
   }
 }
 ```
 
-- `source` は `using`、`namespace`、`class`、entry point method を含む完全な C# コンパイル単位である
-- `entryPoint` の method 名は `Run` に限り、entry point は `public static object? Run(UcliCsEvalContext context)` の同期メソッドだけを許可する
+- `source` は完全な C# コンパイル単位、または `Run` method body だけを書く snippet のどちらかである
+- eval source は nullable annotations 有効としてコンパイルされるため、必須シグネチャの `object?` のためだけに `#nullable enable` を書く必要はない
+- 完全なコンパイル単位では source 内の `public static object? Run(UcliCsEvalContext context)` に一致するメソッドを自動解決する。一致数が 1 件以外の場合は失敗する
+- snippet は先頭の `using`、statement、明示 `return`、返り値なし、単一 expression を受け付ける。返り値なし snippet は `result.returnValue.kind = "null"` になる
 - `plan` は任意コードを実行せず、compile status と diagnostics を返す
-- `call` の `opResults[].result` は `CsEvalResult` で、利用者コードの戻り値は `result.returnValue` に JSON 値として格納される
+- `call` の `opResults[].result` は `CsEvalResult` で、使用された source form は `result.sourceKind`、解決済み entry point は `result.resolvedEntryPoint`、利用者コードの戻り値は `result.returnValue` に格納される
 - `UcliCsEvalContext` の touched resource 宣言は project-relative path だけを受け付ける。Scene は `.unity`、Prefab は `.prefab`、ProjectSettings は `ProjectSettings/` 配下を宣言する。`.unity` と `.prefab` は `DeclareTouchedAsset` ではなく専用 API で宣言する
-- touched resource を宣言しない `call` は `touchedResources.state = "unknown"` になり、project-wide asset search / guid path と全 Scene の scene tree read index を stale として扱う
+- touched resource 宣言は監査情報である。`call` 後の read index invalidation は宣言内容に関係なく安全側に倒して扱う
 - timeout / cancel は同期 entry point 実行中の使用者コードを強制停止しない
 
 ## `kind: "edit"` の仕様

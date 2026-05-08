@@ -458,6 +458,7 @@ kind ごとの parameter 規則:
 | --- | --- | --- | --- |
 | `language` | string | yes | source language。`ucli.cs.eval` は `csharp` |
 | `entryPoint` | object | yes | 利用者 source に必要な entry point。shape は `payload.operation.codeContract.entryPoint` を参照 |
+| `sourceForms` | array | yes | 受け付ける source form。shape は `payload.operation.codeContract.sourceForms[]` を参照 |
 | `apiTypes` | array | yes | uCLI が利用者 source 向けに公開した API 型。shape は `payload.operation.codeContract.apiTypes[]` を参照 |
 
 `apiTypes` の説明は対象 API の `[UcliDescription]` から生成する。説明を持たない public member または parameter がある API 型は `codeContract` 生成に失敗する。
@@ -467,9 +468,17 @@ kind ごとの parameter 規則:
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
 | `signature` | string | yes | source に実装する entry point の C# 署名 |
+| `matchRule` | string | yes | source 内から entry point を選択する規則 |
 | `requiredStatic` | boolean | yes | entry point が `static` でなければならないか |
 | `parameterTypes` | string[] | yes | entry point parameter の完全修飾型名 |
 | `returnValue` | string | yes | 戻り値制約 |
+
+#### `ucli ops describe payload.operation.codeContract.sourceForms[]`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `kind` | string | yes | source form 名。`ucli.cs.eval` は `compilationUnit` または `snippet` |
+| `description` | string | yes | source form の書き方と制約 |
 
 #### `ucli ops describe payload.operation.codeContract.apiTypes[]`
 

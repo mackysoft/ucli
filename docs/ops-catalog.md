@@ -79,14 +79,17 @@ Unity 生成 -> 契約検証 -> source snapshot -> best-effort 永続化 -> pers
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `ucli.cs.eval` | mutation | dangerous | v1.0 | C# source を Unity Editor process 内で Roslyn によりインメモリコンパイルし、同期 entry point を呼び出す。 | `CsEvalArgs` | `CsEvalResult` | compile 情報、digest、call 時のログ、戻り値、touched resource 宣言 |
 
-- `args.source` は `using`、`namespace`、`class`、entry point method を含む完全な C# コンパイル単位である
-- `args.entryPoint` は `Namespace.Type.Method` 形式で、method 名は `Run` に限る。entry point は `public static object? Run(UcliCsEvalContext context)` の同期メソッドだけを許可する
+- `args.source` は完全な C# コンパイル単位、または `Run` method body だけを書く snippet のどちらかである
+- 完全なコンパイル単位では source 内の `public static object? Run(UcliCsEvalContext context)` に一致するメソッドを自動解決する。一致数が 1 件以外の場合は失敗する
+- snippet は先頭の `using`、statement、明示 `return`、返り値なし、単一 expression を受け付ける。返り値なし snippet は `returnValue.kind = "null"` になる
 - `Task` / `Task<T>` / `ValueTask` / `ValueTask<T>`、`object?` 以外の戻り値、インスタンスメソッド、引数なしメソッド、JSON 化できない戻り値は失敗する
 - `plan` は source をコンパイル・検証するだけで entry point を呼び出さない
 - `call` は直前に plan 相当の検証を再実行し、成功した場合だけ entry point を呼び出す
-- touched resource を宣言しない `call` は `touchedResources.state = "unknown"` になり、project-wide asset search / guid path と全 Scene の scene tree read index を stale として扱う
+- `CsEvalResult.sourceKind` は `compilationUnit` または `snippet` を返す
+- `CsEvalResult.resolvedEntryPoint` は一意解決された entry point を監査用に返す。解決できない場合は省略される
+- touched resource 宣言は監査情報である。`call` 後の read index invalidation は宣言内容に関係なく安全側に倒して扱う
 - `call` の timeout / cancel は entry point 呼び出し前の検証と IPC 待機には作用するが、同期 entry point 実行中の使用者コードを強制停止しない
-- `codeContract` は uCLI が提供する Context 型、Context の public API、戻り値制約を構造化して返す。Unity API と project assembly は source から直接参照でき、`codeContract.apiTypes` は参照可能型の完全な allowlist ではない
+- `codeContract` は source forms、entry point、uCLI が提供する Context 型、Context の public API、戻り値制約を構造化して返す。Unity API と project assembly は source から直接参照でき、`codeContract.apiTypes` は参照可能型の完全な allowlist ではない
 
 ## go
 
