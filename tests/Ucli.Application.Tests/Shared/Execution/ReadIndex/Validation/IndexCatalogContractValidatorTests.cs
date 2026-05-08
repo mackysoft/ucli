@@ -137,6 +137,43 @@ public sealed class IndexCatalogContractValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IsValidOpsCatalog_ReturnsTrue_WhenDescribeContractHasCodeContract ()
+    {
+        var entry = CreateValidOpsEntry();
+        entry = entry with
+        {
+            CodeContract = new UcliOperationCodeContract(
+                "csharp",
+                new UcliCodeEntryPointContract(
+                    "public static object? Run(UcliCsEvalContext context)",
+                    requiredStatic: true,
+                    new[] { "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext" },
+                    "JSON-serializable value."),
+                new[]
+                {
+                    new UcliCodeApiTypeContract(
+                        "UcliCsEvalContext",
+                        "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext",
+                        "Execution context.",
+                        Array.Empty<UcliCodeApiMemberContract>()),
+                }),
+        };
+        var contract = new IndexOpsCatalogJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "source-hash",
+            Entries:
+            [
+                entry,
+            ]);
+
+        var result = IndexCatalogContractValidator.IsValidOpsCatalog(contract);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IsValidOpsCatalog_ReturnsFalse_WhenDescribeContractInputIsInvalid ()
     {
         var contract = new IndexOpsCatalogJsonContract(

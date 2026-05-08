@@ -736,6 +736,33 @@ public sealed class IndexJsonContractTests
                             IpcExecuteTouchedResourceKindNames.Asset,
                         ],
                         planMode: UcliOperationPlanModeValues.MayCreatePreviewState),
+                    CodeContract = new UcliOperationCodeContract(
+                        "csharp",
+                        new UcliCodeEntryPointContract(
+                            "public static object? Run(UcliCsEvalContext context)",
+                            requiredStatic: true,
+                            new[] { "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext" },
+                            "JSON-serializable value."),
+                        new[]
+                        {
+                            new UcliCodeApiTypeContract(
+                                "UcliCsEvalContext",
+                                "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext",
+                                "Execution context.",
+                                new[]
+                                {
+                                    new UcliCodeApiMemberContract(
+                                        UcliCodeApiMemberKindValues.Method,
+                                        "Log",
+                                        "Records an informational eval log entry.",
+                                        type: null,
+                                        returnType: "void",
+                                        parameters:
+                                        [
+                                            new UcliCodeApiParameterContract("message", "System.String", "Log message text."),
+                                        ]),
+                                }),
+                        }),
                 },
             ]);
 
@@ -820,6 +847,39 @@ public sealed class IndexJsonContractTests
                           "asset"
                         ],
                         "planMode": "mayCreatePreviewState"
+                      },
+                      "codeContract": {
+                        "language": "csharp",
+                        "entryPoint": {
+                          "signature": "public static object? Run(UcliCsEvalContext context)",
+                          "requiredStatic": true,
+                          "parameterTypes": [
+                            "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext"
+                          ],
+                          "returnValue": "JSON-serializable value."
+                        },
+                        "apiTypes": [
+                          {
+                            "name": "UcliCsEvalContext",
+                            "fullName": "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext",
+                            "description": "Execution context.",
+                            "members": [
+                              {
+                                "kind": "method",
+                                "name": "Log",
+                                "description": "Records an informational eval log entry.",
+                                "returnType": "void",
+                                "parameters": [
+                                  {
+                                    "name": "message",
+                                    "type": "System.String",
+                                    "description": "Log message text."
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
                       }
                     }
                   ]

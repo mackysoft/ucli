@@ -127,6 +127,7 @@ public sealed class OpsCommandTests
                         inputs: describe.Inputs!,
                         resultContract: describe.ResultContract!,
                         assurance: describe.Assurance!,
+                        codeContract: describe.CodeContract,
                         argsSchema: EmptySchema,
                         resultSchema: null),
                     ReadIndex: new ReadIndexInfo(

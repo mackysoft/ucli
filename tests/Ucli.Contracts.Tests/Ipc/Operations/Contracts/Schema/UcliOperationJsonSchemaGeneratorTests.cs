@@ -123,6 +123,34 @@ public sealed class UcliOperationJsonSchemaGeneratorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void CreateResultSchemaJson_WhenCsEvalResultContainsJsonAnyValue_EmitsStructuralResultSchema ()
+    {
+        var schemaJson = UcliOperationJsonSchemaGenerator.CreateResultSchemaJson(typeof(CsEvalResult));
+
+        using var document = JsonDocument.Parse(schemaJson!);
+        var root = document.RootElement;
+        Assert.Equal("object", root.GetProperty("type").GetString());
+        Assert.False(root.GetProperty("additionalProperties").GetBoolean());
+        Assert.Contains(root.GetProperty("required").EnumerateArray(), item => item.GetString() == "sourceDigest");
+        Assert.Contains(root.GetProperty("required").EnumerateArray(), item => item.GetString() == "compile");
+
+        var returnValueProperty = root
+            .GetProperty("properties")
+            .GetProperty("returnValue");
+
+        Assert.Equal("object", returnValueProperty.GetProperty("type").GetString());
+        Assert.False(returnValueProperty.GetProperty("additionalProperties").GetBoolean());
+
+        var serializedValueSchema = returnValueProperty
+            .GetProperty("properties")
+            .GetProperty("value");
+
+        Assert.Equal(JsonValueKind.Object, serializedValueSchema.ValueKind);
+        Assert.Empty(serializedValueSchema.EnumerateObject());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void FindMissingPropertyDescriptions_WhenDescriptionIsMissing_ReturnsJsonPropertyName ()
     {
         var missing = UcliOperationJsonSchemaGenerator.FindMissingPropertyDescriptions(typeof(MissingDescriptionArgs));

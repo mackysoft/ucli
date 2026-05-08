@@ -44,6 +44,30 @@ public sealed class OpsDescribeResultMapperTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Map_WhenCodeContractIsPresent_ReturnsCodeContract ()
+    {
+        var mapper = new OpsDescribeResultMapper(new OpsReadIndexInfoMapper());
+        var entry = CreateDescribedEntry(
+            name: UcliPrimitiveOperationNames.CsEval,
+            kind: "mutation",
+            policy: "dangerous",
+            argsSchemaJson: """{"type":"object"}""",
+            resultSchemaJson: """{"type":"object"}""") with
+        {
+            CodeContract = CreateCodeContract(),
+        };
+
+        var result = mapper.Map(CreateOutput(entry), UcliPrimitiveOperationNames.CsEval);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Output!.Operation.CodeContract);
+        Assert.Equal("csharp", result.Output.Operation.CodeContract!.Language);
+        Assert.Equal("public static object? Run(UcliCsEvalContext context)", result.Output.Operation.CodeContract.EntryPoint!.Signature);
+        Assert.Equal("MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext", Assert.Single(result.Output.Operation.CodeContract.ApiTypes!).FullName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Map_WhenOperationNameIsEmpty_ReturnsInvalidArgument ()
     {
         var mapper = new OpsDescribeResultMapper(new OpsReadIndexInfoMapper());
@@ -249,5 +273,36 @@ public sealed class OpsDescribeResultMapperTests
             ResultContract = describe.ResultContract,
             Assurance = describe.Assurance,
         };
+    }
+
+    private static UcliOperationCodeContract CreateCodeContract ()
+    {
+        return new UcliOperationCodeContract(
+            "csharp",
+            new UcliCodeEntryPointContract(
+                "public static object? Run(UcliCsEvalContext context)",
+                requiredStatic: true,
+                new[] { "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext" },
+                "JSON-serializable value."),
+            new[]
+            {
+                new UcliCodeApiTypeContract(
+                    "UcliCsEvalContext",
+                    "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext",
+                    "Execution context.",
+                    new[]
+                    {
+                        new UcliCodeApiMemberContract(
+                            UcliCodeApiMemberKindValues.Method,
+                            "Log",
+                            "Records an informational eval log entry.",
+                            type: null,
+                            returnType: "void",
+                            parameters:
+                            [
+                                new UcliCodeApiParameterContract("message", "System.String", "Log message text."),
+                            ]),
+                    }),
+            });
     }
 }
