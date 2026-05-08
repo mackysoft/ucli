@@ -17,6 +17,19 @@
 - [package-operations.md](package-operations.md)：契約パッケージと Unity 側依存復元の運用手順
 - [uCLI-skills.md](uCLI-skills.md)：agent 向け公式 SKILL の仕様、生成方針、責務境界、配布運用
 
+## 契約正本と検証境界
+
+| 対象 | 正本 | 説明・補助 | 検証 |
+| --- | --- | --- | --- |
+| CLI command set | `UcliCommandCatalog` と help output | [uCLI-command-reference.md](uCLI-command-reference.md) | CLI host の登録結果と help output の一致確認 |
+| 公開 CLI JSON 出力 | 専用 JSON writer、command output DTO、Golden files | [uCLI-property-reference.md](uCLI-property-reference.md) | CLI output contract tests と Golden files |
+| JSON request 入力 | [json-request-spec.md](json-request-spec.md) | [uCLI-command-reference.md](uCLI-command-reference.md) の実行例 | request contract tests と static validation tests |
+| operation args / result / metadata | `Ucli.Contracts` の Args / Result contract 型、contract 属性、`UcliOperationMetadata`、`ucli ops describe` | [ops-catalog.md](ops-catalog.md) | `ucli ops describe` contract tests、operation schema / validator tests、Unity operation authoring tests |
+| package metadata | `Directory.Build.props`、package 固有 `.csproj`、Unity nuspec | [package-operations.md](package-operations.md) | package metadata の評価テストと package verify scripts |
+| 公式 SKILL / README / help | 正本ではなく利用者向け導線 | [uCLI-skills.md](uCLI-skills.md) | SKILL tests、CLI package tests、help registration tests |
+
+README、help、SKILL、補助 catalog には、公開 operation contract や command reference の詳細を複製しない。仕様変更時は正本を更新し、必要な Golden files、contract tests、補助文書を同じ変更単位で揃える。
+
 ## コンセプト
 **安全にUnityを編集できるCLIツール。**
 - Unityを **ヘッドレス（batchmode）** で起動して実行できる（oneshot）
@@ -119,7 +132,7 @@ Project context resolution 由来の入力不正は、公開 CLI JSON の envelo
 - 進行ログと診断ログは `stderr` に出力する
 - `request-response` 型の公開 CLI JSON 出力は、共通の CLI エンベロープを返す
 - `protocolVersion` は `request-response` 型の公開 CLI JSON 出力、CLI が生成する内部 execute request、内部 IPC 応答で必須とする。ユーザー入力 JSON リクエストには含めない
-- 現在の公開 CLI host が登録している command は `init`、`status`、`refresh`、`resolve`、`query`、`validate`、`plan`、`call`、`daemon`、`logs`、`ops`、`test` である
+- 現在の公開 CLI host が登録している command は `init`、`status`、`refresh`、`resolve`、`query`、`validate`、`plan`、`call`、`daemon`、`logs`、`ops`、`skills`、`test` である
 - 内部 execute request では、リクエストにも `protocolVersion` を必須とする
 - 互換性判定は `protocolVersion` で行う
 - ただし、CLIフレームワーク（ConsoleAppFramework）の既定経路（`--help` / `help` / `--version` など）は、既定のテキスト出力を返す。これらは本JSON契約の適用対象外とする
