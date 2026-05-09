@@ -139,12 +139,12 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(5432, diagnosisStore.LastDiagnosis.ProcessId);
         Assert.Equal(processStartedAtUtc, diagnosisStore.LastDiagnosis.ProcessStartedAtUtc);
         Assert.Equal(
-            Path.Combine("/tmp/repo-root", ".ucli", "local", "fingerprints", context.ProjectFingerprint, "unity.log"),
+            Path.GetFullPath(Path.Combine("/tmp/repo-root", ".ucli", "local", "fingerprints", context.ProjectFingerprint, "unity.log")),
             diagnosisStore.LastDiagnosis.UnityLogPath);
         Assert.Equal(DaemonDiagnosisStartupPhaseValues.EndpointRegistration, diagnosisStore.LastDiagnosis.StartupPhase);
         Assert.Equal(DaemonDiagnosisActionRequiredValues.InspectUnityLog, diagnosisStore.LastDiagnosis.ActionRequired);
         Assert.Equal(
-            Path.Combine("/tmp/unity-project", "Library", "EditorInstance.json"),
+            Path.GetFullPath(Path.Combine("/tmp/unity-project", "Library", "EditorInstance.json")),
             diagnosisStore.LastDiagnosis.EditorInstancePath);
         Assert.Equal(1, compensationService.CallCount);
         Assert.Equal(5432, compensationService.LastProcessId);
