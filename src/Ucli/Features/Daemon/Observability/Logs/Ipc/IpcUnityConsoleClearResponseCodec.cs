@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Features.Daemon.Observability.Logs.Ipc;
 
@@ -17,23 +16,14 @@ internal static class IpcUnityConsoleClearResponseCodec
     {
         ArgumentNullException.ThrowIfNull(response);
 
-        if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
+        if (IpcLogsResponseDecodeHelper.TryDecodeFailure(response, "Unity Console clear", out error))
         {
-            if (firstError is not null)
-            {
-                error = firstError.Code == UcliCoreErrorCodes.InvalidArgument
-                    ? ExecutionError.InvalidArgument($"Unity Console clear failed with error code '{firstError.Code}'. {firstError.Message}")
-                    : ExecutionError.InternalError($"Unity Console clear failed with error code '{firstError.Code}'. {firstError.Message}");
-                return false;
-            }
-
-            error = ExecutionError.InternalError($"Unity Console clear failed with status '{status}'.");
             return false;
         }
 
         if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcUnityConsoleClearResponse _, out var readError))
         {
-            error = ExecutionError.InternalError($"Unity Console clear payload is invalid. {readError.Message}");
+            error = IpcLogsResponseDecodeHelper.CreateInvalidPayloadError("Unity Console clear", readError.Message);
             return false;
         }
 
