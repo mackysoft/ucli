@@ -110,6 +110,42 @@ public sealed class UnityBatchmodeProcessLauncherTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Launch_WhenProjectLockOwnershipIsAmbiguous_ReturnsLockAmbiguousWithoutResolvingUnityVersion ()
+    {
+        var versionResolver = new StubUnityVersionResolver();
+        var launcher = new UnityBatchmodeProcessLauncher(
+            versionResolver,
+            new StubUnityEditorPathResolver(),
+            new StubIpcEndpointResolver(),
+            new StubUnityUcliPluginLocator(),
+            new StubUnityProjectLockPreflightService(UnityProjectLockPreflightResult.Ambiguous(
+                "/tmp/unity-project/Temp/UnityLockfile",
+                "lock owner could not be inspected")));
+
+        var result = await launcher.LaunchAsync(
+            new ResolvedUnityProjectContext(
+                UnityProjectRoot: "/tmp/unity-project",
+                RepositoryRoot: "/tmp/repository-root",
+                ProjectFingerprint: "project-fingerprint",
+                PathSource: UnityProjectPathSource.CommandOption),
+            new IpcOneshotBootstrapArguments(
+                ParentProcessId: 1234,
+                ProjectFingerprint: "project-fingerprint",
+                SessionToken: "session-token",
+                ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
+                EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
+                EndpointAddress: "/tmp/ucli.sock"),
+            "/tmp/unity.log",
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(UnityProcessErrorCodes.UnityProjectLockAmbiguous, error.Code);
+        Assert.Equal(0, versionResolver.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Launch_WhenUnityLockFileAppearsBeforeProcessStart_ReturnsAlreadyOpen ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-batchmode-process-launcher", "lock-file-race");
@@ -248,7 +284,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
         }
     }
 
-    private sealed class StubUnityProjectLockFileProbe : IUnityProjectLockFileProbe
+    private sealed class StubUnityProjectLockFileProbe : IUnityProjectLockFileProbe, IUnityProjectLockPreflightService
     {
         private readonly IReadOnlyList<UnityProjectLockFileProbeResult> results;
 
@@ -276,6 +312,68 @@ public sealed class UnityBatchmodeProcessLauncherTests
             nextResultIndex++;
             CallCount++;
             return results[resultIndex];
+        }
+
+        public ValueTask<UnityProjectLockPreflightResult> PrepareForUnityProcessStartAsync (
+            ResolvedUnityProjectContext unityProject,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(ConvertProbeResult(Probe(unityProject.UnityProjectRoot), unityProject));
+        }
+
+        public ValueTask<UnityProjectLockPreflightResult> CleanupStaleLockAfterUnityProcessExitAsync (
+            ResolvedUnityProjectContext unityProject,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(ConvertProbeResult(Probe(unityProject.UnityProjectRoot), unityProject));
+        }
+
+        private static UnityProjectLockPreflightResult ConvertProbeResult (
+            UnityProjectLockFileProbeResult result,
+            ResolvedUnityProjectContext unityProject)
+        {
+            if (!result.IsSuccess)
+            {
+                return UnityProjectLockPreflightResult.InspectionFailed(result.ErrorMessage!);
+            }
+
+            if (!result.IsLocked)
+            {
+                return UnityProjectLockPreflightResult.Unlocked(result.LockFilePath!);
+            }
+
+            return UnityProjectLockPreflightResult.ActiveLock(
+                result.LockFilePath!,
+                Environment.ProcessId,
+                UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProject.UnityProjectRoot, result.LockFilePath));
+        }
+    }
+
+    private sealed class StubUnityProjectLockPreflightService : IUnityProjectLockPreflightService
+    {
+        private readonly UnityProjectLockPreflightResult result;
+
+        public StubUnityProjectLockPreflightService (UnityProjectLockPreflightResult result)
+        {
+            this.result = result;
+        }
+
+        public ValueTask<UnityProjectLockPreflightResult> PrepareForUnityProcessStartAsync (
+            ResolvedUnityProjectContext unityProject,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(result);
+        }
+
+        public ValueTask<UnityProjectLockPreflightResult> CleanupStaleLockAfterUnityProcessExitAsync (
+            ResolvedUnityProjectContext unityProject,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(result);
         }
     }
 }

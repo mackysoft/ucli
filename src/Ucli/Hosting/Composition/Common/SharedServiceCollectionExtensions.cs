@@ -28,6 +28,11 @@ internal static class SharedServiceCollectionExtensions
         services.AddSingleton<IUcliConfigStore, UcliConfigStore>();
         services.AddSingleton<IProjectLifecycleLockProvider, FileSystemProjectLifecycleLockProvider>();
         services.AddSingleton<IUnityProjectLockFileProbe, UnityProjectLockFileProbe>();
+        services.AddSingleton<IUnityEditorInstanceProbe, UnityEditorInstanceProbe>();
+        services.AddSingleton<IUnityProjectProcessScanner, UnityProjectProcessScanner>();
+        services.AddSingleton<IUnityProjectLockOwnerProbe, UnityProjectLockOwnerProbe>();
+        services.AddSingleton<IUnityProjectLockFileCleaner, UnityProjectLockFileCleaner>();
+        services.AddSingleton<IUnityProjectLockPreflightService, UnityProjectLockPreflightService>();
         services.AddSingleton<IProcessRunner, ProcessRunner>();
         services.AddSingleton<IGitCommandClient, GitCommandClient>();
         services.AddSingleton<IGitWorktreeListPorcelainParser, GitWorktreeListPorcelainParser>();

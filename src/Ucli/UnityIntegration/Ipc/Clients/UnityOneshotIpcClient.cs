@@ -1,6 +1,5 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Shared.Context.Project;
-using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
@@ -39,7 +38,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
     private readonly IProjectLifecycleLockProvider lifecycleLockProvider;
 
-    private readonly IUnityProjectLockFileProbe unityProjectLockFileProbe;
+    private readonly IUnityProjectLockPreflightService unityProjectLockPreflightService;
 
     private readonly TimeSpan cleanupTimeout;
 
@@ -50,19 +49,19 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     /// <param name="endpointResolver"> The IPC endpoint resolver dependency. </param>
     /// <param name="transportClient"> The shared IPC transport client dependency. </param>
     /// <param name="lifecycleLockProvider"> The project lifecycle lock provider dependency. </param>
-    /// <param name="unityProjectLockFileProbe"> The Unity project lock-file probe dependency. </param>
+    /// <param name="unityProjectLockPreflightService"> The Unity project lock preflight service dependency. </param>
     public UnityOneshotIpcClient (
         IUnityBatchmodeProcessLauncher batchmodeProcessLauncher,
         IIpcEndpointResolver endpointResolver,
         IUnityIpcTransportClient transportClient,
         IProjectLifecycleLockProvider lifecycleLockProvider,
-        IUnityProjectLockFileProbe unityProjectLockFileProbe)
+        IUnityProjectLockPreflightService unityProjectLockPreflightService)
         : this(
             batchmodeProcessLauncher,
             endpointResolver,
             transportClient,
             lifecycleLockProvider,
-            unityProjectLockFileProbe,
+            unityProjectLockPreflightService,
             DefaultCleanupTimeout,
             StartupRetryDelay)
     {
@@ -73,7 +72,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         IIpcEndpointResolver endpointResolver,
         IUnityIpcTransportClient transportClient,
         IProjectLifecycleLockProvider lifecycleLockProvider,
-        IUnityProjectLockFileProbe unityProjectLockFileProbe,
+        IUnityProjectLockPreflightService unityProjectLockPreflightService,
         TimeSpan cleanupTimeout,
         TimeSpan cleanupRetryDelay)
     {
@@ -84,7 +83,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
         this.transportClient = transportClient ?? throw new ArgumentNullException(nameof(transportClient));
         this.lifecycleLockProvider = lifecycleLockProvider ?? throw new ArgumentNullException(nameof(lifecycleLockProvider));
-        this.unityProjectLockFileProbe = unityProjectLockFileProbe ?? throw new ArgumentNullException(nameof(unityProjectLockFileProbe));
+        this.unityProjectLockPreflightService = unityProjectLockPreflightService ?? throw new ArgumentNullException(nameof(unityProjectLockPreflightService));
         this.cleanupTimeout = cleanupTimeout;
         this.cleanupRetryDelay = cleanupRetryDelay;
     }
@@ -228,7 +227,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 }
             }
 
-            return AppendPostTerminationLockFileDiagnostic(result, terminationResult, unityProject.UnityProjectRoot);
+            return await AppendPostTerminationLockFileDiagnosticAsync(result, terminationResult, unityProject).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -346,17 +345,12 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
             if (processHandle.HasExited)
             {
-                var projectAlreadyOpenError = TryCreateProjectAlreadyOpenErrorFromUnityLock(unityProject.UnityProjectRoot);
-                if (projectAlreadyOpenError != null)
-                {
-                    return projectAlreadyOpenError;
-                }
-
                 var exitCode = processHandle.ExitCode;
-                return ExecutionError.InternalError(
-                    exitCode is int code
-                        ? $"Unity oneshot process exited before startup readiness was confirmed. ExitCode={code}."
-                        : "Unity oneshot process exited before startup readiness was confirmed.");
+                var message = exitCode is int code
+                    ? $"Unity oneshot process exited before startup readiness was confirmed. ExitCode={code}."
+                    : "Unity oneshot process exited before startup readiness was confirmed.";
+                message = await AppendPostUnityProcessExitLockFileDiagnosticAsync(message, unityProject).ConfigureAwait(false);
+                return ExecutionError.InternalError(message);
             }
 
             var attemptTimeout = remainingTimeout < TimeSpan.FromSeconds(1)
@@ -382,7 +376,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                         $"Unity oneshot startup probe returned an invalid response. {error!.Message}");
                 }
 
-                var readinessDecision = UnityDaemonReadinessPolicy.Evaluate(payload, failFast);
+                var readinessDecision = UnityDaemonReadinessPolicy.Evaluate(payload!, failFast);
                 if (readinessDecision.IsReady)
                 {
                     return null;
@@ -420,55 +414,55 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         }
     }
 
-    /// <summary> Creates a project-open error when Unity reports the project-local lock file as locked. </summary>
-    /// <param name="unityProjectRoot"> The Unity project root path. Must not be null or white-space. </param>
-    /// <returns> A classified project-open error when Unity owns the lock file; otherwise <see langword="null" />. </returns>
-    private ExecutionError? TryCreateProjectAlreadyOpenErrorFromUnityLock (string unityProjectRoot)
-    {
-        var lockFileProbeResult = unityProjectLockFileProbe.Probe(unityProjectRoot);
-        if (!lockFileProbeResult.IsSuccess)
-        {
-            return ExecutionError.InternalError(
-                lockFileProbeResult.ErrorMessage!,
-                UcliCoreErrorCodes.InternalError);
-        }
-
-        if (!lockFileProbeResult.IsLocked)
-        {
-            return null;
-        }
-
-        return ExecutionError.InternalError(
-            UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProjectRoot, lockFileProbeResult.LockFilePath),
-            UnityProcessErrorCodes.UnityProjectAlreadyOpen);
-    }
-
-    /// <summary> Appends a residual Unity lock-file diagnostic after uCLI has terminated a oneshot Unity process. </summary>
+    /// <summary> Appends a post-exit Unity lock-file cleanup diagnostic after uCLI has terminated a oneshot Unity process. </summary>
     /// <param name="result"> The primary request result. Must be a failure when <paramref name="terminationResult" /> is not <see cref="ProcessTerminationResult.None" />. </param>
     /// <param name="terminationResult"> The observed termination result. </param>
-    /// <param name="unityProjectRoot"> The Unity project root path. Must not be null or white-space. </param>
-    /// <returns> The original result, or an equivalent failure with a residual-lock diagnostic appended. </returns>
-    private UnityRequestExecutionResult AppendPostTerminationLockFileDiagnostic (
+    /// <param name="unityProject"> The resolved Unity project context. </param>
+    /// <returns> The original result, or an equivalent failure with a post-exit cleanup diagnostic appended. </returns>
+    private ValueTask<UnityRequestExecutionResult> AppendPostTerminationLockFileDiagnosticAsync (
         UnityRequestExecutionResult result,
         ProcessTerminationResult terminationResult,
-        string unityProjectRoot)
+        ResolvedUnityProjectContext unityProject)
     {
         if (result.IsSuccess || terminationResult == ProcessTerminationResult.None)
         {
-            return result;
+            return ValueTask.FromResult(result);
         }
 
-        // NOTE: Residual UnityLockfile is diagnostic only; the IPC failure code and outcome remain unchanged.
-        var lockFileProbeResult = unityProjectLockFileProbe.Probe(unityProjectRoot);
-        if (!lockFileProbeResult.IsSuccess || !lockFileProbeResult.IsLocked)
+        // NOTE: Post-exit UnityLockfile cleanup is diagnostic only; the IPC failure code and outcome remain unchanged.
+        return AppendPostUnityProcessExitLockFileDiagnosticAsync(result, unityProject);
+    }
+
+    private async ValueTask<UnityRequestExecutionResult> AppendPostUnityProcessExitLockFileDiagnosticAsync (
+        UnityRequestExecutionResult result,
+        ResolvedUnityProjectContext unityProject)
+    {
+        if (result.IsSuccess)
         {
             return result;
         }
 
         var failure = result.FailureInfo!;
+        var message = await AppendPostUnityProcessExitLockFileDiagnosticAsync(failure.Message, unityProject).ConfigureAwait(false);
         return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.FromCodeAndMessage(
             failure.Code,
-            $"{failure.Message} {UnityProjectLockFailureMessage.CreateTerminatedProcessLockFileRemains(unityProjectRoot, lockFileProbeResult.LockFilePath!)}"));
+            message));
+    }
+
+    private async ValueTask<string> AppendPostUnityProcessExitLockFileDiagnosticAsync (
+        string message,
+        ResolvedUnityProjectContext unityProject)
+    {
+        var preflightResult = await unityProjectLockPreflightService.CleanupStaleLockAfterUnityProcessExitAsync(
+                unityProject,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        if (preflightResult.Status == UnityProjectLockPreflightStatus.Unlocked || string.IsNullOrWhiteSpace(preflightResult.Message))
+        {
+            return message;
+        }
+
+        return $"{message} {preflightResult.Message}";
     }
 
     /// <summary> Returns whether a startup probe exception can be retried before the deadline expires. </summary>

@@ -345,7 +345,7 @@ public sealed class DaemonStartupReadinessProbeTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task WaitUntilReady_WhenDaemonProcessExitedAndProjectLockFileExists_ReturnsProjectAlreadyOpenImmediately ()
+    public async Task WaitUntilReady_WhenDaemonProcessExitedAndStaleProjectLockFileExists_PreservesProcessExitFailure ()
     {
         var pingClient = new StubDaemonPingInfoClient(static () => ValueTask.FromResult(CreatePingPayload(canAcceptExecutionRequests: true)));
         var logReader = new StubUnityLogReader
@@ -370,10 +370,11 @@ public sealed class DaemonStartupReadinessProbeTests
         Assert.False(result.IsReady);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
-        Assert.Equal(UnityProcessErrorCodes.UnityProjectAlreadyOpen, error.Code);
-        Assert.Contains("already open", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(error.Code);
+        Assert.Contains("process exited before startup readiness was confirmed", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Stale Unity project lock file was removed", error.Message, StringComparison.Ordinal);
         Assert.Equal(0, pingClient.CallCount);
-        Assert.Equal(0, logReader.CallCount);
+        Assert.Equal(1, logReader.CallCount);
     }
 
     [Fact]
@@ -506,7 +507,7 @@ public sealed class DaemonStartupReadinessProbeTests
         }
     }
 
-    private sealed class StubUnityProjectLockFileProbe : IUnityProjectLockFileProbe
+    private sealed class StubUnityProjectLockFileProbe : IUnityProjectLockFileProbe, IUnityProjectLockPreflightService
     {
         private readonly UnityProjectLockFileProbeResult result;
 
@@ -518,6 +519,57 @@ public sealed class DaemonStartupReadinessProbeTests
         public UnityProjectLockFileProbeResult Probe (string unityProjectRoot)
         {
             return result;
+        }
+
+        public ValueTask<UnityProjectLockPreflightResult> PrepareForUnityProcessStartAsync (
+            ResolvedUnityProjectContext unityProject,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(ConvertProbeResult(result, unityProject));
+        }
+
+        public ValueTask<UnityProjectLockPreflightResult> CleanupStaleLockAfterUnityProcessExitAsync (
+            ResolvedUnityProjectContext unityProject,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(ConvertPostExitProbeResult(result));
+        }
+
+        private static UnityProjectLockPreflightResult ConvertProbeResult (
+            UnityProjectLockFileProbeResult result,
+            ResolvedUnityProjectContext unityProject)
+        {
+            if (!result.IsSuccess)
+            {
+                return UnityProjectLockPreflightResult.InspectionFailed(result.ErrorMessage!);
+            }
+
+            if (!result.IsLocked)
+            {
+                return UnityProjectLockPreflightResult.Unlocked(result.LockFilePath!);
+            }
+
+            return UnityProjectLockPreflightResult.ActiveLock(
+                result.LockFilePath!,
+                Environment.ProcessId,
+                UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProject.UnityProjectRoot, result.LockFilePath));
+        }
+
+        private static UnityProjectLockPreflightResult ConvertPostExitProbeResult (UnityProjectLockFileProbeResult result)
+        {
+            if (!result.IsSuccess)
+            {
+                return UnityProjectLockPreflightResult.InspectionFailed(result.ErrorMessage!);
+            }
+
+            if (!result.IsLocked)
+            {
+                return UnityProjectLockPreflightResult.Unlocked(result.LockFilePath!);
+            }
+
+            return UnityProjectLockPreflightResult.StaleLockCleared(result.LockFilePath!);
         }
     }
 }

@@ -866,11 +866,27 @@ public sealed class UnityIpcRequestExecutorTests
         }
     }
 
-    private sealed class StubUnityProjectLockFileProbe : IUnityProjectLockFileProbe
+    private sealed class StubUnityProjectLockFileProbe : IUnityProjectLockFileProbe, IUnityProjectLockPreflightService
     {
         public UnityProjectLockFileProbeResult Probe (string unityProjectRoot)
         {
             return UnityProjectLockFileProbeResult.Unlocked("/tmp/unity-project/Temp/UnityLockfile");
+        }
+
+        public ValueTask<UnityProjectLockPreflightResult> PrepareForUnityProcessStartAsync (
+            ResolvedUnityProjectContext unityProject,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(UnityProjectLockPreflightResult.Unlocked("/tmp/unity-project/Temp/UnityLockfile"));
+        }
+
+        public ValueTask<UnityProjectLockPreflightResult> CleanupStaleLockAfterUnityProcessExitAsync (
+            ResolvedUnityProjectContext unityProject,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(UnityProjectLockPreflightResult.Unlocked("/tmp/unity-project/Temp/UnityLockfile"));
         }
     }
 
