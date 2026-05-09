@@ -12,6 +12,32 @@ public static class IpcGuiBootstrapArgumentsCodec
         IpcGuiBootstrapArgumentNames.CanShutdownProcess,
     };
 
+    /// <summary> Appends GUI bootstrap argument token pairs to destination list. </summary>
+    /// <param name="destination"> The destination token list. </param>
+    /// <param name="arguments"> The GUI bootstrap argument payload. </param>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="destination" /> or <paramref name="arguments" /> is <see langword="null" />. </exception>
+    public static void AppendTokens (
+        IList<string> destination,
+        IpcGuiBootstrapArguments arguments)
+    {
+        if (destination == null)
+        {
+            throw new ArgumentNullException(nameof(destination));
+        }
+
+        if (arguments == null)
+        {
+            throw new ArgumentNullException(nameof(arguments));
+        }
+
+        destination.Add(IpcGuiBootstrapArgumentNames.Target);
+        destination.Add(IpcGuiBootstrapTargetValues.Daemon);
+        destination.Add(IpcGuiBootstrapArgumentNames.OwnerProcessId);
+        destination.Add(arguments.OwnerProcessId.ToString(CultureInfo.InvariantCulture));
+        destination.Add(IpcGuiBootstrapArgumentNames.CanShutdownProcess);
+        destination.Add(arguments.CanShutdownProcess ? "true" : "false");
+    }
+
     /// <summary> Tries to parse GUI bootstrap argument pairs from command-line token list. </summary>
     /// <param name="args"> The command-line token list. </param>
     /// <param name="arguments"> The parsed GUI bootstrap arguments on success. </param>
@@ -85,5 +111,4 @@ public static class IpcGuiBootstrapArgumentsCodec
         error = IpcGuiBootstrapParseError.None;
         return true;
     }
-
 }

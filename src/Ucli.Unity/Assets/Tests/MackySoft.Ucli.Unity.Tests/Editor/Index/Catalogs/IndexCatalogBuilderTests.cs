@@ -162,14 +162,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var componentExtractor = new ComponentSchemaExtractor(new ThrowingPropertyCollector());
             var assetExtractor = new AssetSchemaExtractor(new ThrowingPropertyCollector());
 
-            async UniTask RunComponentExtract ()
+            async UniTask RunComponentExtractAsync ()
             {
                 await componentExtractor.ExtractAsync(
                     new[] { typeof(BoxCollider) },
                     CancellationToken.None);
             }
 
-            async UniTask RunAssetExtract ()
+            async UniTask RunAssetExtractAsync ()
             {
                 await assetExtractor.ExtractAsync(
                     new[] { typeof(GUISkin) },
@@ -177,11 +177,11 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(
-                RunComponentExtract,
+                RunComponentExtractAsync,
                 "Component extractor failure propagation",
                 AsyncWaitTimeout);
             await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(
-                RunAssetExtract,
+                RunAssetExtractAsync,
                 "Asset extractor failure propagation",
                 AsyncWaitTimeout);
         });

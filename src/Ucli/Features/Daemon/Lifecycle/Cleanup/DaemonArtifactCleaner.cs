@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -14,6 +15,8 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
 {
     private readonly IDaemonSessionStore daemonSessionStore;
 
+    private readonly IDaemonLifecycleStore daemonLifecycleStore;
+
     private readonly IIpcEndpointResolver endpointResolver;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonArtifactCleaner" /> class. </summary>
@@ -22,9 +25,11 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonArtifactCleaner (
         IDaemonSessionStore daemonSessionStore,
+        IDaemonLifecycleStore daemonLifecycleStore,
         IIpcEndpointResolver endpointResolver)
     {
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
+        this.daemonLifecycleStore = daemonLifecycleStore ?? throw new ArgumentNullException(nameof(daemonLifecycleStore));
         this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
     }
 
@@ -48,6 +53,16 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
         if (!deleteSessionResult.IsSuccess)
         {
             return deleteSessionResult;
+        }
+
+        var deleteLifecycleResult = await daemonLifecycleStore.DeleteAsync(
+                unityProject.RepositoryRoot,
+                unityProject.ProjectFingerprint,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!deleteLifecycleResult.IsSuccess)
+        {
+            return DaemonSessionStoreOperationResult.Failure(deleteLifecycleResult.Error!);
         }
 
         try

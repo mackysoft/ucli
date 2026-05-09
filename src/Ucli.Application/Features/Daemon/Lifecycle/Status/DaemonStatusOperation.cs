@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
@@ -93,10 +92,17 @@ internal sealed class DaemonStatusOperation : IDaemonStatusOperation
         {
             throw;
         }
-        catch (TimeoutException exception)
+        catch (TimeoutException)
         {
-            return DaemonStatusResult.Failure(ExecutionError.Timeout(
-                $"Timed out while probing daemon status. {exception.Message}"));
+            var staleDiagnosis = await daemonSessionDiagnosisResolver.ResolveForSessionAsync(
+                    unityProject,
+                    readResult.Session!,
+                    persistedDiagnosis,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return DaemonStatusResult.Stale(
+                readResult.Session!,
+                staleDiagnosis);
         }
         catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
         {

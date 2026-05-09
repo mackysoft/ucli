@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 
 namespace MackySoft.Ucli.Application.Features.Status.Common.Contracts;
@@ -13,6 +14,9 @@ namespace MackySoft.Ucli.Application.Features.Status.Common.Contracts;
 /// <param name="DomainReloadGeneration"> The daemon domain-reload generation when daemon is reachable; otherwise <see langword="null" />. </param>
 /// <param name="CanAcceptExecutionRequests"> Whether execution requests can currently be accepted. </param>
 /// <param name="EditorMode"> The daemon Editor mode when daemon is reachable; otherwise <see langword="null" />. </param>
+/// <param name="ObservedAtUtc"> The daemon lifecycle observation timestamp when available. </param>
+/// <param name="ActionRequired"> The normalized user action required by the lifecycle blocker when available. </param>
+/// <param name="PrimaryDiagnostic"> The primary lifecycle diagnostic when available. </param>
 /// <param name="TimeoutMilliseconds"> The effective timeout in milliseconds used for daemon status probing. </param>
 internal sealed record StatusExecutionOutput (
     DaemonStatusKind DaemonStatus,
@@ -25,4 +29,7 @@ internal sealed record StatusExecutionOutput (
     string? DomainReloadGeneration,
     bool CanAcceptExecutionRequests,
     string? EditorMode,
-    int TimeoutMilliseconds);
+    int TimeoutMilliseconds,
+    DateTimeOffset? ObservedAtUtc = null,
+    string? ActionRequired = null,
+    DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic = null);

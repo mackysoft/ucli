@@ -12,7 +12,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
     {
         const string Json = """
             {
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "sessionToken": "token-123",
               "projectFingerprint": "fingerprint-abc",
               "issuedAtUtc": "2026-03-02T00:00:00+00:00",
@@ -22,6 +22,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
               "endpointTransportKind": "namedPipe",
               "endpointAddress": "ucli-daemon-endpoint",
               "processId": 1234,
+              "processStartedAtUtc": "2026-03-02T00:00:01+00:00",
               "ownerProcessId": 5678
             }
             """;
@@ -39,6 +40,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
         Assert.Equal("namedPipe", contract.EndpointTransportKind);
         Assert.Equal("ucli-daemon-endpoint", contract.EndpointAddress);
         Assert.Equal(1234, contract.ProcessId);
+        Assert.Equal(DateTimeOffset.Parse("2026-03-02T00:00:01+00:00"), contract.ProcessStartedAtUtc);
         Assert.Equal(5678, contract.OwnerProcessId);
     }
 
@@ -76,6 +78,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: 1234,
+            ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-02T00:00:01+00:00"),
             OwnerProcessId: 5678);
 
         var json = DaemonSessionJsonContractSerializer.Serialize(contract);
@@ -98,6 +101,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
             .Required("endpointTransportKind", JsonSchemaNode.Value(JsonSchemaType.String))
             .Required("endpointAddress", JsonSchemaNode.Value(JsonSchemaType.String))
             .Required("processId", JsonSchemaNode.Value(JsonSchemaType.Int32))
+            .Required("processStartedAtUtc", JsonSchemaNode.Union(JsonSchemaType.String, JsonSchemaType.Null))
             .Required("ownerProcessId", JsonSchemaNode.Value(JsonSchemaType.Int32)),
         allowAdditionalProperties: false);
 }

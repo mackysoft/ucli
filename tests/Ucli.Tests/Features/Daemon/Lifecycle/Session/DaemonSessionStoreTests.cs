@@ -44,6 +44,7 @@ public sealed class DaemonSessionStoreTests
         Assert.Equal(session.EndpointTransportKind, loadedSession.EndpointTransportKind);
         Assert.Equal(session.EndpointAddress, loadedSession.EndpointAddress);
         Assert.Equal(session.ProcessId, loadedSession.ProcessId);
+        Assert.Equal(session.ProcessStartedAtUtc, loadedSession.ProcessStartedAtUtc);
 
         var deleteResult = await store.DeleteAsync(scope.FullPath, session.ProjectFingerprint, CancellationToken.None);
 
@@ -348,7 +349,7 @@ public sealed class DaemonSessionStoreTests
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-test",
             ProcessId: 1234,
-
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 9876);
     }
 }

@@ -183,6 +183,28 @@ public sealed class IpcDaemonPingClientTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task PingAndRead_WhenProjectFingerprintValidationIsDisabled_ReturnsMismatchedPayload ()
+    {
+        var unityIpcClient = new StubUnityIpcTransportClient(request =>
+            CreateResponse(
+                request,
+                IpcProtocol.StatusOk,
+                Array.Empty<IpcError>(),
+                IpcPingResponseTestFactory.Create(projectFingerprint: "different-fingerprint")));
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Success("resolved-token"));
+        var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
+
+        var result = await pingClient.PingAndReadAsync(
+            CreateContext(),
+            DefaultTimeout,
+            validateProjectFingerprint: false,
+            cancellationToken: CancellationToken.None);
+
+        Assert.Equal("different-fingerprint", result.ProjectFingerprint);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Ping_WhenResponseStatusIsError_ThrowsDaemonPingResponseException ()
     {
         var unityIpcClient = new StubUnityIpcTransportClient(request =>

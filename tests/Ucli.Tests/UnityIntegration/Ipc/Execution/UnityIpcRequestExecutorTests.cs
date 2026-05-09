@@ -742,6 +742,7 @@ public sealed class UnityIpcRequestExecutorTests
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             string? sessionToken = null,
+            bool validateProjectFingerprint = true,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -822,6 +823,8 @@ public sealed class UnityIpcRequestExecutorTests
     private sealed class StubUnityBatchmodeProcessHandle : IUnityBatchmodeProcessHandle
     {
         public int ProcessId => 1234;
+
+        public DateTimeOffset? StartTimeUtc => DateTimeOffset.UtcNow;
 
         public bool HasExited { get; private set; }
 

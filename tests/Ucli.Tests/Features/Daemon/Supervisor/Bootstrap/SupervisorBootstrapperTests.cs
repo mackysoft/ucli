@@ -443,6 +443,14 @@ public sealed class SupervisorBootstrapperTests
             }
         }
 
+        // NOTE: ManualTimeProvider can complete the observed task between timer disposal and
+        // task completion publication. Give that completion a short chance to surface before
+        // treating the missing active timer as a bootstrap polling failure.
+        for (var i = 0; i < 10 && !observedTask.IsCompleted && timeProvider.ActiveTimerCount == 0; i++)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(1), cancellationToken).ConfigureAwait(false);
+        }
+
         cancellationToken.ThrowIfCancellationRequested();
         Assert.True(
             observedTask.IsCompleted || timeProvider.ActiveTimerCount > 0,

@@ -29,6 +29,7 @@ public sealed class DaemonSessionShutdownCapabilityValidationTests
               "endpointTransportKind": "namedPipe",
               "endpointAddress": "ucli-daemon-test",
               "processId": 1234,
+              "processStartedAtUtc": "2026-01-01T00:00:01+00:00",
               "ownerProcessId": 9876
             }
             """,
@@ -61,7 +62,7 @@ public sealed class DaemonSessionShutdownCapabilityValidationTests
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-test",
             ProcessId: 1234,
-
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 9876);
 
         var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);

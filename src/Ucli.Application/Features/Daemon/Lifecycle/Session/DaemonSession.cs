@@ -13,6 +13,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 /// <param name="EndpointTransportKind"> The transport kind string used by daemon endpoint. </param>
 /// <param name="EndpointAddress"> The endpoint address string used by daemon endpoint. </param>
 /// <param name="ProcessId"> The daemon process identifier when available. </param>
+/// <param name="ProcessStartedAtUtc"> The daemon process start timestamp when available. </param>
 /// <param name="OwnerProcessId"> The owner process identifier when available. </param>
 internal sealed record DaemonSession (
     int SchemaVersion,
@@ -25,6 +26,7 @@ internal sealed record DaemonSession (
     string EndpointTransportKind,
     string EndpointAddress,
     int? ProcessId,
+    DateTimeOffset? ProcessStartedAtUtc,
     int? OwnerProcessId)
 {
     /// <summary> Gets the schema version used by daemon session persistence. </summary>

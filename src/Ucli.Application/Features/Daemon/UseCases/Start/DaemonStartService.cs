@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Preflight;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
@@ -18,6 +17,8 @@ internal sealed class DaemonStartService : IDaemonStartService
 
     private readonly IDaemonSessionOutputMapper daemonSessionOutputMapper;
 
+    private readonly IDaemonDiagnosisOutputMapper daemonDiagnosisOutputMapper;
+
     private readonly TimeProvider timeProvider;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonStartService" /> class. </summary>
@@ -25,6 +26,7 @@ internal sealed class DaemonStartService : IDaemonStartService
     /// <param name="daemonProjectLifecycleGateway"> The daemon project-lifecycle gateway dependency. </param>
     /// <param name="unityPluginVerifier"> The Unity uCLI plugin-verifier dependency. </param>
     /// <param name="daemonSessionOutputMapper"> The daemon session-output mapper dependency. </param>
+    /// <param name="daemonDiagnosisOutputMapper"> The daemon diagnosis-output mapper dependency. </param>
     /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStartService (
@@ -32,12 +34,14 @@ internal sealed class DaemonStartService : IDaemonStartService
         IDaemonProjectLifecycleGateway daemonProjectLifecycleGateway,
         IUnityPluginVerifier unityPluginVerifier,
         IDaemonSessionOutputMapper daemonSessionOutputMapper,
+        IDaemonDiagnosisOutputMapper daemonDiagnosisOutputMapper,
         TimeProvider? timeProvider = null)
     {
         this.daemonCommandExecutionContextResolver = daemonCommandExecutionContextResolver ?? throw new ArgumentNullException(nameof(daemonCommandExecutionContextResolver));
         this.daemonProjectLifecycleGateway = daemonProjectLifecycleGateway ?? throw new ArgumentNullException(nameof(daemonProjectLifecycleGateway));
         this.unityPluginVerifier = unityPluginVerifier ?? throw new ArgumentNullException(nameof(unityPluginVerifier));
         this.daemonSessionOutputMapper = daemonSessionOutputMapper ?? throw new ArgumentNullException(nameof(daemonSessionOutputMapper));
+        this.daemonDiagnosisOutputMapper = daemonDiagnosisOutputMapper ?? throw new ArgumentNullException(nameof(daemonDiagnosisOutputMapper));
         this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
@@ -92,8 +96,11 @@ internal sealed class DaemonStartService : IDaemonStartService
             .ConfigureAwait(false);
         if (!startResult.IsSuccess)
         {
+            var diagnosis = startResult.Diagnosis is null
+                ? null
+                : daemonDiagnosisOutputMapper.ToOutput(startResult.Diagnosis);
             return DaemonStartExecutionResult.Failure(startResult.Error ?? ExecutionError.InternalError(
-                "Daemon start operation failed without structured error details."));
+                "Daemon start operation failed without structured error details."), diagnosis);
         }
 
         var output = new DaemonStartExecutionOutput(

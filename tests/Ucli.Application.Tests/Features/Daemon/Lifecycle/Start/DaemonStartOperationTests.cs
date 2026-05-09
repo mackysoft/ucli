@@ -1,8 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
 using MackySoft.Ucli.Application.Shared.Context.Project;
@@ -113,14 +111,18 @@ public sealed class DaemonStartOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Start_WhenDiagnosisDeleteFailsAndGuiEditorModeRequiresFreshLaunch_PreservesCommandNotImplementedCode ()
+    public async Task Start_WhenDiagnosisDeleteFailsAndGuiFreshLaunchFails_PreservesLaunchFailureCode ()
     {
         var context = CreateContext("fingerprint-start-delete-diagnosis-gui");
         var diagnosisStore = new StubDaemonDiagnosisStore
         {
             DeleteResult = DaemonDiagnosisStoreOperationResult.Failure(ExecutionError.InternalError("diagnosis delete failed")),
         };
-        var launchService = new StubDaemonLaunchService();
+        var launchError = ExecutionError.Timeout("gui launch failed", ExecutionErrorCodes.IpcTimeout);
+        var launchService = new StubDaemonLaunchService
+        {
+            NextResult = DaemonStartResult.Failure(launchError),
+        };
         var operation = CreateOperation(
             daemonSessionStore: new StubDaemonSessionStore
             {
@@ -139,9 +141,10 @@ public sealed class DaemonStartOperationTests
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(UcliCoreErrorCodes.CommandNotImplemented, error.Code);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
         Assert.Contains("diagnosis cleanup failed", error.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(0, launchService.CallCount);
+        Assert.Equal(1, launchService.CallCount);
+        Assert.Equal(DaemonEditorMode.Gui, launchService.LastEditorMode);
     }
 
     [Fact]
@@ -338,6 +341,41 @@ public sealed class DaemonStartOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Start_WhenExistingSessionGateServiceReturnsAlreadyRunning_DoesNotProbeGuiEditor ()
+    {
+        var existingSession = CreateSession(processId: 2022);
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Success(existingSession),
+        };
+        var existingSessionGateService = new StubDaemonExistingSessionGateService
+        {
+            NextResult = DaemonStartResult.AlreadyRunning(existingSession),
+        };
+        var guiAttachService = new StubDaemonGuiEditorAttachService
+        {
+            NextResult = DaemonStartResult.AlreadyRunning(CreateSession(processId: 3030)),
+        };
+        var launchService = new StubDaemonLaunchService();
+        var operation = CreateOperation(
+            daemonSessionStore: sessionStore,
+            daemonSessionCleanupService: new StubDaemonSessionCleanupService(),
+            daemonExistingSessionGateService: existingSessionGateService,
+            daemonLaunchService: launchService,
+            daemonGuiEditorAttachService: guiAttachService);
+
+        var result = await operation.StartAsync(CreateContext("fingerprint-start-existing-priority"), TimeSpan.FromMilliseconds(500), editorMode: null,
+                cancellationToken: CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.AlreadyRunning, result.Status);
+        Assert.Equal(existingSession, result.Session);
+        Assert.Equal(1, existingSessionGateService.CallCount);
+        Assert.Equal(0, guiAttachService.CallCount);
+        Assert.Equal(0, launchService.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Start_WhenExistingSessionExists_PropagatesRequestedEditorModeToGate ()
     {
         var existingSession = CreateSession(processId: 2021);
@@ -404,6 +442,75 @@ public sealed class DaemonStartOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Start_WhenNoRunningSessionAndGuiAttachSucceeds_ReturnsAlreadyRunningWithoutFreshLaunch ()
+    {
+        var context = CreateContext("fingerprint-start-gui-attach");
+        var guiSession = CreateSession(
+            processId: 6060,
+            projectFingerprint: context.ProjectFingerprint) with
+        {
+            EditorMode = DaemonEditorModeValues.Gui,
+        };
+        var guiAttachService = new StubDaemonGuiEditorAttachService
+        {
+            NextResult = DaemonStartResult.AlreadyRunning(guiSession),
+        };
+        var launchService = new StubDaemonLaunchService
+        {
+            NextResult = DaemonStartResult.Started(CreateSession(processId: 7070, projectFingerprint: context.ProjectFingerprint)),
+        };
+        var operation = CreateOperation(
+            daemonSessionStore: new StubDaemonSessionStore
+            {
+                ReadResult = DaemonSessionReadResult.Success(null),
+            },
+            daemonSessionCleanupService: new StubDaemonSessionCleanupService(),
+            daemonExistingSessionGateService: new StubDaemonExistingSessionGateService(),
+            daemonLaunchService: launchService,
+            daemonGuiEditorAttachService: guiAttachService);
+
+        var result = await operation.StartAsync(context, TimeSpan.FromMilliseconds(500), editorMode: null,
+                cancellationToken: CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.AlreadyRunning, result.Status);
+        Assert.Equal(guiSession, result.Session);
+        Assert.Equal(1, guiAttachService.CallCount);
+        Assert.Null(guiAttachService.LastEditorMode);
+        Assert.Equal(0, launchService.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WhenGuiAttachReturnsNull_ContinuesToFreshLaunchWithRequestedMode ()
+    {
+        var context = CreateContext("fingerprint-start-gui-launch");
+        var guiAttachService = new StubDaemonGuiEditorAttachService();
+        var launchService = new StubDaemonLaunchService
+        {
+            NextResult = DaemonStartResult.Started(CreateSession(processId: 8081, projectFingerprint: context.ProjectFingerprint)),
+        };
+        var operation = CreateOperation(
+            daemonSessionStore: new StubDaemonSessionStore
+            {
+                ReadResult = DaemonSessionReadResult.Success(null),
+            },
+            daemonSessionCleanupService: new StubDaemonSessionCleanupService(),
+            daemonExistingSessionGateService: new StubDaemonExistingSessionGateService(),
+            daemonLaunchService: launchService,
+            daemonGuiEditorAttachService: guiAttachService);
+
+        var result = await operation.StartAsync(context, TimeSpan.FromMilliseconds(500), editorMode: DaemonEditorMode.Gui,
+                cancellationToken: CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Started, result.Status);
+        Assert.Equal(1, guiAttachService.CallCount);
+        Assert.Equal(DaemonEditorMode.Gui, guiAttachService.LastEditorMode);
+        Assert.Equal(1, launchService.CallCount);
+        Assert.Equal(DaemonEditorMode.Gui, launchService.LastEditorMode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Start_WhenExistingSessionGateServiceReturnsFailure_ReturnsFailureWithoutLaunch ()
     {
         var existingSession = CreateSession(processId: 8080);
@@ -464,7 +571,7 @@ public sealed class DaemonStartOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Start_WhenGuiEditorModeRequiresFreshLaunch_ReturnsCommandNotImplementedWithoutLaunch ()
+    public async Task Start_WhenGuiEditorModeRequiresFreshLaunch_CallsLaunchWithGuiMode ()
     {
         var launchService = new StubDaemonLaunchService();
         var operation = CreateOperation(
@@ -477,16 +584,14 @@ public sealed class DaemonStartOperationTests
             daemonLaunchService: launchService);
 
         var result = await operation.StartAsync(
-            CreateContext("fingerprint-start-gui-not-implemented"),
+            CreateContext("fingerprint-start-gui-launch-mode"),
             TimeSpan.FromMilliseconds(500),
             editorMode: DaemonEditorMode.Gui,
             cancellationToken: CancellationToken.None);
 
-        Assert.Equal(DaemonStartStatus.Failed, result.Status);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
-        Assert.Equal(UcliCoreErrorCodes.CommandNotImplemented, error.Code);
-        Assert.Equal(0, launchService.CallCount);
+        Assert.Equal(DaemonStartStatus.Started, result.Status);
+        Assert.Equal(1, launchService.CallCount);
+        Assert.Equal(DaemonEditorMode.Gui, launchService.LastEditorMode);
     }
 
     [Fact]
@@ -549,6 +654,7 @@ public sealed class DaemonStartOperationTests
         IDaemonExistingSessionGateService daemonExistingSessionGateService,
         IDaemonLaunchService daemonLaunchService,
         IDaemonDiagnosisStore? daemonDiagnosisStore = null,
+        IDaemonGuiEditorAttachService? daemonGuiEditorAttachService = null,
         IProjectLifecycleLockProvider? lifecycleLockProvider = null)
     {
         return new DaemonStartOperation(
@@ -557,6 +663,7 @@ public sealed class DaemonStartOperationTests
             daemonSessionStore: daemonSessionStore,
             daemonSessionCleanupService: daemonSessionCleanupService,
             daemonExistingSessionGateService: daemonExistingSessionGateService,
+            daemonGuiEditorAttachService: daemonGuiEditorAttachService ?? new StubDaemonGuiEditorAttachService(),
             daemonLaunchService: daemonLaunchService);
     }
 
@@ -585,6 +692,7 @@ public sealed class DaemonStartOperationTests
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-test-endpoint",
             ProcessId: processId,
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: ownerProcessId);
     }
 
@@ -675,6 +783,26 @@ public sealed class DaemonStartOperationTests
         }
     }
 
+    private sealed class StubDaemonGuiEditorAttachService : IDaemonGuiEditorAttachService
+    {
+        public DaemonStartResult? NextResult { get; set; }
+
+        public int CallCount { get; private set; }
+
+        public DaemonEditorMode? LastEditorMode { get; private set; }
+
+        public ValueTask<DaemonStartResult?> TryAttachExistingGuiEditorAsync (
+            ResolvedUnityProjectContext unityProject,
+            TimeSpan timeout,
+            DaemonEditorMode? editorMode,
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            LastEditorMode = editorMode;
+            return ValueTask.FromResult(NextResult);
+        }
+    }
+
     private sealed class StubDaemonLaunchService : IDaemonLaunchService
     {
         public DaemonStartResult NextResult { get; set; } = DaemonStartResult.Started(CreateSession(processId: 9090));
@@ -741,8 +869,7 @@ public sealed class DaemonStartOperationTests
         public int CallCount { get; private set; }
 
         public ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAsync (
-            int? processId,
-            DateTimeOffset? expectedIssuedAtUtc,
+            DaemonProcessTerminationTarget? target,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {

@@ -1,4 +1,5 @@
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Projection;
 using MackySoft.Ucli.Application.Shared.Context;
@@ -15,19 +16,29 @@ internal sealed class StatusDaemonObservationService : IStatusDaemonObservationS
 
     private readonly IDaemonReachabilityClassifier reachabilityClassifier;
 
+    private readonly IDaemonLifecycleStore daemonLifecycleStore;
+
+    private readonly IDaemonProcessIdentityAssessor processIdentityAssessor;
+
     /// <summary> Initializes a new instance of the <see cref="StatusDaemonObservationService" /> class. </summary>
     /// <param name="daemonStatusOperation"> The daemon status-operation dependency. </param>
     /// <param name="daemonPingInfoClient"> The daemon ping-info client dependency. </param>
     /// <param name="reachabilityClassifier"> The daemon reachability classifier dependency. </param>
+    /// <param name="daemonLifecycleStore"> The daemon lifecycle observation store dependency. </param>
+    /// <param name="processIdentityAssessor"> The daemon process identity assessor dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public StatusDaemonObservationService (
         IDaemonStatusOperation daemonStatusOperation,
         IDaemonPingInfoClient daemonPingInfoClient,
-        IDaemonReachabilityClassifier reachabilityClassifier)
+        IDaemonReachabilityClassifier reachabilityClassifier,
+        IDaemonLifecycleStore daemonLifecycleStore,
+        IDaemonProcessIdentityAssessor processIdentityAssessor)
     {
         this.daemonStatusOperation = daemonStatusOperation ?? throw new ArgumentNullException(nameof(daemonStatusOperation));
         this.daemonPingInfoClient = daemonPingInfoClient ?? throw new ArgumentNullException(nameof(daemonPingInfoClient));
         this.reachabilityClassifier = reachabilityClassifier ?? throw new ArgumentNullException(nameof(reachabilityClassifier));
+        this.daemonLifecycleStore = daemonLifecycleStore ?? throw new ArgumentNullException(nameof(daemonLifecycleStore));
+        this.processIdentityAssessor = processIdentityAssessor ?? throw new ArgumentNullException(nameof(processIdentityAssessor));
     }
 
     /// <summary> Resolves daemon status and optional ping diagnostics for one status execution. </summary>
@@ -52,6 +63,15 @@ internal sealed class StatusDaemonObservationService : IStatusDaemonObservationS
 
         if (daemonStatusResult.Status != DaemonStatusKind.Running)
         {
+            if (daemonStatusResult.Status == DaemonStatusKind.Stale && daemonStatusResult.Session is not null)
+            {
+                return await CreateUnreachableObservationAsync(
+                        context.UnityProject,
+                        daemonStatusResult.Session,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             return StatusDaemonObservationResult.Success(
                 StatusDaemonObservationCodec.CreateWithoutPing(daemonStatusResult.Status));
         }
@@ -68,7 +88,7 @@ internal sealed class StatusDaemonObservationService : IStatusDaemonObservationS
                     context.UnityProject,
                     timeout,
                     daemonStatusResult.Session.SessionToken,
-                    cancellationToken)
+                    cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
 
             return StatusDaemonObservationResult.Success(
@@ -80,20 +100,63 @@ internal sealed class StatusDaemonObservationService : IStatusDaemonObservationS
         {
             throw;
         }
-        catch (TimeoutException exception)
+        catch (TimeoutException)
         {
-            return StatusDaemonObservationResult.Failure(ExecutionError.Timeout(
-                $"Timed out while reading daemon ping information. {exception.Message}"));
+            return await CreateUnreachableObservationAsync(
+                    context.UnityProject,
+                    daemonStatusResult.Session,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
         {
-            return StatusDaemonObservationResult.Success(
-                StatusDaemonObservationCodec.CreateWithoutPing(DaemonStatusKind.Stale));
+            return await CreateUnreachableObservationAsync(
+                    context.UnityProject,
+                    daemonStatusResult.Session,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (Exception exception)
         {
             return StatusDaemonObservationResult.Failure(ExecutionError.InternalError(
                 $"Failed to read daemon ping information. {exception.Message}"));
         }
+    }
+
+    private async ValueTask<StatusDaemonObservationResult> CreateUnreachableObservationAsync (
+        ResolvedUnityProjectContext unityProject,
+        DaemonSession session,
+        CancellationToken cancellationToken)
+    {
+        var lifecycleReadResult = await daemonLifecycleStore.ReadAsync(
+                unityProject.RepositoryRoot,
+                unityProject.ProjectFingerprint,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (lifecycleReadResult.IsSuccess
+            && lifecycleReadResult.Exists
+            && lifecycleReadResult.Observation!.IsRecovering
+            && DaemonLifecycleObservationMatcher.MatchesSession(lifecycleReadResult.Observation, session)
+            && IsMatchingLiveProcess(session))
+        {
+            return StatusDaemonObservationResult.Success(
+                StatusDaemonObservationCodec.CreateFromLifecycleObservation(
+                    DaemonStatusKind.Running,
+                    lifecycleReadResult.Observation));
+        }
+
+        return StatusDaemonObservationResult.Success(
+            StatusDaemonObservationCodec.CreateUnavailable(DaemonStatusKind.Stale));
+    }
+
+    private bool IsMatchingLiveProcess (DaemonSession session)
+    {
+        if (session.ProcessId is not int processId)
+        {
+            return false;
+        }
+
+        return processIdentityAssessor.AssessByProcessId(processId, session.ProcessStartedAtUtc).Status
+            == DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess;
     }
 }

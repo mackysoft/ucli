@@ -44,12 +44,13 @@ public sealed class DaemonStatusOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task GetStatus_WhenSessionPingTimesOut_ReturnsTimeoutFailure ()
+    public async Task GetStatus_WhenSessionPingTimesOut_ReturnsStale ()
     {
         var context = CreateContext("fingerprint-status-timeout");
+        var session = CreateSession(processId: Environment.ProcessId, projectFingerprint: context.ProjectFingerprint);
         var sessionStore = new StubDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Success(CreateSession(processId: 2002, projectFingerprint: context.ProjectFingerprint)),
+            ReadResult = DaemonSessionReadResult.Success(session),
         };
         var diagnosisStore = new StubDaemonDiagnosisStore();
         var operation = new DaemonStatusOperation(
@@ -61,11 +62,46 @@ public sealed class DaemonStatusOperationTests
 
         var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(DaemonStatusKind.Failed, result.Status);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
-        Assert.Contains("Timed out while probing daemon status.", error.Message, StringComparison.Ordinal);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(DaemonStatusKind.Stale, result.Status);
+        Assert.Equal(session, result.Session);
+        Assert.Null(result.Diagnosis);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task GetStatus_WhenSessionPingTimesOutWithMismatchedPersistedDiagnosis_DoesNotReturnStaleDiagnosis ()
+    {
+        var context = CreateContext("fingerprint-status-timeout-mismatched-diagnosis");
+        var session = CreateSession(processId: Environment.ProcessId, projectFingerprint: context.ProjectFingerprint);
+        var oldSession = session with
+        {
+            IssuedAtUtc = session.IssuedAtUtc.AddSeconds(-1),
+        };
+        var persistedDiagnosis = CreateDiagnosis(oldSession, DaemonDiagnosisReasonValues.StartupFailed);
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Success(session),
+        };
+        var diagnosisStore = new StubDaemonDiagnosisStore
+        {
+            ReadResult = DaemonDiagnosisReadResult.Success(persistedDiagnosis),
+        };
+        var operation = new DaemonStatusOperation(
+            daemonSessionStore: sessionStore,
+            daemonDiagnosisStore: diagnosisStore,
+            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new TimeoutException("probe timeout"))),
+            reachabilityClassifier: new DaemonReachabilityClassifier(),
+            daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
+
+        var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(DaemonStatusKind.Stale, result.Status);
+        Assert.Equal(session, result.Session);
+        Assert.Null(result.Diagnosis);
+        Assert.Equal(0, diagnosisStore.WriteCallCount);
     }
 
     [Fact]
@@ -249,7 +285,7 @@ public sealed class DaemonStatusOperationTests
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-test-endpoint",
             ProcessId: processId,
-
+            ProcessStartedAtUtc: processId is null ? null : DateTimeOffset.UtcNow,
             OwnerProcessId: 9876);
     }
 
@@ -264,6 +300,7 @@ public sealed class DaemonStatusOperationTests
             IsInferred: false,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
             ProcessId: session.ProcessId,
+            EditorInstancePath: null,
             SessionIssuedAtUtc: session.IssuedAtUtc);
     }
 

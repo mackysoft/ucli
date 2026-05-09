@@ -11,6 +11,9 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="CompileGeneration"> The opaque compile generation. </param>
 /// <param name="DomainReloadGeneration"> The opaque domain-reload generation. </param>
 /// <param name="CanAcceptExecutionRequests"> Whether execution requests can currently be accepted. </param>
+/// <param name="ObservedAtUtc"> The UTC timestamp when lifecycle values were observed. </param>
+/// <param name="ActionRequired"> The normalized action required to resolve the current lifecycle state. </param>
+/// <param name="PrimaryDiagnostic"> The primary machine-readable diagnostic for the current lifecycle state. </param>
 public sealed record IpcPingResponse (
     string ServerVersion,
     string EditorMode,
@@ -21,4 +24,7 @@ public sealed record IpcPingResponse (
     string? BlockingReason = null,
     string? CompileGeneration = null,
     string? DomainReloadGeneration = null,
-    bool CanAcceptExecutionRequests = false);
+    bool CanAcceptExecutionRequests = false,
+    DateTimeOffset? ObservedAtUtc = null,
+    string? ActionRequired = null,
+    IpcPrimaryDiagnostic? PrimaryDiagnostic = null);

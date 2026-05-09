@@ -4,12 +4,13 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Inventory;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Git;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
@@ -433,6 +434,12 @@ public sealed class DaemonListQueryServiceTests
         Assert.Equal(diagnosis.IsInferred, item.Diagnosis.IsInferred);
         Assert.Equal(diagnosis.UpdatedAtUtc, item.Diagnosis.UpdatedAtUtc);
         Assert.Equal(diagnosis.ProcessId, item.Diagnosis.ProcessId);
+        Assert.Equal(diagnosis.ProcessStartedAtUtc, item.Diagnosis.ProcessStartedAtUtc);
+        Assert.Equal(diagnosis.UnityLogPath, item.Diagnosis.UnityLogPath);
+        Assert.Equal(diagnosis.StartupPhase, item.Diagnosis.StartupPhase);
+        Assert.Equal(diagnosis.ActionRequired, item.Diagnosis.ActionRequired);
+        Assert.NotNull(item.Diagnosis.PrimaryDiagnostic);
+        Assert.Equal(diagnosis.PrimaryDiagnostic!.Kind, item.Diagnosis.PrimaryDiagnostic!.Kind);
     }
 
     [Fact]
@@ -495,7 +502,7 @@ public sealed class DaemonListQueryServiceTests
         ResolvedUnityProjectContext currentProject,
         DaemonSessionReadResult sessionReadResult,
         IDaemonDiagnosisStore daemonDiagnosisStore,
-        IDaemonPingClient daemonPingClient,
+        IDaemonPingInfoClient daemonPingClient,
         IDaemonReachabilityClassifier reachabilityClassifier,
         TimeProvider? timeProvider = null)
     {
@@ -520,7 +527,7 @@ public sealed class DaemonListQueryServiceTests
         IUnityProjectResolver unityProjectResolver,
         IDaemonSessionStore daemonSessionStore,
         IDaemonDiagnosisStore daemonDiagnosisStore,
-        IDaemonPingClient daemonPingClient,
+        IDaemonPingInfoClient daemonPingClient,
         IDaemonReachabilityClassifier daemonReachabilityClassifier,
         TimeProvider? timeProvider = null)
     {
@@ -531,6 +538,8 @@ public sealed class DaemonListQueryServiceTests
             daemonDiagnosisStore,
             daemonPingClient,
             daemonReachabilityClassifier,
+            new StubDaemonLifecycleStore(),
+            new StubDaemonProcessIdentityAssessor(),
             CreateDiagnosisResolver(daemonDiagnosisStore),
             new DaemonDiagnosisOutputMapper(),
             new StubWorktreeProjectPathResolver(),
@@ -562,6 +571,7 @@ public sealed class DaemonListQueryServiceTests
                     IsInferred: true,
                     UpdatedAtUtc: DateTimeOffset.UtcNow,
                     ProcessId: processId,
+                    EditorInstancePath: null,
                     SessionIssuedAtUtc: session.IssuedAtUtc);
 
                 await daemonDiagnosisStore.WriteAsync(
@@ -607,7 +617,7 @@ public sealed class DaemonListQueryServiceTests
             EndpointTransportKind: "namedPipe",
             EndpointAddress: endpointAddress,
             ProcessId: processId,
-
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 9876);
     }
 
@@ -622,7 +632,19 @@ public sealed class DaemonListQueryServiceTests
             IsInferred: false,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 12, 1, 0, TimeSpan.Zero),
             ProcessId: session.ProcessId,
-            SessionIssuedAtUtc: session.IssuedAtUtc);
+            EditorInstancePath: null,
+            SessionIssuedAtUtc: session.IssuedAtUtc,
+            ProcessStartedAtUtc: session.ProcessStartedAtUtc,
+            UnityLogPath: "/repo/.ucli/local/fingerprints/fp-current/unity.log",
+            StartupPhase: DaemonDiagnosisStartupPhaseValues.EndpointRegistration,
+            ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
+            PrimaryDiagnostic: new DaemonPrimaryDiagnostic(
+                Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.ProcessExit,
+                Code: null,
+                File: null,
+                Line: null,
+                Column: null,
+                Message: "process exited"));
     }
 
     private sealed class StubGitWorktreeQueryService : IGitWorktreeQueryService
@@ -762,7 +784,7 @@ public sealed class DaemonListQueryServiceTests
         }
     }
 
-    private sealed class StubDaemonPingClient : IDaemonPingClient
+    private sealed class StubDaemonPingClient : IDaemonPingClient, IDaemonPingInfoClient
     {
         private readonly Func<ResolvedUnityProjectContext, TimeSpan, string?, CancellationToken, ValueTask> ping;
 
@@ -778,6 +800,59 @@ public sealed class DaemonListQueryServiceTests
             CancellationToken cancellationToken = default)
         {
             return ping(unityProject, timeout, sessionToken, cancellationToken);
+        }
+
+        public async ValueTask<IpcPingResponse> PingAndReadAsync (
+            ResolvedUnityProjectContext unityProject,
+            TimeSpan timeout,
+            string? sessionToken = null,
+            bool validateProjectFingerprint = true,
+            CancellationToken cancellationToken = default)
+        {
+            await ping(unityProject, timeout, sessionToken, cancellationToken).ConfigureAwait(false);
+            return new IpcPingResponse(
+                ServerVersion: "0.0.1",
+                EditorMode: DaemonEditorModeValues.Batchmode,
+                UnityVersion: "6000.1.4f1",
+                ProjectFingerprint: unityProject.ProjectFingerprint,
+                CompileState: IpcCompileStateCodec.Ready,
+                LifecycleState: IpcEditorLifecycleStateCodec.Ready,
+                BlockingReason: null,
+                CompileGeneration: "1",
+                DomainReloadGeneration: "1",
+                CanAcceptExecutionRequests: true);
+        }
+    }
+
+    private sealed class StubDaemonLifecycleStore : IDaemonLifecycleStore
+    {
+        public ValueTask<DaemonLifecycleObservationReadResult> ReadAsync (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(DaemonLifecycleObservationReadResult.Success(null));
+        }
+
+        public ValueTask<DaemonLifecycleStoreOperationResult> DeleteAsync (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+    }
+
+    private sealed class StubDaemonProcessIdentityAssessor : IDaemonProcessIdentityAssessor
+    {
+        public DaemonProcessIdentityAssessment AssessByProcessId (
+            int processId,
+            DateTimeOffset? expectedProcessStartedAtUtc)
+        {
+            return new DaemonProcessIdentityAssessment(
+                DaemonProcessIdentityAssessmentStatus.NotRunning,
+                ObservedStartTimeUtc: null,
+                Error: null);
         }
     }
 

@@ -6,6 +6,9 @@ internal interface IUnityBatchmodeProcessHandle : IAsyncDisposable
     /// <summary> Gets the started child process identifier. </summary>
     int ProcessId { get; }
 
+    /// <summary> Gets the started child process start timestamp in UTC when available. </summary>
+    DateTimeOffset? StartTimeUtc { get; }
+
     /// <summary> Gets a value indicating whether the process has already exited. </summary>
     bool HasExited { get; }
 

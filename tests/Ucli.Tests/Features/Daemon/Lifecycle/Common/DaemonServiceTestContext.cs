@@ -2,9 +2,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
@@ -46,6 +44,7 @@ internal static class DaemonServiceTestContext
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: 1234,
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 9876);
     }
 
@@ -60,6 +59,7 @@ internal static class DaemonServiceTestContext
             EndpointTransportKind: "mapped-transport",
             EndpointAddress: "mapped-endpoint",
             ProcessId: 4321,
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 8765);
     }
 
@@ -72,6 +72,7 @@ internal static class DaemonServiceTestContext
             IsInferred: false,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 05, 4, 5, 6, TimeSpan.Zero),
             ProcessId: 1234,
+            EditorInstancePath: null,
             SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero));
     }
 
@@ -276,6 +277,7 @@ internal static class DaemonServiceTestContext
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             string? sessionToken = null,
+            bool validateProjectFingerprint = true,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
@@ -311,7 +313,8 @@ internal static class DaemonServiceTestContext
     internal sealed record StubIpcTransportCall (
         IpcEndpoint Endpoint,
         IpcRequest Request,
-        TimeSpan Timeout);
+        TimeSpan Timeout,
+        bool UsesUnboundedResponseWait);
 
     internal sealed class StubIpcTransportClient : IIpcTransportClient
     {
@@ -325,13 +328,28 @@ internal static class DaemonServiceTestContext
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
-            Calls.Add(new StubIpcTransportCall(endpoint, request, timeout));
+            Calls.Add(new StubIpcTransportCall(endpoint, request, timeout, UsesUnboundedResponseWait: false));
             if (SendHandler == null)
             {
                 throw new InvalidOperationException("Stub IPC transport handler is not configured.");
             }
 
             return SendHandler(endpoint, request, timeout, cancellationToken);
+        }
+
+        public ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
+            IpcEndpoint endpoint,
+            IpcRequest request,
+            TimeSpan sendTimeout,
+            CancellationToken cancellationToken = default)
+        {
+            Calls.Add(new StubIpcTransportCall(endpoint, request, sendTimeout, UsesUnboundedResponseWait: true));
+            if (SendHandler == null)
+            {
+                throw new InvalidOperationException("Stub IPC transport handler is not configured.");
+            }
+
+            return SendHandler(endpoint, request, sendTimeout, cancellationToken);
         }
     }
 }

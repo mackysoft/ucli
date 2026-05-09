@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Context.Project;
@@ -115,10 +116,12 @@ internal sealed class SupervisorClient
                     EditorMode: editorMode.HasValue
                         ? DaemonEditorModeCodec.ToValue(editorMode.Value)
                         : null));
-            var response = await SendAsync(manifest, request, timeout, cancellationToken).ConfigureAwait(false);
+            var response = await SendWithUnboundedResponseWaitAsync(manifest, request, timeout, cancellationToken).ConfigureAwait(false);
             if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
             {
-                return DaemonStartResult.Failure(MapResponseFailure(firstError, status));
+                return DaemonStartResult.Failure(
+                    MapResponseFailure(firstError, status),
+                    TryReadEnsureRunningFailureDiagnosis(response));
             }
 
             if (!IpcPayloadCodec.TryDeserialize(
@@ -239,6 +242,16 @@ internal sealed class SupervisorClient
         return await transportClient.SendAsync(endpoint, request, timeout, cancellationToken).ConfigureAwait(false);
     }
 
+    private async ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
+        SupervisorInstanceManifest manifest,
+        IpcRequest request,
+        TimeSpan sendTimeout,
+        CancellationToken cancellationToken)
+    {
+        var endpoint = ResolveEndpoint(manifest);
+        return await transportClient.SendWithUnboundedResponseWaitAsync(endpoint, request, sendTimeout, cancellationToken).ConfigureAwait(false);
+    }
+
     private static IpcRequest CreateRequest<TPayload> (
         SupervisorInstanceManifest manifest,
         string method,
@@ -289,5 +302,15 @@ internal sealed class SupervisorClient
         }
 
         return ExecutionError.InternalError(firstError.Message, firstError.Code);
+    }
+
+    private static DaemonDiagnosis? TryReadEnsureRunningFailureDiagnosis (IpcResponse response)
+    {
+        return IpcPayloadCodec.TryDeserialize(
+            response.Payload,
+            out SupervisorIpcContracts.EnsureRunningFailureResponse payload,
+            out _)
+            ? payload.Diagnosis
+            : null;
     }
 }

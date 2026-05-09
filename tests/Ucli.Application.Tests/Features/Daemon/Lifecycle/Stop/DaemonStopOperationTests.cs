@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 namespace MackySoft.Ucli.Application.Tests.Daemon;
@@ -46,7 +45,7 @@ public sealed class DaemonStopOperationTests
         Assert.Equal(1, shutdownClient.CallCount);
         Assert.Equal(1, processTerminationService.CallCount);
         Assert.Equal(123, processTerminationService.LastProcessId);
-        Assert.Equal(sessionStore.ReadResult.Session!.IssuedAtUtc, processTerminationService.LastExpectedIssuedAtUtc);
+        Assert.Equal(sessionStore.ReadResult.Session!.ProcessStartedAtUtc, processTerminationService.LastProcessStartedAtUtc);
         Assert.Equal(1, artifactCleaner.CallCount);
     }
 
@@ -227,13 +226,17 @@ public sealed class DaemonStopOperationTests
     [Trait("Size", "Small")]
     public async Task Stop_WhenCliOwnedGuiSessionAllowsProcessShutdown_TerminatesProcess ()
     {
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero);
+        var issuedAtUtc = processStartedAtUtc.AddMinutes(2);
         var sessionStore = new StubDaemonSessionStore
         {
             ReadResult = DaemonSessionReadResult.Success(CreateSession(
                 processId: 654,
                 ownerKind: DaemonSessionOwnerKindValues.Cli,
                 canShutdownProcess: true,
-                editorMode: DaemonEditorModeValues.Gui)),
+                editorMode: DaemonEditorModeValues.Gui,
+                issuedAtUtc: issuedAtUtc,
+                processStartedAtUtc: processStartedAtUtc)),
         };
         var shutdownClient = new StubDaemonShutdownClient
         {
@@ -260,6 +263,7 @@ public sealed class DaemonStopOperationTests
         Assert.Equal(1, shutdownClient.CallCount);
         Assert.Equal(1, processTerminationService.CallCount);
         Assert.Equal(654, processTerminationService.LastProcessId);
+        Assert.Equal(processStartedAtUtc, processTerminationService.LastProcessStartedAtUtc);
         Assert.Equal(1, artifactCleaner.CallCount);
     }
 
@@ -367,20 +371,22 @@ public sealed class DaemonStopOperationTests
         int? processId,
         string editorMode = DaemonEditorModeValues.Batchmode,
         string ownerKind = DaemonSessionOwnerKindValues.Cli,
-        bool canShutdownProcess = true)
+        bool canShutdownProcess = true,
+        DateTimeOffset? issuedAtUtc = null,
+        DateTimeOffset? processStartedAtUtc = null)
     {
         return new DaemonSession(
             SchemaVersion: DaemonSession.CurrentSchemaVersion,
             SessionToken: "session-token",
             ProjectFingerprint: "fingerprint",
-            IssuedAtUtc: DateTimeOffset.UtcNow,
+            IssuedAtUtc: issuedAtUtc ?? DateTimeOffset.UtcNow,
             EditorMode: editorMode,
             OwnerKind: ownerKind,
             CanShutdownProcess: canShutdownProcess,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-test-endpoint",
             ProcessId: processId,
-
+            ProcessStartedAtUtc: processStartedAtUtc ?? (processId is null ? null : DateTimeOffset.UtcNow),
             OwnerProcessId: 9876);
     }
 
@@ -454,19 +460,18 @@ public sealed class DaemonStopOperationTests
 
         public int? LastProcessId { get; private set; }
 
-        public DateTimeOffset? LastExpectedIssuedAtUtc { get; private set; }
+        public DateTimeOffset? LastProcessStartedAtUtc { get; private set; }
 
         public TimeSpan? LastTimeout { get; private set; }
 
         public ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAsync (
-            int? processId,
-            DateTimeOffset? expectedIssuedAtUtc,
+            DaemonProcessTerminationTarget? target,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
-            LastProcessId = processId;
-            LastExpectedIssuedAtUtc = expectedIssuedAtUtc;
+            LastProcessId = target?.ProcessId;
+            LastProcessStartedAtUtc = target?.ProcessStartedAtUtc;
             LastTimeout = timeout;
             return ValueTask.FromResult(NextResult);
         }

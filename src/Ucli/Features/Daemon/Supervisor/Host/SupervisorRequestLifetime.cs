@@ -2,11 +2,9 @@ using System.Buffers;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Host;
 
-/// <summary> Owns per-request timeout and caller-disconnect cancellation for supervisor IPC handlers. </summary>
+/// <summary> Owns caller-disconnect cancellation for supervisor IPC handlers. </summary>
 internal sealed class SupervisorRequestLifetime : IAsyncDisposable
 {
-    private readonly CancellationTokenSource timeoutCancellationTokenSource;
-
     private readonly CancellationTokenSource disconnectCancellationTokenSource;
 
     private readonly CancellationTokenSource monitorCancellationTokenSource;
@@ -18,14 +16,12 @@ internal sealed class SupervisorRequestLifetime : IAsyncDisposable
     private readonly CancellationToken listenerCancellationToken;
 
     private SupervisorRequestLifetime (
-        CancellationTokenSource timeoutCancellationTokenSource,
         CancellationTokenSource disconnectCancellationTokenSource,
         CancellationTokenSource monitorCancellationTokenSource,
         CancellationTokenSource requestCancellationTokenSource,
         Task disconnectMonitorTask,
         CancellationToken listenerCancellationToken)
     {
-        this.timeoutCancellationTokenSource = timeoutCancellationTokenSource ?? throw new ArgumentNullException(nameof(timeoutCancellationTokenSource));
         this.disconnectCancellationTokenSource = disconnectCancellationTokenSource ?? throw new ArgumentNullException(nameof(disconnectCancellationTokenSource));
         this.monitorCancellationTokenSource = monitorCancellationTokenSource ?? throw new ArgumentNullException(nameof(monitorCancellationTokenSource));
         this.requestCancellationTokenSource = requestCancellationTokenSource ?? throw new ArgumentNullException(nameof(requestCancellationTokenSource));
@@ -36,43 +32,31 @@ internal sealed class SupervisorRequestLifetime : IAsyncDisposable
     /// <summary> Gets the request-scoped cancellation token. </summary>
     public CancellationToken CancellationToken => requestCancellationTokenSource.Token;
 
-    /// <summary> Gets a value indicating whether the request was canceled by its timeout budget. </summary>
-    public bool IsTimeoutCancellation =>
-        timeoutCancellationTokenSource.IsCancellationRequested
-        && !listenerCancellationToken.IsCancellationRequested
-        && !disconnectCancellationTokenSource.IsCancellationRequested;
-
     /// <summary> Gets a value indicating whether the request was canceled because the caller disconnected. </summary>
     public bool IsCallerDisconnectCancellation =>
         disconnectCancellationTokenSource.IsCancellationRequested
         && !listenerCancellationToken.IsCancellationRequested;
 
-    /// <summary> Starts one request lifetime bound to the specified timeout and client stream. </summary>
+    /// <summary> Starts one request lifetime bound to the specified client stream. </summary>
     /// <param name="stream"> The request stream to monitor for caller disconnect. </param>
-    /// <param name="timeout"> The request timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="listenerCancellationToken"> The host listener cancellation token. </param>
     /// <returns> The started request lifetime. </returns>
     public static SupervisorRequestLifetime Start (
         Stream stream,
-        TimeSpan timeout,
         CancellationToken listenerCancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        var timeoutCancellationTokenSource = new CancellationTokenSource(timeout);
         var disconnectCancellationTokenSource = new CancellationTokenSource();
         var monitorCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(listenerCancellationToken);
         var requestCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
             listenerCancellationToken,
-            timeoutCancellationTokenSource.Token,
             disconnectCancellationTokenSource.Token);
         var disconnectMonitorTask = MonitorCallerDisconnectAsync(
             stream,
             disconnectCancellationTokenSource,
             monitorCancellationTokenSource.Token);
         return new SupervisorRequestLifetime(
-            timeoutCancellationTokenSource,
             disconnectCancellationTokenSource,
             monitorCancellationTokenSource,
             requestCancellationTokenSource,
@@ -94,7 +78,6 @@ internal sealed class SupervisorRequestLifetime : IAsyncDisposable
         {
         }
 
-        timeoutCancellationTokenSource.Dispose();
         disconnectCancellationTokenSource.Dispose();
         monitorCancellationTokenSource.Dispose();
         requestCancellationTokenSource.Dispose();

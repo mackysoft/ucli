@@ -45,7 +45,7 @@ internal static class IpcPingResponseTestFactory
             IpcEditorLifecycleStateCodec.Compiling => IpcEditorBlockingReasonCodec.Compile,
             IpcEditorLifecycleStateCodec.DomainReloading => IpcEditorBlockingReasonCodec.DomainReload,
             IpcEditorLifecycleStateCodec.Playmode => IpcEditorBlockingReasonCodec.PlayMode,
-            IpcEditorLifecycleStateCodec.BlockedByModal => IpcEditorBlockingReasonCodec.ModalDialog,
+            IpcEditorLifecycleStateCodec.ModalBlocked => IpcEditorBlockingReasonCodec.ModalDialog,
             IpcEditorLifecycleStateCodec.SafeMode => IpcEditorBlockingReasonCodec.SafeMode,
             IpcEditorLifecycleStateCodec.ShuttingDown => IpcEditorBlockingReasonCodec.Shutdown,
             _ => null,

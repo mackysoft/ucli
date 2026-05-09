@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 
@@ -19,14 +18,18 @@ namespace MackySoft.Ucli.Unity.Tests
                 isPlaymodeActive: false,
                 isDomainReloading: false,
                 isCompiling: false,
-                isUpdating: false);
+                hasCompileFailure: false,
+                isUpdating: false,
+                isRecoveringPending: false);
             var second = UnityEditorLifecycleStateResolver.Resolve(
                 isStartupPending,
                 isShuttingDown: false,
                 isPlaymodeActive: false,
                 isDomainReloading: false,
                 isCompiling: false,
-                isUpdating: false);
+                hasCompileFailure: false,
+                isUpdating: false,
+                isRecoveringPending: false);
 
             Assert.That(first, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
             Assert.That(second, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
@@ -45,14 +48,18 @@ namespace MackySoft.Ucli.Unity.Tests
                 isPlaymodeActive: false,
                 isDomainReloading: false,
                 isCompiling: true,
-                isUpdating: false);
+                hasCompileFailure: false,
+                isUpdating: false,
+                isRecoveringPending: false);
             var starting = UnityEditorLifecycleStateResolver.Resolve(
                 isStartupPending,
                 isShuttingDown: false,
                 isPlaymodeActive: false,
                 isDomainReloading: false,
                 isCompiling: false,
-                isUpdating: false);
+                hasCompileFailure: false,
+                isUpdating: false,
+                isRecoveringPending: false);
 
             Assert.That(compiling, Is.EqualTo(IpcEditorLifecycleStateCodec.Compiling));
             Assert.That(starting, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
@@ -70,7 +77,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 isPlaymodeActive: true,
                 isDomainReloading: true,
                 isCompiling: true,
-                isUpdating: true);
+                hasCompileFailure: true,
+                isUpdating: true,
+                isRecoveringPending: true);
 
             Assert.That(actual, Is.EqualTo(IpcEditorLifecycleStateCodec.ShuttingDown));
             Assert.That(isStartupPending, Is.True);
@@ -86,9 +95,62 @@ namespace MackySoft.Ucli.Unity.Tests
                 isPlaymodeActive: true,
                 isDomainReloading: true,
                 isCompiling: true,
-                isUpdating: true);
+                hasCompileFailure: true,
+                isUpdating: true,
+                isRecoveringPending: true);
 
             Assert.That(actual, Is.EqualTo(IpcEditorLifecycleStateCodec.Playmode));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Resolve_WhenCompileFailed_ReturnsCompileFailedBeforeReimporting ()
+        {
+            var actual = UnityEditorLifecycleStateResolver.Resolve(
+                isStartupPending: false,
+                isShuttingDown: false,
+                isPlaymodeActive: false,
+                isDomainReloading: false,
+                isCompiling: false,
+                hasCompileFailure: true,
+                isUpdating: true,
+                isRecoveringPending: true);
+
+            Assert.That(actual, Is.EqualTo(IpcEditorLifecycleStateCodec.CompileFailed));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Resolve_WhenUpdating_ReturnsReimporting ()
+        {
+            var actual = UnityEditorLifecycleStateResolver.Resolve(
+                isStartupPending: false,
+                isShuttingDown: false,
+                isPlaymodeActive: false,
+                isDomainReloading: false,
+                isCompiling: false,
+                hasCompileFailure: false,
+                isUpdating: true,
+                isRecoveringPending: false);
+
+            Assert.That(actual, Is.EqualTo(IpcEditorLifecycleStateCodec.Reimporting));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Resolve_WhenRecoveringPending_ReturnsRecovering ()
+        {
+            var actual = UnityEditorLifecycleStateResolver.Resolve(
+                isStartupPending: false,
+                isShuttingDown: false,
+                isPlaymodeActive: false,
+                isDomainReloading: false,
+                isCompiling: false,
+                hasCompileFailure: false,
+                isUpdating: false,
+                isRecoveringPending: true);
+
+            Assert.That(actual, Is.EqualTo(IpcEditorLifecycleStateCodec.Recovering));
         }
 
         [Test]

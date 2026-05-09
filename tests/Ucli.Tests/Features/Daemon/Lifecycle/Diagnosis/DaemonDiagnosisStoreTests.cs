@@ -73,6 +73,66 @@ public sealed class DaemonDiagnosisStoreTests
         Assert.Contains("sessionIssuedAtUtc", error.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Write_WhenStartupPhaseIsUnknown_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-diagnosis-store", "invalid-startup-phase");
+        var store = new DaemonDiagnosisStore();
+        var diagnosis = CreateDiagnosis(processId: 1234) with
+        {
+            StartupPhase = "unknownPhase",
+        };
+
+        var writeResult = await store.WriteAsync(scope.FullPath, "fingerprint-invalid", diagnosis, CancellationToken.None);
+
+        Assert.False(writeResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(writeResult.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("startupPhase", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenPrimaryDiagnosticKindIsUnknown_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-diagnosis-store", "invalid-primary-diagnostic-kind");
+        var store = new DaemonDiagnosisStore();
+        var diagnosisPath = UcliStoragePathResolver.ResolveDaemonDiagnosisPath(scope.FullPath, "fingerprint-invalid");
+        Directory.CreateDirectory(Path.GetDirectoryName(diagnosisPath)!);
+        var contract = new DaemonDiagnosisJsonContract(
+            Reason: DaemonDiagnosisReasonValues.ShutdownRequested,
+            Message: "daemon shutdown completed",
+            ReportedBy: DaemonDiagnosisReportedByValues.Unity,
+            IsInferred: false,
+            UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
+            ProcessId: 1234,
+            EditorInstancePath: null,
+            SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero),
+            ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 2, TimeSpan.Zero),
+            UnityLogPath: null,
+            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+            PrimaryDiagnostic: new DaemonDiagnosisPrimaryDiagnosticJsonContract(
+                Kind: "unknownDiagnosticKind",
+                Code: "CS1739",
+                File: "Assets/Foo.cs",
+                Line: 74,
+                Column: 17,
+                Message: "Missing parameter"));
+        await File.WriteAllTextAsync(
+            diagnosisPath,
+            DaemonDiagnosisJsonContractSerializer.Serialize(contract) + Environment.NewLine,
+            CancellationToken.None);
+
+        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-invalid", CancellationToken.None);
+
+        Assert.False(readResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(readResult.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("primaryDiagnostic.kind", error.Message, StringComparison.Ordinal);
+    }
+
     private static DaemonDiagnosis CreateDiagnosis (int? processId)
     {
         return new DaemonDiagnosis(
@@ -82,6 +142,18 @@ public sealed class DaemonDiagnosisStoreTests
             IsInferred: false,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
             ProcessId: processId,
-            SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero));
+            EditorInstancePath: null,
+            SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero),
+            ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 2, TimeSpan.Zero),
+            UnityLogPath: "/repo/.ucli/local/fingerprints/fingerprint-roundtrip/unity.log",
+            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+            PrimaryDiagnostic: new DaemonPrimaryDiagnostic(
+                Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
+                Code: "CS1739",
+                File: "Assets/Foo.cs",
+                Line: 74,
+                Column: 17,
+                Message: "Missing parameter"));
     }
 }

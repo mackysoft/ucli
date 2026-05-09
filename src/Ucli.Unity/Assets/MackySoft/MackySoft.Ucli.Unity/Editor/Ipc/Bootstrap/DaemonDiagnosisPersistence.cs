@@ -49,7 +49,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 IsInferred: false,
                 UpdatedAtUtc: DateTimeOffset.UtcNow,
                 ProcessId: Process.GetCurrentProcess().Id,
-                SessionIssuedAtUtc: bootstrapArguments.SessionIssuedAtUtc);
+                EditorInstancePath: null,
+                SessionIssuedAtUtc: bootstrapArguments.SessionIssuedAtUtc,
+                ProcessStartedAtUtc: new DateTimeOffset(Process.GetCurrentProcess().StartTime.ToUniversalTime()));
             var json = DaemonDiagnosisJsonContractSerializer.Serialize(diagnosisContract) + Environment.NewLine;
             var diagnosisDirectoryPath = Path.GetDirectoryName(diagnosisPath)
                 ?? throw new InvalidOperationException($"Daemon diagnosis directory path could not be resolved: {diagnosisPath}");

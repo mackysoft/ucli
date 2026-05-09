@@ -31,6 +31,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="timeout"> The timeout for one ping request. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="sessionToken"> Optional pre-resolved daemon session token. When <see langword="null" />, this method resolves token from session storage. </param>
+    /// <param name="validateProjectFingerprint"> Whether to reject a decoded ping payload whose project fingerprint differs from <paramref name="unityProject" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that completes when daemon responds. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
@@ -68,15 +69,21 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         string? sessionToken = null,
+        bool validateProjectFingerprint = true,
         CancellationToken cancellationToken = default)
     {
         var response = await SendPingRequestAsync(unityProject, timeout, sessionToken, cancellationToken).ConfigureAwait(false);
-        if (!DaemonPingResponseCodec.TryDecodePayloadForProject(
+        IpcPingResponse? payload;
+        DaemonPingResponseException? error;
+        var isDecoded = validateProjectFingerprint
+            ? DaemonPingResponseCodec.TryDecodePayloadForProject(
                 response,
                 unityProject.ProjectFingerprint,
                 "Daemon ping",
-                out var payload,
-                out var error))
+                out payload,
+                out error)
+            : DaemonPingResponseCodec.TryDecodePayload(response, out payload, out error);
+        if (!isDecoded)
         {
             throw error!;
         }

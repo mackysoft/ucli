@@ -1,6 +1,5 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -222,6 +221,7 @@ public sealed class SupervisorProjectGatewayTests
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: 1234,
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 5678);
     }
 

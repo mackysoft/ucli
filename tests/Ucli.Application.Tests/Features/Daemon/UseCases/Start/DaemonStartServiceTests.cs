@@ -1,10 +1,10 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -146,6 +146,52 @@ public sealed class DaemonStartServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Start_WhenSupervisorReturnsFailureAndDiagnosisExists_AttachesMappedDiagnosis ()
+    {
+        var context = DaemonServiceTestContext.CreateExecutionContext(
+            timeoutMilliseconds: 1600,
+            repositoryRoot: "/tmp/repo-root");
+        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var mapper = new DaemonServiceTestContext.StubDaemonSessionOutputMapper();
+        var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway
+        {
+            EnsureRunningResult = DaemonStartResult.Failure(
+                ExecutionError.Timeout("start failed", ExecutionErrorCodes.IpcTimeout),
+                DaemonServiceTestContext.CreateDiagnosis() with
+                {
+                    Reason = DaemonDiagnosisReasonValues.GuiEndpointNotRegistered,
+                    EditorInstancePath = "/tmp/unity-project/Library/EditorInstance.json",
+                }),
+        };
+        var diagnosis = supervisorProjectGateway.EnsureRunningResult.Diagnosis!;
+        var diagnosisOutputMapper = new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper
+        {
+            Output = new(
+                Reason: DaemonDiagnosisReasonValues.GuiEndpointNotRegistered,
+                Message: "mapped diagnosis",
+                ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+                IsInferred: true,
+                UpdatedAtUtc: diagnosis.UpdatedAtUtc,
+                ProcessId: diagnosis.ProcessId,
+                EditorInstancePath: diagnosis.EditorInstancePath),
+        };
+        var service = CreateService(
+            resolver,
+            supervisorProjectGateway,
+            mapper,
+            daemonDiagnosisOutputMapper: diagnosisOutputMapper);
+
+        var result = await service.StartAsync(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error!.Code);
+        Assert.Equal(diagnosisOutputMapper.Output, result.Diagnosis);
+        Assert.Equal(1, diagnosisOutputMapper.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Start_WhenPluginVerificationConsumesBudget_PropagatesRemainingTimeoutToEnsureRunning ()
     {
         var timeProvider = new ManualTimeProvider();
@@ -169,7 +215,7 @@ public sealed class DaemonStartServiceTests
                 return ValueTask.FromResult(UnityPluginVerificationResult.Success());
             },
         };
-        var service = CreateService(resolver, supervisorProjectGateway, mapper, pluginVerifier, timeProvider);
+        var service = CreateService(resolver, supervisorProjectGateway, mapper, pluginVerifier, timeProvider: timeProvider);
 
         var result = await service.StartAsync(
             projectPath: "/tmp/sandbox-unity",
@@ -232,7 +278,7 @@ public sealed class DaemonStartServiceTests
                 return UnityPluginVerificationResult.Success();
             },
         };
-        var service = CreateService(resolver, supervisorProjectGateway, mapper, pluginVerifier, timeProvider);
+        var service = CreateService(resolver, supervisorProjectGateway, mapper, pluginVerifier, timeProvider: timeProvider);
 
         var resultTask = service.StartAsync(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None).AsTask();
         await TestAwaiter.WaitAsync(pluginVerifier.Started!.Task, "Unity plugin verification start", SignalWaitTimeout);
@@ -253,10 +299,17 @@ public sealed class DaemonStartServiceTests
         DaemonServiceTestContext.StubSupervisorProjectGateway supervisorProjectGateway,
         IDaemonSessionOutputMapper mapper,
         IUnityPluginVerifier? pluginVerifier = null,
+        IDaemonDiagnosisOutputMapper? daemonDiagnosisOutputMapper = null,
         TimeProvider? timeProvider = null)
     {
         pluginVerifier ??= new StubUnityPluginVerifier();
-        return new DaemonStartService(resolver, supervisorProjectGateway, pluginVerifier, mapper, timeProvider);
+        return new DaemonStartService(
+            resolver,
+            supervisorProjectGateway,
+            pluginVerifier,
+            mapper,
+            daemonDiagnosisOutputMapper ?? new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper(),
+            timeProvider);
     }
 
     private sealed class StubUnityPluginVerifier : IUnityPluginVerifier

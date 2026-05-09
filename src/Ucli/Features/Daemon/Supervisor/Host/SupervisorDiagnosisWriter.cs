@@ -41,6 +41,7 @@ internal sealed class SupervisorDiagnosisWriter
             IsInferred: false,
             UpdatedAtUtc: DateTimeOffset.UtcNow,
             ProcessId: session.ProcessId,
+            EditorInstancePath: null,
             SessionIssuedAtUtc: session.IssuedAtUtc);
         return await daemonDiagnosisStore.WriteAsync(
                 unityProject.RepositoryRoot,

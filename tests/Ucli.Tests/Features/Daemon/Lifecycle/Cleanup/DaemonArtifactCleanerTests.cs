@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
@@ -23,6 +24,7 @@ public sealed class DaemonArtifactCleanerTests
 
         var cleaner = new DaemonArtifactCleaner(
             new StubDaemonSessionStore(),
+            new StubDaemonLifecycleStore(),
             new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.UnixDomainSocket, socketPath)));
 
         var result = await cleaner.CleanupAsync(
@@ -62,6 +64,25 @@ public sealed class DaemonArtifactCleanerTests
             CancellationToken cancellationToken = default)
         {
             return ValueTask.FromResult(DaemonSessionStoreOperationResult.Success());
+        }
+    }
+
+    private sealed class StubDaemonLifecycleStore : IDaemonLifecycleStore
+    {
+        public ValueTask<DaemonLifecycleObservationReadResult> ReadAsync (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
+        public ValueTask<DaemonLifecycleStoreOperationResult> DeleteAsync (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(DaemonLifecycleStoreOperationResult.Success());
         }
     }
 

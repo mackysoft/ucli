@@ -29,28 +29,28 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Dispatch_WhenCommandIsPlan_DelegatesToPhaseExecutor () => UniTask.ToCoroutine(async () =>
         {
-            await AssertDelegatesToPhaseExecutor(UcliCommandIds.Plan, PhaseExecutionCommand.Plan);
+            await AssertDelegatesToPhaseExecutorAsync(UcliCommandIds.Plan, PhaseExecutionCommand.Plan);
         });
 
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Dispatch_WhenCommandIsCall_DelegatesToPhaseExecutor () => UniTask.ToCoroutine(async () =>
         {
-            await AssertDelegatesToPhaseExecutor(UcliCommandIds.Call, PhaseExecutionCommand.Call);
+            await AssertDelegatesToPhaseExecutorAsync(UcliCommandIds.Call, PhaseExecutionCommand.Call);
         });
 
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Dispatch_WhenCommandIsResolve_DelegatesToPhaseExecutor () => UniTask.ToCoroutine(async () =>
         {
-            await AssertDelegatesToPhaseExecutor(UcliCommandIds.Resolve, PhaseExecutionCommand.PlanWithoutToken);
+            await AssertDelegatesToPhaseExecutorAsync(UcliCommandIds.Resolve, PhaseExecutionCommand.PlanWithoutToken);
         });
 
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Dispatch_WhenCommandIsQuery_DelegatesToPhaseExecutor () => UniTask.ToCoroutine(async () =>
         {
-            await AssertDelegatesToPhaseExecutor(UcliCommandIds.Query, PhaseExecutionCommand.PlanWithoutToken);
+            await AssertDelegatesToPhaseExecutorAsync(UcliCommandIds.Query, PhaseExecutionCommand.PlanWithoutToken);
         });
 
         [UnityTest]
@@ -379,7 +379,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Dispatch_WhenCommandIsRefresh_ReturnsCommandNotImplementedError () => UniTask.ToCoroutine(async () =>
         {
-            await AssertReturnsCommandNotImplementedError(UcliCommandIds.Refresh);
+            await AssertReturnsCommandNotImplementedErrorAsync(UcliCommandIds.Refresh);
         });
 
         [UnityTest]
@@ -618,7 +618,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }, "Canceled execute request dispatch", AsyncWaitTimeout);
         });
 
-        private static async UniTask AssertDelegatesToPhaseExecutor (
+        private static async UniTask AssertDelegatesToPhaseExecutorAsync (
             string commandName,
             PhaseExecutionCommand expectedCommand,
             string operationName = MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve)
@@ -672,7 +672,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(touchedElement.GetProperty("guid").GetString(), Is.EqualTo("11111111111111111111111111111111"));
         }
 
-        private static async UniTask AssertReturnsCommandNotImplementedError (string commandName)
+        private static async UniTask AssertReturnsCommandNotImplementedErrorAsync (string commandName)
         {
             var normalizer = new SpyExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Failure(
                 new ExecuteRequestNormalizationError(UcliCoreErrorCodes.InvalidArgument, "normalizer should not run", null)));

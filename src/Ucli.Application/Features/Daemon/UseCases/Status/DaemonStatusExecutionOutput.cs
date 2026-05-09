@@ -12,6 +12,9 @@ namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 /// <param name="CompileGeneration"> The daemon compile generation when available; otherwise <see langword="null" />. </param>
 /// <param name="DomainReloadGeneration"> The daemon domain-reload generation when available; otherwise <see langword="null" />. </param>
 /// <param name="CanAcceptExecutionRequests"> Whether execution requests can currently be accepted. </param>
+/// <param name="ObservedAtUtc"> The daemon lifecycle observation timestamp when available. </param>
+/// <param name="ActionRequired"> The normalized user action required by the lifecycle blocker when available. </param>
+/// <param name="PrimaryDiagnostic"> The primary lifecycle diagnostic when available. </param>
 /// <param name="TimeoutMilliseconds"> The effective timeout in milliseconds used for daemon status workflow. </param>
 /// <param name="Session"> The daemon session values when available; otherwise <see langword="null" />. </param>
 /// <param name="Diagnosis"> The daemon diagnosis values when available; otherwise <see langword="null" />. </param>
@@ -27,4 +30,7 @@ internal sealed record DaemonStatusExecutionOutput (
     bool CanAcceptExecutionRequests,
     int TimeoutMilliseconds,
     DaemonSessionOutput? Session,
-    DaemonDiagnosisOutput? Diagnosis);
+    DaemonDiagnosisOutput? Diagnosis,
+    DateTimeOffset? ObservedAtUtc = null,
+    string? ActionRequired = null,
+    DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic = null);

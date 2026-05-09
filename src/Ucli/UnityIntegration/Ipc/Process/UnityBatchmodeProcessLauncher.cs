@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Launch;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -85,7 +85,13 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
         }
 
         await using var processHandle = batchmodeLaunchResult.ProcessHandle!;
-        return UnityDaemonLaunchResult.Success(processHandle.ProcessId);
+        if (processHandle.StartTimeUtc is not DateTimeOffset processStartedAtUtc)
+        {
+            return UnityDaemonLaunchResult.Failure(ExecutionError.InternalError(
+                $"Unity batchmode process start time could not be read. processId={processHandle.ProcessId}."));
+        }
+
+        return UnityDaemonLaunchResult.Success(processHandle.ProcessId, processStartedAtUtc);
     }
 
     /// <inheritdoc />

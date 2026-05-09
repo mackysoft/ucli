@@ -94,9 +94,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     }
                     catch (Exception exception) when (!cancellationToken.IsCancellationRequested && (exception is IOException or InvalidDataException or SocketException))
                     {
-                        daemonLogger.Warning(
-                            DaemonLogCategories.Transport,
-                            $"Unix domain socket listener ignored recoverable connection error: {exception.Message}");
+                        // NOTE: Probe callers may close timed-out sockets while Unity is busy on the main thread.
+                        // Emitting these expected connection-local failures to the Unity console can make recovery slower.
                     }
                 }
             }

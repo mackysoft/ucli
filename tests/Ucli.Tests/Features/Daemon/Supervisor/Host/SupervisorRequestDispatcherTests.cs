@@ -1,10 +1,11 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
 
@@ -190,6 +191,123 @@ public sealed class SupervisorRequestDispatcherTests
         Assert.Equal(0, startOperation.CallCount);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenEnsureRunningFailsWithDiagnosis_EmitsDiagnosisPayload ()
+    {
+        var diagnosis = CreateDiagnosis();
+        var startOperation = new StubDaemonStartOperation
+        {
+            StartResult = DaemonStartResult.Failure(
+                ExecutionError.Timeout("endpoint registration timed out", ExecutionErrorCodes.IpcTimeout),
+                diagnosis),
+        };
+        var dispatcher = CreateDispatcher(startOperation);
+        var runtimeContext = CreateRuntimeContext();
+        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
+
+        var response = await SendRequestAsync(
+            dispatcher,
+            runtimeContext,
+            new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "request-diagnosis",
+                SessionToken: runtimeContext.Manifest.SessionToken,
+                Method: SupervisorIpcContracts.EnsureRunningMethod,
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.EnsureRunningRequest(
+                        UnityProjectRoot: unityProjectRoot,
+                        ProjectFingerprint: projectFingerprint,
+                        TimeoutMilliseconds: 1000,
+                        EditorMode: null))));
+
+        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        var error = Assert.Single(response.Errors);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
+        Assert.True(IpcPayloadCodec.TryDeserialize(
+            response.Payload,
+            out SupervisorIpcContracts.EnsureRunningFailureResponse payload,
+            out _));
+        Assert.Equal(diagnosis, payload.Diagnosis);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenEnsureRunningFailureCompletesAfterPayloadTimeout_EmitsDiagnosisPayload ()
+    {
+        var diagnosis = CreateDiagnosis();
+        var startOperation = new StubDaemonStartOperation
+        {
+            DelayBeforeResult = TimeSpan.FromMilliseconds(25),
+            StartResult = DaemonStartResult.Failure(
+                ExecutionError.Timeout("endpoint registration timed out", ExecutionErrorCodes.IpcTimeout),
+                diagnosis),
+        };
+        var dispatcher = CreateDispatcher(startOperation);
+        var runtimeContext = CreateRuntimeContext();
+        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
+
+        var response = await SendRequestAsync(
+            dispatcher,
+            runtimeContext,
+            new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "request-delayed-diagnosis",
+                SessionToken: runtimeContext.Manifest.SessionToken,
+                Method: SupervisorIpcContracts.EnsureRunningMethod,
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.EnsureRunningRequest(
+                        UnityProjectRoot: unityProjectRoot,
+                        ProjectFingerprint: projectFingerprint,
+                        TimeoutMilliseconds: 1,
+                        EditorMode: null))));
+
+        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        var error = Assert.Single(response.Errors);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
+        Assert.True(IpcPayloadCodec.TryDeserialize(
+            response.Payload,
+            out SupervisorIpcContracts.EnsureRunningFailureResponse payload,
+            out _));
+        Assert.Equal(diagnosis, payload.Diagnosis);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenCallerDisconnectsDuringEnsureRunning_ReturnsIpcTimeout ()
+    {
+        var startOperation = new StubDaemonStartOperation
+        {
+            WaitUntilCancellation = true,
+        };
+        var dispatcher = CreateDispatcher(startOperation);
+        var runtimeContext = CreateRuntimeContext();
+        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
+
+        var response = await SendRequestWithCallerDisconnectAsync(
+            dispatcher,
+            runtimeContext,
+            new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "request-caller-disconnect",
+                SessionToken: runtimeContext.Manifest.SessionToken,
+                Method: SupervisorIpcContracts.EnsureRunningMethod,
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.EnsureRunningRequest(
+                        UnityProjectRoot: unityProjectRoot,
+                        ProjectFingerprint: projectFingerprint,
+                        TimeoutMilliseconds: 1000,
+                        EditorMode: null))));
+
+        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        var error = Assert.Single(response.Errors);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
+        Assert.Contains("caller disconnected", error.Message, StringComparison.Ordinal);
+    }
+
     private static SupervisorRequestDispatcher CreateDispatcher (StubDaemonStartOperation? startOperation = null)
     {
         var activityTracker = new SupervisorActivityTracker();
@@ -247,6 +365,29 @@ public sealed class SupervisorRequestDispatcherTests
             .ConfigureAwait(false);
     }
 
+    private static async Task<IpcResponse> SendRequestWithCallerDisconnectAsync (
+        SupervisorRequestDispatcher dispatcher,
+        SupervisorRuntimeContext runtimeContext,
+        IpcRequest request)
+    {
+        using var stream = new CallerDisconnectingMemoryStream();
+        await IpcFrameCodec.WriteModelAsync(
+                stream,
+                request,
+                IpcJsonSerializerOptions.Default)
+            .ConfigureAwait(false);
+        var requestLength = stream.Length;
+        stream.Position = 0;
+
+        await dispatcher.HandleConnectionAsync(stream, runtimeContext, CancellationToken.None).ConfigureAwait(false);
+
+        stream.Position = requestLength;
+        return await IpcFrameCodec.ReadModelAsync<IpcResponse>(
+                stream,
+                IpcJsonSerializerOptions.Default)
+            .ConfigureAwait(false);
+    }
+
     private sealed class NonDisconnectingMemoryStream : MemoryStream
     {
         public override async ValueTask<int> ReadAsync (
@@ -263,15 +404,34 @@ public sealed class SupervisorRequestDispatcherTests
         }
     }
 
+    private sealed class CallerDisconnectingMemoryStream : MemoryStream
+    {
+        public override async ValueTask<int> ReadAsync (
+            Memory<byte> buffer,
+            CancellationToken cancellationToken = default)
+        {
+            if (Position < Length)
+            {
+                return await base.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+            }
+
+            return 0;
+        }
+    }
+
     private sealed class StubDaemonStartOperation : IDaemonStartOperation
     {
         public DaemonStartResult StartResult { get; set; } = DaemonStartResult.AlreadyRunning(CreateSession());
+
+        public TimeSpan DelayBeforeResult { get; set; }
+
+        public bool WaitUntilCancellation { get; set; }
 
         public int CallCount { get; private set; }
 
         public DaemonEditorMode? LastEditorMode { get; private set; }
 
-        public ValueTask<DaemonStartResult> StartAsync (
+        public async ValueTask<DaemonStartResult> StartAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             DaemonEditorMode? editorMode,
@@ -279,7 +439,17 @@ public sealed class SupervisorRequestDispatcherTests
         {
             CallCount++;
             LastEditorMode = editorMode;
-            return ValueTask.FromResult(StartResult);
+            if (WaitUntilCancellation)
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (DelayBeforeResult > TimeSpan.Zero)
+            {
+                await Task.Delay(DelayBeforeResult, cancellationToken).ConfigureAwait(false);
+            }
+
+            return StartResult;
         }
     }
 
@@ -384,6 +554,20 @@ public sealed class SupervisorRequestDispatcherTests
             EndpointTransportKind: "unixDomainSocket",
             EndpointAddress: "/tmp/ucli.sock",
             ProcessId: 42,
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 24);
+    }
+
+    private static DaemonDiagnosis CreateDiagnosis ()
+    {
+        return new DaemonDiagnosis(
+            Reason: DaemonDiagnosisReasonValues.GuiEndpointNotRegistered,
+            Message: "GUI endpoint not registered.",
+            ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+            IsInferred: true,
+            UpdatedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 3, 0, TimeSpan.Zero),
+            ProcessId: 1234,
+            EditorInstancePath: "/repo/UnityProject/Library/EditorInstance.json",
+            SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 2, 0, TimeSpan.Zero));
     }
 }

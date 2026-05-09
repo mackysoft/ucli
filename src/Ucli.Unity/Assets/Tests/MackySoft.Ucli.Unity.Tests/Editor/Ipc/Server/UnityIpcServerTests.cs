@@ -214,6 +214,52 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Stop_WhenCalledUnderSynchronizationContext_DoesNotPostContinuation () => UniTask.ToCoroutine(async () =>
+        {
+            var listener = new BlockingTransportListener(IpcTransportKind.NamedPipe, signalStarted: true);
+            var server = CreateServer(
+                new PermitAllSessionTokenValidator(),
+                new StubExecuteRequestDispatcher(),
+                new StubUnityTestRunService(),
+                new StubDaemonShutdownSignal(),
+                new IUnityIpcTransportListener[]
+                {
+                    listener,
+                });
+            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-stop-context");
+
+            await TestAwaiter.WaitAsync(
+                server.StartAsync(endpoint).AsUniTask(),
+                "Server start before stop",
+                SignalWaitTimeout);
+            await TestAwaiter.WaitAsync(listener.RunEntered, "Blocking transport listener entry", SignalWaitTimeout);
+
+            var synchronizationContext = new RecordingSynchronizationContext();
+            var stopTask = Task.Run(async () =>
+            {
+                var previousContext = SynchronizationContext.Current;
+                SynchronizationContext.SetSynchronizationContext(synchronizationContext);
+                try
+                {
+                    await server.StopAsync(CancellationToken.None).ConfigureAwait(false);
+                }
+                finally
+                {
+                    SynchronizationContext.SetSynchronizationContext(previousContext);
+                }
+            });
+
+            await TestAwaiter.WaitAsync(
+                stopTask.AsUniTask(),
+                "Server stop under synchronization context",
+                SignalWaitTimeout);
+
+            Assert.That(synchronizationContext.PostCallCount, Is.EqualTo(0));
+            Assert.That(server.IsRunning, Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Start_WhenListenerThrows_ThrowsAndResetsRunningState () => UniTask.ToCoroutine(async () =>
         {
             var server = CreateServer(
@@ -1149,15 +1195,20 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class BlockingTransportListener : IUnityIpcTransportListener
         {
+            private readonly bool signalStarted;
+
             private readonly TaskCompletionSource<bool> runEntered =
                 new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             private readonly TaskCompletionSource<bool> cancellationObserved =
                 new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-            public BlockingTransportListener (IpcTransportKind transportKind)
+            public BlockingTransportListener (
+                IpcTransportKind transportKind,
+                bool signalStarted = false)
             {
                 TransportKind = transportKind;
+                this.signalStarted = signalStarted;
             }
 
             public IpcTransportKind TransportKind { get; }
@@ -1173,6 +1224,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 CancellationToken cancellationToken)
             {
                 runEntered.TrySetResult(true);
+                if (signalStarted)
+                {
+                    onStarted();
+                }
+
                 var waitSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 using var cancellationRegistration = cancellationToken.Register(() =>
                 {
@@ -1185,6 +1241,21 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public void Release ()
             {
+            }
+        }
+
+        private sealed class RecordingSynchronizationContext : SynchronizationContext
+        {
+            private int postCallCount;
+
+            public int PostCallCount => postCallCount;
+
+            public override void Post (
+                SendOrPostCallback d,
+                object state)
+            {
+                Interlocked.Increment(ref postCallCount);
+                ThreadPool.QueueUserWorkItem(_ => d(state));
             }
         }
     }

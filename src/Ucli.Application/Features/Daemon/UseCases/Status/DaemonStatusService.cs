@@ -1,8 +1,11 @@
+using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
+using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Observation;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Projection;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
@@ -19,6 +22,10 @@ internal sealed class DaemonStatusService : IDaemonStatusService
 
     private readonly IDaemonReachabilityClassifier reachabilityClassifier;
 
+    private readonly IDaemonLifecycleStore daemonLifecycleStore;
+
+    private readonly IDaemonProcessIdentityAssessor processIdentityAssessor;
+
     private readonly IDaemonSessionDiagnosisResolver daemonSessionDiagnosisResolver;
 
     private readonly IDaemonSessionOutputMapper daemonSessionOutputMapper;
@@ -32,6 +39,8 @@ internal sealed class DaemonStatusService : IDaemonStatusService
     /// <param name="daemonStatusOperation"> The daemon status-operation dependency. </param>
     /// <param name="daemonPingInfoClient"> The daemon ping-info client dependency. </param>
     /// <param name="reachabilityClassifier"> The daemon reachability classifier dependency. </param>
+    /// <param name="daemonLifecycleStore"> The daemon lifecycle observation store dependency. </param>
+    /// <param name="processIdentityAssessor"> The daemon process identity assessor dependency. </param>
     /// <param name="daemonSessionDiagnosisResolver"> The daemon session-diagnosis resolver dependency. </param>
     /// <param name="daemonSessionOutputMapper"> The daemon session-output mapper dependency. </param>
     /// <param name="daemonDiagnosisOutputMapper"> The daemon diagnosis-output mapper dependency. </param>
@@ -42,6 +51,8 @@ internal sealed class DaemonStatusService : IDaemonStatusService
         IDaemonStatusOperation daemonStatusOperation,
         IDaemonPingInfoClient daemonPingInfoClient,
         IDaemonReachabilityClassifier reachabilityClassifier,
+        IDaemonLifecycleStore daemonLifecycleStore,
+        IDaemonProcessIdentityAssessor processIdentityAssessor,
         IDaemonSessionDiagnosisResolver daemonSessionDiagnosisResolver,
         IDaemonSessionOutputMapper daemonSessionOutputMapper,
         IDaemonDiagnosisOutputMapper daemonDiagnosisOutputMapper,
@@ -51,6 +62,8 @@ internal sealed class DaemonStatusService : IDaemonStatusService
         this.daemonStatusOperation = daemonStatusOperation ?? throw new ArgumentNullException(nameof(daemonStatusOperation));
         this.daemonPingInfoClient = daemonPingInfoClient ?? throw new ArgumentNullException(nameof(daemonPingInfoClient));
         this.reachabilityClassifier = reachabilityClassifier ?? throw new ArgumentNullException(nameof(reachabilityClassifier));
+        this.daemonLifecycleStore = daemonLifecycleStore ?? throw new ArgumentNullException(nameof(daemonLifecycleStore));
+        this.processIdentityAssessor = processIdentityAssessor ?? throw new ArgumentNullException(nameof(processIdentityAssessor));
         this.daemonSessionDiagnosisResolver = daemonSessionDiagnosisResolver ?? throw new ArgumentNullException(nameof(daemonSessionDiagnosisResolver));
         this.daemonSessionOutputMapper = daemonSessionOutputMapper ?? throw new ArgumentNullException(nameof(daemonSessionOutputMapper));
         this.daemonDiagnosisOutputMapper = daemonDiagnosisOutputMapper ?? throw new ArgumentNullException(nameof(daemonDiagnosisOutputMapper));
@@ -113,11 +126,40 @@ internal sealed class DaemonStatusService : IDaemonStatusService
         var compileState = (string?)null;
         var compileGeneration = (string?)null;
         var domainReloadGeneration = (string?)null;
+        var observedAtUtc = (DateTimeOffset?)null;
+        var actionRequired = (string?)null;
+        var primaryDiagnostic = (DaemonPrimaryDiagnosticOutput?)null;
         var canAcceptExecutionRequests = false;
         var persistedDiagnosis = statusResult.Diagnosis;
         var diagnosis = statusResult.Status == DaemonStatusKind.Running
             ? null
             : persistedDiagnosis;
+
+        if (statusResult.Status == DaemonStatusKind.Stale && statusResult.Session is not null)
+        {
+            var unreachableObservation = await CreateUnreachableObservationAsync(
+                    executionContext.Context.UnityProject,
+                    statusResult.Session,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            daemonStatus = unreachableObservation.DaemonStatus;
+            ApplyObservation(
+                unreachableObservation,
+                ref serverVersion,
+                ref editorMode,
+                ref lifecycleState,
+                ref blockingReason,
+                ref compileState,
+                ref compileGeneration,
+                ref domainReloadGeneration,
+                ref observedAtUtc,
+                ref actionRequired,
+                ref primaryDiagnostic,
+                ref canAcceptExecutionRequests);
+            diagnosis = daemonStatus == DaemonStatusKind.Running
+                ? null
+                : diagnosis;
+        }
 
         if (statusResult.Status == DaemonStatusKind.Running)
         {
@@ -139,65 +181,86 @@ internal sealed class DaemonStatusService : IDaemonStatusService
                         executionContext.Context.UnityProject,
                         pingInfoTimeout,
                         statusResult.Session.SessionToken,
-                        cancellationToken)
+                        cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
                 var observation = StatusDaemonObservationCodec.CreateFromPing(statusResult.Status, pingResponse);
-                serverVersion = observation.ServerVersion;
-                editorMode = observation.EditorMode;
-                lifecycleState = observation.LifecycleState;
-                blockingReason = observation.BlockingReason;
-                compileState = observation.CompileState;
-                compileGeneration = observation.CompileGeneration;
-                domainReloadGeneration = observation.DomainReloadGeneration;
-                canAcceptExecutionRequests = observation.CanAcceptExecutionRequests;
+                ApplyObservation(
+                    observation,
+                    ref serverVersion,
+                    ref editorMode,
+                    ref lifecycleState,
+                    ref blockingReason,
+                    ref compileState,
+                    ref compileGeneration,
+                    ref domainReloadGeneration,
+                    ref observedAtUtc,
+                    ref actionRequired,
+                    ref primaryDiagnostic,
+                    ref canAcceptExecutionRequests);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 throw;
             }
-            catch (TimeoutException exception)
+            catch (TimeoutException)
             {
-                return DaemonStatusExecutionResult.Failure(ExecutionError.Timeout(
-                    $"Timed out while reading daemon ping information. {exception.Message}"));
+                var unreachableResolution = await ResolveUnreachableRunningSessionAsync(
+                        executionContext.Context.UnityProject,
+                        statusResult.Session,
+                        persistedDiagnosis,
+                        deadline,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (!unreachableResolution.IsSuccess)
+                {
+                    return DaemonStatusExecutionResult.Failure(unreachableResolution.Error!);
+                }
+
+                daemonStatus = unreachableResolution.Observation!.DaemonStatus;
+                ApplyObservation(
+                    unreachableResolution.Observation,
+                    ref serverVersion,
+                    ref editorMode,
+                    ref lifecycleState,
+                    ref blockingReason,
+                    ref compileState,
+                    ref compileGeneration,
+                    ref domainReloadGeneration,
+                    ref observedAtUtc,
+                    ref actionRequired,
+                    ref primaryDiagnostic,
+                    ref canAcceptExecutionRequests);
+                diagnosis = unreachableResolution.Diagnosis;
             }
             catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
             {
-                if (!deadline.TryGetRemainingTimeout(out var diagnosisTimeout))
+                var unreachableResolution = await ResolveUnreachableRunningSessionAsync(
+                        executionContext.Context.UnityProject,
+                        statusResult.Session,
+                        persistedDiagnosis,
+                        deadline,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (!unreachableResolution.IsSuccess)
                 {
-                    return DaemonStatusExecutionResult.Failure(ExecutionError.Timeout(
-                        "Timed out before stale daemon diagnosis could begin."));
+                    return DaemonStatusExecutionResult.Failure(unreachableResolution.Error!);
                 }
 
-                using var diagnosisCancellationScope = TimeProviderCancellationScope.CreateLinked(
-                    cancellationToken,
-                    diagnosisTimeout,
-                    timeProvider);
-
-                daemonStatus = DaemonStatusKind.Stale;
-                try
-                {
-                    diagnosis = await daemonSessionDiagnosisResolver.ResolveForSessionAsync(
-                            executionContext.Context.UnityProject,
-                            statusResult.Session,
-                            persistedDiagnosis,
-                            diagnosisCancellationScope.Token)
-                        .ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (OperationCanceledException) when (diagnosisCancellationScope.HasTimedOut
-                    && !cancellationToken.IsCancellationRequested)
-                {
-                    return DaemonStatusExecutionResult.Failure(ExecutionError.Timeout(
-                        "Timed out while resolving stale daemon diagnosis."));
-                }
-                catch (Exception diagnosisException)
-                {
-                    return DaemonStatusExecutionResult.Failure(ExecutionError.InternalError(
-                        $"Failed to resolve stale daemon diagnosis. {diagnosisException.Message}"));
-                }
+                daemonStatus = unreachableResolution.Observation!.DaemonStatus;
+                ApplyObservation(
+                    unreachableResolution.Observation,
+                    ref serverVersion,
+                    ref editorMode,
+                    ref lifecycleState,
+                    ref blockingReason,
+                    ref compileState,
+                    ref compileGeneration,
+                    ref domainReloadGeneration,
+                    ref observedAtUtc,
+                    ref actionRequired,
+                    ref primaryDiagnostic,
+                    ref canAcceptExecutionRequests);
+                diagnosis = unreachableResolution.Diagnosis;
             }
             catch (Exception exception)
             {
@@ -222,8 +285,128 @@ internal sealed class DaemonStatusService : IDaemonStatusService
                 : daemonSessionOutputMapper.ToOutput(statusResult.Session),
             Diagnosis: diagnosis is null
                 ? null
-                : daemonDiagnosisOutputMapper.ToOutput(diagnosis));
+                : daemonDiagnosisOutputMapper.ToOutput(diagnosis),
+            ObservedAtUtc: observedAtUtc,
+            ActionRequired: actionRequired,
+            PrimaryDiagnostic: primaryDiagnostic);
         return DaemonStatusExecutionResult.Success(output);
+    }
+
+    private async ValueTask<UnreachableDaemonStatusResolution> ResolveUnreachableRunningSessionAsync (
+        ResolvedUnityProjectContext unityProject,
+        DaemonSession session,
+        DaemonDiagnosis? persistedDiagnosis,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken)
+    {
+        var unreachableObservation = await CreateUnreachableObservationAsync(
+                unityProject,
+                session,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (unreachableObservation.DaemonStatus == DaemonStatusKind.Running)
+        {
+            return UnreachableDaemonStatusResolution.Success(unreachableObservation, diagnosis: null);
+        }
+
+        if (!deadline.TryGetRemainingTimeout(out var diagnosisTimeout))
+        {
+            return UnreachableDaemonStatusResolution.Failure(ExecutionError.Timeout(
+                "Timed out before stale daemon diagnosis could begin."));
+        }
+
+        using var diagnosisCancellationScope = TimeProviderCancellationScope.CreateLinked(
+            cancellationToken,
+            diagnosisTimeout,
+            timeProvider);
+
+        try
+        {
+            var diagnosis = await daemonSessionDiagnosisResolver.ResolveForSessionAsync(
+                    unityProject,
+                    session,
+                    persistedDiagnosis,
+                    diagnosisCancellationScope.Token)
+                .ConfigureAwait(false);
+            return UnreachableDaemonStatusResolution.Success(unreachableObservation, diagnosis);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException) when (diagnosisCancellationScope.HasTimedOut
+            && !cancellationToken.IsCancellationRequested)
+        {
+            return UnreachableDaemonStatusResolution.Failure(ExecutionError.Timeout(
+                "Timed out while resolving stale daemon diagnosis."));
+        }
+        catch (Exception diagnosisException)
+        {
+            return UnreachableDaemonStatusResolution.Failure(ExecutionError.InternalError(
+                $"Failed to resolve stale daemon diagnosis. {diagnosisException.Message}"));
+        }
+    }
+
+    private async ValueTask<StatusDaemonObservation> CreateUnreachableObservationAsync (
+        ResolvedUnityProjectContext unityProject,
+        DaemonSession session,
+        CancellationToken cancellationToken)
+    {
+        var lifecycleReadResult = await daemonLifecycleStore.ReadAsync(
+                unityProject.RepositoryRoot,
+                unityProject.ProjectFingerprint,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (lifecycleReadResult.IsSuccess
+            && lifecycleReadResult.Exists
+            && lifecycleReadResult.Observation!.IsRecovering
+            && DaemonLifecycleObservationMatcher.MatchesSession(lifecycleReadResult.Observation, session)
+            && IsMatchingLiveProcess(session))
+        {
+            return StatusDaemonObservationCodec.CreateFromLifecycleObservation(
+                DaemonStatusKind.Running,
+                lifecycleReadResult.Observation);
+        }
+
+        return StatusDaemonObservationCodec.CreateUnavailable(DaemonStatusKind.Stale);
+    }
+
+    private bool IsMatchingLiveProcess (DaemonSession session)
+    {
+        if (session.ProcessId is not int processId)
+        {
+            return false;
+        }
+
+        return processIdentityAssessor.AssessByProcessId(processId, session.ProcessStartedAtUtc).Status
+            == DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess;
+    }
+
+    private static void ApplyObservation (
+        StatusDaemonObservation observation,
+        ref string? serverVersion,
+        ref string? editorMode,
+        ref string? lifecycleState,
+        ref string? blockingReason,
+        ref string? compileState,
+        ref string? compileGeneration,
+        ref string? domainReloadGeneration,
+        ref DateTimeOffset? observedAtUtc,
+        ref string? actionRequired,
+        ref DaemonPrimaryDiagnosticOutput? primaryDiagnostic,
+        ref bool canAcceptExecutionRequests)
+    {
+        serverVersion = observation.ServerVersion;
+        editorMode = observation.EditorMode;
+        lifecycleState = observation.LifecycleState;
+        blockingReason = observation.BlockingReason;
+        compileState = observation.CompileState;
+        compileGeneration = observation.CompileGeneration;
+        domainReloadGeneration = observation.DomainReloadGeneration;
+        observedAtUtc = observation.ObservedAtUtc;
+        actionRequired = observation.ActionRequired;
+        primaryDiagnostic = observation.PrimaryDiagnostic;
+        canAcceptExecutionRequests = observation.CanAcceptExecutionRequests;
     }
 
     private static bool IsSupportedDaemonStatus (DaemonStatusKind status)
@@ -231,5 +414,25 @@ internal sealed class DaemonStatusService : IDaemonStatusService
         return status is DaemonStatusKind.Running
             or DaemonStatusKind.NotRunning
             or DaemonStatusKind.Stale;
+    }
+
+    private sealed record UnreachableDaemonStatusResolution (
+        StatusDaemonObservation? Observation,
+        DaemonDiagnosis? Diagnosis,
+        ExecutionError? Error)
+    {
+        public bool IsSuccess => Observation is not null && Error is null;
+
+        public static UnreachableDaemonStatusResolution Success (
+            StatusDaemonObservation observation,
+            DaemonDiagnosis? diagnosis)
+        {
+            return new UnreachableDaemonStatusResolution(observation, diagnosis, null);
+        }
+
+        public static UnreachableDaemonStatusResolution Failure (ExecutionError error)
+        {
+            return new UnreachableDaemonStatusResolution(null, null, error);
+        }
     }
 }

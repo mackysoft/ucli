@@ -103,6 +103,7 @@ public sealed class SupervisorExitHandlerTests
             EndpointTransportKind: "unixDomainSocket",
             EndpointAddress: "/tmp/ucli.sock",
             ProcessId: 1234,
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 24);
     }
 

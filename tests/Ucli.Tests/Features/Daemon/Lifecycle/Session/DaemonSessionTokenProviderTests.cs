@@ -71,7 +71,7 @@ public sealed class DaemonSessionTokenProviderTests
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-test",
             ProcessId: 123,
-
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 9876);
     }
 }

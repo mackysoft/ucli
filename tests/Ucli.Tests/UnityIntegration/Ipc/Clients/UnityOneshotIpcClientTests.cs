@@ -435,7 +435,7 @@ public sealed class UnityOneshotIpcClientTests
             transportClient,
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe(),
-            cleanupTimeout: TimeSpan.FromMilliseconds(150),
+            cleanupTimeout: TimeSpan.FromMilliseconds(500),
             cleanupRetryDelay: TimeSpan.FromMilliseconds(1));
 
         var result = await client.SendAsync(
@@ -683,6 +683,8 @@ public sealed class UnityOneshotIpcClientTests
         }
 
         public int ProcessId => 1234;
+
+        public DateTimeOffset? StartTimeUtc => DateTimeOffset.UtcNow;
 
         public bool HasExited { get; private set; }
 

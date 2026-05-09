@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 namespace MackySoft.Ucli.Tests.Daemon;
@@ -515,6 +514,7 @@ public sealed class DaemonCleanupOperationTests
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: processId,
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 9876);
     }
 

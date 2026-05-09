@@ -1,6 +1,9 @@
+using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Observation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Status.UseCases.Status.Projection;
@@ -22,7 +25,50 @@ internal static class StatusDaemonObservationCodec
             CompileGeneration: null,
             DomainReloadGeneration: null,
             CanAcceptExecutionRequests: false,
-            EditorMode: null);
+            EditorMode: null,
+            ObservedAtUtc: null,
+            ActionRequired: null,
+            PrimaryDiagnostic: null);
+    }
+
+    /// <summary> Creates observation values from a persisted lifecycle sidecar when ping details are unavailable. </summary>
+    public static StatusDaemonObservation CreateFromLifecycleObservation (
+        DaemonStatusKind daemonStatus,
+        DaemonLifecycleObservation observation)
+    {
+        ArgumentNullException.ThrowIfNull(observation);
+
+        return new StatusDaemonObservation(
+            DaemonStatus: daemonStatus,
+            ServerVersion: null,
+            LifecycleState: observation.LifecycleState,
+            BlockingReason: observation.BlockingReason,
+            CompileState: observation.CompileState,
+            CompileGeneration: observation.CompileGeneration,
+            DomainReloadGeneration: observation.DomainReloadGeneration,
+            CanAcceptExecutionRequests: false,
+            EditorMode: observation.EditorMode,
+            ObservedAtUtc: observation.ObservedAtUtc,
+            ActionRequired: observation.ActionRequired,
+            PrimaryDiagnostic: ToOutput(observation.PrimaryDiagnostic));
+    }
+
+    /// <summary> Creates observation values for an unreachable daemon whose lifecycle cannot be inferred. </summary>
+    public static StatusDaemonObservation CreateUnavailable (DaemonStatusKind daemonStatus)
+    {
+        return new StatusDaemonObservation(
+            DaemonStatus: daemonStatus,
+            ServerVersion: null,
+            LifecycleState: IpcEditorLifecycleStateCodec.Unavailable,
+            BlockingReason: IpcEditorBlockingReasonCodec.Unavailable,
+            CompileState: null,
+            CompileGeneration: null,
+            DomainReloadGeneration: null,
+            CanAcceptExecutionRequests: false,
+            EditorMode: null,
+            ObservedAtUtc: DateTimeOffset.UtcNow,
+            ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
+            PrimaryDiagnostic: null);
     }
 
     /// <summary> Creates observation values for daemon states where ping details are available. </summary>
@@ -60,6 +106,25 @@ internal static class StatusDaemonObservationCodec
             CanAcceptExecutionRequests: canAcceptExecutionRequests,
             EditorMode: DaemonEditorModeCodec.TryParse(pingResponse.EditorMode, out var editorMode)
                 ? DaemonEditorModeCodec.ToValue(editorMode)
-                : null);
+                : null,
+            ObservedAtUtc: pingResponse.ObservedAtUtc,
+            ActionRequired: StringValueNormalizer.TrimToNull(pingResponse.ActionRequired),
+            PrimaryDiagnostic: ToOutput(pingResponse.PrimaryDiagnostic));
+    }
+
+    private static DaemonPrimaryDiagnosticOutput? ToOutput (IpcPrimaryDiagnostic? diagnostic)
+    {
+        if (diagnostic is null || !StringValueNormalizer.TryTrimToNonEmpty(diagnostic.Kind, out var kind))
+        {
+            return null;
+        }
+
+        return new DaemonPrimaryDiagnosticOutput(
+            Kind: kind,
+            Code: StringValueNormalizer.TrimToNull(diagnostic.Code),
+            File: StringValueNormalizer.TrimToNull(diagnostic.File),
+            Line: diagnostic.Line,
+            Column: diagnostic.Column,
+            Message: StringValueNormalizer.TrimToNull(diagnostic.Message));
     }
 }

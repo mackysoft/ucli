@@ -2,7 +2,6 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
@@ -426,7 +425,7 @@ public sealed class DaemonStatusServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task GetStatus_WhenRunningPingInfoReadTimesOut_ReturnsTimeoutFailure ()
+    public async Task GetStatus_WhenRunningPingInfoReadTimesOut_ReturnsUnavailableStaleStatus ()
     {
         var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 2480);
         var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
@@ -450,11 +449,12 @@ public sealed class DaemonStatusServiceTests
 
         var result = await service.GetStatusAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.Output);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
-        Assert.Equal("Timed out while reading daemon ping information. ping timeout", error.Message);
+        Assert.True(result.IsSuccess);
+        var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
+        Assert.Equal(DaemonStatusKind.Stale, output.DaemonStatus);
+        Assert.Equal(IpcEditorLifecycleStateCodec.Unavailable, output.LifecycleState);
+        Assert.False(output.CanAcceptExecutionRequests);
+        Assert.Null(result.Error);
         Assert.Equal(1, pingInfoClient.CallCount);
     }
 
@@ -707,6 +707,8 @@ public sealed class DaemonStatusServiceTests
             daemonStatusOperation,
             pingInfoClient,
             reachabilityClassifier,
+            new DaemonServiceTestContext.StubDaemonLifecycleStore(),
+            new DaemonServiceTestContext.StubDaemonProcessIdentityAssessor(),
             diagnosisResolver,
             sessionOutputMapper,
             diagnosisOutputMapper,

@@ -112,6 +112,80 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         });
 
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ReleaseResourcesForEditorLifecycleEvent_WhenServerStopDoesNotComplete_DeletesSessionWithoutBlockingOnCallingThread () => UniTask.ToCoroutine(async () =>
+        {
+            var storageRoot = CreateStorageRoot();
+            try
+            {
+                var registration = await UnityGuiSessionPersistence.WriteAsync(
+                    storageRoot,
+                    "fingerprint",
+                    new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-bootstrap-tests"),
+                    UnityGuiBootstrapSessionOptions.Create(null),
+                    CancellationToken.None);
+                var incompleteStopSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var server = new SpyUnityIpcServer(stopTask: incompleteStopSource.Task);
+                var logCapture = new SpyDisposable();
+                var serviceProvider = new SpyServiceProvider();
+                var callingThreadId = Thread.CurrentThread.ManagedThreadId;
+
+                UnityGuiBootstrap.ReleaseResourcesForEditorLifecycleEvent(
+                    registration,
+                    server,
+                    logCapture,
+                    serviceProvider,
+                    NoOpDaemonLogger.Instance,
+                    deleteSession: true);
+
+                Assert.That(server.StopCallCount, Is.EqualTo(1));
+                Assert.That(logCapture.DisposeCallCount, Is.EqualTo(1));
+                Assert.That(logCapture.DisposeThreadId, Is.EqualTo(callingThreadId));
+                Assert.That(serviceProvider.DisposeCallCount, Is.EqualTo(1));
+                Assert.That(serviceProvider.DisposeThreadId, Is.EqualTo(callingThreadId));
+                Assert.That(File.Exists(registration.SessionPath), Is.False);
+            }
+            finally
+            {
+                DeleteDirectory(storageRoot);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ReleaseResourcesForEditorLifecycleEvent_WhenServerWasNotCreated_DisposesServiceProviderOnCallingThread () => UniTask.ToCoroutine(async () =>
+        {
+            var storageRoot = CreateStorageRoot();
+            try
+            {
+                var registration = await UnityGuiSessionPersistence.WriteAsync(
+                    storageRoot,
+                    "fingerprint",
+                    new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-bootstrap-tests"),
+                    UnityGuiBootstrapSessionOptions.Create(null),
+                    CancellationToken.None);
+                var serviceProvider = new SpyServiceProvider();
+                var callingThreadId = Thread.CurrentThread.ManagedThreadId;
+
+                UnityGuiBootstrap.ReleaseResourcesForEditorLifecycleEvent(
+                    registration,
+                    server: null,
+                    unityLogCaptureService: null,
+                    serviceProvider,
+                    NoOpDaemonLogger.Instance,
+                    deleteSession: true);
+
+                Assert.That(serviceProvider.DisposeCallCount, Is.EqualTo(1));
+                Assert.That(serviceProvider.DisposeThreadId, Is.EqualTo(callingThreadId));
+                Assert.That(File.Exists(registration.SessionPath), Is.False);
+            }
+            finally
+            {
+                DeleteDirectory(storageRoot);
+            }
+        });
+
         private static string CreateStorageRoot ()
         {
             return Path.Combine(Path.GetTempPath(), $"ucli-gui-bootstrap-tests-{Guid.NewGuid():N}");
@@ -129,9 +203,14 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             private readonly bool throwOnStop;
 
-            public SpyUnityIpcServer (bool throwOnStop = false)
+            private readonly Task stopTask;
+
+            public SpyUnityIpcServer (
+                bool throwOnStop = false,
+                Task stopTask = null)
             {
                 this.throwOnStop = throwOnStop;
+                this.stopTask = stopTask;
             }
 
             public int StopCallCount { get; private set; }
@@ -151,7 +230,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     throw new InvalidOperationException("stop failed");
                 }
 
-                return Task.CompletedTask;
+                return stopTask ?? Task.CompletedTask;
             }
 
             public Task WaitForTerminationAsync (CancellationToken cancellationToken = default)
@@ -164,9 +243,12 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             public int DisposeCallCount { get; private set; }
 
+            public int DisposeThreadId { get; private set; }
+
             public void Dispose ()
             {
                 DisposeCallCount++;
+                DisposeThreadId = Thread.CurrentThread.ManagedThreadId;
             }
         }
 
@@ -181,6 +263,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public int DisposeCallCount { get; private set; }
 
+            public int DisposeThreadId { get; private set; }
+
             public object GetService (Type serviceType)
             {
                 return null;
@@ -189,6 +273,7 @@ namespace MackySoft.Ucli.Unity.Tests
             public void Dispose ()
             {
                 DisposeCallCount++;
+                DisposeThreadId = Thread.CurrentThread.ManagedThreadId;
                 if (throwOnDispose)
                 {
                     throw new InvalidOperationException("dispose failed");

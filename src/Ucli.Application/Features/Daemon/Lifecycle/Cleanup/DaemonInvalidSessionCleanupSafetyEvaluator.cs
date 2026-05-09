@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
@@ -44,12 +43,12 @@ internal sealed class DaemonInvalidSessionCleanupSafetyEvaluator : IDaemonInvali
         // Invalid session snapshots are not trusted enough to authorize destructive cleanup of the
         // canonical endpoint. Snapshot process identity is therefore used only to force an unsafe
         // skip when it still points to a plausible live daemon for the current project.
-        if (session.ProcessId is not int processId || processId <= 0 || session.IssuedAtUtc == default)
+        if (session.ProcessId is not int processId || processId <= 0)
         {
             return false;
         }
 
-        var identityAssessment = daemonProcessIdentityAssessor.AssessByProcessId(processId, session.IssuedAtUtc);
+        var identityAssessment = daemonProcessIdentityAssessor.AssessByProcessId(processId, session.ProcessStartedAtUtc);
         return identityAssessment.Status switch
         {
             DaemonProcessIdentityAssessmentStatus.NotRunning => false,

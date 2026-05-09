@@ -50,6 +50,24 @@ internal sealed class DaemonSessionValidator : IDaemonSessionValidator
             return false;
         }
 
+        if (session.ProcessId is int && session.ProcessStartedAtUtc is not DateTimeOffset)
+        {
+            error = ExecutionError.InvalidArgument($"Daemon session processStartedAtUtc is required when processId is specified: {sessionPath}");
+            return false;
+        }
+
+        if (session.ProcessId is null && session.ProcessStartedAtUtc is not null)
+        {
+            error = ExecutionError.InvalidArgument($"Daemon session processStartedAtUtc requires processId: {sessionPath}");
+            return false;
+        }
+
+        if (session.ProcessStartedAtUtc == default(DateTimeOffset))
+        {
+            error = ExecutionError.InvalidArgument($"Daemon session processStartedAtUtc is invalid: {sessionPath}");
+            return false;
+        }
+
         if (session.OwnerProcessId is not int ownerProcessId || ownerProcessId <= 0)
         {
             error = ExecutionError.InvalidArgument(

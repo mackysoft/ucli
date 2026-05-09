@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Context.Project;
@@ -164,7 +165,7 @@ internal sealed class SupervisorRequestDispatcher
             editorMode = parsedEditorMode;
         }
 
-        await using var requestLifetime = SupervisorRequestLifetime.Start(stream, timeout, cancellationToken);
+        await using var requestLifetime = SupervisorRequestLifetime.Start(stream, cancellationToken);
 
         DaemonStartResult startResult;
         try
@@ -176,13 +177,6 @@ internal sealed class SupervisorRequestDispatcher
                     requestLifetime.CancellationToken)
                 .ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (requestLifetime.IsTimeoutCancellation)
-        {
-            return SupervisorIpcResponseFactory.CreateErrorResponse(
-                request,
-                ExecutionErrorCodes.IpcTimeout,
-                $"Supervisor ensureRunning timed out after {payload.TimeoutMilliseconds} milliseconds.");
-        }
         catch (OperationCanceledException) when (requestLifetime.IsCallerDisconnectCancellation)
         {
             return SupervisorIpcResponseFactory.CreateErrorResponse(
@@ -193,7 +187,7 @@ internal sealed class SupervisorRequestDispatcher
 
         if (!startResult.IsSuccess)
         {
-            return CreateExecutionErrorResponse(request, startResult.Error!);
+            return CreateExecutionErrorResponse(request, startResult.Error!, startResult.Diagnosis);
         }
 
         if (!DaemonStartStateCodec.TryToValue(startResult.Status, out var startStatus))
@@ -247,7 +241,7 @@ internal sealed class SupervisorRequestDispatcher
                 $"Supervisor stopProject timeout must be greater than zero. Actual={payload.TimeoutMilliseconds}.");
         }
 
-        await using var requestLifetime = SupervisorRequestLifetime.Start(stream, timeout, cancellationToken);
+        await using var requestLifetime = SupervisorRequestLifetime.Start(stream, cancellationToken);
 
         DaemonStopResult stopResult;
         try
@@ -257,13 +251,6 @@ internal sealed class SupervisorRequestDispatcher
                     timeout,
                     requestLifetime.CancellationToken)
                 .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (requestLifetime.IsTimeoutCancellation)
-        {
-            return SupervisorIpcResponseFactory.CreateErrorResponse(
-                request,
-                ExecutionErrorCodes.IpcTimeout,
-                $"Supervisor stopProject timed out after {payload.TimeoutMilliseconds} milliseconds.");
         }
         catch (OperationCanceledException) when (requestLifetime.IsCallerDisconnectCancellation)
         {
@@ -364,6 +351,18 @@ internal sealed class SupervisorRequestDispatcher
             request,
             ExecutionErrorCodeMapper.ToCode(error),
             error.Message);
+    }
+
+    private static IpcResponse CreateExecutionErrorResponse (
+        IpcRequest request,
+        ExecutionError error,
+        DaemonDiagnosis? diagnosis)
+    {
+        return SupervisorIpcResponseFactory.CreateErrorResponse(
+            request,
+            ExecutionErrorCodeMapper.ToCode(error),
+            error.Message,
+            new SupervisorIpcContracts.EnsureRunningFailureResponse(diagnosis));
     }
 
     private sealed record ProjectContextResult (

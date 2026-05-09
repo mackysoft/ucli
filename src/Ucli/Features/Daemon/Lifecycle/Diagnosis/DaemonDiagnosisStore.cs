@@ -90,7 +90,21 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
             IsInferred: contract.IsInferred!.Value,
             UpdatedAtUtc: contract.UpdatedAtUtc,
             ProcessId: contract.ProcessId,
-            SessionIssuedAtUtc: contract.SessionIssuedAtUtc);
+            EditorInstancePath: StringValueNormalizer.TrimToNull(contract.EditorInstancePath),
+            SessionIssuedAtUtc: contract.SessionIssuedAtUtc,
+            ProcessStartedAtUtc: contract.ProcessStartedAtUtc,
+            UnityLogPath: StringValueNormalizer.TrimToNull(contract.UnityLogPath),
+            StartupPhase: StringValueNormalizer.TrimToNull(contract.StartupPhase),
+            ActionRequired: StringValueNormalizer.TrimToNull(contract.ActionRequired),
+            PrimaryDiagnostic: contract.PrimaryDiagnostic is null
+                ? null
+                : new DaemonPrimaryDiagnostic(
+                    Kind: StringValueNormalizer.TrimToNull(contract.PrimaryDiagnostic.Kind)!,
+                    Code: StringValueNormalizer.TrimToNull(contract.PrimaryDiagnostic.Code),
+                    File: StringValueNormalizer.TrimToNull(contract.PrimaryDiagnostic.File),
+                    Line: contract.PrimaryDiagnostic.Line,
+                    Column: contract.PrimaryDiagnostic.Column,
+                    Message: StringValueNormalizer.TrimToNull(contract.PrimaryDiagnostic.Message)));
         return DaemonDiagnosisReadResult.Success(diagnosis);
     }
 
@@ -127,7 +141,21 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
             IsInferred: diagnosis.IsInferred,
             UpdatedAtUtc: diagnosis.UpdatedAtUtc,
             ProcessId: diagnosis.ProcessId,
-            SessionIssuedAtUtc: diagnosis.SessionIssuedAtUtc);
+            EditorInstancePath: diagnosis.EditorInstancePath,
+            SessionIssuedAtUtc: diagnosis.SessionIssuedAtUtc,
+            ProcessStartedAtUtc: diagnosis.ProcessStartedAtUtc,
+            UnityLogPath: diagnosis.UnityLogPath,
+            StartupPhase: diagnosis.StartupPhase,
+            ActionRequired: diagnosis.ActionRequired,
+            PrimaryDiagnostic: diagnosis.PrimaryDiagnostic is null
+                ? null
+                : new DaemonDiagnosisPrimaryDiagnosticJsonContract(
+                    Kind: diagnosis.PrimaryDiagnostic.Kind,
+                    Code: diagnosis.PrimaryDiagnostic.Code,
+                    File: diagnosis.PrimaryDiagnostic.File,
+                    Line: diagnosis.PrimaryDiagnostic.Line,
+                    Column: diagnosis.PrimaryDiagnostic.Column,
+                    Message: diagnosis.PrimaryDiagnostic.Message));
 
         string json;
         try
@@ -239,6 +267,21 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
             return false;
         }
 
+        if (!TryValidateOptionalStartupPhase(contract.StartupPhase, diagnosisPath, out error))
+        {
+            return false;
+        }
+
+        if (!TryValidateOptionalActionRequired(contract.ActionRequired, diagnosisPath, out error))
+        {
+            return false;
+        }
+
+        if (!TryValidatePrimaryDiagnostic(contract.PrimaryDiagnostic, diagnosisPath, out error))
+        {
+            return false;
+        }
+
         error = null;
         return true;
     }
@@ -276,6 +319,131 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
         if (diagnosis.SessionIssuedAtUtc == default)
         {
             error = ExecutionError.InvalidArgument($"Daemon diagnosis sessionIssuedAtUtc is invalid: {diagnosisPath}");
+            return false;
+        }
+
+        if (!TryValidateOptionalStartupPhase(diagnosis.StartupPhase, diagnosisPath, out error))
+        {
+            return false;
+        }
+
+        if (!TryValidateOptionalActionRequired(diagnosis.ActionRequired, diagnosisPath, out error))
+        {
+            return false;
+        }
+
+        if (!TryValidatePrimaryDiagnostic(diagnosis.PrimaryDiagnostic, diagnosisPath, out error))
+        {
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    private static bool TryValidateOptionalStartupPhase (
+        string? startupPhase,
+        string diagnosisPath,
+        out ExecutionError? error)
+    {
+        if (StringValueNormalizer.TrimToNull(startupPhase) is not string normalizedStartupPhase)
+        {
+            error = null;
+            return true;
+        }
+
+        if (!DaemonDiagnosisStartupPhaseValues.IsSupported(normalizedStartupPhase))
+        {
+            error = ExecutionError.InvalidArgument($"Daemon diagnosis startupPhase is invalid: {diagnosisPath}");
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    private static bool TryValidateOptionalActionRequired (
+        string? actionRequired,
+        string diagnosisPath,
+        out ExecutionError? error)
+    {
+        if (StringValueNormalizer.TrimToNull(actionRequired) is not string normalizedActionRequired)
+        {
+            error = null;
+            return true;
+        }
+
+        if (!DaemonDiagnosisActionRequiredValues.IsSupported(normalizedActionRequired))
+        {
+            error = ExecutionError.InvalidArgument($"Daemon diagnosis actionRequired is invalid: {diagnosisPath}");
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    private static bool TryValidatePrimaryDiagnostic (
+        DaemonPrimaryDiagnostic? primaryDiagnostic,
+        string diagnosisPath,
+        out ExecutionError? error)
+    {
+        if (primaryDiagnostic is null)
+        {
+            error = null;
+            return true;
+        }
+
+        return TryValidatePrimaryDiagnosticFields(
+            primaryDiagnostic.Kind,
+            primaryDiagnostic.Line,
+            primaryDiagnostic.Column,
+            diagnosisPath,
+            out error);
+    }
+
+    private static bool TryValidatePrimaryDiagnostic (
+        DaemonDiagnosisPrimaryDiagnosticJsonContract? primaryDiagnostic,
+        string diagnosisPath,
+        out ExecutionError? error)
+    {
+        if (primaryDiagnostic is null)
+        {
+            error = null;
+            return true;
+        }
+
+        return TryValidatePrimaryDiagnosticFields(
+            primaryDiagnostic.Kind,
+            primaryDiagnostic.Line,
+            primaryDiagnostic.Column,
+            diagnosisPath,
+            out error);
+    }
+
+    private static bool TryValidatePrimaryDiagnosticFields (
+        string? kind,
+        int? line,
+        int? column,
+        string diagnosisPath,
+        out ExecutionError? error)
+    {
+        if (!StringValueNormalizer.TryTrimToNonEmpty(kind, out var normalizedKind)
+            || !DaemonDiagnosisPrimaryDiagnosticKindValues.IsSupported(normalizedKind))
+        {
+            error = ExecutionError.InvalidArgument($"Daemon diagnosis primaryDiagnostic.kind is invalid: {diagnosisPath}");
+            return false;
+        }
+
+        if (line is <= 0)
+        {
+            error = ExecutionError.InvalidArgument($"Daemon diagnosis primaryDiagnostic.line is invalid: {diagnosisPath}");
+            return false;
+        }
+
+        if (column is <= 0)
+        {
+            error = ExecutionError.InvalidArgument($"Daemon diagnosis primaryDiagnostic.column is invalid: {diagnosisPath}");
             return false;
         }
 

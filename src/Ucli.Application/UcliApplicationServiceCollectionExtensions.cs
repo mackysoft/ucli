@@ -3,6 +3,10 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.ExistingSession;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiAttach;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
@@ -142,6 +146,8 @@ public static class UcliApplicationServiceCollectionExtensions
 
         services.AddSingleton<IDaemonSessionCleanupService, DaemonSessionCleanupService>();
         services.AddSingleton<IDaemonExistingSessionGateService, DaemonExistingSessionGateService>();
+        services.AddSingleton<IDaemonGuiSessionRegistrationAwaiter, DaemonGuiSessionRegistrationAwaiter>();
+        services.AddSingleton<IDaemonGuiEditorAttachService, DaemonGuiEditorAttachService>();
         services.AddSingleton<IDaemonLaunchCompensationService, DaemonLaunchCompensationService>();
         services.AddSingleton<IDaemonStartOperation, DaemonStartOperation>();
         services.AddSingleton<IDaemonStopOperation, DaemonStopOperation>();

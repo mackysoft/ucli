@@ -1,5 +1,9 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.ExistingSession;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiAttach;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
@@ -18,6 +22,8 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
 
     private readonly IDaemonExistingSessionGateService daemonExistingSessionGateService;
 
+    private readonly IDaemonGuiEditorAttachService daemonGuiEditorAttachService;
+
     private readonly IDaemonLaunchService daemonLaunchService;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonStartOperation" /> class. </summary>
@@ -25,6 +31,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
     /// <param name="daemonSessionStore"> The daemon session store dependency. </param>
     /// <param name="daemonSessionCleanupService"> The daemon session-cleanup service dependency. </param>
     /// <param name="daemonExistingSessionGateService"> The daemon existing-session gate service dependency. </param>
+    /// <param name="daemonGuiEditorAttachService"> The daemon GUI Editor attach service dependency. </param>
     /// <param name="daemonLaunchService"> The daemon launch service dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStartOperation (
@@ -33,6 +40,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         IDaemonSessionStore daemonSessionStore,
         IDaemonSessionCleanupService daemonSessionCleanupService,
         IDaemonExistingSessionGateService daemonExistingSessionGateService,
+        IDaemonGuiEditorAttachService daemonGuiEditorAttachService,
         IDaemonLaunchService daemonLaunchService)
     {
         this.lifecycleLockProvider = lifecycleLockProvider ?? throw new ArgumentNullException(nameof(lifecycleLockProvider));
@@ -40,6 +48,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
         this.daemonSessionCleanupService = daemonSessionCleanupService ?? throw new ArgumentNullException(nameof(daemonSessionCleanupService));
         this.daemonExistingSessionGateService = daemonExistingSessionGateService ?? throw new ArgumentNullException(nameof(daemonExistingSessionGateService));
+        this.daemonGuiEditorAttachService = daemonGuiEditorAttachService ?? throw new ArgumentNullException(nameof(daemonGuiEditorAttachService));
         this.daemonLaunchService = daemonLaunchService ?? throw new ArgumentNullException(nameof(daemonLaunchService));
     }
 
@@ -145,25 +154,13 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             }
         }
 
-        if (!deadline.TryGetRemainingTimeout(out var launchTimeout))
-        {
-            return CreateFailure(
-                CreateTimeoutError("Timed out before daemon launch could start."),
-                diagnosisCleanupError);
-        }
-
-        if (!DaemonLaunchEditorModePolicy.TryResolve(editorMode, out var launchEditorMode, out var editorModeError))
-        {
-            return CreateFailure(editorModeError!, diagnosisCleanupError);
-        }
-
-        var launchResult = await daemonLaunchService.LaunchAsync(
+        return await TryAttachExistingGuiEditorOrLaunchAsync(
                 unityProject,
-                launchTimeout,
-                launchEditorMode,
+                deadline,
+                diagnosisCleanupError,
+                editorMode,
                 cancellationToken)
             .ConfigureAwait(false);
-        return CreateResult(launchResult, diagnosisCleanupError);
     }
 
     private async ValueTask<DaemonStartResult> HandleInvalidSessionReadAsync (
@@ -195,6 +192,40 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         if (!cleanupResult.IsSuccess)
         {
             return CreateFailure(cleanupResult.Error!, diagnosisCleanupError);
+        }
+
+        return await TryAttachExistingGuiEditorOrLaunchAsync(
+                unityProject,
+                deadline,
+                diagnosisCleanupError,
+                editorMode,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async ValueTask<DaemonStartResult> TryAttachExistingGuiEditorOrLaunchAsync (
+        ResolvedUnityProjectContext unityProject,
+        ExecutionDeadline deadline,
+        ExecutionError? diagnosisCleanupError,
+        DaemonEditorMode? editorMode,
+        CancellationToken cancellationToken)
+    {
+        if (!deadline.TryGetRemainingTimeout(out var attachTimeout))
+        {
+            return CreateFailure(
+                CreateTimeoutError("Timed out before existing GUI Editor attach could start."),
+                diagnosisCleanupError);
+        }
+
+        var attachResult = await daemonGuiEditorAttachService.TryAttachExistingGuiEditorAsync(
+                unityProject,
+                attachTimeout,
+                editorMode,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (attachResult is not null)
+        {
+            return CreateResult(attachResult, diagnosisCleanupError);
         }
 
         if (!deadline.TryGetRemainingTimeout(out var launchTimeout))
@@ -243,7 +274,9 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             return result;
         }
 
-        return DaemonStartResult.Failure(CreateAugmentedPrimaryError(result.Error, diagnosisCleanupError));
+        return DaemonStartResult.Failure(
+            CreateAugmentedPrimaryError(result.Error, diagnosisCleanupError),
+            result.Diagnosis);
     }
 
     private static ExecutionError CreateAugmentedPrimaryError (

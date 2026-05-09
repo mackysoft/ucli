@@ -510,6 +510,19 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.DaemonDiagnosisFileName);
     }
 
+    /// <summary> Resolves the absolute path to daemon <c>daemon-lifecycle.json</c>. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <returns> The absolute daemon lifecycle observation file path. </returns>
+    public static string ResolveDaemonLifecyclePath (
+        string storageRoot,
+        string projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.DaemonLifecycleFileName);
+    }
+
     /// <summary> Resolves the absolute path to the uCLI Unity plugin marker cache file under one fingerprint directory. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>

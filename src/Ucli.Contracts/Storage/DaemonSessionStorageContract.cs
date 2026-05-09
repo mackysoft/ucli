@@ -4,5 +4,5 @@ namespace MackySoft.Ucli.Contracts.Storage;
 internal static class DaemonSessionStorageContract
 {
     /// <summary> Gets the current daemon session persistence schema version. </summary>
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 }

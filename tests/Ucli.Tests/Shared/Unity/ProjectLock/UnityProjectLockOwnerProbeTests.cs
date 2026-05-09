@@ -142,6 +142,7 @@ public sealed class UnityProjectLockOwnerProbeTests
             EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
             EndpointAddress: "/tmp/ucli.sock",
             ProcessId: processId,
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: null);
     }
 

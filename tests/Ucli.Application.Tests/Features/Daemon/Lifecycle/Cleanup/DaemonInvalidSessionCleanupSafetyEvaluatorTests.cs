@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -95,18 +94,27 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void RequiresUnsafeSkip_WhenIssuedAtUtcIsDefault_ReturnsFalse ()
+    public void RequiresUnsafeSkip_WhenIssuedAtUtcIsDefault_StillUsesProcessStartedAtUtcForIdentity ()
     {
         var context = CreateContext("fingerprint-invalid-no-issued-at");
         var session = CreateSession(context.ProjectFingerprint) with
         {
             IssuedAtUtc = default,
         };
-        var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(new StubDaemonProcessIdentityAssessor());
+        var assessor = new StubDaemonProcessIdentityAssessor
+        {
+            NextAssessment = new DaemonProcessIdentityAssessment(
+                DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
+                DateTimeOffset.UtcNow,
+                null),
+        };
+        var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
 
         var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, session);
 
-        Assert.False(requiresUnsafeSkip);
+        Assert.True(requiresUnsafeSkip);
+        Assert.Equal(session.ProcessId, assessor.LastProcessId);
+        Assert.Equal(session.ProcessStartedAtUtc, assessor.LastProcessStartedAtUtc);
     }
 
     [Fact]
@@ -128,7 +136,7 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
 
         Assert.False(requiresUnsafeSkip);
         Assert.Equal(session.ProcessId, assessor.LastProcessId);
-        Assert.Equal(session.IssuedAtUtc, assessor.LastIssuedAtUtc);
+        Assert.Equal(session.ProcessStartedAtUtc, assessor.LastProcessStartedAtUtc);
     }
 
     [Fact]
@@ -213,6 +221,7 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: 2468,
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 1357);
     }
 
@@ -225,14 +234,14 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
 
         public int? LastProcessId { get; private set; }
 
-        public DateTimeOffset LastIssuedAtUtc { get; private set; }
+        public DateTimeOffset? LastProcessStartedAtUtc { get; private set; }
 
         public DaemonProcessIdentityAssessment AssessByProcessId (
             int processId,
-            DateTimeOffset expectedIssuedAtUtc)
+            DateTimeOffset? expectedProcessStartedAtUtc)
         {
             LastProcessId = processId;
-            LastIssuedAtUtc = expectedIssuedAtUtc;
+            LastProcessStartedAtUtc = expectedProcessStartedAtUtc;
             return NextAssessment;
         }
 
