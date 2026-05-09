@@ -9,6 +9,11 @@ public sealed class UnityProjectProcessScannerTests
     [Trait("Size", "Small")]
     public async Task FindProcessesForProject_WhenPsOutputContainsQuotedProjectPath_ReturnsMatchingProcess ()
     {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         using var scope = TestDirectories.CreateTempScope("unity-project-process-scanner", "quoted-project-path");
         var projectPath = scope.CreateDirectory("Unity Project");
         var processOutput = $"  12345 /Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app/Contents/MacOS/Unity -batchmode -projectPath \"{projectPath}\" -logFile /tmp/unity.log\n";
@@ -27,6 +32,11 @@ public sealed class UnityProjectProcessScannerTests
     [Trait("Size", "Small")]
     public async Task FindProcessesForProject_WhenPsOutputContainsUnquotedProjectPathWithSpaces_ReturnsMatchingProcess ()
     {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         using var scope = TestDirectories.CreateTempScope("unity-project-process-scanner", "unquoted-project-path");
         var projectPath = scope.CreateDirectory("Unity Project");
         var processOutput = $"  12345 /Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app/Contents/MacOS/Unity -batchmode -projectPath {projectPath} -logFile /tmp/unity.log\n";
@@ -45,6 +55,11 @@ public sealed class UnityProjectProcessScannerTests
     [Trait("Size", "Small")]
     public async Task FindProcessesForProject_WhenTargetPathIsPrefixOfUnquotedProjectPath_DoesNotReturnMatch ()
     {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         using var scope = TestDirectories.CreateTempScope("unity-project-process-scanner", "prefix-project-path");
         var projectPath = scope.CreateDirectory("Unity");
         var otherProjectPath = scope.CreateDirectory("Unity Project");
@@ -63,6 +78,11 @@ public sealed class UnityProjectProcessScannerTests
     [Trait("Size", "Small")]
     public async Task FindProcessesForProject_UsesAbsolutePsExecutablePath ()
     {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         using var scope = TestDirectories.CreateTempScope("unity-project-process-scanner", "absolute-ps");
         var projectPath = scope.CreateDirectory("UnityProject");
         var processRunner = new StubProcessRunner(ProcessRunResult.Exited(0, standardOutput: string.Empty));
@@ -79,6 +99,11 @@ public sealed class UnityProjectProcessScannerTests
     [Trait("Size", "Small")]
     public async Task FindProcessesForProject_WhenProcessListCommandFails_ReturnsFailure ()
     {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         using var scope = TestDirectories.CreateTempScope("unity-project-process-scanner", "scan-failed");
         var projectPath = scope.CreateDirectory("UnityProject");
         var scanner = new UnityProjectProcessScanner(new StubProcessRunner(ProcessRunResult.StartFailed("ps denied")));
@@ -87,6 +112,27 @@ public sealed class UnityProjectProcessScannerTests
 
         Assert.False(result.IsSuccess);
         Assert.Contains("ps denied", result.ErrorMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task FindProcessesForProject_WhenProcessScanIsUnsupported_ReturnsFailureWithoutRunningProcessListCommand ()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("unity-project-process-scanner", "unsupported-platform");
+        var projectPath = scope.CreateDirectory("UnityProject");
+        var processRunner = new StubProcessRunner(ProcessRunResult.Exited(0, standardOutput: string.Empty));
+        var scanner = new UnityProjectProcessScanner(processRunner);
+
+        var result = await scanner.FindProcessesForProjectAsync(projectPath, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains("not implemented for this operating system", result.ErrorMessage, StringComparison.Ordinal);
+        Assert.Null(processRunner.LastRequest);
     }
 
     [Fact]
