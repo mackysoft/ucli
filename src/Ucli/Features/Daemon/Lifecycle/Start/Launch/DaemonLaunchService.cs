@@ -546,6 +546,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
     private static bool ShouldCleanupGuiStartupBlockedArtifacts (DaemonGuiStartupBlocker blocker)
     {
         ArgumentNullException.ThrowIfNull(blocker);
+        // NOTE: Known Unity startup blockers leave the CLI-launched GUI open so users can inspect and fix the project in Unity.
         return string.Equals(
             blocker.Reason,
             DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap,

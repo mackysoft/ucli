@@ -1,8 +1,10 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Identity;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Logs;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiEndpoint;
@@ -70,7 +72,61 @@ public sealed class DaemonGuiStartupObserverTests
         Assert.Equal(DaemonDiagnosisActionRequiredValues.FixCompileErrors, result.Blocker.ActionRequired);
         Assert.Equal(processStartedAtUtc, result.Blocker.ProcessStartedAtUtc);
         Assert.NotNull(result.Blocker.PrimaryDiagnostic);
+        Assert.Equal(DaemonDiagnosisStartupPhaseValues.ScriptCompilation, result.Blocker.StartupPhase);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler, result.Blocker.PrimaryDiagnostic!.Kind);
         Assert.Equal("CS1739", result.Blocker.PrimaryDiagnostic!.Code);
+        Assert.Equal("Assets/Foo.cs", result.Blocker.PrimaryDiagnostic.File);
+        Assert.Equal(74, result.Blocker.PrimaryDiagnostic.Line);
+        Assert.Equal(17, result.Blocker.PrimaryDiagnostic.Column);
+        Assert.Equal("Missing parameter", result.Blocker.PrimaryDiagnostic.Message);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(
+        "An error occurred while resolving packages:\nProject has invalid dependencies:\ncom.example.missing: Package cannot be found\n",
+        DaemonDiagnosisReasonValues.UnityPackageResolutionFailed,
+        DaemonDiagnosisStartupPhaseValues.PackageResolution,
+        DaemonDiagnosisActionRequiredValues.ResolvePackages,
+        DaemonDiagnosisPrimaryDiagnosticKindValues.PackageResolution)]
+    [InlineData(
+        "Unity Editor entered Safe Mode and is waiting for user action.\n",
+        DaemonDiagnosisReasonValues.EditorUserActionRequired,
+        DaemonDiagnosisStartupPhaseValues.UserAction,
+        DaemonDiagnosisActionRequiredValues.ResolveUnityDialog,
+        DaemonDiagnosisPrimaryDiagnosticKindValues.UnityDialog)]
+    public async Task WaitForStartup_WhenClassifiedStartupBlockerAppearsInLog_ReturnsExpectedBlocker (
+        string logText,
+        string expectedReason,
+        string expectedStartupPhase,
+        string expectedActionRequired,
+        string expectedPrimaryDiagnosticKind)
+    {
+        var awaiter = new StubDaemonGuiSessionRegistrationAwaiter
+        {
+            NextResult = DaemonGuiSessionRegistrationWaitResult.Failure(ExecutionError.Timeout("registration timeout")),
+        };
+        var logReader = new StubUnityLogReader
+        {
+            NextResult = UnityLogReadResult.Success(logText, truncated: false, path: "/tmp/unity.log", sizeBytes: logText.Length),
+        };
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
+        var observer = new DaemonGuiStartupObserver(awaiter, logReader, new StubDaemonProcessIdentityAssessor());
+
+        var result = await observer.WaitForStartupAsync(
+            CreateContext($"fingerprint-gui-observer-{expectedReason}"),
+            processId: Environment.ProcessId,
+            processStartedAtUtc: processStartedAtUtc,
+            unityLogPath: "/tmp/unity.log",
+            timeout: TimeSpan.FromMilliseconds(500),
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsBlocked);
+        Assert.NotNull(result.Blocker);
+        Assert.Equal(expectedReason, result.Blocker!.Reason);
+        Assert.Equal(expectedStartupPhase, result.Blocker.StartupPhase);
+        Assert.Equal(expectedActionRequired, result.Blocker.ActionRequired);
+        Assert.Equal(expectedPrimaryDiagnosticKind, result.Blocker.PrimaryDiagnostic!.Kind);
     }
 
     [Fact]
@@ -110,6 +166,41 @@ public sealed class DaemonGuiStartupObserverTests
         Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.ProcessExit, result.Blocker.PrimaryDiagnostic!.Kind);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WaitForStartup_WhenTimeoutHasNoClassifiedLogAndProcessIsAlive_ReturnsEndpointRegistrationTimeout ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var awaiter = new StubDaemonGuiSessionRegistrationAwaiter
+        {
+            NextResult = DaemonGuiSessionRegistrationWaitResult.Failure(ExecutionError.Timeout("registration timeout")),
+            OnWaitForSession = () => timeProvider.Advance(TimeSpan.FromMilliseconds(20)),
+        };
+        var logReader = new StubUnityLogReader
+        {
+            NextResult = UnityLogReadResult.Success(string.Empty, truncated: false, path: "/tmp/unity.log", sizeBytes: 0),
+        };
+        var observer = new DaemonGuiStartupObserver(
+            awaiter,
+            logReader,
+            new StubDaemonProcessIdentityAssessor(),
+            timeProvider);
+
+        var result = await observer.WaitForStartupAsync(
+            CreateContext("fingerprint-gui-observer-unclassified-timeout"),
+            processId: Environment.ProcessId,
+            processStartedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero),
+            unityLogPath: "/tmp/unity.log",
+            timeout: TimeSpan.FromMilliseconds(10),
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.IsBlocked);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error.Code);
+    }
+
     private static ResolvedUnityProjectContext CreateContext (string fingerprint)
     {
         return new ResolvedUnityProjectContext(
@@ -141,6 +232,12 @@ public sealed class DaemonGuiStartupObserverTests
         public DaemonGuiSessionRegistrationWaitResult NextResult { get; set; } =
             DaemonGuiSessionRegistrationWaitResult.Failure(ExecutionError.Timeout("registration timeout"));
 
+        public Action? OnWaitForSession { get; set; }
+
+        public int CallCount { get; private set; }
+
+        public DateTimeOffset? LastExpectedProcessStartedAtUtc { get; private set; }
+
         public ValueTask<DaemonGuiSessionRegistrationWaitResult> WaitForSessionAsync (
             ResolvedUnityProjectContext unityProject,
             int expectedProcessId,
@@ -149,11 +246,11 @@ public sealed class DaemonGuiStartupObserverTests
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            CallCount++;
+            OnWaitForSession?.Invoke();
             LastExpectedProcessStartedAtUtc = expectedProcessStartedAtUtc;
             return ValueTask.FromResult(NextResult);
         }
-
-        public DateTimeOffset? LastExpectedProcessStartedAtUtc { get; private set; }
     }
 
     private sealed class StubUnityLogReader : IUnityLogReader

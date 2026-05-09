@@ -52,7 +52,13 @@ public sealed class DaemonListCommandTests
                 UnityLogPath: "/repo/wt-a/.ucli/local/fingerprints/fp-a/unity.log",
                 StartupPhase: DaemonDiagnosisStartupPhaseValues.EndpointRegistration,
                 ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
-                PrimaryDiagnostic: null));
+                PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
+                    Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
+                    Code: "CS0103",
+                    File: "Assets/Foo.cs",
+                    Line: 12,
+                    Column: 34,
+                    Message: "The name 'MissingType' does not exist in the current context")));
         var service = new StubDaemonListService(
             DaemonListExecutionResult.Success(new DaemonListExecutionOutput(
                 TimeoutMilliseconds: 3000,
@@ -99,7 +105,14 @@ public sealed class DaemonListCommandTests
                         .HasString("processStartedAtUtc", "2026-03-09T11:59:00+00:00")
                         .HasString("unityLogPath", "/repo/wt-a/.ucli/local/fingerprints/fp-a/unity.log")
                         .HasString("startupPhase", DaemonDiagnosisStartupPhaseValues.EndpointRegistration)
-                        .HasString("actionRequired", DaemonDiagnosisActionRequiredValues.InspectUnityLog))));
+                        .HasString("actionRequired", DaemonDiagnosisActionRequiredValues.InspectUnityLog)
+                        .HasProperty("primaryDiagnostic", primaryDiagnostic => primaryDiagnostic
+                            .HasString("kind", DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler)
+                            .HasString("code", "CS0103")
+                            .HasString("file", "Assets/Foo.cs")
+                            .HasInt32("line", 12)
+                            .HasInt32("column", 34)
+                            .HasString("message", "The name 'MissingType' does not exist in the current context")))));
 
         var itemJson = outputJson.RootElement
             .GetProperty("payload")

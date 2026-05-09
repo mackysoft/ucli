@@ -79,7 +79,13 @@ public sealed class DaemonStartCommandTests
             UnityLogPath: "/repo/.ucli/local/fingerprints/fp/unity.log",
             StartupPhase: DaemonDiagnosisStartupPhaseValues.EndpointRegistration,
             ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
-            PrimaryDiagnostic: null);
+            PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
+                Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
+                Code: "CS0103",
+                File: "Assets/Foo.cs",
+                Line: 12,
+                Column: 34,
+                Message: "The name 'MissingType' does not exist in the current context"));
         var service = new StubDaemonStartService(DaemonStartExecutionResult.Failure(
             ExecutionError.Timeout("registration timeout", ExecutionErrorCodes.IpcTimeout),
             diagnosis));
@@ -107,6 +113,13 @@ public sealed class DaemonStartCommandTests
         Assert.Equal(DaemonDiagnosisStartupPhaseValues.EndpointRegistration, diagnosisJson.GetProperty("startupPhase").GetString());
         Assert.Equal(DaemonDiagnosisActionRequiredValues.InspectUnityLog, diagnosisJson.GetProperty("actionRequired").GetString());
         Assert.True(diagnosisJson.GetProperty("isInferred").GetBoolean());
+        var primaryDiagnosticJson = diagnosisJson.GetProperty("primaryDiagnostic");
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler, primaryDiagnosticJson.GetProperty("kind").GetString());
+        Assert.Equal("CS0103", primaryDiagnosticJson.GetProperty("code").GetString());
+        Assert.Equal("Assets/Foo.cs", primaryDiagnosticJson.GetProperty("file").GetString());
+        Assert.Equal(12, primaryDiagnosticJson.GetProperty("line").GetInt32());
+        Assert.Equal(34, primaryDiagnosticJson.GetProperty("column").GetInt32());
+        Assert.Equal("The name 'MissingType' does not exist in the current context", primaryDiagnosticJson.GetProperty("message").GetString());
     }
 
     private static DaemonStartExecutionOutput CreateSuccessOutput ()

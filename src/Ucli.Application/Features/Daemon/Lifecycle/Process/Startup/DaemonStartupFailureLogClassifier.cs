@@ -5,11 +5,11 @@ using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 
-/// <summary> Classifies daemon startup failures from one Unity batchmode startup log segment. </summary>
+/// <summary> Classifies daemon startup failures from one Unity startup log segment. </summary>
 internal static class DaemonStartupFailureLogClassifier
 {
-    /// <summary> Extracts the latest startup log segment from one Unity batchmode log text. </summary>
-    /// <param name="logText"> The complete Unity batchmode log text. </param>
+    /// <summary> Extracts the latest startup log segment from one Unity log text. </summary>
+    /// <param name="logText"> The complete Unity log text. </param>
     /// <returns> The latest startup log segment, or the original text when no startup marker exists. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="logText" /> is <see langword="null" />. </exception>
     public static string GetLatestStartupLogText (string logText)
