@@ -56,6 +56,97 @@ public sealed class ErrorCodeCatalogTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void List_WithoutFilters_ReturnsDescriptorsOrderedByCode ()
+    {
+        var service = new ErrorCodeCatalogService(CreateCatalog());
+
+        var result = service.List(new ErrorCodeCatalogListInput(Category: null, Command: null));
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Descriptors);
+        var actualCodes = result.Descriptors!
+            .Select(static descriptor => descriptor.Code.Value)
+            .ToArray();
+        var expectedCodes = actualCodes
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        Assert.Equal(expectedCodes, actualCodes);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void List_WithCategoryFilter_ReturnsExactCategoryMatches ()
+    {
+        var service = new ErrorCodeCatalogService(CreateCatalog());
+
+        var result = service.List(new ErrorCodeCatalogListInput(Category: "transport", Command: null));
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Descriptors);
+        Assert.NotEmpty(result.Descriptors);
+        Assert.All(result.Descriptors!, static descriptor => Assert.Equal("transport", descriptor.Category));
+        Assert.Contains(IpcTransportErrorCodes.IpcTimeout, result.Descriptors!.Select(static descriptor => descriptor.Code));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void List_WithCommandLeafFilter_ReturnsFamilyMatches ()
+    {
+        var service = new ErrorCodeCatalogService(CreateCatalog());
+
+        var result = service.List(new ErrorCodeCatalogListInput(Category: null, Command: "query.assets.find"));
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Descriptors);
+        Assert.Contains(IpcTransportErrorCodes.IpcTimeout, result.Descriptors!.Select(static descriptor => descriptor.Code));
+        Assert.Contains(UcliCoreErrorCodes.InvalidArgument, result.Descriptors.Select(static descriptor => descriptor.Code));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void List_WithInvalidCommandFilter_ReturnsInvalidArgument ()
+    {
+        var service = new ErrorCodeCatalogService(CreateCatalog());
+
+        var result = service.List(new ErrorCodeCatalogListInput(Category: null, Command: "query assets"));
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Descriptors);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.Error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void List_WithEmptyCategoryFilter_ReturnsInvalidArgument ()
+    {
+        var service = new ErrorCodeCatalogService(CreateCatalog());
+
+        var result = service.List(new ErrorCodeCatalogListInput(Category: " ", Command: null));
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Descriptors);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.Error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void List_WithUnknownCategory_ReturnsEmptyDescriptors ()
+    {
+        var service = new ErrorCodeCatalogService(CreateCatalog());
+
+        var result = service.List(new ErrorCodeCatalogListInput(Category: "unknown-category", Command: null));
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Descriptors);
+        Assert.Empty(result.Descriptors);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Describe_WithUnknownCodeAndRequireKnownFalse_ReturnsFallbackDescriptor ()
     {
         var service = new ErrorCodeCatalogService(CreateCatalog());

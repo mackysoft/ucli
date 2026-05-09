@@ -33,6 +33,16 @@ public sealed class CliPreDispatchErrorPolicyTests
                 "Subcommand 'unknown' is not recognized for command 'ops'."
             },
             {
+                [UcliCommandNames.Errors],
+                UcliCommandNames.Errors,
+                "Subcommand is required for command 'errors'. Supported subcommands: list, describe."
+            },
+            {
+                [UcliCommandNames.Errors, "unknown"],
+                UcliCommandNames.Errors,
+                "Subcommand 'unknown' is not recognized for command 'errors'."
+            },
+            {
                 [UcliCommandNames.Skills, "unknown"],
                 UcliCommandNames.Skills,
                 "Subcommand 'unknown' is not recognized for command 'skills'."
