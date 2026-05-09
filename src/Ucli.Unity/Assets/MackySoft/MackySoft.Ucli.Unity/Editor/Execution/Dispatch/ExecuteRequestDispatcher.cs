@@ -3,6 +3,7 @@ using MackySoft.Ucli.Contracts;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.RequestIdempotency;
@@ -223,7 +224,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             public UnityEditorLifecycleSnapshot CaptureSnapshot ()
             {
                 return new UnityEditorLifecycleSnapshot(
-                    Runtime: IpcEditorRuntimeCodec.Batchmode,
+                    EditorMode: DaemonEditorMode.Batchmode,
                     LifecycleState: IpcEditorLifecycleStateCodec.Ready,
                     BlockingReason: null,
                     CompileState: IpcCompileStateCodec.Ready,

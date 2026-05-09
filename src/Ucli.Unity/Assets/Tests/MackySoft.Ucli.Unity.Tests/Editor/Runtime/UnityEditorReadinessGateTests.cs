@@ -3,6 +3,7 @@ using System.Collections;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
@@ -74,7 +75,7 @@ namespace MackySoft.Ucli.Unity.Tests
             foreach (var testCase in BlockedLifecycleStateCases)
             {
                 var snapshot = new UnityEditorLifecycleSnapshot(
-                    Runtime: IpcEditorRuntimeCodec.Batchmode,
+                    EditorMode: DaemonEditorMode.Batchmode,
                     LifecycleState: testCase.LifecycleState,
                     BlockingReason: testCase.BlockingReason,
                     CompileState: IpcCompileStateCodec.Ready,
@@ -108,7 +109,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var first = gate.CaptureSnapshot();
             var second = gate.CaptureSnapshot();
 
-            Assert.That(first.Runtime, Is.EqualTo(IpcEditorRuntimeCodec.Batchmode));
+            Assert.That(first.EditorMode, Is.EqualTo(DaemonEditorMode.Batchmode));
             Assert.That(first.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
             Assert.That(first.BlockingReason, Is.EqualTo(IpcEditorBlockingReasonCodec.Startup));
             Assert.That(first.CanAcceptExecutionRequests, Is.False);
@@ -146,7 +147,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void CaptureSnapshot_WhenRuntimeIsGui_ReturnsGuiRuntime ()
+        public void CaptureSnapshot_WhenEditorModeIsGui_ReturnsGuiEditorMode ()
         {
             var telemetryState = new UnityEditorLifecycleTelemetryState(
                 compileGeneration: 4,
@@ -155,7 +156,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 isShuttingDown: false,
                 isStartupPending: false);
             var gate = new UnityEditorReadinessGate(
-                IpcEditorRuntimeCodec.Gui,
+                DaemonEditorMode.Gui,
                 telemetryState,
                 static () => false,
                 static () => false,
@@ -163,7 +164,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var snapshot = gate.CaptureSnapshot();
 
-            Assert.That(snapshot.Runtime, Is.EqualTo(IpcEditorRuntimeCodec.Gui));
+            Assert.That(snapshot.EditorMode, Is.EqualTo(DaemonEditorMode.Gui));
             Assert.That(snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Ready));
             Assert.That(snapshot.CanAcceptExecutionRequests, Is.True);
         }
@@ -203,7 +204,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var snapshot = gate.CaptureSnapshot();
 
-            Assert.That(snapshot.Runtime, Is.EqualTo(IpcEditorRuntimeCodec.Batchmode));
+            Assert.That(snapshot.EditorMode, Is.EqualTo(DaemonEditorMode.Batchmode));
             Assert.That(snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Ready));
             Assert.That(snapshot.BlockingReason, Is.Null);
             Assert.That(snapshot.CanAcceptExecutionRequests, Is.True);

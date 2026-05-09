@@ -139,34 +139,6 @@ public sealed class IpcCommonContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcEditorRuntimeCodec_HasStableStringValues ()
-    {
-        Assert.Equal("batchmode", IpcEditorRuntimeCodec.Batchmode);
-        Assert.Equal("gui", IpcEditorRuntimeCodec.Gui);
-    }
-
-    [Theory]
-    [Trait("Size", "Small")]
-    [InlineData("batchmode", true, IpcEditorRuntimeCodec.Batchmode)]
-    [InlineData(" gui ", true, IpcEditorRuntimeCodec.Gui)]
-    [InlineData("BATCHMODE", false, null)]
-    [InlineData("unsupported", false, null)]
-    [InlineData("", false, null)]
-    [InlineData(" ", false, null)]
-    [InlineData(null, false, null)]
-    public void IpcEditorRuntimeCodec_TryParse_ReturnsExpectedResult (
-        string? value,
-        bool expectedResult,
-        string? expectedValue)
-    {
-        var result = IpcEditorRuntimeCodec.TryParse(value, out var runtime);
-
-        Assert.Equal(expectedResult, result);
-        Assert.Equal(expectedValue, runtime);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void IpcDaemonLogsLevelCodec_HasStableStringValues ()
     {
         Assert.Equal("all", IpcDaemonLogsLevelCodec.All);

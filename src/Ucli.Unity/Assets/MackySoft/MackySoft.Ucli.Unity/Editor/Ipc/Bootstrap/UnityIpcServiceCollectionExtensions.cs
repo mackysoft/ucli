@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution;
 using MackySoft.Ucli.Unity.Index;
@@ -22,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             ISessionTokenValidator sessionTokenValidator,
             string projectFingerprint,
             IDaemonLogger daemonLogger,
-            string editorMode = IpcEditorRuntimeCodec.Batchmode)
+            DaemonEditorMode editorMode = DaemonEditorMode.Batchmode)
         {
             if (services == null)
             {

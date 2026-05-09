@@ -1,5 +1,5 @@
 using System;
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Daemon;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli.Unity.Runtime
@@ -12,7 +12,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <returns> The updated service collection. </returns>
         public static IServiceCollection AddUnityRuntimeServices (this IServiceCollection services)
         {
-            return AddUnityRuntimeServices(services, IpcEditorRuntimeCodec.Batchmode);
+            return AddUnityRuntimeServices(services, DaemonEditorMode.Batchmode);
         }
 
         /// <summary> Registers editor-readiness and main-thread execution services. </summary>
@@ -21,7 +21,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <returns> The updated service collection. </returns>
         public static IServiceCollection AddUnityRuntimeServices (
             this IServiceCollection services,
-            string editorMode)
+            DaemonEditorMode editorMode)
         {
             if (services == null)
             {

@@ -1,20 +1,21 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using UnityEditor;
 using UnityEditor.Compilation;
 
 namespace MackySoft.Ucli.Unity.Runtime
 {
-    /// <summary> Captures batchmode editor lifecycle telemetry and gates execution requests. </summary>
+    /// <summary> Captures Unity editor lifecycle telemetry and gates execution requests. </summary>
     internal sealed class UnityEditorReadinessGate : IUnityEditorReadinessGate
     {
         private static readonly UnityEditorLifecycleTelemetryState sharedLifecycleTelemetryState = new UnityEditorLifecycleTelemetryState();
 
         private readonly UnityEditorLifecycleTelemetryState lifecycleTelemetryState;
 
-        private readonly string runtime;
+        private readonly DaemonEditorMode editorMode;
 
         private readonly Func<bool> isCompilingProvider;
 
@@ -35,15 +36,15 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         /// <summary> Initializes a new instance of the <see cref="UnityEditorReadinessGate" /> class. </summary>
         public UnityEditorReadinessGate ()
-            : this(IpcEditorRuntimeCodec.Batchmode)
+            : this(DaemonEditorMode.Batchmode)
         {
         }
 
         /// <summary> Initializes a new instance of the <see cref="UnityEditorReadinessGate" /> class. </summary>
-        /// <param name="runtime"> The daemon Editor mode reported by lifecycle snapshots. </param>
-        public UnityEditorReadinessGate (string runtime)
+        /// <param name="editorMode"> The daemon Editor mode reported by lifecycle snapshots. </param>
+        public UnityEditorReadinessGate (DaemonEditorMode editorMode)
             : this(
-                runtime,
+                editorMode,
                 sharedLifecycleTelemetryState,
                 static () => EditorApplication.isCompiling,
                 static () => EditorApplication.isUpdating,
@@ -60,7 +61,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <param name="lifecycleTelemetryState"> The mutable lifecycle telemetry state to observe. </param>
         internal UnityEditorReadinessGate (UnityEditorLifecycleTelemetryState lifecycleTelemetryState)
             : this(
-                IpcEditorRuntimeCodec.Batchmode,
+                DaemonEditorMode.Batchmode,
                 lifecycleTelemetryState,
                 static () => EditorApplication.isCompiling,
                 static () => EditorApplication.isUpdating,
@@ -84,7 +85,7 @@ namespace MackySoft.Ucli.Unity.Runtime
             Func<bool> isUpdatingProvider,
             Func<bool> isPlaymodeActiveProvider)
             : this(
-                IpcEditorRuntimeCodec.Batchmode,
+                DaemonEditorMode.Batchmode,
                 lifecycleTelemetryState,
                 isCompilingProvider,
                 isUpdatingProvider,
@@ -98,19 +99,19 @@ namespace MackySoft.Ucli.Unity.Runtime
         }
 
         /// <summary> Initializes a new instance of the <see cref="UnityEditorReadinessGate" /> class. </summary>
-        /// <param name="runtime"> The daemon Editor mode reported by lifecycle snapshots. </param>
+        /// <param name="editorMode"> The daemon Editor mode reported by lifecycle snapshots. </param>
         /// <param name="lifecycleTelemetryState"> The mutable lifecycle telemetry state to observe. </param>
         /// <param name="isCompilingProvider"> The compile-state observer. </param>
         /// <param name="isUpdatingProvider"> The update-state observer. </param>
         /// <param name="isPlaymodeActiveProvider"> The Play Mode observer. </param>
         internal UnityEditorReadinessGate (
-            string runtime,
+            DaemonEditorMode editorMode,
             UnityEditorLifecycleTelemetryState lifecycleTelemetryState,
             Func<bool> isCompilingProvider,
             Func<bool> isUpdatingProvider,
             Func<bool> isPlaymodeActiveProvider)
             : this(
-                runtime,
+                editorMode,
                 lifecycleTelemetryState,
                 isCompilingProvider,
                 isUpdatingProvider,
@@ -142,7 +143,7 @@ namespace MackySoft.Ucli.Unity.Runtime
             Action<Action> quittingSubscriber,
             Action<Action> quittingUnsubscriber)
             : this(
-                IpcEditorRuntimeCodec.Batchmode,
+                DaemonEditorMode.Batchmode,
                 lifecycleTelemetryState,
                 isCompilingProvider,
                 isUpdatingProvider,
@@ -156,7 +157,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         }
 
         private UnityEditorReadinessGate (
-            string runtime,
+            DaemonEditorMode editorMode,
             UnityEditorLifecycleTelemetryState lifecycleTelemetryState,
             Func<bool> isCompilingProvider,
             Func<bool> isUpdatingProvider,
@@ -168,12 +169,8 @@ namespace MackySoft.Ucli.Unity.Runtime
             bool subscribeToEditorEvents)
         {
             this.lifecycleTelemetryState = lifecycleTelemetryState;
-            if (!IpcEditorRuntimeCodec.TryParse(runtime, out var normalizedRuntime))
-            {
-                throw new ArgumentException("runtime must be batchmode or gui.", nameof(runtime));
-            }
-
-            this.runtime = normalizedRuntime!;
+            _ = DaemonEditorModeCodec.ToValue(editorMode);
+            this.editorMode = editorMode;
             this.isCompilingProvider = isCompilingProvider ?? throw new ArgumentNullException(nameof(isCompilingProvider));
             this.isUpdatingProvider = isUpdatingProvider ?? throw new ArgumentNullException(nameof(isUpdatingProvider));
             this.isPlaymodeActiveProvider = isPlaymodeActiveProvider ?? throw new ArgumentNullException(nameof(isPlaymodeActiveProvider));
@@ -219,7 +216,7 @@ namespace MackySoft.Ucli.Unity.Runtime
             var canAcceptExecutionRequests = string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, System.StringComparison.Ordinal);
 
             return new UnityEditorLifecycleSnapshot(
-                Runtime: runtime,
+                EditorMode: editorMode,
                 LifecycleState: lifecycleState,
                 BlockingReason: blockingReason,
                 CompileState: compileState,
@@ -400,7 +397,7 @@ namespace MackySoft.Ucli.Unity.Runtime
             {
                 var snapshot = readinessGate.CaptureSnapshot();
                 var blockedSnapshot = new UnityEditorLifecycleSnapshot(
-                    Runtime: snapshot.Runtime,
+                    EditorMode: snapshot.EditorMode,
                     LifecycleState: lifecycleState,
                     BlockingReason: UnityEditorExecutionReadinessPolicy.ResolveBlockingReason(lifecycleState),
                     CompileState: snapshot.CompileState,

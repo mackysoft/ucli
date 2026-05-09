@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
@@ -60,7 +61,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         new FileBackedSessionTokenValidator(registration.SessionPath),
                         projectFingerprint,
                         daemonLogger,
-                        IpcEditorRuntimeCodec.Gui)
+                        DaemonEditorMode.Gui)
                     .AddUnityIpcDaemonHostServices(
                         daemonBootstrapArguments,
                         daemonLogStream);
