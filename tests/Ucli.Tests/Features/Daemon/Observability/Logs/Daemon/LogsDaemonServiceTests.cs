@@ -40,7 +40,7 @@ public sealed class LogsDaemonServiceTests
         var service = CreateService(resolver, daemonLogsClient);
         var emittedMessages = new List<string>();
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new LogsDaemonServiceRequest(
                 ProjectPath: "/tmp/unity-project",
                 Tail: null,
@@ -87,7 +87,7 @@ public sealed class LogsDaemonServiceTests
             ]);
         var service = CreateService(resolver, daemonLogsClient);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new LogsDaemonServiceRequest(
                 ProjectPath: "/tmp/unity-project",
                 Tail: 100,
@@ -130,7 +130,7 @@ public sealed class LogsDaemonServiceTests
             ]);
         var service = CreateService(resolver, daemonLogsClient);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new LogsDaemonServiceRequest(
                 ProjectPath: "/tmp/unity-project",
                 Tail: null,
@@ -161,7 +161,7 @@ public sealed class LogsDaemonServiceTests
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Daemon(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.DaemonAsync(
             stream: true,
             cancellationToken: cancellationTokenSource.Token));
 
@@ -215,7 +215,7 @@ public sealed class LogsDaemonServiceTests
 
         public List<IpcDaemonLogsReadRequest> CapturedQueries { get; } = new();
 
-        public ValueTask<DaemonLogsClientReadResult> Read (
+        public ValueTask<DaemonLogsClientReadResult> ReadAsync (
             ResolvedUnityProjectContext unityProject,
             IpcDaemonLogsReadRequest query,
             TimeSpan timeout,
@@ -238,7 +238,7 @@ public sealed class LogsDaemonServiceTests
 
     private sealed class ThrowingLogsDaemonService : ILogsDaemonService
     {
-        public ValueTask<LogsDaemonServiceResult> Execute (
+        public ValueTask<LogsDaemonServiceResult> ExecuteAsync (
             LogsDaemonServiceRequest request,
             Func<IpcDaemonLogEvent, string, CancellationToken, ValueTask> onEvent,
             CancellationToken cancellationToken = default)

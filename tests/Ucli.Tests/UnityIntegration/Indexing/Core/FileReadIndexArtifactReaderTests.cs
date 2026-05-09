@@ -41,7 +41,7 @@ public sealed class FileReadIndexArtifactReaderTests
             ]);
         WriteText(UcliStoragePathResolver.ResolveOpsCatalogPath(scope.FullPath, fingerprint), Write(contract));
 
-        var result = await reader.ReadOpsCatalog(project, CancellationToken.None);
+        var result = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
@@ -81,7 +81,7 @@ public sealed class FileReadIndexArtifactReaderTests
             ]);
         WriteText(UcliStoragePathResolver.ResolveTypesCatalogPath(scope.FullPath, fingerprint), Write(contract));
 
-        var result = await reader.ReadTypesCatalog(project, CancellationToken.None);
+        var result = await reader.ReadTypesCatalogAsync(project, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
@@ -99,7 +99,7 @@ public sealed class FileReadIndexArtifactReaderTests
         var reader = new FileReadIndexArtifactReader();
         var project = CreateProject(scope, "fingerprint");
 
-        var result = await reader.ReadSchemasCatalog(project, CancellationToken.None);
+        var result = await reader.ReadSchemasCatalogAsync(project, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
@@ -117,7 +117,7 @@ public sealed class FileReadIndexArtifactReaderTests
         var catalogPath = UcliStoragePathResolver.ResolveSchemasCatalogPath(scope.FullPath, "fingerprint");
         WriteText(catalogPath, "{");
 
-        var result = await reader.ReadSchemasCatalog(project, CancellationToken.None);
+        var result = await reader.ReadSchemasCatalogAsync(project, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
@@ -153,7 +153,7 @@ public sealed class FileReadIndexArtifactReaderTests
             ]);
         WriteText(UcliStoragePathResolver.ResolveAssetSearchLookupPath(scope.FullPath, fingerprint), Write(contract));
 
-        var result = await reader.ReadAssetSearchLookup(project, CancellationToken.None);
+        var result = await reader.ReadAssetSearchLookupAsync(project, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
@@ -172,7 +172,7 @@ public sealed class FileReadIndexArtifactReaderTests
         var lookupPath = UcliStoragePathResolver.ResolveGuidPathLookupPath(scope.FullPath, "fingerprint");
         WriteText(lookupPath, "{");
 
-        var result = await reader.ReadGuidPathLookup(project, CancellationToken.None);
+        var result = await reader.ReadGuidPathLookupAsync(project, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
@@ -203,7 +203,7 @@ public sealed class FileReadIndexArtifactReaderTests
             ]);
         WriteText(UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(scope.FullPath, fingerprint, scenePath), Write(contract));
 
-        var result = await reader.ReadSceneTreeLiteLookup(project, scenePath, CancellationToken.None);
+        var result = await reader.ReadSceneTreeLiteLookupAsync(project, scenePath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
@@ -236,7 +236,7 @@ public sealed class FileReadIndexArtifactReaderTests
             ]);
         WriteText(UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(scope.FullPath, fingerprint, requestedScenePath), Write(contract));
 
-        var result = await reader.ReadSceneTreeLiteLookup(project, requestedScenePath, CancellationToken.None);
+        var result = await reader.ReadSceneTreeLiteLookupAsync(project, requestedScenePath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
@@ -269,7 +269,7 @@ public sealed class FileReadIndexArtifactReaderTests
             }
             """);
 
-        var result = await reader.ReadInputsManifest(project, CancellationToken.None);
+        var result = await reader.ReadInputsManifestAsync(project, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);

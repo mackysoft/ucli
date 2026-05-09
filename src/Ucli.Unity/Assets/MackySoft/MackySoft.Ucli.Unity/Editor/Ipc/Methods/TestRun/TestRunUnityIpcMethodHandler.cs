@@ -22,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         public string Method => IpcMethodNames.TestRun;
 
         /// <inheritdoc />
-        public async ValueTask<IpcResponse> Handle (
+        public async ValueTask<IpcResponse> HandleAsync (
             IpcRequest request,
             CancellationToken cancellationToken)
         {
@@ -42,7 +42,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             try
             {
-                var result = await testRunService.Execute(testRunRequest!, cancellationToken);
+                var result = await testRunService.ExecuteAsync(testRunRequest!, cancellationToken);
                 if (!result.IsSuccess)
                 {
                     var error = result.Error!;

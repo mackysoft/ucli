@@ -6,13 +6,13 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 internal interface IMutationReadPostconditionStore
 {
     /// <summary> Reads the persisted read-postcondition state when present. </summary>
-    ValueTask<MutationReadPostconditionReadResult> ReadOrNull (
+    ValueTask<MutationReadPostconditionReadResult> ReadOrNullAsync (
         string storageRoot,
         string projectFingerprint,
         CancellationToken cancellationToken = default);
 
     /// <summary> Merges and writes read-postcondition requirements for one fingerprint. </summary>
-    ValueTask<MutationReadPostconditionStoreOperationResult> WriteMerged (
+    ValueTask<MutationReadPostconditionStoreOperationResult> WriteMergedAsync (
         string storageRoot,
         string projectFingerprint,
         OperationExecutionReadPostcondition readPostcondition,

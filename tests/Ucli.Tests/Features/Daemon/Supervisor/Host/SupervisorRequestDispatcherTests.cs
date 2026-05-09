@@ -19,7 +19,7 @@ public sealed class SupervisorRequestDispatcherTests
         var dispatcher = CreateDispatcher();
         var runtimeContext = CreateRuntimeContext();
 
-        var response = await SendRequest(
+        var response = await SendRequestAsync(
             dispatcher,
             runtimeContext,
             new IpcRequest(
@@ -42,7 +42,7 @@ public sealed class SupervisorRequestDispatcherTests
         var dispatcher = CreateDispatcher();
         var runtimeContext = CreateRuntimeContext();
 
-        var response = await SendRequest(
+        var response = await SendRequestAsync(
             dispatcher,
             runtimeContext,
             new IpcRequest(
@@ -65,7 +65,7 @@ public sealed class SupervisorRequestDispatcherTests
         var dispatcher = CreateDispatcher();
         var runtimeContext = CreateRuntimeContext();
 
-        var invalidResponse = await SendRequest(
+        var invalidResponse = await SendRequestAsync(
             dispatcher,
             runtimeContext,
             new IpcRequest(
@@ -84,7 +84,7 @@ public sealed class SupervisorRequestDispatcherTests
         var invalidError = Assert.Single(invalidResponse.Errors);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, invalidError.Code);
 
-        var pingResponse = await SendRequest(
+        var pingResponse = await SendRequestAsync(
             dispatcher,
             runtimeContext,
             new IpcRequest(
@@ -107,7 +107,7 @@ public sealed class SupervisorRequestDispatcherTests
         var runtimeContext = CreateRuntimeContext();
         var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
 
-        var response = await SendRequest(
+        var response = await SendRequestAsync(
             dispatcher,
             runtimeContext,
             new IpcRequest(
@@ -138,7 +138,7 @@ public sealed class SupervisorRequestDispatcherTests
         var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
 
-        var response = await SendRequest(
+        var response = await SendRequestAsync(
             dispatcher,
             runtimeContext,
             new IpcRequest(
@@ -169,7 +169,7 @@ public sealed class SupervisorRequestDispatcherTests
         var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
 
-        var response = await SendRequest(
+        var response = await SendRequestAsync(
             dispatcher,
             runtimeContext,
             new IpcRequest(
@@ -224,7 +224,7 @@ public sealed class SupervisorRequestDispatcherTests
                 IssuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero)));
     }
 
-    private static async Task<IpcResponse> SendRequest (
+    private static async Task<IpcResponse> SendRequestAsync (
         SupervisorRequestDispatcher dispatcher,
         SupervisorRuntimeContext runtimeContext,
         IpcRequest request)
@@ -238,7 +238,7 @@ public sealed class SupervisorRequestDispatcherTests
         var requestLength = stream.Length;
         stream.Position = 0;
 
-        await dispatcher.HandleConnection(stream, runtimeContext, CancellationToken.None).ConfigureAwait(false);
+        await dispatcher.HandleConnectionAsync(stream, runtimeContext, CancellationToken.None).ConfigureAwait(false);
 
         stream.Position = requestLength;
         return await IpcFrameCodec.ReadModelAsync<IpcResponse>(
@@ -271,7 +271,7 @@ public sealed class SupervisorRequestDispatcherTests
 
         public DaemonEditorMode? LastEditorMode { get; private set; }
 
-        public ValueTask<DaemonStartResult> Start (
+        public ValueTask<DaemonStartResult> StartAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             DaemonEditorMode? editorMode,
@@ -285,7 +285,7 @@ public sealed class SupervisorRequestDispatcherTests
 
     private sealed class StubDaemonStopOperation : IDaemonStopOperation
     {
-        public ValueTask<DaemonStopResult> Stop (
+        public ValueTask<DaemonStopResult> StopAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
@@ -296,7 +296,7 @@ public sealed class SupervisorRequestDispatcherTests
 
     private sealed class StubDaemonPingClient : IDaemonPingClient
     {
-        public ValueTask Ping (
+        public ValueTask PingAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             string? sessionToken = null,
@@ -308,7 +308,7 @@ public sealed class SupervisorRequestDispatcherTests
 
     private sealed class StubDaemonDiagnosisStore : IDaemonDiagnosisStore
     {
-        public ValueTask<DaemonDiagnosisReadResult> Read (
+        public ValueTask<DaemonDiagnosisReadResult> ReadAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -316,7 +316,7 @@ public sealed class SupervisorRequestDispatcherTests
             return ValueTask.FromResult(DaemonDiagnosisReadResult.Success(null));
         }
 
-        public ValueTask<DaemonDiagnosisStoreOperationResult> Write (
+        public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
             string storageRoot,
             string projectFingerprint,
             DaemonDiagnosis diagnosis,
@@ -325,7 +325,7 @@ public sealed class SupervisorRequestDispatcherTests
             return ValueTask.FromResult(DaemonDiagnosisStoreOperationResult.Success());
         }
 
-        public ValueTask<DaemonDiagnosisStoreOperationResult> Delete (
+        public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -336,7 +336,7 @@ public sealed class SupervisorRequestDispatcherTests
 
     private sealed class StubDaemonSessionStore : IDaemonSessionStore
     {
-        public ValueTask<DaemonSessionReadResult> Read (
+        public ValueTask<DaemonSessionReadResult> ReadAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -344,7 +344,7 @@ public sealed class SupervisorRequestDispatcherTests
             return ValueTask.FromResult(DaemonSessionReadResult.Success(null));
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Write (
+        public ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
             string storageRoot,
             DaemonSession session,
             CancellationToken cancellationToken = default)
@@ -352,7 +352,7 @@ public sealed class SupervisorRequestDispatcherTests
             return ValueTask.FromResult(DaemonSessionStoreOperationResult.Success());
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Delete (
+        public ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -363,7 +363,7 @@ public sealed class SupervisorRequestDispatcherTests
 
     private sealed class StubDaemonArtifactCleaner : IDaemonArtifactCleaner
     {
-        public ValueTask<DaemonSessionStoreOperationResult> Cleanup (
+        public ValueTask<DaemonSessionStoreOperationResult> CleanupAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {

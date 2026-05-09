@@ -12,7 +12,7 @@ internal sealed class SupervisorRuntimeLogger
     /// <param name="level"> The log level label. </param>
     /// <param name="message"> The log message body. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
-    public async Task Write (
+    public async Task WriteAsync (
         string storageRoot,
         string level,
         string message,

@@ -35,7 +35,7 @@ internal sealed class UnityResultsXmlParser : IUnityResultsXmlParser
     /// <param name="resultsXmlPath"> The results XML path. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to parsed XML result values. </returns>
-    public async ValueTask<UnityResultsXmlParseResult> Parse (
+    public async ValueTask<UnityResultsXmlParseResult> ParseAsync (
         string resultsXmlPath,
         CancellationToken cancellationToken = default)
     {

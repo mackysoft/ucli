@@ -29,7 +29,7 @@ internal sealed class OperationCatalogWarmupFilter : ConsoleAppFilter
         ArgumentNullException.ThrowIfNull(context);
         cancellationToken.ThrowIfCancellationRequested();
 
-        await operationCatalogWarmup.Warmup(cancellationToken).ConfigureAwait(false);
+        await operationCatalogWarmup.WarmupAsync(cancellationToken).ConfigureAwait(false);
         await Next.InvokeAsync(context, cancellationToken).ConfigureAwait(false);
     }
 }

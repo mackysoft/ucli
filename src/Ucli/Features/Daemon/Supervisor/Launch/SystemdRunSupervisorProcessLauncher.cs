@@ -21,7 +21,7 @@ internal sealed class SystemdRunSupervisorProcessLauncher
     /// <param name="launchCommand"> The resolved relaunch command. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> One structured error when launch fails; otherwise <see langword="null" />. </returns>
-    public async ValueTask<ExecutionError?> Launch (
+    public async ValueTask<ExecutionError?> LaunchAsync (
         string storageRoot,
         SupervisorLaunchCommand launchCommand,
         CancellationToken cancellationToken = default)
@@ -35,7 +35,7 @@ internal sealed class SystemdRunSupervisorProcessLauncher
             var unitName = BuildSystemdUnitName(normalizedStorageRoot);
             var arguments = BuildArguments(normalizedStorageRoot, unitName, launchCommand);
 
-            var launchResult = await processRunner.Run(
+            var launchResult = await processRunner.RunAsync(
                     "systemd-run",
                     arguments,
                     cancellationToken)

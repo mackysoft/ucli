@@ -18,7 +18,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
         var diagnosisStore = new StubDaemonDiagnosisStore();
         var resolver = new DaemonSessionDiagnosisResolver(diagnosisStore);
 
-        var result = await resolver.ResolveForSession(unityProject, session, diagnosis, CancellationToken.None);
+        var result = await resolver.ResolveForSessionAsync(unityProject, session, diagnosis, CancellationToken.None);
 
         Assert.Equal(diagnosis, result);
         Assert.Equal(0, diagnosisStore.WriteCallCount);
@@ -39,7 +39,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
             },
             DaemonDiagnosisReasonValues.ShutdownRequested);
 
-        var result = await resolver.ResolveForSession(unityProject, session, mismatchedDiagnosis, CancellationToken.None);
+        var result = await resolver.ResolveForSessionAsync(unityProject, session, mismatchedDiagnosis, CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.Equal(DaemonDiagnosisReasonValues.ExternalTerminationSuspected, result!.Reason);
@@ -60,7 +60,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
         var diagnosisStore = new StubDaemonDiagnosisStore();
         var resolver = new DaemonSessionDiagnosisResolver(diagnosisStore);
 
-        var result = await resolver.ResolveForSession(unityProject, session, persistedDiagnosis: null, CancellationToken.None);
+        var result = await resolver.ResolveForSessionAsync(unityProject, session, persistedDiagnosis: null, CancellationToken.None);
 
         Assert.Null(result);
         Assert.Equal(0, diagnosisStore.WriteCallCount);
@@ -78,7 +78,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
         };
         var resolver = new DaemonSessionDiagnosisResolver(diagnosisStore);
 
-        var result = await resolver.ResolveForSession(unityProject, session, persistedDiagnosis: null, CancellationToken.None);
+        var result = await resolver.ResolveForSessionAsync(unityProject, session, persistedDiagnosis: null, CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.Equal(DaemonDiagnosisReasonValues.ExternalTerminationSuspected, result!.Reason);
@@ -137,7 +137,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
 
         public DaemonDiagnosis? LastDiagnosis { get; private set; }
 
-        public ValueTask<DaemonDiagnosisReadResult> Read (
+        public ValueTask<DaemonDiagnosisReadResult> ReadAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -145,7 +145,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
             throw new NotSupportedException();
         }
 
-        public ValueTask<DaemonDiagnosisStoreOperationResult> Write (
+        public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
             string storageRoot,
             string projectFingerprint,
             DaemonDiagnosis diagnosis,
@@ -156,7 +156,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
             return ValueTask.FromResult(WriteResult);
         }
 
-        public ValueTask<DaemonDiagnosisStoreOperationResult> Delete (
+        public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)

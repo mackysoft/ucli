@@ -22,7 +22,7 @@ public sealed class DaemonCleanupCommandTests
         var command = new DaemonCleanupCommand(service, CommandResultTestWriter.Create());
 
         CommandExecutionState.Reset();
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Cleanup(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.CleanupAsync(
             projectPath: "/repo/UnityProject",
             timeout: "3000",
             cancellationToken: CancellationToken.None));
@@ -51,7 +51,7 @@ public sealed class DaemonCleanupCommandTests
             this.result = result;
         }
 
-        public ValueTask<DaemonCleanupExecutionResult> Cleanup (
+        public ValueTask<DaemonCleanupExecutionResult> CleanupAsync (
             string? projectPath,
             int? timeoutMilliseconds,
             CancellationToken cancellationToken = default)

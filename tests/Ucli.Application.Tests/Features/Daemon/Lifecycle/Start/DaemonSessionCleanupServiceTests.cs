@@ -29,7 +29,7 @@ public sealed class DaemonSessionCleanupServiceTests
         };
         var service = new DaemonSessionCleanupService(processTerminationService, artifactCleaner);
 
-        var result = await service.CleanupInvalidSessionArtifacts(context, readResult, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await service.CleanupInvalidSessionArtifactsAsync(context, readResult, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(1, processTerminationService.CallCount);
@@ -68,7 +68,7 @@ public sealed class DaemonSessionCleanupServiceTests
         };
         var service = new DaemonSessionCleanupService(processTerminationService, artifactCleaner);
 
-        var result = await service.CleanupInvalidSessionArtifacts(context, readResult, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await service.CleanupInvalidSessionArtifactsAsync(context, readResult, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(0, processTerminationService.CallCount);
@@ -98,7 +98,7 @@ public sealed class DaemonSessionCleanupServiceTests
         };
         var service = new DaemonSessionCleanupService(processTerminationService, artifactCleaner);
 
-        var result = await service.CleanupInvalidSessionArtifacts(
+        var result = await service.CleanupInvalidSessionArtifactsAsync(
             context,
             readResult,
             TimeSpan.FromMilliseconds(500),
@@ -128,7 +128,7 @@ public sealed class DaemonSessionCleanupServiceTests
         };
         var service = new DaemonSessionCleanupService(processTerminationService, artifactCleaner);
 
-        var result = await service.CleanupStaleSessionArtifacts(context, session, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await service.CleanupStaleSessionArtifactsAsync(context, session, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(1, processTerminationService.CallCount);
@@ -158,7 +158,7 @@ public sealed class DaemonSessionCleanupServiceTests
         };
         var service = new DaemonSessionCleanupService(processTerminationService, artifactCleaner);
 
-        var result = await service.CleanupStaleSessionArtifacts(context, session, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await service.CleanupStaleSessionArtifactsAsync(context, session, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(0, processTerminationService.CallCount);
@@ -186,7 +186,7 @@ public sealed class DaemonSessionCleanupServiceTests
         };
         var service = new DaemonSessionCleanupService(processTerminationService, artifactCleaner);
 
-        var result = await service.CleanupInvalidSessionArtifacts(context, readResult, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await service.CleanupInvalidSessionArtifactsAsync(context, readResult, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(expectedError, result.Error);
@@ -235,7 +235,7 @@ public sealed class DaemonSessionCleanupServiceTests
 
         public DateTimeOffset? LastExpectedIssuedAtUtc { get; private set; }
 
-        public ValueTask<DaemonSessionStoreOperationResult> EnsureStopped (
+        public ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAsync (
             int? processId,
             DateTimeOffset? expectedIssuedAtUtc,
             TimeSpan timeout,
@@ -254,7 +254,7 @@ public sealed class DaemonSessionCleanupServiceTests
 
         public int CallCount { get; private set; }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Cleanup (
+        public ValueTask<DaemonSessionStoreOperationResult> CleanupAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {

@@ -35,7 +35,7 @@ internal sealed class OpsDescribeCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.DescribeSubcommand)]
-    public async Task<int> Describe (
+    public async Task<int> DescribeAsync (
         [Argument]
         string operationName,
         string? projectPath = null,
@@ -78,7 +78,7 @@ internal sealed class OpsDescribeCommand
             return errorResult.ExitCode;
         }
 
-        var serviceResult = await opsService.Describe(
+        var serviceResult = await opsService.DescribeAsync(
                 new OpsDescribeCommandInput(
                     OperationName: operationName,
                     ProjectPath: projectPath,

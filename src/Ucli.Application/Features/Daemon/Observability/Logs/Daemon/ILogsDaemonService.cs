@@ -11,7 +11,7 @@ internal interface ILogsDaemonService
     /// <param name="onEvent"> The event callback invoked for each emitted event. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-log service execution result. </returns>
-    ValueTask<LogsDaemonServiceResult> Execute (
+    ValueTask<LogsDaemonServiceResult> ExecuteAsync (
         LogsDaemonServiceRequest request,
         Func<IpcDaemonLogEvent, string, CancellationToken, ValueTask> onEvent,
         CancellationToken cancellationToken = default);

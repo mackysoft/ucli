@@ -80,7 +80,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                 });
 
-            var result = await operation.Validate(normalizedOperation, executionContext, CancellationToken.None);
+            var result = await operation.ValidateAsync(normalizedOperation, executionContext, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
@@ -101,7 +101,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     name = 1,
                 });
 
-            var result = await operation.Validate(normalizedOperation, executionContext, CancellationToken.None);
+            var result = await operation.ValidateAsync(normalizedOperation, executionContext, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
@@ -121,7 +121,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                 });
 
-            var result = await operation.Plan(normalizedOperation, executionContext, CancellationToken.None);
+            var result = await operation.PlanAsync(normalizedOperation, executionContext, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
@@ -141,7 +141,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                 });
 
-            var result = await operation.Call(normalizedOperation, executionContext, CancellationToken.None);
+            var result = await operation.CallAsync(normalizedOperation, executionContext, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
@@ -168,7 +168,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Expect: null,
                 AllowRequestLocalAliases: false);
 
-            var result = await operation.Validate(normalizedOperation, executionContext, CancellationToken.None);
+            var result = await operation.ValidateAsync(normalizedOperation, executionContext, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
@@ -200,7 +200,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Expect: null,
                 AllowRequestLocalAliases: false);
 
-            var result = await operation.Validate(normalizedOperation, executionContext, CancellationToken.None);
+            var result = await operation.ValidateAsync(normalizedOperation, executionContext, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
@@ -1002,7 +1002,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
-                await executor.Execute(PhaseExecutionCommand.Call, request, cancellationTokenSource.Token).AsUniTask();
+                await executor.ExecuteAsync(PhaseExecutionCommand.Call, request, cancellationTokenSource.Token).AsUniTask();
             }, "Canceled operation phase execution", AsyncWaitTimeout);
         });
 
@@ -1053,7 +1053,7 @@ namespace MackySoft.Ucli.Unity.Tests
             CancellationToken cancellationToken = default)
         {
             return TestAwaiter.WaitAsync(
-                executor.Execute(command, request, cancellationToken).AsUniTask(),
+                executor.ExecuteAsync(command, request, cancellationToken).AsUniTask(),
                 description,
                 AsyncWaitTimeout);
         }
@@ -1300,7 +1300,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 this.result = result;
             }
 
-            public Task<PlanPassResult> Execute (
+            public Task<PlanPassResult> ExecuteAsync (
                 NormalizedExecuteRequest request,
                 OperationExecutionContext executionContext,
                 Func<NormalizedOperation, IUcliOperation, OperationFailure?>? operationPreflight,
@@ -1402,7 +1402,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public bool CallBodyCalled { get; private set; }
 
-            protected override Task<OperationPhaseStepResult> Validate (
+            protected override Task<OperationPhaseStepResult> ValidateAsync (
                 NormalizedOperation operation,
                 RequiredTypedArgs args,
                 OperationExecutionContext executionContext,
@@ -1412,7 +1412,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(OperationPhaseStepResult.Success());
             }
 
-            protected override Task<OperationPhaseStepResult> Plan (
+            protected override Task<OperationPhaseStepResult> PlanAsync (
                 NormalizedOperation operation,
                 RequiredTypedArgs args,
                 OperationExecutionContext executionContext,
@@ -1422,7 +1422,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(OperationPhaseStepResult.Success());
             }
 
-            protected override Task<OperationPhaseStepResult> Call (
+            protected override Task<OperationPhaseStepResult> CallAsync (
                 NormalizedOperation operation,
                 RequiredTypedArgs args,
                 OperationExecutionContext executionContext,
@@ -1457,7 +1457,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public bool ValidateBodyCalled { get; private set; }
 
-            protected override Task<OperationPhaseStepResult> Validate (
+            protected override Task<OperationPhaseStepResult> ValidateAsync (
                 NormalizedOperation operation,
                 AliasReferenceTypedArgs args,
                 OperationExecutionContext executionContext,
@@ -1467,7 +1467,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(OperationPhaseStepResult.Success());
             }
 
-            protected override Task<OperationPhaseStepResult> Plan (
+            protected override Task<OperationPhaseStepResult> PlanAsync (
                 NormalizedOperation operation,
                 AliasReferenceTypedArgs args,
                 OperationExecutionContext executionContext,
@@ -1476,7 +1476,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(OperationPhaseStepResult.Success());
             }
 
-            protected override Task<OperationPhaseStepResult> Call (
+            protected override Task<OperationPhaseStepResult> CallAsync (
                 NormalizedOperation operation,
                 AliasReferenceTypedArgs args,
                 OperationExecutionContext executionContext,
@@ -1520,7 +1520,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public List<OperationPhase> CalledPhases { get; } = new List<OperationPhase>();
 
-            public Task<OperationPhaseStepResult> Validate (
+            public Task<OperationPhaseStepResult> ValidateAsync (
                 NormalizedOperation operation,
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
@@ -1530,7 +1530,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(validateResult);
             }
 
-            public Task<OperationPhaseStepResult> Plan (
+            public Task<OperationPhaseStepResult> PlanAsync (
                 NormalizedOperation operation,
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
@@ -1540,7 +1540,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(planResult);
             }
 
-            public Task<OperationPhaseStepResult> Call (
+            public Task<OperationPhaseStepResult> CallAsync (
                 NormalizedOperation operation,
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
@@ -1564,7 +1564,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 resultType: typeof(UcliNoResult),
                 requiresPreCallPlanReplay: true);
 
-            public Task<OperationPhaseStepResult> Validate (
+            public Task<OperationPhaseStepResult> ValidateAsync (
                 NormalizedOperation operation,
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
@@ -1573,7 +1573,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(OperationPhaseStepResult.Success());
             }
 
-            public Task<OperationPhaseStepResult> Plan (
+            public Task<OperationPhaseStepResult> PlanAsync (
                 NormalizedOperation operation,
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
@@ -1583,7 +1583,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(OperationPhaseStepResult.Success());
             }
 
-            public Task<OperationPhaseStepResult> Call (
+            public Task<OperationPhaseStepResult> CallAsync (
                 NormalizedOperation operation,
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
@@ -1616,7 +1616,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public List<OperationPhase> CalledPhases { get; } = new List<OperationPhase>();
 
-            public Task<OperationPhaseStepResult> Validate (
+            public Task<OperationPhaseStepResult> ValidateAsync (
                 NormalizedOperation operation,
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
@@ -1626,7 +1626,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(OperationPhaseStepResult.Success());
             }
 
-            public Task<OperationPhaseStepResult> Plan (
+            public Task<OperationPhaseStepResult> PlanAsync (
                 NormalizedOperation operation,
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
@@ -1645,7 +1645,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: true));
             }
 
-            public Task<OperationPhaseStepResult> Call (
+            public Task<OperationPhaseStepResult> CallAsync (
                 NormalizedOperation operation,
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
@@ -1670,7 +1670,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public OperationExecutionContext? CallContext { get; private set; }
 
-            public Task<OperationPhaseStepResult> Validate (
+            public Task<OperationPhaseStepResult> ValidateAsync (
                 NormalizedOperation operation,
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
@@ -1680,7 +1680,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(OperationPhaseStepResult.Success());
             }
 
-            public Task<OperationPhaseStepResult> Plan (
+            public Task<OperationPhaseStepResult> PlanAsync (
                 NormalizedOperation operation,
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
@@ -1690,7 +1690,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(OperationPhaseStepResult.Success());
             }
 
-            public Task<OperationPhaseStepResult> Call (
+            public Task<OperationPhaseStepResult> CallAsync (
                 NormalizedOperation operation,
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)

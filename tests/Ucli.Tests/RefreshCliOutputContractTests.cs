@@ -13,7 +13,7 @@ public sealed class RefreshCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Refresh_WithUnknownOption_ReturnsCommandResultInvalidArgumentAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommand(UcliCommandNames.Refresh, UcliContractConstants.CliOption.Unknown);
+        var result = await CliProcessRunner.RunCommandAsync(UcliCommandNames.Refresh, UcliContractConstants.CliOption.Unknown);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -32,7 +32,7 @@ public sealed class RefreshCliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("refresh-cli-output-contract", "invalid-timeout");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Refresh,
             UcliContractConstants.CliOption.ProjectPath,
             unityProjectPath,
@@ -56,7 +56,7 @@ public sealed class RefreshCliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("refresh-cli-output-contract", "invalid-mode");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Refresh,
             UcliContractConstants.CliOption.ProjectPath,
             unityProjectPath,
@@ -82,7 +82,7 @@ public sealed class RefreshCliOutputContractTests
         var invalidProjectPath = Path.Combine(scope.FullPath, "NotUnityProject");
         Directory.CreateDirectory(invalidProjectPath);
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Refresh,
             "-p",
             invalidProjectPath);
@@ -106,7 +106,7 @@ public sealed class RefreshCliOutputContractTests
         var invalidProjectPath = Path.Combine(scope.FullPath, "NotUnityProject");
         Directory.CreateDirectory(invalidProjectPath);
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Refresh,
             UcliContractConstants.CliOption.FailFast,
             UcliContractConstants.CliOption.ProjectPath,
@@ -130,7 +130,7 @@ public sealed class RefreshCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("refresh-cli-output-contract", "plugin-missing");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         WriteRefreshAllowedConfig(scope, unityProjectPath);
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Refresh,
             UcliContractConstants.CliOption.ProjectPath,
             unityProjectPath,
@@ -155,7 +155,7 @@ public sealed class RefreshCliOutputContractTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         WriteRefreshBlockedConfig(scope, unityProjectPath);
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Refresh,
             UcliContractConstants.CliOption.ProjectPath,
             unityProjectPath);

@@ -14,7 +14,7 @@ public sealed class FileSystemIndexInputFingerprintCalculatorSmokeTests
         scope.CreateDirectory("Assets");
         scope.CreateDirectory("Packages");
 
-        var snapshot = await calculator.TryCompute(scope.FullPath, CancellationToken.None);
+        var snapshot = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
 
         Assert.Null(snapshot);
     }
@@ -27,7 +27,7 @@ public sealed class FileSystemIndexInputFingerprintCalculatorSmokeTests
         PrepareRequiredInputs(scope);
         var calculator = new FileSystemIndexInputFingerprintCalculator();
 
-        var snapshot = await calculator.TryCompute(scope.FullPath, CancellationToken.None);
+        var snapshot = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
 
         Assert.NotNull(snapshot);
         Assert.False(string.IsNullOrWhiteSpace(snapshot!.ScriptAssembliesHash));
@@ -45,9 +45,9 @@ public sealed class FileSystemIndexInputFingerprintCalculatorSmokeTests
         PrepareRequiredInputs(scope);
         var calculator = new FileSystemIndexInputFingerprintCalculator();
 
-        var before = await calculator.TryCompute(scope.FullPath, CancellationToken.None);
+        var before = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
         scope.WriteFile(Path.Combine("Library", "ScriptAssemblies", "Assembly-CSharp.dll"), "updated");
-        var after = await calculator.TryCompute(scope.FullPath, CancellationToken.None);
+        var after = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
 
         Assert.NotNull(before);
         Assert.NotNull(after);

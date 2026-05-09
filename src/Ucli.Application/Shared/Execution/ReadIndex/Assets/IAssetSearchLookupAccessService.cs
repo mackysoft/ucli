@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 internal interface IAssetSearchLookupAccessService
 {
     /// <summary> Searches asset lookup entries using one assets.find-style query. </summary>
-    ValueTask<AssetSearchLookupReadResult> Search (
+    ValueTask<AssetSearchLookupReadResult> SearchAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UnityExecutionModeValue mode,

@@ -40,7 +40,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 alias: "created");
             var context = scope.CreateExecutionContext();
 
-            var result = await createOperation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await createOperation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertAssetSuccess(result, applied: false, changed: true, assetPath);
             Assert.That(context.TryGetTemporaryAliasState("created", out var aliasState), Is.True);
@@ -67,7 +67,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 alias: "created");
             var context = scope.CreateExecutionContext();
 
-            var result = await operation.Call(requestOperation, context, CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
             AssertAssetSuccess(result, applied: true, changed: true, assetPath);
             Assert.That(AssetDatabase.LoadAssetAtPath<AssetOperationTestAsset>(assetPath), Is.Not.Null);
@@ -120,8 +120,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var createResult = await createOperation.Call(createRequest, context, CancellationToken.None);
-            var setResult = await setOperation.Call(setRequest, context, CancellationToken.None);
+            var createResult = await createOperation.CallAsync(createRequest, context, CancellationToken.None);
+            var setResult = await setOperation.CallAsync(setRequest, context, CancellationToken.None);
 
             AssertAssetSuccess(createResult, applied: true, changed: true, createdAssetPath);
             AssertAssetSuccess(setResult, applied: true, changed: true, targetAssetPath);
@@ -151,7 +151,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
 
             using var executionContext = new OperationExecutionContext();
-            var result = await operation.Validate(requestOperation, executionContext, CancellationToken.None);
+            var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-create");
         });
@@ -181,8 +181,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = assetPath,
                 });
 
-            var firstResult = await operation.Plan(firstRequest, context, CancellationToken.None);
-            var secondResult = await operation.Validate(secondRequest, context, CancellationToken.None);
+            var firstResult = await operation.PlanAsync(firstRequest, context, CancellationToken.None);
+            var secondResult = await operation.ValidateAsync(secondRequest, context, CancellationToken.None);
 
             AssertAssetSuccess(firstResult, applied: false, changed: true, assetPath);
             AssertInvalidArgument(secondResult, "op-create-2");
@@ -215,8 +215,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 executionKey: "op-create#p1");
 
-            var firstResult = await operation.Plan(firstRequest, context, CancellationToken.None);
-            var secondResult = await operation.Validate(secondRequest, context, CancellationToken.None);
+            var firstResult = await operation.PlanAsync(firstRequest, context, CancellationToken.None);
+            var secondResult = await operation.ValidateAsync(secondRequest, context, CancellationToken.None);
 
             AssertAssetSuccess(firstResult, applied: false, changed: true, assetPath);
             AssertInvalidArgument(secondResult, "op-create");
@@ -275,9 +275,9 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var createResult = await createOperation.Plan(createRequest, context, CancellationToken.None);
-            var setResult = await setOperation.Plan(setRequest, context, CancellationToken.None);
-            var schemaResult = await schemaOperation.Plan(schemaRequest, context, CancellationToken.None);
+            var createResult = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
+            var setResult = await setOperation.PlanAsync(setRequest, context, CancellationToken.None);
+            var schemaResult = await schemaOperation.PlanAsync(schemaRequest, context, CancellationToken.None);
 
             AssertAssetSuccess(createResult, applied: false, changed: true, assetPath);
             AssertAssetSuccess(setResult, applied: false, changed: true, assetPath);
@@ -349,9 +349,9 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var createResult = await createOperation.Plan(createRequest, context, CancellationToken.None);
-            var setResult = await setOperation.Plan(setRequest, context, CancellationToken.None);
-            var schemaResult = await schemaOperation.Plan(schemaRequest, context, CancellationToken.None);
+            var createResult = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
+            var setResult = await setOperation.PlanAsync(setRequest, context, CancellationToken.None);
+            var schemaResult = await schemaOperation.PlanAsync(schemaRequest, context, CancellationToken.None);
 
             AssertAssetSuccess(createResult, applied: false, changed: true, assetPath);
             AssertAssetSuccess(setResult, applied: false, changed: true, assetPath);
@@ -408,8 +408,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var createResult = await createOperation.Plan(createRequest, context, CancellationToken.None);
-            var setResult = await setOperation.Plan(setRequest, context, CancellationToken.None);
+            var createResult = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
+            var setResult = await setOperation.PlanAsync(setRequest, context, CancellationToken.None);
 
             AssertAssetSuccess(createResult, applied: false, changed: true, createdAssetPath);
             AssertAssetSuccess(setResult, applied: false, changed: true, targetAssetPath);
@@ -451,7 +451,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertAssetSuccess(result, applied: true, changed: true, assetPath);
             Assert.That(asset.IntegerValue, Is.EqualTo(64));
@@ -497,7 +497,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertAssetSuccess(result, applied: false, changed: true, assetPath);
             var persistedAsset = AssetDatabase.LoadAssetAtPath<AssetOperationTestAsset>(assetPath);
@@ -548,7 +548,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = await operation.Call(requestOperation, context, CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-set");
             Assert.That(asset.ObjectReferenceValue, Is.Null);
@@ -595,7 +595,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-set");
             Assert.That(asset.Node, Is.TypeOf<AssetOperationManagedReferenceTestAsset.IntegerNode>());
@@ -630,7 +630,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertAssetSuccess(result, applied: true, changed: true, assetPath);
             Assert.That(material.renderQueue, Is.EqualTo(2450));
@@ -669,7 +669,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = await operation.Validate(requestOperation, context, CancellationToken.None);
+            var result = await operation.ValidateAsync(requestOperation, context, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-set");
         });
@@ -699,7 +699,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
 
             using var executionContext = new OperationExecutionContext();
-            var result = await operation.Validate(requestOperation, executionContext, CancellationToken.None);
+            var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True, result.Failure?.Message);
             Assert.That(result.Applied, Is.False);
@@ -722,7 +722,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
 
             using var executionContext = new OperationExecutionContext();
-            var result = await operation.Validate(requestOperation, executionContext, CancellationToken.None);
+            var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-schema");
         });
@@ -747,7 +747,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertQuerySuccess(result, applied: false);
             var schema = result.Result!.Value;

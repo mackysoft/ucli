@@ -71,7 +71,7 @@ internal sealed class FileInitTemplateStore : IInitTemplateStore
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        var configSaveResult = await configStore.Save(repositoryRoot, config, cancellationToken).ConfigureAwait(false);
+        var configSaveResult = await configStore.SaveAsync(repositoryRoot, config, cancellationToken).ConfigureAwait(false);
         if (!configSaveResult.IsSuccess)
         {
             return InitExecutionResult.Failure(UcliConfigDiagnosticErrorMapper.ToExecutionError(

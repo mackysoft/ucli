@@ -4,7 +4,7 @@ namespace MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
 internal interface IResolveService
 {
     /// <summary> Executes one <c>resolve</c> workflow and returns the normalized execution result. </summary>
-    ValueTask<ResolveServiceResult> Execute (
+    ValueTask<ResolveServiceResult> ExecuteAsync (
         ResolveCommandInput input,
         CancellationToken cancellationToken = default);
 }

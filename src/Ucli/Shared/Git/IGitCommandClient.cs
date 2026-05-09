@@ -8,7 +8,7 @@ internal interface IGitCommandClient
     /// <param name="timeout"> The timeout budget for this Git command. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Git command text result. </returns>
-    ValueTask<GitCommandTextResult> GetCurrentWorktreeRoot (
+    ValueTask<GitCommandTextResult> GetCurrentWorktreeRootAsync (
         string path,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);
@@ -18,7 +18,7 @@ internal interface IGitCommandClient
     /// <param name="timeout"> The timeout budget for this Git command. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Git command text result. </returns>
-    ValueTask<GitCommandTextResult> GetCurrentProjectRelativePath (
+    ValueTask<GitCommandTextResult> GetCurrentProjectRelativePathAsync (
         string path,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);
@@ -28,7 +28,7 @@ internal interface IGitCommandClient
     /// <param name="timeout"> The timeout budget for this Git command. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Git command text result. </returns>
-    ValueTask<GitCommandTextResult> GetWorktreeListPorcelain (
+    ValueTask<GitCommandTextResult> GetWorktreeListPorcelainAsync (
         string path,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);

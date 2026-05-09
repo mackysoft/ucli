@@ -33,7 +33,7 @@ internal sealed class RefreshCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Refresh)]
-    public async Task<int> Refresh (
+    public async Task<int> RefreshAsync (
         string? projectPath = null,
         string? mode = null,
         string? timeout = null,
@@ -60,7 +60,7 @@ internal sealed class RefreshCommand
             return errorResult.ExitCode;
         }
 
-        var executionResult = await refreshService.Execute(
+        var executionResult = await refreshService.ExecuteAsync(
                 new RefreshCommandInput(
                     ProjectPath: projectPath,
                     Mode: normalizedModeResult.Mode,

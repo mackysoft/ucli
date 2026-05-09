@@ -22,7 +22,7 @@ internal sealed class RequestStaticValidationService : IRequestStaticValidationS
     }
 
     /// <inheritdoc />
-    public async ValueTask<ValidationResult> Validate (
+    public async ValueTask<ValidationResult> ValidateAsync (
         ValidateRequest request,
         ProjectContext projectContext,
         CancellationToken cancellationToken = default)
@@ -34,7 +34,7 @@ internal sealed class RequestStaticValidationService : IRequestStaticValidationS
         IReadOnlyList<UcliOperationDescriptor> operations;
         try
         {
-            operations = await operationCatalog.GetAll(
+            operations = await operationCatalog.GetAllAsync(
                     projectContext.UnityProject,
                     projectContext.Config,
                     cancellationToken: cancellationToken)
@@ -50,7 +50,7 @@ internal sealed class RequestStaticValidationService : IRequestStaticValidationS
                 $"Static validation could not load operation metadata. {exception.Message}"));
         }
 
-        return await requestStaticValidator.Validate(
+        return await requestStaticValidator.ValidateAsync(
                 request,
                 RequestStaticValidationCatalog.Available(operations),
                 projectContext.Config,

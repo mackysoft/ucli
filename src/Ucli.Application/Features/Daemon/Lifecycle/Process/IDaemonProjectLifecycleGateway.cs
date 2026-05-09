@@ -7,14 +7,14 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 internal interface IDaemonProjectLifecycleGateway
 {
     /// <summary> Ensures one daemon is running for the specified project. </summary>
-    ValueTask<DaemonStartResult> EnsureRunning (
+    ValueTask<DaemonStartResult> EnsureRunningAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         DaemonEditorMode? editorMode,
         CancellationToken cancellationToken = default);
 
     /// <summary> Attempts to stop one project daemon through a host-owned lifecycle gateway. </summary>
-    ValueTask<DaemonStopResult?> TryStopProject (
+    ValueTask<DaemonStopResult?> TryStopProjectAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);

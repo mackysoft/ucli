@@ -39,7 +39,7 @@ public sealed class OpsCatalogReaderTests
         };
         var reader = new OpsCatalogReader(executor);
 
-        var result = await reader.Read(
+        var result = await reader.ReadAsync(
             CreateProjectContext(),
             UcliConfig.CreateDefault(),
             UnityExecutionMode.Daemon,
@@ -75,7 +75,7 @@ public sealed class OpsCatalogReaderTests
         };
         var reader = new OpsCatalogReader(executor);
 
-        var result = await reader.Read(
+        var result = await reader.ReadAsync(
             CreateProjectContext(),
             UcliConfig.CreateDefault(),
             UnityExecutionMode.Auto,
@@ -102,7 +102,7 @@ public sealed class OpsCatalogReaderTests
         };
         var reader = new OpsCatalogReader(executor);
 
-        var result = await reader.Read(
+        var result = await reader.ReadAsync(
             CreateProjectContext(),
             UcliConfig.CreateDefault(),
             UnityExecutionMode.Auto,
@@ -132,7 +132,7 @@ public sealed class OpsCatalogReaderTests
         };
         var reader = new OpsCatalogReader(executor);
 
-        var result = await reader.Read(
+        var result = await reader.ReadAsync(
             CreateProjectContext(),
             UcliConfig.CreateDefault(),
             UnityExecutionMode.Auto,
@@ -176,7 +176,7 @@ public sealed class OpsCatalogReaderTests
 
         public UnityRequestPayload? Payload { get; private set; }
 
-        public ValueTask<UnityRequestExecutionResult> Execute (
+        public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
             UcliCommand command,
             UnityExecutionMode mode,
             TimeSpan timeout,

@@ -9,7 +9,7 @@ internal interface IOpsService
     /// <param name="input"> The interpreted command input values. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the normalized command result. </returns>
-    ValueTask<OpsListServiceResult> GetAll (
+    ValueTask<OpsListServiceResult> GetAllAsync (
         OpsCommandInput input,
         CancellationToken cancellationToken = default);
 
@@ -17,7 +17,7 @@ internal interface IOpsService
     /// <param name="input"> The interpreted command input values. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the normalized command result. </returns>
-    ValueTask<OpsDescribeServiceResult> Describe (
+    ValueTask<OpsDescribeServiceResult> DescribeAsync (
         OpsDescribeCommandInput input,
         CancellationToken cancellationToken = default);
 }

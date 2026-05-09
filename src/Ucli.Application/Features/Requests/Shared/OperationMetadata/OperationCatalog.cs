@@ -27,7 +27,7 @@ internal sealed class OperationCatalog : IOperationCatalog
     /// <para> Returns <see langword="null" /> when the operation does not exist. </para>
     /// </returns>
     /// <exception cref="InvalidOperationException"> Thrown when provider data includes duplicated or invalid operation names. </exception>
-    public async ValueTask<UcliOperationDescriptor?> Get (string name, CancellationToken cancellationToken = default)
+    public async ValueTask<UcliOperationDescriptor?> GetAsync (string name, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(name))
@@ -35,7 +35,7 @@ internal sealed class OperationCatalog : IOperationCatalog
             return null;
         }
 
-        var snapshot = await GetSnapshot(cancellationToken).ConfigureAwait(false);
+        var snapshot = await GetSnapshotAsync(cancellationToken).ConfigureAwait(false);
         if (snapshot.OperationsByName.TryGetValue(name, out var descriptor))
         {
             return descriptor;
@@ -48,10 +48,10 @@ internal sealed class OperationCatalog : IOperationCatalog
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the descriptor list ordered by operation name. </returns>
     /// <exception cref="InvalidOperationException"> Thrown when provider data includes duplicated or invalid operation names. </exception>
-    public async ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (CancellationToken cancellationToken = default)
+    public async ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var snapshot = await GetSnapshot(cancellationToken).ConfigureAwait(false);
+        var snapshot = await GetSnapshotAsync(cancellationToken).ConfigureAwait(false);
         return snapshot.SortedOperations;
     }
 
@@ -61,7 +61,7 @@ internal sealed class OperationCatalog : IOperationCatalog
     /// <param name="failFast"> Whether live catalog discovery should fail immediately instead of waiting for Unity readiness. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the descriptor list ordered by operation name. </returns>
-    public async ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
+    public async ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (
         ResolvedUnityProjectContext unityProject,
         UcliConfig config,
         UnityExecutionMode mode = UnityExecutionMode.Auto,
@@ -73,7 +73,7 @@ internal sealed class OperationCatalog : IOperationCatalog
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(config);
 
-        var loadedOperations = await provider.GetOperations(unityProject, config, mode, timeout, failFast, cancellationToken).ConfigureAwait(false);
+        var loadedOperations = await provider.GetOperationsAsync(unityProject, config, mode, timeout, failFast, cancellationToken).ConfigureAwait(false);
         var snapshot = CreateSnapshot(loadedOperations, cancellationToken);
         return snapshot.SortedOperations;
     }
@@ -81,14 +81,14 @@ internal sealed class OperationCatalog : IOperationCatalog
     /// <summary> Gets or creates the immutable catalog snapshot. </summary>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the loaded catalog snapshot. </returns>
-    private async ValueTask<CatalogSnapshot> GetSnapshot (CancellationToken cancellationToken)
+    private async ValueTask<CatalogSnapshot> GetSnapshotAsync (CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         Task<CatalogSnapshot> initializationTask;
         lock (syncRoot)
         {
-            snapshotTask ??= BuildSnapshot(cancellationToken);
+            snapshotTask ??= BuildSnapshotAsync(cancellationToken);
             initializationTask = snapshotTask;
         }
 
@@ -117,11 +117,11 @@ internal sealed class OperationCatalog : IOperationCatalog
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the built catalog snapshot. </returns>
     /// <exception cref="InvalidOperationException"> Thrown when provider data includes duplicated or invalid operation names. </exception>
-    private async Task<CatalogSnapshot> BuildSnapshot (CancellationToken cancellationToken)
+    private async Task<CatalogSnapshot> BuildSnapshotAsync (CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var loadedOperations = await provider.GetOperations(cancellationToken).ConfigureAwait(false);
+        var loadedOperations = await provider.GetOperationsAsync(cancellationToken).ConfigureAwait(false);
         return CreateSnapshot(loadedOperations, cancellationToken);
     }
 

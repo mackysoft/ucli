@@ -12,7 +12,7 @@ internal interface IUnityTestExecutor
     /// <param name="timeout"> The execution timeout for one run. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by the caller. </param>
     /// <returns> A task that resolves to the Unity test execution result. </returns>
-    ValueTask<UnityTestExecutionResult> Execute (
+    ValueTask<UnityTestExecutionResult> ExecuteAsync (
         ResolvedTestRunConfiguration configuration,
         ArtifactPaths artifactPaths,
         TimeSpan timeout,

@@ -33,7 +33,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 Array.Empty<string>(),
                 UcliOperationPlanMode.ObservesLiveUnity));
 
-        protected override Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
             AssetSchemaArgs args,
             OperationExecutionContext executionContext,
@@ -45,14 +45,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 : failure!);
         }
 
-        protected override async Task<OperationPhaseStepResult> Plan (
+        protected override async Task<OperationPhaseStepResult> PlanAsync (
             NormalizedOperation operation,
             AssetSchemaArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await Execute(
+            return await ExecuteAsync(
                 operation,
                 args,
                 executionContext,
@@ -61,14 +61,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 cancellationToken).ConfigureAwait(false);
         }
 
-        protected override async Task<OperationPhaseStepResult> Call (
+        protected override async Task<OperationPhaseStepResult> CallAsync (
             NormalizedOperation operation,
             AssetSchemaArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await Execute(
+            return await ExecuteAsync(
                 operation,
                 args,
                 executionContext,
@@ -77,7 +77,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 cancellationToken).ConfigureAwait(false);
         }
 
-        private async Task<OperationPhaseStepResult> Execute (
+        private async Task<OperationPhaseStepResult> ExecuteAsync (
             NormalizedOperation operation,
             AssetSchemaArgs args,
             OperationExecutionContext executionContext,
@@ -92,7 +92,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (validationState.AssetType != null)
             {
-                var extractionResult = await assetSchemaExtractor.Extract(
+                var extractionResult = await assetSchemaExtractor.ExtractAsync(
                     new[] { validationState.AssetType },
                     cancellationToken).ConfigureAwait(false);
                 if (extractionResult.Entries.Count == 0)

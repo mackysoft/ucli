@@ -33,7 +33,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executor"> The step executor delegate. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        public static async Task<OperationPhaseStepResult> ExecutePhaseStep (
+        public static async Task<OperationPhaseStepResult> ExecutePhaseStepAsync (
             NormalizedOperation operation,
             OperationPhase phase,
             Func<CancellationToken, Task<OperationPhaseStepResult>> executor,

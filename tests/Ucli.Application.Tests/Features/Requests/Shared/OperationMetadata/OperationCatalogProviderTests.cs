@@ -33,7 +33,7 @@ public sealed class OperationCatalogProviderTests
         var discoveryService = new SpyOperationCatalogDiscoveryService(operations);
         var provider = new OperationCatalogProvider(contextResolver, discoveryService);
 
-        var result = await provider.GetOperations(unityProject, config, failFast: true, cancellationToken: CancellationToken.None);
+        var result = await provider.GetOperationsAsync(unityProject, config, failFast: true, cancellationToken: CancellationToken.None);
 
         Assert.False(contextResolver.WasCalled);
         Assert.Same(unityProject, discoveryService.ReceivedProject);
@@ -67,7 +67,7 @@ public sealed class OperationCatalogProviderTests
         ]);
         var provider = new OperationCatalogProvider(contextResolver, discoveryService);
 
-        var result = await provider.GetOperations(CancellationToken.None);
+        var result = await provider.GetOperationsAsync(CancellationToken.None);
 
         Assert.True(contextResolver.WasCalled);
         Assert.Null(contextResolver.ReceivedProjectPath);
@@ -101,7 +101,7 @@ public sealed class OperationCatalogProviderTests
             new SpyOperationCatalogDiscoveryService([]));
 
         var exception = await Assert.ThrowsAsync<OperationCatalogLoadException>(async () =>
-            await provider.GetOperations(CancellationToken.None));
+            await provider.GetOperationsAsync(CancellationToken.None));
 
         Assert.Equal(errorKind, exception.Error.Kind);
         Assert.Equal(errorCode, exception.Error.Code);
@@ -113,7 +113,7 @@ public sealed class OperationCatalogProviderTests
     {
         public bool WasCalled { get; private set; }
 
-        public ValueTask<ProjectContextResolutionResult> Resolve (
+        public ValueTask<ProjectContextResolutionResult> ResolveAsync (
             string? projectPath,
             CancellationToken cancellationToken = default)
         {
@@ -137,7 +137,7 @@ public sealed class OperationCatalogProviderTests
 
         public string? ReceivedProjectPath { get; private set; }
 
-        public ValueTask<ProjectContextResolutionResult> Resolve (
+        public ValueTask<ProjectContextResolutionResult> ResolveAsync (
             string? projectPath,
             CancellationToken cancellationToken = default)
         {
@@ -167,7 +167,7 @@ public sealed class OperationCatalogProviderTests
 
         public bool ReceivedFailFast { get; private set; }
 
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> Discover (
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> DiscoverAsync (
             ResolvedUnityProjectContext unityProject,
             UcliConfig config,
             UnityExecutionMode mode = UnityExecutionMode.Auto,

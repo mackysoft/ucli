@@ -335,7 +335,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
             var request = CreateExecuteRequest(UcliCommandIds.Plan, failFast: false);
 
-            var responseTask = dispatcher.Dispatch(request, context).AsUniTask();
+            var responseTask = dispatcher.DispatchAsync(request, context).AsUniTask();
             await TestAwaiter.WaitAsync(readinessGate.WaitObserved, "Execute dispatcher readiness wait", AsyncWaitTimeout);
 
             Assert.That(readinessGate.CallCount, Is.EqualTo(1));
@@ -614,7 +614,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
-                await dispatcher.Dispatch(request, context, cancellationTokenSource.Token).AsUniTask();
+                await dispatcher.DispatchAsync(request, context, cancellationTokenSource.Token).AsUniTask();
             }, "Canceled execute request dispatch", AsyncWaitTimeout);
         });
 
@@ -717,7 +717,7 @@ namespace MackySoft.Ucli.Unity.Tests
             CancellationToken cancellationToken = default)
         {
             return TestAwaiter.WaitAsync(
-                dispatcher.Dispatch(request, context, cancellationToken).AsUniTask(),
+                dispatcher.DispatchAsync(request, context, cancellationToken).AsUniTask(),
                 description,
                 AsyncWaitTimeout);
         }
@@ -974,7 +974,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public PhaseExecutionCommand? ReceivedCommand { get; private set; }
 
-            public Task<PhaseExecutionTrace> Execute (
+            public Task<PhaseExecutionTrace> ExecuteAsync (
                 PhaseExecutionCommand command,
                 NormalizedExecuteRequest request,
                 CancellationToken cancellationToken = default)
@@ -990,7 +990,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             public int CallCount { get; private set; }
 
-            public Task<T> Execute<T> (
+            public Task<T> ExecuteAsync<T> (
                 Func<Task<T>> workItem,
                 CancellationToken cancellationToken = default)
             {

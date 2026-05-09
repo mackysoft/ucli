@@ -14,7 +14,7 @@ public sealed class UnityLogReaderTests
         using var scope = TestDirectories.CreateTempScope("daemon-log-reader", "missing-log");
         var logReader = new UnityLogReader();
 
-        var readResult = await logReader.ReadTail(scope.FullPath, "fingerprint-missing", cancellationToken: CancellationToken.None);
+        var readResult = await logReader.ReadTailAsync(scope.FullPath, "fingerprint-missing", cancellationToken: CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
         Assert.Equal(string.Empty, readResult.Text);
@@ -36,7 +36,7 @@ public sealed class UnityLogReaderTests
         var contentBytes = Encoding.UTF8.GetBytes(content);
         await File.WriteAllTextAsync(unityLogPath, content, CancellationToken.None);
 
-        var readResult = await logReader.ReadTail(scope.FullPath, projectFingerprint, maxBytes: 8, cancellationToken: CancellationToken.None);
+        var readResult = await logReader.ReadTailAsync(scope.FullPath, projectFingerprint, maxBytes: 8, cancellationToken: CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
         Assert.True(readResult.Truncated);
@@ -51,7 +51,7 @@ public sealed class UnityLogReaderTests
         using var scope = TestDirectories.CreateTempScope("daemon-log-reader", "invalid-max-bytes");
         var logReader = new UnityLogReader();
 
-        var readResult = await logReader.ReadTail(scope.FullPath, "fingerprint-invalid", maxBytes: 0, cancellationToken: CancellationToken.None);
+        var readResult = await logReader.ReadTailAsync(scope.FullPath, "fingerprint-invalid", maxBytes: 0, cancellationToken: CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(readResult.Error);

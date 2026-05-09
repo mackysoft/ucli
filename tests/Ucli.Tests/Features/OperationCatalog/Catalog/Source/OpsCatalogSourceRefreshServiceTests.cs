@@ -30,7 +30,7 @@ public sealed class OpsCatalogSourceRefreshServiceTests
             fingerprintProvider,
             artifactWriter);
 
-        var result = await service.Refresh(
+        var result = await service.RefreshAsync(
             CreateProjectContext(),
             UcliConfig.CreateDefault(),
             UnityExecutionMode.Auto,
@@ -85,7 +85,7 @@ public sealed class OpsCatalogSourceRefreshServiceTests
         var artifactWriter = new StubReadIndexArtifactWriter();
         var service = new OpsCatalogSourceRefreshService(reader, persistedArtifactsReader, fingerprintProvider, artifactWriter);
 
-        var result = await service.Refresh(
+        var result = await service.RefreshAsync(
             CreateProjectContext(),
             UcliConfig.CreateDefault(),
             UnityExecutionMode.Auto,
@@ -129,7 +129,7 @@ public sealed class OpsCatalogSourceRefreshServiceTests
             },
             artifactWriter);
 
-        var result = await service.Refresh(
+        var result = await service.RefreshAsync(
             CreateProjectContext(),
             UcliConfig.CreateDefault(),
             UnityExecutionMode.Auto,
@@ -166,7 +166,7 @@ public sealed class OpsCatalogSourceRefreshServiceTests
             fingerprintProvider,
             artifactWriter);
 
-        var result = await service.Refresh(
+        var result = await service.RefreshAsync(
             CreateProjectContext(),
             UcliConfig.CreateDefault(),
             UnityExecutionMode.Auto,
@@ -207,7 +207,7 @@ public sealed class OpsCatalogSourceRefreshServiceTests
             fingerprintProvider,
             artifactWriter);
 
-        var result = await service.Refresh(
+        var result = await service.RefreshAsync(
             CreateProjectContext(),
             UcliConfig.CreateDefault(),
             UnityExecutionMode.Auto,
@@ -253,7 +253,7 @@ public sealed class OpsCatalogSourceRefreshServiceTests
             fingerprintProvider,
             artifactWriter);
 
-        var result = await service.Refresh(
+        var result = await service.RefreshAsync(
             CreateProjectContext(),
             UcliConfig.CreateDefault(),
             UnityExecutionMode.Auto,
@@ -322,7 +322,7 @@ public sealed class OpsCatalogSourceRefreshServiceTests
             results.Enqueue(result);
         }
 
-        public ValueTask<OpsCatalogFetchResult> Read (
+        public ValueTask<OpsCatalogFetchResult> ReadAsync (
             ResolvedUnityProjectContext project,
             UcliConfig config,
             UnityExecutionMode mode,
@@ -348,7 +348,7 @@ public sealed class OpsCatalogSourceRefreshServiceTests
         public PersistedOpsCatalogPersistenceArtifacts Result { get; set; }
             = new(InputsManifest: null, HasPersistedAssetLookupArtifacts: false);
 
-        public ValueTask<PersistedOpsCatalogPersistenceArtifacts> Read (
+        public ValueTask<PersistedOpsCatalogPersistenceArtifacts> ReadAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
@@ -376,7 +376,7 @@ public sealed class OpsCatalogSourceRefreshServiceTests
             coreSnapshots.Enqueue(snapshot);
         }
 
-        public ValueTask<ReadIndexCoreInputHashSnapshot?> TryComputeCore (
+        public ValueTask<ReadIndexCoreInputHashSnapshot?> TryComputeCoreAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
@@ -390,7 +390,7 @@ public sealed class OpsCatalogSourceRefreshServiceTests
             return ValueTask.FromResult(CoreSnapshot);
         }
 
-        public ValueTask<ReadIndexInputHashSnapshot?> TryCompute (
+        public ValueTask<ReadIndexInputHashSnapshot?> TryComputeAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
@@ -415,7 +415,7 @@ public sealed class OpsCatalogSourceRefreshServiceTests
 
         public Exception? WriteException { get; set; }
 
-        public ValueTask WriteOpsCatalog (
+        public ValueTask WriteOpsCatalogAsync (
             string storageRoot,
             string projectFingerprint,
             DateTimeOffset generatedAtUtc,
@@ -436,7 +436,7 @@ public sealed class OpsCatalogSourceRefreshServiceTests
             return ValueTask.CompletedTask;
         }
 
-        public ValueTask WriteAssetLookups (
+        public ValueTask WriteAssetLookupsAsync (
             string storageRoot,
             string projectFingerprint,
             DateTimeOffset generatedAtUtc,
@@ -448,7 +448,7 @@ public sealed class OpsCatalogSourceRefreshServiceTests
             throw new NotSupportedException();
         }
 
-        public ValueTask WriteSceneTreeLite (
+        public ValueTask WriteSceneTreeLiteAsync (
             string storageRoot,
             string projectFingerprint,
             DateTimeOffset generatedAtUtc,

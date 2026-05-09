@@ -10,6 +10,6 @@ namespace MackySoft.Ucli.Unity.Index
     internal interface IAssetLookupSnapshotBuilder
     {
         /// <summary> Builds one live asset lookup snapshot from persistent main assets under <c>Assets/</c>. </summary>
-        ValueTask<IpcIndexAssetsReadResponse> Build (CancellationToken cancellationToken = default);
+        ValueTask<IpcIndexAssetsReadResponse> BuildAsync (CancellationToken cancellationToken = default);
     }
 }

@@ -26,7 +26,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubDaemonShutdownSignal());
             using var stream = new ThrowOnReadAndWriteStream();
 
-            await handler.Handle(stream, CancellationToken.None);
+            await handler.HandleAsync(stream, CancellationToken.None);
 
             Assert.That(requestProcessor.CallCount, Is.EqualTo(0));
         });
@@ -55,7 +55,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 cancellationToken: CancellationToken.None);
             stream.Position = 0;
 
-            await handler.Handle(stream, CancellationToken.None);
+            await handler.HandleAsync(stream, CancellationToken.None);
 
             Assert.That(shutdownSignal.SignalCount, Is.EqualTo(1));
         });
@@ -64,7 +64,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             public int CallCount { get; private set; }
 
-            public Task<IpcResponse> Process (
+            public Task<IpcResponse> ProcessAsync (
                 IpcRequest request,
                 CancellationToken cancellationToken = default)
             {
@@ -87,7 +87,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 SignalCount++;
             }
 
-            public Task Wait (CancellationToken cancellationToken = default)
+            public Task WaitAsync (CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 return Task.CompletedTask;

@@ -9,7 +9,7 @@ internal interface IUnityResultsConverter
     /// <param name="session"> The run artifacts session. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the conversion result. </returns>
-    ValueTask<UnityResultsConversionResult> Convert (
+    ValueTask<UnityResultsConversionResult> ConvertAsync (
         ArtifactsSession session,
         CancellationToken cancellationToken = default);
 }

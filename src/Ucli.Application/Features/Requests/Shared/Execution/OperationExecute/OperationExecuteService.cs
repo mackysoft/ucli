@@ -43,7 +43,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
     }
 
     /// <inheritdoc />
-    public async ValueTask<OperationExecuteResult> Execute (
+    public async ValueTask<OperationExecuteResult> ExecuteAsync (
         OperationExecuteDefinition definition,
         OperationExecuteInput input,
         CancellationToken cancellationToken = default)
@@ -54,7 +54,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
 
         var requestId = Guid.NewGuid().ToString("D");
 
-        var projectContextResult = await projectContextResolver.Resolve(input.ProjectPath, cancellationToken).ConfigureAwait(false);
+        var projectContextResult = await projectContextResolver.ResolveAsync(input.ProjectPath, cancellationToken).ConfigureAwait(false);
         if (!projectContextResult.IsSuccess)
         {
             return OperationExecuteResultFactory.FromExecutionError(requestId, projectContextResult.Error!, definition.FailureMessage);
@@ -74,7 +74,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         var deadline = ExecutionDeadline.Start(timeoutResolutionResult.Timeout!.Value, timeProvider);
         var executionMode = input.Mode ?? UnityExecutionMode.Auto;
 
-        var authorizationResult = await operationAuthorizationService.Authorize(
+        var authorizationResult = await operationAuthorizationService.AuthorizeAsync(
                 definition.Descriptor,
                 config,
                 cancellationToken)
@@ -103,7 +103,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                     definition.FailureMessage);
             }
 
-            var planTokenResult = await IssuePlanToken(
+            var planTokenResult = await IssuePlanTokenAsync(
                     definition,
                     requestId,
                     executionMode,
@@ -129,7 +129,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 definition.FailureMessage);
         }
 
-        var executionResult = await unityIpcRequestExecutor.Execute(
+        var executionResult = await unityIpcRequestExecutor.ExecuteAsync(
                 definition.Command,
                 executionMode,
                 executeTimeout,
@@ -157,7 +157,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 definition.FailureMessage);
         }
 
-        var postprocessedResponse = await ExecuteResponseReadPostconditionProcessor.Persist(
+        var postprocessedResponse = await ExecuteResponseReadPostconditionProcessor.PersistAsync(
                 ExecuteResponseConverter.Convert(executionResult.Response!),
                 mutationReadPostconditionStore,
                 projectContext.UnityProject.RepositoryRoot,
@@ -193,7 +193,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
     /// <param name="unityProject"> The resolved Unity project. </param>
     /// <param name="cancellationToken"> The propagated cancellation token. </param>
     /// <returns> One tuple containing the issued plan token, or a normalized failure result when plan execution cannot continue. </returns>
-    private async ValueTask<(string? PlanToken, OperationExecuteResult? FailureResult)> IssuePlanToken (
+    private async ValueTask<(string? PlanToken, OperationExecuteResult? FailureResult)> IssuePlanTokenAsync (
         OperationExecuteDefinition definition,
         string requestId,
         UnityExecutionMode mode,
@@ -209,7 +209,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(unityProject);
 
-        var executionResult = await unityIpcRequestExecutor.Execute(
+        var executionResult = await unityIpcRequestExecutor.ExecuteAsync(
                 definition.Command,
                 mode,
                 timeout,

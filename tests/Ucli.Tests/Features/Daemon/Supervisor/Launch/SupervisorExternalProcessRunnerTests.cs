@@ -12,7 +12,7 @@ public sealed class SupervisorExternalProcessRunnerTests
     {
         var runner = new SupervisorExternalProcessRunner();
 
-        await runner.RunIgnoringExitCode(
+        await runner.RunIgnoringExitCodeAsync(
             "dotnet",
             ["--definitely-invalid-supervisor-switch"],
             CancellationToken.None);
@@ -24,7 +24,7 @@ public sealed class SupervisorExternalProcessRunnerTests
     {
         var runner = new SupervisorExternalProcessRunner();
 
-        await runner.RunIgnoringExitCode(
+        await runner.RunIgnoringExitCodeAsync(
             "definitely-missing-ucli-command",
             Array.Empty<string>(),
             CancellationToken.None);
@@ -41,7 +41,7 @@ public sealed class SupervisorExternalProcessRunnerTests
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
             await TestAwaiter.WaitAsync(
-                runner.RunIgnoringExitCode(
+                runner.RunIgnoringExitCodeAsync(
                     "dotnet",
                     ["--info"],
                     cancellationTokenSource.Token).AsTask(),

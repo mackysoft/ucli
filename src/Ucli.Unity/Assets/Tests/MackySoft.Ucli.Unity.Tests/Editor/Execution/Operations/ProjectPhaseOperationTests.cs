@@ -39,7 +39,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
 
             using var executionContext = new OperationExecutionContext();
-            var result = await operation.Validate(requestOperation, executionContext, CancellationToken.None);
+            var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-refresh");
         });
@@ -55,7 +55,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 args: new { });
 
             using var executionContext = new OperationExecutionContext();
-            var result = await operation.Plan(requestOperation, executionContext, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, executionContext, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(result.Touched, Is.Empty);
@@ -81,7 +81,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.ProjectRefresh,
                 args: new { });
 
-            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertSuccess(result, applied: true, changed: true);
             Assert.That(AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(assetPath), Is.Not.Null);
@@ -160,7 +160,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 args: new { });
 
             using var executionContext = new OperationExecutionContext();
-            var result = await operation.Plan(requestOperation, executionContext, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, executionContext, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(result.Touched, Is.Empty);
@@ -183,7 +183,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.ProjectSave,
                 args: new { });
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: true);
             Assert.That(result.Touched.Any(touched => touched.Kind == OperationTouchKind.Scene && touched.Path == scenePath), Is.True);
@@ -209,7 +209,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.ProjectSave,
                 args: new { });
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: true);
             Assert.That(result.Touched.Any(touched => touched.Kind == OperationTouchKind.Scene && touched.Path == scenePath), Is.True);
@@ -231,7 +231,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.ProjectSave,
                 args: new { });
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: true);
             Assert.That(result.Touched.Any(touched => touched.Kind == OperationTouchKind.Prefab && touched.Path == prefabPath), Is.True);
@@ -252,7 +252,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.ProjectSave,
                 args: new { });
 
-            var result = await operation.Plan(requestOperation, executionContext, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, executionContext, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: true);
             Assert.That(result.Touched.Any(touched => touched.Kind == OperationTouchKind.Prefab && touched.Path == prefabPath), Is.True);
@@ -271,7 +271,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.ProjectSave,
                 args: new { });
 
-            var result = await operation.Plan(requestOperation, executionContext, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, executionContext, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: true);
             Assert.That(result.Touched.Any(touched => touched.Kind == OperationTouchKind.Asset && touched.Path == assetPath), Is.True);
@@ -295,14 +295,14 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = assetPath,
                 });
 
-            var createResult = await createOperation.Plan(createRequest, executionContext, CancellationToken.None);
+            var createResult = await createOperation.PlanAsync(createRequest, executionContext, CancellationToken.None);
 
             AssertSuccess(createResult, applied: false, changed: true);
             var saveRequest = CreateOperation(
                 opId: "op-save",
                 opName: UcliPrimitiveOperationNames.ProjectSave,
                 args: new { });
-            var saveResult = await saveOperation.Plan(saveRequest, executionContext, CancellationToken.None);
+            var saveResult = await saveOperation.PlanAsync(saveRequest, executionContext, CancellationToken.None);
 
             AssertSuccess(saveResult, applied: false, changed: true);
             Assert.That(saveResult.Touched.Any(touched => touched.Kind == OperationTouchKind.Asset && touched.Path == assetPath), Is.True);
@@ -337,14 +337,14 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var setResult = await setOperation.Plan(setRequest, executionContext, CancellationToken.None);
+            var setResult = await setOperation.PlanAsync(setRequest, executionContext, CancellationToken.None);
 
             AssertSuccess(setResult, applied: false, changed: true);
             var saveRequest = CreateOperation(
                 opId: "op-save",
                 opName: UcliPrimitiveOperationNames.ProjectSave,
                 args: new { });
-            var saveResult = await saveOperation.Plan(saveRequest, executionContext, CancellationToken.None);
+            var saveResult = await saveOperation.PlanAsync(saveRequest, executionContext, CancellationToken.None);
 
             AssertSuccess(saveResult, applied: false, changed: true);
             Assert.That(saveResult.Touched.Any(touched => touched.Kind == OperationTouchKind.Asset && touched.Path == assetPath), Is.True);
@@ -382,8 +382,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.ProjectSave,
                 args: new { });
 
-            var prefabCreateResult = await prefabCreateOperation.Plan(prefabCreateRequest, context, CancellationToken.None);
-            var saveResult = await saveOperation.Plan(saveRequest, context, CancellationToken.None);
+            var prefabCreateResult = await prefabCreateOperation.PlanAsync(prefabCreateRequest, context, CancellationToken.None);
+            var saveResult = await saveOperation.PlanAsync(saveRequest, context, CancellationToken.None);
 
             AssertSuccess(prefabCreateResult, applied: false, changed: true);
             AssertSuccess(saveResult, applied: false, changed: true);
@@ -410,7 +410,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.ProjectSave,
                 args: new { });
 
-            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertSuccess(result, applied: true, changed: true);
             Assert.That(EditorUtility.IsDirty(asset), Is.False);
@@ -438,7 +438,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.ProjectSave,
                 args: new { });
 
-            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertSuccess(result, applied: true, changed: false);
             Assert.That(scene.isDirty, Is.True);
@@ -464,7 +464,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.ProjectSave,
                 args: new { });
 
-            var result = await operation.Call(requestOperation, context, CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: true, changed: true);
             Assert.That(scene.isDirty, Is.False);
@@ -505,13 +505,13 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.ProjectSave,
                 args: new { });
 
-            var prefabCreateResult = await prefabCreateOperation.Call(prefabCreateRequest, context, CancellationToken.None);
+            var prefabCreateResult = await prefabCreateOperation.CallAsync(prefabCreateRequest, context, CancellationToken.None);
             AssertSuccess(prefabCreateResult, applied: true, changed: true);
             Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Scene, scenePath)), Is.True);
             Assert.That(prefabCreateResult.Touched.Any(touched => touched.Kind == OperationTouchKind.Scene && touched.Path == scenePath), Is.True);
             Assert.That(PrefabUtility.IsPartOfPrefabInstance(root), Is.True);
 
-            var saveResult = await saveOperation.Call(saveRequest, context, CancellationToken.None);
+            var saveResult = await saveOperation.CallAsync(saveRequest, context, CancellationToken.None);
 
             AssertSuccess(saveResult, applied: true, changed: true);
             Assert.That(scene.isDirty, Is.False);
@@ -538,7 +538,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.ProjectSave,
                 args: new { });
 
-            var result = await operation.Call(requestOperation, context, CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: true, changed: true);
             Assert.That(prefabStage.prefabContentsRoot.scene.isDirty, Is.False);

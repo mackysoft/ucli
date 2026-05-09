@@ -33,7 +33,7 @@ public sealed class UnityResultsConverterTests
 
         var converter = CreateConverter();
 
-        var result = await converter.Convert(session, CancellationToken.None);
+        var result = await converter.ConvertAsync(session, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.True(result.HasFailedTests);
@@ -54,7 +54,7 @@ public sealed class UnityResultsConverterTests
 
         var converter = CreateConverter();
 
-        var result = await converter.Convert(session, CancellationToken.None);
+        var result = await converter.ConvertAsync(session, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityResultsConversionFailureKind.InvalidResultsXml, result.FailureKind);
@@ -79,7 +79,7 @@ public sealed class UnityResultsConverterTests
 
         var converter = CreateConverter();
 
-        var result = await converter.Convert(session, CancellationToken.None);
+        var result = await converter.ConvertAsync(session, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityResultsConversionFailureKind.InvalidResultsXml, result.FailureKind);
@@ -101,7 +101,7 @@ public sealed class UnityResultsConverterTests
 
         var converter = CreateConverter();
 
-        var result = await converter.Convert(session, CancellationToken.None);
+        var result = await converter.ConvertAsync(session, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.True(result.HasFailedTests);
@@ -119,7 +119,7 @@ public sealed class UnityResultsConverterTests
 
         var converter = CreateConverter();
 
-        var result = await converter.Convert(session, CancellationToken.None);
+        var result = await converter.ConvertAsync(session, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityResultsConversionFailureKind.ResultsXmlReadFailed, result.FailureKind);
@@ -135,7 +135,7 @@ public sealed class UnityResultsConverterTests
             new StubResultsXmlParser(CreateParseResult()),
             new ThrowingResultsArtifactWriter(new IOException("disk full")));
 
-        var result = await converter.Convert(session, CancellationToken.None);
+        var result = await converter.ConvertAsync(session, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityResultsConversionFailureKind.OutputWriteFailed, result.FailureKind);
@@ -190,7 +190,7 @@ public sealed class UnityResultsConverterTests
             this.parseResult = parseResult;
         }
 
-        public ValueTask<UnityResultsXmlParseResult> Parse (
+        public ValueTask<UnityResultsXmlParseResult> ParseAsync (
             string resultsXmlPath,
             CancellationToken cancellationToken = default)
         {
@@ -207,7 +207,7 @@ public sealed class UnityResultsConverterTests
             this.exception = exception;
         }
 
-        public ValueTask Write (
+        public ValueTask WriteAsync (
             ArtifactsSession session,
             UnityResultsXmlParseResult parseResult,
             CancellationToken cancellationToken = default)

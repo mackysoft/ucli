@@ -9,7 +9,7 @@ public sealed class ReadIndexFreshnessEvaluatorTests
         var inputProvider = new StubReadIndexInputFingerprintProvider();
         var evaluator = new ReadIndexFreshnessEvaluator(inputProvider, new StubReadIndexSceneSourceHashProvider());
 
-        var result = await evaluator.Observe(
+        var result = await evaluator.ObserveAsync(
             CreateProject(),
             IndexFreshnessTarget.OpsCatalog,
             persistedSourceInputsHash: null,
@@ -31,7 +31,7 @@ public sealed class ReadIndexFreshnessEvaluatorTests
         };
         var evaluator = new ReadIndexFreshnessEvaluator(inputProvider, new StubReadIndexSceneSourceHashProvider());
 
-        var result = await evaluator.Observe(
+        var result = await evaluator.ObserveAsync(
             CreateProject(),
             IndexFreshnessTarget.OpsCatalog,
             "combined-hash",
@@ -53,7 +53,7 @@ public sealed class ReadIndexFreshnessEvaluatorTests
         };
         var evaluator = new ReadIndexFreshnessEvaluator(inputProvider, new StubReadIndexSceneSourceHashProvider());
 
-        var result = await evaluator.Observe(
+        var result = await evaluator.ObserveAsync(
             CreateProject(),
             IndexFreshnessTarget.AssetSearchLookup,
             "old-asset-search-hash",
@@ -75,7 +75,7 @@ public sealed class ReadIndexFreshnessEvaluatorTests
         };
         var evaluator = new ReadIndexFreshnessEvaluator(new StubReadIndexInputFingerprintProvider(), sceneHashProvider);
 
-        var result = await evaluator.ObserveSceneTreeLite(
+        var result = await evaluator.ObserveSceneTreeLiteAsync(
             CreateProject(),
             "Assets/Scenes/Main.unity",
             "scene-hash",
@@ -130,7 +130,7 @@ public sealed class ReadIndexFreshnessEvaluatorTests
 
         public ReadIndexInputHashSnapshot? Snapshot { get; set; }
 
-        public ValueTask<ReadIndexCoreInputHashSnapshot?> TryComputeCore (
+        public ValueTask<ReadIndexCoreInputHashSnapshot?> TryComputeCoreAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
@@ -139,7 +139,7 @@ public sealed class ReadIndexFreshnessEvaluatorTests
             return ValueTask.FromResult(CoreSnapshot);
         }
 
-        public ValueTask<ReadIndexInputHashSnapshot?> TryCompute (
+        public ValueTask<ReadIndexInputHashSnapshot?> TryComputeAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
@@ -155,7 +155,7 @@ public sealed class ReadIndexFreshnessEvaluatorTests
 
         public string? SourceHash { get; set; }
 
-        public ValueTask<string?> TryCompute (
+        public ValueTask<string?> TryComputeAsync (
             ResolvedUnityProjectContext unityProject,
             string scenePath,
             CancellationToken cancellationToken = default)

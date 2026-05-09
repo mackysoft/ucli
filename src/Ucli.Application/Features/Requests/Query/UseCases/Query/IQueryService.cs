@@ -4,7 +4,7 @@ namespace MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 internal interface IQueryService
 {
     /// <summary> Executes one typed query command. </summary>
-    ValueTask<QueryServiceResult> Execute (
+    ValueTask<QueryServiceResult> ExecuteAsync (
         QueryCommandInput input,
         CancellationToken cancellationToken = default);
 }

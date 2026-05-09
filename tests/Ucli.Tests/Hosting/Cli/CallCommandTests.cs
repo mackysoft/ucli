@@ -52,7 +52,7 @@ public sealed class CallCommandTests
         var command = new CallCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Call(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.CallAsync(
             projectPath: "/repo/UnityProject",
             mode: "oneshot",
             timeout: "1234",
@@ -99,7 +99,7 @@ public sealed class CallCommandTests
                 ReadPostcondition: null))));
         var command = new CallCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Call(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.CallAsync(
             mode: "unsupported",
             cancellationToken: CancellationToken.None));
 
@@ -132,7 +132,7 @@ public sealed class CallCommandTests
 
         public CancellationToken CapturedCancellationToken { get; private set; }
 
-        public ValueTask<CallServiceResult> Execute (
+        public ValueTask<CallServiceResult> ExecuteAsync (
             CallCommandInput input,
             CancellationToken cancellationToken = default)
         {
@@ -156,7 +156,7 @@ public sealed class CallCommandTests
 
         public CancellationToken CapturedCancellationToken { get; private set; }
 
-        public ValueTask<CallCommandPreflightResult> Prepare (
+        public ValueTask<CallCommandPreflightResult> PrepareAsync (
             string? projectPath,
             string requestJson,
             CancellationToken cancellationToken = default)

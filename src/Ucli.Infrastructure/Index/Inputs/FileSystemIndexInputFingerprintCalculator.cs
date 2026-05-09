@@ -12,7 +12,7 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The computed snapshot when successful; otherwise <see langword="null" />. </returns>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="projectRootPath" /> is <see langword="null" />, empty, or whitespace. </exception>
-    public ValueTask<IndexCoreInputHashSnapshot?> TryComputeCore (
+    public ValueTask<IndexCoreInputHashSnapshot?> TryComputeCoreAsync (
         string projectRootPath,
         CancellationToken cancellationToken = default)
     {
@@ -28,7 +28,7 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
             return new ValueTask<IndexCoreInputHashSnapshot?>((IndexCoreInputHashSnapshot?)null);
         }
 
-        return TryComputeCoreInternal(normalizedProjectRoot, cancellationToken);
+        return TryComputeCoreInternalAsync(normalizedProjectRoot, cancellationToken);
     }
 
     /// <summary> Tries to compute one input fingerprint snapshot from project files. </summary>
@@ -36,7 +36,7 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The computed snapshot when successful; otherwise <see langword="null" />. </returns>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="projectRootPath" /> is <see langword="null" />, empty, or whitespace. </exception>
-    public async ValueTask<IndexInputHashSnapshot?> TryCompute (
+    public async ValueTask<IndexInputHashSnapshot?> TryComputeAsync (
         string projectRootPath,
         CancellationToken cancellationToken = default)
     {
@@ -52,7 +52,7 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
             return null;
         }
 
-        var coreSnapshot = await TryComputeCoreInternal(normalizedProjectRoot, cancellationToken).ConfigureAwait(false);
+        var coreSnapshot = await TryComputeCoreInternalAsync(normalizedProjectRoot, cancellationToken).ConfigureAwait(false);
         if (coreSnapshot == null)
         {
             return null;
@@ -60,7 +60,7 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
 
         var assetsPath = Path.Combine(normalizedProjectRoot, "Assets");
 
-        var assetsContentHash = await TryHashDirectoryFiles(assetsPath, "*", SearchOption.AllDirectories, cancellationToken).ConfigureAwait(false);
+        var assetsContentHash = await TryHashDirectoryFilesAsync(assetsPath, "*", SearchOption.AllDirectories, cancellationToken).ConfigureAwait(false);
         if (assetsContentHash == null)
         {
             return null;
@@ -82,7 +82,7 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
             CombinedHash: coreSnapshot.CombinedHash);
     }
 
-    private static async ValueTask<IndexCoreInputHashSnapshot?> TryComputeCoreInternal (
+    private static async ValueTask<IndexCoreInputHashSnapshot?> TryComputeCoreInternalAsync (
         string normalizedProjectRoot,
         CancellationToken cancellationToken)
     {
@@ -93,25 +93,25 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
         var assetsPath = Path.Combine(normalizedProjectRoot, "Assets");
         var packagesPath = Path.Combine(normalizedProjectRoot, "Packages");
 
-        var scriptAssembliesHash = await TryHashDirectoryFiles(scriptAssembliesPath, "*", SearchOption.AllDirectories, cancellationToken).ConfigureAwait(false);
+        var scriptAssembliesHash = await TryHashDirectoryFilesAsync(scriptAssembliesPath, "*", SearchOption.AllDirectories, cancellationToken).ConfigureAwait(false);
         if (scriptAssembliesHash == null)
         {
             return null;
         }
 
-        var packagesManifestHash = await TryHashFile(packagesManifestPath, cancellationToken).ConfigureAwait(false);
+        var packagesManifestHash = await TryHashFileAsync(packagesManifestPath, cancellationToken).ConfigureAwait(false);
         if (packagesManifestHash == null)
         {
             return null;
         }
 
-        var packagesLockHash = await TryHashFile(packagesLockPath, cancellationToken).ConfigureAwait(false);
+        var packagesLockHash = await TryHashFileAsync(packagesLockPath, cancellationToken).ConfigureAwait(false);
         if (packagesLockHash == null)
         {
             return null;
         }
 
-        var assemblyDefinitionHash = await TryHashAssemblyDefinitionFiles(assetsPath, packagesPath, cancellationToken).ConfigureAwait(false);
+        var assemblyDefinitionHash = await TryHashAssemblyDefinitionFilesAsync(assetsPath, packagesPath, cancellationToken).ConfigureAwait(false);
         if (assemblyDefinitionHash == null)
         {
             return null;
@@ -139,7 +139,7 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
         return pathResult.IsSuccess ? pathResult.FullPath : null;
     }
 
-    private static async ValueTask<string?> TryHashAssemblyDefinitionFiles (
+    private static async ValueTask<string?> TryHashAssemblyDefinitionFilesAsync (
         string assetsPath,
         string packagesPath,
         CancellationToken cancellationToken)
@@ -160,10 +160,10 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
         }
 
         files.Sort(StringComparer.Ordinal);
-        return await TryHashFilesWithPathMetadata(files, cancellationToken).ConfigureAwait(false);
+        return await TryHashFilesWithPathMetadataAsync(files, cancellationToken).ConfigureAwait(false);
     }
 
-    private static async ValueTask<string?> TryHashDirectoryFiles (
+    private static async ValueTask<string?> TryHashDirectoryFilesAsync (
         string directoryPath,
         string searchPattern,
         SearchOption searchOption,
@@ -186,7 +186,7 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
         }
 
         Array.Sort(files, StringComparer.Ordinal);
-        return await TryHashFilesWithPathMetadata(files, cancellationToken).ConfigureAwait(false);
+        return await TryHashFilesWithPathMetadataAsync(files, cancellationToken).ConfigureAwait(false);
     }
 
     private static bool TryCollectFiles (
@@ -212,7 +212,7 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
         return true;
     }
 
-    private static async ValueTask<string?> TryHashFilesWithPathMetadata (
+    private static async ValueTask<string?> TryHashFilesWithPathMetadataAsync (
         IReadOnlyList<string> files,
         CancellationToken cancellationToken)
     {
@@ -228,7 +228,7 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
             cancellationToken.ThrowIfCancellationRequested();
 
             var filePath = files[i];
-            var fileHash = await TryHashFile(filePath, cancellationToken).ConfigureAwait(false);
+            var fileHash = await TryHashFileAsync(filePath, cancellationToken).ConfigureAwait(false);
             if (fileHash == null)
             {
                 return null;
@@ -244,11 +244,11 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
         return ComputeUtf8Hash(buffer.ToString());
     }
 
-    private static async ValueTask<string?> TryHashFile (
+    private static async ValueTask<string?> TryHashFileAsync (
         string filePath,
         CancellationToken cancellationToken)
     {
-        return await FileContentHash.TryComputeFileHash(filePath, cancellationToken).ConfigureAwait(false);
+        return await FileContentHash.TryComputeFileHashAsync(filePath, cancellationToken).ConfigureAwait(false);
     }
 
     private static string ComputeUtf8Hash (string text)

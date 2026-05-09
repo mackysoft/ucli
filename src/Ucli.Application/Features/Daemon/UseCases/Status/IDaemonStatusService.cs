@@ -8,7 +8,7 @@ internal interface IDaemonStatusService
     /// <param name="timeoutMilliseconds"> The optional normalized timeout value in milliseconds. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-status execution result. </returns>
-    ValueTask<DaemonStatusExecutionResult> GetStatus (
+    ValueTask<DaemonStatusExecutionResult> GetStatusAsync (
         string? projectPath,
         int? timeoutMilliseconds,
         CancellationToken cancellationToken = default);

@@ -17,7 +17,7 @@ internal sealed class ReadIndexFreshnessEvaluator : IReadIndexFreshnessEvaluator
     }
 
     /// <inheritdoc />
-    public async ValueTask<IndexFreshnessEvaluationResult> Observe (
+    public async ValueTask<IndexFreshnessEvaluationResult> ObserveAsync (
         ResolvedUnityProjectContext unityProject,
         IndexFreshnessTarget target,
         string? persistedSourceInputsHash,
@@ -32,7 +32,7 @@ internal sealed class ReadIndexFreshnessEvaluator : IReadIndexFreshnessEvaluator
 
         if (UsesCoreInputSnapshot(target))
         {
-            var currentCoreSnapshot = await inputFingerprintProvider.TryComputeCore(unityProject, cancellationToken).ConfigureAwait(false);
+            var currentCoreSnapshot = await inputFingerprintProvider.TryComputeCoreAsync(unityProject, cancellationToken).ConfigureAwait(false);
             if (currentCoreSnapshot == null)
             {
                 return IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable);
@@ -42,7 +42,7 @@ internal sealed class ReadIndexFreshnessEvaluator : IReadIndexFreshnessEvaluator
             return IndexFreshnessEvaluationResult.Success(coreFreshness);
         }
 
-        var currentSnapshot = await inputFingerprintProvider.TryCompute(unityProject, cancellationToken).ConfigureAwait(false);
+        var currentSnapshot = await inputFingerprintProvider.TryComputeAsync(unityProject, cancellationToken).ConfigureAwait(false);
         if (currentSnapshot == null)
         {
             return IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable);
@@ -53,7 +53,7 @@ internal sealed class ReadIndexFreshnessEvaluator : IReadIndexFreshnessEvaluator
     }
 
     /// <inheritdoc />
-    public async ValueTask<IndexFreshnessEvaluationResult> ObserveSceneTreeLite (
+    public async ValueTask<IndexFreshnessEvaluationResult> ObserveSceneTreeLiteAsync (
         ResolvedUnityProjectContext unityProject,
         string scenePath,
         string? persistedSourceInputsHash,
@@ -66,7 +66,7 @@ internal sealed class ReadIndexFreshnessEvaluator : IReadIndexFreshnessEvaluator
             return IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable);
         }
 
-        var currentSourceHash = await sceneSourceHashProvider.TryCompute(unityProject, scenePath, cancellationToken).ConfigureAwait(false);
+        var currentSourceHash = await sceneSourceHashProvider.TryComputeAsync(unityProject, scenePath, cancellationToken).ConfigureAwait(false);
         if (currentSourceHash == null)
         {
             return IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable);

@@ -11,7 +11,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <param name="workItem"> The asynchronous work item to execute. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by connection handling. </param>
         /// <returns> The work-item result. </returns>
-        Task<T> Execute<T> (
+        Task<T> ExecuteAsync<T> (
             Func<Task<T>> workItem,
             CancellationToken cancellationToken = default);
     }

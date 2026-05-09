@@ -31,7 +31,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 Array.Empty<string>(),
                 UcliOperationPlanMode.ObservesLiveUnity));
 
-        protected override Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
             ComponentTypeArgs args,
             OperationExecutionContext executionContext,
@@ -46,27 +46,27 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
         }
 
-        protected override async Task<OperationPhaseStepResult> Plan (
+        protected override async Task<OperationPhaseStepResult> PlanAsync (
             NormalizedOperation operation,
             ComponentTypeArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await Execute(operation, args, applied: false, cancellationToken).ConfigureAwait(false);
+            return await ExecuteAsync(operation, args, applied: false, cancellationToken).ConfigureAwait(false);
         }
 
-        protected override async Task<OperationPhaseStepResult> Call (
+        protected override async Task<OperationPhaseStepResult> CallAsync (
             NormalizedOperation operation,
             ComponentTypeArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await Execute(operation, args, applied: true, cancellationToken).ConfigureAwait(false);
+            return await ExecuteAsync(operation, args, applied: true, cancellationToken).ConfigureAwait(false);
         }
 
-        private async Task<OperationPhaseStepResult> Execute (
+        private async Task<OperationPhaseStepResult> ExecuteAsync (
             NormalizedOperation operation,
             ComponentTypeArgs args,
             bool applied,
@@ -77,7 +77,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return failure!;
             }
 
-            var extractionResult = await schemaExtractor.Extract(
+            var extractionResult = await schemaExtractor.ExtractAsync(
                 new[] { validationState.ComponentType! },
                 cancellationToken).ConfigureAwait(false);
             if (extractionResult.Entries.Count == 0)

@@ -16,9 +16,9 @@ internal sealed class OperationCatalogWarmupService : IOperationCatalogWarmup
     }
 
     /// <inheritdoc />
-    public async ValueTask Warmup (CancellationToken cancellationToken = default)
+    public async ValueTask WarmupAsync (CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        await operationCatalog.GetAll(cancellationToken).ConfigureAwait(false);
+        await operationCatalog.GetAllAsync(cancellationToken).ConfigureAwait(false);
     }
 }

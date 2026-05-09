@@ -46,7 +46,7 @@ internal sealed class PlanCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Plan)]
-    public async Task<int> Plan (
+    public async Task<int> PlanAsync (
         string? projectPath = null,
         string? mode = null,
         string? timeout = null,
@@ -76,7 +76,7 @@ internal sealed class PlanCommand
                 return WriteRequestReadFailure(requestInputReadResult);
             }
 
-            var preflightResult = await planCommandPreflightService.Prepare(
+            var preflightResult = await planCommandPreflightService.PrepareAsync(
                     projectPath,
                     requestInputReadResult.Json!,
                     normalizedReadIndexModeResult.Mode,
@@ -97,7 +97,7 @@ internal sealed class PlanCommand
                 return WriteRequestReadFailure(requestInputReadResult);
             }
 
-            var preflightResult = await planCommandPreflightService.Prepare(
+            var preflightResult = await planCommandPreflightService.PrepareAsync(
                     projectPath,
                     requestInputReadResult.Json!,
                     normalizedReadIndexModeResult.Mode,
@@ -115,7 +115,7 @@ internal sealed class PlanCommand
             return WriteRequestReadFailure(serviceRequestInputReadResult);
         }
 
-        var serviceResult = await planService.Execute(
+        var serviceResult = await planService.ExecuteAsync(
                 new PlanCommandInput(
                     ProjectPath: projectPath,
                     Mode: normalizedModeResult.Mode,

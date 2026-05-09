@@ -650,7 +650,7 @@ public sealed class UnityOneshotIpcClientTests
 
         public string? LastUnityLogPath { get; private set; }
 
-        public ValueTask<UnityBatchmodeProcessLaunchResult> Launch (
+        public ValueTask<UnityBatchmodeProcessLaunchResult> LaunchAsync (
             ResolvedUnityProjectContext unityProject,
             IpcBatchmodeBootstrapArguments bootstrapArguments,
             string unityLogPath,

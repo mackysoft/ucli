@@ -15,7 +15,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <param name="createConflictResponse"> The factory used when the request-id conflicts with different request content. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The coordinated response envelope. </returns>
-        Task<IpcResponse> Execute (
+        Task<IpcResponse> ExecuteAsync (
             string requestId,
             string requestFingerprint,
             Func<CancellationToken, Task<IpcResponse>> executeRequest,

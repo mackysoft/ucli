@@ -30,7 +30,7 @@ internal sealed class ValidateService : IValidateService
     }
 
     /// <inheritdoc />
-    public async ValueTask<ValidateServiceResult> Execute (
+    public async ValueTask<ValidateServiceResult> ExecuteAsync (
         ValidateCommandInput input,
         CancellationToken cancellationToken = default)
     {
@@ -50,7 +50,7 @@ internal sealed class ValidateService : IValidateService
             }
 
             var disabledOutput = new ValidateExecutionOutput(CreateReadIndexDisabledOutput());
-            var disabledValidationResult = await requestStaticValidator.Validate(
+            var disabledValidationResult = await requestStaticValidator.ValidateAsync(
                     parsedRequestResult.ParsedRequest!.Request,
                     RequestStaticValidationCatalog.Unavailable,
                     UcliConfig.CreateDefault(),
@@ -75,7 +75,7 @@ internal sealed class ValidateService : IValidateService
             return ValidateServiceResult.Success(disabledOutput, "Static validation passed.");
         }
 
-        var requestPreparationResult = await requestPreparationService.Prepare(
+        var requestPreparationResult = await requestPreparationService.PrepareAsync(
                 input.ProjectPath,
                 input.RequestJson,
                 cancellationToken)
@@ -89,7 +89,7 @@ internal sealed class ValidateService : IValidateService
                 output: null);
         }
 
-        var requestStaticValidationPreflightResult = await requestStaticValidationPreflightService.Prepare(
+        var requestStaticValidationPreflightResult = await requestStaticValidationPreflightService.PrepareAsync(
                 requestPreparationResult.PreparedRequest!,
                 input.ReadIndexMode,
                 cancellationToken)

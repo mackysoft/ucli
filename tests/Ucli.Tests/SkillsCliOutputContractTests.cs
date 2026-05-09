@@ -31,7 +31,7 @@ public sealed class SkillsCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Skills_WithoutSubcommand_ReturnsJsonEnvelopeError ()
     {
-        var result = await CliProcessRunner.RunCommand(UcliCommandNames.Skills);
+        var result = await CliProcessRunner.RunCommandAsync(UcliCommandNames.Skills);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -47,7 +47,7 @@ public sealed class SkillsCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Skills_WithUnknownSubcommand_ReturnsJsonEnvelopeError ()
     {
-        var result = await CliProcessRunner.RunCommand(UcliCommandNames.Skills, "unknown");
+        var result = await CliProcessRunner.RunCommandAsync(UcliCommandNames.Skills, "unknown");
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -71,7 +71,7 @@ public sealed class SkillsCliOutputContractTests
         string subcommand,
         string expectedCommand)
     {
-        var result = await CliProcessRunner.RunCommand(UcliCommandNames.Skills, subcommand, UcliContractConstants.CliOption.Unknown);
+        var result = await CliProcessRunner.RunCommandAsync(UcliCommandNames.Skills, subcommand, UcliContractConstants.CliOption.Unknown);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -88,7 +88,7 @@ public sealed class SkillsCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task SkillsList_ReturnsOfficialSkillsAndSupportedHosts ()
     {
-        var result = await CliProcessRunner.RunCommand(UcliCommandNames.Skills, UcliCommandNames.ListSubcommand);
+        var result = await CliProcessRunner.RunCommandAsync(UcliCommandNames.Skills, UcliCommandNames.ListSubcommand);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
@@ -139,7 +139,7 @@ public sealed class SkillsCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "export-openai");
         var outputRoot = scope.GetPath("exported");
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Skills,
             UcliCommandNames.ExportSubcommand,
             "--host",
@@ -180,7 +180,7 @@ public sealed class SkillsCliOutputContractTests
         var firstZip = scope.GetPath("skills-a.zip");
         var secondZip = scope.GetPath("skills-b.zip");
 
-        var first = await CliProcessRunner.RunCommandWithTimeout(
+        var first = await CliProcessRunner.RunCommandWithTimeoutAsync(
             TimeSpan.FromSeconds(45),
             UcliCommandNames.Skills,
             UcliCommandNames.ExportSubcommand,
@@ -190,7 +190,7 @@ public sealed class SkillsCliOutputContractTests
             "zip",
             "--output",
             firstZip);
-        var second = await CliProcessRunner.RunCommandWithTimeout(
+        var second = await CliProcessRunner.RunCommandWithTimeoutAsync(
             TimeSpan.FromSeconds(45),
             UcliCommandNames.Skills,
             UcliCommandNames.ExportSubcommand,
@@ -233,7 +233,7 @@ public sealed class SkillsCliOutputContractTests
         var repoRoot = scope.CreateDirectory("repo");
         var args = CreateRequiredHostScenarioArgs(subcommand, repoRoot, scope.GetPath("exported"));
 
-        var result = await CliProcessRunner.RunCommand(args);
+        var result = await CliProcessRunner.RunCommandAsync(args);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -249,7 +249,7 @@ public sealed class SkillsCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task SkillsExport_WithoutOutput_ReturnsInvalidArgument ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Skills,
             UcliCommandNames.ExportSubcommand,
             "--host",
@@ -278,7 +278,7 @@ public sealed class SkillsCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", $"missing-scope-{subcommand}");
         var repoRoot = scope.CreateDirectory("repo");
 
-        var result = await RunScopedCommand(subcommand, repoRoot, host: "openai", scope: null, targetDir: null);
+        var result = await RunScopedCommandAsync(subcommand, repoRoot, host: "openai", scope: null, targetDir: null);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -303,7 +303,7 @@ public sealed class SkillsCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", $"invalid-scope-{subcommand}");
         var repoRoot = scope.CreateDirectory("repo");
 
-        var result = await RunScopedCommand(subcommand, repoRoot, host: "openai", scope: "global", targetDir: null);
+        var result = await RunScopedCommandAsync(subcommand, repoRoot, host: "openai", scope: "global", targetDir: null);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -328,7 +328,7 @@ public sealed class SkillsCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", $"user-repo-root-{subcommand}");
         var repoRoot = scope.CreateDirectory("repo");
 
-        var result = await RunScopedCommand(subcommand, repoRoot, host: "openai", scope: "user", targetDir: null);
+        var result = await RunScopedCommandAsync(subcommand, repoRoot, host: "openai", scope: "user", targetDir: null);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -356,7 +356,7 @@ public sealed class SkillsCliOutputContractTests
         var repoRoot = scope.CreateDirectory("repo");
         var args = CreateUnsupportedHostScenarioArgs(subcommand, repoRoot, outsideScope.FullPath, scope.GetPath("exported"));
 
-        var result = await CliProcessRunner.RunCommand(args);
+        var result = await CliProcessRunner.RunCommandAsync(args);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -375,8 +375,8 @@ public sealed class SkillsCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "install-openai");
         var repoRoot = scope.CreateDirectory("repo");
 
-        var created = await RunOpenAiInstall(repoRoot);
-        var noOp = await RunOpenAiInstall(repoRoot);
+        var created = await RunOpenAiInstallAsync(repoRoot);
+        var noOp = await RunOpenAiInstallAsync(repoRoot);
 
         using var createdJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(created.StdOut);
         Assert.Equal((int)CliExitCode.Success, created.ExitCode);
@@ -423,7 +423,7 @@ public sealed class SkillsCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "user-scope-codex-home-default");
         var codexHome = scope.GetPath("codex-home");
 
-        var install = await CliProcessRunner.RunCommandWithEnvironment(
+        var install = await CliProcessRunner.RunCommandWithEnvironmentAsync(
             new Dictionary<string, string?> { ["CODEX_HOME"] = codexHome },
             UcliCommandNames.Skills,
             UcliCommandNames.InstallSubcommand,
@@ -452,7 +452,7 @@ public sealed class SkillsCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "user-scope-explicit-target");
         var targetRoot = scope.GetPath("user-skills");
 
-        var install = await CliProcessRunner.RunCommand(
+        var install = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Skills,
             UcliCommandNames.InstallSubcommand,
             "--host",
@@ -461,7 +461,7 @@ public sealed class SkillsCliOutputContractTests
             "user",
             "--targetDir",
             targetRoot);
-        var update = await CliProcessRunner.RunCommand(
+        var update = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Skills,
             UcliCommandNames.UpdateSubcommand,
             "--host",
@@ -470,7 +470,7 @@ public sealed class SkillsCliOutputContractTests
             "user",
             "--targetDir",
             targetRoot);
-        var doctor = await CliProcessRunner.RunCommand(
+        var doctor = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Skills,
             UcliCommandNames.DoctorSubcommand,
             "--host",
@@ -479,7 +479,7 @@ public sealed class SkillsCliOutputContractTests
             "user",
             "--targetDir",
             targetRoot);
-        var uninstall = await CliProcessRunner.RunCommand(
+        var uninstall = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Skills,
             UcliCommandNames.UninstallSubcommand,
             "--host",
@@ -538,7 +538,7 @@ public sealed class SkillsCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "install-dry-run-diff");
         var repoRoot = scope.CreateDirectory("repo");
 
-        var result = await RunOpenAiInstall(repoRoot, dryRun: true, printDiff: true);
+        var result = await RunOpenAiInstallAsync(repoRoot, dryRun: true, printDiff: true);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
@@ -581,10 +581,10 @@ public sealed class SkillsCliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "install-host-conflict");
         var repoRoot = scope.CreateDirectory("repo");
-        var claude = await RunInstall(repoRoot, host: "claude", targetDir: "shared-skills");
+        var claude = await RunInstallAsync(repoRoot, host: "claude", targetDir: "shared-skills");
         Assert.Equal((int)CliExitCode.Success, claude.ExitCode);
 
-        var openAi = await RunInstall(repoRoot, host: "openai", targetDir: "shared-skills");
+        var openAi = await RunInstallAsync(repoRoot, host: "openai", targetDir: "shared-skills");
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(openAi.StdOut);
         Assert.Equal((int)CliExitCode.ToolError, openAi.ExitCode);
@@ -602,7 +602,7 @@ public sealed class SkillsCliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "install-force-local-modification");
         var repoRoot = scope.CreateDirectory("repo");
-        var install = await RunOpenAiInstall(repoRoot);
+        var install = await RunOpenAiInstallAsync(repoRoot);
         Assert.Equal((int)CliExitCode.Success, install.ExitCode);
         using var installJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(install.StdOut);
         var targetRoot = installJson.RootElement.GetProperty("payload").GetProperty("targetRoot").GetString()!;
@@ -611,7 +611,7 @@ public sealed class SkillsCliOutputContractTests
         await File.AppendAllTextAsync(skillPath, "\nInjected instruction.\n");
         await File.WriteAllTextAsync(localPath, "# Local\n");
 
-        var result = await RunOpenAiInstall(repoRoot, force: true, printDiff: true);
+        var result = await RunOpenAiInstallAsync(repoRoot, force: true, printDiff: true);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
@@ -646,8 +646,8 @@ public sealed class SkillsCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "update-openai");
         var repoRoot = scope.CreateDirectory("repo");
 
-        var created = await RunOpenAiUpdate(repoRoot);
-        var noOp = await RunOpenAiUpdate(repoRoot);
+        var created = await RunOpenAiUpdateAsync(repoRoot);
+        var noOp = await RunOpenAiUpdateAsync(repoRoot);
 
         using var createdJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(created.StdOut);
         Assert.Equal((int)CliExitCode.Success, created.ExitCode);
@@ -690,7 +690,7 @@ public sealed class SkillsCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "update-dry-run-diff");
         var repoRoot = scope.CreateDirectory("repo");
 
-        var result = await RunOpenAiUpdate(repoRoot, dryRun: true, printDiff: true);
+        var result = await RunOpenAiUpdateAsync(repoRoot, dryRun: true, printDiff: true);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
@@ -721,13 +721,13 @@ public sealed class SkillsCliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "update-outdated");
         var repoRoot = scope.CreateDirectory("repo");
-        var install = await RunOpenAiInstall(repoRoot);
+        var install = await RunOpenAiInstallAsync(repoRoot);
         Assert.Equal((int)CliExitCode.Success, install.ExitCode);
         using var installJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(install.StdOut);
         var targetRoot = installJson.RootElement.GetProperty("payload").GetProperty("targetRoot").GetString()!;
         await RewriteInstalledSkillBodyAndManifestAsOlderAsync(targetRoot, ExpectedSkillNames[0]);
 
-        var updated = await RunOpenAiUpdate(repoRoot);
+        var updated = await RunOpenAiUpdateAsync(repoRoot);
 
         using var updatedJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(updated.StdOut);
         Assert.Equal((int)CliExitCode.Success, updated.ExitCode);
@@ -752,7 +752,7 @@ public sealed class SkillsCliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "update-dry-run-local-modification");
         var repoRoot = scope.CreateDirectory("repo");
-        var install = await RunOpenAiInstall(repoRoot);
+        var install = await RunOpenAiInstallAsync(repoRoot);
         Assert.Equal((int)CliExitCode.Success, install.ExitCode);
         using var installJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(install.StdOut);
         var targetRoot = installJson.RootElement.GetProperty("payload").GetProperty("targetRoot").GetString()!;
@@ -760,7 +760,7 @@ public sealed class SkillsCliOutputContractTests
         await File.AppendAllTextAsync(skillPath, "\nInjected instruction.\n");
         var modifiedSkill = await File.ReadAllTextAsync(skillPath);
 
-        var result = await RunOpenAiUpdate(repoRoot, dryRun: true, printDiff: true);
+        var result = await RunOpenAiUpdateAsync(repoRoot, dryRun: true, printDiff: true);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
@@ -785,14 +785,14 @@ public sealed class SkillsCliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "update-force-local-modification");
         var repoRoot = scope.CreateDirectory("repo");
-        var install = await RunOpenAiInstall(repoRoot);
+        var install = await RunOpenAiInstallAsync(repoRoot);
         Assert.Equal((int)CliExitCode.Success, install.ExitCode);
         using var installJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(install.StdOut);
         var targetRoot = installJson.RootElement.GetProperty("payload").GetProperty("targetRoot").GetString()!;
         var skillPath = Path.Combine(targetRoot, ExpectedSkillNames[0], "SKILL.md");
         await File.AppendAllTextAsync(skillPath, "\nInjected instruction.\n");
 
-        var result = await RunOpenAiUpdate(repoRoot, force: true, printDiff: true);
+        var result = await RunOpenAiUpdateAsync(repoRoot, force: true, printDiff: true);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
@@ -822,11 +822,11 @@ public sealed class SkillsCliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "uninstall-openai");
         var repoRoot = scope.CreateDirectory("repo");
-        var install = await RunOpenAiInstall(repoRoot);
+        var install = await RunOpenAiInstallAsync(repoRoot);
         Assert.Equal((int)CliExitCode.Success, install.ExitCode);
 
-        var deleted = await RunOpenAiUninstall(repoRoot);
-        var noOp = await RunOpenAiUninstall(repoRoot);
+        var deleted = await RunOpenAiUninstallAsync(repoRoot);
+        var noOp = await RunOpenAiUninstallAsync(repoRoot);
 
         using var deletedJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(deleted.StdOut);
         Assert.Equal((int)CliExitCode.Success, deleted.ExitCode);
@@ -869,7 +869,7 @@ public sealed class SkillsCliOutputContractTests
         Directory.CreateDirectory(Path.GetDirectoryName(unmanagedPath)!);
         await File.WriteAllTextAsync(unmanagedPath, "# Existing\n");
 
-        var result = await RunOpenAiUninstall(repoRoot);
+        var result = await RunOpenAiUninstallAsync(repoRoot);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
@@ -890,14 +890,14 @@ public sealed class SkillsCliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "uninstall-dry-run-local-modification");
         var repoRoot = scope.CreateDirectory("repo");
-        var install = await RunOpenAiInstall(repoRoot);
+        var install = await RunOpenAiInstallAsync(repoRoot);
         Assert.Equal((int)CliExitCode.Success, install.ExitCode);
         using var installJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(install.StdOut);
         var targetRoot = installJson.RootElement.GetProperty("payload").GetProperty("targetRoot").GetString()!;
         var skillDirectory = Path.Combine(targetRoot, ExpectedSkillNames[0]);
         await File.AppendAllTextAsync(Path.Combine(skillDirectory, "SKILL.md"), "\nInjected instruction.\n");
 
-        var result = await RunOpenAiUninstall(repoRoot, dryRun: true);
+        var result = await RunOpenAiUninstallAsync(repoRoot, dryRun: true);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
@@ -921,12 +921,12 @@ public sealed class SkillsCliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "uninstall-other-host");
         var repoRoot = scope.CreateDirectory("repo");
-        var openAi = await RunOpenAiInstall(repoRoot);
-        var claude = await RunInstall(repoRoot, host: "claude", targetDir: null);
+        var openAi = await RunOpenAiInstallAsync(repoRoot);
+        var claude = await RunInstallAsync(repoRoot, host: "claude", targetDir: null);
         Assert.Equal((int)CliExitCode.Success, openAi.ExitCode);
         Assert.Equal((int)CliExitCode.Success, claude.ExitCode);
 
-        var result = await RunOpenAiUninstall(repoRoot);
+        var result = await RunOpenAiUninstallAsync(repoRoot);
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         using var openAiJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(openAi.StdOut);
@@ -954,7 +954,7 @@ public sealed class SkillsCliOutputContractTests
         using var outsideScope = TestDirectories.CreateTempScope("skills-cli-output-contract", $"outside-target-root-{subcommand}");
         var repoRoot = scope.CreateDirectory("repo");
 
-        var result = await RunScopedCommand(subcommand, repoRoot, host: "openai", scope: "project", targetDir: outsideScope.FullPath);
+        var result = await RunScopedCommandAsync(subcommand, repoRoot, host: "openai", scope: "project", targetDir: outsideScope.FullPath);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -972,10 +972,10 @@ public sealed class SkillsCliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "doctor-healthy");
         var repoRoot = scope.CreateDirectory("repo");
-        var install = await RunOpenAiInstall(repoRoot);
+        var install = await RunOpenAiInstallAsync(repoRoot);
         Assert.Equal((int)CliExitCode.Success, install.ExitCode);
 
-        var doctor = await RunOpenAiDoctor(repoRoot);
+        var doctor = await RunOpenAiDoctorAsync(repoRoot);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(doctor.StdOut);
         Assert.Equal((int)CliExitCode.Success, doctor.ExitCode);
@@ -1002,7 +1002,7 @@ public sealed class SkillsCliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "doctor-drift");
         var repoRoot = scope.CreateDirectory("repo");
-        var install = await RunOpenAiInstall(repoRoot);
+        var install = await RunOpenAiInstallAsync(repoRoot);
         Assert.Equal((int)CliExitCode.Success, install.ExitCode);
 
         using (var installJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(install.StdOut))
@@ -1011,7 +1011,7 @@ public sealed class SkillsCliOutputContractTests
             await File.AppendAllTextAsync(Path.Combine(targetRoot, ExpectedSkillNames[0], "SKILL.md"), "\nDrifted content.\n");
         }
 
-        var doctor = await RunOpenAiDoctor(repoRoot);
+        var doctor = await RunOpenAiDoctorAsync(repoRoot);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(doctor.StdOut);
         Assert.Equal((int)CliExitCode.ToolError, doctor.ExitCode);
@@ -1036,7 +1036,7 @@ public sealed class SkillsCliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "doctor-openai-metadata-drift");
         var repoRoot = scope.CreateDirectory("repo");
-        var install = await RunOpenAiInstall(repoRoot);
+        var install = await RunOpenAiInstallAsync(repoRoot);
         Assert.Equal((int)CliExitCode.Success, install.ExitCode);
 
         using (var installJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(install.StdOut))
@@ -1045,7 +1045,7 @@ public sealed class SkillsCliOutputContractTests
             await File.AppendAllTextAsync(Path.Combine(targetRoot, ExpectedSkillNames[0], "agents", "openai.yaml"), "\n# Drifted metadata.\n");
         }
 
-        var doctor = await RunOpenAiDoctor(repoRoot);
+        var doctor = await RunOpenAiDoctorAsync(repoRoot);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(doctor.StdOut);
         Assert.Equal((int)CliExitCode.ToolError, doctor.ExitCode);
@@ -1065,7 +1065,7 @@ public sealed class SkillsCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "doctor-missing-target");
         var repoRoot = scope.CreateDirectory("repo");
 
-        var result = await RunOpenAiDoctor(repoRoot);
+        var result = await RunOpenAiDoctorAsync(repoRoot);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
@@ -1084,13 +1084,13 @@ public sealed class SkillsCliOutputContractTests
                     .HasString("code", InstallTargetUnmanagedCode)));
     }
 
-    private static Task<CommandExecutionResult> RunOpenAiInstall (
+    private static Task<CommandExecutionResult> RunOpenAiInstallAsync (
         string repoRoot,
         bool dryRun = false,
         bool force = false,
         bool printDiff = false)
     {
-        return RunInstall(repoRoot, "openai", targetDir: null, dryRun, force, printDiff);
+        return RunInstallAsync(repoRoot, "openai", targetDir: null, dryRun, force, printDiff);
     }
 
     private static async Task RewriteInstalledSkillBodyAndManifestAsOlderAsync (
@@ -1156,24 +1156,24 @@ public sealed class SkillsCliOutputContractTests
             .Single(file => string.Equals(file.GetProperty("relativePath").GetString(), relativePath, StringComparison.Ordinal));
     }
 
-    private static Task<CommandExecutionResult> RunOpenAiUpdate (
+    private static Task<CommandExecutionResult> RunOpenAiUpdateAsync (
         string repoRoot,
         bool dryRun = false,
         bool force = false,
         bool printDiff = false)
     {
-        return RunScopedCommand(UcliCommandNames.UpdateSubcommand, repoRoot, "openai", "project", targetDir: null, dryRun, force, printDiff);
+        return RunScopedCommandAsync(UcliCommandNames.UpdateSubcommand, repoRoot, "openai", "project", targetDir: null, dryRun, force, printDiff);
     }
 
-    private static Task<CommandExecutionResult> RunOpenAiUninstall (
+    private static Task<CommandExecutionResult> RunOpenAiUninstallAsync (
         string repoRoot,
         bool dryRun = false,
         bool force = false)
     {
-        return RunScopedCommand(UcliCommandNames.UninstallSubcommand, repoRoot, "openai", "project", targetDir: null, dryRun, force, printDiff: false);
+        return RunScopedCommandAsync(UcliCommandNames.UninstallSubcommand, repoRoot, "openai", "project", targetDir: null, dryRun, force, printDiff: false);
     }
 
-    private static Task<CommandExecutionResult> RunInstall (
+    private static Task<CommandExecutionResult> RunInstallAsync (
         string repoRoot,
         string host,
         string? targetDir,
@@ -1181,10 +1181,10 @@ public sealed class SkillsCliOutputContractTests
         bool force = false,
         bool printDiff = false)
     {
-        return RunScopedCommand(UcliCommandNames.InstallSubcommand, repoRoot, host, "project", targetDir, dryRun, force, printDiff);
+        return RunScopedCommandAsync(UcliCommandNames.InstallSubcommand, repoRoot, host, "project", targetDir, dryRun, force, printDiff);
     }
 
-    private static Task<CommandExecutionResult> RunScopedCommand (
+    private static Task<CommandExecutionResult> RunScopedCommandAsync (
         string subcommand,
         string repoRoot,
         string? host,
@@ -1237,12 +1237,12 @@ public sealed class SkillsCliOutputContractTests
             args.Add("--printDiff");
         }
 
-        return CliProcessRunner.RunCommand(args.ToArray());
+        return CliProcessRunner.RunCommandAsync(args.ToArray());
     }
 
-    private static Task<CommandExecutionResult> RunOpenAiDoctor (string repoRoot)
+    private static Task<CommandExecutionResult> RunOpenAiDoctorAsync (string repoRoot)
     {
-        return RunScopedCommand(UcliCommandNames.DoctorSubcommand, repoRoot, "openai", "project", targetDir: null);
+        return RunScopedCommandAsync(UcliCommandNames.DoctorSubcommand, repoRoot, "openai", "project", targetDir: null);
     }
 
     private static string NormalizeToLf (string text)

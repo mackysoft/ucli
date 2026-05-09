@@ -31,7 +31,7 @@ internal sealed class StatusCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Status)]
-    public async Task<int> Status (
+    public async Task<int> StatusAsync (
         string? projectPath = null,
         string? timeout = null,
         CancellationToken cancellationToken = default)
@@ -53,7 +53,7 @@ internal sealed class StatusCommand
         var input = new StatusCommandInput(
             ProjectPath: projectPath,
             TimeoutMilliseconds: timeoutNormalizationResult.TimeoutMilliseconds);
-        var executionResult = await statusService.Execute(input, cancellationToken).ConfigureAwait(false);
+        var executionResult = await statusService.ExecuteAsync(input, cancellationToken).ConfigureAwait(false);
         var result = StatusCommandResultFactory.Create(executionResult);
         commandResultWriter.WriteToStandardOutput(result);
         return result.ExitCode;

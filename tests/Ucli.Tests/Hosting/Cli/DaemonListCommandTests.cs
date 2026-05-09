@@ -51,7 +51,7 @@ public sealed class DaemonListCommandTests
         var command = new DaemonListCommand(service, CommandResultTestWriter.Create());
 
         CommandExecutionState.Reset();
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.List(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.ListAsync(
             projectPath: "/repo/wt-a/UnityProject",
             timeout: "3000",
             cancellationToken: CancellationToken.None));
@@ -97,7 +97,7 @@ public sealed class DaemonListCommandTests
             this.result = result;
         }
 
-        public ValueTask<DaemonListExecutionResult> GetList (
+        public ValueTask<DaemonListExecutionResult> GetListAsync (
             string? projectPath,
             int? timeoutMilliseconds,
             CancellationToken cancellationToken = default)

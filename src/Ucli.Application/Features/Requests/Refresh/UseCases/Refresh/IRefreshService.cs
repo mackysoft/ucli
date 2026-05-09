@@ -9,7 +9,7 @@ internal interface IRefreshService
     /// <param name="input"> The normalized command input values. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the refresh execution result. </returns>
-    ValueTask<OperationExecuteResult> Execute (
+    ValueTask<OperationExecuteResult> ExecuteAsync (
         RefreshCommandInput input,
         CancellationToken cancellationToken = default);
 }

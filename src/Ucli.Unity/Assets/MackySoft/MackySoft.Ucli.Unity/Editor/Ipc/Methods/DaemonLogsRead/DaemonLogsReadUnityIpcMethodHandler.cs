@@ -43,7 +43,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         public string Method => IpcMethodNames.DaemonLogsRead;
 
         /// <inheritdoc />
-        public ValueTask<IpcResponse> Handle (
+        public ValueTask<IpcResponse> HandleAsync (
             IpcRequest request,
             CancellationToken cancellationToken)
         {

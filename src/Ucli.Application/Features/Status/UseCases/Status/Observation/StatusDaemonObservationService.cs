@@ -36,7 +36,7 @@ internal sealed class StatusDaemonObservationService : IStatusDaemonObservationS
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the daemon observation result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="context" /> is <see langword="null" />. </exception>
-    public async ValueTask<StatusDaemonObservationResult> Observe (
+    public async ValueTask<StatusDaemonObservationResult> ObserveAsync (
         ProjectContext context,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
@@ -44,7 +44,7 @@ internal sealed class StatusDaemonObservationService : IStatusDaemonObservationS
         ArgumentNullException.ThrowIfNull(context);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var daemonStatusResult = await daemonStatusOperation.GetStatus(context.UnityProject, timeout, cancellationToken).ConfigureAwait(false);
+        var daemonStatusResult = await daemonStatusOperation.GetStatusAsync(context.UnityProject, timeout, cancellationToken).ConfigureAwait(false);
         if (!daemonStatusResult.IsSuccess)
         {
             return StatusDaemonObservationResult.Failure(daemonStatusResult.Error!);
@@ -64,7 +64,7 @@ internal sealed class StatusDaemonObservationService : IStatusDaemonObservationS
 
         try
         {
-            var pingResponse = await daemonPingInfoClient.PingAndRead(
+            var pingResponse = await daemonPingInfoClient.PingAndReadAsync(
                     context.UnityProject,
                     timeout,
                     daemonStatusResult.Session.SessionToken,

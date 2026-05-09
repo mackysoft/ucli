@@ -40,7 +40,7 @@ public sealed class RefreshCommandTests
         var command = new RefreshCommand(service, CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Refresh(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.RefreshAsync(
             projectPath: "/repo/UnityProject",
             mode: "oneshot",
             timeout: "1234",
@@ -92,7 +92,7 @@ public sealed class RefreshCommandTests
         var service = new StubRefreshService((_, _) => ValueTask.FromResult(failureResult));
         var command = new RefreshCommand(service, CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Refresh(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.RefreshAsync(
             projectPath: "/repo/UnityProject",
             cancellationToken: CancellationToken.None));
 
@@ -141,7 +141,7 @@ public sealed class RefreshCommandTests
             readPostcondition)));
         var command = new RefreshCommand(service, CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Refresh(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.RefreshAsync(
             projectPath: "/repo/UnityProject",
             cancellationToken: CancellationToken.None));
 
@@ -162,7 +162,7 @@ public sealed class RefreshCommandTests
         var service = new StubRefreshService((_, _) => throw new InvalidOperationException("Service should not be called."));
         var command = new RefreshCommand(service, CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Refresh(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.RefreshAsync(
             timeout: "abc",
             cancellationToken: CancellationToken.None));
 
@@ -185,7 +185,7 @@ public sealed class RefreshCommandTests
         var service = new StubRefreshService((_, _) => throw new InvalidOperationException("Service should not be called."));
         var command = new RefreshCommand(service, CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Refresh(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.RefreshAsync(
             mode: "unsupported",
             cancellationToken: CancellationToken.None));
 
@@ -214,7 +214,7 @@ public sealed class RefreshCommandTests
 
         public CancellationToken CapturedCancellationToken { get; private set; }
 
-        public ValueTask<OperationExecuteResult> Execute (
+        public ValueTask<OperationExecuteResult> ExecuteAsync (
             RefreshCommandInput input,
             CancellationToken cancellationToken = default)
         {

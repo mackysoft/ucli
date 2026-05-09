@@ -40,7 +40,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var startupCoordinator = new UnityIpcServerStartupCoordinator();
             using var cancellationTokenSource = new CancellationTokenSource();
-            var waitTask = startupCoordinator.Wait(cancellationTokenSource.Token);
+            var waitTask = startupCoordinator.WaitAsync(cancellationTokenSource.Token);
 
             startupCoordinator.Complete();
             cancellationTokenSource.Cancel();
@@ -55,7 +55,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var startupCoordinator = new UnityIpcServerStartupCoordinator();
             using var cancellationTokenSource = new CancellationTokenSource();
             using var completionRegistration = cancellationTokenSource.Token.Register(startupCoordinator.Complete);
-            var waitTask = startupCoordinator.Wait(cancellationTokenSource.Token);
+            var waitTask = startupCoordinator.WaitAsync(cancellationTokenSource.Token);
 
             cancellationTokenSource.Cancel();
 
@@ -68,7 +68,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var startupCoordinator = new UnityIpcServerStartupCoordinator();
             using var cancellationTokenSource = new CancellationTokenSource();
-            var waitTask = startupCoordinator.Wait(cancellationTokenSource.Token);
+            var waitTask = startupCoordinator.WaitAsync(cancellationTokenSource.Token);
 
             cancellationTokenSource.Cancel();
 
@@ -85,7 +85,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var server = CreateServerForLifecycle();
             var exception = await AsyncExceptionCapture.CaptureAsync<ArgumentNullException>(async () =>
             {
-                await server.Start(null).AsUniTask();
+                await server.StartAsync(null).AsUniTask();
             }, "Null endpoint start", SignalWaitTimeout);
 
             Assert.That(exception.ParamName, Is.EqualTo("endpoint"));
@@ -99,7 +99,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, " ");
             var exception = await AsyncExceptionCapture.CaptureAsync<ArgumentException>(async () =>
             {
-                await server.Start(endpoint).AsUniTask();
+                await server.StartAsync(endpoint).AsUniTask();
             }, "Whitespace endpoint start", SignalWaitTimeout);
 
             Assert.That(exception.ParamName, Is.EqualTo("endpoint"));
@@ -112,13 +112,13 @@ namespace MackySoft.Ucli.Unity.Tests
             var server = CreateServerForLifecycle();
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test");
             await TestAwaiter.WaitAsync(
-                server.Start(endpoint).AsUniTask(),
+                server.StartAsync(endpoint).AsUniTask(),
                 "Server lifecycle start",
                 SignalWaitTimeout);
             Assert.That(server.IsRunning, Is.True);
 
             await TestAwaiter.WaitAsync(
-                server.Stop().AsUniTask(),
+                server.StopAsync().AsUniTask(),
                 "Server lifecycle stop",
                 SignalWaitTimeout);
             Assert.That(server.IsRunning, Is.False);
@@ -139,7 +139,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var startedTaskSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var cancellationTokenSource = new CancellationTokenSource();
 
-            var runTask = listener.Run(
+            var runTask = listener.RunAsync(
                 address,
                 new StubConnectionHandler(),
                 () => startedTaskSource.TrySetResult(true),
@@ -151,8 +151,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(Directory.Exists(socketDirectoryPath), Is.True);
                 Assert.That(File.Exists(address), Is.True);
-                Assert.That(await ReadUnixFileMode(socketDirectoryPath), Is.EqualTo("0700"));
-                Assert.That(await ReadUnixFileMode(address), Is.EqualTo("0600"));
+                Assert.That(await ReadUnixFileModeAsync(socketDirectoryPath), Is.EqualTo("0700"));
+                Assert.That(await ReadUnixFileModeAsync(address), Is.EqualTo("0600"));
             }
             finally
             {
@@ -185,7 +185,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var listener = new UnixDomainSocketUnityIpcTransportListener();
             var exception = await AsyncExceptionCapture.CaptureAsync<ArgumentException>(async () =>
             {
-                await listener.Run(
+                await listener.RunAsync(
                         address,
                         new StubConnectionHandler(),
                         () => { },
@@ -207,7 +207,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
-                await server.Stop(cancellationTokenSource.Token).AsUniTask();
+                await server.StopAsync(cancellationTokenSource.Token).AsUniTask();
             }, "Canceled server stop", SignalWaitTimeout);
         });
 
@@ -228,7 +228,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(async () =>
             {
-                await server.Start(endpoint).AsUniTask();
+                await server.StartAsync(endpoint).AsUniTask();
             }, "Immediate listener failure on start", SignalWaitTimeout);
 
             Assert.That(server.IsRunning, Is.False);
@@ -251,7 +251,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     listener,
                 });
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-delayed-failure");
-            var startTask = server.Start(endpoint).AsUniTask();
+            var startTask = server.StartAsync(endpoint).AsUniTask();
 
             await TestAwaiter.WaitAsync(listener.RunEntered, "Delayed fault listener entry", SignalWaitTimeout);
             listener.ReleaseFault();
@@ -281,7 +281,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-start-cancel");
             using var cancellationTokenSource = new CancellationTokenSource();
 
-            var startTask = server.Start(endpoint, cancellationTokenSource.Token);
+            var startTask = server.StartAsync(endpoint, cancellationTokenSource.Token);
             await TestAwaiter.WaitAsync(blockingListener.RunEntered, "Blocking transport listener entry", SignalWaitTimeout);
             cancellationTokenSource.Cancel();
 
@@ -313,14 +313,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-fault-after-startup");
 
             await TestAwaiter.WaitAsync(
-                server.Start(endpoint).AsUniTask(),
+                server.StartAsync(endpoint).AsUniTask(),
                 "Server start before termination fault test",
                 SignalWaitTimeout);
             listener.ReleaseFault();
             await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(async () =>
             {
                 await TestAwaiter.WaitAsync(
-                    server.WaitForTermination(CancellationToken.None).AsUniTask(),
+                    server.WaitForTerminationAsync(CancellationToken.None).AsUniTask(),
                     "Listener fault termination result",
                     SignalWaitTimeout);
             }, "Listener fault termination result", SignalWaitTimeout);
@@ -339,7 +339,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubDaemonShutdownSignal());
             var request = CreatePingRequest(sessionToken: string.Empty);
 
-            var response = await server.HandleRequest(request);
+            var response = await server.HandleRequestAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
@@ -357,7 +357,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubDaemonShutdownSignal());
             var request = CreatePingRequest(sessionToken: "invalid-token");
 
-            var response = await server.HandleRequest(request);
+            var response = await server.HandleRequestAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
@@ -375,7 +375,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubDaemonShutdownSignal());
             var request = CreatePingRequest(sessionToken: "valid-token");
 
-            var response = await server.HandleRequest(request);
+            var response = await server.HandleRequestAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
@@ -393,7 +393,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubDaemonShutdownSignal());
             var request = CreatePingRequest(sessionToken: "valid-token");
 
-            var response = await server.HandleRequest(request);
+            var response = await server.HandleRequestAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(response.Errors, Is.Empty);
@@ -435,7 +435,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubDaemonShutdownSignal());
             var request = CreateExecuteRequest(sessionToken: "valid-token", requestId: "req-execute");
 
-            var response = await server.HandleRequest(request);
+            var response = await server.HandleRequestAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(dispatcher.CallCount, Is.EqualTo(1));
@@ -455,7 +455,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 shutdownSignal);
             var request = CreateShutdownRequest(sessionToken: "valid-token", requestId: "req-shutdown");
 
-            var response = await server.HandleRequest(request);
+            var response = await server.HandleRequestAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             var payload = response.Payload.Deserialize<IpcShutdownResponse>(SerializerOptions);
@@ -476,7 +476,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubDaemonShutdownSignal());
             var request = CreateTestRunRequest(sessionToken: "valid-token", requestId: "req-test-run", failFast: true);
 
-            var response = await server.HandleRequest(request);
+            var response = await server.HandleRequestAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(response.Errors, Is.Empty);
@@ -502,7 +502,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubDaemonShutdownSignal());
             var request = CreateTestRunRequest(sessionToken: "valid-token", requestId: "req-test-run-lifecycle-error");
 
-            var response = await server.HandleRequest(request);
+            var response = await server.HandleRequestAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
@@ -528,7 +528,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Method: IpcMethodNames.TestRun,
                 Payload: invalidPayload);
 
-            var response = await server.HandleRequest(request);
+            var response = await server.HandleRequestAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
@@ -546,7 +546,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubDaemonShutdownSignal());
             var request = CreateDaemonLogsReadRequest(sessionToken: "valid-token", requestId: "req-daemon-logs");
 
-            var response = await server.HandleRequest(request);
+            var response = await server.HandleRequestAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(response.Errors, Is.Empty);
@@ -567,7 +567,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubDaemonShutdownSignal());
             var request = CreateUnityLogsReadRequest(sessionToken: "valid-token", requestId: "req-unity-logs");
 
-            var response = await server.HandleRequest(request);
+            var response = await server.HandleRequestAsync(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(response.Errors, Is.Empty);
@@ -766,7 +766,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new UnityIpcServer(requestProcessor, connectionHandler, transportListeners);
         }
 
-        private static async Task<string> ReadUnixFileMode (string path)
+        private static async Task<string> ReadUnixFileModeAsync (string path)
         {
             var startInfo = new ProcessStartInfo
             {
@@ -781,14 +781,14 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(process, Is.Not.Null);
             var outputTask = process.StandardOutput.ReadToEndAsync();
             var errorTask = process.StandardError.ReadToEndAsync();
-            await TestAwaiter.WaitAsync(WaitForExit(process), "stat process exit", SignalWaitTimeout);
+            await TestAwaiter.WaitAsync(WaitForExitAsync(process), "stat process exit", SignalWaitTimeout);
             var output = await TestAwaiter.WaitAsync(outputTask, "stat stdout read", SignalWaitTimeout);
             var error = await TestAwaiter.WaitAsync(errorTask, "stat stderr read", SignalWaitTimeout);
             Assert.That(process.ExitCode, Is.EqualTo(0), error);
             return NormalizeUnixFileMode(output);
         }
 
-        private static Task WaitForExit (Process process)
+        private static Task WaitForExitAsync (Process process)
         {
             if (process.HasExited)
             {
@@ -858,7 +858,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 SignalCount++;
             }
 
-            public Task Wait (CancellationToken cancellationToken = default)
+            public Task WaitAsync (CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 return Task.CompletedTask;
@@ -867,7 +867,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class StubConnectionHandler : IUnityIpcConnectionHandler
         {
-            public Task<UnityIpcConnectionHandleResult> Handle (
+            public Task<UnityIpcConnectionHandleResult> HandleAsync (
                 Stream stream,
                 CancellationToken cancellationToken = default)
             {
@@ -878,7 +878,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class InlineMainThreadRequestExecutor : IUnityMainThreadRequestExecutor
         {
-            public Task<T> Execute<T> (
+            public Task<T> ExecuteAsync<T> (
                 Func<Task<T>> workItem,
                 CancellationToken cancellationToken = default)
             {
@@ -901,7 +901,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 this.accepted = accepted;
             }
 
-            public Task<bool> Validate (
+            public Task<bool> ValidateAsync (
                 string sessionToken,
                 CancellationToken cancellationToken = default)
             {
@@ -919,7 +919,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 this.exception = exception;
             }
 
-            public Task<bool> Validate (
+            public Task<bool> ValidateAsync (
                 string sessionToken,
                 CancellationToken cancellationToken = default)
             {
@@ -934,7 +934,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public ExecuteDispatchContext LastContext { get; private set; }
 
-            public Task<IpcResponse> Dispatch (
+            public Task<IpcResponse> DispatchAsync (
                 IpcExecuteRequest request,
                 ExecuteDispatchContext context,
                 CancellationToken cancellationToken = default)
@@ -977,7 +977,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public IpcTestRunRequest LastRequest { get; private set; }
 
-            public Task<UnityTestRunServiceResult> Execute (
+            public Task<UnityTestRunServiceResult> ExecuteAsync (
                 IpcTestRunRequest request,
                 CancellationToken cancellationToken = default)
             {
@@ -1002,7 +1002,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public IpcTransportKind TransportKind { get; }
 
-            public Task Run (
+            public Task RunAsync (
                 string address,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
@@ -1043,7 +1043,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 faultRelease.TrySetResult(true);
             }
 
-            public async Task Run (
+            public async Task RunAsync (
                 string address,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
@@ -1083,7 +1083,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 faultRelease.TrySetResult(true);
             }
 
-            public async Task Run (
+            public async Task RunAsync (
                 string address,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
@@ -1120,7 +1120,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public Task CancellationObserved => cancellationObserved.Task;
 
-            public async Task Run (
+            public async Task RunAsync (
                 string address,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,

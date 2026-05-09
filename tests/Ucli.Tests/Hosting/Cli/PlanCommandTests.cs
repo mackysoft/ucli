@@ -45,7 +45,7 @@ public sealed class PlanCommandTests
         var command = new PlanCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Plan(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.PlanAsync(
             projectPath: "/repo/UnityProject",
             mode: "oneshot",
             timeout: "1234",
@@ -96,7 +96,7 @@ public sealed class PlanCommandTests
         var preflightService = new StubPlanCommandPreflightService((_, _, _, _) => throw new InvalidOperationException("Preflight should not be called."));
         var command = new PlanCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Plan(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.PlanAsync(
             projectPath: "/repo/UnityProject",
             cancellationToken: CancellationToken.None));
 
@@ -119,7 +119,7 @@ public sealed class PlanCommandTests
         var preflightService = new StubPlanCommandPreflightService((_, _, _, _) => throw new InvalidOperationException("Preflight should not be called."));
         var command = new PlanCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Plan(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.PlanAsync(
             readIndexMode: "unsupported",
             cancellationToken: CancellationToken.None));
 
@@ -151,7 +151,7 @@ public sealed class PlanCommandTests
                 PlanToken: null))));
         var command = new PlanCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Plan(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.PlanAsync(
             timeout: "abc",
             cancellationToken: CancellationToken.None));
 
@@ -202,7 +202,7 @@ public sealed class PlanCommandTests
 
         public CancellationToken CapturedCancellationToken { get; private set; }
 
-        public ValueTask<PlanServiceResult> Execute (
+        public ValueTask<PlanServiceResult> ExecuteAsync (
             PlanCommandInput input,
             CancellationToken cancellationToken = default)
         {
@@ -226,7 +226,7 @@ public sealed class PlanCommandTests
 
         public CancellationToken CapturedCancellationToken { get; private set; }
 
-        public ValueTask<PlanCommandPreflightResult> Prepare (
+        public ValueTask<PlanCommandPreflightResult> PrepareAsync (
             string? projectPath,
             string requestJson,
             ReadIndexMode? readIndexMode,

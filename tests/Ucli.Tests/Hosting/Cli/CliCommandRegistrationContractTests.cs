@@ -10,7 +10,7 @@ public sealed class CliCommandRegistrationContractTests
     [Trait("Size", "Medium")]
     public async Task HelpOutput_CommandPathsMatchCommandCatalog ()
     {
-        var result = await CliProcessRunner.RunCommand("--help");
+        var result = await CliProcessRunner.RunCommandAsync("--help");
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         Assert.Equal(

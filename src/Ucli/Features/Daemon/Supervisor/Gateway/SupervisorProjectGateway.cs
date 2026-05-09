@@ -34,7 +34,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
     }
 
     /// <inheritdoc />
-    public async ValueTask<DaemonStartResult> EnsureRunning (
+    public async ValueTask<DaemonStartResult> EnsureRunningAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         DaemonEditorMode? editorMode,
@@ -51,7 +51,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                 "Timed out before supervisor bootstrap could begin."));
         }
 
-        var bootstrapResult = await supervisorBootstrapper.EnsureReady(
+        var bootstrapResult = await supervisorBootstrapper.EnsureReadyAsync(
                 unityProject.RepositoryRoot,
                 bootstrapTimeout,
                 cancellationToken)
@@ -67,7 +67,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                 "Timed out before supervisor ensureRunning could begin."));
         }
 
-        return await supervisorClient.EnsureRunning(
+        return await supervisorClient.EnsureRunningAsync(
                 bootstrapResult.Manifest!,
                 unityProject,
                 ensureRunningTimeout,
@@ -77,7 +77,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
     }
 
     /// <inheritdoc />
-    public async ValueTask<DaemonStopResult?> TryStopProject (
+    public async ValueTask<DaemonStopResult?> TryStopProjectAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
@@ -96,7 +96,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
         SupervisorInstanceManifest? manifest;
         try
         {
-            manifest = await supervisorManifestStore.ReadOrNull(
+            manifest = await supervisorManifestStore.ReadOrNullAsync(
                     unityProject.RepositoryRoot,
                     manifestReadTimeout,
                     cancellationToken)
@@ -140,7 +140,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
         var probeTimeout = probeBudget < SupervisorConstants.PingTimeout
             ? probeBudget
             : SupervisorConstants.PingTimeout;
-        var probeStatus = await supervisorClient.ProbeReachability(manifest, probeTimeout, cancellationToken).ConfigureAwait(false);
+        var probeStatus = await supervisorClient.ProbeReachabilityAsync(manifest, probeTimeout, cancellationToken).ConfigureAwait(false);
         if (probeStatus == SupervisorReachabilityProbeStatus.Unreachable)
         {
             return null;
@@ -152,7 +152,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                 "Timed out before supervisor stopProject could begin."));
         }
 
-        return await supervisorClient.StopProject(
+        return await supervisorClient.StopProjectAsync(
                 manifest,
                 unityProject,
                 stopTimeout,

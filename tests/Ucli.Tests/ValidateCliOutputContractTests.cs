@@ -14,7 +14,7 @@ public sealed class ValidateCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Validate_WithUnknownOption_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Validate,
             UcliContractConstants.CliOption.Unknown);
 
@@ -45,7 +45,7 @@ public sealed class ValidateCliOutputContractTests
             CreateOpsCatalog(
                 CreateGoDescribeEntry("""{"type":"object","required":["path"],"additionalProperties":false,"properties":{"path":{"type":"string"}}}""")));
 
-        var result = await CliProcessRunner.RunCommandWithStandardInput(
+        var result = await CliProcessRunner.RunCommandWithStandardInputAsync(
             requestJson,
             UcliCommandNames.Validate,
             UcliContractConstants.CliOption.ProjectPath,
@@ -74,7 +74,7 @@ public sealed class ValidateCliOutputContractTests
             CreateOpsCatalog(
                 CreateGoDescribeEntry("""{"type":"object","required":["path"],"additionalProperties":false,"properties":{"path":{"type":"string"}}}""")));
 
-        var result = await CliProcessRunner.RunCommandWithStandardInput(
+        var result = await CliProcessRunner.RunCommandWithStandardInputAsync(
             requestJson,
             UcliCommandNames.Validate,
             UcliContractConstants.CliOption.ProjectPath,
@@ -100,7 +100,7 @@ public sealed class ValidateCliOutputContractTests
             }
             """;
 
-        var result = await CliProcessRunner.RunCommandWithWorkingDirectoryAndStandardInput(
+        var result = await CliProcessRunner.RunCommandWithWorkingDirectoryAndStandardInputAsync(
             scope.FullPath,
             requestJson,
             UcliCommandNames.Validate,

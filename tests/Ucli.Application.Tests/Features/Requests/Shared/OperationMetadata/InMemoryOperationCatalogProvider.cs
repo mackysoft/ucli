@@ -55,13 +55,13 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
         new UcliOperationDescriptor(UcliPrimitiveOperationNames.ProjectSave, UcliOperationKind.Mutation, OperationPolicy.Advanced, StrictEmptyObjectArgsSchemaJson),
     ];
 
-    public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetOperations (CancellationToken cancellationToken = default)
+    public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetOperationsAsync (CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         return ValueTask.FromResult(Operations);
     }
 
-    public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetOperations (
+    public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetOperationsAsync (
         ResolvedUnityProjectContext unityProject,
         UcliConfig config,
         UnityExecutionMode mode = UnityExecutionMode.Auto,

@@ -169,7 +169,7 @@ public sealed class UnityDaemonIpcClientTests
 
         public int CallCount { get; private set; }
 
-        public ValueTask<DaemonSessionTokenResolutionResult> Resolve (
+        public ValueTask<DaemonSessionTokenResolutionResult> ResolveAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {

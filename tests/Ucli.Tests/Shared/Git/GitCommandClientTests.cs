@@ -14,7 +14,7 @@ public sealed class GitCommandClientTests
         ]);
         var client = new GitCommandClient(processRunner);
 
-        var result = await client.GetCurrentWorktreeRoot(
+        var result = await client.GetCurrentWorktreeRootAsync(
             "/repo/wt-current/UnityProject",
             TimeSpan.FromSeconds(30),
             CancellationToken.None);
@@ -35,7 +35,7 @@ public sealed class GitCommandClientTests
         ]);
         var client = new GitCommandClient(processRunner);
 
-        var result = await client.GetCurrentWorktreeRoot(
+        var result = await client.GetCurrentWorktreeRootAsync(
             "/repo/wt-current/UnityProject",
             TimeSpan.FromMilliseconds(200),
             CancellationToken.None);
@@ -53,7 +53,7 @@ public sealed class GitCommandClientTests
             ProcessRunResult.Exited(128, "fatal: git リポジトリではありません"),
         ]));
 
-        var result = await client.GetCurrentProjectRelativePath(
+        var result = await client.GetCurrentProjectRelativePathAsync(
             "/repo/not-git/UnityProject",
             TimeSpan.FromSeconds(10),
             CancellationToken.None);
@@ -72,7 +72,7 @@ public sealed class GitCommandClientTests
             ProcessRunResult.Exited(128, "fatal: detected dubious ownership in repository"),
         ]));
 
-        var result = await client.GetCurrentProjectRelativePath(
+        var result = await client.GetCurrentProjectRelativePathAsync(
             "/repo/not-git/UnityProject",
             TimeSpan.FromSeconds(10),
             CancellationToken.None);
@@ -91,7 +91,7 @@ public sealed class GitCommandClientTests
             ProcessRunResult.Exited(1, "fatal: worktree list failed"),
         ]));
 
-        var result = await client.GetWorktreeListPorcelain(
+        var result = await client.GetWorktreeListPorcelainAsync(
             "/repo/wt-current/UnityProject",
             TimeSpan.FromSeconds(10),
             CancellationToken.None);

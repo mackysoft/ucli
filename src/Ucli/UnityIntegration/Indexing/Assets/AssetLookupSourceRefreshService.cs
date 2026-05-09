@@ -38,7 +38,7 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
     }
 
     /// <inheritdoc />
-    public async ValueTask<AssetLookupRefreshResult> Refresh (
+    public async ValueTask<AssetLookupRefreshResult> RefreshAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,
@@ -58,7 +58,7 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
         string? persistFailure = null;
         for (var attempt = 0; attempt < MaxSnapshotStabilityAttempts; attempt++)
         {
-            var attemptResult = await TryReadAndPersistLookupArtifacts(
+            var attemptResult = await TryReadAndPersistLookupArtifactsAsync(
                     project,
                     config,
                     command,
@@ -94,7 +94,7 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
         return AssetLookupRefreshResult.Success(response!, combinedFallbackReason);
     }
 
-    private async ValueTask<(AssetLookupSnapshotFetchResult FetchResult, string? PersistFailure, bool ShouldRetry)> TryReadAndPersistLookupArtifacts (
+    private async ValueTask<(AssetLookupSnapshotFetchResult FetchResult, string? PersistFailure, bool ShouldRetry)> TryReadAndPersistLookupArtifactsAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,
@@ -105,12 +105,12 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var snapshotBeforeRead = await inputFingerprintProvider.TryCompute(
+        var snapshotBeforeRead = await inputFingerprintProvider.TryComputeAsync(
                 project,
                 cancellationToken)
             .ConfigureAwait(false);
 
-        var fetchResult = await assetLookupSnapshotReader.Read(
+        var fetchResult = await assetLookupSnapshotReader.ReadAsync(
                 project,
                 config,
                 command,
@@ -129,7 +129,7 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
             return (fetchResult, InputFingerprintFailureMessage, false);
         }
 
-        var snapshotAfterRead = await inputFingerprintProvider.TryCompute(
+        var snapshotAfterRead = await inputFingerprintProvider.TryComputeAsync(
                 project,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -147,7 +147,7 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
 
         try
         {
-            await artifactWriter.WriteAssetLookups(
+            await artifactWriter.WriteAssetLookupsAsync(
                     project.RepositoryRoot,
                     project.ProjectFingerprint,
                     fetchResult.Response!.GeneratedAtUtc,

@@ -47,7 +47,7 @@ internal sealed class DaemonStartService : IDaemonStartService
     /// <param name="editorMode"> The optional normalized <c>--editorMode</c> value. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-start execution result. </returns>
-    public async ValueTask<DaemonStartExecutionResult> Start (
+    public async ValueTask<DaemonStartExecutionResult> StartAsync (
         string? projectPath,
         int? timeoutMilliseconds,
         DaemonEditorMode? editorMode,
@@ -55,7 +55,7 @@ internal sealed class DaemonStartService : IDaemonStartService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var contextResult = await daemonCommandExecutionContextResolver.Resolve(
+        var contextResult = await daemonCommandExecutionContextResolver.ResolveAsync(
                 UcliCommandIds.DaemonStart,
                 projectPath,
                 timeoutMilliseconds,
@@ -68,7 +68,7 @@ internal sealed class DaemonStartService : IDaemonStartService
 
         var executionContext = contextResult.Context!;
         var deadline = ExecutionDeadline.Start(executionContext.Timeout, timeProvider);
-        var pluginLocateError = await VerifyUnityPluginWithinBudget(
+        var pluginLocateError = await VerifyUnityPluginWithinBudgetAsync(
                 executionContext.Context.UnityProject.UnityProjectRoot,
                 deadline,
                 cancellationToken)
@@ -84,7 +84,7 @@ internal sealed class DaemonStartService : IDaemonStartService
                 "Timed out before daemon lifecycle orchestration could begin."));
         }
 
-        var startResult = await daemonProjectLifecycleGateway.EnsureRunning(
+        var startResult = await daemonProjectLifecycleGateway.EnsureRunningAsync(
                 executionContext.Context.UnityProject,
                 ensureRunningTimeout,
                 editorMode,
@@ -104,7 +104,7 @@ internal sealed class DaemonStartService : IDaemonStartService
         return DaemonStartExecutionResult.Success(output);
     }
 
-    private async ValueTask<ExecutionError?> VerifyUnityPluginWithinBudget (
+    private async ValueTask<ExecutionError?> VerifyUnityPluginWithinBudgetAsync (
         string unityProjectRoot,
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
@@ -120,7 +120,7 @@ internal sealed class DaemonStartService : IDaemonStartService
                 cancellationToken,
                 pluginLocateTimeout,
                 timeProvider);
-            var pluginLocateResult = await unityPluginVerifier.Verify(
+            var pluginLocateResult = await unityPluginVerifier.VerifyAsync(
                     unityProjectRoot,
                     pluginLocateCancellationScope.Token)
                 .ConfigureAwait(false);

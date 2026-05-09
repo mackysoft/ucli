@@ -226,7 +226,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         }
 
         /// <inheritdoc />
-        public Task<UnityEditorExecutionReadinessResult> EnsureExecutionReady (
+        public Task<UnityEditorExecutionReadinessResult> EnsureExecutionReadyAsync (
             bool failFast,
             CancellationToken cancellationToken = default)
         {
@@ -244,7 +244,7 @@ namespace MackySoft.Ucli.Unity.Runtime
             }
 
             var waitState = new ReadinessWaitState(this, cancellationToken);
-            return waitState.AttachAndWait();
+            return waitState.AttachAndWaitAsync();
         }
 
         /// <summary> Gets the current domain-reload generation used by plan-token environment snapshots. </summary>
@@ -312,7 +312,7 @@ namespace MackySoft.Ucli.Unity.Runtime
                 this.cancellationToken = cancellationToken;
             }
 
-            public Task<UnityEditorExecutionReadinessResult> AttachAndWait ()
+            public Task<UnityEditorExecutionReadinessResult> AttachAndWaitAsync ()
             {
                 EditorApplication.update += OnEditorUpdate;
                 readinessGate.beforeAssemblyReloadSubscriber(OnBeforeAssemblyReload);

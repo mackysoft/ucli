@@ -19,7 +19,7 @@ public sealed class SupervisorProjectGatewayTests
         var timeProvider = new ManualTimeProvider();
         var manifest = CreateManifest();
         var manifestStore = new SupervisorManifestStore();
-        await manifestStore.Write(scope.FullPath, manifest, CancellationToken.None);
+        await manifestStore.WriteAsync(scope.FullPath, manifest, CancellationToken.None);
 
         var transportClient = new DaemonServiceTestContext.StubIpcTransportClient();
         var observedEnsureRunningTimeout = TimeSpan.Zero;
@@ -71,7 +71,7 @@ public sealed class SupervisorProjectGatewayTests
             client,
             timeProvider);
 
-        var result = await gateway.EnsureRunning(
+        var result = await gateway.EnsureRunningAsync(
             CreateUnityProject(scope.FullPath),
             TimeSpan.FromMilliseconds(900),
             editorMode: DaemonEditorMode.Gui,
@@ -113,7 +113,7 @@ public sealed class SupervisorProjectGatewayTests
             client,
             timeProvider);
 
-        var result = await gateway.TryStopProject(
+        var result = await gateway.TryStopProjectAsync(
             CreateUnityProject(scope.FullPath),
             TimeSpan.FromMilliseconds(600),
             CancellationToken.None);
@@ -130,7 +130,7 @@ public sealed class SupervisorProjectGatewayTests
         var timeProvider = new ManualTimeProvider();
         var manifest = CreateManifest();
         var manifestStore = new SupervisorManifestStore();
-        await manifestStore.Write(scope.FullPath, manifest, CancellationToken.None);
+        await manifestStore.WriteAsync(scope.FullPath, manifest, CancellationToken.None);
 
         var transportClient = new DaemonServiceTestContext.StubIpcTransportClient();
         var observedStopTimeout = TimeSpan.Zero;
@@ -178,7 +178,7 @@ public sealed class SupervisorProjectGatewayTests
             client,
             timeProvider);
 
-        var result = await gateway.TryStopProject(
+        var result = await gateway.TryStopProjectAsync(
             CreateUnityProject(scope.FullPath),
             TimeSpan.FromMilliseconds(850),
             CancellationToken.None);
@@ -227,7 +227,7 @@ public sealed class SupervisorProjectGatewayTests
 
     private sealed class StubSupervisorProcessLauncher : ISupervisorProcessLauncher
     {
-        public ValueTask<ExecutionError?> Launch (
+        public ValueTask<ExecutionError?> LaunchAsync (
             string storageRoot,
             CancellationToken cancellationToken = default)
         {

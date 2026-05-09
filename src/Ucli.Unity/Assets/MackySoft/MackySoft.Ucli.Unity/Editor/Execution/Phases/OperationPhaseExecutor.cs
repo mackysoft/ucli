@@ -77,7 +77,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The request-level execution trace. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> is <see langword="null" />. </exception>
         /// <exception cref="System.OperationCanceledException"> Thrown when execution is canceled. </exception>
-        public async Task<PhaseExecutionTrace> Execute (
+        public async Task<PhaseExecutionTrace> ExecuteAsync (
             PhaseExecutionCommand command,
             NormalizedExecuteRequest request,
             CancellationToken cancellationToken = default)
@@ -110,7 +110,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var operationPreflight = command == PhaseExecutionCommand.Call && !request.AllowDangerous
                 ? CreateDangerousCallPreflight()
                 : null;
-            var planPassResult = await planPassExecutor.Execute(request, executionContext, operationPreflight, cancellationToken).ConfigureAwait(false);
+            var planPassResult = await planPassExecutor.ExecuteAsync(request, executionContext, operationPreflight, cancellationToken).ConfigureAwait(false);
             if (!planPassResult.IsSuccess)
             {
                 if (command == PhaseExecutionCommand.Call
@@ -203,7 +203,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     });
             }
 
-            var callPassResult = await callPassExecutor.Execute(planPassResult.PreparedOperations, executionContext, cancellationToken).ConfigureAwait(false);
+            var callPassResult = await callPassExecutor.ExecuteAsync(planPassResult.PreparedOperations, executionContext, cancellationToken).ConfigureAwait(false);
             return callPassResult.IsSuccess
                 ? PhaseExecutionTrace.Success(request.ProtocolVersion, request.RequestId, planPassResult.CompiledSteps, callPassResult.OperationTraces)
                 : PhaseExecutionTrace.Failure(request.ProtocolVersion, request.RequestId, planPassResult.CompiledSteps, callPassResult.OperationTraces, callPassResult.Errors);

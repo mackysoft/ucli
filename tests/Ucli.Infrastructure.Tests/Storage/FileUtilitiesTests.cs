@@ -13,7 +13,7 @@ public sealed class FileUtilitiesTests
         var path = Path.Combine(scope.FullPath, "daemon-diagnosis.json");
         await File.WriteAllTextAsync(path, "old-contents", CancellationToken.None);
 
-        await FileUtilities.WriteAllTextAtomically(path, "new-contents", CancellationToken.None);
+        await FileUtilities.WriteAllTextAtomicallyAsync(path, "new-contents", CancellationToken.None);
 
         var contents = await File.ReadAllTextAsync(path, CancellationToken.None);
         Assert.Equal("new-contents", contents);

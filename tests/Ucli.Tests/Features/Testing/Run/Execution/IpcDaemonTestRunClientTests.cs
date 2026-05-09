@@ -31,7 +31,7 @@ public sealed class IpcDaemonTestRunClientTests
         scope.WriteFile("run/editor.log", "log");
         var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider);
 
-        var result = await client.Execute(
+        var result = await client.ExecuteAsync(
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(4500),
@@ -71,7 +71,7 @@ public sealed class IpcDaemonTestRunClientTests
         var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
         var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider);
 
-        var result = await client.Execute(
+        var result = await client.ExecuteAsync(
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(4500),
@@ -95,7 +95,7 @@ public sealed class IpcDaemonTestRunClientTests
         var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
         var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider);
 
-        var result = await client.Execute(
+        var result = await client.ExecuteAsync(
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(4500),
@@ -129,7 +129,7 @@ public sealed class IpcDaemonTestRunClientTests
         scope.WriteFile("run/editor.log", "log");
         var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider, timeProvider);
 
-        var result = await client.Execute(
+        var result = await client.ExecuteAsync(
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(4500),
@@ -161,7 +161,7 @@ public sealed class IpcDaemonTestRunClientTests
         var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
         var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider, timeProvider);
 
-        var result = await client.Execute(
+        var result = await client.ExecuteAsync(
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(4500),
@@ -192,7 +192,7 @@ public sealed class IpcDaemonTestRunClientTests
         var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
         var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider);
 
-        var result = await client.Execute(
+        var result = await client.ExecuteAsync(
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(4500),
@@ -222,7 +222,7 @@ public sealed class IpcDaemonTestRunClientTests
         var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
         var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider);
 
-        var result = await client.Execute(
+        var result = await client.ExecuteAsync(
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(4500),
@@ -252,7 +252,7 @@ public sealed class IpcDaemonTestRunClientTests
         var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
         var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider);
 
-        var result = await client.Execute(
+        var result = await client.ExecuteAsync(
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(4500),
@@ -282,7 +282,7 @@ public sealed class IpcDaemonTestRunClientTests
         var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
         var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider);
 
-        var result = await client.Execute(
+        var result = await client.ExecuteAsync(
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(4500),
@@ -353,7 +353,7 @@ public sealed class IpcDaemonTestRunClientTests
 
         public Action? OnResolve { get; init; }
 
-        public ValueTask<DaemonSessionTokenResolutionResult> Resolve (
+        public ValueTask<DaemonSessionTokenResolutionResult> ResolveAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {

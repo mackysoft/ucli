@@ -35,7 +35,7 @@ internal sealed class GitWorktreeQueryService : IGitWorktreeQueryService
     /// <param name="timeout"> The timeout budget for this Git worktree query. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Git worktree query result. </returns>
-    public async ValueTask<GitWorktreeQueryResult> GetWorktreeInfo (
+    public async ValueTask<GitWorktreeQueryResult> GetWorktreeInfoAsync (
         string path,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
@@ -59,7 +59,7 @@ internal sealed class GitWorktreeQueryService : IGitWorktreeQueryService
         }
 
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
-        var currentWorktreeRootResult = await gitCommandClient.GetCurrentWorktreeRoot(path, timeout, cancellationToken).ConfigureAwait(false);
+        var currentWorktreeRootResult = await gitCommandClient.GetCurrentWorktreeRootAsync(path, timeout, cancellationToken).ConfigureAwait(false);
         if (!currentWorktreeRootResult.IsSuccess)
         {
             return GitWorktreeQueryResult.Failure(currentWorktreeRootResult.Error!);
@@ -80,7 +80,7 @@ internal sealed class GitWorktreeQueryService : IGitWorktreeQueryService
             return GitWorktreeQueryResult.Failure(projectRelativePathTimeoutError!);
         }
 
-        var projectRelativePathResult = await gitCommandClient.GetCurrentProjectRelativePath(path, projectRelativePathTimeout, cancellationToken).ConfigureAwait(false);
+        var projectRelativePathResult = await gitCommandClient.GetCurrentProjectRelativePathAsync(path, projectRelativePathTimeout, cancellationToken).ConfigureAwait(false);
         if (!projectRelativePathResult.IsSuccess)
         {
             return GitWorktreeQueryResult.Failure(projectRelativePathResult.Error!);
@@ -96,7 +96,7 @@ internal sealed class GitWorktreeQueryService : IGitWorktreeQueryService
             return GitWorktreeQueryResult.Failure(worktreeListTimeoutError!);
         }
 
-        var worktreeListTextResult = await gitCommandClient.GetWorktreeListPorcelain(path, worktreeListTimeout, cancellationToken).ConfigureAwait(false);
+        var worktreeListTextResult = await gitCommandClient.GetWorktreeListPorcelainAsync(path, worktreeListTimeout, cancellationToken).ConfigureAwait(false);
         if (!worktreeListTextResult.IsSuccess)
         {
             return GitWorktreeQueryResult.Failure(worktreeListTextResult.Error!);

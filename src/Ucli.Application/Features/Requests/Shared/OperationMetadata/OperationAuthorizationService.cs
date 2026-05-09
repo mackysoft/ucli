@@ -13,7 +13,7 @@ internal sealed class OperationAuthorizationService : IOperationAuthorizationSer
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the authorization evaluation result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="operation" /> or <paramref name="config" /> is <see langword="null" />. </exception>
-    public ValueTask<OperationAuthorizationResult> Authorize (
+    public ValueTask<OperationAuthorizationResult> AuthorizeAsync (
         UcliOperationDescriptor operation,
         UcliConfig config,
         CancellationToken cancellationToken = default)

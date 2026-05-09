@@ -42,7 +42,7 @@ public sealed class PlanServiceTests
                     fallbackReason: null))),
             unityIpcRequestExecutor);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new PlanCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: UnityExecutionMode.Oneshot,
@@ -89,7 +89,7 @@ public sealed class PlanServiceTests
                     fallbackReason: "Index contract file was not found: ops.catalog.json."))),
             unityIpcRequestExecutor);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new PlanCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: null,
@@ -125,7 +125,7 @@ public sealed class PlanServiceTests
                 ReadIndexErrorCodes.ReadIndexFreshRequired)),
             unityIpcRequestExecutor);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new PlanCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: null,
@@ -158,7 +158,7 @@ public sealed class PlanServiceTests
                 ExecutionError.InvalidArgument("readIndexMode is invalid."))),
             unityIpcRequestExecutor);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new PlanCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: null,
@@ -200,7 +200,7 @@ public sealed class PlanServiceTests
                 validationErrors)),
             unityIpcRequestExecutor);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new PlanCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: null,
@@ -247,7 +247,7 @@ public sealed class PlanServiceTests
                     fallbackReason: null))),
             unityIpcRequestExecutor);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new PlanCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: null,
@@ -291,7 +291,7 @@ public sealed class PlanServiceTests
                     fallbackReason: null))),
             unityIpcRequestExecutor);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new PlanCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: null,
@@ -387,7 +387,7 @@ public sealed class PlanServiceTests
             this.result = result ?? throw new ArgumentNullException(nameof(result));
         }
 
-        public ValueTask<RequestStaticValidationPreflightResult> Prepare (
+        public ValueTask<RequestStaticValidationPreflightResult> PrepareAsync (
             PreparedRequestContext preparedRequest,
             ReadIndexMode? readIndexMode,
             CancellationToken cancellationToken = default)
@@ -411,7 +411,7 @@ public sealed class PlanServiceTests
             throw new NotSupportedException();
         }
 
-        public ValueTask<RequestPreparationResult> Prepare (
+        public ValueTask<RequestPreparationResult> PrepareAsync (
             string? projectPath,
             string requestJson,
             CancellationToken cancellationToken = default)
@@ -442,7 +442,7 @@ public sealed class PlanServiceTests
 
         public UnityRequestPayload CapturedPayload => invocations[^1].Payload;
 
-        public ValueTask<UnityRequestExecutionResult> Execute (
+        public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
             UcliCommand command,
             UnityExecutionMode mode,
             TimeSpan timeout,

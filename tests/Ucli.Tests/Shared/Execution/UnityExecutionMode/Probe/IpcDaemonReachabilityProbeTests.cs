@@ -26,7 +26,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         var daemonPingClient = new StubDaemonPingClient((_, _) => ValueTask.CompletedTask);
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
 
-        var result = await probe.Probe(CreateContext(scope.FullPath), DefaultProbeTimeout, CancellationToken.None);
+        var result = await probe.ProbeAsync(CreateContext(scope.FullPath), DefaultProbeTimeout, CancellationToken.None);
 
         Assert.False(result.IsRunning);
         Assert.False(result.HasError);
@@ -44,7 +44,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
 
         var context = CreateContext(Path.GetFullPath("."));
-        var result = await probe.Probe(context, DefaultProbeTimeout, CancellationToken.None);
+        var result = await probe.ProbeAsync(context, DefaultProbeTimeout, CancellationToken.None);
 
         Assert.True(result.IsRunning);
         Assert.False(result.HasError);
@@ -68,7 +68,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
         var probeTimeout = TimeSpan.FromMilliseconds(150);
 
-        var result = await probe.Probe(CreateContext(Path.GetFullPath(".")), probeTimeout, CancellationToken.None);
+        var result = await probe.ProbeAsync(CreateContext(Path.GetFullPath(".")), probeTimeout, CancellationToken.None);
 
         Assert.False(result.IsRunning);
         Assert.True(result.HasError);
@@ -88,7 +88,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
         var probeTimeout = TimeSpan.FromMilliseconds(150);
 
-        var result = await probe.Probe(CreateContext(Path.GetFullPath(".")), probeTimeout, CancellationToken.None);
+        var result = await probe.ProbeAsync(CreateContext(Path.GetFullPath(".")), probeTimeout, CancellationToken.None);
 
         Assert.False(result.IsRunning);
         Assert.True(result.HasError);
@@ -117,7 +117,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         });
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
 
-        var result = await probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
+        var result = await probe.ProbeAsync(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
 
         Assert.True(result.IsRunning);
         Assert.False(result.HasError);
@@ -145,7 +145,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         });
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
 
-        var result = await probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
+        var result = await probe.ProbeAsync(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
 
         Assert.True(result.IsRunning);
         Assert.False(result.HasError);
@@ -164,7 +164,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         var daemonPingClient = new StubDaemonPingClient((_, _) => throw exception);
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
 
-        var result = await probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
+        var result = await probe.ProbeAsync(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
 
         Assert.False(result.IsRunning);
         Assert.False(result.HasError);
@@ -194,7 +194,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         var daemonPingClient = new StubDaemonPingClient((_, _) => throw new InvalidOperationException("boom"));
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
 
-        var result = await probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
+        var result = await probe.ProbeAsync(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
 
         Assert.False(result.IsRunning);
         Assert.True(result.HasError);
@@ -213,7 +213,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         var daemonPingClient = new StubDaemonPingClient((_, _) => throw exception);
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
 
-        var result = await probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
+        var result = await probe.ProbeAsync(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
 
         Assert.False(result.IsRunning);
         Assert.True(result.HasError);
@@ -231,7 +231,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         var daemonPingClient = new StubDaemonPingClient((_, _) => throw new DaemonPingResponseException("status=error", UcliCoreErrorCodes.InternalError));
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
 
-        var result = await probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
+        var result = await probe.ProbeAsync(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
 
         Assert.False(result.IsRunning);
         Assert.True(result.HasError);
@@ -249,7 +249,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         var daemonPingClient = new StubDaemonPingClient((_, _) => throw new UnauthorizedAccessException("unauthorized"));
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
 
-        var result = await probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
+        var result = await probe.ProbeAsync(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
 
         Assert.False(result.IsRunning);
         Assert.True(result.HasError);
@@ -272,7 +272,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
             await TestAwaiter.WaitAsync(
-                probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, cancellationTokenSource.Token).AsTask(),
+                probe.ProbeAsync(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, cancellationTokenSource.Token).AsTask(),
                 "Canceled daemon reachability probe",
                 SignalWaitTimeout);
         });
@@ -294,7 +294,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        var probeTask = probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, cancellationTokenSource.Token).AsTask();
+        var probeTask = probe.ProbeAsync(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, cancellationTokenSource.Token).AsTask();
         await TestAwaiter.WaitAsync(pingStarted.Task, "Daemon reachability ping start", SignalWaitTimeout);
         cancellationTokenSource.Cancel();
 
@@ -316,7 +316,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         var repositoryRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Repo"));
         var unityProjectRoot = Path.Combine(repositoryRoot, "UnityProject");
 
-        var result = await probe.Probe(CreateContext(unityProjectRoot, repositoryRoot), DefaultProbeTimeout, CancellationToken.None);
+        var result = await probe.ProbeAsync(CreateContext(unityProjectRoot, repositoryRoot), DefaultProbeTimeout, CancellationToken.None);
 
         Assert.True(result.IsRunning);
         Assert.Equal(repositoryRoot, endpointResolver.LastStorageRoot);
@@ -338,7 +338,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
             await TestAwaiter.WaitAsync(
-                probe.Probe(CreateContext(Path.GetFullPath(".")), timeout, CancellationToken.None).AsTask(),
+                probe.ProbeAsync(CreateContext(Path.GetFullPath(".")), timeout, CancellationToken.None).AsTask(),
                 "Invalid timeout daemon reachability probe",
                 SignalWaitTimeout);
         });
@@ -395,7 +395,7 @@ public sealed class IpcDaemonReachabilityProbeTests
 
         public TimeSpan LastTimeout { get; private set; }
 
-        public ValueTask Ping (
+        public ValueTask PingAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             string? sessionToken = null,

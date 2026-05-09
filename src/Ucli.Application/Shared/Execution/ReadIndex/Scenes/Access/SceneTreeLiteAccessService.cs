@@ -140,7 +140,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                 .ConfigureAwait(false);
         }
 
-        var lookupResult = await artifactReader.ReadSceneTreeLiteLookup(
+        var lookupResult = await artifactReader.ReadSceneTreeLiteLookupAsync(
                 project,
                 normalizedScenePath,
                 cancellationToken)
@@ -166,7 +166,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                 .ConfigureAwait(false);
         }
 
-        var readPostconditionEvaluation = await MutationReadPostconditionAccessEvaluator.EvaluateSceneTreeLite(
+        var readPostconditionEvaluation = await MutationReadPostconditionAccessEvaluator.EvaluateSceneTreeLiteAsync(
                 mutationReadPostconditionStore,
                 project,
                 normalizedScenePath,
@@ -189,7 +189,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                 .ConfigureAwait(false);
         }
 
-        var freshnessResult = await freshnessEvaluator.ObserveSceneTreeLite(
+        var freshnessResult = await freshnessEvaluator.ObserveSceneTreeLiteAsync(
                 project,
                 normalizedScenePath,
                 lookupResult.Value!.SourceInputsHash,

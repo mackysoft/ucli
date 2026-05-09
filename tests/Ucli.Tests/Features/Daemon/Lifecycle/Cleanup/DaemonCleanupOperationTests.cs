@@ -32,7 +32,7 @@ public sealed class DaemonCleanupOperationTests
             artifactCleaner: artifactCleaner,
             endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
 
-        var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-none"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-none"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Completed, result.Status);
@@ -53,7 +53,7 @@ public sealed class DaemonCleanupOperationTests
             artifactCleaner: artifactCleaner,
             endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
 
-        var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-none-live"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-none-live"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Skipped, result.Status);
@@ -76,7 +76,7 @@ public sealed class DaemonCleanupOperationTests
             artifactCleaner: artifactCleaner,
             endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
 
-        var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-running"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-running"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Skipped, result.Status);
@@ -99,7 +99,7 @@ public sealed class DaemonCleanupOperationTests
             artifactCleaner: artifactCleaner,
             endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
 
-        var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-token-invalid"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-token-invalid"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Skipped, result.Status);
@@ -122,7 +122,7 @@ public sealed class DaemonCleanupOperationTests
             artifactCleaner: artifactCleaner,
             endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
 
-        var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-token-required"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-token-required"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Skipped, result.Status);
@@ -148,7 +148,7 @@ public sealed class DaemonCleanupOperationTests
             artifactCleaner: artifactCleaner,
             endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
 
-        var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-stale"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-stale"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Completed, result.Status);
@@ -170,7 +170,7 @@ public sealed class DaemonCleanupOperationTests
             artifactCleaner: artifactCleaner,
             endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
 
-        var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-access-denied"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-access-denied"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Skipped, result.Status);
@@ -192,7 +192,7 @@ public sealed class DaemonCleanupOperationTests
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.AddressNotAvailable))),
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-address-not-available"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-address-not-available"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Skipped, result.Status);
@@ -214,7 +214,7 @@ public sealed class DaemonCleanupOperationTests
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new IpcConnectTimeoutException("connect timeout"))),
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-connect-timeout"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-connect-timeout"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Skipped, result.Status);
@@ -236,7 +236,7 @@ public sealed class DaemonCleanupOperationTests
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new IpcConnectTimeoutException("connect timeout"))),
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-connect-timeout-dead-process"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-connect-timeout-dead-process"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Skipped, result.Status);
@@ -257,7 +257,7 @@ public sealed class DaemonCleanupOperationTests
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.AddressNotAvailable))),
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-none-address-not-available"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-none-address-not-available"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Skipped, result.Status);
@@ -295,7 +295,7 @@ public sealed class DaemonCleanupOperationTests
             },
             endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
 
-        var result = await operation.Cleanup(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Completed, result.Status);
@@ -322,7 +322,7 @@ public sealed class DaemonCleanupOperationTests
             artifactCleaner: artifactCleaner,
             endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
 
-        var result = await operation.Cleanup(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Completed, result.Status);
@@ -345,7 +345,7 @@ public sealed class DaemonCleanupOperationTests
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new IpcConnectTimeoutException("connect timeout"))),
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.Cleanup(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Skipped, result.Status);
@@ -380,7 +380,7 @@ public sealed class DaemonCleanupOperationTests
             },
             endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
 
-        var result = await operation.Cleanup(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Skipped, result.Status);
@@ -401,7 +401,7 @@ public sealed class DaemonCleanupOperationTests
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new InvalidDataException("invalid frame"))),
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-probe-failure"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-probe-failure"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Failed, result.Status);
@@ -425,7 +425,7 @@ public sealed class DaemonCleanupOperationTests
             artifactCleaner: artifactCleaner,
             endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
 
-        var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-timeout"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-timeout"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Skipped, result.Status);
@@ -447,7 +447,7 @@ public sealed class DaemonCleanupOperationTests
             },
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))));
 
-        var result = await operation.Cleanup(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var lockRequest = Assert.IsType<ProjectLifecycleLockRequest>(lockProvider.LastRequest);
@@ -461,7 +461,7 @@ public sealed class DaemonCleanupOperationTests
         var operation = CreateOperation(
             lifecycleLockProvider: new StubProjectLifecycleLockProvider(throwTimeout: true));
 
-        var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-lock-timeout"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-lock-timeout"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Failed, result.Status);
@@ -522,7 +522,7 @@ public sealed class DaemonCleanupOperationTests
     {
         public DaemonSessionReadResult ReadResult { get; set; } = DaemonSessionReadResult.Success(null);
 
-        public ValueTask<DaemonSessionReadResult> Read (
+        public ValueTask<DaemonSessionReadResult> ReadAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -530,7 +530,7 @@ public sealed class DaemonCleanupOperationTests
             return ValueTask.FromResult(ReadResult);
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Write (
+        public ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
             string storageRoot,
             DaemonSession session,
             CancellationToken cancellationToken = default)
@@ -538,7 +538,7 @@ public sealed class DaemonCleanupOperationTests
             return ValueTask.FromResult(DaemonSessionStoreOperationResult.Success());
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Delete (
+        public ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -558,7 +558,7 @@ public sealed class DaemonCleanupOperationTests
             this.handler = handler;
         }
 
-        public ValueTask Ping (
+        public ValueTask PingAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             string? sessionToken = null,
@@ -575,7 +575,7 @@ public sealed class DaemonCleanupOperationTests
 
         public int CallCount { get; private set; }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Cleanup (
+        public ValueTask<DaemonSessionStoreOperationResult> CleanupAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {

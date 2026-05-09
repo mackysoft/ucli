@@ -11,7 +11,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="requestContext"> The normalized test-run request context. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by caller. </param>
         /// <returns> The completed test result adaptor. </returns>
-        Task<ITestResultAdaptor> Run (
+        Task<ITestResultAdaptor> RunAsync (
             UnityTestRunRequestContext requestContext,
             CancellationToken cancellationToken = default);
     }

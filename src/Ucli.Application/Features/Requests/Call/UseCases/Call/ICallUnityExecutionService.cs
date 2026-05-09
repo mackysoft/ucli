@@ -7,7 +7,7 @@ namespace MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call;
 internal interface ICallUnityExecutionService
 {
     /// <summary> Executes optional pre-plan and final call IPC passes within one shared timeout budget. </summary>
-    ValueTask<CallServiceResult> Execute (
+    ValueTask<CallServiceResult> ExecuteAsync (
         PhaseExecutionPreparedRequest preparedRequest,
         UnityExecutionMode mode,
         CallCommandInput input,

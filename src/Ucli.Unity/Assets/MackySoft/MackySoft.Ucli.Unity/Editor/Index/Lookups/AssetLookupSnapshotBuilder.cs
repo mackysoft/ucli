@@ -17,7 +17,7 @@ namespace MackySoft.Ucli.Unity.Index
     internal sealed class AssetLookupSnapshotBuilder : IAssetLookupSnapshotBuilder
     {
         /// <inheritdoc />
-        public ValueTask<IpcIndexAssetsReadResponse> Build (CancellationToken cancellationToken = default)
+        public ValueTask<IpcIndexAssetsReadResponse> BuildAsync (CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 

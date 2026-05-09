@@ -19,7 +19,7 @@ internal sealed class ReadIndexValidationCatalogResolver : IReadIndexValidationC
     }
 
     /// <inheritdoc />
-    public async ValueTask<ReadIndexValidationCatalogResolutionResult> Resolve (
+    public async ValueTask<ReadIndexValidationCatalogResolutionResult> ResolveAsync (
         ResolvedUnityProjectContext unityProject,
         ReadIndexMode readIndexMode,
         CancellationToken cancellationToken = default)
@@ -34,7 +34,7 @@ internal sealed class ReadIndexValidationCatalogResolver : IReadIndexValidationC
                 CreateReadIndexMiss(ReadIndexDisabledReason));
         }
 
-        var persistedCatalogResult = await persistedOpsCatalogReader.Read(
+        var persistedCatalogResult = await persistedOpsCatalogReader.ReadAsync(
                 unityProject,
                 cancellationToken)
             .ConfigureAwait(false);

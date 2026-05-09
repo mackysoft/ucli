@@ -16,7 +16,7 @@ public sealed class DaemonShutdownClientTests
         var client = new DaemonShutdownClient(new StubUnityIpcTransportClient(
             static () => throw new TimeoutException("ipc timeout")));
 
-        var result = await client.SendShutdown(
+        var result = await client.SendShutdownAsync(
             CreateContext("fingerprint-shutdown-timeout"),
             CreateSession(),
             TimeSpan.FromMilliseconds(500),
@@ -35,7 +35,7 @@ public sealed class DaemonShutdownClientTests
         var client = new DaemonShutdownClient(new StubUnityIpcTransportClient(
             static () => throw new SocketException((int)SocketError.ConnectionRefused)));
 
-        var result = await client.SendShutdown(
+        var result = await client.SendShutdownAsync(
             CreateContext("fingerprint-shutdown-not-running"),
             CreateSession(),
             TimeSpan.FromMilliseconds(500),

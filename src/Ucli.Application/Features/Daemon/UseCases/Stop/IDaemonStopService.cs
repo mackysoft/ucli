@@ -8,7 +8,7 @@ internal interface IDaemonStopService
     /// <param name="timeoutMilliseconds"> The optional normalized timeout value in milliseconds. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-stop execution result. </returns>
-    ValueTask<DaemonStopExecutionResult> Stop (
+    ValueTask<DaemonStopExecutionResult> StopAsync (
         string? projectPath,
         int? timeoutMilliseconds,
         CancellationToken cancellationToken = default);

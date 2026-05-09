@@ -41,7 +41,7 @@ internal sealed class QueryAssetSchemaCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.SchemaSubcommand)]
-    public async Task<int> Schema (
+    public async Task<int> SchemaAsync (
         string? projectPath = null,
         string? mode = null,
         string? timeout = null,
@@ -68,7 +68,7 @@ internal sealed class QueryAssetSchemaCommand
             return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QueryAssetSchema, error!);
         }
 
-        return await QueryCommandExecutionHelper.Execute(
+        return await QueryCommandExecutionHelper.ExecuteAsync(
                 queryService,
                 commonOptionsResult.Options!,
                 new QueryUnityOperationRequest(

@@ -10,7 +10,7 @@ internal interface IDaemonProcessTerminationService
     /// <param name="timeout"> The process termination timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The process termination result. </returns>
-    ValueTask<DaemonSessionStoreOperationResult> EnsureStopped (
+    ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAsync (
         int? processId,
         DateTimeOffset? expectedIssuedAtUtc,
         TimeSpan timeout,

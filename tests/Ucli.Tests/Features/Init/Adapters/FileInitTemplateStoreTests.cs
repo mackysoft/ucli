@@ -186,14 +186,14 @@ public sealed class FileInitTemplateStoreTests
             return UcliStoragePathResolver.ResolveConfigPath(storageRoot);
         }
 
-        public ValueTask<UcliConfigLoadResult> Load (
+        public ValueTask<UcliConfigLoadResult> LoadAsync (
             string storageRoot,
             CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
         }
 
-        public ValueTask<UcliConfigSaveResult> Save (
+        public ValueTask<UcliConfigSaveResult> SaveAsync (
             string storageRoot,
             UcliConfig config,
             CancellationToken cancellationToken = default)

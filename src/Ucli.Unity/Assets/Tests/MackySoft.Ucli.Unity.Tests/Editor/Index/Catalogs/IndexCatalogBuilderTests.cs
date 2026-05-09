@@ -47,7 +47,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new SuccessAssetSchemaExtractor(),
                 new SuccessIndexInputFingerprintCalculator());
 
-            var result = await builder.Build(ResolveProjectRootPath(), CancellationToken.None);
+            var result = await builder.BuildAsync(ResolveProjectRootPath(), CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.ErrorMessage, Is.Null);
@@ -99,7 +99,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new SuccessAssetSchemaExtractor(),
                 new SuccessIndexInputFingerprintCalculator());
 
-            var result = await builder.Build(ResolveProjectRootPath(), CancellationToken.None);
+            var result = await builder.BuildAsync(ResolveProjectRootPath(), CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.SchemasCatalog, Is.Not.Null);
@@ -142,14 +142,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
             await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
-                await componentExtractor.Extract(
+                await componentExtractor.ExtractAsync(
                     new[] { typeof(BoxCollider) },
                     cts.Token);
             }, "Canceled component extractor", AsyncWaitTimeout);
 
             await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
-                await assetExtractor.Extract(
+                await assetExtractor.ExtractAsync(
                     new[] { typeof(GUISkin) },
                     cts.Token);
             }, "Canceled asset extractor", AsyncWaitTimeout);
@@ -164,14 +164,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
             async UniTask RunComponentExtract ()
             {
-                await componentExtractor.Extract(
+                await componentExtractor.ExtractAsync(
                     new[] { typeof(BoxCollider) },
                     CancellationToken.None);
             }
 
             async UniTask RunAssetExtract ()
             {
-                await assetExtractor.Extract(
+                await assetExtractor.ExtractAsync(
                     new[] { typeof(GUISkin) },
                     CancellationToken.None);
             }
@@ -192,7 +192,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var extractor = new AssetSchemaExtractor(new IndexSchemaPropertyCollector());
 
-            var result = await extractor.Extract(
+            var result = await extractor.ExtractAsync(
                 new[] { typeof(IndexCatalogTestAsset) },
                 CancellationToken.None);
 
@@ -220,7 +220,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new EmptyAssetSchemaExtractor(),
                 new SuccessIndexInputFingerprintCalculator());
 
-            var result = await builder.Build(ResolveProjectRootPath(), CancellationToken.None);
+            var result = await builder.BuildAsync(ResolveProjectRootPath(), CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.TypesCatalog, Is.Null);
@@ -237,7 +237,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var calculator = new FileSystemIndexInputFingerprintCalculator();
             var projectRootPath = ResolveProjectRootPath();
 
-            var snapshot = await calculator.TryCompute(projectRootPath, CancellationToken.None);
+            var snapshot = await calculator.TryComputeAsync(projectRootPath, CancellationToken.None);
 
             Assert.That(snapshot, Is.Not.Null);
             Assert.That(snapshot!.ScriptAssembliesHash, Is.Not.Empty);
@@ -270,7 +270,7 @@ namespace MackySoft.Ucli.Unity.Tests
             AssetDatabase.SaveAssets();
 
             var builder = new AssetLookupSnapshotBuilder();
-            var response = await builder.Build(CancellationToken.None);
+            var response = await builder.BuildAsync(CancellationToken.None);
             var assetSearchEntries = response.AssetSearchEntries!
                 .Where(entry => entry.AssetPath != null && entry.AssetPath.Contains(token, StringComparison.Ordinal))
                 .ToArray();
@@ -309,7 +309,7 @@ namespace MackySoft.Ucli.Unity.Tests
             AssetDatabase.SaveAssets();
 
             var builder = new AssetLookupSnapshotBuilder();
-            var response = await builder.Build(CancellationToken.None);
+            var response = await builder.BuildAsync(CancellationToken.None);
             var assetSearchEntry = response.AssetSearchEntries!
                 .Single(entry => string.Equals(entry.AssetPath, assetPath, StringComparison.Ordinal));
 
@@ -427,7 +427,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class SuccessComponentSchemaExtractor : IComponentSchemaExtractor
         {
-            public ValueTask<IndexSchemaExtractionResult> Extract (
+            public ValueTask<IndexSchemaExtractionResult> ExtractAsync (
                 IReadOnlyList<Type> componentTypes,
                 CancellationToken cancellationToken = default)
             {
@@ -455,7 +455,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class SuccessAssetSchemaExtractor : IAssetSchemaExtractor
         {
-            public ValueTask<IndexSchemaExtractionResult> Extract (
+            public ValueTask<IndexSchemaExtractionResult> ExtractAsync (
                 IReadOnlyList<Type> assetTypes,
                 CancellationToken cancellationToken = default)
             {
@@ -493,7 +493,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class ThrowingComponentSchemaExtractor : IComponentSchemaExtractor
         {
-            public ValueTask<IndexSchemaExtractionResult> Extract (
+            public ValueTask<IndexSchemaExtractionResult> ExtractAsync (
                 IReadOnlyList<Type> componentTypes,
                 CancellationToken cancellationToken = default)
             {
@@ -503,7 +503,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class EmptyAssetSchemaExtractor : IAssetSchemaExtractor
         {
-            public ValueTask<IndexSchemaExtractionResult> Extract (
+            public ValueTask<IndexSchemaExtractionResult> ExtractAsync (
                 IReadOnlyList<Type> assetTypes,
                 CancellationToken cancellationToken = default)
             {
@@ -513,7 +513,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class SuccessIndexInputFingerprintCalculator : IIndexInputFingerprintCalculator
         {
-            public ValueTask<IndexCoreInputHashSnapshot?> TryComputeCore (
+            public ValueTask<IndexCoreInputHashSnapshot?> TryComputeCoreAsync (
                 string projectRootPath,
                 CancellationToken cancellationToken = default)
             {
@@ -526,7 +526,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         CombinedHash: "combined-hash"));
             }
 
-            public ValueTask<IndexInputHashSnapshot?> TryCompute (
+            public ValueTask<IndexInputHashSnapshot?> TryComputeAsync (
                 string projectRootPath,
                 CancellationToken cancellationToken = default)
             {

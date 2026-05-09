@@ -23,7 +23,7 @@ public sealed class SupervisorTransportServerTests
         var releaseSlowRequestTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        var serverTask = server.Run(
+        var serverTask = server.RunAsync(
             endpoint,
             async (stream, cancellationToken) =>
             {
@@ -130,7 +130,7 @@ public sealed class SupervisorTransportServerTests
         var exception = await Assert.ThrowsAsync<IOException>(async () =>
         {
             await TestAwaiter.WaitAsync(
-                server.Run(
+                server.RunAsync(
                     endpoint,
                     static (_, _) => Task.CompletedTask,
                     static _ => Task.CompletedTask,
@@ -160,7 +160,7 @@ public sealed class SupervisorTransportServerTests
         var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        var serverTask = server.Run(
+        var serverTask = server.RunAsync(
             endpoint,
             static (_, _) => Task.CompletedTask,
             cancellationToken =>
@@ -210,7 +210,7 @@ public sealed class SupervisorTransportServerTests
         var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        var serverTask = server.Run(
+        var serverTask = server.RunAsync(
             endpoint,
             static (_, _) => Task.CompletedTask,
             cancellationToken =>

@@ -56,7 +56,7 @@ internal sealed class SupervisorBootstrapper
     /// <param name="timeout"> The bootstrap timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The bootstrap result. </returns>
-    public async ValueTask<SupervisorBootstrapResult> EnsureReady (
+    public async ValueTask<SupervisorBootstrapResult> EnsureReadyAsync (
         string storageRoot,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
@@ -81,7 +81,7 @@ internal sealed class SupervisorBootstrapper
         IAsyncDisposable lockHandle;
         try
         {
-            lockHandle = await bootstrapLockProvider.Acquire(
+            lockHandle = await bootstrapLockProvider.AcquireAsync(
                     normalizedStorageRoot,
                     lockAcquireTimeout,
                     cancellationToken)
@@ -165,7 +165,7 @@ internal sealed class SupervisorBootstrapper
                     timeProvider);
                 try
                 {
-                    launchError = await processLauncher.Launch(
+                    launchError = await processLauncher.LaunchAsync(
                             normalizedStorageRoot,
                             launchCancellationScope.Token)
                         .ConfigureAwait(false);
@@ -209,7 +209,7 @@ internal sealed class SupervisorBootstrapper
         SupervisorInstanceManifest? manifest;
         try
         {
-            manifest = await manifestStore.ReadOrNull(
+            manifest = await manifestStore.ReadOrNullAsync(
                     storageRoot,
                     manifestReadTimeout,
                     cancellationToken)
@@ -249,7 +249,7 @@ internal sealed class SupervisorBootstrapper
         var pingTimeout = remainingTimeout < SupervisorConstants.PingTimeout
             ? remainingTimeout
             : SupervisorConstants.PingTimeout;
-        var probeStatus = await supervisorClient.ProbeReachability(manifest, pingTimeout, cancellationToken).ConfigureAwait(false);
+        var probeStatus = await supervisorClient.ProbeReachabilityAsync(manifest, pingTimeout, cancellationToken).ConfigureAwait(false);
         if (probeStatus == SupervisorReachabilityProbeStatus.Reachable)
         {
             return ManifestAvailabilityProbe.Ready(manifest);
@@ -328,7 +328,7 @@ internal sealed class SupervisorBootstrapper
             return false;
         }
 
-        await TimeProviderDelay.Delay(delay, timeProvider, cancellationToken).ConfigureAwait(false);
+        await TimeProviderDelay.DelayAsync(delay, timeProvider, cancellationToken).ConfigureAwait(false);
         return true;
     }
 
