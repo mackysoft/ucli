@@ -29,7 +29,8 @@ internal sealed class OpsListResultMapper : IOpsListResultMapper
             .Select(static operation => new OpsOperationListItem(
                 Name: operation.Name,
                 Kind: UcliOperationKindCodec.ToValue(operation.Kind),
-                Policy: OperationPolicyCodec.ToValue(operation.Policy)))
+                Policy: OperationPolicyCodec.ToValue(operation.Policy),
+                Description: operation.Description))
             .ToArray();
 
         return OpsListServiceResult.Success(

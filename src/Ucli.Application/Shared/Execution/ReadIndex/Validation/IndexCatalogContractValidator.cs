@@ -57,6 +57,7 @@ internal static class IndexCatalogContractValidator
                 || string.IsNullOrWhiteSpace(entry.Name)
                 || !UcliOperationKindCodec.TryParse(entry.Kind, out _)
                 || !OperationPolicyCodec.TryParse(entry.Policy, out _)
+                || string.IsNullOrWhiteSpace(entry.Description)
                 || !IsSha256LowerHex(entry.DescribeKey)
                 || !IsSha256LowerHex(entry.DescribeHash))
             {

@@ -104,6 +104,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
                         Name: operation.Name,
                         Kind: operation.Kind,
                         Policy: operation.Policy,
+                        Description: operation.Description,
                         DescribeKey: describeKey,
                         DescribeHash: describeHash));
             }

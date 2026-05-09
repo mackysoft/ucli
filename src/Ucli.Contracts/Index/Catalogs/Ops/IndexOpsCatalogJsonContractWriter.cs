@@ -30,6 +30,7 @@ internal sealed class IndexOpsCatalogJsonContractWriter : IndexJsonContractWrite
         WriteNullableString(writer, "name", entry.Name);
         WriteNullableString(writer, "kind", entry.Kind);
         WriteNullableString(writer, "policy", entry.Policy);
+        WriteNullableString(writer, "description", entry.Description);
         WriteNullableString(writer, "describeKey", entry.DescribeKey);
         WriteNullableString(writer, "describeHash", entry.DescribeHash);
         writer.WriteEndObject();

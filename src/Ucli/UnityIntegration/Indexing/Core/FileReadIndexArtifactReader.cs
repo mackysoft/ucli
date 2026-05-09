@@ -153,7 +153,8 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
         var operation = contract.Operation!;
         if (!string.Equals(operation.Name, catalogEntry.Name, StringComparison.Ordinal)
             || !string.Equals(operation.Kind, catalogEntry.Kind, StringComparison.Ordinal)
-            || !string.Equals(operation.Policy, catalogEntry.Policy, StringComparison.Ordinal))
+            || !string.Equals(operation.Policy, catalogEntry.Policy, StringComparison.Ordinal)
+            || !string.Equals(operation.Description, catalogEntry.Description, StringComparison.Ordinal))
         {
             return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
                 ReadIndexErrorCodes.ReadIndexFormatInvalid,

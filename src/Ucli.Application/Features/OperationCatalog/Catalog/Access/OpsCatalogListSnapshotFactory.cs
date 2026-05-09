@@ -15,7 +15,8 @@ internal static class OpsCatalogListSnapshotFactory
             snapshot.Entries.Select(static entry => CreateEntry(
                     entry.Name,
                     entry.Kind,
-                    entry.Policy))
+                    entry.Policy,
+                    entry.Description))
                 .ToArray());
     }
 
@@ -28,19 +29,22 @@ internal static class OpsCatalogListSnapshotFactory
             snapshot.Operations.Select(static operation => CreateEntry(
                     operation.Name,
                     operation.Kind,
-                    operation.Policy))
+                    operation.Policy,
+                    operation.Description))
                 .ToArray());
     }
 
     private static OpsCatalogListEntry CreateEntry (
         string? name,
         string? kind,
-        string? policy)
+        string? policy,
+        string? description)
     {
         return new OpsCatalogListEntry(
             name!,
             ParseKind(kind),
-            ParsePolicy(policy));
+            ParsePolicy(policy),
+            description!);
     }
 
     private static UcliOperationKind ParseKind (string? value)
