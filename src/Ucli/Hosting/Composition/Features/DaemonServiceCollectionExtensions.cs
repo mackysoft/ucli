@@ -1,7 +1,15 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Inventory;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.EditorInstance;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Gateway;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.GuiEditor;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Identity;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Launch;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Logs;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Reachability;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Shutdown;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;

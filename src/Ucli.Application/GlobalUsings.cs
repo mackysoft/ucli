@@ -1,3 +1,10 @@
+global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.EditorInstance;
+global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Gateway;
+global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.GuiEditor;
+global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Identity;
+global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Reachability;
+global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Shutdown;
+global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Timing;
 global using MackySoft.Ucli.Application.Shared.Context.Project;
 global using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 global using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
