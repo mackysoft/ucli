@@ -3,7 +3,35 @@ namespace MackySoft.Ucli.Tests.Daemon;
 
 public sealed class UnityGuiEditorProcessProbeTests
 {
+    private const string DefaultInspectionCommandLine = "__ucli_default_command_line__";
+
+    private const string DefaultInspectionExecutablePath = "__ucli_default_executable_path__";
+
     private static readonly DateTimeOffset MarkerUpdatedAtUtc = new(2026, 03, 12, 12, 0, 0, TimeSpan.Zero);
+
+    private static readonly string UnityApplicationPath = OperatingSystem.IsWindows()
+        ? @"C:\Program Files\Unity\Hub\Editor\6000.1.4f1\Editor\Unity.exe"
+        : "/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app";
+
+    private static readonly string UnityApplicationContentsPath = OperatingSystem.IsWindows()
+        ? @"C:\Program Files\Unity\Hub\Editor\6000.1.4f1\Editor"
+        : "/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app/Contents";
+
+    private static readonly string UnityExecutablePath = OperatingSystem.IsWindows()
+        ? UnityApplicationPath
+        : "/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app/Contents/MacOS/Unity";
+
+    private static readonly string UnityExecutableSiblingPath = OperatingSystem.IsWindows()
+        ? @"C:\Program Files\Unity\Hub\Editor\6000.1.4f1\Editor\Unity.exeSibling"
+        : "/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.appSibling/Contents/MacOS/Unity";
+
+    private static readonly string NonUnityExecutablePath = OperatingSystem.IsWindows()
+        ? @"C:\Tools\NotEditor\not-editor.exe"
+        : "/usr/bin/not-editor";
+
+    private static readonly string UnityCommandLine = OperatingSystem.IsWindows()
+        ? $@"""{UnityExecutablePath}"" -projectPath C:\project"
+        : "/Applications/Unity -projectPath /project";
 
     [Fact]
     [Trait("Size", "Small")]
@@ -56,8 +84,8 @@ public sealed class UnityGuiEditorProcessProbeTests
     {
         var result = await ProbeAsync(CreateInspection(
             processName: "NotEditor",
-            commandLine: "/usr/bin/not-editor",
-            executablePath: "/usr/bin/not-editor"));
+            commandLine: NonUnityExecutablePath,
+            executablePath: NonUnityExecutablePath));
 
         Assert.Equal(UnityGuiEditorProcessProbeStatus.NotUnityEditor, result.Status);
     }
@@ -68,8 +96,8 @@ public sealed class UnityGuiEditorProcessProbeTests
     {
         var result = await ProbeAsync(CreateInspection(
             processName: "Editor",
-            commandLine: "/Applications/Editor -projectPath /project",
-            executablePath: "/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app/Contents/MacOS/Unity"));
+            commandLine: UnityCommandLine,
+            executablePath: UnityExecutablePath));
 
         Assert.True(result.IsMatchingGuiEditor);
     }
@@ -79,7 +107,7 @@ public sealed class UnityGuiEditorProcessProbeTests
     public async Task Probe_WhenExecutablePathOnlySharesMarkerPrefix_ReturnsNotUnityEditor ()
     {
         var result = await ProbeAsync(CreateInspection(
-            executablePath: "/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.appSibling/Contents/MacOS/Unity"));
+            executablePath: UnityExecutableSiblingPath));
 
         Assert.Equal(UnityGuiEditorProcessProbeStatus.NotUnityEditor, result.Status);
     }
@@ -90,7 +118,7 @@ public sealed class UnityGuiEditorProcessProbeTests
     {
         var result = await ProbeAsync(
             CreateInspection(executablePath: "/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app/Contents/MacOS/Unity"),
-            CreateMarker(appPath: "/", appContentsPath: null));
+            CreateMarker("/", null));
 
         Assert.Equal(UnityGuiEditorProcessProbeStatus.NotUnityEditor, result.Status);
     }
@@ -101,7 +129,7 @@ public sealed class UnityGuiEditorProcessProbeTests
     {
         var result = await ProbeAsync(
             CreateInspection(executablePath: "/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app/Contents/MacOS/Unity"),
-            CreateMarker(appPath: "/Applications", appContentsPath: null));
+            CreateMarker("/Applications", null));
 
         Assert.Equal(UnityGuiEditorProcessProbeStatus.NotUnityEditor, result.Status);
     }
@@ -113,9 +141,9 @@ public sealed class UnityGuiEditorProcessProbeTests
         var result = await ProbeAsync(
             CreateInspection(
                 processName: "Unity",
-                commandLine: "/Applications/Unity -projectPath /project",
-                executablePath: "/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app/Contents/MacOS/Unity"),
-            CreateMarker(appPath: null, appContentsPath: null));
+                commandLine: UnityCommandLine,
+                executablePath: UnityExecutablePath),
+            CreateMarker(null, null));
 
         Assert.True(result.IsMatchingGuiEditor);
     }
@@ -147,9 +175,14 @@ public sealed class UnityGuiEditorProcessProbeTests
         return probe.ProbeAsync(marker ?? CreateMarker(), CancellationToken.None);
     }
 
+    private static UnityEditorInstanceMarker CreateMarker ()
+    {
+        return CreateMarker(UnityApplicationPath, UnityApplicationContentsPath);
+    }
+
     private static UnityEditorInstanceMarker CreateMarker (
-        string? appPath = "/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app",
-        string? appContentsPath = "/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app/Contents")
+        string? appPath,
+        string? appContentsPath)
     {
         return new UnityEditorInstanceMarker(
             MarkerPath: "/project/Library/EditorInstance.json",
@@ -163,8 +196,8 @@ public sealed class UnityGuiEditorProcessProbeTests
         DateTimeOffset? startTimeUtc = null,
         bool startTimeAvailable = true,
         string? processName = "Unity",
-        string? commandLine = "/Applications/Unity -projectPath /project",
-        string? executablePath = "/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app/Contents/MacOS/Unity",
+        string? commandLine = DefaultInspectionCommandLine,
+        string? executablePath = DefaultInspectionExecutablePath,
         bool? isOwnedByCurrentUser = true)
     {
         return new UnityGuiEditorProcessInspection(
@@ -174,8 +207,12 @@ public sealed class UnityGuiEditorProcessProbeTests
                 ? startTimeUtc ?? MarkerUpdatedAtUtc.AddSeconds(-1)
                 : null,
             ProcessName: processName,
-            CommandLine: commandLine,
-            ExecutablePath: executablePath,
+            CommandLine: string.Equals(commandLine, DefaultInspectionCommandLine, StringComparison.Ordinal)
+                ? UnityCommandLine
+                : commandLine,
+            ExecutablePath: string.Equals(executablePath, DefaultInspectionExecutablePath, StringComparison.Ordinal)
+                ? UnityExecutablePath
+                : executablePath,
             IsOwnedByCurrentUser: isOwnedByCurrentUser);
     }
 

@@ -137,7 +137,9 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(DaemonDiagnosisReasonValues.GuiEndpointNotRegistered, diagnosisStore.LastDiagnosis!.Reason);
         Assert.True(diagnosisStore.LastDiagnosis.IsInferred);
         Assert.Equal(5432, diagnosisStore.LastDiagnosis.ProcessId);
-        Assert.Equal("/tmp/unity-project/Library/EditorInstance.json", diagnosisStore.LastDiagnosis.EditorInstancePath);
+        Assert.Equal(
+            Path.Combine("/tmp/unity-project", "Library", "EditorInstance.json"),
+            diagnosisStore.LastDiagnosis.EditorInstancePath);
     }
 
     [Fact]

@@ -433,7 +433,7 @@ public sealed class UnityOneshotIpcClientTests
             transportClient,
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe(),
-            cleanupTimeout: TimeSpan.FromMilliseconds(150),
+            cleanupTimeout: TimeSpan.FromMilliseconds(500),
             cleanupRetryDelay: TimeSpan.FromMilliseconds(1));
 
         var result = await client.SendAsync(
