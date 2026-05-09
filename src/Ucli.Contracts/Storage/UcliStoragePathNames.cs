@@ -45,6 +45,12 @@ public static class UcliStoragePathNames
     /// <summary> Gets the read-index ops catalog file name. </summary>
     public const string OpsCatalogFileName = "ops.catalog.json";
 
+    /// <summary> Gets the read-index ops describe artifact directory name. </summary>
+    public const string OpsDescribeDirectoryName = "ops.describe";
+
+    /// <summary> Gets the read-index ops describe artifact file extension. </summary>
+    public const string OpsDescribeFileExtension = ".json";
+
     /// <summary> Gets the read-index asset-search lookup file name. </summary>
     public const string AssetSearchLookupFileName = "asset-search.lookup.json";
 

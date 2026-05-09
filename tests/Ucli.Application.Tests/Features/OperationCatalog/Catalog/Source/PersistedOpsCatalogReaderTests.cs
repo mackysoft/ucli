@@ -69,11 +69,13 @@ public sealed class PersistedOpsCatalogReaderTests
             IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh));
         var reader = new PersistedOpsCatalogReader(
             new StubReadIndexArtifactReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Success(
-                CreateCatalog(new IndexOpEntryJsonContract(
+                CreateCatalog(new IndexOpsCatalogEntryJsonContract(
                     Name: UcliPrimitiveOperationNames.GoDescribe,
                     Kind: "query",
                     Policy: "safe",
-                    ArgsSchemaJson: "\"not-an-object\"")))),
+                    Description: "Returns a GameObject description.",
+                    DescribeKey: new string('a', 64),
+                    DescribeHash: string.Empty)))),
             freshnessEvaluator);
 
         var result = await reader.ReadAsync(CreateUnityProject(), CancellationToken.None);
@@ -140,10 +142,16 @@ public sealed class PersistedOpsCatalogReaderTests
 
     private static IndexOpsCatalogJsonContract CreateCatalog ()
     {
-        return CreateCatalog(CreateGoDescribeEntry());
+        return CreateCatalog(new IndexOpsCatalogEntryJsonContract(
+            Name: UcliPrimitiveOperationNames.GoDescribe,
+            Kind: "query",
+            Policy: "safe",
+            Description: "Returns a GameObject description.",
+            DescribeKey: new string('a', 64),
+            DescribeHash: new string('b', 64)));
     }
 
-    private static IndexOpsCatalogJsonContract CreateCatalog (IndexOpEntryJsonContract entry)
+    private static IndexOpsCatalogJsonContract CreateCatalog (IndexOpsCatalogEntryJsonContract entry)
     {
         return new IndexOpsCatalogJsonContract(
             SchemaVersion: 1,
@@ -155,13 +163,28 @@ public sealed class PersistedOpsCatalogReaderTests
             ]);
     }
 
+    private static IndexOpsDescribeJsonContract CreateDescribe ()
+    {
+        return new IndexOpsDescribeJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+            SourceInputsHash: "source-hash",
+            Operation: CreateGoDescribeEntry());
+    }
+
     private sealed class StubReadIndexArtifactReader : IReadIndexArtifactReader
     {
         private readonly ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract> opsCatalogResult;
 
-        public StubReadIndexArtifactReader (ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract> opsCatalogResult)
+        private readonly ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract> opsDescribeResult;
+
+        public StubReadIndexArtifactReader (
+            ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract> opsCatalogResult,
+            ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>? opsDescribeResult = null)
         {
             this.opsCatalogResult = opsCatalogResult ?? throw new ArgumentNullException(nameof(opsCatalogResult));
+            this.opsDescribeResult = opsDescribeResult
+                ?? ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Success(CreateDescribe());
         }
 
         public ValueTask<ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>> ReadOpsCatalogAsync (
@@ -170,6 +193,16 @@ public sealed class PersistedOpsCatalogReaderTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(opsCatalogResult);
+        }
+
+        public ValueTask<ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>> ReadOpsDescribeAsync (
+            ResolvedUnityProjectContext unityProject,
+            IndexOpsCatalogEntryJsonContract catalogEntry,
+            string sourceInputsHash,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(opsDescribeResult);
         }
 
         public ValueTask<ReadIndexArtifactReadResult<IndexTypesCatalogJsonContract>> ReadTypesCatalogAsync (

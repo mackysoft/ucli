@@ -6,11 +6,8 @@ namespace MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Proj
 /// <summary> Maps ops catalog snapshots into command-facing <c>ops describe</c> results. </summary>
 internal interface IOpsDescribeResultMapper
 {
-    /// <summary> Maps one catalog read output into <c>ops describe</c> service output. </summary>
-    /// <param name="output"> The catalog read output. </param>
-    /// <param name="operationName"> The requested operation name. </param>
+    /// <summary> Maps one describe read output into <c>ops describe</c> service output. </summary>
+    /// <param name="output"> The describe read output. </param>
     /// <returns> The mapped service result. </returns>
-    OpsDescribeServiceResult Map (
-        OpsCatalogReadOutput output,
-        string? operationName);
+    OpsDescribeServiceResult Map (OpsDescribeReadOutput output);
 }

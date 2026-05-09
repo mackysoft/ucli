@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 
 namespace MackySoft.Ucli.Features.Daemon.Observability.Logs.Ipc;
 
@@ -17,11 +18,6 @@ internal static class IpcUnityLogsRequestCodec
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionToken);
 
         var payload = IpcPayloadCodec.SerializeToElement(query);
-        return new IpcRequest(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: $"unity-logs-read-{Guid.NewGuid():N}",
-            SessionToken: sessionToken,
-            Method: IpcMethodNames.UnityLogsRead,
-            Payload: payload);
+        return UnityIpcRequestFactory.Create(sessionToken, IpcMethodNames.UnityLogsRead, payload);
     }
 }

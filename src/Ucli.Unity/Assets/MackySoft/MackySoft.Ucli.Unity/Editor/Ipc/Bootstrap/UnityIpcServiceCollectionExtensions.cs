@@ -115,8 +115,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<UnityLogsReadRequestValidator>();
             services.AddSingleton<UnityLogsReadQueryEngine>();
             services.AddSingleton<UnityLogsReadResponseFactory>();
+            services.AddSingleton<IUnityConsoleClearer, UnityEditorConsoleClearer>();
             services.AddSingleton<IUnityIpcMethodHandler, DaemonLogsReadUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, UnityLogsReadUnityIpcMethodHandler>();
+            services.AddSingleton<IUnityIpcMethodHandler, UnityConsoleClearUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, ShutdownUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcConnectionHandler, UnityIpcConnectionHandler>();
             services.AddSingleton<NamedPipeUnityIpcTransportListener>();

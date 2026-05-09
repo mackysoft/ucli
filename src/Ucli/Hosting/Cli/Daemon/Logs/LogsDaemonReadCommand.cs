@@ -2,15 +2,14 @@ using System.Text.Json;
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
-using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 
-/// <summary> Provides the logs daemon CLI command entry point. </summary>
-internal sealed class LogsDaemonCommand
+/// <summary> Provides the logs daemon read CLI command entry point. </summary>
+internal sealed class LogsDaemonReadCommand
 {
     private static readonly JsonSerializerOptions JsonLineSerializerOptions = new()
     {
@@ -22,10 +21,10 @@ internal sealed class LogsDaemonCommand
 
     private readonly ICommandResultWriter commandResultWriter;
 
-    /// <summary> Initializes a new instance of the LogsDaemonCommand class. </summary>
+    /// <summary> Initializes a new instance of the LogsDaemonReadCommand class. </summary>
     /// <param name="logsDaemonService"> The daemon-log orchestration service dependency. </param>
     /// <param name="commandResultWriter"> The command-result writer dependency. </param>
-    public LogsDaemonCommand (
+    public LogsDaemonReadCommand (
         ILogsDaemonService logsDaemonService,
         ICommandResultWriter commandResultWriter)
     {
@@ -33,7 +32,7 @@ internal sealed class LogsDaemonCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Executes the logs daemon command. </summary>
+    /// <summary> Executes the logs daemon read command. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path. When omitted, the current working directory is used.</param>
     /// <param name="tail"> The optional tail count. </param>
     /// <param name="after"> The optional opaque cursor used for incremental reads. </param>
@@ -49,8 +48,8 @@ internal sealed class LogsDaemonCommand
     /// <param name="format"> The output format (text|json). </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The command exit code. </returns>
-    [Command(UcliCommandNames.Daemon)]
-    public async Task<int> DaemonAsync (
+    [Command(UcliCommandNames.ReadSubcommand)]
+    public async Task<int> ReadAsync (
         string? projectPath = null,
         int? tail = null,
         string? after = null,
@@ -66,21 +65,11 @@ internal sealed class LogsDaemonCommand
         string? format = null,
         CancellationToken cancellationToken = default)
     {
-        try
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            CommandExecutionState.MarkStarted();
-
-            if (!LogsOutputFormatCodec.TryParse(format, out var outputFormat, out var formatErrorMessage))
-            {
-                var invalidFormatResult = CommandResultFactory.FromExecutionError(
-                    UcliCommandNames.LogsDaemon,
-                    ExecutionError.InvalidArgument(formatErrorMessage!));
-                commandResultWriter.WriteToStandardOutput(invalidFormatResult);
-                return invalidFormatResult.ExitCode;
-            }
-
-            var serviceResult = await logsDaemonService.ExecuteAsync(
+        return await LogsReadCommandExecutor.ExecuteAsync<IpcDaemonLogEvent>(
+                UcliCommandNames.LogsDaemonRead,
+                format,
+                commandResultWriter,
+                (onLogEvent, executeCancellationToken) => logsDaemonService.ExecuteAsync(
                     new LogsDaemonServiceRequest(
                         ProjectPath: projectPath,
                         Tail: tail,
@@ -94,27 +83,11 @@ internal sealed class LogsDaemonCommand
                         Stream: stream,
                         PollIntervalMilliseconds: pollIntervalMilliseconds,
                         IdleTimeoutMilliseconds: idleTimeoutMilliseconds),
-                    (daemonLogEvent, nextCursor, callbackCancellationToken) =>
-                    {
-                        callbackCancellationToken.ThrowIfCancellationRequested();
-                        WriteLogEvent(outputFormat!, daemonLogEvent, nextCursor);
-                        return ValueTask.CompletedTask;
-                    },
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (!serviceResult.IsSuccess)
-            {
-                var commandResult = CommandResultFactory.FromExecutionError(UcliCommandNames.LogsDaemon, serviceResult.Error!);
-                commandResultWriter.WriteToStandardOutput(commandResult);
-                return commandResult.ExitCode;
-            }
-
-            return (int)CliExitCode.Success;
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            return (int)CliExitCode.Success;
-        }
+                    onLogEvent,
+                    executeCancellationToken),
+                WriteLogEvent,
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary> Writes one daemon log event to standard output by selected format. </summary>

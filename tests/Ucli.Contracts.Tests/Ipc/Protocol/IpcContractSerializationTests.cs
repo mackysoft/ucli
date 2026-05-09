@@ -238,6 +238,7 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("shutdown", IpcMethodNames.Shutdown);
         Assert.Equal("daemon.logs.read", IpcMethodNames.DaemonLogsRead);
         Assert.Equal("unity.logs.read", IpcMethodNames.UnityLogsRead);
+        Assert.Equal("unity.console.clear", IpcMethodNames.UnityConsoleClear);
     }
 
     [Fact]
@@ -574,6 +575,23 @@ public sealed class IpcContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IpcUnityConsoleClearContracts_SerializeWithCamelCaseFields ()
+    {
+        var requestPayload = new IpcUnityConsoleClearRequest(UcliCommandIds.LogsUnityClear.Name);
+        var responsePayload = new IpcUnityConsoleClearResponse();
+
+        using var requestDocument = JsonDocument.Parse(JsonSerializer.Serialize(requestPayload, SerializerOptions));
+        using var responseDocument = JsonDocument.Parse(JsonSerializer.Serialize(responsePayload, SerializerOptions));
+
+        JsonAssert.For(requestDocument.RootElement)
+            .HasString("requestedBy", UcliCommandIds.LogsUnityClear.Name);
+        JsonAssert.For(responseDocument.RootElement)
+            .HasValueKind(JsonValueKind.Object);
+        Assert.Empty(responseDocument.RootElement.EnumerateObject());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcExecuteResponse_SerializesWithOpResultsContract ()
     {
         var response = new IpcExecuteResponse(new[]
@@ -741,8 +759,9 @@ public sealed class IpcContractSerializationTests
     public void UcliCommandIds_ExposeLogsCommandLiterals ()
     {
         Assert.Equal("logs", UcliCommandIds.Logs.Name);
-        Assert.Equal("logs.daemon", UcliCommandIds.LogsDaemon.Name);
-        Assert.Equal("logs.unity", UcliCommandIds.LogsUnity.Name);
+        Assert.Equal("logs.daemon.read", UcliCommandIds.LogsDaemonRead.Name);
+        Assert.Equal("logs.unity.read", UcliCommandIds.LogsUnityRead.Name);
+        Assert.Equal("logs.unity.clear", UcliCommandIds.LogsUnityClear.Name);
     }
 
     [Fact]

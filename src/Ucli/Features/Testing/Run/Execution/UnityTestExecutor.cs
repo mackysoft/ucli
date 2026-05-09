@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
+using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Unity.Process;
@@ -19,23 +20,23 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
 
     private readonly IProjectLifecycleLockProvider lifecycleLockProvider;
 
-    private readonly IUnityProjectLockFileProbe unityProjectLockFileProbe;
+    private readonly IUnityProjectLockPreflightService unityProjectLockPreflightService;
 
     /// <summary> Initializes a new instance of the <see cref="UnityTestExecutor" /> class. </summary>
     /// <param name="unityCommandBuilder"> The Unity command builder dependency. </param>
     /// <param name="processRunner"> The process runner dependency. </param>
     /// <param name="lifecycleLockProvider"> The project lifecycle lock provider dependency. </param>
-    /// <param name="unityProjectLockFileProbe"> The Unity project lock-file probe dependency. </param>
+    /// <param name="unityProjectLockPreflightService"> The Unity project lock preflight service dependency. </param>
     public UnityTestExecutor (
         IUnityCommandBuilder unityCommandBuilder,
         IProcessRunner processRunner,
         IProjectLifecycleLockProvider lifecycleLockProvider,
-        IUnityProjectLockFileProbe unityProjectLockFileProbe)
+        IUnityProjectLockPreflightService unityProjectLockPreflightService)
     {
         this.unityCommandBuilder = unityCommandBuilder ?? throw new ArgumentNullException(nameof(unityCommandBuilder));
         this.processRunner = processRunner ?? throw new ArgumentNullException(nameof(processRunner));
         this.lifecycleLockProvider = lifecycleLockProvider ?? throw new ArgumentNullException(nameof(lifecycleLockProvider));
-        this.unityProjectLockFileProbe = unityProjectLockFileProbe ?? throw new ArgumentNullException(nameof(unityProjectLockFileProbe));
+        this.unityProjectLockPreflightService = unityProjectLockPreflightService ?? throw new ArgumentNullException(nameof(unityProjectLockPreflightService));
     }
 
     /// <summary> Executes one Unity test run and validates required artifacts. </summary>
@@ -85,15 +86,22 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
         }
 
         await using var acquiredLifecycleLock = lifecycleLock;
-        var projectLockFailure = TryCreateProjectLockFailure(configuration.UnityProject.UnityProjectRoot);
+        var projectLockFailure = await TryCreateProjectLockFailureAsync(configuration.UnityProject, cancellationToken).ConfigureAwait(false);
         if (projectLockFailure != null)
         {
             return projectLockFailure;
         }
 
         var arguments = unityCommandBuilder.BuildArguments(configuration, artifactPaths);
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return UnityTestExecutionResult.Failure(
+                UnityTestExecutionFailureKind.Canceled,
+                "Unity process execution was canceled.");
+        }
+
         // NOTE: An external Unity editor can open the project after the first probe but before process start.
-        projectLockFailure = TryCreateProjectLockFailure(configuration.UnityProject.UnityProjectRoot);
+        projectLockFailure = await TryCreateProjectLockFailureAsync(configuration.UnityProject, cancellationToken).ConfigureAwait(false);
         if (projectLockFailure != null)
         {
             return projectLockFailure;
@@ -127,20 +135,24 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
                     processRunResult.ErrorMessage ?? "Failed to start Unity process.");
 
             case ProcessRunStatus.TimedOut:
-                return UnityTestExecutionResult.Failure(
-                    UnityTestExecutionFailureKind.ProcessTimedOut,
-                    AppendPostTerminationLockFileDiagnostic(
+                var timeoutMessage = await AppendPostTerminationLockFileDiagnosticAsync(
                         processRunResult.ErrorMessage ?? $"Unity process timed out after {timeout.TotalMilliseconds:0} milliseconds.",
                         processRunResult.TerminationResult,
-                        configuration.UnityProject.UnityProjectRoot));
+                        configuration.UnityProject)
+                    .ConfigureAwait(false);
+                return UnityTestExecutionResult.Failure(
+                    UnityTestExecutionFailureKind.ProcessTimedOut,
+                    timeoutMessage);
 
             case ProcessRunStatus.Canceled:
-                return UnityTestExecutionResult.Failure(
-                    UnityTestExecutionFailureKind.Canceled,
-                    AppendPostTerminationLockFileDiagnostic(
+                var canceledMessage = await AppendPostTerminationLockFileDiagnosticAsync(
                         processRunResult.ErrorMessage ?? "Unity process execution was canceled.",
                         processRunResult.TerminationResult,
-                        configuration.UnityProject.UnityProjectRoot));
+                        configuration.UnityProject)
+                    .ConfigureAwait(false);
+                return UnityTestExecutionResult.Failure(
+                    UnityTestExecutionFailureKind.Canceled,
+                    canceledMessage);
 
             case ProcessRunStatus.Exited:
                 if (!processRunResult.ExitCode.HasValue)
@@ -152,15 +164,13 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
 
                 if (processRunResult.ExitCode.Value != 0 && processRunResult.ExitCode.Value != 2)
                 {
-                    var postExecutionProjectLockFailure = TryCreateProjectLockFailure(configuration.UnityProject.UnityProjectRoot);
-                    if (postExecutionProjectLockFailure != null)
-                    {
-                        return postExecutionProjectLockFailure;
-                    }
-
+                    var abnormalExitMessage = await AppendPostUnityProcessExitLockFileDiagnosticAsync(
+                            processRunResult.ErrorMessage ?? $"Unity process exited with code {processRunResult.ExitCode.Value}.",
+                            configuration.UnityProject)
+                        .ConfigureAwait(false);
                     return UnityTestExecutionResult.Failure(
                         UnityTestExecutionFailureKind.AbnormalExit,
-                        processRunResult.ErrorMessage ?? $"Unity process exited with code {processRunResult.ExitCode.Value}.");
+                        abnormalExitMessage);
                 }
 
                 break;
@@ -173,67 +183,77 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
 
         if (!TestRunArtifactValidator.TryValidateGeneratedFiles(artifactPaths, out var artifactValidationError))
         {
-            var postExecutionProjectLockFailure = TryCreateProjectLockFailure(configuration.UnityProject.UnityProjectRoot);
-            if (postExecutionProjectLockFailure != null)
-            {
-                return postExecutionProjectLockFailure;
-            }
-
+            var artifactFailureMessage = await AppendPostUnityProcessExitLockFileDiagnosticAsync(
+                    artifactValidationError!,
+                    configuration.UnityProject)
+                .ConfigureAwait(false);
             return UnityTestExecutionResult.Failure(
                 UnityTestExecutionFailureKind.ArtifactMissing,
-                artifactValidationError!);
+                artifactFailureMessage);
         }
 
         return UnityTestExecutionResult.Success(processRunResult.ExitCode!.Value);
     }
 
-    /// <summary> Creates a project-open failure when Unity reports the project-local lock file as locked. </summary>
-    /// <param name="unityProjectRoot"> The Unity project root path. Must not be null or white-space. </param>
+    /// <summary> Creates a startup failure when Unity project lock preflight blocks process launch. </summary>
+    /// <param name="unityProject"> The resolved Unity project context. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A classified project-lock failure when Unity owns the lock file; otherwise <see langword="null" />. </returns>
-    private UnityTestExecutionResult? TryCreateProjectLockFailure (string unityProjectRoot)
+    private async ValueTask<UnityTestExecutionResult?> TryCreateProjectLockFailureAsync (
+        ResolvedUnityProjectContext unityProject,
+        CancellationToken cancellationToken)
     {
-        var lockFileProbeResult = unityProjectLockFileProbe.Probe(unityProjectRoot);
-        if (!lockFileProbeResult.IsSuccess)
-        {
-            return UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.StartFailed,
-                lockFileProbeResult.ErrorMessage!,
-                UcliCoreErrorCodes.InternalError);
-        }
-
-        if (!lockFileProbeResult.IsLocked)
+        var preflightResult = await unityProjectLockPreflightService.PrepareForUnityProcessStartAsync(
+                unityProject,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var error = UnityProjectLockPreflightErrorFactory.CreateLaunchBlockingError(unityProject, preflightResult);
+        if (error == null)
         {
             return null;
         }
 
         return UnityTestExecutionResult.Failure(
-            UnityTestExecutionFailureKind.ProjectAlreadyOpen,
-            UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProjectRoot, lockFileProbeResult.LockFilePath),
-            UnityProcessErrorCodes.UnityProjectAlreadyOpen);
+            ResolveProjectLockFailureKind(preflightResult),
+            error.Message,
+            error.Code);
     }
 
-    /// <summary> Appends a residual Unity lock-file diagnostic after uCLI has terminated a Unity process. </summary>
+    /// <summary> Appends a post-exit Unity lock-file cleanup diagnostic after uCLI has terminated a Unity process. </summary>
     /// <param name="message"> The primary failure message. Must not be null. </param>
     /// <param name="terminationResult"> The observed termination result. </param>
-    /// <param name="unityProjectRoot"> The Unity project root path. Must not be null or white-space. </param>
-    /// <returns> The original message, or the message with a residual-lock diagnostic appended. </returns>
-    private string AppendPostTerminationLockFileDiagnostic (
+    /// <param name="unityProject"> The resolved Unity project context. </param>
+    /// <returns> The original message, or the message with a post-exit cleanup diagnostic appended. </returns>
+    private ValueTask<string> AppendPostTerminationLockFileDiagnosticAsync (
         string message,
         ProcessTerminationResult terminationResult,
-        string unityProjectRoot)
+        ResolvedUnityProjectContext unityProject)
     {
         if (terminationResult == ProcessTerminationResult.None)
         {
-            return message;
+            return ValueTask.FromResult(message);
         }
 
-        // NOTE: Residual UnityLockfile is diagnostic only; timeout or cancellation remains the primary failure.
-        var lockFileProbeResult = unityProjectLockFileProbe.Probe(unityProjectRoot);
-        if (!lockFileProbeResult.IsSuccess || !lockFileProbeResult.IsLocked)
-        {
-            return message;
-        }
-
-        return $"{message} {UnityProjectLockFailureMessage.CreateTerminatedProcessLockFileRemains(unityProjectRoot, lockFileProbeResult.LockFilePath!)}";
+        // NOTE: Post-exit UnityLockfile cleanup is diagnostic only; timeout or cancellation remains the primary failure.
+        return AppendPostUnityProcessExitLockFileDiagnosticAsync(message, unityProject);
     }
+
+    private async ValueTask<string> AppendPostUnityProcessExitLockFileDiagnosticAsync (
+        string message,
+        ResolvedUnityProjectContext unityProject)
+    {
+        var preflightResult = await unityProjectLockPreflightService.CleanupStaleLockAfterUnityProcessExitAsync(
+                unityProject,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        return UnityProjectLockPreflightErrorFactory.AppendPostExitDiagnostic(message, preflightResult);
+    }
+
+    private static UnityTestExecutionFailureKind ResolveProjectLockFailureKind (UnityProjectLockPreflightResult preflightResult)
+    {
+        return preflightResult.Status == UnityProjectLockPreflightStatus.ActiveLock
+            ? UnityTestExecutionFailureKind.ProjectAlreadyOpen
+            : UnityTestExecutionFailureKind.StartFailed;
+    }
+
 }

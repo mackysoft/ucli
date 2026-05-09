@@ -7,7 +7,7 @@ Use this reference when deciding how to prove a Unity change after uCLI executio
 - `readPostcondition`: requirements that must be satisfied before using affected read surfaces.
 - `ucli query` and `ucli resolve`: targeted follow-up observation.
 - `ucli test run`: Unity Test Framework proof when behavior depends on tests.
-- `ucli logs unity` and `ucli logs daemon`: lifecycle, compile, reload, IPC, and runtime diagnostics.
+- `ucli logs unity read` and `ucli logs daemon read`: lifecycle, compile, reload, IPC, and runtime diagnostics.
 
 ## Verification Shape
 1. Identify which contexts or assets should have changed.

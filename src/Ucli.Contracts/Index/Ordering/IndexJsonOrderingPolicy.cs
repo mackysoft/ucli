@@ -9,6 +9,12 @@ internal static class IndexJsonOrderingPolicy
         return OrderByOrdinalKey(entries, static entry => entry.Name);
     }
 
+    /// <summary> Orders lightweight operation catalog entries by operation name. </summary>
+    public static IReadOnlyList<IndexOpsCatalogEntryJsonContract> OrderOpsCatalogEntries (IEnumerable<IndexOpsCatalogEntryJsonContract> entries)
+    {
+        return OrderByOrdinalKey(entries, static entry => entry.Name);
+    }
+
     /// <summary> Orders type entries by type identifier. </summary>
     public static IReadOnlyList<IndexTypeEntryJsonContract> OrderTypeEntries (IEnumerable<IndexTypeEntryJsonContract> entries)
     {

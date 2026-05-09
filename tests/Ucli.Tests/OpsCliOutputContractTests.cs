@@ -3,7 +3,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Infrastructure.Project;
-using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -69,6 +69,35 @@ public sealed class OpsCliOutputContractTests
         Assert.Contains(UnknownOptionMessage, outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
     }
 
+    [Theory]
+    [Trait("Size", "Medium")]
+    [InlineData(UcliContractConstants.CliOption.NameRegex, "[", "nameRegex is invalid")]
+    [InlineData(UcliContractConstants.CliOption.Kind, "read", "kind must be one of")]
+    [InlineData(UcliContractConstants.CliOption.MaxPolicy, "unsafe", "maxPolicy must be one of")]
+    public async Task OpsList_WithInvalidFilterOption_ReturnsInvalidArgumentBeforeProjectResolution (
+        string optionName,
+        string optionValue,
+        string expectedMessage)
+    {
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Ops,
+            UcliCommandNames.ListSubcommand,
+            optionName,
+            optionValue);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.OpsList,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(
+            outputJson.RootElement,
+            expectedCode: "INVALID_ARGUMENT");
+        Assert.Contains(expectedMessage, outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
+    }
+
     [Fact]
     [Trait("Size", "Medium")]
     public async Task OpsList_WithFailFastCamelCaseAlias_IsAcceptedByParser ()
@@ -105,33 +134,28 @@ public sealed class OpsCliOutputContractTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         SeedOpsCatalog(
             unityProjectPath,
-            new IndexOpsCatalogJsonContract(
-                SchemaVersion: 1,
-                GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-                SourceInputsHash: "source-hash",
-                Entries:
-                [
-                    CreateDescribedEntry(
-                        name: UcliPrimitiveOperationNames.GoDescribe,
-                        kind: "query",
-                        policy: "safe",
-                        argsSchemaJson: """{"type":"object","properties":{"path":{"type":"string"}}}""",
-                        resultSchemaJson: """{"type":"object"}"""),
-                    CreateDescribedEntry(
-                        name: UcliPrimitiveOperationNames.SceneSave,
-                        kind: "mutation",
-                        policy: "advanced",
-                        argsSchemaJson: """{"type":"object","properties":{"path":{"type":"string"}}}""",
-                        resultSchemaJson: null,
-                        describe: UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
-                            "Saves a Unity scene asset.",
-                            new UcliOperationAssuranceContract(
-                                Array.Empty<UcliOperationSideEffect>(),
-                                mayDirty: false,
-                                mayPersist: true,
-                                Array.Empty<string>(),
-                                UcliOperationPlanMode.ObservesLiveUnity))),
-                ]));
+            [
+                CreateDescribedEntry(
+                    name: UcliPrimitiveOperationNames.GoDescribe,
+                    kind: "query",
+                    policy: "safe",
+                    argsSchemaJson: """{"type":"object","properties":{"path":{"type":"string"}}}""",
+                    resultSchemaJson: """{"type":"object"}"""),
+                CreateDescribedEntry(
+                    name: UcliPrimitiveOperationNames.SceneSave,
+                    kind: "mutation",
+                    policy: "advanced",
+                    argsSchemaJson: """{"type":"object","properties":{"path":{"type":"string"}}}""",
+                    resultSchemaJson: null,
+                    describe: UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
+                        "Saves a Unity scene asset.",
+                        new UcliOperationAssuranceContract(
+                            Array.Empty<UcliOperationSideEffect>(),
+                            mayDirty: false,
+                            mayPersist: true,
+                            Array.Empty<string>(),
+                            UcliOperationPlanMode.ObservesLiveUnity))),
+            ]);
 
         var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Ops,
@@ -150,25 +174,124 @@ public sealed class OpsCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task OpsList_WithPreseededReadIndexAndFilters_ReturnsFilteredJsonEnvelopeSuccess ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "list-filtered-success");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        SeedOpsCatalog(
+            unityProjectPath,
+            [
+                CreateDescribedEntry(
+                    name: UcliPrimitiveOperationNames.GoDescribe,
+                    kind: "query",
+                    policy: "safe",
+                    argsSchemaJson: """{"type":"object"}""",
+                    resultSchemaJson: """{"type":"object"}"""),
+                CreateDescribedEntry(
+                    name: UcliPrimitiveOperationNames.CompSchema,
+                    kind: "query",
+                    policy: "advanced",
+                    argsSchemaJson: """{"type":"object"}""",
+                    resultSchemaJson: """{"type":"object"}"""),
+                CreateDescribedEntry(
+                    name: UcliPrimitiveOperationNames.AssetsFind,
+                    kind: "query",
+                    policy: "dangerous",
+                    argsSchemaJson: """{"type":"object"}""",
+                    resultSchemaJson: """{"type":"object"}"""),
+                CreateDescribedEntry(
+                    name: UcliPrimitiveOperationNames.SceneSave,
+                    kind: "mutation",
+                    policy: "advanced",
+                    argsSchemaJson: """{"type":"object"}""",
+                    resultSchemaJson: null),
+                CreateDescribedEntry(
+                    name: "custom.go.describe",
+                    kind: "query",
+                    policy: "safe",
+                    argsSchemaJson: """{"type":"object"}""",
+                    resultSchemaJson: """{"type":"object"}"""),
+            ]);
+
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Ops,
+            UcliCommandNames.ListSubcommand,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath,
+            UcliContractConstants.CliOption.ReadIndexMode,
+            UcliContractConstants.Config.ReadIndexModeAllowStale,
+            UcliContractConstants.CliOption.NameRegex,
+            "^ucli\\.",
+            UcliContractConstants.CliOption.Kind,
+            "query",
+            UcliContractConstants.CliOption.MaxPolicy,
+            "advanced");
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        JsonGoldenFileAssert.Matches(
+            CliOutputGoldenFiles.GetPath("ops", "list-filtered-success.json"),
+            result.StdOut,
+            CliOutputGoldenFiles.NormalizeGeneratedAtUtc());
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task OpsList_WithPreseededReadIndexAndNoMatchingFilter_ReturnsEmptyOperations ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "list-filtered-empty");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        SeedOpsCatalog(
+            unityProjectPath,
+            [
+                CreateDescribedEntry(
+                    name: UcliPrimitiveOperationNames.GoDescribe,
+                    kind: "query",
+                    policy: "safe",
+                    argsSchemaJson: """{"type":"object"}""",
+                    resultSchemaJson: """{"type":"object"}"""),
+            ]);
+
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Ops,
+            UcliCommandNames.ListSubcommand,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath,
+            UcliContractConstants.CliOption.ReadIndexMode,
+            UcliContractConstants.Config.ReadIndexModeAllowStale,
+            UcliContractConstants.CliOption.NameRegex,
+            "^no\\.such\\.operation$");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.OpsList,
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasArrayLength("operations", 0)
+                .HasProperty("readIndex", readIndex => readIndex
+                    .HasString("source", "index")
+                    .HasString("freshness", "probable")));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task OpsDescribe_WithPreseededReadIndex_ReturnsOperationSchema ()
     {
         using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "describe-success");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         SeedOpsCatalog(
             unityProjectPath,
-            new IndexOpsCatalogJsonContract(
-                SchemaVersion: 1,
-                GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-                SourceInputsHash: "source-hash",
-                Entries:
-                [
-                    CreateDescribedEntry(
-                        name: UcliPrimitiveOperationNames.GoDescribe,
-                        kind: "query",
-                        policy: "safe",
-                        argsSchemaJson: """{"type":"object","properties":{"path":{"type":"string"}}}""",
-                        resultSchemaJson: """{"type":"object"}"""),
-                ]));
+            [
+                CreateDescribedEntry(
+                    name: UcliPrimitiveOperationNames.GoDescribe,
+                    kind: "query",
+                    policy: "safe",
+                    argsSchemaJson: """{"type":"object","properties":{"path":{"type":"string"}}}""",
+                    resultSchemaJson: """{"type":"object"}"""),
+            ]);
 
         var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Ops,
@@ -225,27 +348,22 @@ public sealed class OpsCliOutputContractTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         SeedOpsCatalog(
             unityProjectPath,
-            new IndexOpsCatalogJsonContract(
-                SchemaVersion: 1,
-                GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-                SourceInputsHash: "source-hash",
-                Entries:
-                [
-                    CreateDescribedEntry(
-                        name: UcliPrimitiveOperationNames.SceneOpen,
-                        kind: "command",
-                        policy: "safe",
-                        argsSchemaJson: """{"type":"object","properties":{"path":{"type":"string"}}}""",
-                        resultSchemaJson: null,
-                        describe: UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
-                            "Opens a Unity scene asset in the editor.",
-                            new UcliOperationAssuranceContract(
-                                Array.Empty<UcliOperationSideEffect>(),
-                                mayDirty: false,
-                                mayPersist: false,
-                                Array.Empty<string>(),
-                                UcliOperationPlanMode.ObservesLiveUnity))),
-                ]));
+            [
+                CreateDescribedEntry(
+                    name: UcliPrimitiveOperationNames.SceneOpen,
+                    kind: "command",
+                    policy: "safe",
+                    argsSchemaJson: """{"type":"object","properties":{"path":{"type":"string"}}}""",
+                    resultSchemaJson: null,
+                    describe: UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
+                        "Opens a Unity scene asset in the editor.",
+                        new UcliOperationAssuranceContract(
+                            Array.Empty<UcliOperationSideEffect>(),
+                            mayDirty: false,
+                            mayPersist: false,
+                            Array.Empty<string>(),
+                            UcliOperationPlanMode.ObservesLiveUnity))),
+            ]);
 
         var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Ops,
@@ -275,19 +393,14 @@ public sealed class OpsCliOutputContractTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         SeedOpsCatalog(
             unityProjectPath,
-            new IndexOpsCatalogJsonContract(
-                SchemaVersion: 1,
-                GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-                SourceInputsHash: "source-hash",
-                Entries:
-                [
-                    CreateDescribedEntry(
-                        name: UcliPrimitiveOperationNames.GoDescribe,
-                        kind: "query",
-                        policy: "safe",
-                        argsSchemaJson: """{"type":"object"}""",
-                        resultSchemaJson: """{"type":"object"}"""),
-                ]));
+            [
+                CreateDescribedEntry(
+                    name: UcliPrimitiveOperationNames.GoDescribe,
+                    kind: "query",
+                    policy: "safe",
+                    argsSchemaJson: """{"type":"object"}""",
+                    resultSchemaJson: """{"type":"object"}"""),
+            ]);
 
         var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Ops,
@@ -318,19 +431,14 @@ public sealed class OpsCliOutputContractTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         SeedOpsCatalog(
             unityProjectPath,
-            new IndexOpsCatalogJsonContract(
-                SchemaVersion: 1,
-                GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-                SourceInputsHash: "source-hash",
-                Entries:
-                [
-                    CreateDescribedEntry(
-                        name: UcliPrimitiveOperationNames.GoDescribe,
-                        kind: "query",
-                        policy: "safe",
-                        argsSchemaJson: """{"type":"object"}""",
-                        resultSchemaJson: """{"type":"object"}"""),
-                ]));
+            [
+                CreateDescribedEntry(
+                    name: UcliPrimitiveOperationNames.GoDescribe,
+                    kind: "query",
+                    policy: "safe",
+                    argsSchemaJson: """{"type":"object"}""",
+                    resultSchemaJson: """{"type":"object"}"""),
+            ]);
 
         var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Ops,
@@ -363,19 +471,14 @@ public sealed class OpsCliOutputContractTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         SeedOpsCatalog(
             unityProjectPath,
-            new IndexOpsCatalogJsonContract(
-                SchemaVersion: 1,
-                GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-                SourceInputsHash: "source-hash",
-                Entries:
-                [
-                    CreateDescribedEntry(
-                        name: UcliPrimitiveOperationNames.GoDescribe,
-                        kind: "query",
-                        policy: "safe",
-                        argsSchemaJson: """{"type":"object"}""",
-                        resultSchemaJson: """{"type":"object"}"""),
-                ]));
+            [
+                CreateDescribedEntry(
+                    name: UcliPrimitiveOperationNames.GoDescribe,
+                    kind: "query",
+                    policy: "safe",
+                    argsSchemaJson: """{"type":"object"}""",
+                    resultSchemaJson: """{"type":"object"}"""),
+            ]);
 
         var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Ops,
@@ -423,14 +526,27 @@ public sealed class OpsCliOutputContractTests
 
     private static void SeedOpsCatalog (
         string unityProjectPath,
-        IndexOpsCatalogJsonContract contract)
+        IReadOnlyList<IndexOpEntryJsonContract> operations)
     {
         var fingerprint = UnityProjectFingerprintCalculator.Create(unityProjectPath, unityProjectPath);
-        var catalogPath = UcliStoragePathResolver.ResolveOpsCatalogPath(unityProjectPath, fingerprint);
-        var directoryPath = Path.GetDirectoryName(catalogPath)
-            ?? throw new InvalidOperationException($"Directory path could not be resolved: {catalogPath}");
-        Directory.CreateDirectory(directoryPath);
-        File.WriteAllText(catalogPath, new IndexOpsCatalogJsonContractWriter().Write(contract));
+        var writer = new FileReadIndexArtifactWriter(
+            new IndexOpsCatalogJsonContractWriter(),
+            new IndexOpsDescribeJsonContractWriter(),
+            new IndexAssetSearchLookupJsonContractWriter(),
+            new IndexGuidPathLookupJsonContractWriter(),
+            new IndexSceneTreeLiteLookupJsonContractWriter(),
+            new IndexInputsManifestJsonContractWriter());
+        writer.WriteOpsCatalogAsync(
+                unityProjectPath,
+                fingerprint,
+                DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+                operations,
+                "source-hash",
+                manifestInputSnapshot: null,
+                CancellationToken.None)
+            .AsTask()
+            .GetAwaiter()
+            .GetResult();
     }
 
     private static IndexOpEntryJsonContract CreateDescribedEntry (

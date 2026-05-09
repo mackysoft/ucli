@@ -29,4 +29,7 @@ public static class IpcMethodNames
 
     /// <summary> Gets the method name used for Unity log stream read requests. </summary>
     public const string UnityLogsRead = "unity.logs.read";
+
+    /// <summary> Gets the method name used for Unity Editor Console clear requests. </summary>
+    public const string UnityConsoleClear = "unity.console.clear";
 }

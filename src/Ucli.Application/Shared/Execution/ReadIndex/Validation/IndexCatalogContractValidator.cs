@@ -19,7 +19,67 @@ internal static class IndexCatalogContractValidator
             return false;
         }
 
-        return TryValidateOpsEntries(contract.Entries, "entries", out _);
+        return TryValidateOpsCatalogEntries(contract.Entries, "entries", out _);
+    }
+
+    /// <summary> Validates one <c>ops.describe/&lt;opKey&gt;.json</c> contract instance. </summary>
+    /// <param name="contract"> The contract instance. </param>
+    /// <returns> <see langword="true" /> when contract shape is valid; otherwise <see langword="false" />. </returns>
+    public static bool IsValidOpsDescribe (IndexOpsDescribeJsonContract contract)
+    {
+        return IsSupportedSchemaVersion(contract.SchemaVersion)
+            && !string.IsNullOrWhiteSpace(contract.SourceInputsHash)
+            && TryValidateOpsEntry(contract.Operation, 0, out _);
+    }
+
+    /// <summary> Validates one lightweight operation-descriptor collection from <c>ops.catalog.json</c>. </summary>
+    /// <param name="entries"> The lightweight operation-descriptor collection. </param>
+    /// <param name="propertyName"> The property name used in validation errors. </param>
+    /// <param name="error"> The validation error; otherwise <see langword="null" />. </param>
+    /// <returns> <see langword="true" /> when the descriptor collection is valid; otherwise <see langword="false" />. </returns>
+    public static bool TryValidateOpsCatalogEntries (
+        IReadOnlyList<IndexOpsCatalogEntryJsonContract>? entries,
+        string propertyName,
+        out string? error)
+    {
+        if (entries == null)
+        {
+            error = $"Required property '{propertyName}' is missing.";
+            return false;
+        }
+
+        var operationNames = new HashSet<string>(StringComparer.Ordinal);
+        var describeKeys = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < entries.Count; i++)
+        {
+            var entry = entries[i];
+            if (entry == null
+                || string.IsNullOrWhiteSpace(entry.Name)
+                || !UcliOperationKindCodec.TryParse(entry.Kind, out _)
+                || !OperationPolicyCodec.TryParse(entry.Policy, out _)
+                || string.IsNullOrWhiteSpace(entry.Description)
+                || !IsSha256LowerHex(entry.DescribeKey)
+                || !IsSha256LowerHex(entry.DescribeHash))
+            {
+                error = $"Operation catalog entry at index {i} is invalid.";
+                return false;
+            }
+
+            if (!operationNames.Add(entry.Name!))
+            {
+                error = $"Operation catalog entry '{entry.Name}' is duplicated.";
+                return false;
+            }
+
+            if (!describeKeys.Add(entry.DescribeKey!))
+            {
+                error = $"Operation describe key '{entry.DescribeKey}' is duplicated.";
+                return false;
+            }
+        }
+
+        error = null;
+        return true;
     }
 
     /// <summary> Validates one operation-entry collection shared by persisted and live ops catalog payloads. </summary>
@@ -132,6 +192,25 @@ internal static class IndexCatalogContractValidator
         }
 
         error = null;
+        return true;
+    }
+
+    private static bool IsSha256LowerHex (string? value)
+    {
+        if (value == null || value.Length != 64)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < value.Length; i++)
+        {
+            var c = value[i];
+            if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')))
+            {
+                return false;
+            }
+        }
+
         return true;
     }
 

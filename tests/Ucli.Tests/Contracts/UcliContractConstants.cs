@@ -22,6 +22,12 @@ internal static class UcliContractConstants
 
         public const string ReadIndexMode = "--readIndexMode";
 
+        public const string NameRegex = "--nameRegex";
+
+        public const string Kind = "--kind";
+
+        public const string MaxPolicy = "--maxPolicy";
+
         public const string PlanToken = "--planToken";
 
         public const string WithPlan = "--withPlan";
@@ -85,6 +91,8 @@ internal static class UcliContractConstants
 
         public const int IpcTimeoutDefaultLogsUnityMilliseconds = 3000;
 
+        public const int IpcTimeoutDefaultLogsUnityClearMilliseconds = 3000;
+
         public const string IpcTimeoutCommandTest = "test";
 
         public const string IpcTimeoutCommandStatus = "status";
@@ -113,9 +121,11 @@ internal static class UcliContractConstants
 
         public const string IpcTimeoutCommandDaemonList = "daemon.list";
 
-        public const string IpcTimeoutCommandLogsDaemon = "logs.daemon";
+        public const string IpcTimeoutCommandLogsDaemonRead = "logs.daemon.read";
 
-        public const string IpcTimeoutCommandLogsUnity = "logs.unity";
+        public const string IpcTimeoutCommandLogsUnityRead = "logs.unity.read";
+
+        public const string IpcTimeoutCommandLogsUnityClear = "logs.unity.clear";
     }
 
     internal static class TestProfile

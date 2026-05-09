@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Preflight;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
@@ -19,7 +18,7 @@ public sealed class OpsPreflightServiceTests
             ProjectContextResolutionResult.Success(context)));
 
         var result = await service.ExecuteAsync(
-            new OpsCommandInput(
+            new OpsPreflightInput(
                 ProjectPath: null,
                 Mode: NormalizeMode("daemon"),
                 TimeoutMilliseconds: NormalizeTimeout("1200"),

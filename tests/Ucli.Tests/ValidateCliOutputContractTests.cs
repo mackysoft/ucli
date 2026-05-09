@@ -2,7 +2,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Infrastructure.Project;
-using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -42,8 +42,9 @@ public sealed class ValidateCliOutputContractTests
             argsJson: """{"path":"Root"}""");
         SeedOpsCatalog(
             unityProjectPath,
-            CreateOpsCatalog(
-                CreateGoDescribeEntry("""{"type":"object","required":["path"],"additionalProperties":false,"properties":{"path":{"type":"string"}}}""")));
+            [
+                CreateGoDescribeEntry("""{"type":"object","required":["path"],"additionalProperties":false,"properties":{"path":{"type":"string"}}}"""),
+            ]);
 
         var result = await CliProcessRunner.RunCommandWithStandardInputAsync(
             requestJson,
@@ -71,8 +72,9 @@ public sealed class ValidateCliOutputContractTests
             argsJson: """{}""");
         SeedOpsCatalog(
             unityProjectPath,
-            CreateOpsCatalog(
-                CreateGoDescribeEntry("""{"type":"object","required":["path"],"additionalProperties":false,"properties":{"path":{"type":"string"}}}""")));
+            [
+                CreateGoDescribeEntry("""{"type":"object","required":["path"],"additionalProperties":false,"properties":{"path":{"type":"string"}}}"""),
+            ]);
 
         var result = await CliProcessRunner.RunCommandWithStandardInputAsync(
             requestJson,
@@ -125,15 +127,6 @@ public sealed class ValidateCliOutputContractTests
                     .HasString("fallbackReason", "readIndex disabled by mode.")));
     }
 
-    private static IndexOpsCatalogJsonContract CreateOpsCatalog (params IndexOpEntryJsonContract[] entries)
-    {
-        return new IndexOpsCatalogJsonContract(
-            SchemaVersion: 1,
-            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-            SourceInputsHash: "source-hash",
-            Entries: entries);
-    }
-
     private static IndexOpEntryJsonContract CreateGoDescribeEntry (string argsSchemaJson)
     {
         return new IndexOpEntryJsonContract(
@@ -175,14 +168,27 @@ public sealed class ValidateCliOutputContractTests
 
     private static void SeedOpsCatalog (
         string unityProjectPath,
-        IndexOpsCatalogJsonContract contract)
+        IReadOnlyList<IndexOpEntryJsonContract> operations)
     {
         var fingerprint = UnityProjectFingerprintCalculator.Create(unityProjectPath, unityProjectPath);
-        var catalogPath = UcliStoragePathResolver.ResolveOpsCatalogPath(unityProjectPath, fingerprint);
-        var directoryPath = Path.GetDirectoryName(catalogPath)
-            ?? throw new InvalidOperationException($"Directory path could not be resolved: {catalogPath}");
-        Directory.CreateDirectory(directoryPath);
-        File.WriteAllText(catalogPath, new IndexOpsCatalogJsonContractWriter().Write(contract));
+        var writer = new FileReadIndexArtifactWriter(
+            new IndexOpsCatalogJsonContractWriter(),
+            new IndexOpsDescribeJsonContractWriter(),
+            new IndexAssetSearchLookupJsonContractWriter(),
+            new IndexGuidPathLookupJsonContractWriter(),
+            new IndexSceneTreeLiteLookupJsonContractWriter(),
+            new IndexInputsManifestJsonContractWriter());
+        writer.WriteOpsCatalogAsync(
+                unityProjectPath,
+                fingerprint,
+                DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+                operations,
+                "source-hash",
+                manifestInputSnapshot: null,
+                CancellationToken.None)
+            .AsTask()
+            .GetAwaiter()
+            .GetResult();
     }
 
 }

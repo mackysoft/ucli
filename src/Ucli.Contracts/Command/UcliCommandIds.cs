@@ -30,11 +30,14 @@ public static class UcliCommandIds
     /// <summary> Gets command identifier for <c>logs</c>. </summary>
     public static UcliCommand Logs { get; } = new("logs");
 
-    /// <summary> Gets command identifier for <c>logs.daemon</c>. </summary>
-    public static UcliCommand LogsDaemon { get; } = new("logs.daemon");
+    /// <summary> Gets command identifier for <c>logs.daemon.read</c>. </summary>
+    public static UcliCommand LogsDaemonRead { get; } = new("logs.daemon.read");
 
-    /// <summary> Gets command identifier for <c>logs.unity</c>. </summary>
-    public static UcliCommand LogsUnity { get; } = new("logs.unity");
+    /// <summary> Gets command identifier for <c>logs.unity.read</c>. </summary>
+    public static UcliCommand LogsUnityRead { get; } = new("logs.unity.read");
+
+    /// <summary> Gets command identifier for <c>logs.unity.clear</c>. </summary>
+    public static UcliCommand LogsUnityClear { get; } = new("logs.unity.clear");
 
     /// <summary> Gets command identifier for <c>test</c>. </summary>
     public static UcliCommand Test { get; } = new("test");

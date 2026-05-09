@@ -74,6 +74,7 @@ internal static class DaemonServiceCollectionExtensions
         services.AddSingleton<IUnityLogReader, UnityLogReader>();
         services.AddSingleton<IDaemonLogsClient, IpcDaemonLogsClient>();
         services.AddSingleton<IUnityLogsClient, IpcUnityLogsClient>();
+        services.AddSingleton<IUnityConsoleClearClient, IpcUnityConsoleClearClient>();
         return services;
     }
 

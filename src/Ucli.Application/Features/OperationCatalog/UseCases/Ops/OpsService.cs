@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
+using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Filtering;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Preflight;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
 
@@ -41,7 +42,17 @@ internal sealed class OpsService : IOpsService
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(input);
 
-        var preflightResult = await preflightService.ExecuteAsync(input, cancellationToken).ConfigureAwait(false);
+        if (!OpsListFilter.TryCreate(input, out var filter, out var filterError))
+        {
+            return OpsListServiceResult.Failure(
+                filterError!,
+                UcliCoreErrorCodes.InvalidArgument);
+        }
+
+        var preflightResult = await preflightService.ExecuteAsync(
+                OpsPreflightInput.From(input),
+                cancellationToken)
+            .ConfigureAwait(false);
         if (!preflightResult.IsSuccess)
         {
             return OpsListServiceResult.Failure(
@@ -49,7 +60,7 @@ internal sealed class OpsService : IOpsService
                 preflightResult.ErrorCode!.Value);
         }
 
-        var catalogResult = await catalogAccessService.ReadAsync(
+        var catalogResult = await catalogAccessService.ReadListAsync(
                 preflightResult.Context!,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -60,7 +71,15 @@ internal sealed class OpsService : IOpsService
                 catalogResult.ErrorCode!.Value);
         }
 
-        return listResultMapper.Map(catalogResult.Output!);
+        var filterResult = filter!.Apply(catalogResult.Output!.Snapshot.Operations);
+        if (!filterResult.IsSuccess)
+        {
+            return OpsListServiceResult.Failure(
+                filterResult.ErrorMessage!,
+                UcliCoreErrorCodes.InvalidArgument);
+        }
+
+        return listResultMapper.Map(catalogResult.Output, filterResult.Operations!);
     }
 
     /// <inheritdoc />
@@ -72,12 +91,7 @@ internal sealed class OpsService : IOpsService
         ArgumentNullException.ThrowIfNull(input);
 
         var preflightResult = await preflightService.ExecuteAsync(
-                new OpsCommandInput(
-                    ProjectPath: input.ProjectPath,
-                    Mode: input.Mode,
-                    TimeoutMilliseconds: input.TimeoutMilliseconds,
-                    ReadIndexMode: input.ReadIndexMode,
-                    FailFast: input.FailFast),
+                OpsPreflightInput.From(input),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!preflightResult.IsSuccess)
@@ -87,8 +101,9 @@ internal sealed class OpsService : IOpsService
                 preflightResult.ErrorCode!.Value);
         }
 
-        var catalogResult = await catalogAccessService.ReadAsync(
+        var catalogResult = await catalogAccessService.ReadDescribeAsync(
                 preflightResult.Context!,
+                input.OperationName,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!catalogResult.IsSuccess)
@@ -98,6 +113,6 @@ internal sealed class OpsService : IOpsService
                 catalogResult.ErrorCode!.Value);
         }
 
-        return describeResultMapper.Map(catalogResult.Output!, input.OperationName);
+        return describeResultMapper.Map(catalogResult.Output!);
     }
 }

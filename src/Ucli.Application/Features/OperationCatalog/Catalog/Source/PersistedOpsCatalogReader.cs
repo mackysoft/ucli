@@ -26,24 +26,76 @@ internal sealed class PersistedOpsCatalogReader : IPersistedOpsCatalogReader
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
 
+        var descriptorsResult = await ReadDescriptorsAsync(unityProject, cancellationToken).ConfigureAwait(false);
+        if (!descriptorsResult.IsSuccess)
+        {
+            return PersistedOpsCatalogReadResult.Failure(descriptorsResult.ReadFailure!);
+        }
+
+        var descriptors = descriptorsResult.Snapshot!;
+        var operations = new List<IndexOpEntryJsonContract>(descriptors.Entries.Count);
+        for (var i = 0; i < descriptors.Entries.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var describeResult = await ReadDescribeAsync(
+                    unityProject,
+                    descriptors,
+                    descriptors.Entries[i],
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!describeResult.IsSuccess)
+            {
+                return PersistedOpsCatalogReadResult.Failure(describeResult.ReadFailure!);
+            }
+
+            operations.Add(describeResult.Operation!);
+        }
+
+        if (!OpsCatalogSnapshot.TryCreate(
+                descriptors.GeneratedAtUtc,
+                operations,
+                "operations",
+                out var snapshot,
+                out var validationError))
+        {
+            return PersistedOpsCatalogReadResult.Failure(
+                new PersistedOpsCatalogReadFailure(
+                    PersistedOpsCatalogReadFailureKind.Malformed,
+                    ReadIndexErrorCodes.ReadIndexFormatInvalid,
+                    $"Index contract file 'ops.describe/<opKey>.json' is malformed. {validationError}"));
+        }
+
+        return PersistedOpsCatalogReadResult.Success(snapshot!, descriptorsResult.Freshness!.Value);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<PersistedOpsCatalogDescriptorReadResult> ReadDescriptorsAsync (
+        ResolvedUnityProjectContext unityProject,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(unityProject);
+
         var opsCatalogResult = await artifactReader.ReadOpsCatalogAsync(
                 unityProject,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!opsCatalogResult.IsSuccess)
         {
-            return PersistedOpsCatalogReadResult.Failure(CreateArtifactFailure(opsCatalogResult.Error!));
+            return PersistedOpsCatalogDescriptorReadResult.Failure(CreateArtifactFailure(opsCatalogResult.Error!));
         }
 
         var opsCatalog = opsCatalogResult.Value!;
-        if (!OpsCatalogSnapshot.TryCreate(
+        if (!OpsCatalogDescriptorSnapshot.TryCreate(
                 opsCatalog.GeneratedAtUtc,
+                opsCatalog.SourceInputsHash,
                 opsCatalog.Entries,
                 "entries",
                 out var snapshot,
                 out var validationError))
         {
-            return PersistedOpsCatalogReadResult.Failure(
+            return PersistedOpsCatalogDescriptorReadResult.Failure(
                 new PersistedOpsCatalogReadFailure(
                     PersistedOpsCatalogReadFailureKind.Malformed,
                     ReadIndexErrorCodes.ReadIndexFormatInvalid,
@@ -53,21 +105,47 @@ internal sealed class PersistedOpsCatalogReader : IPersistedOpsCatalogReader
         var freshnessResult = await freshnessEvaluator.ObserveAsync(
                 unityProject,
                 IndexFreshnessTarget.OpsCatalog,
-                opsCatalog.SourceInputsHash,
+                snapshot!.SourceInputsHash,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!freshnessResult.IsSuccess)
         {
-            return PersistedOpsCatalogReadResult.Failure(
+            return PersistedOpsCatalogDescriptorReadResult.Failure(
                 new PersistedOpsCatalogReadFailure(
                     PersistedOpsCatalogReadFailureKind.FreshnessUnavailable,
                     freshnessResult.Error!.Code,
                     freshnessResult.Error.Message));
         }
 
-        return PersistedOpsCatalogReadResult.Success(
+        return PersistedOpsCatalogDescriptorReadResult.Success(
             snapshot!,
             freshnessResult.Freshness);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<PersistedOpsDescribeReadResult> ReadDescribeAsync (
+        ResolvedUnityProjectContext unityProject,
+        OpsCatalogDescriptorSnapshot catalogSnapshot,
+        IndexOpsCatalogEntryJsonContract catalogEntry,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(catalogSnapshot);
+        ArgumentNullException.ThrowIfNull(catalogEntry);
+
+        var describeResult = await artifactReader.ReadOpsDescribeAsync(
+                unityProject,
+                catalogEntry,
+                catalogSnapshot.SourceInputsHash,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!describeResult.IsSuccess)
+        {
+            return PersistedOpsDescribeReadResult.Failure(CreateArtifactFailure(describeResult.Error!));
+        }
+
+        return PersistedOpsDescribeReadResult.Success(describeResult.Value!.Operation!);
     }
 
     private static PersistedOpsCatalogReadFailure CreateArtifactFailure (IndexServiceError error)

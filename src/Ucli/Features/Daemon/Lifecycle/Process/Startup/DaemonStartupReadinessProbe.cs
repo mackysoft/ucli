@@ -2,7 +2,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Logs;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Timing;
 using MackySoft.Ucli.Application.Shared.Context.Project;
-using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -19,21 +18,21 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
 
     private readonly IUnityLogReader unityLogReader;
 
-    private readonly IUnityProjectLockFileProbe unityProjectLockFileProbe;
+    private readonly IUnityProjectLockPreflightService unityProjectLockPreflightService;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonStartupReadinessProbe" /> class. </summary>
     /// <param name="daemonPingInfoClient"> The daemon ping-info client dependency. </param>
     /// <param name="unityLogReader"> The Unity log-reader dependency. </param>
-    /// <param name="unityProjectLockFileProbe"> The Unity project lock-file probe dependency. </param>
+    /// <param name="unityProjectLockPreflightService"> The Unity project lock preflight service dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStartupReadinessProbe (
         IDaemonPingInfoClient daemonPingInfoClient,
         IUnityLogReader unityLogReader,
-        IUnityProjectLockFileProbe unityProjectLockFileProbe)
+        IUnityProjectLockPreflightService unityProjectLockPreflightService)
     {
         this.daemonPingInfoClient = daemonPingInfoClient ?? throw new ArgumentNullException(nameof(daemonPingInfoClient));
         this.unityLogReader = unityLogReader ?? throw new ArgumentNullException(nameof(unityLogReader));
-        this.unityProjectLockFileProbe = unityProjectLockFileProbe ?? throw new ArgumentNullException(nameof(unityProjectLockFileProbe));
+        this.unityProjectLockPreflightService = unityProjectLockPreflightService ?? throw new ArgumentNullException(nameof(unityProjectLockPreflightService));
     }
 
     /// <summary> Waits until daemon startup accepts execution requests, or fails when timeout expires or startup reaches one non-waitable lifecycle state. </summary>
@@ -63,18 +62,24 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             cancellationToken.ThrowIfCancellationRequested();
             if (daemonProcessId is int processId && !ProcessLivenessProbe.IsAlive(processId))
             {
+                var postExitLockDiagnostic = await CreatePostExitLockDiagnosticAsync(
+                        unityProject,
+                        cancellationToken)
+                    .ConfigureAwait(false);
                 var startupFailureError = await TryClassifyStartupFailureAsync(
                         unityProject,
-                        includeProjectLockFile: true,
+                        includeProjectLockFile: false,
                         cancellationToken)
                     .ConfigureAwait(false);
                 if (startupFailureError is not null)
                 {
-                    return DaemonStartupReadinessProbeResult.Failure(startupFailureError);
+                    return DaemonStartupReadinessProbeResult.Failure(AppendDiagnostic(startupFailureError, postExitLockDiagnostic));
                 }
 
                 return DaemonStartupReadinessProbeResult.Failure(ExecutionError.InternalError(
-                    $"Unity daemon process exited before startup readiness was confirmed. ProcessId={processId}."));
+                    AppendDiagnostic(
+                        $"Unity daemon process exited before startup readiness was confirmed. ProcessId={processId}.",
+                        postExitLockDiagnostic)));
             }
 
             if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
@@ -237,10 +242,16 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
     {
         if (includeProjectLockFile)
         {
-            var projectAlreadyOpenError = TryCreateProjectAlreadyOpenErrorFromUnityLock(unityProject.UnityProjectRoot);
-            if (projectAlreadyOpenError != null)
+            var projectLockPreflightResult = await unityProjectLockPreflightService.PrepareForUnityProcessStartAsync(
+                    unityProject,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var projectLockError = UnityProjectLockPreflightErrorFactory.CreateLaunchBlockingError(
+                unityProject,
+                projectLockPreflightResult);
+            if (projectLockError != null)
             {
-                return projectAlreadyOpenError;
+                return projectLockError;
             }
         }
 
@@ -260,23 +271,33 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             : null;
     }
 
-    private ExecutionError? TryCreateProjectAlreadyOpenErrorFromUnityLock (string unityProjectRoot)
+    private async ValueTask<string?> CreatePostExitLockDiagnosticAsync (
+        ResolvedUnityProjectContext unityProject,
+        CancellationToken cancellationToken)
     {
-        var lockFileProbeResult = unityProjectLockFileProbe.Probe(unityProjectRoot);
-        if (!lockFileProbeResult.IsSuccess)
-        {
-            return ExecutionError.InternalError(
-                lockFileProbeResult.ErrorMessage!,
-                UcliCoreErrorCodes.InternalError);
-        }
+        var preflightResult = await unityProjectLockPreflightService.CleanupStaleLockAfterUnityProcessExitAsync(
+                unityProject,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return UnityProjectLockPreflightErrorFactory.CreatePostExitDiagnostic(preflightResult);
+    }
 
-        if (!lockFileProbeResult.IsLocked)
-        {
-            return null;
-        }
+    private static ExecutionError AppendDiagnostic (
+        ExecutionError error,
+        string? diagnostic)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+        return string.IsNullOrWhiteSpace(diagnostic)
+            ? error
+            : error with { Message = AppendDiagnostic(error.Message, diagnostic) };
+    }
 
-        return ExecutionError.InternalError(
-            UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProjectRoot, lockFileProbeResult.LockFilePath),
-            UnityProcessErrorCodes.UnityProjectAlreadyOpen);
+    private static string AppendDiagnostic (
+        string message,
+        string? diagnostic)
+    {
+        return string.IsNullOrWhiteSpace(diagnostic)
+            ? message
+            : $"{message} {diagnostic}";
     }
 }

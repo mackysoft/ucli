@@ -250,6 +250,29 @@ public sealed class UcliStoragePathResolverContractTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void ResolveOpsDescribePath_ReturnsFingerprintScopedPath ()
+    {
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
+        var opKey = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes("ucli.go.describe"));
+
+        var resolvedPath = UcliStoragePathResolver.ResolveOpsDescribePath(storageRoot, "abc123", opKey);
+
+        Assert.Equal(
+            Path.Combine(
+                Path.GetFullPath(storageRoot),
+                UcliStoragePathNames.UcliDirectoryName,
+                UcliStoragePathNames.LocalDirectoryName,
+                UcliStoragePathNames.FingerprintsDirectoryName,
+                "abc123",
+                UcliStoragePathNames.IndexDirectoryName,
+                UcliStoragePathNames.CatalogsDirectoryName,
+                UcliStoragePathNames.OpsDescribeDirectoryName,
+                opKey + UcliStoragePathNames.OpsDescribeFileExtension),
+            resolvedPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void ResolveIndexLookupsDirectory_ReturnsFingerprintScopedPath ()
     {
         var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
