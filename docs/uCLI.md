@@ -149,6 +149,21 @@ Project context resolution 由来の入力不正は、公開 CLI JSON の envelo
 - `errors[].code` は open code set とする。利用側は未知コードを契約違反として拒否せず、既知コードに一致しない値は汎用失敗として扱う。
   - C# 契約では機械判定用エラーコードを `UcliErrorCode` で扱い、既知コードは責務別の typed code definition として定義する。JSON wire shape は文字列のままとする。
 
+### エラーコード台帳
+`errors[].code` は agent が失敗後の次行動を決めるための制御トークンである。`errors[].message` は人間向け説明であり、agent や CI は message の文面で分岐しない。
+
+将来の `ucli errors` は、既知エラーコードの静的な意味を機械可読に返す台帳コマンドとして定義する。目的はエラー文のヘルプ表示ではなく、`IPC_TIMEOUT`、`EDITOR_COMPILING`、`STATE_CHANGED_SINCE_PLAN`、`PLAN_TOKEN_EXPIRED`、`PLAYMODE_PERSISTENCE_FORBIDDEN` のような code を、再試行、待機、再 plan、人間確認、状態不明の判断へ接続することである。
+
+- `ucli errors list` は既知 error code の一覧を返す
+- `ucli errors describe <CODE>` は1つの error code の意味、確認対象、既定の再試行分類を返す
+- `ucli errors explain --from <file>` は実際の失敗 JSON を読んで、文脈付きの確認対象と次行動を返す
+
+初期 UX は `ucli errors` とする。`errors[].code` から自然に発見でき、P0 の対象が error code に限られるためである。Assurance report の `reasonCodes`、`riskCodes`、`claimCodes` まで同じ台帳で扱う段階では、`ucli codes describe --kind error <CODE>` のような一般化を検討する。
+
+`ucli errors describe <CODE>` は、未知 code を既定では失敗にしない。未知 code は open code set の通常ケースとして `known=false` を返し、呼び出し側は汎用失敗として扱う。既知 code だけを許容したい検証用途では `--requireKnown` を指定し、その場合だけ未知 code を `INVALID_ARGUMENT` とする。
+
+`errors[]` には長い説明や全候補原因を埋め込まない。実行時レスポンスは発生固有の `code`、`message`、`opId`、および可能な場合の `payload.opResults`、`payload.readPostcondition`、診断情報だけを返す。静的な意味は `ucli errors describe` で取得する。
+
 ### 公開 CLI 共通エンベロープ
 `request-response` 型の公開 CLI JSON 出力が返す共通エンベロープのフィールド定義は [uCLI-property-reference.md](uCLI-property-reference.md) を参照する。
 

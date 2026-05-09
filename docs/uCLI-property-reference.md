@@ -147,6 +147,62 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 
 `code` は CLI `errors[]` と同じ open code set の値を文字列として運ぶ。IPC 受信側は未知値を破棄せず保持する。
 
+### Error code catalog payloads
+将来の `ucli errors` は request-response 型の共通エンベロープを返し、payload に error code 台帳を載せる。この台帳は `errors[].message` の代替ではなく、`errors[].code` を機械判定するための静的契約である。
+
+#### `ucli errors list`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `catalogVersion` | integer | yes | 台帳 payload の schema version |
+| `source` | string | yes | 台帳の取得元。bundled 定義は `bundled` |
+| `codes` | array | yes | 既知 error code の一覧。filter 後に該当が無い場合は空配列 |
+
+#### `ucli errors list payload.codes[]`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `code` | string | yes | error code 文字列 |
+| `category` | string | yes | error code の分類 |
+| `summary` | string | yes | 1行の要約 |
+| `defaultRetryClass` | string | yes | code 単体から見た既定の再試行分類 |
+| `appliesTo` | string[] | yes | 関連する CLI command 名。限定しない場合は空配列ではなく代表 command を列挙する |
+
+#### `ucli errors describe`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `code` | string | yes | 説明対象の error code |
+| `known` | boolean | yes | 現在の uCLI client が台帳定義を持つ場合は `true` |
+| `category` | string | yes | error code の分類。未知 code は `unknown` |
+| `summary` | string | yes | 1行の要約 |
+| `meaning` | string | no | 既知 code の意味。未知 code では省略してよい |
+| `appliesTo` | string[] | no | 関連する CLI command 名 |
+| `possiblePhases` | string[] | no | 発生し得る処理境界 |
+| `executionSemantics` | object | yes | 適用状態と再試行判断の既定解釈 |
+| `inspect` | string[] | no | 次に読むべき field または補助コマンド |
+| `nextActions` | array | yes | 推奨される次行動 |
+| `relatedCodes` | string[] | no | 近接する error code |
+
+#### `payload.executionSemantics`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `impliesNotApplied` | `boolean \| null` | yes | code 単体で未適用を意味する場合は `true`、意味しない場合は `false`、判断不能は `null` |
+| `mayBeIndeterminate` | boolean | yes | 適用状態が不明になり得る場合は `true` |
+| `safeToRetry` | string | yes | `yes`、`no`、`waitThenRetry`、`replanRequired`、`contextDependent`、`unknown` のいずれか |
+
+`safeToRetry` は code 単体の既定解釈である。`IPC_TIMEOUT` のように発生 phase や返却 payload によって意味が変わる code は `contextDependent` とし、実際の判断では `payload.opResults[]`、`payload.readPostcondition`、診断情報、ログを優先する。
+
+#### `payload.nextActions[]`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `when` | string | no | この action を選ぶ条件 |
+| `action` | string | yes | 推奨される次行動 |
+
+未知 code の `describe` は既定で `status=ok` とし、`known=false`、`category=unknown`、`executionSemantics.impliesNotApplied=null`、`executionSemantics.mayBeIndeterminate=true`、`executionSemantics.safeToRetry=unknown` を返す。`--requireKnown` 指定時だけ未知 code を `INVALID_ARGUMENT` として扱う。
+
 ## lifecycle 関連プロパティ
 
 ### lifecycle status フィールド
