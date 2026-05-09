@@ -33,11 +33,27 @@ internal static class SupervisorIpcResponseFactory
         UcliErrorCode code,
         string message)
     {
+        return CreateErrorResponse(request, code, message, new { });
+    }
+
+    /// <summary> Creates one failed supervisor response with a structured payload for the specified request. </summary>
+    /// <typeparam name="TPayload">The payload model type.</typeparam>
+    /// <param name="request"> The incoming request. </param>
+    /// <param name="code"> The IPC error code. </param>
+    /// <param name="message"> The IPC error message. </param>
+    /// <param name="payload"> The response payload. </param>
+    /// <returns> The serialized error response. </returns>
+    public static IpcResponse CreateErrorResponse<TPayload> (
+        IpcRequest request,
+        UcliErrorCode code,
+        string message,
+        TPayload payload)
+    {
         return new IpcResponse(
             ProtocolVersion: request.ProtocolVersion,
             RequestId: request.RequestId,
             Status: IpcProtocol.StatusError,
-            Payload: IpcPayloadCodec.SerializeToElement(new { }),
+            Payload: IpcPayloadCodec.SerializeToElement(payload),
             Errors:
             [
                 new IpcError(code, message, null),

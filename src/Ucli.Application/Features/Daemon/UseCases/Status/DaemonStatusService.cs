@@ -139,7 +139,7 @@ internal sealed class DaemonStatusService : IDaemonStatusService
                         executionContext.Context.UnityProject,
                         pingInfoTimeout,
                         statusResult.Session.SessionToken,
-                        cancellationToken)
+                        cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
                 var observation = StatusDaemonObservationCodec.CreateFromPing(statusResult.Status, pingResponse);
                 serverVersion = observation.ServerVersion;

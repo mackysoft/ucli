@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 
 /// <summary> Represents one Unity <c>Library/EditorInstance.json</c> marker candidate. </summary>
 /// <param name="MarkerPath"> The absolute marker file path. </param>

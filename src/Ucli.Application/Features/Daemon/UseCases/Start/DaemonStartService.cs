@@ -1,7 +1,5 @@
-using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
@@ -20,8 +18,6 @@ internal sealed class DaemonStartService : IDaemonStartService
 
     private readonly IDaemonSessionOutputMapper daemonSessionOutputMapper;
 
-    private readonly IDaemonDiagnosisStore daemonDiagnosisStore;
-
     private readonly IDaemonDiagnosisOutputMapper daemonDiagnosisOutputMapper;
 
     private readonly TimeProvider timeProvider;
@@ -31,7 +27,6 @@ internal sealed class DaemonStartService : IDaemonStartService
     /// <param name="daemonProjectLifecycleGateway"> The daemon project-lifecycle gateway dependency. </param>
     /// <param name="unityPluginVerifier"> The Unity uCLI plugin-verifier dependency. </param>
     /// <param name="daemonSessionOutputMapper"> The daemon session-output mapper dependency. </param>
-    /// <param name="daemonDiagnosisStore"> The daemon diagnosis store dependency. </param>
     /// <param name="daemonDiagnosisOutputMapper"> The daemon diagnosis-output mapper dependency. </param>
     /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
@@ -40,7 +35,6 @@ internal sealed class DaemonStartService : IDaemonStartService
         IDaemonProjectLifecycleGateway daemonProjectLifecycleGateway,
         IUnityPluginVerifier unityPluginVerifier,
         IDaemonSessionOutputMapper daemonSessionOutputMapper,
-        IDaemonDiagnosisStore daemonDiagnosisStore,
         IDaemonDiagnosisOutputMapper daemonDiagnosisOutputMapper,
         TimeProvider? timeProvider = null)
     {
@@ -48,7 +42,6 @@ internal sealed class DaemonStartService : IDaemonStartService
         this.daemonProjectLifecycleGateway = daemonProjectLifecycleGateway ?? throw new ArgumentNullException(nameof(daemonProjectLifecycleGateway));
         this.unityPluginVerifier = unityPluginVerifier ?? throw new ArgumentNullException(nameof(unityPluginVerifier));
         this.daemonSessionOutputMapper = daemonSessionOutputMapper ?? throw new ArgumentNullException(nameof(daemonSessionOutputMapper));
-        this.daemonDiagnosisStore = daemonDiagnosisStore ?? throw new ArgumentNullException(nameof(daemonDiagnosisStore));
         this.daemonDiagnosisOutputMapper = daemonDiagnosisOutputMapper ?? throw new ArgumentNullException(nameof(daemonDiagnosisOutputMapper));
         this.timeProvider = timeProvider ?? TimeProvider.System;
     }
@@ -104,10 +97,9 @@ internal sealed class DaemonStartService : IDaemonStartService
             .ConfigureAwait(false);
         if (!startResult.IsSuccess)
         {
-            var diagnosis = await TryReadDiagnosisOutput(
-                    executionContext.Context.UnityProject,
-                    cancellationToken)
-                .ConfigureAwait(false);
+            var diagnosis = startResult.Diagnosis is null
+                ? null
+                : daemonDiagnosisOutputMapper.ToOutput(startResult.Diagnosis);
             return DaemonStartExecutionResult.Failure(startResult.Error ?? ExecutionError.InternalError(
                 "Daemon start operation failed without structured error details."), diagnosis);
         }
@@ -118,23 +110,6 @@ internal sealed class DaemonStartService : IDaemonStartService
             TimeoutMilliseconds: checked((int)executionContext.Timeout.TotalMilliseconds),
             Session: daemonSessionOutputMapper.ToOutput(startResult.Session!));
         return DaemonStartExecutionResult.Success(output);
-    }
-
-    private async ValueTask<DaemonDiagnosisOutput?> TryReadDiagnosisOutput (
-        ResolvedUnityProjectContext unityProject,
-        CancellationToken cancellationToken)
-    {
-        var diagnosisReadResult = await daemonDiagnosisStore.Read(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!diagnosisReadResult.IsSuccess || !diagnosisReadResult.Exists)
-        {
-            return null;
-        }
-
-        return daemonDiagnosisOutputMapper.ToOutput(diagnosisReadResult.Diagnosis!);
     }
 
     private async ValueTask<ExecutionError?> VerifyUnityPluginWithinBudget (

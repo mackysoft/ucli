@@ -223,7 +223,10 @@ public sealed class DaemonCliOutputContractTests
     public async Task Start_WithEditorModeGui_WhenUnityPluginMarkerExists_AttemptsGuiLaunchAndReturnsSingleJson ()
     {
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "daemon-start-gui-option");
-        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(
+            scope,
+            "UnityProject",
+            "m_EditorVersion: 0.0.0-ucli-test-missing");
         await UnityProjectTestFactory.WriteUcliUnityPluginMarker(scope, "UnityProject");
 
         var result = await CliProcessRunner.RunCommand(

@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Client;
@@ -45,6 +46,11 @@ internal static class SupervisorIpcContracts
         string StartStatus,
         string DaemonStatus,
         DaemonSession Session);
+
+    /// <summary> Represents the payload returned when ensure-running fails with optional diagnosis metadata. </summary>
+    /// <param name="Diagnosis"> The daemon diagnosis attached to the start failure when available. </param>
+    internal sealed record EnsureRunningFailureResponse (
+        DaemonDiagnosis? Diagnosis);
 
     /// <summary> Represents the payload used to stop one Unity daemon. </summary>
     /// <param name="UnityProjectRoot"> The absolute Unity project root path. </param>

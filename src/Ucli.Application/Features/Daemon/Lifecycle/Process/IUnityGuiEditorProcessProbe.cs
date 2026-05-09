@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 
 /// <summary> Verifies that one EditorInstance marker points to a live Unity GUI Editor process. </summary>
 internal interface IUnityGuiEditorProcessProbe

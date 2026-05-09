@@ -271,12 +271,15 @@ internal static class DaemonServiceTestContext
 
         public string? LastSessionToken { get; private set; }
 
+        public bool LastValidateProjectFingerprint { get; private set; }
+
         public CancellationToken LastCancellationToken { get; private set; }
 
         public ValueTask<IpcPingResponse> PingAndRead (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             string? sessionToken = null,
+            bool validateProjectFingerprint = true,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
@@ -284,6 +287,7 @@ internal static class DaemonServiceTestContext
             LastUnityProject = unityProject;
             LastTimeout = timeout;
             LastSessionToken = sessionToken;
+            LastValidateProjectFingerprint = validateProjectFingerprint;
             LastCancellationToken = cancellationToken;
             if (Exception != null)
             {

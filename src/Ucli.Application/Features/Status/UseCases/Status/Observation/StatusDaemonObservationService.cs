@@ -68,7 +68,7 @@ internal sealed class StatusDaemonObservationService : IStatusDaemonObservationS
                     context.UnityProject,
                     timeout,
                     daemonStatusResult.Session.SessionToken,
-                    cancellationToken)
+                    cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
 
             return StatusDaemonObservationResult.Success(

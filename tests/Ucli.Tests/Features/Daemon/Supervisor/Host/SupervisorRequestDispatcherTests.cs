@@ -4,7 +4,9 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
 
@@ -188,6 +190,47 @@ public sealed class SupervisorRequestDispatcherTests
         var error = Assert.Single(response.Errors);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
         Assert.Equal(0, startOperation.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenEnsureRunningFailsWithDiagnosis_EmitsDiagnosisPayload ()
+    {
+        var diagnosis = CreateDiagnosis();
+        var startOperation = new StubDaemonStartOperation
+        {
+            StartResult = DaemonStartResult.Failure(
+                ExecutionError.Timeout("endpoint registration timed out", ExecutionErrorCodes.IpcTimeout),
+                diagnosis),
+        };
+        var dispatcher = CreateDispatcher(startOperation);
+        var runtimeContext = CreateRuntimeContext();
+        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
+
+        var response = await SendRequest(
+            dispatcher,
+            runtimeContext,
+            new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "request-diagnosis",
+                SessionToken: runtimeContext.Manifest.SessionToken,
+                Method: SupervisorIpcContracts.EnsureRunningMethod,
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.EnsureRunningRequest(
+                        UnityProjectRoot: unityProjectRoot,
+                        ProjectFingerprint: projectFingerprint,
+                        TimeoutMilliseconds: 1000,
+                        EditorMode: null))));
+
+        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        var error = Assert.Single(response.Errors);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
+        Assert.True(IpcPayloadCodec.TryDeserialize(
+            response.Payload,
+            out SupervisorIpcContracts.EnsureRunningFailureResponse payload,
+            out _));
+        Assert.Equal(diagnosis, payload.Diagnosis);
     }
 
     private static SupervisorRequestDispatcher CreateDispatcher (StubDaemonStartOperation? startOperation = null)
@@ -385,5 +428,18 @@ public sealed class SupervisorRequestDispatcherTests
             EndpointAddress: "/tmp/ucli.sock",
             ProcessId: 42,
             OwnerProcessId: 24);
+    }
+
+    private static DaemonDiagnosis CreateDiagnosis ()
+    {
+        return new DaemonDiagnosis(
+            Reason: DaemonDiagnosisReasonValues.GuiEndpointNotRegistered,
+            Message: "GUI endpoint not registered.",
+            ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+            IsInferred: true,
+            UpdatedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 3, 0, TimeSpan.Zero),
+            ProcessId: 1234,
+            EditorInstancePath: "/repo/UnityProject/Library/EditorInstance.json",
+            SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 2, 0, TimeSpan.Zero));
     }
 }

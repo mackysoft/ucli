@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
 
-namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 
 /// <summary> Represents the result of reading a Unity Editor instance marker. </summary>
 /// <param name="Marker"> The marker when one was loaded; otherwise <see langword="null" />. </param>

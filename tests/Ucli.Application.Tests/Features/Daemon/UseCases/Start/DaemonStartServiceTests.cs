@@ -1,7 +1,6 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
@@ -158,17 +157,15 @@ public sealed class DaemonStartServiceTests
         var mapper = new DaemonServiceTestContext.StubDaemonSessionOutputMapper();
         var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway
         {
-            EnsureRunningResult = DaemonStartResult.Failure(ExecutionError.Timeout("start failed", ExecutionErrorCodes.IpcTimeout)),
+            EnsureRunningResult = DaemonStartResult.Failure(
+                ExecutionError.Timeout("start failed", ExecutionErrorCodes.IpcTimeout),
+                DaemonServiceTestContext.CreateDiagnosis() with
+                {
+                    Reason = DaemonDiagnosisReasonValues.GuiEndpointNotRegistered,
+                    EditorInstancePath = "/tmp/unity-project/Library/EditorInstance.json",
+                }),
         };
-        var diagnosis = DaemonServiceTestContext.CreateDiagnosis() with
-        {
-            Reason = DaemonDiagnosisReasonValues.GuiEndpointNotRegistered,
-            EditorInstancePath = "/tmp/unity-project/Library/EditorInstance.json",
-        };
-        var diagnosisStore = new StubDaemonDiagnosisStore
-        {
-            ReadResult = DaemonDiagnosisReadResult.Success(diagnosis),
-        };
+        var diagnosis = supervisorProjectGateway.EnsureRunningResult.Diagnosis!;
         var diagnosisOutputMapper = new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper
         {
             Output = new(
@@ -184,7 +181,6 @@ public sealed class DaemonStartServiceTests
             resolver,
             supervisorProjectGateway,
             mapper,
-            daemonDiagnosisStore: diagnosisStore,
             daemonDiagnosisOutputMapper: diagnosisOutputMapper);
 
         var result = await service.Start(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None);
@@ -192,9 +188,6 @@ public sealed class DaemonStartServiceTests
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error!.Code);
         Assert.Equal(diagnosisOutputMapper.Output, result.Diagnosis);
-        Assert.Equal(1, diagnosisStore.ReadCallCount);
-        Assert.Equal(context.Context.UnityProject.RepositoryRoot, diagnosisStore.LastStorageRoot);
-        Assert.Equal(context.Context.UnityProject.ProjectFingerprint, diagnosisStore.LastProjectFingerprint);
         Assert.Equal(1, diagnosisOutputMapper.CallCount);
     }
 
@@ -307,7 +300,6 @@ public sealed class DaemonStartServiceTests
         DaemonServiceTestContext.StubSupervisorProjectGateway supervisorProjectGateway,
         IDaemonSessionOutputMapper mapper,
         IUnityPluginVerifier? pluginVerifier = null,
-        IDaemonDiagnosisStore? daemonDiagnosisStore = null,
         IDaemonDiagnosisOutputMapper? daemonDiagnosisOutputMapper = null,
         TimeProvider? timeProvider = null)
     {
@@ -317,48 +309,8 @@ public sealed class DaemonStartServiceTests
             supervisorProjectGateway,
             pluginVerifier,
             mapper,
-            daemonDiagnosisStore ?? new StubDaemonDiagnosisStore(),
             daemonDiagnosisOutputMapper ?? new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper(),
             timeProvider);
-    }
-
-    private sealed class StubDaemonDiagnosisStore : IDaemonDiagnosisStore
-    {
-        public DaemonDiagnosisReadResult ReadResult { get; set; } = DaemonDiagnosisReadResult.Success(null);
-
-        public int ReadCallCount { get; private set; }
-
-        public string? LastStorageRoot { get; private set; }
-
-        public string? LastProjectFingerprint { get; private set; }
-
-        public ValueTask<DaemonDiagnosisReadResult> Read (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            ReadCallCount++;
-            LastStorageRoot = storageRoot;
-            LastProjectFingerprint = projectFingerprint;
-            return ValueTask.FromResult(ReadResult);
-        }
-
-        public ValueTask<DaemonDiagnosisStoreOperationResult> Write (
-            string storageRoot,
-            string projectFingerprint,
-            DaemonDiagnosis diagnosis,
-            CancellationToken cancellationToken = default)
-        {
-            return ValueTask.FromResult(DaemonDiagnosisStoreOperationResult.Success());
-        }
-
-        public ValueTask<DaemonDiagnosisStoreOperationResult> Delete (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            return ValueTask.FromResult(DaemonDiagnosisStoreOperationResult.Success());
-        }
     }
 
     private sealed class StubUnityPluginVerifier : IUnityPluginVerifier

@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 
 /// <summary> Reads Unity Editor instance markers from the target project root. </summary>
 internal interface IUnityEditorInstanceMarkerReader

@@ -40,6 +40,7 @@ internal static class DaemonServiceCollectionExtensions
         services.AddSingleton<IDaemonProcessTerminationService, DaemonProcessTerminationService>();
         services.AddSingleton<IDaemonReachabilityClassifier, DaemonReachabilityClassifier>();
         services.AddSingleton<IUnityEditorInstanceMarkerReader, UnityEditorInstanceMarkerReader>();
+        services.AddSingleton<IUnityGuiEditorProcessInspector, UnityGuiEditorProcessInspector>();
         services.AddSingleton<IUnityGuiEditorProcessProbe, UnityGuiEditorProcessProbe>();
         services.AddSingleton<UnityBatchmodeProcessLauncher>();
         services.AddSingleton<IUnityDaemonProcessLauncher>(provider => provider.GetRequiredService<UnityBatchmodeProcessLauncher>());

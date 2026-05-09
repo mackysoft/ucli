@@ -1,4 +1,6 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -8,6 +10,46 @@ namespace MackySoft.Ucli.Application.Tests.Daemon;
 
 public sealed class DaemonGuiEditorAttachServiceTests
 {
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task TryAttachExistingGuiEditor_WhenMatchingGuiSessionRegisters_ReturnsAlreadyRunning ()
+    {
+        var marker = CreateMarker();
+        var context = CreateContext();
+        var markerReader = new StubUnityEditorInstanceMarkerReader
+        {
+            ReadResult = UnityEditorInstanceMarkerReadResult.Success(marker),
+        };
+        var processProbe = new StubUnityGuiEditorProcessProbe
+        {
+            Result = UnityGuiEditorProcessProbeResult.Matching(new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero)),
+        };
+        var session = CreateGuiSession();
+        var awaiter = new StubDaemonGuiSessionRegistrationAwaiter
+        {
+            Result = DaemonGuiSessionRegistrationWaitResult.Success(session),
+        };
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var service = new DaemonGuiEditorAttachService(markerReader, processProbe, awaiter, diagnosisStore);
+
+        var result = await service.TryAttachExistingGuiEditor(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.True(result!.IsSuccess);
+        Assert.Equal(DaemonStartStatus.AlreadyRunning, result.Status);
+        Assert.Equal(session, result.Session);
+        Assert.Equal(1, awaiter.CallCount);
+        Assert.Equal(context, awaiter.LastUnityProject);
+        Assert.Equal(marker.ProcessId, awaiter.LastExpectedProcessId);
+        Assert.True(awaiter.LastTimeout > TimeSpan.FromMilliseconds(450));
+        Assert.True(awaiter.LastTimeout <= TimeSpan.FromMilliseconds(500));
+        Assert.Equal(0, diagnosisStore.WriteCallCount);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task TryAttachExistingGuiEditor_WhenBatchmodeRequestedAndGuiMarkerMatches_ReturnsEditorModeMismatch ()
@@ -81,6 +123,40 @@ public sealed class DaemonGuiEditorAttachServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task TryAttachExistingGuiEditor_WhenMarkerAndProbeConsumeTime_PassesRemainingTimeoutToAwaiter ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var markerReader = new StubUnityEditorInstanceMarkerReader
+        {
+            ReadResult = UnityEditorInstanceMarkerReadResult.Success(CreateMarker()),
+            OnRead = () => timeProvider.Advance(TimeSpan.FromMilliseconds(125)),
+        };
+        var processProbe = new StubUnityGuiEditorProcessProbe
+        {
+            Result = UnityGuiEditorProcessProbeResult.Matching(new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero)),
+            OnProbe = () => timeProvider.Advance(TimeSpan.FromMilliseconds(175)),
+        };
+        var awaiter = new StubDaemonGuiSessionRegistrationAwaiter();
+        var service = new DaemonGuiEditorAttachService(
+            markerReader,
+            processProbe,
+            awaiter,
+            new StubDaemonDiagnosisStore(),
+            timeProvider);
+
+        var result = await service.TryAttachExistingGuiEditor(
+            CreateContext(),
+            TimeSpan.FromMilliseconds(1000),
+            editorMode: null,
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.True(result!.IsSuccess);
+        Assert.Equal(TimeSpan.FromMilliseconds(700), awaiter.LastTimeout);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task TryAttachExistingGuiEditor_WhenProcessProbeRejectsMarker_ReturnsNullWithoutWaiting ()
     {
         var markerReader = new StubUnityEditorInstanceMarkerReader
@@ -149,10 +225,13 @@ public sealed class DaemonGuiEditorAttachServiceTests
         public UnityEditorInstanceMarkerReadResult ReadResult { get; set; } =
             UnityEditorInstanceMarkerReadResult.Success(null);
 
+        public Action? OnRead { get; set; }
+
         public ValueTask<UnityEditorInstanceMarkerReadResult> Read (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
+            OnRead?.Invoke();
             return ValueTask.FromResult(ReadResult);
         }
     }
@@ -162,10 +241,13 @@ public sealed class DaemonGuiEditorAttachServiceTests
         public UnityGuiEditorProcessProbeResult Result { get; set; } =
             UnityGuiEditorProcessProbeResult.NotMatching(UnityGuiEditorProcessProbeStatus.NotRunning);
 
+        public Action? OnProbe { get; set; }
+
         public ValueTask<UnityGuiEditorProcessProbeResult> Probe (
             UnityEditorInstanceMarker marker,
             CancellationToken cancellationToken = default)
         {
+            OnProbe?.Invoke();
             return ValueTask.FromResult(Result);
         }
     }
@@ -177,6 +259,12 @@ public sealed class DaemonGuiEditorAttachServiceTests
 
         public int CallCount { get; private set; }
 
+        public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
+
+        public int LastExpectedProcessId { get; private set; }
+
+        public TimeSpan LastTimeout { get; private set; }
+
         public ValueTask<DaemonGuiSessionRegistrationWaitResult> WaitForSession (
             ResolvedUnityProjectContext unityProject,
             int expectedProcessId,
@@ -184,6 +272,9 @@ public sealed class DaemonGuiEditorAttachServiceTests
             CancellationToken cancellationToken = default)
         {
             CallCount++;
+            LastUnityProject = unityProject;
+            LastExpectedProcessId = expectedProcessId;
+            LastTimeout = timeout;
             return ValueTask.FromResult(Result);
         }
     }

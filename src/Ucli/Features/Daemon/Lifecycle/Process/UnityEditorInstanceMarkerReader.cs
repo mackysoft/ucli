@@ -1,12 +1,12 @@
 using System.Text.Json;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
-namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Start;
+namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
 
 /// <summary> Reads Unity <c>Library/EditorInstance.json</c> markers from the resolved project root. </summary>
 internal sealed class UnityEditorInstanceMarkerReader : IUnityEditorInstanceMarkerReader
@@ -22,6 +22,8 @@ internal sealed class UnityEditorInstanceMarkerReader : IUnityEditorInstanceMark
     private const string AppPathPropertyName = "app_path";
 
     private const string AppContentsPathPropertyName = "app_contents_path";
+
+    private const long MaxMarkerByteLength = 16 * 1024;
 
     /// <inheritdoc />
     public async ValueTask<UnityEditorInstanceMarkerReadResult> Read (
@@ -40,6 +42,12 @@ internal sealed class UnityEditorInstanceMarkerReader : IUnityEditorInstanceMark
         {
             return UnityEditorInstanceMarkerReadResult.Failure(ExecutionError.InvalidArgument(
                 $"Unity Editor instance marker path is invalid. {exception.Message}"));
+        }
+
+        var markerSizeResult = ValidateMarkerSize(markerPath);
+        if (markerSizeResult != null)
+        {
+            return UnityEditorInstanceMarkerReadResult.Failure(markerSizeResult);
         }
 
         string? json;
@@ -65,7 +73,10 @@ internal sealed class UnityEditorInstanceMarkerReader : IUnityEditorInstanceMark
 
         try
         {
-            using var document = JsonDocument.Parse(json);
+            using var document = JsonDocument.Parse(json, new JsonDocumentOptions
+            {
+                MaxDepth = 8,
+            });
             if (!TryReadProcessId(document.RootElement, out var processId))
             {
                 return UnityEditorInstanceMarkerReadResult.Failure(ExecutionError.InvalidArgument(
@@ -95,6 +106,33 @@ internal sealed class UnityEditorInstanceMarkerReader : IUnityEditorInstanceMark
         {
             return UnityEditorInstanceMarkerReadResult.Failure(ExecutionError.InternalError(
                 $"Failed to inspect Unity Editor instance marker: {markerPath}. {exception.Message}"));
+        }
+    }
+
+    private static ExecutionError? ValidateMarkerSize (string markerPath)
+    {
+        try
+        {
+            var fileInfo = new FileInfo(markerPath);
+            if (!fileInfo.Exists)
+            {
+                return null;
+            }
+
+            return fileInfo.Length <= MaxMarkerByteLength
+                ? null
+                : ExecutionError.InvalidArgument(
+                    $"Unity Editor instance marker is too large: {markerPath}. MaxBytes={MaxMarkerByteLength} ActualBytes={fileInfo.Length}.");
+        }
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        {
+            return ExecutionError.InvalidArgument(
+                $"Unity Editor instance marker path is invalid: {markerPath}. {exception.Message}");
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return ExecutionError.InternalError(
+                $"Failed to inspect Unity Editor instance marker: {markerPath}. {exception.Message}");
         }
     }
 

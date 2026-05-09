@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 
 /// <summary> Defines verification results for one Unity GUI Editor process marker candidate. </summary>
 internal enum UnityGuiEditorProcessProbeStatus

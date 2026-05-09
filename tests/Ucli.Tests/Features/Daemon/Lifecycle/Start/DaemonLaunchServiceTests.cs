@@ -213,6 +213,7 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(DaemonDiagnosisReasonValues.StartupFailed, diagnosisStore.LastDiagnosis!.Reason);
         Assert.Equal(launchError.Message, diagnosisStore.LastDiagnosis.Message);
         Assert.Equal(initialSession.IssuedAtUtc, diagnosisStore.LastDiagnosis.SessionIssuedAtUtc);
+        Assert.Equal(diagnosisStore.LastDiagnosis, result.Diagnosis);
     }
 
     [Fact]
@@ -297,6 +298,7 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(updatedSession.IssuedAtUtc, compensationService.LastExpectedIssuedAtUtc);
         Assert.Equal(TimeSpan.FromSeconds(10), compensationService.LastTimeout);
         Assert.Equal(1, diagnosisStore.WriteCallCount);
+        Assert.Equal(diagnosisStore.LastDiagnosis, result.Diagnosis);
     }
 
     [Fact]

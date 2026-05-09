@@ -106,7 +106,8 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
                     unityProject,
                     attemptTimeout,
                     session.SessionToken,
-                    cancellationToken)
+                    validateProjectFingerprint: false,
+                    cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
             return string.Equals(pingResponse.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal)
                    && string.Equals(pingResponse.EditorMode, DaemonEditorModeValues.Gui, StringComparison.Ordinal)

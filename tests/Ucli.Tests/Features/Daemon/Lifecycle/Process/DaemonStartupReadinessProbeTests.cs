@@ -482,6 +482,7 @@ public sealed class DaemonStartupReadinessProbeTests
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             string? sessionToken = null,
+            bool validateProjectFingerprint = true,
             CancellationToken cancellationToken = default)
         {
             CallCount++;

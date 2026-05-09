@@ -285,18 +285,19 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         string primaryErrorMessagePrefix,
         string primaryErrorLabel)
     {
+        var diagnosis = new DaemonDiagnosis(
+            Reason: DaemonDiagnosisReasonValues.StartupFailed,
+            Message: primaryError.Message,
+            ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+            IsInferred: false,
+            UpdatedAtUtc: timeProvider.GetUtcNow(),
+            ProcessId: processId,
+            EditorInstancePath: null,
+            SessionIssuedAtUtc: expectedIssuedAtUtc);
         var diagnosisWriteResult = await daemonDiagnosisStore.Write(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
-                new DaemonDiagnosis(
-                    Reason: DaemonDiagnosisReasonValues.StartupFailed,
-                    Message: primaryError.Message,
-                    ReportedBy: DaemonDiagnosisReportedByValues.Cli,
-                    IsInferred: false,
-                    UpdatedAtUtc: timeProvider.GetUtcNow(),
-                    ProcessId: processId,
-                    EditorInstancePath: null,
-                    SessionIssuedAtUtc: expectedIssuedAtUtc),
+                diagnosis,
                 CancellationToken.None)
             .ConfigureAwait(false);
         var compensationResult = await daemonLaunchCompensationService.CleanupFailedLaunch(
@@ -313,7 +314,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 $"{primaryErrorMessagePrefix}, diagnosis persistence failed, and cleanup failed. " +
                 $"{primaryErrorLabel}={primaryError.Message} " +
                 $"DiagnosisError={diagnosisWriteResult.Error!.Message} " +
-                $"CleanupError={compensationResult.Error!.Message}"));
+                $"CleanupError={compensationResult.Error!.Message}"), diagnosis);
         }
 
         if (!diagnosisWriteResult.IsSuccess)
@@ -322,7 +323,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 primaryError,
                 $"{primaryErrorMessagePrefix} and diagnosis persistence failed. " +
                 $"{primaryErrorLabel}={primaryError.Message} " +
-                $"DiagnosisError={diagnosisWriteResult.Error!.Message}"));
+                $"DiagnosisError={diagnosisWriteResult.Error!.Message}"), diagnosis);
         }
 
         if (!compensationResult.IsSuccess)
@@ -331,10 +332,10 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 primaryError,
                 $"{primaryErrorMessagePrefix} and cleanup failed. " +
                 $"{primaryErrorLabel}={primaryError.Message} " +
-                $"CleanupError={compensationResult.Error!.Message}"));
+                $"CleanupError={compensationResult.Error!.Message}"), diagnosis);
         }
 
-        return DaemonStartResult.Failure(primaryError);
+        return DaemonStartResult.Failure(primaryError, diagnosis);
     }
 
     private async ValueTask<DaemonStartResult> CreateGuiEndpointNotRegisteredFailure (
@@ -343,25 +344,21 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         ExecutionError waitError)
     {
         var editorInstancePath = ResolveEditorInstancePath(unityProject.UnityProjectRoot);
-        var timeoutError = ExecutionError.Timeout(
-            "Timed out while waiting for GUI Editor endpoint registration. " +
-            $"reason={DaemonDiagnosisReasonValues.GuiEndpointNotRegistered} " +
-            $"editorInstancePath={editorInstancePath} processId={processId}. " +
-            waitError.Message,
-            ExecutionErrorCodes.IpcTimeout);
+        var timeoutError = DaemonGuiEndpointNotRegisteredFailureFactory.CreateTimeoutError(
+            "GUI Editor",
+            editorInstancePath,
+            processId,
+            waitError);
         var updatedAtUtc = timeProvider.GetUtcNow();
+        var diagnosis = DaemonGuiEndpointNotRegisteredFailureFactory.CreateDiagnosis(
+            timeoutError.Message,
+            processId,
+            editorInstancePath,
+            updatedAtUtc);
         var diagnosisWriteResult = await daemonDiagnosisStore.Write(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
-                new DaemonDiagnosis(
-                    Reason: DaemonDiagnosisReasonValues.GuiEndpointNotRegistered,
-                    Message: timeoutError.Message,
-                    ReportedBy: DaemonDiagnosisReportedByValues.Cli,
-                    IsInferred: true,
-                    UpdatedAtUtc: updatedAtUtc,
-                    ProcessId: processId,
-                    EditorInstancePath: editorInstancePath,
-                    SessionIssuedAtUtc: updatedAtUtc),
+                diagnosis,
                 CancellationToken.None)
             .ConfigureAwait(false);
         if (!diagnosisWriteResult.IsSuccess)
@@ -369,10 +366,10 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             return DaemonStartResult.Failure(CreateAugmentedPrimaryError(
                 timeoutError,
                 "GUI Editor endpoint registration timed out and diagnosis persistence failed. " +
-                $"StartError={timeoutError.Message} DiagnosisError={diagnosisWriteResult.Error!.Message}"));
+                $"StartError={timeoutError.Message} DiagnosisError={diagnosisWriteResult.Error!.Message}"), diagnosis);
         }
 
-        return DaemonStartResult.Failure(timeoutError);
+        return DaemonStartResult.Failure(timeoutError, diagnosis);
     }
 
     private static ExecutionError CreateAugmentedPrimaryError (

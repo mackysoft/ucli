@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 
@@ -43,6 +43,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         var markerReadResult = await markerReader.Read(unityProject, cancellationToken).ConfigureAwait(false);
         if (!markerReadResult.IsSuccess)
         {
@@ -68,10 +69,19 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
                 DaemonErrorCodes.DaemonEditorModeMismatch));
         }
 
+        if (!deadline.TryGetRemainingTimeout(out var waitTimeout))
+        {
+            return await CreateGuiEndpointNotRegisteredFailure(
+                    unityProject,
+                    marker,
+                    CreateTimeoutError($"Timed out before waiting for existing GUI Editor endpoint registration. ProcessId={marker.ProcessId}."))
+                .ConfigureAwait(false);
+        }
+
         var waitResult = await sessionRegistrationAwaiter.WaitForSession(
                 unityProject,
                 marker.ProcessId,
-                timeout,
+                waitTimeout,
                 cancellationToken)
             .ConfigureAwait(false);
         if (waitResult.IsSuccess)
@@ -84,47 +94,41 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
             return DaemonStartResult.Failure(waitResult.Error);
         }
 
-        var timeoutError = CreateGuiEndpointTimeoutError(marker, waitResult.Error);
+        return await CreateGuiEndpointNotRegisteredFailure(unityProject, marker, waitResult.Error).ConfigureAwait(false);
+    }
+
+    private async ValueTask<DaemonStartResult> CreateGuiEndpointNotRegisteredFailure (
+        ResolvedUnityProjectContext unityProject,
+        UnityEditorInstanceMarker marker,
+        ExecutionError waitError)
+    {
+        var timeoutError = DaemonGuiEndpointNotRegisteredFailureFactory.CreateTimeoutError(
+            "existing GUI Editor",
+            marker.MarkerPath,
+            marker.ProcessId,
+            waitError);
+        var diagnosis = DaemonGuiEndpointNotRegisteredFailureFactory.CreateDiagnosis(
+            timeoutError.Message,
+            marker.ProcessId,
+            marker.MarkerPath,
+            timeProvider.GetUtcNow());
         var diagnosisWriteResult = await daemonDiagnosisStore.Write(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
-                CreateGuiEndpointNotRegisteredDiagnosis(marker, timeoutError.Message),
+                diagnosis,
                 CancellationToken.None)
             .ConfigureAwait(false);
         if (!diagnosisWriteResult.IsSuccess)
         {
-            return DaemonStartResult.Failure(CreateAugmentedPrimaryError(timeoutError, diagnosisWriteResult.Error!));
+            return DaemonStartResult.Failure(CreateAugmentedPrimaryError(timeoutError, diagnosisWriteResult.Error!), diagnosis);
         }
 
-        return DaemonStartResult.Failure(timeoutError);
+        return DaemonStartResult.Failure(timeoutError, diagnosis);
     }
 
-    private DaemonDiagnosis CreateGuiEndpointNotRegisteredDiagnosis (
-        UnityEditorInstanceMarker marker,
-        string message)
+    private static ExecutionError CreateTimeoutError (string message)
     {
-        var updatedAtUtc = timeProvider.GetUtcNow();
-        return new DaemonDiagnosis(
-            Reason: DaemonDiagnosisReasonValues.GuiEndpointNotRegistered,
-            Message: message,
-            ReportedBy: DaemonDiagnosisReportedByValues.Cli,
-            IsInferred: true,
-            UpdatedAtUtc: updatedAtUtc,
-            ProcessId: marker.ProcessId,
-            EditorInstancePath: marker.MarkerPath,
-            SessionIssuedAtUtc: updatedAtUtc);
-    }
-
-    private static ExecutionError CreateGuiEndpointTimeoutError (
-        UnityEditorInstanceMarker marker,
-        ExecutionError waitError)
-    {
-        return ExecutionError.Timeout(
-            "Timed out while waiting for existing GUI Editor endpoint registration. " +
-            $"reason={DaemonDiagnosisReasonValues.GuiEndpointNotRegistered} " +
-            $"editorInstancePath={marker.MarkerPath} processId={marker.ProcessId}. " +
-            waitError.Message,
-            ExecutionErrorCodes.IpcTimeout);
+        return ExecutionError.Timeout(message, ExecutionErrorCodes.IpcTimeout);
     }
 
     private static ExecutionError CreateAugmentedPrimaryError (

@@ -1,4 +1,5 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Tests.Daemon;
 
@@ -47,6 +48,25 @@ public sealed class UnityEditorInstanceMarkerReaderTests
         Assert.True(result.IsSuccess);
         Assert.False(result.Exists);
         Assert.Null(result.Marker);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenMarkerIsTooLarge_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-editor-instance-marker-reader", "too-large");
+        var unityProjectRoot = Path.Combine(scope.FullPath, "UnityProject");
+        var libraryPath = Path.Combine(unityProjectRoot, "Library");
+        Directory.CreateDirectory(libraryPath);
+        var markerPath = Path.Combine(libraryPath, "EditorInstance.json");
+        await File.WriteAllTextAsync(markerPath, new string(' ', 17 * 1024));
+        var reader = new UnityEditorInstanceMarkerReader();
+
+        var result = await reader.Read(CreateContext(unityProjectRoot), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
+        Assert.Contains("too large", result.Error.Message, StringComparison.Ordinal);
     }
 
     private static ResolvedUnityProjectContext CreateContext (string unityProjectRoot)

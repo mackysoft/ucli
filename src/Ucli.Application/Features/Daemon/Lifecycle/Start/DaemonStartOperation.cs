@@ -270,7 +270,9 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             return result;
         }
 
-        return DaemonStartResult.Failure(CreateAugmentedPrimaryError(result.Error, diagnosisCleanupError));
+        return DaemonStartResult.Failure(
+            CreateAugmentedPrimaryError(result.Error, diagnosisCleanupError),
+            result.Diagnosis);
     }
 
     private static ExecutionError CreateAugmentedPrimaryError (
