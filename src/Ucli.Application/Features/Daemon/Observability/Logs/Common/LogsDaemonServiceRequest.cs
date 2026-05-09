@@ -1,6 +1,6 @@
 namespace MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 
-/// <summary> Represents normalized option values for one <c>logs daemon</c> command execution. </summary>
+/// <summary> Represents normalized option values for one <c>logs daemon read</c> command execution. </summary>
 /// <param name="ProjectPath"> The optional Unity project root path. </param>
 /// <param name="Tail"> The optional tail count. </param>
 /// <param name="After"> The optional opaque cursor used for incremental reads. </param>

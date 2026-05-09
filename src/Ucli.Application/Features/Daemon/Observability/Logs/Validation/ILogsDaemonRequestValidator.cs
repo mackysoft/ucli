@@ -4,7 +4,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Validation;
 
-/// <summary> Validates one <c>logs daemon</c> request and resolves derived runtime values. </summary>
+/// <summary> Validates one <c>logs daemon read</c> request and resolves derived runtime values. </summary>
 internal interface ILogsDaemonRequestValidator
 {
     /// <summary> Validates request values and resolves stream runtime options. </summary>

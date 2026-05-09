@@ -335,6 +335,16 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 | `endpointAddress` | `string \| null` | yes | valid session を読めた場合のみ値を持つ |
 | `diagnosis` | `object \| null` | yes | `running` は `null` |
 
+### `ucli logs unity clear`
+`ucli logs unity clear` は `command=logs.unity.clear` の `request-response` 型公開 CLI JSON 出力を返す。取得系の `ucli logs unity read` / `ucli logs daemon read` は stream 型であり、この payload 契約を使わない。
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `clearStatus` | `cleared` | yes | GUI Editor の Unity Console 表示のクリア結果 |
+| `timeoutMilliseconds` | integer | yes | 実効タイムアウト |
+
+このコマンドは GUI Editor の Unity Console 表示だけを対象とし、daemon log、Unity log stream、`.ucli` 配下の物理ログファイルは削除しない。
+
 ### `ucli init`
 
 | Property | Type | Required | Description |

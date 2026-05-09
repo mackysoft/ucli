@@ -4,7 +4,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Validation;
 
-/// <summary> Validates raw <c>logs unity</c> request values. </summary>
+/// <summary> Validates raw <c>logs unity read</c> request values. </summary>
 internal interface ILogsUnityRequestValidator
 {
     /// <summary> Tries to validate one raw request and resolve normalized runtime values. </summary>

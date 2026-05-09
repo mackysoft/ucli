@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
@@ -578,6 +579,25 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(payload.NextCursor, Is.Not.Empty);
         });
 
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator HandleRequest_WhenValidTokenAndUnityConsoleClear_ReturnsSuccessResponse () => UniTask.ToCoroutine(async () =>
+        {
+            var server = CreateServerForRequestHandling(
+                new StubSessionTokenValidator(accepted: true),
+                new StubExecuteRequestDispatcher(),
+                new StubUnityTestRunService(),
+                new StubDaemonShutdownSignal());
+            var request = CreateUnityConsoleClearRequest(sessionToken: "valid-token", requestId: "req-unity-console-clear");
+
+            var response = await server.HandleRequestAsync(request);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(response.Errors, Is.Empty);
+            var payload = response.Payload.Deserialize<IpcUnityConsoleClearResponse>(SerializerOptions);
+            Assert.That(payload, Is.Not.Null);
+        });
+
         private static IpcRequest CreatePingRequest (string sessionToken)
         {
             return new IpcRequest(
@@ -699,6 +719,21 @@ namespace MackySoft.Ucli.Unity.Tests
                 Payload: payload);
         }
 
+        private static IpcRequest CreateUnityConsoleClearRequest (
+            string sessionToken,
+            string requestId)
+        {
+            var payload = JsonSerializer.SerializeToElement(
+                new IpcUnityConsoleClearRequest("tests"),
+                SerializerOptions);
+            return new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: requestId,
+                SessionToken: sessionToken,
+                Method: IpcMethodNames.UnityConsoleClear,
+                Payload: payload);
+        }
+
         private static UnityIpcServer CreateServerForLifecycle ()
         {
             return CreateServer(
@@ -754,6 +789,9 @@ namespace MackySoft.Ucli.Unity.Tests
                         new UnityLogsReadRequestValidator(),
                         new UnityLogsReadQueryEngine(),
                         new UnityLogsReadResponseFactory()),
+                    new UnityConsoleClearUnityIpcMethodHandler(
+                        new StubUnityConsoleClearer(),
+                        new StubUnityEditorReadinessGate(DaemonEditorMode.Gui)),
                     new ShutdownUnityIpcMethodHandler(),
                 });
             var requestHandler = new UnityIpcRequestHandler(sessionTokenValidator, methodDispatcher);
@@ -985,6 +1023,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 CallCount++;
                 LastRequest = request;
                 return Task.FromResult(response);
+            }
+        }
+
+        private sealed class StubUnityConsoleClearer : IUnityConsoleClearer
+        {
+            public UnityConsoleClearResult Clear ()
+            {
+                return UnityConsoleClearResult.Success();
             }
         }
 

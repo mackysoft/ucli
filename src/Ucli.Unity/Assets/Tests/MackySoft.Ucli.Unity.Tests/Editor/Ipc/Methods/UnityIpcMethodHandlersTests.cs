@@ -541,6 +541,141 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator UnityConsoleClearHandler_WhenPayloadIsValidAndEditorModeIsGui_CallsClearerAndReturnsOk () => UniTask.ToCoroutine(async () =>
+        {
+            var clearer = new StubUnityConsoleClearer(UnityConsoleClearResult.Success());
+            var handler = CreateUnityConsoleClearHandler(clearer, DaemonEditorMode.Gui);
+            var request = CreateUnityConsoleClearRequest(
+                "req-unity-console-clear-valid",
+                new IpcUnityConsoleClearRequest("tests"));
+
+            var response = await handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(response.Errors, Is.Empty);
+            Assert.That(clearer.CallCount, Is.EqualTo(1));
+            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcUnityConsoleClearResponse payload, out _), Is.True);
+            Assert.That(payload, Is.Not.Null);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator UnityConsoleClearHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var handler = CreateUnityConsoleClearHandler(new StubUnityConsoleClearer(UnityConsoleClearResult.Success()), DaemonEditorMode.Gui);
+            var request = CreateUnityConsoleClearRequest("req-unity-console-clear-invalid", 123);
+
+            var response = await handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator UnityConsoleClearHandler_WhenRequestedByIsEmpty_ReturnsInvalidArgumentWithoutCallingClearer () => UniTask.ToCoroutine(async () =>
+        {
+            var clearer = new StubUnityConsoleClearer(UnityConsoleClearResult.Success());
+            var handler = CreateUnityConsoleClearHandler(clearer, DaemonEditorMode.Gui);
+            var request = CreateUnityConsoleClearRequest(
+                "req-unity-console-clear-empty-requested-by",
+                new IpcUnityConsoleClearRequest(" "));
+
+            var response = await handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(clearer.CallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator UnityConsoleClearHandler_WhenRequestedByContainsInvalidCharacter_ReturnsInvalidArgumentWithoutCallingClearer () => UniTask.ToCoroutine(async () =>
+        {
+            var clearer = new StubUnityConsoleClearer(UnityConsoleClearResult.Success());
+            var handler = CreateUnityConsoleClearHandler(clearer, DaemonEditorMode.Gui);
+            var request = CreateUnityConsoleClearRequest(
+                "req-unity-console-clear-invalid-requested-by-character",
+                new IpcUnityConsoleClearRequest("logs.unity.clear\n"));
+
+            var response = await handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(clearer.CallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator UnityConsoleClearHandler_WhenRequestedByIsTooLong_ReturnsInvalidArgumentWithoutCallingClearer () => UniTask.ToCoroutine(async () =>
+        {
+            var clearer = new StubUnityConsoleClearer(UnityConsoleClearResult.Success());
+            var handler = CreateUnityConsoleClearHandler(clearer, DaemonEditorMode.Gui);
+            var request = CreateUnityConsoleClearRequest(
+                "req-unity-console-clear-long-requested-by",
+                new IpcUnityConsoleClearRequest(new string('a', 65)));
+
+            var response = await handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(clearer.CallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator UnityConsoleClearHandler_WhenEditorModeIsBatchmode_ReturnsInvalidArgumentWithoutCallingClearer () => UniTask.ToCoroutine(async () =>
+        {
+            var clearer = new StubUnityConsoleClearer(UnityConsoleClearResult.Success());
+            var handler = CreateUnityConsoleClearHandler(clearer, DaemonEditorMode.Batchmode);
+            var request = CreateUnityConsoleClearRequest(
+                "req-unity-console-clear-batchmode",
+                new IpcUnityConsoleClearRequest("tests"));
+
+            var response = await handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(clearer.CallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator UnityConsoleClearHandler_WhenClearerFails_ReturnsInternalError () => UniTask.ToCoroutine(async () =>
+        {
+            var handler = CreateUnityConsoleClearHandler(
+                new StubUnityConsoleClearer(UnityConsoleClearResult.Failure("UnityEditor.LogEntries.Clear could not be resolved.")),
+                DaemonEditorMode.Gui);
+            var request = CreateUnityConsoleClearRequest(
+                "req-unity-console-clear-failure",
+                new IpcUnityConsoleClearRequest("tests"));
+
+            var response = await handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InternalError));
+        });
+
+        [Test]
+        [Category("Size.Small")]
+        public void UnityEditorConsoleClearer_WhenClearMethodResolutionFails_ReturnsFailure ()
+        {
+            var clearer = new UnityEditorConsoleClearer(null, "reflection resolution failed");
+
+            var result = clearer.Clear();
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.ErrorMessage, Is.EqualTo("reflection resolution failed"));
+        }
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator DaemonLogsReadHandler_WhenPayloadIsValid_ReturnsFilteredEventsAndNextCursor () => UniTask.ToCoroutine(async () =>
         {
             var stream = new DaemonLogRingBuffer();
@@ -940,6 +1075,13 @@ namespace MackySoft.Ucli.Unity.Tests
             return CreateRequest(requestId, IpcMethodNames.Shutdown, payload);
         }
 
+        private static IpcRequest CreateUnityConsoleClearRequest (
+            string requestId,
+            object payload)
+        {
+            return CreateRequest(requestId, IpcMethodNames.UnityConsoleClear, payload);
+        }
+
         private static IpcRequest CreateDaemonLogsReadRequest (
             string requestId,
             object payload)
@@ -988,6 +1130,15 @@ namespace MackySoft.Ucli.Unity.Tests
                 new UnityLogsReadRequestValidator(),
                 new UnityLogsReadQueryEngine(),
                 new UnityLogsReadResponseFactory());
+        }
+
+        private static UnityConsoleClearUnityIpcMethodHandler CreateUnityConsoleClearHandler (
+            IUnityConsoleClearer clearer,
+            DaemonEditorMode editorMode)
+        {
+            return new UnityConsoleClearUnityIpcMethodHandler(
+                clearer,
+                new StubUnityEditorReadinessGate(editorMode));
         }
 
         private static IpcRequest CreateRequest (
@@ -1109,6 +1260,24 @@ namespace MackySoft.Ucli.Unity.Tests
                 CallCount++;
                 LastRequest = request;
                 return execute(request);
+            }
+        }
+
+        private sealed class StubUnityConsoleClearer : IUnityConsoleClearer
+        {
+            private readonly UnityConsoleClearResult result;
+
+            public StubUnityConsoleClearer (UnityConsoleClearResult result)
+            {
+                this.result = result;
+            }
+
+            public int CallCount { get; private set; }
+
+            public UnityConsoleClearResult Clear ()
+            {
+                CallCount++;
+                return result;
             }
         }
 

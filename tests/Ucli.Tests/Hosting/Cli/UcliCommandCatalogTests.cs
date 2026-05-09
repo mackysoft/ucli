@@ -12,8 +12,9 @@ public sealed class UcliCommandCatalogTests
     [InlineData(UcliCommandNames.Daemon, UcliCommandNames.CleanupSubcommand, null, UcliCommandNames.DaemonCleanup)]
     [InlineData(UcliCommandNames.Daemon, UcliCommandNames.Status, null, UcliCommandNames.DaemonStatus)]
     [InlineData(UcliCommandNames.Daemon, UcliCommandNames.ListSubcommand, null, UcliCommandNames.DaemonList)]
-    [InlineData(UcliCommandNames.Logs, UcliCommandNames.Daemon, null, UcliCommandNames.LogsDaemon)]
-    [InlineData(UcliCommandNames.Logs, UcliCommandNames.UnitySubcommand, null, UcliCommandNames.LogsUnity)]
+    [InlineData(UcliCommandNames.Logs, UcliCommandNames.Daemon, UcliCommandNames.ReadSubcommand, UcliCommandNames.LogsDaemonRead)]
+    [InlineData(UcliCommandNames.Logs, UcliCommandNames.UnitySubcommand, UcliCommandNames.ReadSubcommand, UcliCommandNames.LogsUnityRead)]
+    [InlineData(UcliCommandNames.Logs, UcliCommandNames.UnitySubcommand, UcliCommandNames.ClearSubcommand, UcliCommandNames.LogsUnityClear)]
     [InlineData(UcliCommandNames.Ops, UcliCommandNames.ListSubcommand, null, UcliCommandNames.OpsList)]
     [InlineData(UcliCommandNames.Ops, UcliCommandNames.DescribeSubcommand, null, UcliCommandNames.OpsDescribe)]
     [InlineData(UcliCommandNames.Skills, UcliCommandNames.ListSubcommand, null, UcliCommandNames.SkillsList)]
@@ -137,5 +138,31 @@ public sealed class UcliCommandCatalogTests
 
         Assert.True(found);
         Assert.Equal([expectedLeafName], subcommands);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryGetSupportedLeafSubcommands_WhenLogsUnityGroupSpecified_ReturnsReadAndClear ()
+    {
+        var found = UcliCommandCatalog.TryGetSupportedLeafSubcommands(
+            UcliCommandNames.Logs,
+            UcliCommandNames.UnitySubcommand,
+            out var subcommands);
+
+        Assert.True(found);
+        Assert.Equal([UcliCommandNames.ReadSubcommand, UcliCommandNames.ClearSubcommand], subcommands);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryGetSupportedLeafSubcommands_WhenLogsDaemonGroupSpecified_ReturnsRead ()
+    {
+        var found = UcliCommandCatalog.TryGetSupportedLeafSubcommands(
+            UcliCommandNames.Logs,
+            UcliCommandNames.Daemon,
+            out var subcommands);
+
+        Assert.True(found);
+        Assert.Equal([UcliCommandNames.ReadSubcommand], subcommands);
     }
 }

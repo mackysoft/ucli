@@ -39,11 +39,18 @@ internal static class UcliCommandCatalog
 
     private static readonly CommandGroupEntry LogsCommandGroup = new(
         UcliCommandNames.Logs,
+        [],
         [
-            new CommandLeafEntry(UcliCommandNames.Daemon, UcliCommandNames.LogsDaemon),
-            new CommandLeafEntry(UcliCommandNames.UnitySubcommand, UcliCommandNames.LogsUnity),
-        ],
-        []);
+            new NestedCommandGroupEntry(
+                UcliCommandNames.Daemon,
+                [new CommandLeafEntry(UcliCommandNames.ReadSubcommand, UcliCommandNames.LogsDaemonRead)]),
+            new NestedCommandGroupEntry(
+                UcliCommandNames.UnitySubcommand,
+                [
+                    new CommandLeafEntry(UcliCommandNames.ReadSubcommand, UcliCommandNames.LogsUnityRead),
+                    new CommandLeafEntry(UcliCommandNames.ClearSubcommand, UcliCommandNames.LogsUnityClear),
+                ]),
+        ]);
 
     private static readonly CommandGroupEntry OpsCommandGroup = new(
         UcliCommandNames.Ops,
@@ -147,8 +154,9 @@ internal static class UcliCommandCatalog
         app.Add<DaemonCleanupCommand>("daemon");
         app.Add<DaemonStatusCommand>("daemon");
         app.Add<DaemonListCommand>("daemon");
-        app.Add<LogsDaemonCommand>("logs");
-        app.Add<LogsUnityCommand>("logs");
+        app.Add<LogsDaemonReadCommand>("logs daemon");
+        app.Add<LogsUnityReadCommand>("logs unity");
+        app.Add<LogsUnityClearCommand>("logs unity");
         app.Add<OpsListCommand>("ops");
         app.Add<OpsDescribeCommand>("ops");
         app.Add<SkillsListCommand>("skills");
@@ -408,7 +416,8 @@ internal static class UcliCommandCatalog
         {
             for (var i = 0; i < Leaves.Length; i++)
             {
-                commandPaths[index] = $"{CommandName} {Leaves[i].SubcommandName}";
+                var leaf = Leaves[i];
+                commandPaths[index] = $"{CommandName} {leaf.SubcommandName}";
                 index++;
             }
 

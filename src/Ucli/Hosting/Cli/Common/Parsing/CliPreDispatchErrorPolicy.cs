@@ -45,7 +45,7 @@ internal static class CliPreDispatchErrorPolicy
                 return unexpectedLeafArgumentResult;
             }
 
-            return TryCreateInvalidLeafSubcommandResult(args, firstArgument);
+            return TryCreateInvalidNestedLeafSubcommandResult(args, firstArgument);
         }
 
         if (UcliCommandCatalog.IsRegisteredRootCommand(firstArgument)
@@ -77,12 +77,16 @@ internal static class CliPreDispatchErrorPolicy
             rule.ExpectedArgumentCount);
     }
 
-    private static CommandResult? TryCreateInvalidLeafSubcommandResult (
+    private static CommandResult? TryCreateInvalidNestedLeafSubcommandResult (
         string[] args,
         string commandName)
     {
-        if (args.Length < 2
-            || !UcliCommandCatalog.TryGetSupportedLeafSubcommands(commandName, args[1], out var supportedSubcommands))
+        if (args.Length < 2)
+        {
+            return null;
+        }
+
+        if (!UcliCommandCatalog.TryGetSupportedLeafSubcommands(commandName, args[1], out var supportedSubcommands))
         {
             return null;
         }

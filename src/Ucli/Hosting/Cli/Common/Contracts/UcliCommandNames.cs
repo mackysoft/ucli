@@ -75,11 +75,14 @@ internal static class UcliCommandNames
     /// <summary> Gets the top-level command name for skills. </summary>
     public const string Skills = "skills";
 
-    /// <summary> Gets the command name for <c>logs daemon</c> result payloads. </summary>
-    public const string LogsDaemon = "logs.daemon";
+    /// <summary> Gets the command name for <c>logs daemon read</c> result payloads. </summary>
+    public const string LogsDaemonRead = "logs.daemon.read";
 
-    /// <summary> Gets the command name for <c>logs unity</c> result payloads. </summary>
-    public const string LogsUnity = "logs.unity";
+    /// <summary> Gets the command name for <c>logs unity read</c> result payloads. </summary>
+    public const string LogsUnityRead = "logs.unity.read";
+
+    /// <summary> Gets the command name for <c>logs unity clear</c> result payloads. </summary>
+    public const string LogsUnityClear = "logs.unity.clear";
 
     /// <summary> Gets the command name for <c>ops list</c> result payloads. </summary>
     public const string OpsList = "ops.list";
@@ -155,6 +158,12 @@ internal static class UcliCommandNames
 
     /// <summary> Gets the nested command name for logs unity target. </summary>
     public const string UnitySubcommand = "unity";
+
+    /// <summary> Gets the nested command name for clear operations. </summary>
+    public const string ClearSubcommand = "clear";
+
+    /// <summary> Gets the nested command name for read operations. </summary>
+    public const string ReadSubcommand = "read";
 
     /// <summary> Gets the nested command name for asset queries. </summary>
     public const string AssetSubcommand = "asset";

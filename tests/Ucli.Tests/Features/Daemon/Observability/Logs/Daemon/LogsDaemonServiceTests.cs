@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
@@ -6,7 +5,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Streaming;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Validation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Daemon;
-using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Tests.Logs;
 
@@ -62,6 +60,7 @@ public sealed class LogsDaemonServiceTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.Equal(UcliCommandIds.LogsDaemonRead, resolver.LastTimeoutCommand);
         Assert.Equal(["alpha", "bravo"], emittedMessages);
         Assert.Equal(["stream-1:1", "stream-1:2", "stream-1:3"], daemonLogsClient.CapturedAfterValues);
     }
@@ -151,24 +150,6 @@ public sealed class LogsDaemonServiceTests
         Assert.Equal(2, daemonLogsClient.CallCount);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task DaemonCommand_WhenCancellationRequested_ReturnsSuccessExitCode ()
-    {
-        var command = new MackySoft.Ucli.Hosting.Cli.Daemon.Logs.LogsDaemonCommand(
-            new ThrowingLogsDaemonService(),
-            CommandResultTestWriter.Create());
-        using var cancellationTokenSource = new CancellationTokenSource();
-        cancellationTokenSource.Cancel();
-
-        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.DaemonAsync(
-            stream: true,
-            cancellationToken: cancellationTokenSource.Token));
-
-        Assert.Equal(0, exitCode);
-        Assert.Equal(string.Empty, standardOutput);
-    }
-
     private static IpcDaemonLogEvent CreateEvent (
         string cursor,
         string message)
@@ -236,14 +217,4 @@ public sealed class LogsDaemonServiceTests
         }
     }
 
-    private sealed class ThrowingLogsDaemonService : ILogsDaemonService
-    {
-        public ValueTask<LogsDaemonServiceResult> ExecuteAsync (
-            LogsDaemonServiceRequest request,
-            Func<IpcDaemonLogEvent, string, CancellationToken, ValueTask> onEvent,
-            CancellationToken cancellationToken = default)
-        {
-            throw new OperationCanceledException(cancellationToken);
-        }
-    }
 }

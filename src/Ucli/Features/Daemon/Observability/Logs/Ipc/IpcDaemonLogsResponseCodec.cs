@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Features.Daemon.Observability.Logs.Ipc;
 
@@ -19,60 +18,18 @@ internal static class IpcDaemonLogsResponseCodec
     {
         ArgumentNullException.ThrowIfNull(response);
 
-        if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
-        {
-            if (firstError is not null)
-            {
-                error = firstError.Code == UcliCoreErrorCodes.InvalidArgument
-                    ? ExecutionError.InvalidArgument($"Daemon logs read failed with error code '{firstError.Code}'. {firstError.Message}")
-                    : ExecutionError.InternalError($"Daemon logs read failed with error code '{firstError.Code}'. {firstError.Message}");
-                payload = null;
-                return false;
-            }
-
-            error = ExecutionError.InternalError($"Daemon logs read failed with status '{status}'.");
-            payload = null;
-            return false;
-        }
-
-        if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcDaemonLogsReadResponse parsedPayload, out var readError))
-        {
-            error = ExecutionError.InternalError($"Daemon logs read payload is invalid. {readError.Message}");
-            payload = null;
-            return false;
-        }
-
-        if (parsedPayload.Events is null)
-        {
-            error = ExecutionError.InternalError("Daemon logs read payload is invalid. Property 'events' must not be null.");
-            payload = null;
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(parsedPayload.NextCursor))
-        {
-            error = ExecutionError.InternalError("Daemon logs read payload is invalid. Property 'nextCursor' must not be empty.");
-            payload = null;
-            return false;
-        }
-
-        foreach (var daemonLogEvent in parsedPayload.Events)
-        {
-            if (daemonLogEvent is null
-                || string.IsNullOrWhiteSpace(daemonLogEvent.Timestamp)
-                || string.IsNullOrWhiteSpace(daemonLogEvent.Level)
-                || string.IsNullOrWhiteSpace(daemonLogEvent.Category)
-                || string.IsNullOrWhiteSpace(daemonLogEvent.Message)
-                || string.IsNullOrWhiteSpace(daemonLogEvent.Cursor))
-            {
-                error = ExecutionError.InternalError("Daemon logs read payload is invalid. One or more event fields are missing.");
-                payload = null;
-                return false;
-            }
-        }
-
-        payload = parsedPayload;
-        error = null;
-        return true;
+        return IpcLogsResponseDecodeHelper.TryDecodeReadPayload<IpcDaemonLogsReadResponse, IpcDaemonLogEvent>(
+            response,
+            "Daemon logs read",
+            static parsedPayload => parsedPayload.Events,
+            static parsedPayload => parsedPayload.NextCursor,
+            static daemonLogEvent =>
+                !string.IsNullOrWhiteSpace(daemonLogEvent.Timestamp)
+                && !string.IsNullOrWhiteSpace(daemonLogEvent.Level)
+                && !string.IsNullOrWhiteSpace(daemonLogEvent.Category)
+                && !string.IsNullOrWhiteSpace(daemonLogEvent.Message)
+                && !string.IsNullOrWhiteSpace(daemonLogEvent.Cursor),
+            out payload,
+            out error);
     }
 }

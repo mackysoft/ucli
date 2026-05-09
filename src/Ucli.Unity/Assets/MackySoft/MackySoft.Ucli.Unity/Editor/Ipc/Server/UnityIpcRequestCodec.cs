@@ -124,6 +124,19 @@ namespace MackySoft.Ucli.Unity.Ipc
             return TryDecodePayload(request, "UnityLogsRead", out payload, out errorResponse);
         }
 
+        /// <summary> Tries to decode one Unity Console clear request payload. </summary>
+        /// <param name="request"> The incoming request envelope. </param>
+        /// <param name="payload"> The decoded payload when successful. </param>
+        /// <param name="errorResponse"> The invalid-argument response when decoding fails. </param>
+        /// <returns> <see langword="true" /> when decoding succeeded; otherwise <see langword="false" />. </returns>
+        public static bool TryDecodeUnityConsoleClearRequest (
+            IpcRequest request,
+            out IpcUnityConsoleClearRequest? payload,
+            out IpcResponse? errorResponse)
+        {
+            return TryDecodePayload(request, "UnityConsoleClear", out payload, out errorResponse);
+        }
+
         /// <summary> Tries to decode one method payload and creates standardized invalid-payload errors. </summary>
         /// <typeparam name="TPayload"> The payload model type. </typeparam>
         /// <param name="request"> The incoming request envelope. </param>
