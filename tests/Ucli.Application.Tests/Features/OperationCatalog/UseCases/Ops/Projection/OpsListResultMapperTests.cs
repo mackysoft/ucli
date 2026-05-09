@@ -1,6 +1,8 @@
+using System.Text.RegularExpressions;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops;
+using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Filtering;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
 using MackySoft.Ucli.Contracts.Configuration;
 using static MackySoft.Ucli.Application.Tests.Helpers.OperationCatalog.OperationCatalogTestFixtures;
@@ -107,5 +109,35 @@ public sealed class OpsListResultMapperTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(expectedCount, result.Output!.Operations.Count);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Map_WhenNameRegexTimesOut_ReturnsInvalidArgument ()
+    {
+        var mapper = new OpsListResultMapper(new OpsReadIndexInfoMapper());
+        var output = new OpsListReadOutput(
+            Snapshot: OpsCatalogListSnapshot.FromCatalog(CreateSnapshot(
+                DateTimeOffset.UtcNow,
+                [
+                    CreateGoDescribeEntry() with { Name = new string('a', 50_000) + "!" },
+                ])),
+            AccessInfo: new OpsCatalogAccessInfo(
+                true,
+                true,
+                OpsCatalogSource.Index,
+                MackySoft.Ucli.Contracts.Index.IndexFreshness.Fresh,
+                DateTimeOffset.UtcNow,
+                null));
+        var filter = new OpsListFilter(
+            new Regex("^(a+)+$", RegexOptions.CultureInvariant, TimeSpan.FromTicks(1)),
+            null,
+            null);
+
+        var result = mapper.Map(output, filter);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Contains("nameRegex", result.Message, StringComparison.Ordinal);
     }
 }

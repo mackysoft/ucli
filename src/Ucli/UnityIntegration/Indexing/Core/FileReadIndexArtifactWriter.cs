@@ -65,55 +65,71 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
 
         var orderedOperations = IndexJsonOrderingPolicy.OrderOpsEntries(operations);
         var catalogEntries = new List<IndexOpsCatalogEntryJsonContract>(orderedOperations.Count);
-        for (var i = 0; i < orderedOperations.Count; i++)
+        var originalDescribeArtifacts = new Dictionary<string, string?>(StringComparer.Ordinal);
+        var catalogWritten = false;
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var operation = orderedOperations[i];
-            if (string.IsNullOrWhiteSpace(operation.Name))
+            for (var i = 0; i < orderedOperations.Count; i++)
             {
-                throw new InvalidOperationException("Operation name must not be empty when writing ops read-index artifacts.");
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var operation = orderedOperations[i];
+                if (string.IsNullOrWhiteSpace(operation.Name))
+                {
+                    throw new InvalidOperationException("Operation name must not be empty when writing ops read-index artifacts.");
+                }
+
+                var describeKey = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(operation.Name));
+                var describeContract = new IndexOpsDescribeJsonContract(
+                    SchemaVersion: SchemaVersion,
+                    GeneratedAtUtc: generatedAtUtc,
+                    SourceInputsHash: sourceInputsHash,
+                    Operation: operation);
+                var describeJson = opsDescribeWriter.Write(describeContract);
+                var describeHash = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(describeJson));
+                var describePath = UcliStoragePathResolver.ResolveOpsDescribePath(
+                    storageRoot,
+                    projectFingerprint,
+                    describeKey);
+
+                await CaptureOriginalDescribeArtifact(describePath, originalDescribeArtifacts, cancellationToken).ConfigureAwait(false);
+                await FileUtilities.WriteAllTextAtomically(
+                        describePath,
+                        describeJson,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+
+                catalogEntries.Add(
+                    new IndexOpsCatalogEntryJsonContract(
+                        Name: operation.Name,
+                        Kind: operation.Kind,
+                        Policy: operation.Policy,
+                        DescribeKey: describeKey,
+                        DescribeHash: describeHash));
             }
 
-            var describeKey = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(operation.Name));
-            var describeContract = new IndexOpsDescribeJsonContract(
+            var opsCatalog = new IndexOpsCatalogJsonContract(
                 SchemaVersion: SchemaVersion,
                 GeneratedAtUtc: generatedAtUtc,
                 SourceInputsHash: sourceInputsHash,
-                Operation: operation);
-            var describeJson = opsDescribeWriter.Write(describeContract);
-            var describeHash = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(describeJson));
-            var describePath = UcliStoragePathResolver.ResolveOpsDescribePath(
-                storageRoot,
-                projectFingerprint,
-                describeKey);
+                Entries: catalogEntries);
 
             await FileUtilities.WriteAllTextAtomically(
-                    describePath,
-                    describeJson,
+                    opsCatalogPath,
+                    opsCatalogWriter.Write(opsCatalog),
                     cancellationToken)
                 .ConfigureAwait(false);
-
-            catalogEntries.Add(
-                new IndexOpsCatalogEntryJsonContract(
-                    Name: operation.Name,
-                    Kind: operation.Kind,
-                    Policy: operation.Policy,
-                    DescribeKey: describeKey,
-                    DescribeHash: describeHash));
+            catalogWritten = true;
         }
+        catch
+        {
+            if (!catalogWritten)
+            {
+                await RestoreDescribeArtifacts(originalDescribeArtifacts).ConfigureAwait(false);
+            }
 
-        var opsCatalog = new IndexOpsCatalogJsonContract(
-            SchemaVersion: SchemaVersion,
-            GeneratedAtUtc: generatedAtUtc,
-            SourceInputsHash: sourceInputsHash,
-            Entries: catalogEntries);
-
-        await FileUtilities.WriteAllTextAtomically(
-                opsCatalogPath,
-                opsCatalogWriter.Write(opsCatalog),
-                cancellationToken)
-            .ConfigureAwait(false);
+            throw;
+        }
 
         if (manifestInputSnapshot != null)
         {
@@ -206,6 +222,40 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
                 sceneTreeLiteLookupWriter.Write(lookup),
                 cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    private static async ValueTask CaptureOriginalDescribeArtifact (
+        string describePath,
+        Dictionary<string, string?> originalDescribeArtifacts,
+        CancellationToken cancellationToken)
+    {
+        if (originalDescribeArtifacts.ContainsKey(describePath))
+        {
+            return;
+        }
+
+        var originalJson = await FileUtilities.ReadAllTextOrNull(describePath, cancellationToken).ConfigureAwait(false);
+        originalDescribeArtifacts.Add(describePath, originalJson);
+    }
+
+    private static async ValueTask RestoreDescribeArtifacts (Dictionary<string, string?> originalDescribeArtifacts)
+    {
+        // NOTE: ops.catalog.json is the commit point for split ops artifacts. Before that point,
+        // existing detail files must remain compatible with the old catalog after cancellation or failure.
+        foreach (var artifact in originalDescribeArtifacts)
+        {
+            if (artifact.Value == null)
+            {
+                FileUtilities.DeleteIfExists(artifact.Key);
+                continue;
+            }
+
+            await FileUtilities.WriteAllTextAtomically(
+                    artifact.Key,
+                    artifact.Value,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
     }
 
     private async ValueTask WriteInputsManifest (

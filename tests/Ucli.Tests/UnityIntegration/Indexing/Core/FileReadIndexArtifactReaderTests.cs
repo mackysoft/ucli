@@ -1,4 +1,7 @@
+using System.Text;
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Cryptography;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
@@ -37,6 +40,112 @@ public sealed class FileReadIndexArtifactReaderTests
         Assert.NotNull(result.Value.Entries);
         Assert.Single(result.Value.Entries);
         Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadOpsDescribe_ReturnsContract_WhenDetailExists ()
+    {
+        using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-describe-success");
+        var reader = new FileReadIndexArtifactReader();
+        const string fingerprint = "fingerprint";
+        const string sourceInputsHash = "source-hash";
+        var project = CreateProject(scope, fingerprint);
+        var operation = CreateGoDescribeEntry();
+        var catalogEntry = WriteOpsDescribe(scope.FullPath, fingerprint, operation, sourceInputsHash);
+
+        var result = await reader.ReadOpsDescribe(project, catalogEntry, sourceInputsHash, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
+        Assert.Equal(sourceInputsHash, result.Value.SourceInputsHash);
+        Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, result.Value.Operation!.Name);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadOpsDescribe_ReturnsBootstrapFailed_WhenDetailDoesNotExist ()
+    {
+        using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-describe-missing");
+        var reader = new FileReadIndexArtifactReader();
+        const string fingerprint = "fingerprint";
+        var project = CreateProject(scope, fingerprint);
+        var catalogEntry = new IndexOpsCatalogEntryJsonContract(
+            UcliPrimitiveOperationNames.GoDescribe,
+            "query",
+            "safe",
+            new string('a', 64),
+            new string('b', 64));
+
+        var result = await reader.ReadOpsDescribe(project, catalogEntry, "source-hash", CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Value);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexBootstrapFailed, result.Error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadOpsDescribe_ReturnsFormatInvalid_WhenDescribeHashDoesNotMatch ()
+    {
+        using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-describe-hash-mismatch");
+        var reader = new FileReadIndexArtifactReader();
+        const string fingerprint = "fingerprint";
+        var project = CreateProject(scope, fingerprint);
+        var operation = CreateGoDescribeEntry();
+        var catalogEntry = WriteOpsDescribe(scope.FullPath, fingerprint, operation, "source-hash");
+        catalogEntry = catalogEntry with { DescribeHash = new string('0', 64) };
+
+        var result = await reader.ReadOpsDescribe(project, catalogEntry, "source-hash", CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Value);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexFormatInvalid, result.Error.Code);
+        Assert.Contains("describeHash", result.Error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadOpsDescribe_ReturnsFormatInvalid_WhenSourceInputsHashDoesNotMatch ()
+    {
+        using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-describe-source-mismatch");
+        var reader = new FileReadIndexArtifactReader();
+        const string fingerprint = "fingerprint";
+        var project = CreateProject(scope, fingerprint);
+        var operation = CreateGoDescribeEntry();
+        var catalogEntry = WriteOpsDescribe(scope.FullPath, fingerprint, operation, "other-source-hash");
+
+        var result = await reader.ReadOpsDescribe(project, catalogEntry, "source-hash", CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Value);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexFormatInvalid, result.Error.Code);
+        Assert.Contains("sourceInputsHash", result.Error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadOpsDescribe_ReturnsFormatInvalid_WhenOperationDescriptorDoesNotMatch ()
+    {
+        using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-describe-descriptor-mismatch");
+        var reader = new FileReadIndexArtifactReader();
+        const string fingerprint = "fingerprint";
+        var project = CreateProject(scope, fingerprint);
+        var operation = CreateGoDescribeEntry() with { Name = "ucli.test.detail" };
+        var catalogEntry = WriteOpsDescribe(scope.FullPath, fingerprint, operation, "source-hash");
+        catalogEntry = catalogEntry with { Name = UcliPrimitiveOperationNames.GoDescribe };
+
+        var result = await reader.ReadOpsDescribe(project, catalogEntry, "source-hash", CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Value);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexFormatInvalid, result.Error.Code);
+        Assert.Contains("operation descriptor", result.Error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -286,9 +395,58 @@ public sealed class FileReadIndexArtifactReaderTests
             PathSource: UnityProjectPathSource.CommandOption);
     }
 
+    private static IndexOpsCatalogEntryJsonContract WriteOpsDescribe (
+        string storageRoot,
+        string fingerprint,
+        IndexOpEntryJsonContract operation,
+        string sourceInputsHash)
+    {
+        var describeKey = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(operation.Name!));
+        var contract = new IndexOpsDescribeJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: sourceInputsHash,
+            Operation: operation);
+        var json = Write(contract);
+        var describeHash = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(json));
+        WriteText(UcliStoragePathResolver.ResolveOpsDescribePath(storageRoot, fingerprint, describeKey), json);
+        return new IndexOpsCatalogEntryJsonContract(
+            operation.Name,
+            operation.Kind,
+            operation.Policy,
+            describeKey,
+            describeHash);
+    }
+
+    private static IndexOpEntryJsonContract CreateGoDescribeEntry ()
+    {
+        return new IndexOpEntryJsonContract(
+            Name: UcliPrimitiveOperationNames.GoDescribe,
+            Kind: "query",
+            Policy: "safe",
+            ArgsSchemaJson: """{"type":"object"}""",
+            ResultSchemaJson: """{"type":"object"}""")
+        {
+            Description = "Returns a GameObject description including components and child hierarchy.",
+            Inputs = Array.Empty<UcliOperationInputContract>(),
+            ResultContract = UcliOperationResultContract.One<GameObjectDescriptionResult>("GameObject description result."),
+            Assurance = new UcliOperationAssuranceContract(
+                Array.Empty<string>(),
+                mayDirty: false,
+                mayPersist: false,
+                Array.Empty<string>(),
+                UcliOperationPlanModeValues.ObservesLiveUnity),
+        };
+    }
+
     private static string Write (IndexOpsCatalogJsonContract contract)
     {
         return new IndexOpsCatalogJsonContractWriter().Write(contract);
+    }
+
+    private static string Write (IndexOpsDescribeJsonContract contract)
+    {
+        return new IndexOpsDescribeJsonContractWriter().Write(contract);
     }
 
     private static string Write (IndexTypesCatalogJsonContract contract)

@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Text;
 
-namespace MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
+namespace MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Filtering;
 
 /// <summary> Represents compiled <c>ops list</c> filters. </summary>
 internal sealed record OpsListFilter (

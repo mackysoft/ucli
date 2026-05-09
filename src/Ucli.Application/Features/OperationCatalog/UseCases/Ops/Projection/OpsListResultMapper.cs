@@ -1,7 +1,9 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
+using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Filtering;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
 
@@ -25,8 +27,21 @@ internal sealed class OpsListResultMapper : IOpsListResultMapper
         ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(filter);
 
-        var operations = output.Snapshot.Operations
-            .Where(operation => IsMatch(operation, filter))
+        var matchedOperations = new List<OpsCatalogListEntry>();
+        foreach (var operation in output.Snapshot.Operations)
+        {
+            if (!TryIsMatch(operation, filter, out var isMatch, out var errorMessage))
+            {
+                return OpsListServiceResult.Failure(errorMessage!, UcliCoreErrorCodes.InvalidArgument);
+            }
+
+            if (isMatch)
+            {
+                matchedOperations.Add(operation);
+            }
+        }
+
+        var operations = matchedOperations
             .OrderBy(static operation => operation.Name, StringComparer.Ordinal)
             .Select(static operation => new OpsOperationListItem(
                 Name: operation.Name!,
@@ -41,13 +56,27 @@ internal sealed class OpsListResultMapper : IOpsListResultMapper
             "uCLI ops list completed.");
     }
 
-    private static bool IsMatch (
+    private static bool TryIsMatch (
         OpsCatalogListEntry operation,
-        OpsListFilter filter)
+        OpsListFilter filter,
+        out bool isMatch,
+        out string? errorMessage)
     {
-        if (filter.NameRegex != null && !filter.NameRegex.IsMatch(operation.Name))
+        if (filter.NameRegex != null)
         {
-            return false;
+            if (!RegexPatternUtilities.TryIsMatch(operation.Name, filter.NameRegex, out var regexMatch))
+            {
+                isMatch = false;
+                errorMessage = "nameRegex match timed out.";
+                return false;
+            }
+
+            if (!regexMatch)
+            {
+                isMatch = false;
+                errorMessage = null;
+                return true;
+            }
         }
 
         if (filter.Kind.HasValue)
@@ -55,7 +84,9 @@ internal sealed class OpsListResultMapper : IOpsListResultMapper
             if (!UcliOperationKindCodec.TryParse(operation.Kind, out var operationKind)
                 || operationKind != filter.Kind.Value)
             {
-                return false;
+                isMatch = false;
+                errorMessage = null;
+                return true;
             }
         }
 
@@ -64,10 +95,14 @@ internal sealed class OpsListResultMapper : IOpsListResultMapper
             if (!OperationPolicyCodec.TryParse(operation.Policy, out var operationPolicy)
                 || operationPolicy > filter.MaxPolicy.Value)
             {
-                return false;
+                isMatch = false;
+                errorMessage = null;
+                return true;
             }
         }
 
+        isMatch = true;
+        errorMessage = null;
         return true;
     }
 }

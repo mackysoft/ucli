@@ -236,6 +236,48 @@ public sealed class OpsCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task OpsList_WithPreseededReadIndexAndNoMatchingFilter_ReturnsEmptyOperations ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "list-filtered-empty");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        SeedOpsCatalog(
+            unityProjectPath,
+            [
+                CreateDescribedEntry(
+                    name: UcliPrimitiveOperationNames.GoDescribe,
+                    kind: "query",
+                    policy: "safe",
+                    argsSchemaJson: """{"type":"object"}""",
+                    resultSchemaJson: """{"type":"object"}"""),
+            ]);
+
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Ops,
+            UcliCommandNames.ListSubcommand,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath,
+            UcliContractConstants.CliOption.ReadIndexMode,
+            UcliContractConstants.Config.ReadIndexModeAllowStale,
+            UcliContractConstants.CliOption.NameRegex,
+            "^no\\.such\\.operation$");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.OpsList,
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasArrayLength("operations", 0)
+                .HasProperty("readIndex", readIndex => readIndex
+                    .HasString("source", "index")
+                    .HasString("freshness", "probable")));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task OpsDescribe_WithPreseededReadIndex_ReturnsOperationSchema ()
     {
         using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "describe-success");

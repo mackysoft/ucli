@@ -46,9 +46,33 @@ internal static class RegexPatternUtilities
             return false;
         }
 
+        return TryIsMatch(input, regex!, out isMatch);
+    }
+
+    /// <summary> Attempts to evaluate regex matching with timeout detection for a precompiled pattern. </summary>
+    /// <param name="input"> The input text. </param>
+    /// <param name="regex"> The compiled regex instance. </param>
+    /// <param name="isMatch"> The match result when evaluation succeeds. </param>
+    /// <returns> <see langword="true" /> when evaluation succeeds; otherwise <see langword="false" />. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="input" /> or <paramref name="regex" /> is <see langword="null" />. </exception>
+    public static bool TryIsMatch (
+        string input,
+        Regex regex,
+        out bool isMatch)
+    {
+        if (input == null)
+        {
+            throw new ArgumentNullException(nameof(input));
+        }
+
+        if (regex == null)
+        {
+            throw new ArgumentNullException(nameof(regex));
+        }
+
         try
         {
-            isMatch = regex!.IsMatch(input);
+            isMatch = regex.IsMatch(input);
             return true;
         }
         catch (RegexMatchTimeoutException)

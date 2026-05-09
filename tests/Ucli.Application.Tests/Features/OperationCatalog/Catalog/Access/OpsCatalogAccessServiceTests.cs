@@ -221,6 +221,135 @@ public sealed class OpsCatalogAccessServiceTests
         Assert.Contains("ops.describe", sourceRefreshService.LastFallbackReason, StringComparison.Ordinal);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadDescribe_WhenReadIndexDisabled_UsesSourceRefreshWithDisabledFallbackReason ()
+    {
+        var generatedAtUtc = DateTimeOffset.Parse("2026-03-07T00:00:00+00:00");
+        var sourceRefreshService = new StubOpsCatalogSourceRefreshService
+        {
+            Result = CreateSourceRefreshResult(generatedAtUtc, [CreateGoDescribeEntry()], "readIndex disabled by mode."),
+        };
+        var service = new OpsCatalogAccessService(new StubPersistedOpsCatalogReader(), sourceRefreshService);
+
+        var result = await service.ReadDescribe(
+            CreatePreflightContext(ReadIndexMode.Disabled),
+            UcliPrimitiveOperationNames.GoDescribe,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(OpsCatalogSource.Source, result.Output!.AccessInfo.Source);
+        Assert.Equal("readIndex disabled by mode.", sourceRefreshService.LastFallbackReason);
+        Assert.Equal(1, sourceRefreshService.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadDescribe_WhenRequireFreshIndexIsStale_FallsBackToSource ()
+    {
+        var persistedReader = new StubPersistedOpsCatalogReader
+        {
+            Result = CreatePersistedReadResult(
+                DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+                IndexFreshness.Stale,
+                [CreateGoDescribeEntry()]),
+        };
+        var generatedAtUtc = DateTimeOffset.Parse("2026-03-07T00:00:00+00:00");
+        var sourceRefreshService = new StubOpsCatalogSourceRefreshService
+        {
+            Result = CreateSourceRefreshResult(generatedAtUtc, [CreateGoDescribeEntry()], "Existing ops index freshness is 'stale'."),
+        };
+        var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
+
+        var result = await service.ReadDescribe(
+            CreatePreflightContext(ReadIndexMode.RequireFresh),
+            UcliPrimitiveOperationNames.GoDescribe,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(OpsCatalogSource.Source, result.Output!.AccessInfo.Source);
+        Assert.Contains("stale", result.Output.AccessInfo.FallbackReason, StringComparison.Ordinal);
+        Assert.Equal(1, sourceRefreshService.CallCount);
+        Assert.Equal("Existing ops index freshness is 'stale'.", sourceRefreshService.LastFallbackReason);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadDescribe_WhenPersistedReadReturnsInvalidArgument_ReturnsFailureWithoutSourceFallback ()
+    {
+        var persistedReader = new StubPersistedOpsCatalogReader
+        {
+            Result = PersistedOpsCatalogReadResult.Failure(
+                new PersistedOpsCatalogReadFailure(
+                    PersistedOpsCatalogReadFailureKind.InvalidArgument,
+                    UcliCoreErrorCodes.InvalidArgument,
+                    "invalid project fingerprint")),
+        };
+        var sourceRefreshService = new StubOpsCatalogSourceRefreshService();
+        var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
+
+        var result = await service.ReadDescribe(
+            CreatePreflightContext(ReadIndexMode.AllowStale),
+            UcliPrimitiveOperationNames.GoDescribe,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Equal(0, sourceRefreshService.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadDescribe_WhenOperationMissingFromDescriptor_ReturnsInvalidArgumentWithoutSourceFallback ()
+    {
+        var persistedReader = new StubPersistedOpsCatalogReader
+        {
+            Result = CreatePersistedReadResult(
+                DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+                IndexFreshness.Fresh,
+                [CreateGoDescribeEntry()]),
+        };
+        var sourceRefreshService = new StubOpsCatalogSourceRefreshService();
+        var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
+
+        var result = await service.ReadDescribe(
+            CreatePreflightContext(ReadIndexMode.RequireFresh),
+            UcliPrimitiveOperationNames.SceneSave,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Equal(0, sourceRefreshService.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadDescribe_WhenSourceRefreshFails_ReturnsSourceFailure ()
+    {
+        var persistedReader = new StubPersistedOpsCatalogReader
+        {
+            Result = PersistedOpsCatalogReadResult.Failure(
+                new PersistedOpsCatalogReadFailure(
+                    PersistedOpsCatalogReadFailureKind.Unavailable,
+                    ReadIndexErrorCodes.ReadIndexBootstrapFailed,
+                    "Index contract file was not found: ops.catalog.json.")),
+        };
+        var sourceRefreshService = new StubOpsCatalogSourceRefreshService
+        {
+            Result = OpsCatalogSourceRefreshResult.Failure("source refresh failed", UcliCoreErrorCodes.InternalError),
+        };
+        var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
+
+        var result = await service.ReadDescribe(
+            CreatePreflightContext(ReadIndexMode.RequireFresh),
+            UcliPrimitiveOperationNames.GoDescribe,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(1, sourceRefreshService.CallCount);
+    }
+
 
     private static OpsPreflightContext CreatePreflightContext (ReadIndexMode readIndexMode)
     {
