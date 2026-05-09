@@ -246,7 +246,7 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
                 unityProject,
                 CancellationToken.None)
             .ConfigureAwait(false);
-        return AppendLockDiagnostic(message, preflightResult);
+        return UnityProjectLockPreflightErrorFactory.AppendPostExitDiagnostic(message, preflightResult);
     }
 
     private static UnityTestExecutionFailureKind ResolveProjectLockFailureKind (UnityProjectLockPreflightResult preflightResult)
@@ -256,15 +256,4 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
             : UnityTestExecutionFailureKind.StartFailed;
     }
 
-    private static string AppendLockDiagnostic (
-        string message,
-        UnityProjectLockPreflightResult preflightResult)
-    {
-        if (preflightResult.Status == UnityProjectLockPreflightStatus.Unlocked || string.IsNullOrWhiteSpace(preflightResult.Message))
-        {
-            return message;
-        }
-
-        return $"{message} {preflightResult.Message}";
-    }
 }

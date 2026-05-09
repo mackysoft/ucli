@@ -16,13 +16,12 @@ public sealed class UnityProjectLockOwnerProbeTests
         var unityProject = CreateContext(scope);
         var probe = new UnityProjectLockOwnerProbe(
             new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(unityProject, Environment.ProcessId))),
-            new StubUnityEditorInstanceProbe(UnityEditorInstanceProbeResult.NotFound("Library/EditorInstance.json")),
+            new StubUnityEditorInstanceProbe(UnityEditorInstanceProbeResult.NotFound()),
             new StubUnityProjectProcessScanner(UnityProjectProcessScanResult.Success([])));
 
         var result = await probe.ProbeOwnerAsync(unityProject, CreateLockFilePath(scope), CancellationToken.None);
 
         Assert.Equal(UnityProjectLockOwnerProbeStatus.ActiveOwner, result.Status);
-        Assert.Equal(Environment.ProcessId, result.ProcessId);
     }
 
     [Fact]
@@ -35,7 +34,7 @@ public sealed class UnityProjectLockOwnerProbeTests
             new StubDaemonSessionStore(DaemonSessionReadResult.Failure(
                 ExecutionError.InternalError("session read failed"),
                 DaemonSessionReadFailureKind.IoFailure)),
-            new StubUnityEditorInstanceProbe(UnityEditorInstanceProbeResult.NotFound("Library/EditorInstance.json")),
+            new StubUnityEditorInstanceProbe(UnityEditorInstanceProbeResult.NotFound()),
             new StubUnityProjectProcessScanner(UnityProjectProcessScanResult.Success([])));
 
         var result = await probe.ProbeOwnerAsync(unityProject, CreateLockFilePath(scope), CancellationToken.None);
@@ -52,15 +51,12 @@ public sealed class UnityProjectLockOwnerProbeTests
         var unityProject = CreateContext(scope);
         var probe = new UnityProjectLockOwnerProbe(
             new StubDaemonSessionStore(DaemonSessionReadResult.Success(null)),
-            new StubUnityEditorInstanceProbe(UnityEditorInstanceProbeResult.Active(
-                scope.GetPath("UnityProject/Library/EditorInstance.json"),
-                Environment.ProcessId)),
+            new StubUnityEditorInstanceProbe(UnityEditorInstanceProbeResult.Active()),
             new StubUnityProjectProcessScanner(UnityProjectProcessScanResult.Success([])));
 
         var result = await probe.ProbeOwnerAsync(unityProject, CreateLockFilePath(scope), CancellationToken.None);
 
         Assert.Equal(UnityProjectLockOwnerProbeStatus.ActiveOwner, result.Status);
-        Assert.Equal(Environment.ProcessId, result.ProcessId);
     }
 
     [Fact]
@@ -72,9 +68,7 @@ public sealed class UnityProjectLockOwnerProbeTests
         var scanner = new StubUnityProjectProcessScanner(UnityProjectProcessScanResult.Success([]));
         var probe = new UnityProjectLockOwnerProbe(
             new StubDaemonSessionStore(DaemonSessionReadResult.Success(null)),
-            new StubUnityEditorInstanceProbe(UnityEditorInstanceProbeResult.Ambiguous(
-                scope.GetPath("UnityProject/Library/EditorInstance.json"),
-                "EditorInstance unreadable")),
+            new StubUnityEditorInstanceProbe(UnityEditorInstanceProbeResult.Ambiguous("EditorInstance unreadable")),
             scanner);
 
         var result = await probe.ProbeOwnerAsync(unityProject, CreateLockFilePath(scope), CancellationToken.None);
@@ -92,15 +86,14 @@ public sealed class UnityProjectLockOwnerProbeTests
         var unityProject = CreateContext(scope);
         var probe = new UnityProjectLockOwnerProbe(
             new StubDaemonSessionStore(DaemonSessionReadResult.Success(null)),
-            new StubUnityEditorInstanceProbe(UnityEditorInstanceProbeResult.NotFound("Library/EditorInstance.json")),
+            new StubUnityEditorInstanceProbe(UnityEditorInstanceProbeResult.NotFound()),
             new StubUnityProjectProcessScanner(UnityProjectProcessScanResult.Success([
-                new UnityProjectProcessMatch(12345, unityProject.UnityProjectRoot),
+                new UnityProjectProcessMatch(12345),
             ])));
 
         var result = await probe.ProbeOwnerAsync(unityProject, CreateLockFilePath(scope), CancellationToken.None);
 
         Assert.Equal(UnityProjectLockOwnerProbeStatus.ActiveOwner, result.Status);
-        Assert.Equal(12345, result.ProcessId);
     }
 
     [Fact]
@@ -111,7 +104,7 @@ public sealed class UnityProjectLockOwnerProbeTests
         var unityProject = CreateContext(scope);
         var probe = new UnityProjectLockOwnerProbe(
             new StubDaemonSessionStore(DaemonSessionReadResult.Success(null)),
-            new StubUnityEditorInstanceProbe(UnityEditorInstanceProbeResult.NotFound("Library/EditorInstance.json")),
+            new StubUnityEditorInstanceProbe(UnityEditorInstanceProbeResult.NotFound()),
             new StubUnityProjectProcessScanner(UnityProjectProcessScanResult.Failure("ps denied")));
 
         var result = await probe.ProbeOwnerAsync(unityProject, CreateLockFilePath(scope), CancellationToken.None);

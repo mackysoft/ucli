@@ -277,12 +277,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
                 unityProject,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (preflightResult.Status == UnityProjectLockPreflightStatus.Unlocked || string.IsNullOrWhiteSpace(preflightResult.Message))
-        {
-            return null;
-        }
-
-        return preflightResult.Message;
+        return UnityProjectLockPreflightErrorFactory.CreatePostExitDiagnostic(preflightResult);
     }
 
     private static ExecutionError AppendDiagnostic (

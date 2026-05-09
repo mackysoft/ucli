@@ -21,7 +21,58 @@ public sealed class UnityProjectProcessScannerTests
         Assert.True(result.IsSuccess);
         var match = Assert.Single(result.Matches);
         Assert.Equal(12345, match.ProcessId);
-        Assert.Equal(projectPath, match.ProjectPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task FindProcessesForProject_WhenPsOutputContainsUnquotedProjectPathWithSpaces_ReturnsMatchingProcess ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-project-process-scanner", "unquoted-project-path");
+        var projectPath = scope.CreateDirectory("Unity Project");
+        var processOutput = $"  12345 /Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app/Contents/MacOS/Unity -batchmode -projectPath {projectPath} -logFile /tmp/unity.log\n";
+        var scanner = new UnityProjectProcessScanner(new StubProcessRunner(ProcessRunResult.Exited(
+            0,
+            standardOutput: processOutput)));
+
+        var result = await scanner.FindProcessesForProjectAsync(projectPath, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var match = Assert.Single(result.Matches);
+        Assert.Equal(12345, match.ProcessId);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task FindProcessesForProject_WhenTargetPathIsPrefixOfUnquotedProjectPath_DoesNotReturnMatch ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-project-process-scanner", "prefix-project-path");
+        var projectPath = scope.CreateDirectory("Unity");
+        var otherProjectPath = scope.CreateDirectory("Unity Project");
+        var processOutput = $"  12345 /Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app/Contents/MacOS/Unity -batchmode -projectPath {otherProjectPath} -logFile /tmp/unity.log\n";
+        var scanner = new UnityProjectProcessScanner(new StubProcessRunner(ProcessRunResult.Exited(
+            0,
+            standardOutput: processOutput)));
+
+        var result = await scanner.FindProcessesForProjectAsync(projectPath, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.Matches);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task FindProcessesForProject_UsesAbsolutePsExecutablePath ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-project-process-scanner", "absolute-ps");
+        var projectPath = scope.CreateDirectory("UnityProject");
+        var processRunner = new StubProcessRunner(ProcessRunResult.Exited(0, standardOutput: string.Empty));
+        var scanner = new UnityProjectProcessScanner(processRunner);
+
+        _ = await scanner.FindProcessesForProjectAsync(projectPath, CancellationToken.None);
+
+        Assert.NotNull(processRunner.LastRequest);
+        Assert.StartsWith("/", processRunner.LastRequest.FileName, StringComparison.Ordinal);
+        Assert.EndsWith("/ps", processRunner.LastRequest.FileName, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -58,11 +109,14 @@ public sealed class UnityProjectProcessScannerTests
             this.result = result;
         }
 
+        public ProcessRunRequest? LastRequest { get; private set; }
+
         public Task<ProcessRunResult> RunAsync (
             ProcessRunRequest request,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            LastRequest = request;
             return Task.FromResult(result);
         }
     }

@@ -457,12 +457,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 unityProject,
                 CancellationToken.None)
             .ConfigureAwait(false);
-        if (preflightResult.Status == UnityProjectLockPreflightStatus.Unlocked || string.IsNullOrWhiteSpace(preflightResult.Message))
-        {
-            return message;
-        }
-
-        return $"{message} {preflightResult.Message}";
+        return UnityProjectLockPreflightErrorFactory.AppendPostExitDiagnostic(message, preflightResult);
     }
 
     /// <summary> Returns whether a startup probe exception can be retried before the deadline expires. </summary>

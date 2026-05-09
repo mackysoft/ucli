@@ -19,7 +19,6 @@ public sealed class UnityProjectLockPreflightServiceTests
         var result = await service.PrepareForUnityProcessStartAsync(unityProject, CancellationToken.None);
 
         Assert.Equal(UnityProjectLockPreflightStatus.Unlocked, result.Status);
-        Assert.True(result.AllowsStartup);
         Assert.False(File.Exists(scope.GetPath("UnityProject/Temp/UnityLockfile")));
     }
 
@@ -34,21 +33,19 @@ public sealed class UnityProjectLockPreflightServiceTests
         var service = new UnityProjectLockPreflightService(
             new UnityProjectLockFileProbe(),
             new StubUnityProjectLockOwnerProbe(UnityProjectLockOwnerProbeResult.ActiveOwner(
-                Environment.ProcessId,
                 UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProject.UnityProjectRoot, lockFilePath))),
             cleaner);
 
         var result = await service.PrepareForUnityProcessStartAsync(unityProject, CancellationToken.None);
 
         Assert.Equal(UnityProjectLockPreflightStatus.ActiveLock, result.Status);
-        Assert.False(result.AllowsStartup);
         Assert.True(File.Exists(lockFilePath));
         Assert.Equal(0, cleaner.CallCount);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Prepare_WhenOwnerIsAbsent_DeletesStaleLockFileAndAllowsStartup ()
+    public async Task Prepare_WhenOwnerIsAbsent_DeletesStaleLockFile ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-project-lock-preflight", "stale");
         var unityProject = CreateContext(scope);
@@ -61,7 +58,6 @@ public sealed class UnityProjectLockPreflightServiceTests
         var result = await service.PrepareForUnityProcessStartAsync(unityProject, CancellationToken.None);
 
         Assert.Equal(UnityProjectLockPreflightStatus.StaleLockCleared, result.Status);
-        Assert.True(result.AllowsStartup);
         Assert.False(File.Exists(lockFilePath));
         Assert.Contains("Stale Unity project lock file was removed", result.Message, StringComparison.Ordinal);
     }
@@ -82,7 +78,6 @@ public sealed class UnityProjectLockPreflightServiceTests
         var result = await service.PrepareForUnityProcessStartAsync(unityProject, CancellationToken.None);
 
         Assert.Equal(UnityProjectLockPreflightStatus.Ambiguous, result.Status);
-        Assert.False(result.AllowsStartup);
         Assert.True(File.Exists(lockFilePath));
         Assert.Equal(0, cleaner.CallCount);
     }
@@ -103,7 +98,6 @@ public sealed class UnityProjectLockPreflightServiceTests
         var result = await service.PrepareForUnityProcessStartAsync(unityProject, CancellationToken.None);
 
         Assert.Equal(UnityProjectLockPreflightStatus.CleanupFailed, result.Status);
-        Assert.False(result.AllowsStartup);
         Assert.True(File.Exists(lockFilePath));
         Assert.Contains("access denied", result.Message, StringComparison.Ordinal);
     }
@@ -121,7 +115,6 @@ public sealed class UnityProjectLockPreflightServiceTests
         var result = await service.PrepareForUnityProcessStartAsync(CreateContext(scope), CancellationToken.None);
 
         Assert.Equal(UnityProjectLockPreflightStatus.InspectionFailed, result.Status);
-        Assert.False(result.AllowsStartup);
         Assert.Contains("probe failed", result.Message, StringComparison.Ordinal);
     }
 

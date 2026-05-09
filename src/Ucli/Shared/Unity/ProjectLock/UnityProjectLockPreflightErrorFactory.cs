@@ -41,4 +41,28 @@ internal static class UnityProjectLockPreflightErrorFactory
             _ => throw new ArgumentOutOfRangeException(nameof(preflightResult), preflightResult.Status, "Unknown Unity project lock preflight status."),
         };
     }
+
+    /// <summary> Creates a post-exit cleanup diagnostic from one preflight result. </summary>
+    /// <param name="preflightResult"> The post-exit preflight result. </param>
+    /// <returns> The diagnostic message to append, or <see langword="null" /> when there is no diagnostic. </returns>
+    public static string? CreatePostExitDiagnostic (UnityProjectLockPreflightResult preflightResult)
+    {
+        ArgumentNullException.ThrowIfNull(preflightResult);
+        return preflightResult.Status == UnityProjectLockPreflightStatus.Unlocked || string.IsNullOrWhiteSpace(preflightResult.Message)
+            ? null
+            : preflightResult.Message;
+    }
+
+    /// <summary> Appends a post-exit cleanup diagnostic to a primary failure message. </summary>
+    /// <param name="message"> The primary failure message. </param>
+    /// <param name="preflightResult"> The post-exit preflight result. </param>
+    /// <returns> The original message, or the message with a diagnostic appended. </returns>
+    public static string AppendPostExitDiagnostic (
+        string message,
+        UnityProjectLockPreflightResult preflightResult)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        var diagnostic = CreatePostExitDiagnostic(preflightResult);
+        return diagnostic == null ? message : $"{message} {diagnostic}";
+    }
 }

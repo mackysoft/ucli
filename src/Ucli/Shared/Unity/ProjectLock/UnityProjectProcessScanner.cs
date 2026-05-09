@@ -56,8 +56,9 @@ internal sealed class UnityProjectProcessScanner : IUnityProjectProcessScanner
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
             || RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
+            var psPath = File.Exists("/bin/ps") ? "/bin/ps" : "/usr/bin/ps";
             return new ProcessRunRequest(
-                FileName: "ps",
+                FileName: psPath,
                 Arguments: ["-axo", "pid=,command="],
                 Timeout: ProcessScanTimeout,
                 CaptureStandardOutput: true);
@@ -85,7 +86,7 @@ internal sealed class UnityProjectProcessScanner : IUnityProjectProcessScanner
                 continue;
             }
 
-            if (!TryGetProjectPathArgument(tokens, out var projectPath, out var argumentError))
+            if (!TryGetMatchingProjectPathArgument(tokens, normalizedTargetPath, out var argumentError))
             {
                 if (argumentError != null)
                 {
@@ -95,16 +96,7 @@ internal sealed class UnityProjectProcessScanner : IUnityProjectProcessScanner
                 continue;
             }
 
-            if (!UnityProjectPathIdentity.TryNormalize(projectPath!, out var normalizedProcessProjectPath, out var normalizationError))
-            {
-                return UnityProjectProcessScanResult.Failure(
-                    $"Unity process projectPath could not be normalized. ProcessId={processId}. ProjectPath={projectPath}. {normalizationError}");
-            }
-
-            if (string.Equals(normalizedProcessProjectPath, normalizedTargetPath, StringComparison.Ordinal))
-            {
-                matches.Add(new UnityProjectProcessMatch(processId, projectPath!));
-            }
+            matches.Add(new UnityProjectProcessMatch(processId));
         }
 
         return UnityProjectProcessScanResult.Success(matches);
@@ -149,12 +141,11 @@ internal sealed class UnityProjectProcessScanner : IUnityProjectProcessScanner
             || commandLine.Contains("\\Unity.exe", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool TryGetProjectPathArgument (
+    private static bool TryGetMatchingProjectPathArgument (
         IReadOnlyList<string> tokens,
-        out string? projectPath,
+        string normalizedTargetPath,
         out string? errorMessage)
     {
-        projectPath = null;
         errorMessage = null;
 
         for (var i = 0; i < tokens.Count; i++)
@@ -170,11 +161,53 @@ internal sealed class UnityProjectProcessScanner : IUnityProjectProcessScanner
                 return false;
             }
 
-            projectPath = tokens[i + 1];
-            return true;
+            for (var endIndex = i + 2; endIndex <= tokens.Count; endIndex++)
+            {
+                var candidateProjectPath = JoinTokens(tokens, i + 1, endIndex);
+                if (!UnityProjectPathIdentity.TryNormalize(candidateProjectPath, out var normalizedProcessProjectPath, out _))
+                {
+                    continue;
+                }
+
+                if (string.Equals(normalizedProcessProjectPath, normalizedTargetPath, StringComparison.Ordinal)
+                    && IsLikelyArgumentBoundary(tokens, endIndex))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         return false;
+    }
+
+    private static bool IsLikelyArgumentBoundary (
+        IReadOnlyList<string> tokens,
+        int endIndex)
+    {
+        return endIndex >= tokens.Count
+            || tokens[endIndex].StartsWith("-", StringComparison.Ordinal);
+    }
+
+    private static string JoinTokens (
+        IReadOnlyList<string> tokens,
+        int startIndex,
+        int endIndex)
+    {
+        if (endIndex == startIndex + 1)
+        {
+            return tokens[startIndex];
+        }
+
+        var builder = new System.Text.StringBuilder(tokens[startIndex]);
+        for (var i = startIndex + 1; i < endIndex; i++)
+        {
+            builder.Append(' ');
+            builder.Append(tokens[i]);
+        }
+
+        return builder.ToString();
     }
 
     internal static IReadOnlyList<string> TokenizeCommandLine (string commandLine)

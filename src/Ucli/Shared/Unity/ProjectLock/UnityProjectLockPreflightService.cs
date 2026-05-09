@@ -68,7 +68,6 @@ internal sealed class UnityProjectLockPreflightService : IUnityProjectLockPrefli
             case UnityProjectLockOwnerProbeStatus.ActiveOwner:
                 return UnityProjectLockPreflightResult.ActiveLock(
                     lockFilePath,
-                    ownerResult.ProcessId,
                     ownerResult.Message ?? UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProject.UnityProjectRoot, lockFilePath));
 
             case UnityProjectLockOwnerProbeStatus.Ambiguous:

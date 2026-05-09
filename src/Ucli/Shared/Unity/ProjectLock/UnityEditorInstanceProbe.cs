@@ -23,8 +23,7 @@ internal sealed class UnityEditorInstanceProbe : IUnityEditorInstanceProbe
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
             return UnityEditorInstanceProbeResult.Ambiguous(
-                "Library/EditorInstance.json",
-                $"EditorInstance path could not be resolved. {exception.Message}");
+                $"EditorInstance path could not be resolved. Path=Library/EditorInstance.json. {exception.Message}");
         }
 
         string json;
@@ -32,7 +31,7 @@ internal sealed class UnityEditorInstanceProbe : IUnityEditorInstanceProbe
         {
             if (!File.Exists(editorInstancePath))
             {
-                return UnityEditorInstanceProbeResult.NotFound(editorInstancePath);
+                return UnityEditorInstanceProbeResult.NotFound();
             }
 
             json = await File.ReadAllTextAsync(editorInstancePath, cancellationToken).ConfigureAwait(false);
@@ -40,14 +39,12 @@ internal sealed class UnityEditorInstanceProbe : IUnityEditorInstanceProbe
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
             return UnityEditorInstanceProbeResult.Ambiguous(
-                editorInstancePath,
-                $"EditorInstance path is invalid. {exception.Message}");
+                $"EditorInstance path is invalid. Path={editorInstancePath}. {exception.Message}");
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             return UnityEditorInstanceProbeResult.Ambiguous(
-                editorInstancePath,
-                $"EditorInstance marker could not be read. {exception.Message}");
+                $"EditorInstance marker could not be read. Path={editorInstancePath}. {exception.Message}");
         }
 
         int processId;
@@ -59,19 +56,17 @@ internal sealed class UnityEditorInstanceProbe : IUnityEditorInstanceProbe
                 || processId <= 0)
             {
                 return UnityEditorInstanceProbeResult.Ambiguous(
-                    editorInstancePath,
-                    "EditorInstance marker does not contain a positive process_id.");
+                    $"EditorInstance marker does not contain a positive process_id. Path={editorInstancePath}.");
             }
         }
         catch (JsonException exception)
         {
             return UnityEditorInstanceProbeResult.Ambiguous(
-                editorInstancePath,
-                $"EditorInstance JSON is invalid. {exception.Message}");
+                $"EditorInstance JSON is invalid. Path={editorInstancePath}. {exception.Message}");
         }
 
         return ProcessLivenessProbe.IsAlive(processId)
-            ? UnityEditorInstanceProbeResult.Active(editorInstancePath, processId)
-            : UnityEditorInstanceProbeResult.Stale(editorInstancePath, processId);
+            ? UnityEditorInstanceProbeResult.Active()
+            : UnityEditorInstanceProbeResult.Stale();
     }
 }

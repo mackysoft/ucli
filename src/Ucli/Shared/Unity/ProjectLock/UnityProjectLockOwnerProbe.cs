@@ -49,7 +49,6 @@ internal sealed class UnityProjectLockOwnerProbe : IUnityProjectLockOwnerProbe
         {
             case UnityEditorInstanceProbeStatus.Active:
                 return UnityProjectLockOwnerProbeResult.ActiveOwner(
-                    editorInstanceResult.ProcessId,
                     UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProject.UnityProjectRoot, lockFilePath));
 
             case UnityEditorInstanceProbeStatus.Ambiguous:
@@ -80,9 +79,7 @@ internal sealed class UnityProjectLockOwnerProbe : IUnityProjectLockOwnerProbe
 
         if (processScanResult.Matches.Count > 0)
         {
-            var owner = processScanResult.Matches[0];
             return UnityProjectLockOwnerProbeResult.ActiveOwner(
-                owner.ProcessId,
                 UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProject.UnityProjectRoot, lockFilePath));
         }
 
@@ -123,7 +120,6 @@ internal sealed class UnityProjectLockOwnerProbe : IUnityProjectLockOwnerProbe
         }
 
         return UnityProjectLockOwnerProbeResult.ActiveOwner(
-            processId,
             UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProject.UnityProjectRoot, lockFilePath));
     }
 }

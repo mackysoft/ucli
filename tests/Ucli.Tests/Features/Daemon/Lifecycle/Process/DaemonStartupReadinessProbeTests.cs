@@ -553,7 +553,6 @@ public sealed class DaemonStartupReadinessProbeTests
 
             return UnityProjectLockPreflightResult.ActiveLock(
                 result.LockFilePath!,
-                Environment.ProcessId,
                 UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProject.UnityProjectRoot, result.LockFilePath));
         }
 
