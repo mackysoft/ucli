@@ -50,7 +50,7 @@ internal sealed class LogsDaemonCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The command exit code. </returns>
     [Command(UcliCommandNames.Daemon)]
-    public async Task<int> Daemon (
+    public async Task<int> DaemonAsync (
         string? projectPath = null,
         int? tail = null,
         string? after = null,
@@ -80,7 +80,7 @@ internal sealed class LogsDaemonCommand
                 return invalidFormatResult.ExitCode;
             }
 
-            var serviceResult = await logsDaemonService.Execute(
+            var serviceResult = await logsDaemonService.ExecuteAsync(
                     new LogsDaemonServiceRequest(
                         ProjectPath: projectPath,
                         Tail: tail,

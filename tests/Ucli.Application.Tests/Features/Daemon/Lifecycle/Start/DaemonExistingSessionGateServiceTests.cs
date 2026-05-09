@@ -20,7 +20,7 @@ public sealed class DaemonExistingSessionGateServiceTests
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => false),
             daemonSessionCleanupService: new StubDaemonSessionCleanupService());
 
-        var result = await service.TryHandleExistingSession(
+        var result = await service.TryHandleExistingSessionAsync(
             CreateContext("fingerprint-existing-running"),
             session,
             TimeSpan.FromMilliseconds(500),
@@ -42,7 +42,7 @@ public sealed class DaemonExistingSessionGateServiceTests
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => false),
             daemonSessionCleanupService: new StubDaemonSessionCleanupService());
 
-        var result = await service.TryHandleExistingSession(
+        var result = await service.TryHandleExistingSessionAsync(
             CreateContext("fingerprint-existing-running-mismatch"),
             session,
             TimeSpan.FromMilliseconds(500),
@@ -65,7 +65,7 @@ public sealed class DaemonExistingSessionGateServiceTests
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => false),
             daemonSessionCleanupService: new StubDaemonSessionCleanupService());
 
-        var result = await service.TryHandleExistingSession(
+        var result = await service.TryHandleExistingSessionAsync(
             CreateContext("fingerprint-existing-timeout"),
             CreateSession(processId: 4002),
             TimeSpan.FromMilliseconds(500),
@@ -92,7 +92,7 @@ public sealed class DaemonExistingSessionGateServiceTests
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => true),
             daemonSessionCleanupService: cleanupService);
 
-        var result = await service.TryHandleExistingSession(
+        var result = await service.TryHandleExistingSessionAsync(
             CreateContext("fingerprint-existing-stale"),
             session,
             TimeSpan.FromMilliseconds(500),
@@ -123,7 +123,7 @@ public sealed class DaemonExistingSessionGateServiceTests
             daemonSessionCleanupService: cleanupService,
             timeProvider: timeProvider);
 
-        var result = await service.TryHandleExistingSession(
+        var result = await service.TryHandleExistingSessionAsync(
             CreateContext("fingerprint-existing-stale-remaining-timeout"),
             CreateSession(processId: 4006),
             TimeSpan.FromMilliseconds(300),
@@ -151,7 +151,7 @@ public sealed class DaemonExistingSessionGateServiceTests
             daemonSessionCleanupService: cleanupService,
             timeProvider: timeProvider);
 
-        var result = await service.TryHandleExistingSession(
+        var result = await service.TryHandleExistingSessionAsync(
             CreateContext("fingerprint-existing-stale-timeout-before-cleanup"),
             CreateSession(processId: 4007),
             TimeSpan.FromMilliseconds(20),
@@ -179,7 +179,7 @@ public sealed class DaemonExistingSessionGateServiceTests
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => true),
             daemonSessionCleanupService: cleanupService);
 
-        var result = await service.TryHandleExistingSession(
+        var result = await service.TryHandleExistingSessionAsync(
             CreateContext("fingerprint-existing-stale-failed"),
             CreateSession(processId: 4004),
             TimeSpan.FromMilliseconds(500),
@@ -200,7 +200,7 @@ public sealed class DaemonExistingSessionGateServiceTests
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => false),
             daemonSessionCleanupService: new StubDaemonSessionCleanupService());
 
-        var result = await service.TryHandleExistingSession(
+        var result = await service.TryHandleExistingSessionAsync(
             CreateContext("fingerprint-existing-unexpected"),
             CreateSession(processId: 4005),
             TimeSpan.FromMilliseconds(500),
@@ -250,7 +250,7 @@ public sealed class DaemonExistingSessionGateServiceTests
             this.handler = handler;
         }
 
-        public ValueTask Ping (
+        public ValueTask PingAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             string? sessionToken = null,
@@ -287,7 +287,7 @@ public sealed class DaemonExistingSessionGateServiceTests
 
         public TimeSpan LastStaleCleanupTimeout { get; private set; }
 
-        public ValueTask<DaemonSessionStoreOperationResult> CleanupInvalidSessionArtifacts (
+        public ValueTask<DaemonSessionStoreOperationResult> CleanupInvalidSessionArtifactsAsync (
             ResolvedUnityProjectContext unityProject,
             DaemonSessionReadResult readResult,
             TimeSpan timeout,
@@ -296,7 +296,7 @@ public sealed class DaemonExistingSessionGateServiceTests
             return ValueTask.FromResult(CleanupInvalidSessionArtifactsResult);
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> CleanupStaleSessionArtifacts (
+        public ValueTask<DaemonSessionStoreOperationResult> CleanupStaleSessionArtifactsAsync (
             ResolvedUnityProjectContext unityProject,
             DaemonSession session,
             TimeSpan timeout,

@@ -42,15 +42,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                     }
 
                     var endpoint = new IpcEndpoint(transportKind, bootstrapArguments.EndpointAddress);
-                    await server.Start(endpoint, CancellationToken.None);
+                    await server.StartAsync(endpoint, CancellationToken.None);
                     if (parentProcessWatcher.HasRequestedExit)
                     {
-                        await server.Stop(CancellationToken.None);
+                        await server.StopAsync(CancellationToken.None);
                         return;
                     }
 
                     var requestCompletionTask = completionSignal.WaitAsync(CancellationToken.None);
-                    var serverTerminationTask = server.WaitForTermination(CancellationToken.None);
+                    var serverTerminationTask = server.WaitForTerminationAsync(CancellationToken.None);
                     var deadlineTask = deadlineWatcher.WaitAsync();
                     var completedTask = await Task.WhenAny(requestCompletionTask, serverTerminationTask, deadlineTask);
                     if (ReferenceEquals(completedTask, serverTerminationTask))
@@ -61,14 +61,14 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                     if (ReferenceEquals(completedTask, deadlineTask))
                     {
-                        await server.Stop(CancellationToken.None);
+                        await server.StopAsync(CancellationToken.None);
                         parentProcessWatcher.Dispose();
                         EditorApplication.Exit(1);
                         return;
                     }
 
                     await requestCompletionTask;
-                    await server.Stop(CancellationToken.None);
+                    await server.StopAsync(CancellationToken.None);
                     parentProcessWatcher.Dispose();
                     EditorApplication.Exit(0);
                 }

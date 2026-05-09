@@ -57,11 +57,11 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="cancellationToken"> The cancellation token propagated by start operation. </param>
         /// <returns> A task that completes when startup result is determined. </returns>
         /// <exception cref="OperationCanceledException"> Thrown when <paramref name="cancellationToken" /> is canceled. </exception>
-        public async Task Wait (
+        public async Task WaitAsync (
             CancellationToken cancellationToken)
         {
             var startupTask = startupCompletionSource.Task;
-            await CancellationGracePeriodAwaiter.Wait(startupTask, cancellationToken, StartupCompletionRaceGracePeriod);
+            await CancellationGracePeriodAwaiter.WaitAsync(startupTask, cancellationToken, StartupCompletionRaceGracePeriod);
         }
     }
 }

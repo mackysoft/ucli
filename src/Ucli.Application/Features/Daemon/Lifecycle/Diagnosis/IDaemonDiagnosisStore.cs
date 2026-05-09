@@ -8,7 +8,7 @@ internal interface IDaemonDiagnosisStore
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon diagnosis read result. </returns>
-    ValueTask<DaemonDiagnosisReadResult> Read (
+    ValueTask<DaemonDiagnosisReadResult> ReadAsync (
         string storageRoot,
         string projectFingerprint,
         CancellationToken cancellationToken = default);
@@ -19,7 +19,7 @@ internal interface IDaemonDiagnosisStore
     /// <param name="diagnosis"> The daemon diagnosis metadata to persist. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon diagnosis storage operation result. </returns>
-    ValueTask<DaemonDiagnosisStoreOperationResult> Write (
+    ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
         string storageRoot,
         string projectFingerprint,
         DaemonDiagnosis diagnosis,
@@ -30,7 +30,7 @@ internal interface IDaemonDiagnosisStore
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon diagnosis storage operation result. </returns>
-    ValueTask<DaemonDiagnosisStoreOperationResult> Delete (
+    ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
         string storageRoot,
         string projectFingerprint,
         CancellationToken cancellationToken = default);

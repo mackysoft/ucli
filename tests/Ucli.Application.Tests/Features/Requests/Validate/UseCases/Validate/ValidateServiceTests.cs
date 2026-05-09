@@ -25,7 +25,7 @@ public sealed class ValidateServiceTests
             new StubRequestStaticValidator(ValidationResult.Success()),
             preflightService);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new ValidateCommandInput("/tmp/project", null, """{"steps":[]}"""),
             CancellationToken.None);
 
@@ -53,7 +53,7 @@ public sealed class ValidateServiceTests
             new StubRequestStaticValidator(ValidationResult.Success()),
             preflightService);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new ValidateCommandInput("/tmp/project", null, """{"steps":[]}"""),
             CancellationToken.None);
 
@@ -88,7 +88,7 @@ public sealed class ValidateServiceTests
             new StubRequestStaticValidator(ValidationResult.Success()),
             preflightService);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new ValidateCommandInput("/tmp/project", null, """{"steps":[]}"""),
             CancellationToken.None);
 
@@ -113,7 +113,7 @@ public sealed class ValidateServiceTests
             new StubRequestStaticValidator(ValidationResult.Success()),
             preflightService);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new ValidateCommandInput("/tmp/project", null, """{"steps":[]}"""),
             CancellationToken.None);
 
@@ -144,7 +144,7 @@ public sealed class ValidateServiceTests
             validator,
             preflightService);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new ValidateCommandInput(null, ReadIndexMode.Disabled, """{"steps":[]}"""),
             CancellationToken.None);
 
@@ -234,7 +234,7 @@ public sealed class ValidateServiceTests
             return readAndParseResult;
         }
 
-        public ValueTask<RequestPreparationResult> Prepare (
+        public ValueTask<RequestPreparationResult> PrepareAsync (
             string? projectPath,
             string requestJson,
             CancellationToken cancellationToken = default)
@@ -271,7 +271,7 @@ public sealed class ValidateServiceTests
 
         public int CallCount { get; private set; }
 
-        public ValueTask<RequestStaticValidationPreflightResult> Prepare (
+        public ValueTask<RequestStaticValidationPreflightResult> PrepareAsync (
             PreparedRequestContext preparedRequest,
             ReadIndexMode? readIndexMode,
             CancellationToken cancellationToken = default)
@@ -291,7 +291,7 @@ public sealed class ValidateServiceTests
             this.result = result ?? throw new ArgumentNullException(nameof(result));
         }
 
-        public ValueTask<ValidationResult> Validate (
+        public ValueTask<ValidationResult> ValidateAsync (
             ValidateRequest request,
             RequestStaticValidationCatalog catalog,
             UcliConfig config,
@@ -313,7 +313,7 @@ public sealed class ValidateServiceTests
 
         public RequestStaticValidationCatalog? LastCatalog { get; private set; }
 
-        public ValueTask<ValidationResult> Validate (
+        public ValueTask<ValidationResult> ValidateAsync (
             ValidateRequest request,
             RequestStaticValidationCatalog catalog,
             UcliConfig config,

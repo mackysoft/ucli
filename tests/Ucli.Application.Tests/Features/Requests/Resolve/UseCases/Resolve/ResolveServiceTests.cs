@@ -43,7 +43,7 @@ public sealed class ResolveServiceTests
         var unityRequestExecutor = new SpyUnityRequestExecutor();
         var service = new ResolveService(projectContextResolver, sceneTreeLiteAccessService, unityRequestExecutor);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             CreateInput(
                 selector: CreateSceneSelector(),
                 readIndexMode: ReadIndexMode.AllowStale,
@@ -115,7 +115,7 @@ public sealed class ResolveServiceTests
         var unityRequestExecutor = new SpyUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateUnityResponse()));
         var service = new ResolveService(projectContextResolver, sceneTreeLiteAccessService, unityRequestExecutor);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             CreateInput(
                 selector: CreateSceneSelector(),
                 readIndexMode: ReadIndexMode.AllowStale),
@@ -142,7 +142,7 @@ public sealed class ResolveServiceTests
         var unityRequestExecutor = new SpyUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateUnityResponse()));
         var service = new ResolveService(projectContextResolver, sceneTreeLiteAccessService, unityRequestExecutor);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             CreateInput(
                 selector: new ResolveAssetGuidSelectorInput("11111111111111111111111111111111"),
                 failFast: true),
@@ -192,7 +192,7 @@ public sealed class ResolveServiceTests
         var unityRequestExecutor = new SpyUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateUnityResponse()));
         var service = new ResolveService(projectContextResolver, sceneTreeLiteAccessService, unityRequestExecutor);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             CreateInput(
                 selector: CreateSceneSelector(),
                 readIndexMode: ReadIndexMode.AllowStale),
@@ -215,7 +215,7 @@ public sealed class ResolveServiceTests
         var unityRequestExecutor = new SpyUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateUnityResponse()));
         var service = new ResolveService(projectContextResolver, sceneTreeLiteAccessService, unityRequestExecutor);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             CreateInput(
                 selector: CreateSceneSelector(),
                 readIndexMode: ReadIndexMode.AllowStale),
@@ -299,7 +299,7 @@ public sealed class ResolveServiceTests
             this.result = result;
         }
 
-        public ValueTask<ProjectContextResolutionResult> Resolve (
+        public ValueTask<ProjectContextResolutionResult> ResolveAsync (
             string? projectPath,
             CancellationToken cancellationToken = default)
         {
@@ -365,7 +365,7 @@ public sealed class ResolveServiceTests
 
         public UnityRequestPayload? CapturedPayload { get; private set; }
 
-        public ValueTask<UnityRequestExecutionResult> Execute (
+        public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
             UcliCommand command,
             UnityExecutionMode mode,
             TimeSpan timeout,

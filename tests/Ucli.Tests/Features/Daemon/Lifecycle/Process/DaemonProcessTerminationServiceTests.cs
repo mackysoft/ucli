@@ -12,7 +12,7 @@ public sealed class DaemonProcessTerminationServiceTests
     {
         var service = CreateService();
 
-        var result = await service.EnsureStopped(
+        var result = await service.EnsureStoppedAsync(
             processId: null,
             expectedIssuedAtUtc: null,
             timeout: TimeSpan.FromMilliseconds(100),
@@ -29,7 +29,7 @@ public sealed class DaemonProcessTerminationServiceTests
         var service = CreateService();
         var currentProcessId = Environment.ProcessId;
 
-        var result = await service.EnsureStopped(
+        var result = await service.EnsureStoppedAsync(
             processId: currentProcessId,
             expectedIssuedAtUtc: null,
             timeout: TimeSpan.FromMilliseconds(100),
@@ -48,7 +48,7 @@ public sealed class DaemonProcessTerminationServiceTests
         var service = CreateService();
         var currentProcess = Process.GetCurrentProcess();
 
-        var result = await service.EnsureStopped(
+        var result = await service.EnsureStoppedAsync(
             processId: currentProcess.Id,
             expectedIssuedAtUtc: DateTimeOffset.UtcNow.AddHours(1),
             timeout: TimeSpan.FromMilliseconds(100),
@@ -89,7 +89,7 @@ public sealed class DaemonProcessTerminationServiceTests
         {
             await WaitForFileExistsAsync(readyPath, TimeSpan.FromSeconds(5), CancellationToken.None);
 
-            var result = await service.EnsureStopped(
+            var result = await service.EnsureStoppedAsync(
                 process.Id,
                 DateTimeOffset.UtcNow,
                 TimeSpan.FromSeconds(10),
@@ -136,7 +136,7 @@ public sealed class DaemonProcessTerminationServiceTests
         {
             await WaitForFileExistsAsync(readyPath, TimeSpan.FromSeconds(5), CancellationToken.None);
 
-            var result = await service.EnsureStopped(
+            var result = await service.EnsureStoppedAsync(
                 process.Id,
                 DateTimeOffset.UtcNow,
                 TimeSpan.FromSeconds(15),
@@ -183,7 +183,7 @@ public sealed class DaemonProcessTerminationServiceTests
         {
             await WaitForFileExistsAsync(readyPath, TimeSpan.FromSeconds(5), CancellationToken.None);
 
-            var result = await service.EnsureStopped(
+            var result = await service.EnsureStoppedAsync(
                 process.Id,
                 DateTimeOffset.UtcNow,
                 TimeSpan.FromSeconds(10),
@@ -230,7 +230,7 @@ public sealed class DaemonProcessTerminationServiceTests
         {
             await WaitForFileExistsAsync(readyPath, TimeSpan.FromSeconds(5), CancellationToken.None);
 
-            var result = await service.EnsureStopped(
+            var result = await service.EnsureStoppedAsync(
                 process.Id,
                 DateTimeOffset.UtcNow,
                 TimeSpan.FromSeconds(15),

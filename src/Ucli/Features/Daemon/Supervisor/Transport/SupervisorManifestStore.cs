@@ -27,8 +27,8 @@ internal sealed class SupervisorManifestStore
     /// <summary> Initializes a new instance of the <see cref="SupervisorManifestStore" /> class. </summary>
     public SupervisorManifestStore ()
         : this(
-            static (path, cancellationToken) => FileUtilities.ReadAllTextOrNull(path, cancellationToken),
-            static (path, contents, cancellationToken) => FileUtilities.WriteAllTextAtomically(path, contents, cancellationToken),
+            static (path, cancellationToken) => FileUtilities.ReadAllTextOrNullAsync(path, cancellationToken),
+            static (path, contents, cancellationToken) => FileUtilities.WriteAllTextAtomicallyAsync(path, contents, cancellationToken),
             static path => FileUtilities.DeleteIfExists(path),
             timeProvider: null)
     {
@@ -55,7 +55,7 @@ internal sealed class SupervisorManifestStore
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The manifest when present; otherwise <see langword="null" />. </returns>
-    public async ValueTask<SupervisorInstanceManifest?> ReadOrNull (
+    public async ValueTask<SupervisorInstanceManifest?> ReadOrNullAsync (
         string storageRoot,
         CancellationToken cancellationToken = default)
     {
@@ -80,7 +80,7 @@ internal sealed class SupervisorManifestStore
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The manifest when present; otherwise <see langword="null" />. </returns>
     /// <exception cref="TimeoutException"> Thrown when the read operation exceeds <paramref name="timeout" />. </exception>
-    public async ValueTask<SupervisorInstanceManifest?> ReadOrNull (
+    public async ValueTask<SupervisorInstanceManifest?> ReadOrNullAsync (
         string storageRoot,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
@@ -95,7 +95,7 @@ internal sealed class SupervisorManifestStore
 
         try
         {
-            return await ReadOrNull(storageRoot, timeoutCancellationScope.Token).ConfigureAwait(false);
+            return await ReadOrNullAsync(storageRoot, timeoutCancellationScope.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested
                                                  && timeoutCancellationScope.HasTimedOut)
@@ -110,7 +110,7 @@ internal sealed class SupervisorManifestStore
     /// <param name="manifest"> The manifest to persist. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that completes when persistence finishes. </returns>
-    public async ValueTask Write (
+    public async ValueTask WriteAsync (
         string storageRoot,
         SupervisorInstanceManifest manifest,
         CancellationToken cancellationToken = default)

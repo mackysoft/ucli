@@ -10,7 +10,7 @@ internal interface IRequestStaticValidationService
     /// <param name="projectContext"> The resolved project/config context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the aggregated validation result. </returns>
-    ValueTask<ValidationResult> Validate (
+    ValueTask<ValidationResult> ValidateAsync (
         ValidateRequest request,
         ProjectContext projectContext,
         CancellationToken cancellationToken = default);

@@ -52,7 +52,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
     /// <returns> The daemon stop result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    public async ValueTask<DaemonStopResult> Stop (
+    public async ValueTask<DaemonStopResult> StopAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
@@ -70,7 +70,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         IAsyncDisposable lockHandle;
         try
         {
-            lockHandle = await lifecycleLockProvider.Acquire(
+            lockHandle = await lifecycleLockProvider.AcquireAsync(
                     new ProjectLifecycleLockRequest(unityProject.UnityProjectRoot),
                     lockAcquireTimeout,
                     cancellationToken)
@@ -92,7 +92,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         }
 
         await using var acquiredLock = lockHandle;
-        var readResult = await daemonSessionStore.Read(
+        var readResult = await daemonSessionStore.ReadAsync(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 cancellationToken)
@@ -111,7 +111,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         var stopCapability = DaemonSessionTerminationPolicy.ResolveStopCapability(session);
         if (stopCapability == DaemonSessionTerminationPolicy.StopCapability.EndpointOnly)
         {
-            return await StopEndpointOnlySession(
+            return await StopEndpointOnlySessionAsync(
                     unityProject,
                     session,
                     deadline,
@@ -131,11 +131,11 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
                 "Timed out before daemon shutdown request could be sent."));
         }
 
-        var shutdownResult = await shutdownClient.SendShutdown(unityProject, session, shutdownTimeout, cancellationToken).ConfigureAwait(false);
+        var shutdownResult = await shutdownClient.SendShutdownAsync(unityProject, session, shutdownTimeout, cancellationToken).ConfigureAwait(false);
 
         if (shutdownResult.IsNotRunning)
         {
-            var notRunningCleanupResult = await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
+            var notRunningCleanupResult = await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
             return notRunningCleanupResult.IsSuccess
                 ? DaemonStopResult.Stopped()
                 : DaemonStopResult.Failure(notRunningCleanupResult.Error!);
@@ -149,7 +149,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
 
         if (!deadline.TryGetRemainingTimeout(out var processTerminationTimeout))
         {
-            var fallbackStopResult = await EnsureStoppedAndCleanup(
+            var fallbackStopResult = await EnsureStoppedAndCleanupAsync(
                     unityProject,
                     session,
                     DaemonTimeouts.StopCompensationTimeout,
@@ -164,7 +164,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
                 "Timed out before daemon process termination could be completed."));
         }
 
-        var stopAndCleanupResult = await EnsureStoppedAndCleanup(
+        var stopAndCleanupResult = await EnsureStoppedAndCleanupAsync(
                 unityProject,
                 session,
                 processTerminationTimeout,
@@ -183,7 +183,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         return DaemonStopResult.Stopped();
     }
 
-    private async ValueTask<DaemonStopResult> StopEndpointOnlySession (
+    private async ValueTask<DaemonStopResult> StopEndpointOnlySessionAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         ExecutionDeadline deadline,
@@ -191,7 +191,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
     {
         if (deadline.TryGetRemainingTimeout(out var shutdownTimeout))
         {
-            _ = await shutdownClient.SendShutdown(
+            _ = await shutdownClient.SendShutdownAsync(
                     unityProject,
                     session,
                     shutdownTimeout,
@@ -199,7 +199,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
                 .ConfigureAwait(false);
         }
 
-        var cleanupResult = await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
+        var cleanupResult = await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
         return cleanupResult.IsSuccess
             ? DaemonStopResult.Stopped()
             : DaemonStopResult.Failure(cleanupResult.Error!);
@@ -210,7 +210,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         return ExecutionError.Timeout(message);
     }
 
-    private async ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAndCleanup (
+    private async ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAndCleanupAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         TimeSpan timeout,
@@ -218,7 +218,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
     {
         if (DaemonSessionTerminationPolicy.TryGetTerminationTarget(session, out var processId, out var issuedAtUtc))
         {
-            var stopProcessResult = await processTerminationService.EnsureStopped(
+            var stopProcessResult = await processTerminationService.EnsureStoppedAsync(
                     processId,
                     issuedAtUtc,
                     timeout,
@@ -230,6 +230,6 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
             }
         }
 
-        return await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
+        return await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
     }
 }

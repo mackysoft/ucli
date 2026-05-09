@@ -6,13 +6,13 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 /// <summary> Applies persisted mutation read-postcondition requirements to candidate read-index timestamps. </summary>
 internal static class MutationReadPostconditionAccessEvaluator
 {
-    public static ValueTask<MutationReadPostconditionEvaluationResult> EvaluateAssetSearch (
+    public static ValueTask<MutationReadPostconditionEvaluationResult> EvaluateAssetSearchAsync (
         IMutationReadPostconditionStore store,
         ResolvedUnityProjectContext project,
         DateTimeOffset generatedAtUtc,
         CancellationToken cancellationToken = default)
     {
-        return EvaluateCore(
+        return EvaluateCoreAsync(
             store,
             project,
             IpcExecuteReadPostconditionSurfaceNames.AssetSearch,
@@ -22,13 +22,13 @@ internal static class MutationReadPostconditionAccessEvaluator
             cancellationToken);
     }
 
-    public static ValueTask<MutationReadPostconditionEvaluationResult> EvaluateGuidPath (
+    public static ValueTask<MutationReadPostconditionEvaluationResult> EvaluateGuidPathAsync (
         IMutationReadPostconditionStore store,
         ResolvedUnityProjectContext project,
         DateTimeOffset generatedAtUtc,
         CancellationToken cancellationToken = default)
     {
-        return EvaluateCore(
+        return EvaluateCoreAsync(
             store,
             project,
             IpcExecuteReadPostconditionSurfaceNames.GuidPath,
@@ -38,7 +38,7 @@ internal static class MutationReadPostconditionAccessEvaluator
             cancellationToken);
     }
 
-    public static ValueTask<MutationReadPostconditionEvaluationResult> EvaluateSceneTreeLite (
+    public static ValueTask<MutationReadPostconditionEvaluationResult> EvaluateSceneTreeLiteAsync (
         IMutationReadPostconditionStore store,
         ResolvedUnityProjectContext project,
         string scenePath,
@@ -46,7 +46,7 @@ internal static class MutationReadPostconditionAccessEvaluator
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(scenePath);
-        return EvaluateCore(
+        return EvaluateCoreAsync(
             store,
             project,
             IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
@@ -56,7 +56,7 @@ internal static class MutationReadPostconditionAccessEvaluator
             cancellationToken);
     }
 
-    private static async ValueTask<MutationReadPostconditionEvaluationResult> EvaluateCore (
+    private static async ValueTask<MutationReadPostconditionEvaluationResult> EvaluateCoreAsync (
         IMutationReadPostconditionStore store,
         ResolvedUnityProjectContext project,
         string surface,
@@ -71,7 +71,7 @@ internal static class MutationReadPostconditionAccessEvaluator
         ArgumentException.ThrowIfNullOrWhiteSpace(surfaceDescription);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var readResult = await store.ReadOrNull(
+        var readResult = await store.ReadOrNullAsync(
                 project.RepositoryRoot,
                 project.ProjectFingerprint,
                 cancellationToken)

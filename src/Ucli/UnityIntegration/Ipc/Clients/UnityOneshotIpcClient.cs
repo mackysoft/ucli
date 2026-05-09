@@ -122,7 +122,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(timeout));
             }
 
-            await using var lifecycleLock = await lifecycleLockProvider.Acquire(
+            await using var lifecycleLock = await lifecycleLockProvider.AcquireAsync(
                     new ProjectLifecycleLockRequest(unityProject.UnityProjectRoot),
                     lockTimeout,
                     cancellationToken)
@@ -140,7 +140,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             }
 
             var sessionToken = CreateSessionToken();
-            var launchResult = await batchmodeProcessLauncher.Launch(
+            var launchResult = await batchmodeProcessLauncher.LaunchAsync(
                     unityProject,
                     new IpcOneshotBootstrapArguments(
                         ParentProcessId: Environment.ProcessId,
@@ -220,7 +220,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             {
                 if (shouldTerminateProcess && !processHandle.HasExited)
                 {
-                    terminationResult = await CleanupLaunchedProcess(
+                    terminationResult = await CleanupLaunchedProcessAsync(
                             unityProject,
                             sessionToken,
                             processHandle)
@@ -241,7 +241,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         }
     }
 
-    private async ValueTask<ProcessTerminationResult> CleanupLaunchedProcess (
+    private async ValueTask<ProcessTerminationResult> CleanupLaunchedProcessAsync (
         ResolvedUnityProjectContext unityProject,
         string sessionToken,
         IUnityBatchmodeProcessHandle processHandle)
@@ -252,7 +252,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         }
 
         var cleanupDeadline = ExecutionDeadline.Start(cleanupTimeout);
-        if (await TryRequestShutdownUntilCleanupDeadline(unityProject, sessionToken, processHandle, cleanupDeadline).ConfigureAwait(false)
+        if (await TryRequestShutdownUntilCleanupDeadlineAsync(unityProject, sessionToken, processHandle, cleanupDeadline).ConfigureAwait(false)
             && !processHandle.HasExited
             && cleanupDeadline.TryGetRemainingTimeout(out var exitTimeout))
         {
@@ -274,7 +274,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             .ConfigureAwait(false);
     }
 
-    private async ValueTask<bool> TryRequestShutdownUntilCleanupDeadline (
+    private async ValueTask<bool> TryRequestShutdownUntilCleanupDeadlineAsync (
         ResolvedUnityProjectContext unityProject,
         string sessionToken,
         IUnityBatchmodeProcessHandle processHandle,

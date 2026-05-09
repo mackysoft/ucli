@@ -47,7 +47,7 @@ internal sealed class SupervisorHost
     /// <param name="repositoryRoot"> The repository root used as storage root. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the hosting environment. </param>
     /// <returns>The process exit code.</returns>
-    public async Task<int> Run (
+    public async Task<int> RunAsync (
         string repositoryRoot,
         CancellationToken cancellationToken = default)
     {
@@ -64,32 +64,32 @@ internal sealed class SupervisorHost
 
         try
         {
-            await runtimeLogger.Write(
+            await runtimeLogger.WriteAsync(
                     runtimeContext.StorageRoot,
                     "info",
                     $"Supervisor starting. endpoint={runtimeContext.Manifest.EndpointAddress}",
                     CancellationToken.None)
                 .ConfigureAwait(false);
 
-            var idleMonitorTask = RunIdleMonitor(hostCancellationTokenSource, hostCancellationToken);
+            var idleMonitorTask = RunIdleMonitorAsync(hostCancellationTokenSource, hostCancellationToken);
             try
             {
                 var endpoint = ResolveEndpoint(runtimeContext.Manifest);
-                await transportServer.Run(
+                await transportServer.RunAsync(
                         endpoint,
-                        (stream, token) => requestDispatcher.HandleConnection(stream, runtimeContext, token),
-                        token => manifestStore.Write(runtimeContext.StorageRoot, runtimeContext.Manifest, token).AsTask(),
+                        (stream, token) => requestDispatcher.HandleConnectionAsync(stream, runtimeContext, token),
+                        token => manifestStore.WriteAsync(runtimeContext.StorageRoot, runtimeContext.Manifest, token).AsTask(),
                         hostCancellationToken)
                     .ConfigureAwait(false);
             }
             finally
             {
                 hostCancellationTokenSource.Cancel();
-                await projectCoordinator.AwaitManagedProcesses().ConfigureAwait(false);
+                await projectCoordinator.AwaitManagedProcessesAsync().ConfigureAwait(false);
                 await idleMonitorTask.ConfigureAwait(false);
             }
 
-            await runtimeLogger.Write(
+            await runtimeLogger.WriteAsync(
                     runtimeContext.StorageRoot,
                     "info",
                     "Supervisor stopped normally.",
@@ -103,7 +103,7 @@ internal sealed class SupervisorHost
         }
         catch (OperationCanceledException) when (hostCancellationTokenSource.IsCancellationRequested)
         {
-            await runtimeLogger.Write(
+            await runtimeLogger.WriteAsync(
                     runtimeContext.StorageRoot,
                     "info",
                     "Supervisor stopped by cancellation.",
@@ -113,7 +113,7 @@ internal sealed class SupervisorHost
         }
         catch (Exception exception)
         {
-            await runtimeLogger.Write(
+            await runtimeLogger.WriteAsync(
                     runtimeContext.StorageRoot,
                     "error",
                     $"Supervisor crashed. {exception}",
@@ -123,7 +123,7 @@ internal sealed class SupervisorHost
         }
         finally
         {
-            await CleanupManifestIfOwned(runtimeContext, CancellationToken.None).ConfigureAwait(false);
+            await CleanupManifestIfOwnedAsync(runtimeContext, CancellationToken.None).ConfigureAwait(false);
             transportServer.Release();
         }
     }
@@ -142,7 +142,7 @@ internal sealed class SupervisorHost
                 IssuedAtUtc: DateTimeOffset.UtcNow));
     }
 
-    private async Task RunIdleMonitor (
+    private async Task RunIdleMonitorAsync (
         CancellationTokenSource hostCancellationTokenSource,
         CancellationToken cancellationToken)
     {
@@ -164,13 +164,13 @@ internal sealed class SupervisorHost
         }
     }
 
-    private async Task CleanupManifestIfOwned (
+    private async Task CleanupManifestIfOwnedAsync (
         SupervisorRuntimeContext runtimeContext,
         CancellationToken cancellationToken)
     {
         try
         {
-            var manifest = await manifestStore.ReadOrNull(runtimeContext.StorageRoot, cancellationToken).ConfigureAwait(false);
+            var manifest = await manifestStore.ReadOrNullAsync(runtimeContext.StorageRoot, cancellationToken).ConfigureAwait(false);
             if (manifest != null && manifest.ProcessId == Environment.ProcessId)
             {
                 manifestStore.DeleteIfExists(runtimeContext.StorageRoot);

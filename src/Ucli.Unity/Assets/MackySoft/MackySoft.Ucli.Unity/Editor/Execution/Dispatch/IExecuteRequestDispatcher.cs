@@ -13,7 +13,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> The response envelope for the incoming request. </returns>
         /// <exception cref="System.OperationCanceledException"> Thrown when dispatch is canceled. </exception>
-        Task<IpcResponse> Dispatch (
+        Task<IpcResponse> DispatchAsync (
             IpcExecuteRequest request,
             ExecuteDispatchContext context,
             CancellationToken cancellationToken = default);

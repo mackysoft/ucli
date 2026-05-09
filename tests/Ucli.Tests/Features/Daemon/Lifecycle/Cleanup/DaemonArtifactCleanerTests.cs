@@ -25,7 +25,7 @@ public sealed class DaemonArtifactCleanerTests
             new StubDaemonSessionStore(),
             new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.UnixDomainSocket, socketPath)));
 
-        var result = await cleaner.Cleanup(
+        var result = await cleaner.CleanupAsync(
             new ResolvedUnityProjectContext(
                 UnityProjectRoot: "/tmp/unity-project",
                 RepositoryRoot: "/tmp/repo-root",
@@ -40,7 +40,7 @@ public sealed class DaemonArtifactCleanerTests
 
     private sealed class StubDaemonSessionStore : IDaemonSessionStore
     {
-        public ValueTask<DaemonSessionReadResult> Read (
+        public ValueTask<DaemonSessionReadResult> ReadAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -48,7 +48,7 @@ public sealed class DaemonArtifactCleanerTests
             throw new NotSupportedException();
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Write (
+        public ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
             string storageRoot,
             DaemonSession session,
             CancellationToken cancellationToken = default)
@@ -56,7 +56,7 @@ public sealed class DaemonArtifactCleanerTests
             throw new NotSupportedException();
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Delete (
+        public ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)

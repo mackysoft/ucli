@@ -27,7 +27,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 new[] { IpcExecuteTouchedResourceKindNames.Scene },
                 UcliOperationPlanMode.ObservesLiveUnity));
 
-        protected override Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
             SceneQueryArgs args,
             OperationExecutionContext executionContext,
@@ -42,27 +42,27 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
         }
 
-        protected override Task<OperationPhaseStepResult> Plan (
+        protected override Task<OperationPhaseStepResult> PlanAsync (
             NormalizedOperation operation,
             SceneQueryArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Execute(operation, args, executionContext, applied: false);
+            return ExecuteAsync(operation, args, executionContext, applied: false);
         }
 
-        protected override Task<OperationPhaseStepResult> Call (
+        protected override Task<OperationPhaseStepResult> CallAsync (
             NormalizedOperation operation,
             SceneQueryArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Execute(operation, args, executionContext, applied: true);
+            return ExecuteAsync(operation, args, executionContext, applied: true);
         }
 
-        private static Task<OperationPhaseStepResult> Execute (
+        private static Task<OperationPhaseStepResult> ExecuteAsync (
             NormalizedOperation operation,
             SceneQueryArgs args,
             OperationExecutionContext executionContext,

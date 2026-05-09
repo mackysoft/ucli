@@ -33,7 +33,7 @@ public sealed class DaemonStatusOperationTests
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
 
-        var result = await operation.GetStatus(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonStatusKind.Running, result.Status);
@@ -59,7 +59,7 @@ public sealed class DaemonStatusOperationTests
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
 
-        var result = await operation.GetStatus(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(DaemonStatusKind.Failed, result.Status);
@@ -90,7 +90,7 @@ public sealed class DaemonStatusOperationTests
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
 
-        var result = await operation.GetStatus(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonStatusKind.Stale, result.Status);
@@ -120,7 +120,7 @@ public sealed class DaemonStatusOperationTests
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
 
-        var result = await operation.GetStatus(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonStatusKind.NotRunning, result.Status);
@@ -149,7 +149,7 @@ public sealed class DaemonStatusOperationTests
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
 
-        var result = await operation.GetStatus(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonStatusKind.Stale, result.Status);
@@ -185,7 +185,7 @@ public sealed class DaemonStatusOperationTests
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
 
-        var result = await operation.GetStatus(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonStatusKind.Stale, result.Status);
@@ -217,7 +217,7 @@ public sealed class DaemonStatusOperationTests
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
 
-        var result = await operation.GetStatus(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonStatusKind.Running, result.Status);
@@ -271,7 +271,7 @@ public sealed class DaemonStatusOperationTests
     {
         public DaemonSessionReadResult ReadResult { get; set; } = DaemonSessionReadResult.Success(null);
 
-        public ValueTask<DaemonSessionReadResult> Read (
+        public ValueTask<DaemonSessionReadResult> ReadAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -279,7 +279,7 @@ public sealed class DaemonStatusOperationTests
             return ValueTask.FromResult(ReadResult);
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Write (
+        public ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
             string storageRoot,
             DaemonSession session,
             CancellationToken cancellationToken = default)
@@ -287,7 +287,7 @@ public sealed class DaemonStatusOperationTests
             return ValueTask.FromResult(DaemonSessionStoreOperationResult.Success());
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Delete (
+        public ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -305,7 +305,7 @@ public sealed class DaemonStatusOperationTests
             this.handler = handler;
         }
 
-        public ValueTask Ping (
+        public ValueTask PingAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             string? sessionToken = null,
@@ -325,7 +325,7 @@ public sealed class DaemonStatusOperationTests
 
         public DaemonDiagnosis? LastDiagnosis { get; private set; }
 
-        public ValueTask<DaemonDiagnosisReadResult> Read (
+        public ValueTask<DaemonDiagnosisReadResult> ReadAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -333,7 +333,7 @@ public sealed class DaemonStatusOperationTests
             return ValueTask.FromResult(ReadResult);
         }
 
-        public ValueTask<DaemonDiagnosisStoreOperationResult> Write (
+        public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
             string storageRoot,
             string projectFingerprint,
             DaemonDiagnosis diagnosis,
@@ -344,7 +344,7 @@ public sealed class DaemonStatusOperationTests
             return ValueTask.FromResult(WriteResult);
         }
 
-        public ValueTask<DaemonDiagnosisStoreOperationResult> Delete (
+        public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)

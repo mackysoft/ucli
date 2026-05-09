@@ -44,7 +44,7 @@ public sealed class QueryServiceTests
         var unityRequestExecutor = new SpyUnityRequestExecutor();
         var service = new QueryService(projectContextResolver, assetSearchLookupAccessService, sceneTreeLiteAccessService, unityRequestExecutor);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             CreateInput(
                 new QueryAssetsFindOperationRequest(
                     CommandName: "query.assets.find",
@@ -108,7 +108,7 @@ public sealed class QueryServiceTests
         var unityRequestExecutor = new SpyUnityRequestExecutor();
         var service = new QueryService(projectContextResolver, assetSearchLookupAccessService, sceneTreeLiteAccessService, unityRequestExecutor);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             CreateInput(
                 new QuerySceneTreeOperationRequest(
                     CommandName: "query.scene.tree",
@@ -153,7 +153,7 @@ public sealed class QueryServiceTests
         {
             type = "UnityEngine.Transform, UnityEngine.CoreModule",
         });
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             CreateInput(
                 new QueryUnityOperationRequest(
                     CommandName: "query.comp.schema",
@@ -245,7 +245,7 @@ public sealed class QueryServiceTests
             this.result = result;
         }
 
-        public ValueTask<ProjectContextResolutionResult> Resolve (
+        public ValueTask<ProjectContextResolutionResult> ResolveAsync (
             string? projectPath,
             CancellationToken cancellationToken = default)
         {
@@ -274,7 +274,7 @@ public sealed class QueryServiceTests
 
         public AssetSearchLookupQuery? CapturedQuery { get; private set; }
 
-        public ValueTask<AssetSearchLookupReadResult> Search (
+        public ValueTask<AssetSearchLookupReadResult> SearchAsync (
             ResolvedUnityProjectContext project,
             UcliConfig config,
             UnityExecutionMode mode,
@@ -349,7 +349,7 @@ public sealed class QueryServiceTests
 
         public UnityRequestPayload? CapturedPayload { get; private set; }
 
-        public ValueTask<UnityRequestExecutionResult> Execute (
+        public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
             UcliCommand command,
             UnityExecutionMode mode,
             TimeSpan timeout,

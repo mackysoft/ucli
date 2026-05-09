@@ -24,7 +24,7 @@ public sealed class UnityDaemonReadinessGateTests
             CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true));
         var daemonClient = new StubUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient, timeProvider);
-        var executionTask = gate.Execute(
+        var executionTask = gate.ExecuteAsync(
             CreateContext(scope),
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
@@ -60,7 +60,7 @@ public sealed class UnityDaemonReadinessGateTests
         var daemonClient = new StubUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient);
 
-        var result = await gate.Execute(
+        var result = await gate.ExecuteAsync(
             CreateContext(scope),
             CreateOpsReadDispatchRequest(failFast: true),
             new IpcOpsReadRequest(FailFast: true, RequireReadinessGate: true),
@@ -84,7 +84,7 @@ public sealed class UnityDaemonReadinessGateTests
             CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true));
         var daemonClient = new StubUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient, timeProvider);
-        var executionTask = gate.Execute(
+        var executionTask = gate.ExecuteAsync(
             CreateContext(scope),
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
@@ -114,7 +114,7 @@ public sealed class UnityDaemonReadinessGateTests
         var daemonClient = new StubUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient);
 
-        var result = await gate.Execute(
+        var result = await gate.ExecuteAsync(
             CreateContext(scope),
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
@@ -137,7 +137,7 @@ public sealed class UnityDaemonReadinessGateTests
         var daemonClient = new StubUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient);
 
-        var result = await gate.Execute(
+        var result = await gate.ExecuteAsync(
             CreateContext(scope),
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
@@ -161,7 +161,7 @@ public sealed class UnityDaemonReadinessGateTests
         var daemonClient = new StubUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient);
 
-        var result = await gate.Execute(
+        var result = await gate.ExecuteAsync(
             CreateContext(scope),
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
@@ -189,7 +189,7 @@ public sealed class UnityDaemonReadinessGateTests
             CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient);
 
-        var result = await gate.Execute(
+        var result = await gate.ExecuteAsync(
             CreateContext(scope),
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
@@ -214,7 +214,7 @@ public sealed class UnityDaemonReadinessGateTests
         var daemonClient = new StubUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient, timeProvider);
 
-        var result = await gate.Execute(
+        var result = await gate.ExecuteAsync(
             CreateContext(scope),
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
@@ -237,7 +237,7 @@ public sealed class UnityDaemonReadinessGateTests
         await cancellationTokenSource.CancelAsync();
         var gate = new UnityDaemonReadinessGate(new StubDaemonPingInfoClient());
 
-        await Assert.ThrowsAsync<OperationCanceledException>(async () => await gate.Execute(
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await gate.ExecuteAsync(
             CreateContext(scope),
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
@@ -317,7 +317,7 @@ public sealed class UnityDaemonReadinessGateTests
 
         public int CallCount { get; private set; }
 
-        public ValueTask<IpcPingResponse> PingAndRead (
+        public ValueTask<IpcPingResponse> PingAndReadAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             string? sessionToken = null,

@@ -21,7 +21,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
     }
 
     /// <inheritdoc />
-    public async ValueTask<ValidationResult> Validate (
+    public async ValueTask<ValidationResult> ValidateAsync (
         ValidateRequest request,
         RequestStaticValidationCatalog catalog,
         UcliConfig config,
@@ -149,7 +149,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
 
                     if (operationsByName != null)
                     {
-                        await ValidateReferencedOperation(
+                        await ValidateReferencedOperationAsync(
                                 normalizedOperationName,
                                 normalizedStepId,
                                 isImplicitEditOperation: false,
@@ -189,7 +189,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                             continue;
                         }
 
-                        await ValidateReferencedOperation(
+                        await ValidateReferencedOperationAsync(
                                 operationName,
                                 normalizedStepId,
                                 isImplicitEditOperation: true,
@@ -257,7 +257,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
         return null;
     }
 
-    private async ValueTask ValidateReferencedOperation (
+    private async ValueTask ValidateReferencedOperationAsync (
         string operationName,
         string? stepId,
         bool isImplicitEditOperation,
@@ -288,7 +288,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
         if (!authorizationCache.TryGetValue(operationName, out var authorizationResult))
         {
             authorizationResult = await operationAuthorizationService
-                .Authorize(descriptor, config, cancellationToken)
+                .AuthorizeAsync(descriptor, config, cancellationToken)
                 .ConfigureAwait(false);
             authorizationCache[operationName] = authorizationResult;
         }

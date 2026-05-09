@@ -7,7 +7,7 @@ internal interface IDaemonSessionTokenProvider
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon session token resolution result. </returns>
-    ValueTask<DaemonSessionTokenResolutionResult> Resolve (
+    ValueTask<DaemonSessionTokenResolutionResult> ResolveAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default);
 }

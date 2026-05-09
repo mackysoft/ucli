@@ -59,7 +59,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> A task that completes after listener task has been scheduled. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="endpoint" /> is <see langword="null" />. </exception>
         /// <exception cref="ArgumentException"> Thrown when endpoint address is empty or whitespace. </exception>
-        public async Task Start (
+        public async Task StartAsync (
             IpcEndpoint endpoint,
             CancellationToken cancellationToken = default)
         {
@@ -85,12 +85,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                 isRunning = true;
                 listenerCancellationTokenSource = new CancellationTokenSource();
                 startupCoordinator = new UnityIpcServerStartupCoordinator();
-                listenerTask = Task.Run(() => RunServerLoop(endpoint, startupCoordinator, listenerCancellationTokenSource.Token));
+                listenerTask = Task.Run(() => RunServerLoopAsync(endpoint, startupCoordinator, listenerCancellationTokenSource.Token));
             }
 
             try
             {
-                await startupCoordinator.Wait(cancellationToken);
+                await startupCoordinator.WaitAsync(cancellationToken);
             }
             catch
             {
@@ -105,7 +105,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     listenerCancellationTokenSource = null;
                 }
 
-                await CleanupListenerAfterFailedStart(capturedListenerTask, capturedCancellationTokenSource);
+                await CleanupListenerAfterFailedStartAsync(capturedListenerTask, capturedCancellationTokenSource);
                 throw;
             }
         }
@@ -113,7 +113,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Stops the IPC server lifecycle and releases endpoint resources. </summary>
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> A task that completes when background listener loop terminates. </returns>
-        public async Task Stop (CancellationToken cancellationToken = default)
+        public async Task StopAsync (CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -181,7 +181,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> A task that completes when listener loop terminates, or immediately when server has not been started. </returns>
         /// <exception cref="OperationCanceledException"> Thrown when <paramref name="cancellationToken" /> is canceled before listener loop terminates. </exception>
-        public async Task WaitForTermination (CancellationToken cancellationToken = default)
+        public async Task WaitForTerminationAsync (CancellationToken cancellationToken = default)
         {
             Task? capturedListenerTask;
             lock (syncRoot)
@@ -194,24 +194,24 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return;
             }
 
-            await CancellationGracePeriodAwaiter.Wait(capturedListenerTask, cancellationToken, WaitForTerminationRaceGracePeriod);
+            await CancellationGracePeriodAwaiter.WaitAsync(capturedListenerTask, cancellationToken, WaitForTerminationRaceGracePeriod);
         }
 
         /// <summary> Handles one IPC request through the configured request-handler pipeline. </summary>
         /// <param name="request"> The incoming IPC request envelope. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> The IPC response envelope. </returns>
-        public Task<IpcResponse> HandleRequest (
+        public Task<IpcResponse> HandleRequestAsync (
             IpcRequest request,
             CancellationToken cancellationToken = default)
         {
-            return requestProcessor.Process(request, cancellationToken);
+            return requestProcessor.ProcessAsync(request, cancellationToken);
         }
 
         /// <summary> Runs endpoint-specific listener loop. </summary>
         /// <param name="endpoint"> The configured IPC endpoint. </param>
         /// <param name="cancellationToken"> The cancellation token for listener lifecycle. </param>
-        private async Task RunServerLoop (
+        private async Task RunServerLoopAsync (
             IpcEndpoint endpoint,
             UnityIpcServerStartupCoordinator startupCoordinator,
             CancellationToken cancellationToken)
@@ -219,7 +219,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             try
             {
                 var listener = ResolveTransportListener(endpoint.TransportKind);
-                await listener.Run(
+                await listener.RunAsync(
                     endpoint.Address,
                     connectionHandler,
                     startupCoordinator.Complete,
@@ -285,7 +285,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="capturedListenerTask"> The captured listener task from start path. </param>
         /// <param name="capturedCancellationTokenSource"> The captured cancellation-token source from start path. </param>
         /// <returns> A task that completes after cleanup steps finish. </returns>
-        private async Task CleanupListenerAfterFailedStart (
+        private async Task CleanupListenerAfterFailedStartAsync (
             Task? capturedListenerTask,
             CancellationTokenSource? capturedCancellationTokenSource)
         {

@@ -16,7 +16,7 @@ internal sealed class UnityUcliPluginMarkerValidator
     /// <param name="markerPath"> The marker file path. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The structured error on failure; otherwise <see langword="null" />. </returns>
-    public async ValueTask<ExecutionError?> ValidateMarker (
+    public async ValueTask<ExecutionError?> ValidateMarkerAsync (
         string markerPath,
         CancellationToken cancellationToken = default)
     {

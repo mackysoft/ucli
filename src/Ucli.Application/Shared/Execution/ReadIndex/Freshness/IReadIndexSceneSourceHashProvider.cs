@@ -4,7 +4,7 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 internal interface IReadIndexSceneSourceHashProvider
 {
     /// <summary> Tries to compute one source hash for a scene-tree-lite lookup source. </summary>
-    ValueTask<string?> TryCompute (
+    ValueTask<string?> TryComputeAsync (
         ResolvedUnityProjectContext unityProject,
         string scenePath,
         CancellationToken cancellationToken = default);

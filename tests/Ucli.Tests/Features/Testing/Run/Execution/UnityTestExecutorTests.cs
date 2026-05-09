@@ -30,7 +30,7 @@ public sealed class UnityTestExecutorTests
             lockProvider,
             new StubUnityProjectLockFileProbe());
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(3000),
@@ -58,7 +58,7 @@ public sealed class UnityTestExecutorTests
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe());
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(3000),
@@ -87,7 +87,7 @@ public sealed class UnityTestExecutorTests
                 UnityProjectLockFileProbeResult.Unlocked(lockFilePath),
                 UnityProjectLockFileProbeResult.Locked(lockFilePath)));
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(3000),
@@ -112,7 +112,7 @@ public sealed class UnityTestExecutorTests
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe());
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(3000),
@@ -138,7 +138,7 @@ public sealed class UnityTestExecutorTests
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe());
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(3000),
@@ -165,7 +165,7 @@ public sealed class UnityTestExecutorTests
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe());
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(1),
@@ -190,7 +190,7 @@ public sealed class UnityTestExecutorTests
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe());
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(3000),
@@ -215,7 +215,7 @@ public sealed class UnityTestExecutorTests
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe());
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(3000),
@@ -246,7 +246,7 @@ public sealed class UnityTestExecutorTests
                 UnityProjectLockFileProbeResult.Unlocked(lockFilePath),
                 UnityProjectLockFileProbeResult.Locked(lockFilePath)));
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(3000),
@@ -279,7 +279,7 @@ public sealed class UnityTestExecutorTests
                 UnityProjectLockFileProbeResult.Unlocked(lockFilePath),
                 UnityProjectLockFileProbeResult.Locked(lockFilePath)));
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(3000),
@@ -306,7 +306,7 @@ public sealed class UnityTestExecutorTests
             new StubProjectLifecycleLockProvider(throwTimeout: true),
             new StubUnityProjectLockFileProbe());
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(3000),
@@ -332,7 +332,7 @@ public sealed class UnityTestExecutorTests
             new StubProjectLifecycleLockProvider(),
             new StubUnityProjectLockFileProbe(UnityProjectLockFileProbeResult.Locked(scope.GetPath("UnityProject/Temp/UnityLockfile"))));
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(3000),
@@ -363,7 +363,7 @@ public sealed class UnityTestExecutorTests
             new StubProjectLifecycleLockProvider(),
             lockFileProbe);
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(3000),

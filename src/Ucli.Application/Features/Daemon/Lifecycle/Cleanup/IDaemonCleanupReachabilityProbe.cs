@@ -17,7 +17,7 @@ internal interface IDaemonCleanupReachabilityProbe
     /// </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> or <paramref name="sessionToken" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="sessionToken" /> is empty or whitespace. </exception>
-    ValueTask<DaemonCleanupReachabilityProbeResult> Probe (
+    ValueTask<DaemonCleanupReachabilityProbeResult> ProbeAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
         string sessionToken,

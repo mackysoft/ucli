@@ -43,7 +43,7 @@ internal sealed class QuerySceneTreeCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.TreeSubcommand)]
-    public async Task<int> Tree (
+    public async Task<int> TreeAsync (
         string? projectPath = null,
         string? mode = null,
         string? timeout = null,
@@ -83,7 +83,7 @@ internal sealed class QuerySceneTreeCommand
             return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QuerySceneTree, windowResult.Error!);
         }
 
-        return await QueryCommandExecutionHelper.Execute(
+        return await QueryCommandExecutionHelper.ExecuteAsync(
                 queryService,
                 commonOptionsResult.Options!,
                 new QuerySceneTreeOperationRequest(

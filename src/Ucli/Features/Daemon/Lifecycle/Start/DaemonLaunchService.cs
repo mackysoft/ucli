@@ -56,7 +56,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
     /// <returns> The daemon start result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    public async ValueTask<DaemonStartResult> Launch (
+    public async ValueTask<DaemonStartResult> LaunchAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         DaemonEditorMode editorMode,
@@ -67,7 +67,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
 
-        var initializeSessionResult = await daemonLaunchSessionService.Initialize(
+        var initializeSessionResult = await daemonLaunchSessionService.InitializeAsync(
                 unityProject,
                 editorMode,
                 cancellationToken)
@@ -85,7 +85,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             var unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint);
-            var launchResult = await unityDaemonProcessLauncher.Launch(
+            var launchResult = await unityDaemonProcessLauncher.LaunchAsync(
                     unityProject,
                     session,
                     unityLogPath,
@@ -93,7 +93,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 .ConfigureAwait(false);
             if (!launchResult.IsSuccess)
             {
-                return await CreateFailureWithCompensation(
+                return await CreateFailureWithCompensationAsync(
                         unityProject,
                         launchResult.ProcessId,
                         expectedIssuedAtUtc,
@@ -104,7 +104,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             }
 
             launchedProcessId = launchResult.ProcessId;
-            var updateProcessIdResult = await daemonLaunchSessionService.UpdateProcessId(
+            var updateProcessIdResult = await daemonLaunchSessionService.UpdateProcessIdAsync(
                     unityProject,
                     session,
                     launchedProcessId,
@@ -112,7 +112,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 .ConfigureAwait(false);
             if (!updateProcessIdResult.IsSuccess)
             {
-                return await CreateFailureWithCompensation(
+                return await CreateFailureWithCompensationAsync(
                         unityProject,
                         launchedProcessId,
                         expectedIssuedAtUtc,
@@ -126,7 +126,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             expectedIssuedAtUtc = session.IssuedAtUtc;
             if (!deadline.TryGetRemainingTimeout(out var probeTimeout))
             {
-                return await CreateFailureWithCompensation(
+                return await CreateFailureWithCompensationAsync(
                         unityProject,
                         launchedProcessId,
                         expectedIssuedAtUtc,
@@ -136,7 +136,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                     .ConfigureAwait(false);
             }
 
-            var probeResult = await startupReadinessProbe.WaitUntilReady(
+            var probeResult = await startupReadinessProbe.WaitUntilReadyAsync(
                     unityProject,
                     probeTimeout,
                     launchedProcessId,
@@ -147,7 +147,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 return DaemonStartResult.Started(session);
             }
 
-            return await CreateFailureWithCompensation(
+            return await CreateFailureWithCompensationAsync(
                     unityProject,
                     launchedProcessId,
                     expectedIssuedAtUtc,
@@ -158,7 +158,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            await daemonLaunchCompensationService.CleanupFailedLaunch(
+            await daemonLaunchCompensationService.CleanupFailedLaunchAsync(
                     unityProject,
                     launchedProcessId,
                     expectedIssuedAtUtc,
@@ -169,7 +169,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         }
     }
 
-    private async ValueTask<DaemonStartResult> CreateFailureWithCompensation (
+    private async ValueTask<DaemonStartResult> CreateFailureWithCompensationAsync (
         ResolvedUnityProjectContext unityProject,
         int? processId,
         DateTimeOffset expectedIssuedAtUtc,
@@ -177,7 +177,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         string primaryErrorMessagePrefix,
         string primaryErrorLabel)
     {
-        var diagnosisWriteResult = await daemonDiagnosisStore.Write(
+        var diagnosisWriteResult = await daemonDiagnosisStore.WriteAsync(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 new DaemonDiagnosis(
@@ -190,7 +190,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                     SessionIssuedAtUtc: expectedIssuedAtUtc),
                 CancellationToken.None)
             .ConfigureAwait(false);
-        var compensationResult = await daemonLaunchCompensationService.CleanupFailedLaunch(
+        var compensationResult = await daemonLaunchCompensationService.CleanupFailedLaunchAsync(
                 unityProject,
                 processId,
                 expectedIssuedAtUtc,

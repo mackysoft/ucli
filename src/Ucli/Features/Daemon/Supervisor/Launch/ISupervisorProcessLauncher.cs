@@ -9,7 +9,7 @@ internal interface ISupervisorProcessLauncher
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> One structured error when launch fails; otherwise <see langword="null" />. </returns>
-    ValueTask<ExecutionError?> Launch (
+    ValueTask<ExecutionError?> LaunchAsync (
         string storageRoot,
         CancellationToken cancellationToken = default);
 }

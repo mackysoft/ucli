@@ -31,7 +31,7 @@ internal sealed class SkillsListCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.ListSubcommand)]
-    public async Task<int> List (CancellationToken cancellationToken = default)
+    public async Task<int> ListAsync (CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();

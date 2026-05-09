@@ -27,7 +27,7 @@ public sealed class TestRunCommandTests
         var command = new TestRunCommand(service, CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Run(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.RunAsync(
             projectPath: "/repo/UnityProject",
             profilePath: "/repo/test.profile.json",
             executionMode: "oneshot",
@@ -95,7 +95,7 @@ public sealed class TestRunCommandTests
         var service = new StubTestRunService((_, _) => throw new InvalidOperationException("Service should not be called."));
         var command = new TestRunCommand(service, CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Run(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.RunAsync(
             executionMode: "unsupported",
             cancellationToken: CancellationToken.None));
 
@@ -124,7 +124,7 @@ public sealed class TestRunCommandTests
         var service = new StubTestRunService((_, _) => throw new InvalidOperationException("Service should not be called."));
         var command = new TestRunCommand(service, CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Run(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.RunAsync(
             testPlatform: " ",
             cancellationToken: CancellationToken.None));
 
@@ -159,7 +159,7 @@ public sealed class TestRunCommandTests
 
         public CancellationToken CapturedCancellationToken { get; private set; }
 
-        public ValueTask<TestRunServiceResult> Execute (
+        public ValueTask<TestRunServiceResult> ExecuteAsync (
             TestRunCommandInput input,
             CancellationToken cancellationToken = default)
         {

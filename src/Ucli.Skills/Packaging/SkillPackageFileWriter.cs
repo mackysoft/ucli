@@ -8,7 +8,7 @@ internal static class SkillPackageFileWriter
     /// <param name="contents"> The text contents. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that completes when the write operation finishes. </returns>
-    public static async ValueTask WriteAllTextAtomically (
+    public static async ValueTask WriteAllTextAtomicallyAsync (
         string path,
         string contents,
         CancellationToken cancellationToken = default)

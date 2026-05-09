@@ -38,7 +38,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     /// <param name="context"> The preflight-resolved execution context. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to pipeline output values. </returns>
-    public async ValueTask<TestRunExecutionPipelineResult> Execute (
+    public async ValueTask<TestRunExecutionPipelineResult> ExecuteAsync (
         TestRunExecutionContext context,
         CancellationToken cancellationToken = default)
     {
@@ -47,14 +47,14 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
 
         var configuration = context.Configuration;
 
-        var artifactsPreparationResult = await PrepareArtifactsSafely(configuration, cancellationToken).ConfigureAwait(false);
+        var artifactsPreparationResult = await PrepareArtifactsSafelyAsync(configuration, cancellationToken).ConfigureAwait(false);
         if (!artifactsPreparationResult.IsSuccess)
         {
             return TestRunExecutionPipelineResult.Failure(artifactsPreparationResult.Error!);
         }
 
         var artifactsSession = artifactsPreparationResult.Session!;
-        var unityExecutionResult = await ExecuteUnitySafely(
+        var unityExecutionResult = await ExecuteUnitySafelyAsync(
             context,
             artifactsSession,
             cancellationToken).ConfigureAwait(false);
@@ -65,7 +65,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         {
             try
             {
-                conversionResult = await ConvertResultsSafely(artifactsSession, cancellationToken).ConfigureAwait(false);
+                conversionResult = await ConvertResultsSafelyAsync(artifactsSession, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception exception)
             {
@@ -77,7 +77,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         // NOTE:
         // Completion metadata must be written even when caller cancellation is requested,
         // so mapping can preserve run-scoped diagnostics.
-        var completionResult = await CompleteArtifactsSafely(
+        var completionResult = await CompleteArtifactsSafelyAsync(
             configuration,
             artifactsSession,
             CancellationToken.None).ConfigureAwait(false);
@@ -109,14 +109,14 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     /// <param name="context"> The resolved run context. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the artifact preparation result. </returns>
-    private async ValueTask<ArtifactsPreparationResult> PrepareArtifactsSafely (
+    private async ValueTask<ArtifactsPreparationResult> PrepareArtifactsSafelyAsync (
         ResolvedTestRunConfiguration configuration,
         CancellationToken cancellationToken)
     {
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await artifactsService.Prepare(configuration, cancellationToken).ConfigureAwait(false);
+            return await artifactsService.PrepareAsync(configuration, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -134,7 +134,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     /// <param name="session"> The prepared artifacts session. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the artifact completion result. </returns>
-    private async ValueTask<ArtifactsCompletionResult> CompleteArtifactsSafely (
+    private async ValueTask<ArtifactsCompletionResult> CompleteArtifactsSafelyAsync (
         ResolvedTestRunConfiguration configuration,
         ArtifactsSession session,
         CancellationToken cancellationToken)
@@ -142,7 +142,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await artifactsService.Complete(configuration, session, cancellationToken).ConfigureAwait(false);
+            return await artifactsService.CompleteAsync(configuration, session, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -160,7 +160,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     /// <param name="session"> The prepared artifacts session. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to Unity execution result. </returns>
-    private async ValueTask<UnityTestExecutionResult> ExecuteUnitySafely (
+    private async ValueTask<UnityTestExecutionResult> ExecuteUnitySafelyAsync (
         TestRunExecutionContext context,
         ArtifactsSession session,
         CancellationToken cancellationToken)
@@ -170,14 +170,14 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
             cancellationToken.ThrowIfCancellationRequested();
             return context.Target switch
             {
-                UnityExecutionTarget.Daemon => await daemonTestRunClient.Execute(
+                UnityExecutionTarget.Daemon => await daemonTestRunClient.ExecuteAsync(
                         context.Configuration,
                         session.Paths,
                         context.Timeout,
                         context.FailFast,
                         cancellationToken)
                     .ConfigureAwait(false),
-                UnityExecutionTarget.Oneshot => await unityTestExecutor.Execute(
+                UnityExecutionTarget.Oneshot => await unityTestExecutor.ExecuteAsync(
                         context.Configuration,
                         session.Paths,
                         context.Timeout,
@@ -206,14 +206,14 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     /// <param name="session"> The prepared artifacts session. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to results conversion result. </returns>
-    private async ValueTask<UnityResultsConversionResult> ConvertResultsSafely (
+    private async ValueTask<UnityResultsConversionResult> ConvertResultsSafelyAsync (
         ArtifactsSession session,
         CancellationToken cancellationToken)
     {
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await resultsConverter.Convert(session, cancellationToken).ConfigureAwait(false);
+            return await resultsConverter.ConvertAsync(session, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

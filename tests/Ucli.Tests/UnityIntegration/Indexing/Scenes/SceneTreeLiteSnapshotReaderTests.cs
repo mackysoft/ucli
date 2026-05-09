@@ -201,7 +201,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
         public UnityRequestExecutionResult Result { get; set; }
             = UnityRequestExecutionResultTestFactory.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
-        public ValueTask<UnityRequestExecutionResult> Execute (
+        public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
             UcliCommand command,
             UnityExecutionMode mode,
             TimeSpan timeout,

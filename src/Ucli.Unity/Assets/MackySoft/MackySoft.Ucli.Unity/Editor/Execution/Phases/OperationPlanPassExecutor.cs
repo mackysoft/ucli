@@ -40,7 +40,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="operationPreflight"> Optional preflight executed after operation resolution and before validate/plan execution. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The plan-pass result. </returns>
-        public async Task<PlanPassResult> Execute (
+        public async Task<PlanPassResult> ExecuteAsync (
             NormalizedExecuteRequest request,
             OperationExecutionContext executionContext,
             Func<NormalizedOperation, IUcliOperation, OperationFailure?>? operationPreflight,
@@ -91,7 +91,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         continue;
                     }
 
-                    var outcome = await stepRunner.Execute(
+                    var outcome = await stepRunner.ExecuteAsync(
                         operation,
                         executionContext,
                         operationPreflight,

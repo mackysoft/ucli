@@ -32,7 +32,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="cancellationToken"> The cancellation token for request handling. </param>
         /// <returns> The handled connection exchange result. </returns>
         /// <exception cref="OperationCanceledException"> Thrown when operation is canceled. </exception>
-        public async Task<UnityIpcConnectionHandleResult> Handle (
+        public async Task<UnityIpcConnectionHandleResult> HandleAsync (
             Stream stream,
             CancellationToken cancellationToken = default)
         {
@@ -68,7 +68,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var request = readResult.Value;
-            var response = await requestProcessor.Process(request, cancellationToken);
+            var response = await requestProcessor.ProcessAsync(request, cancellationToken);
             await IpcFrameCodec.WriteModelAsync(
                 stream,
                 response,

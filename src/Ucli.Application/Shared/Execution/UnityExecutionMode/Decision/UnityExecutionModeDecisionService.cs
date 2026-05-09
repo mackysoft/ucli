@@ -21,7 +21,7 @@ internal sealed class UnityExecutionModeDecisionService : IUnityExecutionModeDec
     /// <returns> The mode decision result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    public async ValueTask<UnityExecutionModeDecisionResult> Decide (
+    public async ValueTask<UnityExecutionModeDecisionResult> DecideAsync (
         UnityExecutionMode mode,
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
@@ -31,7 +31,7 @@ internal sealed class UnityExecutionModeDecisionService : IUnityExecutionModeDec
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var reachabilityResult = await daemonReachabilityProbe.Probe(
+        var reachabilityResult = await daemonReachabilityProbe.ProbeAsync(
                 unityProject,
                 timeout,
                 cancellationToken)

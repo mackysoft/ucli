@@ -84,17 +84,17 @@ namespace MackySoft.Ucli.Unity.Tests
                 var validator = new FileBackedSessionTokenValidator(registration.SessionPath);
 
                 Assert.That(
-                    await validator.Validate(sessionToken, CancellationToken.None),
+                    await validator.ValidateAsync(sessionToken, CancellationToken.None),
                     Is.True);
                 Assert.That(
-                    await validator.Validate("wrong-session-token", CancellationToken.None),
+                    await validator.ValidateAsync("wrong-session-token", CancellationToken.None),
                     Is.False);
 
                 UnityGuiSessionPersistence.Delete(registration);
 
                 Assert.That(File.Exists(registration.SessionPath), Is.False);
                 Assert.That(
-                    await validator.Validate(sessionToken, CancellationToken.None),
+                    await validator.ValidateAsync(sessionToken, CancellationToken.None),
                     Is.False);
             }
             finally
@@ -227,7 +227,7 @@ namespace MackySoft.Ucli.Unity.Tests
             UnityGuiBootstrapSessionOptions sessionOptions,
             IpcEndpoint endpoint = null)
         {
-            return UnityGuiSessionPersistence.Write(
+            return UnityGuiSessionPersistence.WriteAsync(
                     storageRoot,
                     "fingerprint",
                     endpoint ?? new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-session-tests"),

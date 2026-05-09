@@ -9,7 +9,7 @@ public sealed class LogsCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Logs_WithoutSubcommand_ReturnsJsonEnvelopeError ()
     {
-        var result = await CliProcessRunner.RunCommand(UcliCommandNames.Logs);
+        var result = await CliProcessRunner.RunCommandAsync(UcliCommandNames.Logs);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -27,7 +27,7 @@ public sealed class LogsCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task LogsDaemon_WithInvalidInput_ReturnsJsonEnvelopeError ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Logs,
             UcliCommandNames.Daemon,
             "--queryTarget",
@@ -53,7 +53,7 @@ public sealed class LogsCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task LogsUnity_WithInvalidStackTrace_ReturnsJsonEnvelopeError ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Logs,
             UcliCommandNames.UnitySubcommand,
             "--stack-trace",
@@ -79,7 +79,7 @@ public sealed class LogsCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task LogsUnity_WithStreamOption_UsesStreamModeValidation ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Logs,
             UcliCommandNames.UnitySubcommand,
             "--stream",

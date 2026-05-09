@@ -228,7 +228,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 out _,
                 out var activityProbe);
 
-            var resultTask = gate.EnsureExecutionReady(failFast: false);
+            var resultTask = gate.EnsureExecutionReadyAsync(failFast: false);
             Assert.That(resultTask.IsCompleted, Is.False);
 
             activityProbe.IsUpdating = false;
@@ -259,7 +259,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 out _,
                 out _);
 
-            var resultTask = gate.EnsureExecutionReady(failFast: false);
+            var resultTask = gate.EnsureExecutionReadyAsync(failFast: false);
             Assert.That(resultTask.IsCompleted, Is.False);
 
             await UniTask.Yield();
@@ -286,7 +286,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 isPlaymodeActive: true,
                 out _);
 
-            var resultTask = gate.EnsureExecutionReady(failFast: false);
+            var resultTask = gate.EnsureExecutionReadyAsync(failFast: false);
             Assert.That(resultTask.IsCompleted, Is.True);
             var result = await TestAwaiter.WaitAsync(
                 resultTask,
@@ -312,7 +312,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 isPlaymodeActive: false,
                 out _);
 
-            var resultTask = gate.EnsureExecutionReady(failFast: false);
+            var resultTask = gate.EnsureExecutionReadyAsync(failFast: false);
             Assert.That(resultTask.IsCompleted, Is.True);
             var result = await TestAwaiter.WaitAsync(
                 resultTask,
@@ -342,7 +342,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 out _);
             using var cancellationTokenSource = new CancellationTokenSource();
 
-            var resultTask = gate.EnsureExecutionReady(failFast: false, cancellationTokenSource.Token);
+            var resultTask = gate.EnsureExecutionReadyAsync(failFast: false, cancellationTokenSource.Token);
             Assert.That(resultTask.IsCompleted, Is.False);
 
             cancellationTokenSource.Cancel();
@@ -372,7 +372,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 out _,
                 out var waitSignalBus);
 
-            var resultTask = gate.EnsureExecutionReady(failFast: false);
+            var resultTask = gate.EnsureExecutionReadyAsync(failFast: false);
             Assert.That(resultTask.IsCompleted, Is.False);
 
             waitSignalBus.RaiseBeforeAssemblyReload();
@@ -405,7 +405,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 out _,
                 out var waitSignalBus);
 
-            var resultTask = gate.EnsureExecutionReady(failFast: false);
+            var resultTask = gate.EnsureExecutionReadyAsync(failFast: false);
             Assert.That(resultTask.IsCompleted, Is.False);
 
             waitSignalBus.RaiseQuitting();

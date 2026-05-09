@@ -15,7 +15,7 @@ public sealed class DaemonListServiceTests
         var queryService = new StubDaemonListQueryService();
         var service = new DaemonListService(resolver, queryService);
 
-        var result = await service.GetList(projectPath: "/tmp/project", timeoutMilliseconds: 1000, cancellationToken: CancellationToken.None);
+        var result = await service.GetListAsync(projectPath: "/tmp/project", timeoutMilliseconds: 1000, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -44,7 +44,7 @@ public sealed class DaemonListServiceTests
         using var cancellationSource = new CancellationTokenSource();
         var cancellationToken = cancellationSource.Token;
 
-        var result = await service.GetList(
+        var result = await service.GetListAsync(
             projectPath: "/tmp/unity-project",
             timeoutMilliseconds: 4321,
             cancellationToken: cancellationToken);
@@ -78,7 +78,7 @@ public sealed class DaemonListServiceTests
 
         public CancellationToken LastCancellationToken { get; private set; }
 
-        public ValueTask<DaemonListExecutionResult> GetList (
+        public ValueTask<DaemonListExecutionResult> GetListAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)

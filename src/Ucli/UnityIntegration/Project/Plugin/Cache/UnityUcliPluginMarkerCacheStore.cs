@@ -24,8 +24,8 @@ internal sealed class UnityUcliPluginMarkerCacheStore
     /// <summary> Initializes a new instance of the <see cref="UnityUcliPluginMarkerCacheStore" /> class. </summary>
     public UnityUcliPluginMarkerCacheStore ()
         : this(
-            static (path, cancellationToken) => FileUtilities.ReadAllTextOrNull(path, cancellationToken),
-            static (path, contents, cancellationToken) => FileUtilities.WriteAllTextAtomically(path, contents, cancellationToken),
+            static (path, cancellationToken) => FileUtilities.ReadAllTextOrNullAsync(path, cancellationToken),
+            static (path, contents, cancellationToken) => FileUtilities.WriteAllTextAtomicallyAsync(path, contents, cancellationToken),
             static path => FileUtilities.DeleteIfExists(path))
     {
     }
@@ -49,7 +49,7 @@ internal sealed class UnityUcliPluginMarkerCacheStore
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The cache read result. </returns>
-    public async ValueTask<UnityUcliPluginMarkerCacheReadResult> ReadOrNull (
+    public async ValueTask<UnityUcliPluginMarkerCacheReadResult> ReadOrNullAsync (
         string storageRoot,
         string projectFingerprint,
         CancellationToken cancellationToken = default)
@@ -120,7 +120,7 @@ internal sealed class UnityUcliPluginMarkerCacheStore
     /// <param name="cache"> The cache payload to persist. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The cache operation result. </returns>
-    public async ValueTask<UnityUcliPluginMarkerCacheStoreOperationResult> Write (
+    public async ValueTask<UnityUcliPluginMarkerCacheStoreOperationResult> WriteAsync (
         string storageRoot,
         string projectFingerprint,
         UnityUcliPluginMarkerCache cache,

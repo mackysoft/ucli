@@ -15,11 +15,11 @@ internal sealed class UnityPluginVerifier : IUnityPluginVerifier
     }
 
     /// <inheritdoc />
-    public async ValueTask<UnityPluginVerificationResult> Verify (
+    public async ValueTask<UnityPluginVerificationResult> VerifyAsync (
         string unityProjectRoot,
         CancellationToken cancellationToken = default)
     {
-        var locateResult = await pluginLocator.Locate(unityProjectRoot, cancellationToken).ConfigureAwait(false);
+        var locateResult = await pluginLocator.LocateAsync(unityProjectRoot, cancellationToken).ConfigureAwait(false);
         return locateResult.IsSuccess
             ? UnityPluginVerificationResult.Success()
             : UnityPluginVerificationResult.Failure(locateResult.Error!);

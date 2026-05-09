@@ -29,7 +29,7 @@ public sealed class DaemonStopServiceTests
         };
         var service = CreateService(resolver, supervisorProjectGateway, daemonStopOperation);
 
-        var result = await service.Stop(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
+        var result = await service.StopAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStopExecutionOutput>(result.Output);
@@ -52,7 +52,7 @@ public sealed class DaemonStopServiceTests
         var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway();
         var service = CreateService(resolver, supervisorProjectGateway, daemonStopOperation);
 
-        var result = await service.Stop(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
+        var result = await service.StopAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -82,7 +82,7 @@ public sealed class DaemonStopServiceTests
         };
         var service = CreateService(resolver, supervisorProjectGateway, daemonStopOperation);
 
-        var result = await service.Stop(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
+        var result = await service.StopAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -111,7 +111,7 @@ public sealed class DaemonStopServiceTests
         };
         var service = CreateService(resolver, supervisorProjectGateway, daemonStopOperation);
 
-        var result = await service.Stop(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
+        var result = await service.StopAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -147,7 +147,7 @@ public sealed class DaemonStopServiceTests
         };
         var service = CreateService(resolver, supervisorProjectGateway, daemonStopOperation, timeProvider: timeProvider);
 
-        var result = await service.Stop(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
+        var result = await service.StopAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(0, daemonStopOperation.StopCallCount);
@@ -177,7 +177,7 @@ public sealed class DaemonStopServiceTests
         };
         var service = CreateService(resolver, supervisorProjectGateway, daemonStopOperation);
 
-        var result = await service.Stop(
+        var result = await service.StopAsync(
             projectPath: "/tmp/sandbox-unity",
             timeoutMilliseconds: 8888,
             cancellationToken: CancellationToken.None);

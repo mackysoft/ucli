@@ -56,7 +56,7 @@ internal sealed class UnityUcliPluginLocator : IUnityUcliPluginLocator
     }
 
     /// <inheritdoc />
-    public async ValueTask<UnityUcliPluginLocateResult> Locate (
+    public async ValueTask<UnityUcliPluginLocateResult> LocateAsync (
         string unityProjectRoot,
         CancellationToken cancellationToken = default)
     {
@@ -76,7 +76,7 @@ internal sealed class UnityUcliPluginLocator : IUnityUcliPluginLocator
                     $"uCLI Unity plugin marker is invalid. Path='{unityProjectRoot}'. Reason=Unity project path is invalid. {exception.Message}"));
         }
 
-        var cachedLocateResult = await pluginMarkerCacheCoordinator.TryLocateFromCache(
+        var cachedLocateResult = await pluginMarkerCacheCoordinator.TryLocateFromCacheAsync(
                 locateContext.UnityProjectRoot,
                 locateContext.StorageRoot,
                 locateContext.ProjectFingerprint,
@@ -103,7 +103,7 @@ internal sealed class UnityUcliPluginLocator : IUnityUcliPluginLocator
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var markerError = await pluginMarkerValidator.ValidateMarker(markerPath, cancellationToken).ConfigureAwait(false);
+            var markerError = await pluginMarkerValidator.ValidateMarkerAsync(markerPath, cancellationToken).ConfigureAwait(false);
             if (markerError != null)
             {
                 return UnityUcliPluginLocateResult.InvalidMarker(markerPath, markerError);

@@ -20,7 +20,7 @@ public sealed class DaemonCleanupServiceTests
         };
         var service = new DaemonCleanupService(resolver, operation);
 
-        var result = await service.Cleanup(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
+        var result = await service.CleanupAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonCleanupExecutionOutput>(result.Output);
@@ -43,7 +43,7 @@ public sealed class DaemonCleanupServiceTests
         };
         var service = new DaemonCleanupService(resolver, operation);
 
-        var result = await service.Cleanup(projectPath: "/tmp/unity-project", timeoutMilliseconds: 3100, cancellationToken: CancellationToken.None);
+        var result = await service.CleanupAsync(projectPath: "/tmp/unity-project", timeoutMilliseconds: 3100, cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonCleanupExecutionOutput>(result.Output);
@@ -64,7 +64,7 @@ public sealed class DaemonCleanupServiceTests
         var operation = new DaemonServiceTestContext.StubDaemonCleanupOperation();
         var service = new DaemonCleanupService(resolver, operation);
 
-        var result = await service.Cleanup(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
+        var result = await service.CleanupAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);

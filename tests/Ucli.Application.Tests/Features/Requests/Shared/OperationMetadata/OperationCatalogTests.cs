@@ -21,7 +21,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.SceneOpen, CancellationToken.None);
+        var descriptor = await catalog.GetAsync(UcliPrimitiveOperationNames.SceneOpen, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         Assert.Equal(UcliPrimitiveOperationNames.SceneOpen, descriptor.Name);
@@ -35,7 +35,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.Resolve, CancellationToken.None);
+        var descriptor = await catalog.GetAsync(UcliPrimitiveOperationNames.Resolve, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -61,7 +61,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.SceneTree, CancellationToken.None);
+        var descriptor = await catalog.GetAsync(UcliPrimitiveOperationNames.SceneTree, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -87,7 +87,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.GoCreate, CancellationToken.None);
+        var descriptor = await catalog.GetAsync(UcliPrimitiveOperationNames.GoCreate, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -109,7 +109,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.GoDescribe, CancellationToken.None);
+        var descriptor = await catalog.GetAsync(UcliPrimitiveOperationNames.GoDescribe, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -134,7 +134,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.CompSet, CancellationToken.None);
+        var descriptor = await catalog.GetAsync(UcliPrimitiveOperationNames.CompSet, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -152,7 +152,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.AssetSet, CancellationToken.None);
+        var descriptor = await catalog.GetAsync(UcliPrimitiveOperationNames.AssetSet, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -169,7 +169,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.AssetSchema, CancellationToken.None);
+        var descriptor = await catalog.GetAsync(UcliPrimitiveOperationNames.AssetSchema, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -186,7 +186,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.AssetsFind, CancellationToken.None);
+        var descriptor = await catalog.GetAsync(UcliPrimitiveOperationNames.AssetsFind, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         Assert.Equal(UcliPrimitiveOperationNames.AssetsFind, descriptor.Name);
@@ -209,7 +209,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.CompSchema, CancellationToken.None);
+        var descriptor = await catalog.GetAsync(UcliPrimitiveOperationNames.CompSchema, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -226,7 +226,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.GoDelete, CancellationToken.None);
+        var descriptor = await catalog.GetAsync(UcliPrimitiveOperationNames.GoDelete, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -241,7 +241,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.GoReparent, CancellationToken.None);
+        var descriptor = await catalog.GetAsync(UcliPrimitiveOperationNames.GoReparent, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -256,7 +256,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.PrefabCreate, CancellationToken.None);
+        var descriptor = await catalog.GetAsync(UcliPrimitiveOperationNames.PrefabCreate, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -273,7 +273,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(operationName, CancellationToken.None);
+        var descriptor = await catalog.GetAsync(operationName, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -301,7 +301,7 @@ public sealed class OperationCatalogTests
         ]);
         var catalog = new OperationCatalog(provider);
 
-        var listed = await catalog.GetAll(CancellationToken.None);
+        var listed = await catalog.GetAllAsync(CancellationToken.None);
 
         Assert.Equal(3, listed.Count);
         Assert.Equal("ucli.a", listed[0].Name);
@@ -323,7 +323,7 @@ public sealed class OperationCatalogTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
             await TestAwaiter.WaitAsync(
-                catalog.GetAll(CancellationToken.None).AsTask(),
+                catalog.GetAllAsync(CancellationToken.None).AsTask(),
                 "Duplicate operation catalog load",
                 AsyncWaitTimeout);
         });
@@ -336,7 +336,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var found = await catalog.Get("ucli.unknown.operation", CancellationToken.None);
+        var found = await catalog.GetAsync("ucli.unknown.operation", CancellationToken.None);
 
         Assert.Null(found);
     }
@@ -350,13 +350,13 @@ public sealed class OperationCatalogTests
             this.operations = operations ?? throw new ArgumentNullException(nameof(operations));
         }
 
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetOperations (CancellationToken cancellationToken = default)
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetOperationsAsync (CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(operations);
         }
 
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetOperations (
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetOperationsAsync (
             ResolvedUnityProjectContext unityProject,
             UcliConfig config,
             UnityExecutionMode mode = UnityExecutionMode.Auto,

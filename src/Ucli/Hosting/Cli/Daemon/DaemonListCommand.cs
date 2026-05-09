@@ -31,7 +31,7 @@ internal sealed class DaemonListCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.ListSubcommand)]
-    public async Task<int> List (
+    public async Task<int> ListAsync (
         string? projectPath = null,
         string? timeout = null,
         CancellationToken cancellationToken = default)
@@ -49,7 +49,7 @@ internal sealed class DaemonListCommand
             return errorResult.ExitCode;
         }
 
-        var executionResult = await daemonListService.GetList(
+        var executionResult = await daemonListService.GetListAsync(
                 projectPath,
                 normalizedTimeoutResult.TimeoutMilliseconds,
                 cancellationToken)

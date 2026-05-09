@@ -32,7 +32,7 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
     /// <returns> The cleanup operation result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> or <paramref name="readResult" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    public async ValueTask<DaemonSessionStoreOperationResult> CleanupInvalidSessionArtifacts (
+    public async ValueTask<DaemonSessionStoreOperationResult> CleanupInvalidSessionArtifactsAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSessionReadResult readResult,
         TimeSpan timeout,
@@ -50,7 +50,7 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
 
         if (TryGetInvalidSessionStopTarget(readResult, unityProject, out var processId, out var issuedAtUtc))
         {
-            var stopResult = await processTerminationService.EnsureStopped(
+            var stopResult = await processTerminationService.EnsureStoppedAsync(
                     processId,
                     issuedAtUtc,
                     timeout,
@@ -62,7 +62,7 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
             }
         }
 
-        return await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
+        return await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary> Cleans stale-session artifacts from existing daemon session metadata. </summary>
@@ -73,7 +73,7 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
     /// <returns> The cleanup operation result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> or <paramref name="session" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    public async ValueTask<DaemonSessionStoreOperationResult> CleanupStaleSessionArtifacts (
+    public async ValueTask<DaemonSessionStoreOperationResult> CleanupStaleSessionArtifactsAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         TimeSpan timeout,
@@ -86,7 +86,7 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
 
         if (TryGetSessionStopTarget(session, unityProject, out var processId, out var issuedAtUtc))
         {
-            var stopResult = await processTerminationService.EnsureStopped(
+            var stopResult = await processTerminationService.EnsureStoppedAsync(
                     processId,
                     issuedAtUtc,
                     timeout,
@@ -98,7 +98,7 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
             }
         }
 
-        return await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
+        return await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
     }
 
     private static bool TryCreateUnsafeInvalidSessionRelaunchError (

@@ -8,7 +8,7 @@ internal interface IDaemonListQueryService
     /// <param name="timeout"> The shared daemon-list timeout budget. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-list execution result. </returns>
-    ValueTask<DaemonListExecutionResult> GetList (
+    ValueTask<DaemonListExecutionResult> GetListAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);

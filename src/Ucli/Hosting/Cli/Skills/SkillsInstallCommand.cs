@@ -43,7 +43,7 @@ internal sealed class SkillsInstallCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.InstallSubcommand)]
-    public async Task<int> Install (
+    public async Task<int> InstallAsync (
         string? host = null,
         string? scope = null,
         string? repoRoot = null,

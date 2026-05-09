@@ -22,7 +22,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
     }
 
     /// <inheritdoc />
-    public async ValueTask<OpsCatalogReadResult> Read (
+    public async ValueTask<OpsCatalogReadResult> ReadAsync (
         OpsPreflightContext context,
         CancellationToken cancellationToken = default)
     {
@@ -31,14 +31,14 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
 
         if (context.ReadIndexMode == ReadIndexMode.Disabled)
         {
-            return await ReadCatalogFromSource(
+            return await ReadCatalogFromSourceAsync(
                     context,
                     "readIndex disabled by mode.",
                     cancellationToken)
                 .ConfigureAwait(false);
         }
 
-        var persistedCatalogResult = await persistedOpsCatalogReader.Read(
+        var persistedCatalogResult = await persistedOpsCatalogReader.ReadAsync(
                 context.Context.UnityProject,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -52,7 +52,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
                     failure.ErrorCode);
             }
 
-            return await ReadCatalogFromSource(
+            return await ReadCatalogFromSourceAsync(
                     context,
                     failure.Message,
                     cancellationToken)
@@ -76,19 +76,19 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
                 "Read-index ops catalog hit.");
         }
 
-        return await ReadCatalogFromSource(
+        return await ReadCatalogFromSourceAsync(
                 context,
                 $"Existing ops index freshness is '{ReadIndexAccessUtilities.DescribeFreshness(persistedFreshness)}'.",
                 cancellationToken)
             .ConfigureAwait(false);
     }
 
-    private async ValueTask<OpsCatalogReadResult> ReadCatalogFromSource (
+    private async ValueTask<OpsCatalogReadResult> ReadCatalogFromSourceAsync (
         OpsPreflightContext context,
         string fallbackReason,
         CancellationToken cancellationToken)
     {
-        var refreshResult = await sourceRefreshService.Refresh(
+        var refreshResult = await sourceRefreshService.RefreshAsync(
                 context.Context.UnityProject,
                 context.Context.Config,
                 context.Mode,

@@ -9,7 +9,7 @@ internal interface IDaemonStartService
     /// <param name="editorMode"> The optional normalized <c>--editorMode</c> value. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-start execution result. </returns>
-    ValueTask<DaemonStartExecutionResult> Start (
+    ValueTask<DaemonStartExecutionResult> StartAsync (
         string? projectPath,
         int? timeoutMilliseconds,
         DaemonEditorMode? editorMode,

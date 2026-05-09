@@ -8,7 +8,7 @@ internal interface IIndexInputFingerprintCalculator
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The computed snapshot when successful; otherwise <see langword="null" />. </returns>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="projectRootPath" /> is <see langword="null" />, empty, or whitespace. </exception>
-    ValueTask<IndexCoreInputHashSnapshot?> TryComputeCore (
+    ValueTask<IndexCoreInputHashSnapshot?> TryComputeCoreAsync (
         string projectRootPath,
         CancellationToken cancellationToken = default);
 
@@ -17,7 +17,7 @@ internal interface IIndexInputFingerprintCalculator
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The computed snapshot when successful; otherwise <see langword="null" />. </returns>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="projectRootPath" /> is <see langword="null" />, empty, or whitespace. </exception>
-    ValueTask<IndexInputHashSnapshot?> TryCompute (
+    ValueTask<IndexInputHashSnapshot?> TryComputeAsync (
         string projectRootPath,
         CancellationToken cancellationToken = default);
 }

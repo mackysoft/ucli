@@ -41,7 +41,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
         ArgumentNullException.ThrowIfNull(dispatchRequest);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        var sessionTokenResult = await daemonSessionTokenProvider.Resolve(unityProject, cancellationToken).ConfigureAwait(false);
+        var sessionTokenResult = await daemonSessionTokenProvider.ResolveAsync(unityProject, cancellationToken).ConfigureAwait(false);
         if (!sessionTokenResult.IsSuccess)
         {
             var message = sessionTokenResult.IsSessionNotAvailable

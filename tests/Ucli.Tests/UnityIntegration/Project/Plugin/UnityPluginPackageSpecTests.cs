@@ -44,7 +44,7 @@ public sealed class UnityPluginPackageSpecTests
             """);
         var locator = new UnityUcliPluginLocator(CreateNoOpCacheStore());
 
-        var result = await locator.Locate(unityProjectPath, CancellationToken.None);
+        var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(UnityUcliPluginLocateStatus.Found, result.Status);

@@ -33,7 +33,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
 
             using var executionContext = new OperationExecutionContext();
-            var result = await operation.Validate(requestOperation, executionContext, CancellationToken.None);
+            var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-find");
         });
@@ -51,7 +51,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
 
             using var executionContext = new OperationExecutionContext();
-            var result = await operation.Validate(requestOperation, executionContext, CancellationToken.None);
+            var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-find");
         });
@@ -69,7 +69,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
 
             using var executionContext = new OperationExecutionContext();
-            var result = await operation.Validate(requestOperation, executionContext, CancellationToken.None);
+            var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-find");
         });
@@ -87,7 +87,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
 
             using var executionContext = new OperationExecutionContext();
-            var result = await operation.Validate(requestOperation, executionContext, CancellationToken.None);
+            var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-find");
         });
@@ -112,8 +112,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
             var context = scope.CreateExecutionContext();
 
-            var planResult = await operation.Plan(requestOperation, context, CancellationToken.None);
-            var callResult = await operation.Call(requestOperation, context, CancellationToken.None);
+            var planResult = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
+            var callResult = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
             AssertQuerySuccess(planResult, applied: false);
             AssertQuerySuccess(callResult, applied: true);
@@ -144,7 +144,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     nameContains = token,
                 });
 
-            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertQuerySuccess(result, applied: true);
             var matches = GetMatches(result);
@@ -170,7 +170,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     nameContains = assetName.ToLowerInvariant(),
                 });
 
-            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertQuerySuccess(result, applied: true);
             var matches = GetMatches(result);
@@ -201,7 +201,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     nameContains = "Needle",
                 });
 
-            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertQuerySuccess(result, applied: false);
             var matches = GetMatches(result);
@@ -235,8 +235,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     pathPrefix = $"Assets/assets-find-planned-call-{token}",
                 });
 
-            var createResult = await createOperation.Plan(createRequest, context, CancellationToken.None);
-            var callResult = await findOperation.Call(findRequest, context, CancellationToken.None);
+            var createResult = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
+            var callResult = await findOperation.CallAsync(findRequest, context, CancellationToken.None);
 
             Assert.That(createResult.IsSuccess, Is.True, createResult.Failure?.Message);
             AssertQuerySuccess(callResult, applied: true);
@@ -268,8 +268,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     pathPrefix = $"Assets/assets-find-planned-{token}",
                 });
 
-            var createResult = await createOperation.Plan(createRequest, context, CancellationToken.None);
-            var findResult = await findOperation.Plan(findRequest, context, CancellationToken.None);
+            var createResult = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
+            var findResult = await findOperation.PlanAsync(findRequest, context, CancellationToken.None);
 
             Assert.That(createResult.IsSuccess, Is.True, createResult.Failure?.Message);
             AssertQuerySuccess(findResult, applied: false);
@@ -316,8 +316,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     nameContains = renamedName,
                 });
 
-            var setResult = await setOperation.Plan(setRequest, context, CancellationToken.None);
-            var callResult = await findOperation.Call(findRequest, context, CancellationToken.None);
+            var setResult = await setOperation.PlanAsync(setRequest, context, CancellationToken.None);
+            var callResult = await findOperation.CallAsync(findRequest, context, CancellationToken.None);
 
             Assert.That(setResult.IsSuccess, Is.True, setResult.Failure?.Message);
             AssertQuerySuccess(callResult, applied: true);
@@ -362,8 +362,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     nameContains = renamedName,
                 });
 
-            var setResult = await setOperation.Plan(setRequest, context, CancellationToken.None);
-            var findResult = await findOperation.Plan(findRequest, context, CancellationToken.None);
+            var setResult = await setOperation.PlanAsync(setRequest, context, CancellationToken.None);
+            var findResult = await findOperation.PlanAsync(findRequest, context, CancellationToken.None);
 
             Assert.That(setResult.IsSuccess, Is.True, setResult.Failure?.Message);
             AssertQuerySuccess(findResult, applied: false);
@@ -395,7 +395,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     nameContains = $"Sub-{token}",
                 });
 
-            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertQuerySuccess(result, applied: false);
             var matches = GetMatches(result);
@@ -422,7 +422,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     pathPrefix,
                 });
 
-            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertQuerySuccess(result, applied: true);
             var matches = GetMatches(result);

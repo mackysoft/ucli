@@ -9,7 +9,7 @@ internal interface IDaemonStartupReadinessProbe
     /// <param name="daemonProcessId"> The launched Unity daemon process identifier when available. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The readiness probe result. </returns>
-    ValueTask<DaemonStartupReadinessProbeResult> WaitUntilReady (
+    ValueTask<DaemonStartupReadinessProbeResult> WaitUntilReadyAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         int? daemonProcessId = null,

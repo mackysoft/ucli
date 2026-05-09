@@ -15,14 +15,14 @@ internal sealed class CallCommandPreflightService : ICallCommandPreflightService
     }
 
     /// <inheritdoc />
-    public async ValueTask<CallCommandPreflightResult> Prepare (
+    public async ValueTask<CallCommandPreflightResult> PrepareAsync (
         string? projectPath,
         string requestJson,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var requestPreparationResult = await requestPreparationService.Prepare(
+        var requestPreparationResult = await requestPreparationService.PrepareAsync(
                 projectPath,
                 requestJson,
                 cancellationToken)

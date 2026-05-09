@@ -68,7 +68,7 @@ namespace MackySoft.Ucli.Unity.Tests
             completionSource?.TrySetResult(currentResult);
         }
 
-        public Task<UnityEditorExecutionReadinessResult> EnsureExecutionReady (
+        public Task<UnityEditorExecutionReadinessResult> EnsureExecutionReadyAsync (
             bool failFast,
             CancellationToken cancellationToken = default)
         {

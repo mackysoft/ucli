@@ -32,7 +32,7 @@ public sealed class DaemonSessionIssuedAtValidationTests
             """,
             CancellationToken.None);
 
-        var readResult = await store.Read(scope.FullPath, "fingerprint-missing-issued-at", CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-missing-issued-at", CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
@@ -61,7 +61,7 @@ public sealed class DaemonSessionIssuedAtValidationTests
 
             OwnerProcessId: 9876);
 
-        var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
+        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 
         Assert.False(writeResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(writeResult.Error);

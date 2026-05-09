@@ -21,7 +21,7 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
     };
 
     /// <inheritdoc />
-    public async ValueTask<MutationReadPostconditionReadResult> ReadOrNull (
+    public async ValueTask<MutationReadPostconditionReadResult> ReadOrNullAsync (
         string storageRoot,
         string projectFingerprint,
         CancellationToken cancellationToken = default)
@@ -42,7 +42,7 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
         string? json;
         try
         {
-            json = await FileUtilities.ReadAllTextOrNull(documentPath, cancellationToken).ConfigureAwait(false);
+            json = await FileUtilities.ReadAllTextOrNullAsync(documentPath, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
@@ -89,7 +89,7 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
     }
 
     /// <inheritdoc />
-    public async ValueTask<MutationReadPostconditionStoreOperationResult> WriteMerged (
+    public async ValueTask<MutationReadPostconditionStoreOperationResult> WriteMergedAsync (
         string storageRoot,
         string projectFingerprint,
         OperationExecutionReadPostcondition readPostcondition,
@@ -113,7 +113,7 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
         {
             var mergedRequirements = MergeRequirements(MapToIpcRequirements(readPostcondition.Requirements));
             IReadOnlyList<IpcExecuteReadPostconditionRequirement> existingRequirements = [];
-            var existingReadResult = await ReadOrNull(storageRoot, projectFingerprint, cancellationToken).ConfigureAwait(false);
+            var existingReadResult = await ReadOrNullAsync(storageRoot, projectFingerprint, cancellationToken).ConfigureAwait(false);
             if (!existingReadResult.IsSuccess)
             {
                 return MutationReadPostconditionStoreOperationResult.Failure(existingReadResult.Error!);
@@ -132,7 +132,7 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
             var directoryPath = Path.GetDirectoryName(documentPath)
                 ?? throw new InvalidOperationException($"Mutation read postcondition directory path could not be resolved: {documentPath}");
             FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
-            await FileUtilities.WriteAllTextAtomically(documentPath, json, cancellationToken).ConfigureAwait(false);
+            await FileUtilities.WriteAllTextAtomicallyAsync(documentPath, json, cancellationToken).ConfigureAwait(false);
             return MutationReadPostconditionStoreOperationResult.Success();
         }
         catch (ArgumentException exception)

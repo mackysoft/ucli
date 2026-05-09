@@ -22,7 +22,7 @@ public sealed class DaemonStartupReadinessProbeTests
         };
         var probe = CreateProbe(pingClient, logReader);
 
-        var result = await probe.WaitUntilReady(
+        var result = await probe.WaitUntilReadyAsync(
             CreateContext("fingerprint-readiness-success"),
             TimeSpan.FromMilliseconds(500),
             cancellationToken: CancellationToken.None);
@@ -51,7 +51,7 @@ public sealed class DaemonStartupReadinessProbeTests
         };
         var probe = CreateProbe(pingClient, logReader);
 
-        var result = await probe.WaitUntilReady(
+        var result = await probe.WaitUntilReadyAsync(
             CreateContext("fingerprint-readiness-starting"),
             TimeSpan.FromSeconds(5),
             cancellationToken: CancellationToken.None);
@@ -80,7 +80,7 @@ public sealed class DaemonStartupReadinessProbeTests
         };
         var probe = CreateProbe(pingClient, logReader);
 
-        var result = await probe.WaitUntilReady(
+        var result = await probe.WaitUntilReadyAsync(
             CreateContext("fingerprint-readiness-domain-reloading"),
             TimeSpan.FromSeconds(5),
             cancellationToken: CancellationToken.None);
@@ -109,7 +109,7 @@ public sealed class DaemonStartupReadinessProbeTests
         };
         var probe = CreateProbe(pingClient, logReader);
 
-        var result = await probe.WaitUntilReady(
+        var result = await probe.WaitUntilReadyAsync(
             CreateContext($"fingerprint-readiness-{lifecycleState}"),
             TimeSpan.FromSeconds(5),
             cancellationToken: CancellationToken.None);
@@ -138,7 +138,7 @@ public sealed class DaemonStartupReadinessProbeTests
         };
         var probe = CreateProbe(pingClient, logReader);
 
-        var result = await probe.WaitUntilReady(
+        var result = await probe.WaitUntilReadyAsync(
             CreateContext("fingerprint-readiness-compiler-marker"),
             TimeSpan.FromSeconds(5),
             cancellationToken: CancellationToken.None);
@@ -167,7 +167,7 @@ public sealed class DaemonStartupReadinessProbeTests
         };
         var probe = CreateProbe(pingClient, logReader);
 
-        var result = await probe.WaitUntilReady(
+        var result = await probe.WaitUntilReadyAsync(
             CreateContext("fingerprint-readiness-compiler-cs"),
             TimeSpan.FromSeconds(5),
             cancellationToken: CancellationToken.None);
@@ -197,7 +197,7 @@ public sealed class DaemonStartupReadinessProbeTests
         };
         var probe = CreateProbe(pingClient, logReader);
 
-        var result = await probe.WaitUntilReady(
+        var result = await probe.WaitUntilReadyAsync(
             CreateContext("fingerprint-readiness-package-error"),
             TimeSpan.FromSeconds(5),
             cancellationToken: CancellationToken.None);
@@ -236,7 +236,7 @@ public sealed class DaemonStartupReadinessProbeTests
             logReader,
             UnityProjectLockFileProbeResult.Locked("/tmp/unity-project/Temp/UnityLockfile"));
 
-        var result = await probe.WaitUntilReady(
+        var result = await probe.WaitUntilReadyAsync(
             CreateContext("fingerprint-readiness-lock-during-startup"),
             TimeSpan.FromSeconds(5),
             daemonProcessId: Environment.ProcessId,
@@ -262,7 +262,7 @@ public sealed class DaemonStartupReadinessProbeTests
             logReader,
             UnityProjectLockFileProbeResult.Locked("/tmp/unity-project/Temp/UnityLockfile"));
 
-        var result = await probe.WaitUntilReady(
+        var result = await probe.WaitUntilReadyAsync(
             CreateContext("fingerprint-readiness-already-open"),
             TimeSpan.FromSeconds(5),
             cancellationToken: CancellationToken.None);
@@ -302,7 +302,7 @@ public sealed class DaemonStartupReadinessProbeTests
         };
         var probe = CreateProbe(pingClient, logReader);
 
-        var result = await probe.WaitUntilReady(
+        var result = await probe.WaitUntilReadyAsync(
             CreateContext("fingerprint-readiness-ignore-previous-session-errors"),
             TimeSpan.FromMilliseconds(20),
             cancellationToken: CancellationToken.None);
@@ -328,7 +328,7 @@ public sealed class DaemonStartupReadinessProbeTests
         };
         var probe = CreateProbe(pingClient, logReader);
 
-        var result = await probe.WaitUntilReady(
+        var result = await probe.WaitUntilReadyAsync(
             CreateContext("fingerprint-readiness-process-exited"),
             TimeSpan.FromSeconds(5),
             daemonProcessId: int.MaxValue,
@@ -361,7 +361,7 @@ public sealed class DaemonStartupReadinessProbeTests
             logReader,
             UnityProjectLockFileProbeResult.Locked("/tmp/unity-project/Temp/UnityLockfile"));
 
-        var result = await probe.WaitUntilReady(
+        var result = await probe.WaitUntilReadyAsync(
             CreateContext("fingerprint-readiness-exited-lock-file"),
             TimeSpan.FromSeconds(5),
             daemonProcessId: int.MaxValue,
@@ -391,7 +391,7 @@ public sealed class DaemonStartupReadinessProbeTests
         };
         var probe = CreateProbe(pingClient, logReader);
 
-        var result = await probe.WaitUntilReady(
+        var result = await probe.WaitUntilReadyAsync(
             CreateContext("fingerprint-readiness-timeout"),
             TimeSpan.FromMilliseconds(20),
             cancellationToken: CancellationToken.None);
@@ -417,7 +417,7 @@ public sealed class DaemonStartupReadinessProbeTests
         };
         var probe = CreateProbe(pingClient, logReader);
 
-        var result = await probe.WaitUntilReady(
+        var result = await probe.WaitUntilReadyAsync(
             CreateContext("fingerprint-readiness-timeout-exception"),
             TimeSpan.FromMilliseconds(20),
             cancellationToken: CancellationToken.None);
@@ -478,7 +478,7 @@ public sealed class DaemonStartupReadinessProbeTests
 
         public int CallCount { get; private set; }
 
-        public ValueTask<IpcPingResponse> PingAndRead (
+        public ValueTask<IpcPingResponse> PingAndReadAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             string? sessionToken = null,
@@ -495,7 +495,7 @@ public sealed class DaemonStartupReadinessProbeTests
 
         public int CallCount { get; private set; }
 
-        public ValueTask<UnityLogReadResult> ReadTail (
+        public ValueTask<UnityLogReadResult> ReadTailAsync (
             string storageRoot,
             string projectFingerprint,
             int maxBytes = UnityLogReader.DefaultMaxBytes,

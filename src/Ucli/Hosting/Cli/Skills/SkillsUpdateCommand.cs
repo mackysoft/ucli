@@ -43,7 +43,7 @@ internal sealed class SkillsUpdateCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.UpdateSubcommand)]
-    public async Task<int> Update (
+    public async Task<int> UpdateAsync (
         string? host = null,
         string? scope = null,
         string? repoRoot = null,

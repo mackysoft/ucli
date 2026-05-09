@@ -7,7 +7,7 @@ internal interface IUnityResultsXmlParser
     /// <param name="resultsXmlPath"> The results XML path. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to parsed XML result values. </returns>
-    ValueTask<UnityResultsXmlParseResult> Parse (
+    ValueTask<UnityResultsXmlParseResult> ParseAsync (
         string resultsXmlPath,
         CancellationToken cancellationToken = default);
 }

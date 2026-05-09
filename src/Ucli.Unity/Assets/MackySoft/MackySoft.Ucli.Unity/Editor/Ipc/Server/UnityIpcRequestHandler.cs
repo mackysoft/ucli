@@ -32,7 +32,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> The IPC response envelope. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> is <see langword="null" />. </exception>
-        public async Task<IpcResponse> Handle (
+        public async Task<IpcResponse> HandleAsync (
             IpcRequest request,
             CancellationToken cancellationToken = default)
         {
@@ -59,7 +59,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             bool tokenAccepted;
             try
             {
-                tokenAccepted = await sessionTokenValidator.Validate(request.SessionToken, cancellationToken);
+                tokenAccepted = await sessionTokenValidator.ValidateAsync(request.SessionToken, cancellationToken);
             }
             catch (OperationCanceledException)
             {
@@ -104,7 +104,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     null);
             }
 
-            return await methodDispatcher.Dispatch(request, cancellationToken);
+            return await methodDispatcher.DispatchAsync(request, cancellationToken);
         }
     }
 }

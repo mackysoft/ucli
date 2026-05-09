@@ -33,14 +33,14 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
     /// <param name="input"> The interpreted command input values. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to preflight result values. </returns>
-    public async ValueTask<TestRunPreflightResult> Execute (
+    public async ValueTask<TestRunPreflightResult> ExecuteAsync (
         TestRunCommandInput input,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(input);
 
-        var configurationResolutionResult = await ResolveConfigurationSafely(
+        var configurationResolutionResult = await ResolveConfigurationSafelyAsync(
             CreateConfigurationRequest(input),
             cancellationToken).ConfigureAwait(false);
         if (!configurationResolutionResult.IsSuccess)
@@ -50,7 +50,7 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
         }
 
         var configuration = configurationResolutionResult.Configuration!;
-        var configLoadResult = await configStore.Load(
+        var configLoadResult = await configStore.LoadAsync(
             configuration.UnityProject.RepositoryRoot,
             cancellationToken).ConfigureAwait(false);
         if (!configLoadResult.IsSuccess)
@@ -71,7 +71,7 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
                 TestRunServiceErrorMapper.MapExecutionError(timeoutResolutionResult.Error!));
         }
 
-        var modeDecisionResult = await modeDecisionService.Decide(
+        var modeDecisionResult = await modeDecisionService.DecideAsync(
             mode: configuration.Mode,
             unityProject: configuration.UnityProject,
             timeout: timeoutResolutionResult.Timeout!.Value,
@@ -102,7 +102,7 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the configuration resolution result. </returns>
     /// <exception cref="OperationCanceledException"> Thrown when <paramref name="cancellationToken" /> is canceled during resolution. </exception>
-    private async ValueTask<TestRunConfigurationResolutionResult> ResolveConfigurationSafely (
+    private async ValueTask<TestRunConfigurationResolutionResult> ResolveConfigurationSafelyAsync (
         TestRunConfigurationRequest input,
         CancellationToken cancellationToken)
     {

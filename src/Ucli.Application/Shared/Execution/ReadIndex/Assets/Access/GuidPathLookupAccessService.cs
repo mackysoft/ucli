@@ -27,7 +27,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
     }
 
     /// <inheritdoc />
-    public ValueTask<GuidPathLookupReadResult> TryResolveAssetGuid (
+    public ValueTask<GuidPathLookupReadResult> TryResolveAssetGuidAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UnityExecutionModeValue mode,
@@ -41,7 +41,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
             return ValueTask.FromResult(GuidPathLookupReadResult.Failure(errorMessage, UcliCoreErrorCodes.InvalidArgument));
         }
 
-        return ReadCore(
+        return ReadCoreAsync(
             project,
             config,
             mode,
@@ -53,7 +53,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
     }
 
     /// <inheritdoc />
-    public ValueTask<GuidPathLookupReadResult> TryResolveAssetPath (
+    public ValueTask<GuidPathLookupReadResult> TryResolveAssetPathAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UnityExecutionModeValue mode,
@@ -67,7 +67,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
             return ValueTask.FromResult(GuidPathLookupReadResult.Failure(errorMessage, UcliCoreErrorCodes.InvalidArgument));
         }
 
-        return ReadCore(
+        return ReadCoreAsync(
             project,
             config,
             mode,
@@ -78,7 +78,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
             cancellationToken);
     }
 
-    private async ValueTask<GuidPathLookupReadResult> ReadCore (
+    private async ValueTask<GuidPathLookupReadResult> ReadCoreAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UnityExecutionModeValue mode,
@@ -95,7 +95,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
 
         if (readIndexMode == ReadIndexMode.Disabled)
         {
-            return await ReadFromSource(
+            return await ReadFromSourceAsync(
                     project,
                     config,
                     mode,
@@ -107,7 +107,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
                 .ConfigureAwait(false);
         }
 
-        var lookupResult = await artifactReader.ReadGuidPathLookup(
+        var lookupResult = await artifactReader.ReadGuidPathLookupAsync(
                 project,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -120,7 +120,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
                     lookupResult.Error.Code);
             }
 
-            return await ReadFromSource(
+            return await ReadFromSourceAsync(
                     project,
                     config,
                     mode,
@@ -132,7 +132,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
                 .ConfigureAwait(false);
         }
 
-        var readPostconditionEvaluation = await MutationReadPostconditionAccessEvaluator.EvaluateGuidPath(
+        var readPostconditionEvaluation = await MutationReadPostconditionAccessEvaluator.EvaluateGuidPathAsync(
                 mutationReadPostconditionStore,
                 project,
                 lookupResult.Value!.GeneratedAtUtc,
@@ -140,7 +140,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
             .ConfigureAwait(false);
         if (!readPostconditionEvaluation.CanUseIndex)
         {
-            return await ReadFromSource(
+            return await ReadFromSourceAsync(
                     project,
                     config,
                     mode,
@@ -152,7 +152,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
                 .ConfigureAwait(false);
         }
 
-        var freshnessResult = await freshnessEvaluator.Observe(
+        var freshnessResult = await freshnessEvaluator.ObserveAsync(
                 project,
                 IndexFreshnessTarget.GuidPathLookup,
                 lookupResult.Value!.SourceInputsHash,
@@ -180,7 +180,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
                 "GUID-path lookup read completed.");
         }
 
-        return await ReadFromSource(
+        return await ReadFromSourceAsync(
                 project,
                 config,
                 mode,
@@ -192,7 +192,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
             .ConfigureAwait(false);
     }
 
-    private async ValueTask<GuidPathLookupReadResult> ReadFromSource (
+    private async ValueTask<GuidPathLookupReadResult> ReadFromSourceAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UnityExecutionModeValue mode,
@@ -202,7 +202,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
         string key,
         CancellationToken cancellationToken)
     {
-        var refreshResult = await assetLookupSourceRefreshService.Refresh(
+        var refreshResult = await assetLookupSourceRefreshService.RefreshAsync(
                 project,
                 config,
                 UcliCommandIds.Resolve,

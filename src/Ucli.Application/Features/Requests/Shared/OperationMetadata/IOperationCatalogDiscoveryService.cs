@@ -13,7 +13,7 @@ internal interface IOperationCatalogDiscoveryService
     /// <param name="failFast"> Whether live catalog discovery should fail immediately instead of waiting for Unity readiness. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The discovered operation descriptors. </returns>
-    ValueTask<IReadOnlyList<UcliOperationDescriptor>> Discover (
+    ValueTask<IReadOnlyList<UcliOperationDescriptor>> DiscoverAsync (
         ResolvedUnityProjectContext unityProject,
         UcliConfig config,
         UnityExecutionMode mode = UnityExecutionMode.Auto,

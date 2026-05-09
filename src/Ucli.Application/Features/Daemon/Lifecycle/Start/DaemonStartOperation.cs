@@ -51,7 +51,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
     /// <returns> The daemon start result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    public async ValueTask<DaemonStartResult> Start (
+    public async ValueTask<DaemonStartResult> StartAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         DaemonEditorMode? editorMode,
@@ -70,7 +70,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         IAsyncDisposable lockHandle;
         try
         {
-            lockHandle = await lifecycleLockProvider.Acquire(
+            lockHandle = await lifecycleLockProvider.AcquireAsync(
                     new ProjectLifecycleLockRequest(unityProject.UnityProjectRoot),
                     lockAcquireTimeout,
                     cancellationToken)
@@ -93,7 +93,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
 
         await using var acquiredLock = lockHandle;
         ExecutionError? diagnosisCleanupError = null;
-        var deleteDiagnosisResult = await daemonDiagnosisStore.Delete(
+        var deleteDiagnosisResult = await daemonDiagnosisStore.DeleteAsync(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 cancellationToken)
@@ -106,14 +106,14 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 ?? ExecutionError.InternalError("Daemon diagnosis cleanup failed without a structured error.");
         }
 
-        var readResult = await daemonSessionStore.Read(
+        var readResult = await daemonSessionStore.ReadAsync(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!readResult.IsSuccess)
         {
-            return await HandleInvalidSessionRead(
+            return await HandleInvalidSessionReadAsync(
                     unityProject,
                     readResult,
                     deadline,
@@ -132,7 +132,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                     diagnosisCleanupError);
             }
 
-            var existingSessionGateResult = await daemonExistingSessionGateService.TryHandleExistingSession(
+            var existingSessionGateResult = await daemonExistingSessionGateService.TryHandleExistingSessionAsync(
                     unityProject,
                     readResult.Session!,
                     existingSessionGateTimeout,
@@ -157,7 +157,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             return CreateFailure(editorModeError!, diagnosisCleanupError);
         }
 
-        var launchResult = await daemonLaunchService.Launch(
+        var launchResult = await daemonLaunchService.LaunchAsync(
                 unityProject,
                 launchTimeout,
                 launchEditorMode,
@@ -166,7 +166,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         return CreateResult(launchResult, diagnosisCleanupError);
     }
 
-    private async ValueTask<DaemonStartResult> HandleInvalidSessionRead (
+    private async ValueTask<DaemonStartResult> HandleInvalidSessionReadAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSessionReadResult readResult,
         ExecutionDeadline deadline,
@@ -186,7 +186,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 diagnosisCleanupError);
         }
 
-        var cleanupResult = await daemonSessionCleanupService.CleanupInvalidSessionArtifacts(
+        var cleanupResult = await daemonSessionCleanupService.CleanupInvalidSessionArtifactsAsync(
                 unityProject,
                 readResult,
                 invalidSessionCleanupTimeout,
@@ -209,7 +209,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             return CreateFailure(editorModeError!, diagnosisCleanupError);
         }
 
-        var launchResult = await daemonLaunchService.Launch(
+        var launchResult = await daemonLaunchService.LaunchAsync(
                 unityProject,
                 launchTimeout,
                 launchEditorMode,

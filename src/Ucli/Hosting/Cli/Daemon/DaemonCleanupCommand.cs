@@ -31,7 +31,7 @@ internal sealed class DaemonCleanupCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.CleanupSubcommand)]
-    public async Task<int> Cleanup (
+    public async Task<int> CleanupAsync (
         string? projectPath = null,
         string? timeout = null,
         CancellationToken cancellationToken = default)
@@ -49,7 +49,7 @@ internal sealed class DaemonCleanupCommand
             return errorResult.ExitCode;
         }
 
-        var executionResult = await daemonCleanupService.Cleanup(
+        var executionResult = await daemonCleanupService.CleanupAsync(
                 projectPath,
                 normalizedTimeoutResult.TimeoutMilliseconds,
                 cancellationToken)

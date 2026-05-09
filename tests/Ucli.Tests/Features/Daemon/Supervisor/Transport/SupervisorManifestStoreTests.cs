@@ -15,9 +15,9 @@ public sealed class SupervisorManifestStoreTests
         var store = new SupervisorManifestStore();
         var manifest = CreateManifest();
 
-        await store.Write(scope.FullPath, manifest, CancellationToken.None);
+        await store.WriteAsync(scope.FullPath, manifest, CancellationToken.None);
 
-        var loadedManifest = await store.ReadOrNull(scope.FullPath, CancellationToken.None);
+        var loadedManifest = await store.ReadOrNullAsync(scope.FullPath, CancellationToken.None);
 
         Assert.NotNull(loadedManifest);
         Assert.Equal(manifest.ProcessId, loadedManifest.ProcessId);
@@ -28,7 +28,7 @@ public sealed class SupervisorManifestStoreTests
 
         store.DeleteIfExists(scope.FullPath);
 
-        var readAfterDelete = await store.ReadOrNull(scope.FullPath, CancellationToken.None);
+        var readAfterDelete = await store.ReadOrNullAsync(scope.FullPath, CancellationToken.None);
         Assert.Null(readAfterDelete);
     }
 
@@ -47,7 +47,7 @@ public sealed class SupervisorManifestStoreTests
         var store = new SupervisorManifestStore();
         var manifest = CreateManifest();
 
-        await store.Write(scope.FullPath, manifest, CancellationToken.None);
+        await store.WriteAsync(scope.FullPath, manifest, CancellationToken.None);
 
         var localDirectoryPath = UcliStoragePathResolver.ResolveLocalDirectoryPath(scope.FullPath);
         var supervisorDirectoryPath = UcliStoragePathResolver.ResolveSupervisorDirectoryPath(scope.FullPath);
@@ -72,7 +72,7 @@ public sealed class SupervisorManifestStoreTests
         var store = new SupervisorManifestStore();
         var manifest = CreateManifest();
 
-        await store.Write(scope.FullPath, manifest, CancellationToken.None);
+        await store.WriteAsync(scope.FullPath, manifest, CancellationToken.None);
 
         var localDirectoryPath = UcliStoragePathResolver.ResolveLocalDirectoryPath(scope.FullPath);
         var supervisorDirectoryPath = UcliStoragePathResolver.ResolveSupervisorDirectoryPath(scope.FullPath);

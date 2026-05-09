@@ -9,7 +9,7 @@ internal interface ICallService
     /// <param name="input"> The normalized command input. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The normalized service result. </returns>
-    ValueTask<CallServiceResult> Execute (
+    ValueTask<CallServiceResult> ExecuteAsync (
         CallCommandInput input,
         CancellationToken cancellationToken = default);
 }

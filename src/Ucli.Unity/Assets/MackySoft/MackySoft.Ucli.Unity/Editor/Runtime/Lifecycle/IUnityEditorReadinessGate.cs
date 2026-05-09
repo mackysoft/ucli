@@ -14,7 +14,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <param name="failFast"> Whether waitable lifecycle states should fail immediately instead of being waited out. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
         /// <returns> The readiness decision result. </returns>
-        Task<UnityEditorExecutionReadinessResult> EnsureExecutionReady (
+        Task<UnityEditorExecutionReadinessResult> EnsureExecutionReadyAsync (
             bool failFast,
             CancellationToken cancellationToken = default);
     }

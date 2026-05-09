@@ -34,14 +34,14 @@ internal sealed class OpsService : IOpsService
     }
 
     /// <inheritdoc />
-    public async ValueTask<OpsListServiceResult> GetAll (
+    public async ValueTask<OpsListServiceResult> GetAllAsync (
         OpsCommandInput input,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(input);
 
-        var preflightResult = await preflightService.Execute(input, cancellationToken).ConfigureAwait(false);
+        var preflightResult = await preflightService.ExecuteAsync(input, cancellationToken).ConfigureAwait(false);
         if (!preflightResult.IsSuccess)
         {
             return OpsListServiceResult.Failure(
@@ -49,7 +49,7 @@ internal sealed class OpsService : IOpsService
                 preflightResult.ErrorCode!.Value);
         }
 
-        var catalogResult = await catalogAccessService.Read(
+        var catalogResult = await catalogAccessService.ReadAsync(
                 preflightResult.Context!,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -64,14 +64,14 @@ internal sealed class OpsService : IOpsService
     }
 
     /// <inheritdoc />
-    public async ValueTask<OpsDescribeServiceResult> Describe (
+    public async ValueTask<OpsDescribeServiceResult> DescribeAsync (
         OpsDescribeCommandInput input,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(input);
 
-        var preflightResult = await preflightService.Execute(
+        var preflightResult = await preflightService.ExecuteAsync(
                 new OpsCommandInput(
                     ProjectPath: input.ProjectPath,
                     Mode: input.Mode,
@@ -87,7 +87,7 @@ internal sealed class OpsService : IOpsService
                 preflightResult.ErrorCode!.Value);
         }
 
-        var catalogResult = await catalogAccessService.Read(
+        var catalogResult = await catalogAccessService.ReadAsync(
                 preflightResult.Context!,
                 cancellationToken)
             .ConfigureAwait(false);

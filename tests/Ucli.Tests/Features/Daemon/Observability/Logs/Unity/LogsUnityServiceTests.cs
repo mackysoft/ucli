@@ -42,7 +42,7 @@ public sealed class LogsUnityServiceTests
         var service = CreateService(resolver, unityLogsClient);
         var emittedMessages = new List<string>();
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new LogsUnityServiceRequest(
                 ProjectPath: "/tmp/unity-project",
                 Tail: null,
@@ -92,7 +92,7 @@ public sealed class LogsUnityServiceTests
             ]);
         var service = CreateService(resolver, unityLogsClient);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new LogsUnityServiceRequest(
                 ProjectPath: "/tmp/unity-project",
                 Tail: 100,
@@ -138,7 +138,7 @@ public sealed class LogsUnityServiceTests
             ]);
         var service = CreateService(resolver, unityLogsClient);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new LogsUnityServiceRequest(
                 ProjectPath: "/tmp/unity-project",
                 Tail: null,
@@ -176,7 +176,7 @@ public sealed class LogsUnityServiceTests
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
             await TestAwaiter.WaitAsync(
-                service.Execute(
+                service.ExecuteAsync(
                         new LogsUnityServiceRequest(
                             ProjectPath: "/tmp/unity-project",
                             Tail: null,
@@ -210,7 +210,7 @@ public sealed class LogsUnityServiceTests
                 DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 3000)));
         var service = CreateService(resolver, new StubUnityLogsClient(Array.Empty<UnityLogsClientReadResult>()));
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new LogsUnityServiceRequest(
                 ProjectPath: "/tmp/unity-project",
                 Tail: null,
@@ -252,7 +252,7 @@ public sealed class LogsUnityServiceTests
             ]);
         var service = CreateService(resolver, unityLogsClient);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new LogsUnityServiceRequest(
                 ProjectPath: "/tmp/unity-project",
                 Tail: null,
@@ -325,7 +325,7 @@ public sealed class LogsUnityServiceTests
 
         public List<IpcUnityLogsReadRequest> CapturedQueries { get; } = new();
 
-        public ValueTask<UnityLogsClientReadResult> Read (
+        public ValueTask<UnityLogsClientReadResult> ReadAsync (
             ResolvedUnityProjectContext unityProject,
             IpcUnityLogsReadRequest query,
             TimeSpan timeout,

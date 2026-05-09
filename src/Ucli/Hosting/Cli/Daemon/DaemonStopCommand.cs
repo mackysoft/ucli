@@ -31,7 +31,7 @@ internal sealed class DaemonStopCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.StopSubcommand)]
-    public async Task<int> Stop (
+    public async Task<int> StopAsync (
         string? projectPath = null,
         string? timeout = null,
         CancellationToken cancellationToken = default)
@@ -49,7 +49,7 @@ internal sealed class DaemonStopCommand
             return errorResult.ExitCode;
         }
 
-        var executionResult = await daemonStopService.Stop(
+        var executionResult = await daemonStopService.StopAsync(
                 projectPath,
                 normalizedTimeoutResult.TimeoutMilliseconds,
                 cancellationToken)

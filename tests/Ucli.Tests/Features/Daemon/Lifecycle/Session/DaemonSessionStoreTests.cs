@@ -23,14 +23,14 @@ public sealed class DaemonSessionStoreTests
             UcliStoragePathNames.UcliDirectoryName,
             UcliStoragePathNames.GitIgnoreFileName);
 
-        var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
+        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 
         Assert.True(writeResult.IsSuccess);
         Assert.Null(writeResult.Error);
         FileSystemAssert.ForFile(gitIgnorePath).Exists();
         Assert.Equal(UcliContractConstants.LocalDirectoryIgnoreEntry + Environment.NewLine, File.ReadAllText(gitIgnorePath));
 
-        var readResult = await store.Read(scope.FullPath, session.ProjectFingerprint, CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, session.ProjectFingerprint, CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
         Assert.True(readResult.Exists);
@@ -45,10 +45,10 @@ public sealed class DaemonSessionStoreTests
         Assert.Equal(session.EndpointAddress, loadedSession.EndpointAddress);
         Assert.Equal(session.ProcessId, loadedSession.ProcessId);
 
-        var deleteResult = await store.Delete(scope.FullPath, session.ProjectFingerprint, CancellationToken.None);
+        var deleteResult = await store.DeleteAsync(scope.FullPath, session.ProjectFingerprint, CancellationToken.None);
 
         Assert.True(deleteResult.IsSuccess);
-        var readAfterDeleteResult = await store.Read(scope.FullPath, session.ProjectFingerprint, CancellationToken.None);
+        var readAfterDeleteResult = await store.ReadAsync(scope.FullPath, session.ProjectFingerprint, CancellationToken.None);
         Assert.True(readAfterDeleteResult.IsSuccess);
         Assert.False(readAfterDeleteResult.Exists);
     }
@@ -65,7 +65,7 @@ public sealed class DaemonSessionStoreTests
             UcliStoragePathNames.GitIgnoreFileName);
         var gitIgnorePath = scope.WriteFile(relativeGitIgnorePath, "legacy/" + Environment.NewLine);
 
-        var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
+        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 
         Assert.True(writeResult.IsSuccess);
         Assert.Equal("legacy/" + Environment.NewLine, File.ReadAllText(gitIgnorePath));
@@ -86,7 +86,7 @@ public sealed class DaemonSessionStoreTests
         var store = new DaemonSessionStore();
         var session = CreateSession(projectFingerprint: "fingerprint-owner-only", sessionToken: "token-1");
 
-        var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
+        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 
         Assert.True(writeResult.IsSuccess);
 
@@ -113,7 +113,7 @@ public sealed class DaemonSessionStoreTests
         var store = new DaemonSessionStore();
         var session = CreateSession(projectFingerprint: "fingerprint-current-user-only", sessionToken: "token-1");
 
-        var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
+        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 
         Assert.True(writeResult.IsSuccess);
 
@@ -142,7 +142,7 @@ public sealed class DaemonSessionStoreTests
         var store = new DaemonSessionStore();
         var session = CreateSession(projectFingerprint: "fingerprint-blocked", sessionToken: "token-1");
 
-        var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
+        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 
         Assert.False(writeResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(writeResult.Error);
@@ -160,7 +160,7 @@ public sealed class DaemonSessionStoreTests
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
         await File.WriteAllTextAsync(sessionPath, "{", CancellationToken.None);
 
-        var readResult = await store.Read(scope.FullPath, "fingerprint-malformed", CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-malformed", CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
@@ -183,7 +183,7 @@ public sealed class DaemonSessionStoreTests
             EndpointTransportKind = "unsupported-transport",
         };
 
-        var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
+        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 
         Assert.False(writeResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(writeResult.Error);
@@ -204,7 +204,7 @@ public sealed class DaemonSessionStoreTests
             EditorMode = "unsupported",
         };
 
-        var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
+        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 
         Assert.False(writeResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(writeResult.Error);
@@ -225,7 +225,7 @@ public sealed class DaemonSessionStoreTests
             OwnerKind = "gui",
         };
 
-        var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
+        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 
         Assert.False(writeResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(writeResult.Error);
@@ -250,7 +250,7 @@ public sealed class DaemonSessionStoreTests
             serializer.Serialize(mismatchedSession) + Environment.NewLine,
             CancellationToken.None);
 
-        var readResult = await store.Read(scope.FullPath, requestedFingerprint, CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, requestedFingerprint, CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
@@ -280,7 +280,7 @@ public sealed class DaemonSessionStoreTests
             serializer.Serialize(session) + Environment.NewLine,
             CancellationToken.None);
 
-        var readResult = await store.Read(scope.FullPath, requestedFingerprint, CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, requestedFingerprint, CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
@@ -305,7 +305,7 @@ public sealed class DaemonSessionStoreTests
             CanShutdownProcess = true,
         };
 
-        var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
+        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 
         Assert.False(writeResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(writeResult.Error);
@@ -328,7 +328,7 @@ public sealed class DaemonSessionStoreTests
             CanShutdownProcess = false,
         };
 
-        var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
+        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 
         Assert.True(writeResult.IsSuccess);
     }

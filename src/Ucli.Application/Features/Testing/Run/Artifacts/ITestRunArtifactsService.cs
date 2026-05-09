@@ -9,7 +9,7 @@ internal interface ITestRunArtifactsService
     /// <param name="configuration"> The resolved test-run configuration. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the preparation result. </returns>
-    ValueTask<ArtifactsPreparationResult> Prepare (
+    ValueTask<ArtifactsPreparationResult> PrepareAsync (
         ResolvedTestRunConfiguration configuration,
         CancellationToken cancellationToken = default);
 
@@ -18,7 +18,7 @@ internal interface ITestRunArtifactsService
     /// <param name="session"> The prepared artifacts session. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the completion result. </returns>
-    ValueTask<ArtifactsCompletionResult> Complete (
+    ValueTask<ArtifactsCompletionResult> CompleteAsync (
         ResolvedTestRunConfiguration configuration,
         ArtifactsSession session,
         CancellationToken cancellationToken = default);

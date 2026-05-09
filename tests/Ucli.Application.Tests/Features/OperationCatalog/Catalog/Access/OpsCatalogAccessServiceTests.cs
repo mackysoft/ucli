@@ -44,7 +44,7 @@ public sealed class OpsCatalogAccessServiceTests
         var sourceRefreshService = new StubOpsCatalogSourceRefreshService();
         var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
 
-        var result = await service.Read(CreatePreflightContext(ReadIndexMode.AllowStale), CancellationToken.None);
+        var result = await service.ReadAsync(CreatePreflightContext(ReadIndexMode.AllowStale), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(OpsCatalogSource.Index, result.Output!.AccessInfo.Source);
@@ -72,7 +72,7 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
 
-        var result = await service.Read(CreatePreflightContext(ReadIndexMode.RequireFresh), CancellationToken.None);
+        var result = await service.ReadAsync(CreatePreflightContext(ReadIndexMode.RequireFresh), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(OpsCatalogSource.Source, result.Output!.AccessInfo.Source);
@@ -108,7 +108,7 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
 
-        var result = await service.Read(CreatePreflightContext(ReadIndexMode.RequireFresh), CancellationToken.None);
+        var result = await service.ReadAsync(CreatePreflightContext(ReadIndexMode.RequireFresh), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(OpsCatalogSource.Source, result.Output!.AccessInfo.Source);
@@ -132,7 +132,7 @@ public sealed class OpsCatalogAccessServiceTests
         var sourceRefreshService = new StubOpsCatalogSourceRefreshService();
         var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
 
-        var result = await service.Read(CreatePreflightContext(ReadIndexMode.AllowStale), CancellationToken.None);
+        var result = await service.ReadAsync(CreatePreflightContext(ReadIndexMode.AllowStale), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
@@ -150,7 +150,7 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var service = new OpsCatalogAccessService(new StubPersistedOpsCatalogReader(), sourceRefreshService);
 
-        var result = await service.Read(CreatePreflightContext(ReadIndexMode.Disabled), CancellationToken.None);
+        var result = await service.ReadAsync(CreatePreflightContext(ReadIndexMode.Disabled), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(OpsCatalogSource.Source, result.Output!.AccessInfo.Source);
@@ -184,7 +184,7 @@ public sealed class OpsCatalogAccessServiceTests
                     ReadIndexErrorCodes.ReadIndexBootstrapFailed,
                     "Index contract file was not found: ops.catalog.json."));
 
-        public ValueTask<PersistedOpsCatalogReadResult> Read (
+        public ValueTask<PersistedOpsCatalogReadResult> ReadAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
@@ -203,7 +203,7 @@ public sealed class OpsCatalogAccessServiceTests
         public OpsCatalogSourceRefreshResult Result { get; set; }
             = OpsCatalogSourceRefreshResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
-        public ValueTask<OpsCatalogSourceRefreshResult> Refresh (
+        public ValueTask<OpsCatalogSourceRefreshResult> RefreshAsync (
             ResolvedUnityProjectContext project,
             UcliConfig config,
             UnityExecutionMode mode,

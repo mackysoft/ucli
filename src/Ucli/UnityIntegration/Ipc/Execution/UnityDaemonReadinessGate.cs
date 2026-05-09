@@ -66,7 +66,7 @@ internal sealed class UnityDaemonReadinessGate
     /// <param name="daemonIpcClient"> The daemon IPC client. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Unity request execution result. </returns>
-    public async ValueTask<UnityRequestExecutionResult> Execute (
+    public async ValueTask<UnityRequestExecutionResult> ExecuteAsync (
         ResolvedUnityProjectContext unityProject,
         UnityIpcDispatchRequest dispatchRequest,
         IpcOpsReadRequest opsReadRequest,
@@ -83,7 +83,7 @@ internal sealed class UnityDaemonReadinessGate
 
         while (true)
         {
-            var readinessFailure = await WaitUntilReady(
+            var readinessFailure = await WaitUntilReadyAsync(
                     unityProject,
                     opsReadRequest.FailFast,
                     budget,
@@ -117,7 +117,7 @@ internal sealed class UnityDaemonReadinessGate
         }
     }
 
-    private async ValueTask<UnityRequestFailure?> WaitUntilReady (
+    private async ValueTask<UnityRequestFailure?> WaitUntilReadyAsync (
         ResolvedUnityProjectContext unityProject,
         bool failFast,
         UnityIpcExecutionBudget budget,
@@ -137,7 +137,7 @@ internal sealed class UnityDaemonReadinessGate
                 : DaemonTimeouts.ProbeAttemptTimeoutCap;
             try
             {
-                var pingResponse = await daemonPingInfoClient.PingAndRead(
+                var pingResponse = await daemonPingInfoClient.PingAndReadAsync(
                         unityProject,
                         attemptTimeout,
                         cancellationToken: cancellationToken)
@@ -177,7 +177,7 @@ internal sealed class UnityDaemonReadinessGate
                 return CreateDaemonTimeoutFailure(budget.Timeout);
             }
 
-            await TimeProviderDelay.Delay(
+            await TimeProviderDelay.DelayAsync(
                     GetReadinessRetryDelay(remainingTimeout),
                     timeProvider,
                     cancellationToken)

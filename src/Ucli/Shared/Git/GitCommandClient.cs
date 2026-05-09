@@ -21,12 +21,12 @@ internal sealed class GitCommandClient : IGitCommandClient
     /// <param name="timeout"> The timeout budget for this Git command. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Git command text result. </returns>
-    public async ValueTask<GitCommandTextResult> GetCurrentWorktreeRoot (
+    public async ValueTask<GitCommandTextResult> GetCurrentWorktreeRootAsync (
         string path,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
-        return await RunRevParse(
+        return await RunRevParseAsync(
                 path,
                 "--show-toplevel",
                 timeout,
@@ -39,12 +39,12 @@ internal sealed class GitCommandClient : IGitCommandClient
     /// <param name="timeout"> The timeout budget for this Git command. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Git command text result. </returns>
-    public async ValueTask<GitCommandTextResult> GetCurrentProjectRelativePath (
+    public async ValueTask<GitCommandTextResult> GetCurrentProjectRelativePathAsync (
         string path,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
-        return await RunRevParse(
+        return await RunRevParseAsync(
                 path,
                 "--show-prefix",
                 timeout,
@@ -57,12 +57,12 @@ internal sealed class GitCommandClient : IGitCommandClient
     /// <param name="timeout"> The timeout budget for this Git command. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Git command text result. </returns>
-    public async ValueTask<GitCommandTextResult> GetWorktreeListPorcelain (
+    public async ValueTask<GitCommandTextResult> GetWorktreeListPorcelainAsync (
         string path,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
-        var processResult = await RunGitCommand(
+        var processResult = await RunGitCommandAsync(
                 path,
                 ["worktree", "list", "--porcelain"],
                 timeout,
@@ -77,13 +77,13 @@ internal sealed class GitCommandClient : IGitCommandClient
     /// <param name="timeout"> The timeout budget for this Git command. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Git command text result. </returns>
-    private async ValueTask<GitCommandTextResult> RunRevParse (
+    private async ValueTask<GitCommandTextResult> RunRevParseAsync (
         string path,
         string option,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
-        var processResult = await RunGitCommand(
+        var processResult = await RunGitCommandAsync(
                 path,
                 ["rev-parse", option],
                 timeout,
@@ -98,7 +98,7 @@ internal sealed class GitCommandClient : IGitCommandClient
     /// <param name="timeout"> The timeout budget for this Git command. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The raw process execution result. </returns>
-    private async ValueTask<ProcessRunResult> RunGitCommand (
+    private async ValueTask<ProcessRunResult> RunGitCommandAsync (
         string path,
         IReadOnlyList<string> arguments,
         TimeSpan timeout,

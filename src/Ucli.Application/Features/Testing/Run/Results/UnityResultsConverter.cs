@@ -25,7 +25,7 @@ internal sealed class UnityResultsConverter : IUnityResultsConverter
     /// <param name="session"> The run artifacts session. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the conversion result. </returns>
-    public async ValueTask<UnityResultsConversionResult> Convert (
+    public async ValueTask<UnityResultsConversionResult> ConvertAsync (
         ArtifactsSession session,
         CancellationToken cancellationToken = default)
     {
@@ -35,7 +35,7 @@ internal sealed class UnityResultsConverter : IUnityResultsConverter
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            parseResult = await xmlParser.Parse(session.Paths.ResultsXmlPath, cancellationToken).ConfigureAwait(false);
+            parseResult = await xmlParser.ParseAsync(session.Paths.ResultsXmlPath, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -59,7 +59,7 @@ internal sealed class UnityResultsConverter : IUnityResultsConverter
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await artifactWriter.Write(session, parseResult, cancellationToken).ConfigureAwait(false);
+            await artifactWriter.WriteAsync(session, parseResult, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

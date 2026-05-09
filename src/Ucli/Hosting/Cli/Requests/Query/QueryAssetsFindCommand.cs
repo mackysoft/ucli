@@ -41,7 +41,7 @@ internal sealed class QueryAssetsFindCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.FindSubcommand)]
-    public async Task<int> Find (
+    public async Task<int> FindAsync (
         string? projectPath = null,
         string? mode = null,
         string? timeout = null,
@@ -79,7 +79,7 @@ internal sealed class QueryAssetsFindCommand
             return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QueryAssetsFind, operationRequestResult.Error!);
         }
 
-        return await QueryCommandExecutionHelper.Execute(
+        return await QueryCommandExecutionHelper.ExecuteAsync(
                 queryService,
                 commonOptionsResult.Options!,
                 operationRequestResult.Operation!,

@@ -22,7 +22,7 @@ internal sealed class UnityIpcPluginVerifier
     /// <param name="budget"> The shared execution budget. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The classified failure when verification fails; otherwise <see langword="null" />. </returns>
-    public async ValueTask<UnityRequestFailure?> VerifyWithinBudget (
+    public async ValueTask<UnityRequestFailure?> VerifyWithinBudgetAsync (
         string unityProjectRoot,
         UnityIpcExecutionBudget budget,
         CancellationToken cancellationToken)
@@ -40,7 +40,7 @@ internal sealed class UnityIpcPluginVerifier
         {
             using var pluginLocateCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             pluginLocateCancellationTokenSource.CancelAfter(timeout);
-            var pluginLocateResult = await unityUcliPluginLocator.Locate(
+            var pluginLocateResult = await unityUcliPluginLocator.LocateAsync(
                     unityProjectRoot,
                     pluginLocateCancellationTokenSource.Token)
                 .ConfigureAwait(false);

@@ -47,7 +47,7 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
     /// <returns> The daemon cleanup result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    public async ValueTask<DaemonCleanupResult> Cleanup (
+    public async ValueTask<DaemonCleanupResult> CleanupAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
@@ -65,7 +65,7 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
         IAsyncDisposable lockHandle;
         try
         {
-            lockHandle = await lifecycleLockProvider.Acquire(
+            lockHandle = await lifecycleLockProvider.AcquireAsync(
                     new ProjectLifecycleLockRequest(unityProject.UnityProjectRoot),
                     lockAcquireTimeout,
                     cancellationToken)
@@ -87,19 +87,19 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
         }
 
         await using var acquiredLock = lockHandle;
-        var readResult = await daemonSessionStore.Read(
+        var readResult = await daemonSessionStore.ReadAsync(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!readResult.IsSuccess)
         {
-            return await HandleInvalidSessionRead(unityProject, readResult, deadline, cancellationToken).ConfigureAwait(false);
+            return await HandleInvalidSessionReadAsync(unityProject, readResult, deadline, cancellationToken).ConfigureAwait(false);
         }
 
         if (!readResult.Exists)
         {
-            return await HandleReachabilityResult(
+            return await HandleReachabilityResultAsync(
                     unityProject,
                     deadline,
                     MetadataUnavailableProbeSessionToken,
@@ -107,7 +107,7 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
                 .ConfigureAwait(false);
         }
 
-        return await HandleReachabilityResult(
+        return await HandleReachabilityResultAsync(
                 unityProject,
                 deadline,
                 readResult.Session!.SessionToken,
@@ -115,7 +115,7 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
             .ConfigureAwait(false);
     }
 
-    private async ValueTask<DaemonCleanupResult> HandleInvalidSessionRead (
+    private async ValueTask<DaemonCleanupResult> HandleInvalidSessionReadAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSessionReadResult readResult,
         ExecutionDeadline deadline,
@@ -128,7 +128,7 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
 
         if (readResult.Session == null)
         {
-            return await HandleReachabilityResult(
+            return await HandleReachabilityResultAsync(
                     unityProject,
                     deadline,
                     MetadataUnavailableProbeSessionToken,
@@ -146,7 +146,7 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
             return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UnsafeInvalidSession);
         }
 
-        var cleanupProbeResult = await cleanupReachabilityProbe.Probe(
+        var cleanupProbeResult = await cleanupReachabilityProbe.ProbeAsync(
                 unityProject,
                 deadline,
                 MetadataUnavailableProbeSessionToken,
@@ -157,26 +157,26 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
             return DaemonCleanupResult.Failure(cleanupProbeResult.Error!);
         }
 
-        return await HandleProbeResult(unityProject, deadline, cleanupProbeResult, cancellationToken).ConfigureAwait(false);
+        return await HandleProbeResultAsync(unityProject, deadline, cleanupProbeResult, cancellationToken).ConfigureAwait(false);
     }
 
-    private async ValueTask<DaemonCleanupResult> HandleReachabilityResult (
+    private async ValueTask<DaemonCleanupResult> HandleReachabilityResultAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
         string sessionToken,
         CancellationToken cancellationToken)
     {
-        var probeResult = await cleanupReachabilityProbe.Probe(
+        var probeResult = await cleanupReachabilityProbe.ProbeAsync(
                 unityProject,
                 deadline,
                 sessionToken,
                 cancellationToken)
             .ConfigureAwait(false);
 
-        return await HandleProbeResult(unityProject, deadline, probeResult, cancellationToken).ConfigureAwait(false);
+        return await HandleProbeResultAsync(unityProject, deadline, probeResult, cancellationToken).ConfigureAwait(false);
     }
 
-    private async ValueTask<DaemonCleanupResult> HandleProbeResult (
+    private async ValueTask<DaemonCleanupResult> HandleProbeResultAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
         DaemonCleanupReachabilityProbeResult probeResult,
@@ -184,7 +184,7 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
     {
         return probeResult.Status switch
         {
-            DaemonCleanupReachabilityStatus.NotRunning => await CleanupArtifactsWithinBudget(unityProject, deadline, cancellationToken).ConfigureAwait(false),
+            DaemonCleanupReachabilityStatus.NotRunning => await CleanupArtifactsWithinBudgetAsync(unityProject, deadline, cancellationToken).ConfigureAwait(false),
             DaemonCleanupReachabilityStatus.Running => DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.Running),
             DaemonCleanupReachabilityStatus.Uncertain => DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability),
             DaemonCleanupReachabilityStatus.Failed => DaemonCleanupResult.Failure(probeResult.Error!),
@@ -192,7 +192,7 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
         };
     }
 
-    private async ValueTask<DaemonCleanupResult> CleanupArtifactsWithinBudget (
+    private async ValueTask<DaemonCleanupResult> CleanupArtifactsWithinBudgetAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
@@ -203,7 +203,7 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
                 "Timed out before daemon artifact cleanup could begin."));
         }
 
-        var cleanupResult = await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
+        var cleanupResult = await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
         return cleanupResult.IsSuccess
             ? DaemonCleanupResult.Completed()
             : DaemonCleanupResult.Failure(cleanupResult.Error!);

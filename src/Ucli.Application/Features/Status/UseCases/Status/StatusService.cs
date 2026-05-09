@@ -27,14 +27,14 @@ internal sealed class StatusService : IStatusService
     /// <param name="input"> The normalized status command input. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the status execution result. </returns>
-    public async ValueTask<StatusExecutionResult> Execute (
+    public async ValueTask<StatusExecutionResult> ExecuteAsync (
         StatusCommandInput input,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var executionContextResult = await statusExecutionContextResolver.Resolve(
+        var executionContextResult = await statusExecutionContextResolver.ResolveAsync(
                 input,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -44,7 +44,7 @@ internal sealed class StatusService : IStatusService
         }
 
         var executionContext = executionContextResult.Context!;
-        var daemonObservationResult = await statusDaemonObservationService.Observe(
+        var daemonObservationResult = await statusDaemonObservationService.ObserveAsync(
                 executionContext.Context,
                 executionContext.Timeout,
                 cancellationToken)

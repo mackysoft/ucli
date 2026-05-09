@@ -53,7 +53,7 @@ internal sealed class LogsUnityCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The command exit code. </returns>
     [Command(UcliCommandNames.UnitySubcommand)]
-    public async Task<int> Unity (
+    public async Task<int> UnityAsync (
         string? projectPath = null,
         int? tail = null,
         string? after = null,
@@ -86,7 +86,7 @@ internal sealed class LogsUnityCommand
                 return invalidFormatResult.ExitCode;
             }
 
-            var serviceResult = await logsUnityService.Execute(
+            var serviceResult = await logsUnityService.ExecuteAsync(
                     new LogsUnityServiceRequest(
                         ProjectPath: projectPath,
                         Tail: tail,

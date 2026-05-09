@@ -45,7 +45,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         public override UcliOperationMetadata Metadata { get; } = CreateMetadata();
 
-        protected override Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
             CsEvalArgs args,
             OperationExecutionContext executionContext,
@@ -55,7 +55,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
         }
 
-        protected override Task<OperationPhaseStepResult> Plan (
+        protected override Task<OperationPhaseStepResult> PlanAsync (
             NormalizedOperation operation,
             CsEvalArgs args,
             OperationExecutionContext executionContext,
@@ -74,7 +74,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 result: IpcPayloadCodec.SerializeToElement(compilation.CreatePlanResult())));
         }
 
-        protected override Task<OperationPhaseStepResult> Call (
+        protected override Task<OperationPhaseStepResult> CallAsync (
             NormalizedOperation operation,
             CsEvalArgs args,
             OperationExecutionContext executionContext,

@@ -20,7 +20,7 @@ public sealed class OpsCommandTests
         var service = new StubOpsService();
         var command = new OpsListCommand(service, CommandResultTestWriter.Create());
 
-        await StandardOutputCapture.Execute(() => command.List(
+        await StandardOutputCapture.ExecuteAsync(() => command.ListAsync(
             projectPath: "/repo/UnityProject",
             mode: "daemon",
             timeout: "1234",
@@ -43,7 +43,7 @@ public sealed class OpsCommandTests
         var service = new StubOpsService();
         var command = new OpsDescribeCommand(service, CommandResultTestWriter.Create());
 
-        await StandardOutputCapture.Execute(() => command.Describe(
+        await StandardOutputCapture.ExecuteAsync(() => command.DescribeAsync(
             operationName: "ucli.go.describe",
             projectPath: "/repo/UnityProject",
             mode: "daemon",
@@ -68,7 +68,7 @@ public sealed class OpsCommandTests
         var service = new StubOpsService();
         var command = new OpsListCommand(service, CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.List(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.ListAsync(
             mode: "unsupported",
             cancellationToken: CancellationToken.None));
 
@@ -91,7 +91,7 @@ public sealed class OpsCommandTests
 
         public OpsDescribeCommandInput? LastDescribeInput { get; private set; }
 
-        public ValueTask<OpsListServiceResult> GetAll (
+        public ValueTask<OpsListServiceResult> GetAllAsync (
             OpsCommandInput input,
             CancellationToken cancellationToken = default)
         {
@@ -110,7 +110,7 @@ public sealed class OpsCommandTests
                 "uCLI ops list completed."));
         }
 
-        public ValueTask<OpsDescribeServiceResult> Describe (
+        public ValueTask<OpsDescribeServiceResult> DescribeAsync (
             OpsDescribeCommandInput input,
             CancellationToken cancellationToken = default)
         {

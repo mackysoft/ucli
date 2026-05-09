@@ -39,7 +39,7 @@ public sealed class TestRunServiceTests
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(hasFailedTests))));
 
-        var result = await service.Execute(CreateInput(), CancellationToken.None);
+        var result = await service.ExecuteAsync(CreateInput(), CancellationToken.None);
 
         Assert.Equal((TestRunResultKind)expectedResult, result.Result);
         Assert.Null(result.ErrorKind);
@@ -67,7 +67,7 @@ public sealed class TestRunServiceTests
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))));
 
-        var result = await service.Execute(CreateInput(), CancellationToken.None);
+        var result = await service.ExecuteAsync(CreateInput(), CancellationToken.None);
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InvalidInput, result.ErrorKind);
@@ -103,7 +103,7 @@ public sealed class TestRunServiceTests
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))));
 
-        var result = await service.Execute(CreateInput(), CancellationToken.None);
+        var result = await service.ExecuteAsync(CreateInput(), CancellationToken.None);
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InvalidInput, result.ErrorKind);
@@ -140,7 +140,7 @@ public sealed class TestRunServiceTests
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))));
 
-        var result = await service.Execute(CreateInput(), CancellationToken.None);
+        var result = await service.ExecuteAsync(CreateInput(), CancellationToken.None);
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
@@ -171,7 +171,7 @@ public sealed class TestRunServiceTests
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
             daemonTestRunClient: daemonTestRunClient);
 
-        var result = await service.Execute(CreateInput(), CancellationToken.None);
+        var result = await service.ExecuteAsync(CreateInput(), CancellationToken.None);
 
         Assert.Equal(TestRunResultKind.Pass, result.Result);
         Assert.Equal(ApplicationOutcome.Success, result.Outcome);
@@ -203,7 +203,7 @@ public sealed class TestRunServiceTests
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
             daemonTestRunClient: daemonTestRunClient);
 
-        var result = await service.Execute(CreateInput() with { FailFast = true }, CancellationToken.None);
+        var result = await service.ExecuteAsync(CreateInput() with { FailFast = true }, CancellationToken.None);
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
@@ -235,7 +235,7 @@ public sealed class TestRunServiceTests
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
             daemonTestRunClient: daemonTestRunClient);
 
-        var result = await service.Execute(CreateInput(), CancellationToken.None);
+        var result = await service.ExecuteAsync(CreateInput(), CancellationToken.None);
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
@@ -266,7 +266,7 @@ public sealed class TestRunServiceTests
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
             daemonTestRunClient: daemonTestRunClient);
 
-        var result = await service.Execute(CreateInput(), CancellationToken.None);
+        var result = await service.ExecuteAsync(CreateInput(), CancellationToken.None);
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
@@ -297,7 +297,7 @@ public sealed class TestRunServiceTests
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
             daemonTestRunClient: daemonTestRunClient);
 
-        var result = await service.Execute(CreateInput(), CancellationToken.None);
+        var result = await service.ExecuteAsync(CreateInput(), CancellationToken.None);
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
@@ -328,7 +328,7 @@ public sealed class TestRunServiceTests
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
             daemonTestRunClient: daemonTestRunClient);
 
-        var result = await service.Execute(CreateInput(), CancellationToken.None);
+        var result = await service.ExecuteAsync(CreateInput(), CancellationToken.None);
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
@@ -356,7 +356,7 @@ public sealed class TestRunServiceTests
                     "Unity process timed out after 30000 milliseconds."))),
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))));
 
-        var result = await service.Execute(CreateInput(), CancellationToken.None);
+        var result = await service.ExecuteAsync(CreateInput(), CancellationToken.None);
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
@@ -387,7 +387,7 @@ public sealed class TestRunServiceTests
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
             daemonTestRunClient: daemonTestRunClient);
 
-        var result = await service.Execute(CreateInput(), CancellationToken.None);
+        var result = await service.ExecuteAsync(CreateInput(), CancellationToken.None);
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
@@ -416,7 +416,7 @@ public sealed class TestRunServiceTests
                 UnityResultsConversionFailureKind.ResultsXmlReadFailed,
                 "Failed to read results.xml."))));
 
-        var result = await service.Execute(CreateInput(), CancellationToken.None);
+        var result = await service.ExecuteAsync(CreateInput(), CancellationToken.None);
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
@@ -443,7 +443,7 @@ public sealed class TestRunServiceTests
                 ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(hasFailedTests: true))));
 
-        var result = await service.Execute(CreateInput(), CancellationToken.None);
+        var result = await service.ExecuteAsync(CreateInput(), CancellationToken.None);
 
         Assert.Equal(TestRunResultKind.Fail, result.Result);
         Assert.Null(result.ErrorKind);
@@ -473,7 +473,7 @@ public sealed class TestRunServiceTests
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
             daemonTestRunClient: daemonTestRunClient);
 
-        var result = await service.Execute(CreateInput(), CancellationToken.None);
+        var result = await service.ExecuteAsync(CreateInput(), CancellationToken.None);
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
@@ -501,7 +501,7 @@ public sealed class TestRunServiceTests
                 UnityResultsConversionFailureKind.OutputWriteFailed,
                 "Failed to write results artifacts."))));
 
-        var result = await service.Execute(CreateInput(), CancellationToken.None);
+        var result = await service.ExecuteAsync(CreateInput(), CancellationToken.None);
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
@@ -529,7 +529,7 @@ public sealed class TestRunServiceTests
                 UnityResultsConversionFailureKind.ResultsXmlReadFailed,
                 "Failed to read results.xml."))));
 
-        var result = await service.Execute(CreateInput(), CancellationToken.None);
+        var result = await service.ExecuteAsync(CreateInput(), CancellationToken.None);
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
@@ -555,7 +555,7 @@ public sealed class TestRunServiceTests
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubResultsConverter(_ => throw new InvalidOperationException("boom")));
 
-        var result = await service.Execute(CreateInput(), CancellationToken.None);
+        var result = await service.ExecuteAsync(CreateInput(), CancellationToken.None);
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
@@ -581,7 +581,7 @@ public sealed class TestRunServiceTests
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubResultsConverter(_ => throw new InvalidOperationException("boom")));
 
-        var result = await service.Execute(CreateInput(), CancellationToken.None);
+        var result = await service.ExecuteAsync(CreateInput(), CancellationToken.None);
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
@@ -615,7 +615,7 @@ public sealed class TestRunServiceTests
             }),
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))));
 
-        var result = await service.Execute(CreateInput(), cancellationTokenSource.Token);
+        var result = await service.ExecuteAsync(CreateInput(), cancellationTokenSource.Token);
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
@@ -737,14 +737,14 @@ public sealed class TestRunServiceTests
             return Path.Combine(storageRoot, ".ucli", "config.json");
         }
 
-        public ValueTask<UcliConfigLoadResult> Load (
+        public ValueTask<UcliConfigLoadResult> LoadAsync (
             string storageRoot,
             CancellationToken cancellationToken = default)
         {
             return ValueTask.FromResult(loadResult);
         }
 
-        public ValueTask<UcliConfigSaveResult> Save (
+        public ValueTask<UcliConfigSaveResult> SaveAsync (
             string storageRoot,
             UcliConfig config,
             CancellationToken cancellationToken = default)
@@ -762,7 +762,7 @@ public sealed class TestRunServiceTests
             this.result = result;
         }
 
-        public ValueTask<UnityExecutionModeDecisionResult> Decide (
+        public ValueTask<UnityExecutionModeDecisionResult> DecideAsync (
             UnityExecutionMode mode,
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
@@ -786,7 +786,7 @@ public sealed class TestRunServiceTests
             this.complete = complete;
         }
 
-        public ValueTask<ArtifactsPreparationResult> Prepare (
+        public ValueTask<ArtifactsPreparationResult> PrepareAsync (
             ResolvedTestRunConfiguration configuration,
             CancellationToken cancellationToken = default)
         {
@@ -794,7 +794,7 @@ public sealed class TestRunServiceTests
             return ValueTask.FromResult(prepare(configuration));
         }
 
-        public ValueTask<ArtifactsCompletionResult> Complete (
+        public ValueTask<ArtifactsCompletionResult> CompleteAsync (
             ResolvedTestRunConfiguration configuration,
             ArtifactsSession session,
             CancellationToken cancellationToken = default)
@@ -815,7 +815,7 @@ public sealed class TestRunServiceTests
 
         public int CallCount { get; private set; }
 
-        public ValueTask<UnityTestExecutionResult> Execute (
+        public ValueTask<UnityTestExecutionResult> ExecuteAsync (
             ResolvedTestRunConfiguration configuration,
             ArtifactPaths artifactPaths,
             TimeSpan timeout,
@@ -839,7 +839,7 @@ public sealed class TestRunServiceTests
 
         public bool LastFailFast { get; private set; }
 
-        public ValueTask<UnityTestExecutionResult> Execute (
+        public ValueTask<UnityTestExecutionResult> ExecuteAsync (
             ResolvedTestRunConfiguration configuration,
             ArtifactPaths artifactPaths,
             TimeSpan timeout,
@@ -861,7 +861,7 @@ public sealed class TestRunServiceTests
             this.convert = convert;
         }
 
-        public ValueTask<UnityResultsConversionResult> Convert (
+        public ValueTask<UnityResultsConversionResult> ConvertAsync (
             ArtifactsSession session,
             CancellationToken cancellationToken = default)
         {

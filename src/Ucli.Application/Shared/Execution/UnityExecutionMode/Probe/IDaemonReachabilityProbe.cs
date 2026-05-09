@@ -10,7 +10,7 @@ internal interface IDaemonReachabilityProbe
     /// <returns> The reachability probe result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    ValueTask<DaemonReachabilityProbeResult> Probe (
+    ValueTask<DaemonReachabilityProbeResult> ProbeAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);

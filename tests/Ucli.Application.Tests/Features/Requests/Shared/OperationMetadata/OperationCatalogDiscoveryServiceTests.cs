@@ -19,7 +19,7 @@ public sealed class OperationCatalogDiscoveryServiceTests
         var reader = new SpyOpsCatalogReader();
         var service = new OperationCatalogDiscoveryService(reader);
 
-        var operations = await service.Discover(
+        var operations = await service.DiscoverAsync(
             CreateUnityProject(),
             config,
             cancellationToken: CancellationToken.None);
@@ -39,7 +39,7 @@ public sealed class OperationCatalogDiscoveryServiceTests
         var reader = new SpyOpsCatalogReader();
         var service = new OperationCatalogDiscoveryService(reader);
 
-        _ = await service.Discover(
+        _ = await service.DiscoverAsync(
             CreateUnityProject(),
             UcliConfig.CreateDefault(),
             failFast: true,
@@ -59,7 +59,7 @@ public sealed class OperationCatalogDiscoveryServiceTests
                 UcliCoreErrorCodes.InvalidArgument)));
 
         var exception = await Assert.ThrowsAsync<OperationCatalogLoadException>(async () =>
-            await service.Discover(
+            await service.DiscoverAsync(
                 CreateUnityProject(),
                 UcliConfig.CreateDefault(),
                 mode: (UnityExecutionMode)999,
@@ -81,7 +81,7 @@ public sealed class OperationCatalogDiscoveryServiceTests
                 ExecutionErrorCodes.IpcTimeout)));
 
         var exception = await Assert.ThrowsAsync<OperationCatalogLoadException>(async () =>
-            await service.Discover(
+            await service.DiscoverAsync(
                 CreateUnityProject(),
                 UcliConfig.CreateDefault(),
                 timeout: TimeSpan.FromMilliseconds(1200),
@@ -102,7 +102,7 @@ public sealed class OperationCatalogDiscoveryServiceTests
                 UnityExecutionModeDecisionErrorCodes.DaemonNotRunning)));
 
         var exception = await Assert.ThrowsAsync<OperationCatalogLoadException>(async () =>
-            await service.Discover(
+            await service.DiscoverAsync(
                 CreateUnityProject(),
                 UcliConfig.CreateDefault(),
                 mode: UnityExecutionMode.Daemon,
@@ -131,7 +131,7 @@ public sealed class OperationCatalogDiscoveryServiceTests
 
         public bool ReceivedRequireReadinessGate { get; private set; }
 
-        public ValueTask<OpsCatalogFetchResult> Read (
+        public ValueTask<OpsCatalogFetchResult> ReadAsync (
             ResolvedUnityProjectContext project,
             UcliConfig config,
             UnityExecutionMode mode,
@@ -186,7 +186,7 @@ public sealed class OperationCatalogDiscoveryServiceTests
             this.result = result ?? throw new ArgumentNullException(nameof(result));
         }
 
-        public ValueTask<OpsCatalogFetchResult> Read (
+        public ValueTask<OpsCatalogFetchResult> ReadAsync (
             ResolvedUnityProjectContext project,
             UcliConfig config,
             UnityExecutionMode mode,

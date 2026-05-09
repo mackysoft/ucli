@@ -9,7 +9,7 @@ internal interface IPlanService
     /// <param name="input"> The normalized command input. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the plan execution result. </returns>
-    ValueTask<PlanServiceResult> Execute (
+    ValueTask<PlanServiceResult> ExecuteAsync (
         PlanCommandInput input,
         CancellationToken cancellationToken = default);
 }

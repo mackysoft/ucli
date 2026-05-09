@@ -39,14 +39,14 @@ internal sealed class CallService : ICallService
     }
 
     /// <inheritdoc />
-    public async ValueTask<CallServiceResult> Execute (
+    public async ValueTask<CallServiceResult> ExecuteAsync (
         CallCommandInput input,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(input);
 
-        var requestPreparationResult = await requestPreparationService.Prepare(
+        var requestPreparationResult = await requestPreparationService.PrepareAsync(
                 input.ProjectPath,
                 input.RequestJson,
                 cancellationToken)
@@ -70,7 +70,7 @@ internal sealed class CallService : ICallService
         var executionMode = input.Mode ?? UnityExecutionMode.Auto;
 
         var deadline = ExecutionDeadline.Start(timeoutResolutionResult.Timeout!.Value, timeProvider);
-        var preflightResult = await phaseExecutionPreflightService.Prepare(
+        var preflightResult = await phaseExecutionPreflightService.PrepareAsync(
                 preparedRequestContext,
                 executionMode,
                 deadline,
@@ -107,7 +107,7 @@ internal sealed class CallService : ICallService
                 baseOutput);
         }
 
-        return await callUnityExecutionService.Execute(
+        return await callUnityExecutionService.ExecuteAsync(
                 preparedRequest,
                 executionMode,
                 input,

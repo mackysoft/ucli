@@ -43,7 +43,7 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
     }
 
     /// <inheritdoc />
-    public async ValueTask<OpsCatalogSourceRefreshResult> Refresh (
+    public async ValueTask<OpsCatalogSourceRefreshResult> RefreshAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UnityExecutionMode mode,
@@ -62,7 +62,7 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
         string? persistFailure = null;
         for (var attempt = 0; attempt < MaxCatalogStabilityAttempts; attempt++)
         {
-            var attemptResult = await TryReadAndPersistCatalog(
+            var attemptResult = await TryReadAndPersistCatalogAsync(
                     project,
                     config,
                     mode,
@@ -99,7 +99,7 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
             combinedFallbackReason);
     }
 
-    private async ValueTask<(OpsCatalogFetchResult FetchResult, string? PersistFailure, bool ShouldRetry)> TryReadAndPersistCatalog (
+    private async ValueTask<(OpsCatalogFetchResult FetchResult, string? PersistFailure, bool ShouldRetry)> TryReadAndPersistCatalogAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UnityExecutionMode mode,
@@ -109,12 +109,12 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var snapshotBeforeRead = await inputFingerprintProvider.TryComputeCore(
+        var snapshotBeforeRead = await inputFingerprintProvider.TryComputeCoreAsync(
                 project,
                 cancellationToken)
             .ConfigureAwait(false);
 
-        var fetchResult = await opsCatalogReader.Read(
+        var fetchResult = await opsCatalogReader.ReadAsync(
                 project,
                 config,
                 mode,
@@ -133,7 +133,7 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
             return (fetchResult, InputFingerprintFailureMessage, false);
         }
 
-        var snapshotAfterRead = await inputFingerprintProvider.TryComputeCore(
+        var snapshotAfterRead = await inputFingerprintProvider.TryComputeCoreAsync(
                 project,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -149,11 +149,11 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
             return (fetchResult, InputInstabilityFailureMessage, true);
         }
 
-        var persistenceInput = await CreatePersistenceInput(project, snapshotAfterRead, cancellationToken).ConfigureAwait(false);
+        var persistenceInput = await CreatePersistenceInputAsync(project, snapshotAfterRead, cancellationToken).ConfigureAwait(false);
 
         try
         {
-            await artifactWriter.WriteOpsCatalog(
+            await artifactWriter.WriteOpsCatalogAsync(
                     project.RepositoryRoot,
                     project.ProjectFingerprint,
                     fetchResult.Snapshot!.GeneratedAtUtc,
@@ -177,14 +177,14 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
         }
     }
 
-    private async ValueTask<OpsCatalogPersistenceInput> CreatePersistenceInput (
+    private async ValueTask<OpsCatalogPersistenceInput> CreatePersistenceInputAsync (
         ResolvedUnityProjectContext project,
         ReadIndexCoreInputHashSnapshot coreSnapshot,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var persistedArtifacts = await persistedArtifactsReader.Read(
+        var persistedArtifacts = await persistedArtifactsReader.ReadAsync(
                 project,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -217,7 +217,7 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
                 ManifestInputSnapshot: null);
         }
 
-        var fullSnapshot = await inputFingerprintProvider.TryCompute(
+        var fullSnapshot = await inputFingerprintProvider.TryComputeAsync(
                 project,
                 cancellationToken)
             .ConfigureAwait(false);

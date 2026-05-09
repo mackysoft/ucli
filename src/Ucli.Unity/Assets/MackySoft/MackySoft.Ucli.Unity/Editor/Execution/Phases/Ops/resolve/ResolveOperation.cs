@@ -30,7 +30,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        protected override Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
             ResolveSelectorArgs args,
             OperationExecutionContext executionContext,
@@ -63,14 +63,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        protected override Task<OperationPhaseStepResult> Plan (
+        protected override Task<OperationPhaseStepResult> PlanAsync (
             NormalizedOperation operation,
             ResolveSelectorArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteResolve(operation, args, executionContext, applied: false);
+            return ExecuteResolveAsync(operation, args, executionContext, applied: false);
         }
 
         /// <summary> Executes call phase for <c>ucli.resolve</c>. </summary>
@@ -78,14 +78,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        protected override Task<OperationPhaseStepResult> Call (
+        protected override Task<OperationPhaseStepResult> CallAsync (
             NormalizedOperation operation,
             ResolveSelectorArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteResolve(operation, args, executionContext, applied: true);
+            return ExecuteResolveAsync(operation, args, executionContext, applied: true);
         }
 
         /// <summary> Executes selector parse/resolve flow shared by plan and call phases. </summary>
@@ -93,7 +93,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="applied"> The applied flag for successful phase result. </param>
         /// <returns> The phase-step result. </returns>
-        private static Task<OperationPhaseStepResult> ExecuteResolve (
+        private static Task<OperationPhaseStepResult> ExecuteResolveAsync (
             NormalizedOperation operation,
             ResolveSelectorArgs args,
             OperationExecutionContext executionContext,

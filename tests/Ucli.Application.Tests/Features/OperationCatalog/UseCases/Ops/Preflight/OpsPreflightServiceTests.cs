@@ -18,7 +18,7 @@ public sealed class OpsPreflightServiceTests
         var service = new OpsPreflightService(new StubProjectContextResolver(
             ProjectContextResolutionResult.Success(context)));
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new OpsCommandInput(
                 ProjectPath: null,
                 Mode: NormalizeMode("daemon"),
@@ -56,7 +56,7 @@ public sealed class OpsPreflightServiceTests
             this.result = result;
         }
 
-        public ValueTask<ProjectContextResolutionResult> Resolve (
+        public ValueTask<ProjectContextResolutionResult> ResolveAsync (
             string? projectPath,
             CancellationToken cancellationToken = default)
         {

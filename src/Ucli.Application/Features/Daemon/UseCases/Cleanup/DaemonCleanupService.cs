@@ -28,14 +28,14 @@ internal sealed class DaemonCleanupService : IDaemonCleanupService
     /// <param name="timeoutMilliseconds"> The optional normalized timeout value in milliseconds. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-cleanup execution result. </returns>
-    public async ValueTask<DaemonCleanupExecutionResult> Cleanup (
+    public async ValueTask<DaemonCleanupExecutionResult> CleanupAsync (
         string? projectPath,
         int? timeoutMilliseconds,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var contextResult = await daemonCommandExecutionContextResolver.Resolve(
+        var contextResult = await daemonCommandExecutionContextResolver.ResolveAsync(
                 UcliCommandIds.DaemonCleanup,
                 projectPath,
                 timeoutMilliseconds,
@@ -47,7 +47,7 @@ internal sealed class DaemonCleanupService : IDaemonCleanupService
         }
 
         var executionContext = contextResult.Context!;
-        var cleanupResult = await daemonCleanupOperation.Cleanup(
+        var cleanupResult = await daemonCleanupOperation.CleanupAsync(
                 executionContext.Context.UnityProject,
                 executionContext.Timeout,
                 cancellationToken)

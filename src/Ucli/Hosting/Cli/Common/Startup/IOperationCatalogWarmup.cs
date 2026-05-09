@@ -6,5 +6,5 @@ internal interface IOperationCatalogWarmup
     /// <summary> Ensures the operation catalog is loaded. </summary>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that completes after warmup finishes. </returns>
-    ValueTask Warmup (CancellationToken cancellationToken = default);
+    ValueTask WarmupAsync (CancellationToken cancellationToken = default);
 }

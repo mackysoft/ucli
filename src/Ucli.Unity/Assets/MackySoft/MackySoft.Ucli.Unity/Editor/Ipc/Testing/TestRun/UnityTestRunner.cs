@@ -14,7 +14,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="cancellationToken"> The cancellation token propagated by caller. </param>
         /// <returns> The completed test result adaptor. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestContext" /> is <see langword="null" />. </exception>
-        public async Task<ITestResultAdaptor> Run (
+        public async Task<ITestResultAdaptor> RunAsync (
             UnityTestRunRequestContext requestContext,
             CancellationToken cancellationToken = default)
         {
@@ -34,7 +34,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 testRunnerApi.RegisterCallbacks(callbacks);
                 var testRunId = testRunnerApi.Execute(executionSettings);
                 cancellationRegistration = RegisterCancellation(testRunId, cancellationToken);
-                return await callbacks.WaitForCompletion(cancellationToken);
+                return await callbacks.WaitForCompletionAsync(cancellationToken);
             }
             finally
             {
@@ -131,7 +131,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             /// <summary> Waits for run completion and supports cancellation token. </summary>
             /// <param name="cancellationToken"> The cancellation token propagated by caller. </param>
             /// <returns> The completed test result adaptor. </returns>
-            public async Task<ITestResultAdaptor> WaitForCompletion (CancellationToken cancellationToken)
+            public async Task<ITestResultAdaptor> WaitForCompletionAsync (CancellationToken cancellationToken)
             {
                 if (!cancellationToken.CanBeCanceled)
                 {

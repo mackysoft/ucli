@@ -11,7 +11,7 @@ internal interface IRequestStaticValidator
     /// <param name="config"> The configuration values used for operation authorization checks. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the aggregated validation result. </returns>
-    ValueTask<ValidationResult> Validate (
+    ValueTask<ValidationResult> ValidateAsync (
         ValidateRequest request,
         RequestStaticValidationCatalog catalog,
         UcliConfig config,

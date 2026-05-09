@@ -27,7 +27,7 @@ public sealed class DaemonCommandExecutionContextResolverTests
             ProjectContextResolutionResult.Success(initStatusContext));
         var resolver = new DaemonCommandExecutionContextResolver(initStatusContextResolver);
 
-        var result = await resolver.Resolve(
+        var result = await resolver.ResolveAsync(
             timeoutCommand: UcliCommandIds.DaemonStart,
             projectPath: null,
             timeoutMilliseconds: null,
@@ -56,7 +56,7 @@ public sealed class DaemonCommandExecutionContextResolverTests
             ProjectContextResolutionResult.Success(initStatusContext));
         var resolver = new DaemonCommandExecutionContextResolver(initStatusContextResolver);
 
-        var result = await resolver.Resolve(
+        var result = await resolver.ResolveAsync(
             timeoutCommand: UcliCommandIds.DaemonStop,
             projectPath: null,
             timeoutMilliseconds: 3333,
@@ -75,7 +75,7 @@ public sealed class DaemonCommandExecutionContextResolverTests
             ProjectContextResolutionResult.Success(CreateContext(UcliConfig.CreateDefault())));
         var resolver = new DaemonCommandExecutionContextResolver(initStatusContextResolver);
 
-        var result = await resolver.Resolve(
+        var result = await resolver.ResolveAsync(
             timeoutCommand: UcliCommandIds.DaemonStatus,
             projectPath: null,
             timeoutMilliseconds: 0,
@@ -99,7 +99,7 @@ public sealed class DaemonCommandExecutionContextResolverTests
         await Assert.ThrowsAsync<ArgumentException>(async () =>
         {
             await TestAwaiter.WaitAsync(
-                resolver.Resolve(
+                resolver.ResolveAsync(
                     timeoutCommand: default,
                     projectPath: null,
                     timeoutMilliseconds: null,
@@ -132,7 +132,7 @@ public sealed class DaemonCommandExecutionContextResolverTests
 
         public int CallCount { get; private set; }
 
-        public ValueTask<ProjectContextResolutionResult> Resolve (
+        public ValueTask<ProjectContextResolutionResult> ResolveAsync (
             string? projectPath,
             CancellationToken cancellationToken = default)
         {

@@ -12,7 +12,7 @@ internal interface IDaemonLaunchCompensationService
     /// <param name="timeout"> The remaining timeout budget for launch-failure compensation. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The compensation result. </returns>
-    ValueTask<DaemonSessionStoreOperationResult> CleanupFailedLaunch (
+    ValueTask<DaemonSessionStoreOperationResult> CleanupFailedLaunchAsync (
         ResolvedUnityProjectContext unityProject,
         int? processId,
         DateTimeOffset? expectedIssuedAtUtc,

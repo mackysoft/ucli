@@ -34,7 +34,7 @@ internal sealed class QueryService : IQueryService
     }
 
     /// <inheritdoc />
-    public async ValueTask<QueryServiceResult> Execute (
+    public async ValueTask<QueryServiceResult> ExecuteAsync (
         QueryCommandInput input,
         CancellationToken cancellationToken = default)
     {
@@ -43,7 +43,7 @@ internal sealed class QueryService : IQueryService
         ArgumentNullException.ThrowIfNull(input.Operation);
 
         var requestId = Guid.NewGuid().ToString("D");
-        var projectContextResult = await projectContextResolver.Resolve(input.ProjectPath, cancellationToken).ConfigureAwait(false);
+        var projectContextResult = await projectContextResolver.ResolveAsync(input.ProjectPath, cancellationToken).ConfigureAwait(false);
         if (!projectContextResult.IsSuccess)
         {
             return QueryServiceResultFactory.FromExecutionError(
@@ -135,7 +135,7 @@ internal sealed class QueryService : IQueryService
             TypeId: operation.Filter.TypeId,
             PathPrefix: operation.Filter.PathPrefix,
             NameContains: operation.Filter.NameContains);
-        var readResult = await assetSearchLookupAccessService.Search(
+        var readResult = await assetSearchLookupAccessService.SearchAsync(
                 projectContext.UnityProject,
                 projectContext.Config,
                 executionMode,
@@ -222,7 +222,7 @@ internal sealed class QueryService : IQueryService
         CancellationToken cancellationToken)
     {
         var readIndex = ReadIndexInfoFactory.Unity(ResolveUnityOnlyFallbackReason(readIndexMode));
-        var executionResult = await unityRequestExecutor.Execute(
+        var executionResult = await unityRequestExecutor.ExecuteAsync(
                 UcliCommandIds.Query,
                 executionMode,
                 timeout,

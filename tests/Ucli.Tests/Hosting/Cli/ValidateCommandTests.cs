@@ -29,7 +29,7 @@ public sealed class ValidateCommandTests
             "Static validation passed.")));
         var command = new ValidateCommand(service, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Validate(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.ValidateAsync(
             projectPath: "/repo/UnityProject",
             readIndexMode: "disabled",
             cancellationToken: CancellationToken.None));
@@ -55,7 +55,7 @@ public sealed class ValidateCommandTests
         var service = new StubValidateService((_, _) => throw new InvalidOperationException("Service should not be called."));
         var command = new ValidateCommand(service, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Validate(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.ValidateAsync(
             readIndexMode: "unsupported",
             cancellationToken: CancellationToken.None));
 
@@ -81,7 +81,7 @@ public sealed class ValidateCommandTests
 
         public ValidateCommandInput? CapturedInput { get; private set; }
 
-        public ValueTask<ValidateServiceResult> Execute (
+        public ValueTask<ValidateServiceResult> ExecuteAsync (
             ValidateCommandInput input,
             CancellationToken cancellationToken = default)
         {

@@ -42,7 +42,7 @@ internal sealed class TestRunCommand
     /// <param name="cancellationToken"> The cancellation token propagated by the command pipeline. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.RunSubcommand)]
-    public async Task<int> Run (
+    public async Task<int> RunAsync (
         string? projectPath = null,
         string? profilePath = null,
         string? executionMode = null,
@@ -81,7 +81,7 @@ internal sealed class TestRunCommand
             return errorResult.ExitCode;
         }
 
-        var serviceResult = await testRunService.Execute(
+        var serviceResult = await testRunService.ExecuteAsync(
             new TestRunCommandInput(
                 ProjectPath: projectPath,
                 ProfilePath: profilePath,

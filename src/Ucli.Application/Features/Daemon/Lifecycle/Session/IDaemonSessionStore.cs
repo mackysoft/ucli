@@ -8,7 +8,7 @@ internal interface IDaemonSessionStore
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon session read result. </returns>
-    ValueTask<DaemonSessionReadResult> Read (
+    ValueTask<DaemonSessionReadResult> ReadAsync (
         string storageRoot,
         string projectFingerprint,
         CancellationToken cancellationToken = default);
@@ -18,7 +18,7 @@ internal interface IDaemonSessionStore
     /// <param name="session"> The daemon session metadata to persist. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon session storage operation result. </returns>
-    ValueTask<DaemonSessionStoreOperationResult> Write (
+    ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
         string storageRoot,
         DaemonSession session,
         CancellationToken cancellationToken = default);
@@ -28,7 +28,7 @@ internal interface IDaemonSessionStore
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon session storage operation result. </returns>
-    ValueTask<DaemonSessionStoreOperationResult> Delete (
+    ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
         string storageRoot,
         string projectFingerprint,
         CancellationToken cancellationToken = default);

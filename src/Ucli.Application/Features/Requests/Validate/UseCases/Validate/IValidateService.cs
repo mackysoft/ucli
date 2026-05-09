@@ -9,7 +9,7 @@ internal interface IValidateService
     /// <param name="input"> The interpreted command input values. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the normalized validate result. </returns>
-    ValueTask<ValidateServiceResult> Execute (
+    ValueTask<ValidateServiceResult> ExecuteAsync (
         ValidateCommandInput input,
         CancellationToken cancellationToken = default);
 }

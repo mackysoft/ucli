@@ -33,14 +33,14 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The cleanup operation result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
-    public async ValueTask<DaemonSessionStoreOperationResult> Cleanup (
+    public async ValueTask<DaemonSessionStoreOperationResult> CleanupAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
 
-        var deleteSessionResult = await daemonSessionStore.Delete(
+        var deleteSessionResult = await daemonSessionStore.DeleteAsync(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 cancellationToken)

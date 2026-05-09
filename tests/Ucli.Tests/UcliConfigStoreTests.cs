@@ -15,7 +15,7 @@ public sealed class UcliConfigStoreTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         var configStore = new UcliConfigStore();
 
-        var result = await configStore.Load(unityProjectPath, CancellationToken.None);
+        var result = await configStore.LoadAsync(unityProjectPath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Null(result.Error);
@@ -57,12 +57,12 @@ public sealed class UcliConfigStoreTests
             },
         };
 
-        var saveResult = await configStore.Save(unityProjectPath, config, CancellationToken.None);
+        var saveResult = await configStore.SaveAsync(unityProjectPath, config, CancellationToken.None);
 
         Assert.True(saveResult.IsSuccess);
         Assert.Null(saveResult.Error);
 
-        var loadResult = await configStore.Load(unityProjectPath, CancellationToken.None);
+        var loadResult = await configStore.LoadAsync(unityProjectPath, CancellationToken.None);
         Assert.True(loadResult.IsSuccess);
         Assert.Equal(ConfigSource.File, loadResult.Source);
         var loadedConfig = Assert.IsType<UcliConfig>(loadResult.Config);
@@ -109,7 +109,7 @@ public sealed class UcliConfigStoreTests
         var relativeConfigPath = Path.GetRelativePath(scope.FullPath, configPath);
         scope.WriteFile(relativeConfigPath, "{");
 
-        var result = await configStore.Load(unityProjectPath, CancellationToken.None);
+        var result = await configStore.LoadAsync(unityProjectPath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Config);
@@ -136,7 +136,7 @@ public sealed class UcliConfigStoreTests
         }
         """);
 
-        var result = await configStore.Load(unityProjectPath, CancellationToken.None);
+        var result = await configStore.LoadAsync(unityProjectPath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Config);
@@ -170,7 +170,7 @@ public sealed class UcliConfigStoreTests
             relativeConfigPath,
             invalidSchemaConfigJson);
 
-        var result = await configStore.Load(unityProjectPath, CancellationToken.None);
+        var result = await configStore.LoadAsync(unityProjectPath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Config);
@@ -199,7 +199,7 @@ public sealed class UcliConfigStoreTests
             });
         scope.WriteFile(relativeConfigPath, invalidAllowlistConfigJson);
 
-        var result = await configStore.Load(unityProjectPath, CancellationToken.None);
+        var result = await configStore.LoadAsync(unityProjectPath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Config);
@@ -226,7 +226,7 @@ public sealed class UcliConfigStoreTests
                 "[",
             ]);
 
-        var saveResult = await configStore.Save(unityProjectPath, invalidConfig, CancellationToken.None);
+        var saveResult = await configStore.SaveAsync(unityProjectPath, invalidConfig, CancellationToken.None);
 
         Assert.False(saveResult.IsSuccess);
         Assert.Null(saveResult.Error);
@@ -255,7 +255,7 @@ public sealed class UcliConfigStoreTests
             });
         scope.WriteFile(relativeConfigPath, invalidConfigJson);
 
-        var result = await configStore.Load(unityProjectPath, CancellationToken.None);
+        var result = await configStore.LoadAsync(unityProjectPath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Config);
@@ -285,7 +285,7 @@ public sealed class UcliConfigStoreTests
             });
         scope.WriteFile(relativeConfigPath, invalidConfigJson);
 
-        var result = await configStore.Load(unityProjectPath, CancellationToken.None);
+        var result = await configStore.LoadAsync(unityProjectPath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Config);
@@ -315,7 +315,7 @@ public sealed class UcliConfigStoreTests
             });
         scope.WriteFile(relativeConfigPath, configJson);
 
-        var result = await configStore.Load(unityProjectPath, CancellationToken.None);
+        var result = await configStore.LoadAsync(unityProjectPath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var config = Assert.IsType<UcliConfig>(result.Config);
@@ -342,7 +342,7 @@ public sealed class UcliConfigStoreTests
             IpcDefaultTimeoutMilliseconds = 0,
         };
 
-        var saveResult = await configStore.Save(unityProjectPath, invalidConfig, CancellationToken.None);
+        var saveResult = await configStore.SaveAsync(unityProjectPath, invalidConfig, CancellationToken.None);
 
         Assert.False(saveResult.IsSuccess);
         Assert.Null(saveResult.Error);
@@ -372,7 +372,7 @@ public sealed class UcliConfigStoreTests
             });
         scope.WriteFile(relativeConfigPath, configJson);
 
-        var result = await configStore.Load(unityProjectPath, CancellationToken.None);
+        var result = await configStore.LoadAsync(unityProjectPath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var config = Assert.IsType<UcliConfig>(result.Config);
@@ -404,7 +404,7 @@ public sealed class UcliConfigStoreTests
             });
         scope.WriteFile(relativeConfigPath, invalidConfigJson);
 
-        var result = await configStore.Load(unityProjectPath, CancellationToken.None);
+        var result = await configStore.LoadAsync(unityProjectPath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Config);
@@ -438,7 +438,7 @@ public sealed class UcliConfigStoreTests
             },
         };
 
-        var saveResult = await configStore.Save(unityProjectPath, invalidConfig, CancellationToken.None);
+        var saveResult = await configStore.SaveAsync(unityProjectPath, invalidConfig, CancellationToken.None);
 
         Assert.False(saveResult.IsSuccess);
         Assert.Null(saveResult.Error);
@@ -470,7 +470,7 @@ public sealed class UcliConfigStoreTests
             },
         };
 
-        var saveResult = await configStore.Save(unityProjectPath, invalidConfig, CancellationToken.None);
+        var saveResult = await configStore.SaveAsync(unityProjectPath, invalidConfig, CancellationToken.None);
 
         Assert.False(saveResult.IsSuccess);
         Assert.Null(saveResult.Error);
@@ -505,7 +505,7 @@ public sealed class UcliConfigStoreTests
             },
         };
 
-        var saveResult = await configStore.Save(unityProjectPath, invalidConfig, CancellationToken.None);
+        var saveResult = await configStore.SaveAsync(unityProjectPath, invalidConfig, CancellationToken.None);
 
         Assert.False(saveResult.IsSuccess);
         Assert.Null(saveResult.Error);
@@ -542,7 +542,7 @@ public sealed class UcliConfigStoreTests
             });
         scope.WriteFile(relativeConfigPath, invalidConfigJson);
 
-        var result = await configStore.Load(unityProjectPath, CancellationToken.None);
+        var result = await configStore.LoadAsync(unityProjectPath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Config);

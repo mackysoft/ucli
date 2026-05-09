@@ -60,7 +60,7 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
     /// <exception cref="DirectoryNotFoundException"> Thrown when the project root no longer exists. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     /// <exception cref="TimeoutException"> Thrown when lock acquisition exceeds <paramref name="timeout" />. </exception>
-    public async ValueTask<IAsyncDisposable> Acquire (
+    public async ValueTask<IAsyncDisposable> AcquireAsync (
         ProjectLifecycleLockRequest request,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
@@ -105,7 +105,7 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
                     delay = TimeSpan.FromMilliseconds(1);
                 }
 
-                await TimeProviderDelay.Delay(delay, timeProvider, cancellationToken).ConfigureAwait(false);
+                await TimeProviderDelay.DelayAsync(delay, timeProvider, cancellationToken).ConfigureAwait(false);
             }
         }
     }

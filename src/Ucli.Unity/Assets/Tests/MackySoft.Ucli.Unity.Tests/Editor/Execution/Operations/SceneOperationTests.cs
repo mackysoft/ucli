@@ -39,7 +39,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = scenePath,
                 });
 
-            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertSuccess(result, applied: true, changed: false);
             Assert.That(SceneManager.GetActiveScene().path, Is.EqualTo(scenePath));
@@ -63,7 +63,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = scenePath,
                 });
 
-            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertSuccess(result, applied: true, changed: false);
             Assert.That(SceneManager.sceneCount, Is.EqualTo(1));
@@ -91,7 +91,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = scenePath,
                 });
 
-            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-open");
             Assert.That(result.Failure!.Message, Does.Contain("Dirty loaded scene blocks opening scene"));
@@ -118,7 +118,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = scenePath,
                 });
 
-            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-open");
             Assert.That(result.Failure!.Message, Does.Contain("Dirty loaded scene blocks opening scene"));
@@ -150,7 +150,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = scenePath,
                 });
 
-            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-open");
             Assert.That(result.Failure!.Message, Does.Contain("Dirty prefab stage blocks opening scene"));
@@ -177,7 +177,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = scenePath,
                 });
 
-            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertSuccess(result, applied: true, changed: true);
             Assert.That(scene.isDirty, Is.False);
@@ -207,7 +207,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = scenePath,
                 });
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-save");
         });
@@ -240,8 +240,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = scenePath,
                 });
 
-            var openPlanResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
-            var savePlanResult = await saveOperation.Plan(saveRequest, context, CancellationToken.None);
+            var openPlanResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
+            var savePlanResult = await saveOperation.PlanAsync(saveRequest, context, CancellationToken.None);
 
             AssertSuccess(openPlanResult, applied: false, changed: false);
             AssertSuccess(savePlanResult, applied: false, changed: false);
@@ -267,7 +267,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
             var context = scope.CreateExecutionContext();
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(context.TryGetTemporaryScene(scenePath, out var previewScene), Is.True);
@@ -297,7 +297,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
             var context = scope.CreateExecutionContext();
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(context.TryGetTemporaryScene(scenePath, out var previewScene), Is.True);
@@ -340,7 +340,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
             var context = scope.CreateExecutionContext();
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(context.TryGetTemporaryScene(scenePath, out var previewScene), Is.True);
@@ -376,7 +376,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     path = scenePath,
                 });
-            var openResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
+            var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
 
             AssertSuccess(openResult, applied: false, changed: false);
 
@@ -388,7 +388,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     name = "CreatedRoot",
                     scene = scenePath,
                 });
-            var createResult = await createOperation.Plan(createRequest, context, CancellationToken.None);
+            var createResult = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
 
             AssertSuccess(createResult, applied: false, changed: true);
 
@@ -399,7 +399,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     path = scenePath,
                 });
-            var saveResult = await saveOperation.Plan(saveRequest, context, CancellationToken.None);
+            var saveResult = await saveOperation.PlanAsync(saveRequest, context, CancellationToken.None);
 
             AssertSuccess(saveResult, applied: false, changed: true);
         });
@@ -440,9 +440,9 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = scenePath,
                 });
 
-            _ = await openOperation.Plan(openRequest, context, CancellationToken.None);
-            _ = await createOperation.Plan(createRequest, context, CancellationToken.None);
-            var saveResult = await saveOperation.Call(saveRequest, context, CancellationToken.None);
+            _ = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
+            _ = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
+            var saveResult = await saveOperation.CallAsync(saveRequest, context, CancellationToken.None);
 
             AssertInvalidArgument(saveResult, "op-save");
             Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Scene, scenePath)), Is.True);
@@ -467,7 +467,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     depth = -1,
                 });
 
-            var result = await operation.Validate(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.ValidateAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-tree");
         });
@@ -493,7 +493,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     depth = (int?)null,
                 });
 
-            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(result.Result.HasValue, Is.True);
@@ -524,7 +524,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = scenePath,
                 });
 
-            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertSuccess(result, applied: true, changed: false);
             Assert.That(result.Result.HasValue, Is.True);
@@ -553,7 +553,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = scenePath,
                 });
 
-            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertSuccess(result, applied: true, changed: false);
             Assert.That(result.Result.HasValue, Is.True);
@@ -584,7 +584,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = scenePath,
                 });
 
-            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
         });
@@ -617,7 +617,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = scenePath,
                 });
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(result.Result.HasValue, Is.True);
@@ -648,7 +648,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     path = scenePath,
                 });
-            var openResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
+            var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
 
             AssertSuccess(openResult, applied: false, changed: false);
 
@@ -660,7 +660,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     name = "CreatedRoot",
                     scene = scenePath,
                 });
-            var createResult = await createOperation.Plan(createRequest, context, CancellationToken.None);
+            var createResult = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
 
             AssertSuccess(createResult, applied: false, changed: true);
 
@@ -672,7 +672,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     scene = scenePath,
                     pathPrefix = "CreatedRoot",
                 });
-            var queryResult = await queryOperation.Plan(queryRequest, context, CancellationToken.None);
+            var queryResult = await queryOperation.PlanAsync(queryRequest, context, CancellationToken.None);
 
             AssertSuccess(queryResult, applied: false, changed: false);
             Assert.That(queryResult.Result.HasValue, Is.True);
@@ -703,7 +703,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     path = scenePath,
                 });
-            var openResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
+            var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
             AssertSuccess(openResult, applied: false, changed: false);
 
             var componentTypeId = MackySoft.Ucli.Unity.Index.IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
@@ -719,7 +719,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                     type = componentTypeId,
                 });
-            var ensureResult = await ensureOperation.Plan(ensureRequest, context, CancellationToken.None);
+            var ensureResult = await ensureOperation.PlanAsync(ensureRequest, context, CancellationToken.None);
             AssertSuccess(ensureResult, applied: false, changed: true);
 
             var queryRequest = CreateOperation(
@@ -731,7 +731,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     pathPrefix = "Root",
                     componentType = componentTypeId,
                 });
-            var queryResult = await queryOperation.Plan(queryRequest, context, CancellationToken.None);
+            var queryResult = await queryOperation.PlanAsync(queryRequest, context, CancellationToken.None);
 
             AssertSuccess(queryResult, applied: false, changed: false);
             Assert.That(queryResult.Result.HasValue, Is.True);
@@ -764,7 +764,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     pathPrefix = "Root",
                 });
 
-            var queryResult = await queryOperation.Plan(queryRequest, context, CancellationToken.None);
+            var queryResult = await queryOperation.PlanAsync(queryRequest, context, CancellationToken.None);
 
             AssertSuccess(queryResult, applied: false, changed: false);
             Assert.That(context.TryGetTemporaryScene(scenePath, out _), Is.False);
@@ -777,7 +777,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     name = "CreatedAfterQuery",
                     scene = scenePath,
                 });
-            var createResult = await createOperation.Plan(createRequest, context, CancellationToken.None);
+            var createResult = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
 
             AssertInvalidArgument(createResult, "op-create");
         });
@@ -806,8 +806,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     pathPrefix = "DirtyRoot",
                 });
 
-            var planResult = await queryOperation.Plan(queryRequest, context, CancellationToken.None);
-            var callResult = await queryOperation.Call(queryRequest, context, CancellationToken.None);
+            var planResult = await queryOperation.PlanAsync(queryRequest, context, CancellationToken.None);
+            var callResult = await queryOperation.CallAsync(queryRequest, context, CancellationToken.None);
 
             AssertSuccess(planResult, applied: false, changed: false);
             AssertSuccess(callResult, applied: true, changed: false);
@@ -844,7 +844,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     pathPrefix = "Root/Dup",
                 });
 
-            var queryResult = await queryOperation.Plan(queryRequest, scope.CreateExecutionContext(), CancellationToken.None);
+            var queryResult = await queryOperation.PlanAsync(queryRequest, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(queryResult, "op-query");
         });
@@ -870,7 +870,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     pathPrefix = "GoodRoot",
                 });
 
-            var queryResult = await queryOperation.Plan(queryRequest, scope.CreateExecutionContext(), CancellationToken.None);
+            var queryResult = await queryOperation.PlanAsync(queryRequest, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertSuccess(queryResult, applied: false, changed: false);
             Assert.That(queryResult.Result.HasValue, Is.True);

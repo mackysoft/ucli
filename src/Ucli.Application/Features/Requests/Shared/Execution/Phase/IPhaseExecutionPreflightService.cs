@@ -12,7 +12,7 @@ internal interface IPhaseExecutionPreflightService
     /// <param name="failFast"> Whether operation metadata discovery should fail immediately instead of waiting for Unity readiness. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The preflight result. </returns>
-    ValueTask<PhaseExecutionPreflightResult> Prepare (
+    ValueTask<PhaseExecutionPreflightResult> PrepareAsync (
         PreparedRequestContext preparedRequest,
         UnityExecutionMode mode,
         ExecutionDeadline deadline,

@@ -28,7 +28,7 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
     /// <returns> The shutdown attempt result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> or <paramref name="session" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    public async ValueTask<DaemonShutdownAttemptResult> SendShutdown (
+    public async ValueTask<DaemonShutdownAttemptResult> SendShutdownAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         TimeSpan timeout,

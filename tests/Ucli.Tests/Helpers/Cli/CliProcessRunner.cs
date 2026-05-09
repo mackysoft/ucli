@@ -7,48 +7,48 @@ internal static class CliProcessRunner
 {
     private static readonly TimeSpan ProcessTimeout = TimeSpan.FromSeconds(15);
 
-    public static Task<CommandExecutionResult> RunCommand (params string[] args)
+    public static Task<CommandExecutionResult> RunCommandAsync (params string[] args)
     {
-        return RunCommandCore(args, null, null, ProcessTimeout);
+        return RunCommandCoreAsync(args, null, null, ProcessTimeout);
     }
 
-    public static Task<CommandExecutionResult> RunCommandWithTimeout (
+    public static Task<CommandExecutionResult> RunCommandWithTimeoutAsync (
         TimeSpan processTimeout,
         params string[] args)
     {
-        return RunCommandCore(args, null, null, processTimeout);
+        return RunCommandCoreAsync(args, null, null, processTimeout);
     }
 
-    public static Task<CommandExecutionResult> RunCommandWithEnvironment (
+    public static Task<CommandExecutionResult> RunCommandWithEnvironmentAsync (
         IReadOnlyDictionary<string, string?> environmentVariables,
         params string[] args)
     {
-        return RunCommandCore(args, null, null, ProcessTimeout, environmentVariables);
+        return RunCommandCoreAsync(args, null, null, ProcessTimeout, environmentVariables);
     }
 
-    public static Task<CommandExecutionResult> RunCommandWithStandardInput (
+    public static Task<CommandExecutionResult> RunCommandWithStandardInputAsync (
         string standardInput,
         params string[] args)
     {
-        return RunCommandCore(args, null, standardInput, ProcessTimeout);
+        return RunCommandCoreAsync(args, null, standardInput, ProcessTimeout);
     }
 
-    public static Task<CommandExecutionResult> RunCommandWithWorkingDirectory (
+    public static Task<CommandExecutionResult> RunCommandWithWorkingDirectoryAsync (
         string workingDirectory,
         params string[] args)
     {
-        return RunCommandCore(args, workingDirectory, null, ProcessTimeout);
+        return RunCommandCoreAsync(args, workingDirectory, null, ProcessTimeout);
     }
 
-    public static Task<CommandExecutionResult> RunCommandWithWorkingDirectoryAndStandardInput (
+    public static Task<CommandExecutionResult> RunCommandWithWorkingDirectoryAndStandardInputAsync (
         string workingDirectory,
         string standardInput,
         params string[] args)
     {
-        return RunCommandCore(args, workingDirectory, standardInput, ProcessTimeout);
+        return RunCommandCoreAsync(args, workingDirectory, standardInput, ProcessTimeout);
     }
 
-    private static async Task<CommandExecutionResult> RunCommandCore (
+    private static async Task<CommandExecutionResult> RunCommandCoreAsync (
         string[] args,
         string? workingDirectory,
         string? standardInput,

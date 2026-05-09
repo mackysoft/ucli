@@ -11,7 +11,7 @@ internal interface IUnityExecutionModeDecisionService
     /// <returns> The mode decision result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    ValueTask<UnityExecutionModeDecisionResult> Decide (
+    ValueTask<UnityExecutionModeDecisionResult> DecideAsync (
         UnityExecutionMode mode,
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,

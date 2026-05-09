@@ -20,7 +20,7 @@ internal sealed class UnityResultsArtifactWriter : IUnityResultsArtifactWriter
     /// <param name="parseResult"> The parsed XML result values. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that completes when writing is finished. </returns>
-    public async ValueTask Write (
+    public async ValueTask WriteAsync (
         ArtifactsSession session,
         UnityResultsXmlParseResult parseResult,
         CancellationToken cancellationToken = default)

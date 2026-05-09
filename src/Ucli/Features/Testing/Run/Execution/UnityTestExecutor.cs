@@ -44,7 +44,7 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
     /// <param name="timeout"> The execution timeout for one run. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by the caller. </param>
     /// <returns> A task that resolves to the Unity test execution result. </returns>
-    public async ValueTask<UnityTestExecutionResult> Execute (
+    public async ValueTask<UnityTestExecutionResult> ExecuteAsync (
         ResolvedTestRunConfiguration configuration,
         ArtifactPaths artifactPaths,
         TimeSpan timeout,
@@ -59,7 +59,7 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
         IAsyncDisposable lifecycleLock;
         try
         {
-            lifecycleLock = await lifecycleLockProvider.Acquire(
+            lifecycleLock = await lifecycleLockProvider.AcquireAsync(
                     new ProjectLifecycleLockRequest(configuration.UnityProject.UnityProjectRoot),
                     ProjectExecutionLockAcquireTimeout,
                     cancellationToken)

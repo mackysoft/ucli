@@ -12,7 +12,7 @@ internal interface IUnityLogReader
     /// <param name="maxBytes"> The maximum number of bytes to read from the end of Unity log file. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Unity log read result. </returns>
-    ValueTask<UnityLogReadResult> ReadTail (
+    ValueTask<UnityLogReadResult> ReadTailAsync (
         string storageRoot,
         string projectFingerprint,
         int maxBytes = DefaultMaxBytes,

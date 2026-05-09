@@ -27,7 +27,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
     }
 
     /// <inheritdoc />
-    public async ValueTask<AssetSearchLookupReadResult> Search (
+    public async ValueTask<AssetSearchLookupReadResult> SearchAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UnityExecutionModeValue mode,
@@ -49,7 +49,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
 
         if (readIndexMode == ReadIndexMode.Disabled)
         {
-            return await SearchFromSource(
+            return await SearchFromSourceAsync(
                     project,
                     config,
                     mode,
@@ -61,7 +61,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                 .ConfigureAwait(false);
         }
 
-        var lookupResult = await artifactReader.ReadAssetSearchLookup(
+        var lookupResult = await artifactReader.ReadAssetSearchLookupAsync(
                 project,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -74,7 +74,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                     lookupResult.Error.Code);
             }
 
-            return await SearchFromSource(
+            return await SearchFromSourceAsync(
                     project,
                     config,
                     mode,
@@ -86,7 +86,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                 .ConfigureAwait(false);
         }
 
-        var readPostconditionEvaluation = await MutationReadPostconditionAccessEvaluator.EvaluateAssetSearch(
+        var readPostconditionEvaluation = await MutationReadPostconditionAccessEvaluator.EvaluateAssetSearchAsync(
                 mutationReadPostconditionStore,
                 project,
                 lookupResult.Value!.GeneratedAtUtc,
@@ -94,7 +94,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
             .ConfigureAwait(false);
         if (!readPostconditionEvaluation.CanUseIndex)
         {
-            return await SearchFromSource(
+            return await SearchFromSourceAsync(
                     project,
                     config,
                     mode,
@@ -106,7 +106,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                 .ConfigureAwait(false);
         }
 
-        var freshnessResult = await freshnessEvaluator.Observe(
+        var freshnessResult = await freshnessEvaluator.ObserveAsync(
                 project,
                 IndexFreshnessTarget.AssetSearchLookup,
                 lookupResult.Value!.SourceInputsHash,
@@ -134,7 +134,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                 "Asset-search lookup read completed.");
         }
 
-        return await SearchFromSource(
+        return await SearchFromSourceAsync(
                 project,
                 config,
                 mode,
@@ -146,7 +146,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
             .ConfigureAwait(false);
     }
 
-    private async ValueTask<AssetSearchLookupReadResult> SearchFromSource (
+    private async ValueTask<AssetSearchLookupReadResult> SearchFromSourceAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UnityExecutionModeValue mode,
@@ -156,7 +156,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
         bool failFast,
         CancellationToken cancellationToken)
     {
-        var refreshResult = await assetLookupSourceRefreshService.Refresh(
+        var refreshResult = await assetLookupSourceRefreshService.RefreshAsync(
                 project,
                 config,
                 UcliCommandIds.Query,

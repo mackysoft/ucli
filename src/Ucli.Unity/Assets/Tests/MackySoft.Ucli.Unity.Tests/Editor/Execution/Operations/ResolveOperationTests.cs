@@ -36,7 +36,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
 
             using var executionContext = new OperationExecutionContext();
-            var result = await operation.Validate(requestOperation, executionContext, CancellationToken.None);
+            var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-1");
         });
@@ -54,7 +54,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
 
             using var executionContext = new OperationExecutionContext();
-            var result = await operation.Validate(requestOperation, executionContext, CancellationToken.None);
+            var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-1");
         });
@@ -97,7 +97,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
             var context = scope.CreateExecutionContext();
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             AssertResolvedGlobalObjectId(result, expectedGlobalObjectId);
@@ -124,7 +124,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
             var context = scope.CreateExecutionContext();
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
@@ -149,7 +149,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
             var context = scope.CreateExecutionContext();
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
@@ -175,7 +175,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
             using var context = new OperationExecutionContext();
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
@@ -208,7 +208,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
             var context = scope.CreateExecutionContext();
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
@@ -237,7 +237,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     hierarchyPath = "Root/Child",
                 });
 
-            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-1");
         });
@@ -265,7 +265,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
             var context = scope.CreateExecutionContext();
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
@@ -308,8 +308,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     globalObjectId = deletedGlobalObjectId,
                 });
 
-            var deleteResult = await deleteOperation.Plan(deleteRequest, context, CancellationToken.None);
-            var resolveResult = await resolveOperation.Plan(resolveRequest, context, CancellationToken.None);
+            var deleteResult = await deleteOperation.PlanAsync(deleteRequest, context, CancellationToken.None);
+            var resolveResult = await resolveOperation.PlanAsync(resolveRequest, context, CancellationToken.None);
 
             Assert.That(deleteResult.IsSuccess, Is.True, deleteResult.Failure?.Message);
             Assert.That(deleteResult.Applied, Is.False);
@@ -349,7 +349,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     hierarchyPath = "Root/Child",
                 });
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
@@ -376,7 +376,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 }),
                 As: null,
                 Expect: null);
-            var openResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
+            var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
             Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryRoot), Is.True);
             Assert.That(temporaryRoot, Is.Not.Null);
             Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(temporaryRoot!, out var temporaryRootReference), Is.True);
@@ -389,7 +389,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     prefab = prefabPath,
                     hierarchyPath = temporaryRoot.name,
                 });
-            var resolveResult = await resolveOperation.Plan(resolveRequest, context, CancellationToken.None);
+            var resolveResult = await resolveOperation.PlanAsync(resolveRequest, context, CancellationToken.None);
 
             Assert.That(openResult.IsSuccess, Is.True);
             Assert.That(resolveResult.IsSuccess, Is.True, resolveResult.Failure?.Message);
@@ -441,8 +441,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     componentType = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)),
                 });
 
-            var openResult = await openOperation.Call(openRequest, context, CancellationToken.None);
-            var resolveResult = await resolveOperation.Call(resolveRequest, context, CancellationToken.None);
+            var openResult = await openOperation.CallAsync(openRequest, context, CancellationToken.None);
+            var resolveResult = await resolveOperation.CallAsync(resolveRequest, context, CancellationToken.None);
 
             Assert.That(openResult.IsSuccess, Is.True);
             AssertInvalidArgument(resolveResult, "op-resolve");
@@ -475,7 +475,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 }),
                 As: null,
                 Expect: null);
-            var openResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
+            var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
             Assert.That(openResult.IsSuccess, Is.True);
             Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryRoot), Is.True);
             Assert.That(temporaryRoot, Is.Not.Null);
@@ -497,7 +497,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     hierarchyPath = "PrefabRoot/Child",
                 });
 
-            var resolveResult = await resolveOperation.Plan(resolveRequest, context, CancellationToken.None);
+            var resolveResult = await resolveOperation.PlanAsync(resolveRequest, context, CancellationToken.None);
 
             AssertInvalidArgument(resolveResult, "op-resolve");
             Assert.That(context.AliasStore.TryGet("resolved", out _), Is.False);
@@ -540,7 +540,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     hierarchyPath,
                 });
 
-            var resolveResult = await resolveOperation.Plan(resolveRequest, context, CancellationToken.None);
+            var resolveResult = await resolveOperation.PlanAsync(resolveRequest, context, CancellationToken.None);
 
             AssertInvalidArgument(resolveResult, "op-resolve");
             Assert.That(context.AliasStore.TryGet("resolved", out _), Is.False);
@@ -588,7 +588,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     hierarchyPath,
                 });
 
-            var resolveResult = await resolveOperation.Plan(resolveRequest, context, CancellationToken.None);
+            var resolveResult = await resolveOperation.PlanAsync(resolveRequest, context, CancellationToken.None);
 
             AssertInvalidArgument(resolveResult, "op-resolve");
             Assert.That(context.AliasStore.TryGet("resolved", out _), Is.False);
@@ -614,7 +614,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 }),
                 As: null,
                 Expect: null);
-            var openResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
+            var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
             Assert.That(openResult.IsSuccess, Is.True, openResult.Failure?.Message);
             Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryRoot), Is.True);
             Assert.That(temporaryRoot, Is.Not.Null);
@@ -640,8 +640,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     globalObjectId = previewChildReference!.GlobalObjectId,
                 });
-            var deleteResult = await deleteOperation.Plan(deleteRequest, context, CancellationToken.None);
-            var resolveResult = await resolveOperation.Plan(resolveRequest, context, CancellationToken.None);
+            var deleteResult = await deleteOperation.PlanAsync(deleteRequest, context, CancellationToken.None);
+            var resolveResult = await resolveOperation.PlanAsync(resolveRequest, context, CancellationToken.None);
 
             Assert.That(deleteResult.IsSuccess, Is.True, deleteResult.Failure?.Message);
             Assert.That(deleteResult.Applied, Is.False);
@@ -682,7 +682,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     globalObjectId = deletedGlobalObjectId,
                 });
 
-            var resolveResult = await resolveOperation.Plan(resolveRequest, context, CancellationToken.None);
+            var resolveResult = await resolveOperation.PlanAsync(resolveRequest, context, CancellationToken.None);
 
             AssertInvalidArgument(resolveResult, "op-resolve");
             Assert.That(context.AliasStore.TryGet("resolved", out _), Is.False);
@@ -714,7 +714,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 }),
                 As: null,
                 Expect: null);
-            var openResult = await openOperation.Call(openRequest, context, CancellationToken.None);
+            var openResult = await openOperation.CallAsync(openRequest, context, CancellationToken.None);
             Assert.That(openResult.IsSuccess, Is.True);
             Assert.That(openResult.Applied, Is.True);
             Assert.That(openResult.Changed, Is.False);
@@ -742,7 +742,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     hierarchyPath = "PrefabRoot/Child",
                 });
 
-            var resolveResult = await resolveOperation.Call(resolveRequest, context, CancellationToken.None);
+            var resolveResult = await resolveOperation.CallAsync(resolveRequest, context, CancellationToken.None);
 
             AssertInvalidArgument(resolveResult, "op-resolve");
             Assert.That(context.AliasStore.TryGet("resolved", out _), Is.False);
@@ -774,7 +774,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 }),
                 As: null,
                 Expect: null);
-            var openResult = await openOperation.Call(openRequest, context, CancellationToken.None);
+            var openResult = await openOperation.CallAsync(openRequest, context, CancellationToken.None);
             Assert.That(openResult.IsSuccess, Is.True);
 
             var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
@@ -794,7 +794,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     hierarchyPath = "PrefabRoot/Renamed",
                 });
 
-            var resolveResult = await resolveOperation.Call(resolveRequest, context, CancellationToken.None);
+            var resolveResult = await resolveOperation.CallAsync(resolveRequest, context, CancellationToken.None);
 
             AssertInvalidArgument(resolveResult, "op-resolve");
             Assert.That(context.AliasStore.TryGet("resolved", out _), Is.False);
@@ -834,7 +834,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     hierarchyPath = $"{temporaryRoot.name}/Child",
                 });
 
-            var resolveResult = await resolveOperation.Plan(resolveRequest, context, CancellationToken.None);
+            var resolveResult = await resolveOperation.PlanAsync(resolveRequest, context, CancellationToken.None);
 
             AssertInvalidArgument(resolveResult, "op-resolve");
             Assert.That(context.AliasStore.TryGet("resolved", out _), Is.False);
@@ -859,7 +859,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 }),
                 As: null,
                 Expect: null);
-            var openResult = await openOperation.Call(openRequest, context, CancellationToken.None);
+            var openResult = await openOperation.CallAsync(openRequest, context, CancellationToken.None);
             Assert.That(openResult.IsSuccess, Is.True);
 
             var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
@@ -880,7 +880,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     hierarchyPath = "PrefabRoot/Child",
                 });
 
-            var resolveResult = await resolveOperation.Call(resolveRequest, context, CancellationToken.None);
+            var resolveResult = await resolveOperation.CallAsync(resolveRequest, context, CancellationToken.None);
 
             AssertInvalidArgument(resolveResult, "op-resolve");
             Assert.That(context.AliasStore.TryGet("resolved", out _), Is.False);
@@ -921,7 +921,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 alias: "resolved");
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-1");
             Assert.That(context.AliasStore.TryGet("resolved", out _), Is.False);
@@ -959,7 +959,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     hierarchyPath = "Root/Renamed",
                 });
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
@@ -1003,7 +1003,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     componentType = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)),
                 });
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
@@ -1048,7 +1048,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     componentType = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)),
                 });
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             if (UnityObjectReferenceResolver.TryCreateResolvedReference(recreatedComponent, out var recreatedReference))
             {
@@ -1081,7 +1081,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     hierarchyPath = "Root/Missing",
                 });
 
-            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-1");
         });
@@ -1108,7 +1108,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     hierarchyPath = "Root/Dup",
                 });
 
-            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-1");
         });
@@ -1129,7 +1129,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
             var context = scope.CreateExecutionContext();
 
-            var result = await operation.Call(requestOperation, context, CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: true, changed: false);
             Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);

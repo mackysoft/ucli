@@ -33,7 +33,7 @@ internal sealed class PhaseExecutionPreflightService : IPhaseExecutionPreflightS
     /// <param name="failFast"> Whether operation metadata discovery should fail immediately instead of waiting for Unity readiness. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The preflight result. </returns>
-    public async ValueTask<PhaseExecutionPreflightResult> Prepare (
+    public async ValueTask<PhaseExecutionPreflightResult> PrepareAsync (
         PreparedRequestContext preparedRequest,
         UnityExecutionMode mode,
         ExecutionDeadline deadline,
@@ -53,7 +53,7 @@ internal sealed class PhaseExecutionPreflightService : IPhaseExecutionPreflightS
         IReadOnlyList<UcliOperationDescriptor> operations;
         try
         {
-            operations = await operationCatalog.GetAll(
+            operations = await operationCatalog.GetAllAsync(
                     preparedRequest.ProjectContext.UnityProject,
                     preparedRequest.ProjectContext.Config,
                     mode,
@@ -85,7 +85,7 @@ internal sealed class PhaseExecutionPreflightService : IPhaseExecutionPreflightS
         }
 
         var phasePreparedRequest = CreatePreparedRequest(preparedRequest, operationsByName);
-        var validationResult = await requestStaticValidator.Validate(
+        var validationResult = await requestStaticValidator.ValidateAsync(
                 preparedRequest.Request,
                 RequestStaticValidationCatalog.Available(operations),
                 preparedRequest.ProjectContext.Config,
