@@ -148,7 +148,7 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 `code` は CLI `errors[]` と同じ open code set の値を文字列として運ぶ。IPC 受信側は未知値を破棄せず保持する。
 
 ### Error code catalog payloads
-将来の `ucli errors` は request-response 型の共通エンベロープを返し、payload に error code 台帳を載せる。この台帳は `errors[].message` の代替ではなく、`errors[].code` を機械判定するための静的契約である。
+`ucli errors` は request-response 型の共通エンベロープを返し、payload に error code 台帳を載せる。この台帳は `errors[].message` の代替ではなく、`errors[].code` を機械判定するための静的契約である。
 
 #### `ucli errors list`
 
@@ -202,6 +202,8 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 | `action` | string | yes | 推奨される次行動 |
 
 未知 code の `describe` は既定で `status=ok` とし、`known=false`、`category=unknown`、`executionSemantics.impliesNotApplied=null`、`executionSemantics.mayBeIndeterminate=true`、`executionSemantics.safeToRetry=unknown` を返す。`--requireKnown` 指定時だけ未知 code を `INVALID_ARGUMENT` として扱う。
+
+`errors describe <CODE>` の `<CODE>` は最大 128 文字の大文字 machine token とし、各 dot segment は英大文字で始まり、以降は英大文字、数字、underscore を受け付ける。
 
 ## lifecycle 関連プロパティ
 

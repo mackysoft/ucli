@@ -5,6 +5,21 @@ namespace MackySoft.Ucli.Tests.Cli;
 
 public sealed class UcliCommandCatalogTests
 {
+    [Fact]
+    [Trait("Size", "Small")]
+    public void FilterableCommandNames_MatchPublicCommandCatalog ()
+    {
+        var expected = UcliPublicCommandCatalog.KnownCommands
+            .Select(static command => command.Name)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        var actual = UcliCommandCatalog.FilterableCommandNames
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(expected, actual);
+    }
+
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(UcliCommandNames.Daemon, UcliCommandNames.StartSubcommand, null, UcliCommandNames.DaemonStart)]

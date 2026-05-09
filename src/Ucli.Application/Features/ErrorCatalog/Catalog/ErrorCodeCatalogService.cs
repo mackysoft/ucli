@@ -2,9 +2,11 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.ErrorCatalog.Catalog;
 
-/// <summary> Implements error-code description lookup and unknown-code fallback semantics. </summary>
+/// <summary> Implements error-code catalog listing, description lookup, and unknown-code fallback semantics. </summary>
 internal sealed class ErrorCodeCatalogService : IErrorCodeCatalogService
 {
+    private static readonly IReadOnlyList<UcliErrorCodeDescriptor> EmptyDescriptors = Array.Empty<UcliErrorCodeDescriptor>();
+
     private static readonly IReadOnlyList<UcliCommand> EmptyCommands = Array.Empty<UcliCommand>();
 
     private static readonly IReadOnlyList<string> EmptyStrings = Array.Empty<string>();
@@ -54,6 +56,11 @@ internal sealed class ErrorCodeCatalogService : IErrorCodeCatalogService
             }
 
             commandFilter = command;
+        }
+
+        if (commandFilter.HasValue && !ErrorCodeCatalogCommandFilters.Contains(commandFilter.Value))
+        {
+            return ErrorCodeCatalogListResult.Success(EmptyDescriptors);
         }
 
         var descriptors = new List<UcliErrorCodeDescriptor>();

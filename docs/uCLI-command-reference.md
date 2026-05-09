@@ -107,7 +107,7 @@
 | Option | Short | Description |
 | --- | --- | --- |
 | `--category <string?>` | - | category の exact match filter |
-| `--command <string?>` | - | `appliesTo` に含まれる command の exact match filter |
+| `--command <string?>` | - | `appliesTo` に含まれる command の exact / dot segment family match filter |
 
 成功時 payload は `catalogVersion`、`source`、`codes[]` を返す。`codes[]` の各要素は `code`、`category`、`summary`、`defaultRetryClass`、`appliesTo` を持つ。出力順は `code` の ordinal 昇順とする。該当 code がない場合も成功し、`payload.codes: []` を返す。
 
@@ -146,7 +146,7 @@ ucli errors list --command call
 
 | Argument / Option | Short | Description |
 | --- | --- | --- |
-| `<CODE>` | - | 説明対象の error code |
+| `<CODE>` | - | 説明対象の error code。最大 128 文字の大文字 machine token とし、各 dot segment は英大文字で始まり、以降は英大文字、数字、underscore を受け付ける |
 | `--requireKnown` | - | 未知 code を `INVALID_ARGUMENT` として失敗させる |
 
 既定では未知 code も成功し、`payload.known=false` を返す。これは `errors[].code` が open code set であるためである。

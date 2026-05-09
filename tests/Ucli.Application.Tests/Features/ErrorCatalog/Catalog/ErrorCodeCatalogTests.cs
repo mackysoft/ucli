@@ -104,6 +104,39 @@ public sealed class ErrorCodeCatalogTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void List_WithEveryDescriptorCommandFilter_ReturnsOwningDescriptor ()
+    {
+        var catalog = CreateCatalog();
+        var service = new ErrorCodeCatalogService(catalog);
+
+        foreach (var descriptor in catalog.Descriptors)
+        {
+            foreach (var command in descriptor.AppliesTo)
+            {
+                var result = service.List(new ErrorCodeCatalogListInput(Category: null, Command: command.Name));
+
+                Assert.True(result.IsSuccess);
+                Assert.NotNull(result.Descriptors);
+                Assert.Contains(result.Descriptors!, candidate => candidate.Code == descriptor.Code);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void List_WithUnknownCommandFilter_ReturnsEmptyDescriptors ()
+    {
+        var service = new ErrorCodeCatalogService(CreateCatalog());
+
+        var result = service.List(new ErrorCodeCatalogListInput(Category: null, Command: "query.unknown"));
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Descriptors);
+        Assert.Empty(result.Descriptors);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void List_WithInvalidCommandFilter_ReturnsInvalidArgument ()
     {
         var service = new ErrorCodeCatalogService(CreateCatalog());

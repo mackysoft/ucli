@@ -39,10 +39,10 @@ internal sealed class ErrorsDescribeCommand
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
 
-        var result = UcliErrorCode.TryCreate(code, out var errorCode)
+        var result = ErrorCodeCliArgumentValidator.TryCreate(code, out var errorCode, out var errorMessage)
             ? catalogService.Describe(errorCode, requireKnown)
             : ErrorCodeCatalogDescribeResult.Failure(ExecutionError.InvalidArgument(
-                "Error code must not be empty.",
+                errorMessage,
                 UcliCoreErrorCodes.InvalidArgument));
         var commandResult = ErrorsCommandResultFactory.CreateDescribe(result);
         commandResultWriter.WriteToStandardOutput(commandResult);

@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using MackySoft.Ucli.Application.Features.ErrorCatalog.Catalog;
 
 namespace MackySoft.Ucli.Hosting.Cli.Errors;
@@ -50,8 +51,13 @@ internal static class ErrorCodeCatalogPayloadProjector
             possiblePhases = descriptor.PossiblePhases,
             executionSemantics = descriptor.ExecutionSemantics,
             inspect = descriptor.Inspect,
-            nextActions = descriptor.NextActions,
+            nextActions = descriptor.NextActions.Select(static action => new NextActionPayload(action.When, action.Action)).ToArray(),
             relatedCodes = descriptor.RelatedCodes.Select(static code => code.Value).ToArray(),
         };
     }
+
+    private sealed record NextActionPayload (
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        string? When,
+        string Action);
 }
