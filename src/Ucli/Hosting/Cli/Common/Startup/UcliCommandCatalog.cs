@@ -139,9 +139,6 @@ internal static class UcliCommandCatalog
     /// <summary> Gets all registered command paths expected in framework help output. </summary>
     public static IReadOnlyList<string> CommandPaths { get; } = CreateCommandPaths();
 
-    /// <summary> Gets command identifiers accepted by command-scoped filters. </summary>
-    public static IReadOnlyList<string> FilterableCommandNames { get; } = CreateFilterableCommandNames();
-
     /// <summary> Registers all supported uCLI commands with the application builder. </summary>
     /// <param name="app"> The application builder used to register commands. </param>
     /// <returns> The same <paramref name="app" /> instance for call chaining. </returns>
@@ -415,24 +412,6 @@ internal static class UcliCommandCatalog
         return commandPaths;
     }
 
-    private static string[] CreateFilterableCommandNames ()
-    {
-        var commandNames = new List<string>(CommandPaths.Count + CommandGroups.Length);
-        for (var i = 0; i < StandaloneCommands.Length; i++)
-        {
-            commandNames.Add(StandaloneCommands[i]);
-        }
-
-        for (var i = 0; i < CommandGroups.Length; i++)
-        {
-            var group = CommandGroups[i];
-            commandNames.Add(group.CommandName);
-            group.AddFilterableCommandNames(commandNames);
-        }
-
-        return commandNames.ToArray();
-    }
-
     private sealed record CommandGroupEntry (
         string CommandName,
         CommandLeafEntry[] Leaves,
@@ -457,19 +436,6 @@ internal static class UcliCommandCatalog
             for (var i = 0; i < NestedGroups.Length; i++)
             {
                 NestedGroups[i].AddCommandPaths(CommandName, commandPaths, ref index);
-            }
-        }
-
-        public void AddFilterableCommandNames (List<string> commandNames)
-        {
-            for (var i = 0; i < Leaves.Length; i++)
-            {
-                commandNames.Add(Leaves[i].ResultCommandName);
-            }
-
-            for (var i = 0; i < NestedGroups.Length; i++)
-            {
-                NestedGroups[i].AddFilterableCommandNames(CommandName, commandNames);
             }
         }
 
@@ -517,17 +483,6 @@ internal static class UcliCommandCatalog
             {
                 commandPaths[index] = $"{commandName} {GroupName} {Leaves[i].SubcommandName}";
                 index++;
-            }
-        }
-
-        public void AddFilterableCommandNames (
-            string commandName,
-            List<string> commandNames)
-        {
-            commandNames.Add($"{commandName}.{GroupName}");
-            for (var i = 0; i < Leaves.Length; i++)
-            {
-                commandNames.Add(Leaves[i].ResultCommandName);
             }
         }
 

@@ -5,6 +5,8 @@ namespace MackySoft.Ucli.Application.Features.ErrorCatalog.Catalog;
 /// <summary> Implements error-code catalog listing, description lookup, and unknown-code fallback semantics. </summary>
 internal sealed class ErrorCodeCatalogService : IErrorCodeCatalogService
 {
+    private static readonly HashSet<UcliCommand> KnownCommandSet = new(UcliPublicCommandCatalog.KnownCommands);
+
     private static readonly IReadOnlyList<UcliErrorCodeDescriptor> EmptyDescriptors = Array.Empty<UcliErrorCodeDescriptor>();
 
     private static readonly IReadOnlyList<UcliCommand> EmptyCommands = Array.Empty<UcliCommand>();
@@ -58,7 +60,7 @@ internal sealed class ErrorCodeCatalogService : IErrorCodeCatalogService
             commandFilter = command;
         }
 
-        if (commandFilter.HasValue && !ErrorCodeCatalogCommandFilters.Contains(commandFilter.Value))
+        if (commandFilter.HasValue && !KnownCommandSet.Contains(commandFilter.Value))
         {
             return ErrorCodeCatalogListResult.Success(EmptyDescriptors);
         }

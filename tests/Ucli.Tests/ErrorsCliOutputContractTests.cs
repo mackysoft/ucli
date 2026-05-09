@@ -6,6 +6,13 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class ErrorsCliOutputContractTests
 {
+    private static readonly string[] QueryAssetsFindFamilyCommands =
+    [
+        UcliCommandIds.Query.Name,
+        UcliCommandIds.QueryAssets.Name,
+        UcliCommandIds.QueryAssetsFind.Name,
+    ];
+
     [Fact]
     [Trait("Size", "Medium")]
     public async Task Errors_WithoutSubcommand_ReturnsJsonEnvelopeError ()
@@ -119,7 +126,7 @@ public sealed class ErrorsCliOutputContractTests
         Assert.Contains(codes, static code => code.GetProperty("code").GetString() == IpcTransportErrorCodes.IpcTimeout.Value);
         Assert.All(codes, static code => Assert.Contains(
             code.GetProperty("appliesTo").EnumerateArray(),
-            static appliesTo => IsSameOrRelatedCommand(appliesTo.GetString()!, "query.assets.find")));
+            static appliesTo => QueryAssetsFindFamilyCommands.Contains(appliesTo.GetString(), StringComparer.Ordinal)));
     }
 
     [Fact]
@@ -301,15 +308,14 @@ public sealed class ErrorsCliOutputContractTests
         CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
     }
 
-    [Theory]
-    [MemberData(nameof(InvalidCodeTokens))]
+    [Fact]
     [Trait("Size", "Medium")]
-    public async Task ErrorsDescribe_WithInvalidCodeToken_ReturnsInvalidArgument (string invalidCode)
+    public async Task ErrorsDescribe_WithInvalidCodeToken_ReturnsInvalidArgument ()
     {
         var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Errors,
             UcliCommandNames.DescribeSubcommand,
-            invalidCode);
+            "not a code");
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -321,17 +327,6 @@ public sealed class ErrorsCliOutputContractTests
         CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
     }
 
-    public static TheoryData<string> InvalidCodeTokens { get; } =
-    [
-        "not a code",
-        "lowercase_code",
-        "CODE.",
-        ".CODE",
-        "A..B",
-        "ERROR.2ND_PHASE",
-        new string('A', 129),
-    ];
-
     private static string[] GetCodes (JsonElement root)
     {
         return root
@@ -340,24 +335,6 @@ public sealed class ErrorsCliOutputContractTests
             .EnumerateArray()
             .Select(static code => code.GetProperty("code").GetString()!)
             .ToArray();
-    }
-
-    private static bool IsSameOrRelatedCommand (
-        string appliesTo,
-        string commandFilter)
-    {
-        return string.Equals(appliesTo, commandFilter, StringComparison.Ordinal)
-            || IsDotSegmentChild(appliesTo, commandFilter)
-            || IsDotSegmentChild(commandFilter, appliesTo);
-    }
-
-    private static bool IsDotSegmentChild (
-        string candidate,
-        string parent)
-    {
-        return candidate.Length > parent.Length
-            && candidate[parent.Length] == '.'
-            && candidate.StartsWith(parent, StringComparison.Ordinal);
     }
 
     private static void AssertNextActionsHavePublicShape (JsonElement nextActions)

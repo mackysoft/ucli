@@ -13,7 +13,7 @@ public sealed class UcliCommandCatalogTests
             .Select(static command => command.Name)
             .Order(StringComparer.Ordinal)
             .ToArray();
-        var actual = UcliCommandCatalog.FilterableCommandNames
+        var actual = CreateFilterableCommandNamesFromRegisteredPaths()
             .Order(StringComparer.Ordinal)
             .ToArray();
 
@@ -182,5 +182,20 @@ public sealed class UcliCommandCatalogTests
 
         Assert.True(found);
         Assert.Equal([UcliCommandNames.ReadSubcommand], subcommands);
+    }
+
+    private static string[] CreateFilterableCommandNamesFromRegisteredPaths ()
+    {
+        var commandNames = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < UcliCommandCatalog.CommandPaths.Count; i++)
+        {
+            var segments = UcliCommandCatalog.CommandPaths[i].Split(' ');
+            for (var segmentCount = 1; segmentCount <= segments.Length; segmentCount++)
+            {
+                commandNames.Add(string.Join('.', segments.AsSpan(0, segmentCount).ToArray()));
+            }
+        }
+
+        return commandNames.ToArray();
     }
 }
