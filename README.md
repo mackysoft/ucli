@@ -222,7 +222,7 @@ The request protocol does not change between these modes. Runtime choice is oper
 
 ## 📤 Automation Output Contract
 
-> **IMPORTANT:** Except for `ucli logs`, the automation commands listed below write one JSON result envelope to standard output. Help and version output are human-readable command-line output. Progress messages and diagnostics that are not part of the JSON result contract are written to standard error.
+> **IMPORTANT:** Except for `ucli logs * read`, the automation commands listed below write one JSON result envelope to standard output. Help and version output are human-readable command-line output. Progress messages and diagnostics that are not part of the JSON result contract are written to standard error.
 
 `ucli logs unity read` and `ucli logs daemon read` write log entries to standard output. Use `--format json` when a runner needs newline-delimited JSON log events.
 
@@ -920,7 +920,7 @@ Lifecycle lock files are stored in the current user's OS local application data 
 
 `<sha256>` is derived from the normalized physical `UnityProjectRoot`, so paths that resolve to the same physical Unity project share one launch lock.
 
-Unity's project-local `Temp/UnityLockfile` is treated as a Unity-owned marker for editors opened outside uCLI. uCLI does not delete it during startup checks; when a Unity process started by uCLI is terminated and the marker remains, uCLI reports it as a residual-lock diagnostic while keeping the original timeout or cancellation classification.
+Unity's project-local `Temp/UnityLockfile` is treated as a Unity-owned marker for editors opened outside uCLI. uCLI deletes it only when startup or post-exit checks can prove the marker is stale. Active ownership returns `UNITY_PROJECT_ALREADY_OPEN`, unsafe ownership checks return `UNITY_PROJECT_LOCK_AMBIGUOUS`, and stale-lock deletion failures return `UNITY_PROJECT_LOCK_CLEANUP_FAILED`.
 
 ## 📦 Packages
 
