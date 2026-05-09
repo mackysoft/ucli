@@ -29,6 +29,54 @@ internal sealed class ErrorCodeCatalogService : IErrorCodeCatalogService
     }
 
     /// <inheritdoc />
+    public ErrorCodeCatalogListResult List (ErrorCodeCatalogListInput input)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        var categoryFilter = input.Category;
+        if (categoryFilter is not null && string.IsNullOrWhiteSpace(categoryFilter))
+        {
+            return ErrorCodeCatalogListResult.Failure(
+                ExecutionError.InvalidArgument(
+                    "category must not be empty.",
+                    UcliCoreErrorCodes.InvalidArgument));
+        }
+
+        UcliCommand? commandFilter = null;
+        if (input.Command is not null)
+        {
+            if (!UcliCommand.TryCreate(input.Command, out var command))
+            {
+                return ErrorCodeCatalogListResult.Failure(
+                    ExecutionError.InvalidArgument(
+                        "command must be a valid command identifier.",
+                        UcliCoreErrorCodes.InvalidArgument));
+            }
+
+            commandFilter = command;
+        }
+
+        var descriptors = new List<UcliErrorCodeDescriptor>();
+        foreach (var descriptor in catalog.Descriptors)
+        {
+            if (categoryFilter is not null
+                && !string.Equals(descriptor.Category, categoryFilter, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (commandFilter.HasValue && !MatchesCommandFilter(descriptor.AppliesTo, commandFilter.Value))
+            {
+                continue;
+            }
+
+            descriptors.Add(descriptor);
+        }
+
+        return ErrorCodeCatalogListResult.Success(descriptors);
+    }
+
+    /// <inheritdoc />
     public ErrorCodeCatalogDescribeResult Describe (
         UcliErrorCode code,
         bool requireKnown)
@@ -73,5 +121,38 @@ internal sealed class ErrorCodeCatalogService : IErrorCodeCatalogService
             Inspect: ["status", "errors[].code", "errors[].opId", "errors[].message"],
             NextActions: UnknownNextActions,
             RelatedCodes: EmptyCodes);
+    }
+
+    private static bool MatchesCommandFilter (
+        IReadOnlyList<UcliCommand> appliesTo,
+        UcliCommand commandFilter)
+    {
+        for (var i = 0; i < appliesTo.Count; i++)
+        {
+            if (IsSameOrRelatedCommand(appliesTo[i].Name, commandFilter.Name))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsSameOrRelatedCommand (
+        string appliesTo,
+        string commandFilter)
+    {
+        return string.Equals(appliesTo, commandFilter, StringComparison.Ordinal)
+            || IsDotSegmentChild(appliesTo, commandFilter)
+            || IsDotSegmentChild(commandFilter, appliesTo);
+    }
+
+    private static bool IsDotSegmentChild (
+        string candidate,
+        string parent)
+    {
+        return candidate.Length > parent.Length
+            && candidate[parent.Length] == '.'
+            && candidate.StartsWith(parent, StringComparison.Ordinal);
     }
 }

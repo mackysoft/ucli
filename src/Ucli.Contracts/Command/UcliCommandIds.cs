@@ -39,6 +39,9 @@ public static class UcliCommandIds
     /// <summary> Gets command identifier for <c>logs.unity.clear</c>. </summary>
     public static UcliCommand LogsUnityClear { get; } = new("logs.unity.clear");
 
+    /// <summary> Gets command identifier for <c>errors</c>. </summary>
+    public static UcliCommand Errors { get; } = new("errors");
+
     /// <summary> Gets command identifier for <c>test</c>. </summary>
     public static UcliCommand Test { get; } = new("test");
 
