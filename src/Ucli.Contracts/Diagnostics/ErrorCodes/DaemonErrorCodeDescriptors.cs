@@ -23,7 +23,7 @@ internal static class DaemonErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.No,
-            inspect: ["status", "payload.daemon", "ucli daemon status", "ucli daemon list"],
+            inspect: ["status", "payload.daemon", UcliErrorInspectTargets.DaemonStatusCommand, UcliErrorInspectTargets.DaemonListCommand],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(

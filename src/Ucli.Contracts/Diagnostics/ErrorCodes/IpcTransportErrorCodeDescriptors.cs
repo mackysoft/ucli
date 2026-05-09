@@ -42,8 +42,8 @@ internal static class IpcTransportErrorCodeDescriptors
                 "payload.opResults[].touched",
                 "payload.readPostcondition",
                 "payload.diagnosis",
-                "logs daemon",
-                "logs unity",
+                UcliErrorInspectTargets.DaemonErrorLogsCommand,
+                UcliErrorInspectTargets.UnityErrorLogsCommand,
             ],
             nextActions:
             [

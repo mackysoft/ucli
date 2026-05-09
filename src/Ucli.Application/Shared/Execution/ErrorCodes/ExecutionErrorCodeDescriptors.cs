@@ -1,12 +1,10 @@
-using MackySoft.Ucli.Application.Shared.Diagnostics;
-
 namespace MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 
 internal static class ExecutionErrorCodeDescriptors
 {
     public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
     [
-        ApplicationErrorCodeDescriptorFactory.Create(
+        UcliErrorCodeDescriptorFactory.Create(
             code: ExecutionErrorCodes.Canceled,
             category: "execution",
             summary: "Command execution was canceled.",
@@ -27,7 +25,7 @@ internal static class ExecutionErrorCodeDescriptors
             impliesNotApplied: null,
             mayBeIndeterminate: true,
             safeToRetry: UcliErrorRetryClassValues.ContextDependent,
-            inspect: ["status", "payload", "errors", "logs daemon", "logs unity"],
+            inspect: ["status", "errors[].code", "errors[].message", "payload.requestId", "payload.opResults", "payload.readPostcondition", UcliErrorInspectTargets.DaemonStatusCommand],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(

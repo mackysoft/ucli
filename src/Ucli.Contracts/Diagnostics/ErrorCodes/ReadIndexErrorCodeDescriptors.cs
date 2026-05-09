@@ -23,7 +23,7 @@ internal static class ReadIndexErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.ContextDependent,
-            inspect: ["payload.readIndex", "status", "logs daemon", "logs unity"],
+            inspect: ["payload.readIndex", "status", UcliErrorInspectTargets.DaemonErrorLogsCommand, UcliErrorInspectTargets.UnityErrorLogsCommand],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(

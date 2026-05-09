@@ -1,12 +1,10 @@
-using MackySoft.Ucli.Application.Shared.Diagnostics;
-
 namespace MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 
 internal static class UnityProcessErrorCodeDescriptors
 {
     public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
     [
-        ApplicationErrorCodeDescriptorFactory.Create(
+        UcliErrorCodeDescriptorFactory.Create(
             code: UnityProcessErrorCodes.UnityProjectAlreadyOpen,
             category: "unityProcess",
             summary: "The Unity project is already open or locked by another process.",
@@ -25,7 +23,7 @@ internal static class UnityProcessErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.No,
-            inspect: ["status", "ucli daemon list", "logs daemon"],
+            inspect: ["status", UcliErrorInspectTargets.DaemonListCommand, UcliErrorInspectTargets.DaemonErrorLogsCommand],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(

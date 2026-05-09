@@ -77,7 +77,7 @@ internal static class EditorLifecycleErrorCodeDescriptors
             impliesNotApplied: null,
             mayBeIndeterminate: true,
             safeToRetry: UcliErrorRetryClassValues.ContextDependent,
-            inspect: ["status", "payload.lifecycleState", "logs unity"],
+            inspect: ["status", "payload.lifecycleState", UcliErrorInspectTargets.UnityErrorLogsCommand],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
@@ -96,7 +96,7 @@ internal static class EditorLifecycleErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.No,
-            inspect: ["status", "logs unity"],
+            inspect: ["status", UcliErrorInspectTargets.UnityErrorLogsCommand],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
@@ -115,7 +115,7 @@ internal static class EditorLifecycleErrorCodeDescriptors
             impliesNotApplied: null,
             mayBeIndeterminate: true,
             safeToRetry: UcliErrorRetryClassValues.ContextDependent,
-            inspect: ["status", "ucli daemon status", "logs daemon", "logs unity"],
+            inspect: ["status", UcliErrorInspectTargets.DaemonStatusCommand, UcliErrorInspectTargets.DaemonErrorLogsCommand, UcliErrorInspectTargets.UnityErrorLogsCommand],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
@@ -141,7 +141,7 @@ internal static class EditorLifecycleErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.WaitThenRetry,
-            inspect: ["status", "payload.lifecycleState", "ucli daemon status"],
+            inspect: ["status", "payload.lifecycleState", UcliErrorInspectTargets.DaemonStatusCommand],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(

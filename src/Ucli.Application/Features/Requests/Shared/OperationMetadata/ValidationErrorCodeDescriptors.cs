@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Shared.Diagnostics;
-
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
 internal static class ValidationErrorCodeDescriptors
@@ -83,7 +81,7 @@ internal static class ValidationErrorCodeDescriptors
         string meaning,
         IReadOnlyList<string> possiblePhases)
     {
-        return ApplicationErrorCodeDescriptorFactory.Create(
+        return UcliErrorCodeDescriptorFactory.Create(
             code: code,
             category: "requestValidation",
             summary: summary,
@@ -93,7 +91,7 @@ internal static class ValidationErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.No,
-            inspect: ["errors", "errors[].opId", "errors[].message", "payload.requestId"],
+            inspect: ["errors[].code", "errors[].opId", "errors[].message", "payload.requestId"],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(

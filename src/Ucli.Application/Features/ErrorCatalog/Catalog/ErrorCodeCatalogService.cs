@@ -65,7 +65,7 @@ internal sealed class ErrorCodeCatalogService : IErrorCodeCatalogService
                 ImpliesNotApplied: null,
                 MayBeIndeterminate: true,
                 SafeToRetry: UcliErrorRetryClassValues.Unknown),
-            Inspect: ["status", "payload", "errors", "logs daemon", "logs unity"],
+            Inspect: ["status", "errors[].code", "errors[].opId", "errors[].message"],
             NextActions: UnknownNextActions,
             RelatedCodes: EmptyCodes);
     }

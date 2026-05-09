@@ -39,7 +39,7 @@ internal static class UcliCoreErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.No,
-            inspect: ["errors", "errors[].message", "errors[].opId"],
+            inspect: ["errors[].code", "errors[].message", "errors[].opId"],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
@@ -96,7 +96,7 @@ internal static class UcliCoreErrorCodeDescriptors
             impliesNotApplied: null,
             mayBeIndeterminate: true,
             safeToRetry: UcliErrorRetryClassValues.Unknown,
-            inspect: ["status", "payload", "errors", "logs daemon", "logs unity"],
+            inspect: ["status", "errors[].code", "errors[].message", "payload.requestId", "payload.opResults", "payload.readPostcondition", UcliErrorInspectTargets.DaemonErrorLogsCommand, UcliErrorInspectTargets.UnityErrorLogsCommand],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(

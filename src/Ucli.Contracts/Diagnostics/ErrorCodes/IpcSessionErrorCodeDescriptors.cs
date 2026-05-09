@@ -24,7 +24,7 @@ internal static class IpcSessionErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.No,
-            inspect: ["ucli daemon status", "ucli daemon list"],
+            inspect: [UcliErrorInspectTargets.DaemonStatusCommand, UcliErrorInspectTargets.DaemonListCommand],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
@@ -53,7 +53,7 @@ internal static class IpcSessionErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.No,
-            inspect: ["ucli daemon status", "ucli daemon list"],
+            inspect: [UcliErrorInspectTargets.DaemonStatusCommand, UcliErrorInspectTargets.DaemonListCommand],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(

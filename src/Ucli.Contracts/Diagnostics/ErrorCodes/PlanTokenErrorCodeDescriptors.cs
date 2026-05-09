@@ -51,7 +51,7 @@ internal static class PlanTokenErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.ReplanRequired,
-            inspect: ["payload.requestId", "payload.opResults", "status", "ucli daemon status"],
+            inspect: ["payload.requestId", "payload.opResults", "status", UcliErrorInspectTargets.DaemonStatusCommand],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(

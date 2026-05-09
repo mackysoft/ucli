@@ -41,7 +41,7 @@ internal static class IpcProtocolErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.No,
-            inspect: ["protocolVersion", "status", "ucli daemon status"],
+            inspect: ["protocolVersion", "status", UcliErrorInspectTargets.DaemonStatusCommand],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
@@ -60,7 +60,7 @@ internal static class IpcProtocolErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.No,
-            inspect: ["command", "payload.method", "ucli daemon status"],
+            inspect: ["command", "payload.method", UcliErrorInspectTargets.DaemonStatusCommand],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
@@ -79,7 +79,7 @@ internal static class IpcProtocolErrorCodeDescriptors
             impliesNotApplied: null,
             mayBeIndeterminate: true,
             safeToRetry: UcliErrorRetryClassValues.ContextDependent,
-            inspect: ["payload", "errors[].message", "logs daemon", "logs unity"],
+            inspect: ["errors[].message", "payload.requestId", "payload.opResults", UcliErrorInspectTargets.DaemonErrorLogsCommand, UcliErrorInspectTargets.UnityErrorLogsCommand],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(

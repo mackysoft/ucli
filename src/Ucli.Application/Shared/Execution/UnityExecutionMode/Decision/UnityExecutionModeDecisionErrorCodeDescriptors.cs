@@ -1,12 +1,10 @@
-using MackySoft.Ucli.Application.Shared.Diagnostics;
-
 namespace MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 
 internal static class UnityExecutionModeDecisionErrorCodeDescriptors
 {
     public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
     [
-        ApplicationErrorCodeDescriptorFactory.Create(
+        UcliErrorCodeDescriptorFactory.Create(
             code: UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
             category: "daemon",
             summary: "Daemon mode was requested but no reachable daemon is running.",
@@ -26,7 +24,7 @@ internal static class UnityExecutionModeDecisionErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.ContextDependent,
-            inspect: ["status", "ucli daemon status", "ucli daemon list"],
+            inspect: ["status", UcliErrorInspectTargets.DaemonStatusCommand, UcliErrorInspectTargets.DaemonListCommand],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
@@ -35,7 +33,7 @@ internal static class UnityExecutionModeDecisionErrorCodeDescriptors
             ],
             relatedCodes: [DaemonErrorCodes.DaemonEditorModeMismatch]),
 
-        ApplicationErrorCodeDescriptorFactory.Create(
+        UcliErrorCodeDescriptorFactory.Create(
             code: UnityExecutionModeDecisionErrorCodes.DaemonRunningOneshotForbidden,
             category: "daemon",
             summary: "Oneshot mode was requested while a daemon is reachable.",
@@ -53,7 +51,7 @@ internal static class UnityExecutionModeDecisionErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.No,
-            inspect: ["status", "ucli daemon status", "ucli daemon list"],
+            inspect: ["status", UcliErrorInspectTargets.DaemonStatusCommand, UcliErrorInspectTargets.DaemonListCommand],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(

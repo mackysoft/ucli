@@ -1,12 +1,10 @@
-using MackySoft.Ucli.Application.Shared.Diagnostics;
-
 namespace MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 
 internal static class TestRunErrorCodeDescriptors
 {
     public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
     [
-        ApplicationErrorCodeDescriptorFactory.Create(
+        UcliErrorCodeDescriptorFactory.Create(
             code: TestRunErrorCodes.UnityTestExecutionFailed,
             category: "testRun",
             summary: "Unity test process execution failed.",
@@ -16,7 +14,7 @@ internal static class TestRunErrorCodeDescriptors
             impliesNotApplied: null,
             mayBeIndeterminate: true,
             safeToRetry: UcliErrorRetryClassValues.ContextDependent,
-            inspect: ["payload.testRun", "payload.artifacts", "logs unity"],
+            inspect: ["payload.testRun", "payload.artifacts", UcliErrorInspectTargets.UnityErrorLogsCommand],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
@@ -29,7 +27,7 @@ internal static class TestRunErrorCodeDescriptors
                 TestRunErrorCodes.TestResultsXmlReadFailed,
             ]),
 
-        ApplicationErrorCodeDescriptorFactory.Create(
+        UcliErrorCodeDescriptorFactory.Create(
             code: TestRunErrorCodes.UnityTestExecutionTimeout,
             category: "testRun",
             summary: "Unity test execution exceeded its runtime budget.",
@@ -39,7 +37,7 @@ internal static class TestRunErrorCodeDescriptors
             impliesNotApplied: false,
             mayBeIndeterminate: true,
             safeToRetry: UcliErrorRetryClassValues.ContextDependent,
-            inspect: ["payload.testRun", "payload.artifacts", "logs unity"],
+            inspect: ["payload.testRun", "payload.artifacts", UcliErrorInspectTargets.UnityErrorLogsCommand],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
@@ -52,7 +50,7 @@ internal static class TestRunErrorCodeDescriptors
                 IpcTransportErrorCodes.IpcTimeout,
             ]),
 
-        ApplicationErrorCodeDescriptorFactory.Create(
+        UcliErrorCodeDescriptorFactory.Create(
             code: TestRunErrorCodes.TestResultsXmlInvalid,
             category: "testRun",
             summary: "Unity test results XML is invalid.",
@@ -71,7 +69,7 @@ internal static class TestRunErrorCodeDescriptors
             ],
             relatedCodes: [TestRunErrorCodes.TestResultsXmlReadFailed]),
 
-        ApplicationErrorCodeDescriptorFactory.Create(
+        UcliErrorCodeDescriptorFactory.Create(
             code: TestRunErrorCodes.TestResultsXmlReadFailed,
             category: "testRun",
             summary: "Reading Unity test results XML failed.",
@@ -94,7 +92,7 @@ internal static class TestRunErrorCodeDescriptors
                 TestRunErrorCodes.TestResultsXmlInvalid,
             ]),
 
-        ApplicationErrorCodeDescriptorFactory.Create(
+        UcliErrorCodeDescriptorFactory.Create(
             code: TestRunErrorCodes.TestResultsOutputWriteFailed,
             category: "testRun",
             summary: "Writing normalized test result artifacts failed.",

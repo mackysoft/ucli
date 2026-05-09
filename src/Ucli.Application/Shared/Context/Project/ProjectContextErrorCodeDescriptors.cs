@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Shared.Diagnostics;
-
 namespace MackySoft.Ucli.Application.Shared.Context.Project;
 
 internal static class ProjectContextErrorCodeDescriptors
@@ -53,7 +51,7 @@ internal static class ProjectContextErrorCodeDescriptors
         string meaning,
         string phase)
     {
-        return ApplicationErrorCodeDescriptorFactory.Create(
+        return UcliErrorCodeDescriptorFactory.Create(
             code: code,
             category: "projectContext",
             summary: summary,
