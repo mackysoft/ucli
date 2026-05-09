@@ -120,6 +120,13 @@
 - timeout
   - 既定待機の timeout も既存の `IPC_TIMEOUT` を使用する。
 
+### `Temp/UnityLockfile` cleanup timing
+- uCLI は `Temp/UnityLockfile` を定期的または background で掃除しない。
+- uCLI が `Temp/UnityLockfile` の削除を試みるのは、Unity process を新規起動する直前の preflight と、uCLI が起動した Unity process の終了後 cleanup の2つに限定する。
+- 起動直前の preflight で stale と断定できた場合は `Temp/UnityLockfile` を削除して起動を続行する。active lock、ambiguous lock、cleanup failed は起動を止め、上記の Unity project lock エラーを返す。
+- 終了後 cleanup で stale と断定できた場合は `Temp/UnityLockfile` を削除する。この cleanup の成否だけで timeout、cancel、abnormal exit、artifact missing などの主エラー分類を変更しない。
+- `logs unity read`、`logs daemon read`、`daemon status`、既存 daemon への IPC は Unity process を新規起動しない reader 経路であり、`Temp/UnityLockfile` を作成・削除しない。
+
 ### 失敗分類と終了コード
 公開 CLI JSON は、失敗分類にかかわらず既存の共通エンベロープを返す。`status`、`exitCode`、`message`、`errors[]` の field shape は変わらない。内部失敗分類は、次の規則で既存の終了コードへ投影する。
 

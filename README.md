@@ -920,7 +920,7 @@ Lifecycle lock files are stored in the current user's OS local application data 
 
 `<sha256>` is derived from the normalized physical `UnityProjectRoot`, so paths that resolve to the same physical Unity project share one launch lock.
 
-Unity's project-local `Temp/UnityLockfile` is treated as a Unity-owned marker for editors opened outside uCLI. uCLI deletes it only when startup or post-exit checks can prove the marker is stale. Active ownership returns `UNITY_PROJECT_ALREADY_OPEN`, unsafe ownership checks return `UNITY_PROJECT_LOCK_AMBIGUOUS`, and stale-lock deletion failures return `UNITY_PROJECT_LOCK_CLEANUP_FAILED`.
+Unity's project-local `Temp/UnityLockfile` is treated as a Unity-owned marker for editors opened outside uCLI. uCLI does not clean it on a timer or in the background; it attempts cleanup only before starting a new Unity process and after a uCLI-launched Unity process exits. uCLI deletes the marker only when those checks can prove it is stale. Active ownership returns `UNITY_PROJECT_ALREADY_OPEN`, unsafe ownership checks return `UNITY_PROJECT_LOCK_AMBIGUOUS`, and stale-lock deletion failures return `UNITY_PROJECT_LOCK_CLEANUP_FAILED`.
 
 ## 📦 Packages
 
