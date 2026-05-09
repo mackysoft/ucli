@@ -1,5 +1,6 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
@@ -39,6 +40,7 @@ public sealed class FileReadIndexArtifactWriterTests
         Assert.Equal(generatedAtUtc, catalogResult.Value!.GeneratedAtUtc);
         Assert.Equal("ops-hash", catalogResult.Value.SourceInputsHash);
         Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, catalogResult.Value.Entries![0].Name);
+        Assert.Equal("Returns a GameObject description including components and child hierarchy.", catalogResult.Value.Entries[0].Description);
         Assert.Equal(snapshot.CombinedHash, manifestResult.Value!.CombinedHash);
     }
 
@@ -73,6 +75,51 @@ public sealed class FileReadIndexArtifactWriterTests
         Assert.Equal(ReadIndexErrorCodes.ReadIndexBootstrapFailed, manifestResult.Error!.Code);
         Assert.Equal(generatedAtUtc, catalogResult.Value!.GeneratedAtUtc);
         Assert.Equal("ops-hash", catalogResult.Value.SourceInputsHash);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WriteOpsCatalog_WhenCatalogWriteFails_RestoresExistingDescribeArtifact ()
+    {
+        using var scope = TestDirectories.CreateTempScope("read-index-writer", "ops-catalog-write-fails");
+        var writer = CreateWriter();
+        var reader = new FileReadIndexArtifactReader();
+        var project = CreateProject(scope, "fingerprint");
+        var oldOperation = CreateGoDescribeEntry();
+        var newOperation = oldOperation with { Description = "Updated operation description." };
+
+        await writer.WriteOpsCatalogAsync(
+            scope.FullPath,
+            "fingerprint",
+            DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
+            [oldOperation],
+            "old-ops-hash",
+            manifestInputSnapshot: null,
+            CancellationToken.None);
+
+        var failingWriter = CreateWriter(new ThrowingOpsCatalogJsonContractWriter());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await failingWriter.WriteOpsCatalogAsync(
+            scope.FullPath,
+            "fingerprint",
+            DateTimeOffset.Parse("2026-03-08T00:01:00+00:00"),
+            [newOperation],
+            "new-ops-hash",
+            manifestInputSnapshot: null,
+            CancellationToken.None));
+
+        var catalogResult = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
+        Assert.True(catalogResult.IsSuccess);
+        Assert.Equal("old-ops-hash", catalogResult.Value!.SourceInputsHash);
+
+        var describeResult = await reader.ReadOpsDescribeAsync(
+            project,
+            catalogResult.Value.Entries![0],
+            catalogResult.Value.SourceInputsHash!,
+            CancellationToken.None);
+
+        Assert.True(describeResult.IsSuccess);
+        Assert.Equal(oldOperation.Description, describeResult.Value!.Operation!.Description);
     }
 
     [Fact]
@@ -223,10 +270,12 @@ public sealed class FileReadIndexArtifactWriterTests
         Assert.Equal(secondGeneratedAtUtc, secondResult.Value.GeneratedAtUtc);
     }
 
-    private static FileReadIndexArtifactWriter CreateWriter ()
+    private static FileReadIndexArtifactWriter CreateWriter (
+        IJsonContractWriter<IndexOpsCatalogJsonContract>? opsCatalogWriter = null)
     {
         return new FileReadIndexArtifactWriter(
-            new IndexOpsCatalogJsonContractWriter(),
+            opsCatalogWriter ?? new IndexOpsCatalogJsonContractWriter(),
+            new IndexOpsDescribeJsonContractWriter(),
             new IndexAssetSearchLookupJsonContractWriter(),
             new IndexGuidPathLookupJsonContractWriter(),
             new IndexSceneTreeLiteLookupJsonContractWriter(),
@@ -284,5 +333,14 @@ public sealed class FileReadIndexArtifactWriterTests
             AssetSearchHash: "asset-search",
             GuidPathHash: "guid-path",
             CombinedHash: "combined");
+    }
+
+    private sealed class ThrowingOpsCatalogJsonContractWriter : IJsonContractWriter<IndexOpsCatalogJsonContract>
+    {
+        public string Write (IndexOpsCatalogJsonContract contract)
+        {
+            ArgumentNullException.ThrowIfNull(contract);
+            throw new InvalidOperationException("catalog write failed.");
+        }
     }
 }

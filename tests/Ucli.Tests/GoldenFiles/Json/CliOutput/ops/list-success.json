@@ -9,12 +9,14 @@
       {
         "name": "ucli.go.describe",
         "kind": "query",
-        "policy": "safe"
+        "policy": "safe",
+        "description": "Returns a GameObject description including components and child hierarchy."
       },
       {
         "name": "ucli.scene.save",
         "kind": "mutation",
-        "policy": "advanced"
+        "policy": "advanced",
+        "description": "Saves a Unity scene asset."
       }
     ],
     "readIndex": {

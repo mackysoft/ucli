@@ -302,6 +302,36 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.OpsCatalogFileName);
     }
 
+    /// <summary> Resolves the absolute path to one read-index ops describe artifact directory. </summary>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <returns> The absolute read-index ops describe artifact directory path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
+    public static string ResolveOpsDescribeDirectory (
+        string storageRoot,
+        string projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveIndexCatalogsDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.OpsDescribeDirectoryName);
+    }
+
+    /// <summary> Resolves the absolute path to one read-index ops describe artifact file. </summary>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="opKey"> The opaque operation describe key. Must be a SHA-256 lower-hex value. </param>
+    /// <returns> The absolute read-index ops describe artifact file path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when any argument is invalid. </exception>
+    public static string ResolveOpsDescribePath (
+        string storageRoot,
+        string projectFingerprint,
+        string opKey)
+    {
+        return Path.Combine(
+            ResolveOpsDescribeDirectory(storageRoot, projectFingerprint),
+            NormalizeOpsDescribeKey(opKey) + UcliStoragePathNames.OpsDescribeFileExtension);
+    }
+
     /// <summary> Resolves the absolute path to one read-index asset-search lookup file. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
@@ -578,6 +608,30 @@ public static class UcliStoragePathResolver
         }
 
         return normalizedProjectFingerprint;
+    }
+
+    private static string NormalizeOpsDescribeKey (string opKey)
+    {
+        if (!TryTrimToNonEmpty(opKey, out var normalizedOpKey))
+        {
+            throw new ArgumentException("Ops describe key must not be empty.", nameof(opKey));
+        }
+
+        if (normalizedOpKey.Length != 64)
+        {
+            throw new ArgumentException("Ops describe key must be a SHA-256 lower-hex value.", nameof(opKey));
+        }
+
+        for (var i = 0; i < normalizedOpKey.Length; i++)
+        {
+            var c = normalizedOpKey[i];
+            if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')))
+            {
+                throw new ArgumentException("Ops describe key must be a SHA-256 lower-hex value.", nameof(opKey));
+            }
+        }
+
+        return normalizedOpKey;
     }
 
     private static bool TryTrimToNonEmpty (

@@ -1,0 +1,32 @@
+{
+  "protocolVersion": 1,
+  "command": "ops.list",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "uCLI ops list completed.",
+  "payload": {
+    "operations": [
+      {
+        "name": "ucli.comp.schema",
+        "kind": "query",
+        "policy": "advanced",
+        "description": "Returns a GameObject description including components and child hierarchy."
+      },
+      {
+        "name": "ucli.go.describe",
+        "kind": "query",
+        "policy": "safe",
+        "description": "Returns a GameObject description including components and child hierarchy."
+      }
+    ],
+    "readIndex": {
+      "used": true,
+      "hit": true,
+      "source": "index",
+      "freshness": "probable",
+      "generatedAtUtc": "<generatedAtUtc>",
+      "fallbackReason": null
+    }
+  },
+  "errors": []
+}

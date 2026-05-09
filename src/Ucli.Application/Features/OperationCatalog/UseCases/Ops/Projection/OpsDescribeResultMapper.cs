@@ -18,27 +18,12 @@ internal sealed class OpsDescribeResultMapper : IOpsDescribeResultMapper
     }
 
     /// <inheritdoc />
-    public OpsDescribeServiceResult Map (
-        OpsCatalogReadOutput output,
-        string? operationName)
+    public OpsDescribeServiceResult Map (OpsDescribeReadOutput output)
     {
         ArgumentNullException.ThrowIfNull(output);
 
-        if (string.IsNullOrWhiteSpace(operationName))
-        {
-            return OpsDescribeServiceResult.Failure(
-                "Operation name must not be empty.",
-                UcliCoreErrorCodes.InvalidArgument);
-        }
-
-        var operation = output.Snapshot.Operations
-            .FirstOrDefault(operation => string.Equals(operation.Name, operationName, StringComparison.Ordinal));
-        if (operation == null)
-        {
-            return OpsDescribeServiceResult.Failure(
-                $"Operation '{operationName}' is not available.",
-                UcliCoreErrorCodes.InvalidArgument);
-        }
+        var operation = output.Operation;
+        var operationName = operation.Name!;
 
         if (!TryParseSchema(operation.ArgsSchemaJson, out var argsSchema))
         {

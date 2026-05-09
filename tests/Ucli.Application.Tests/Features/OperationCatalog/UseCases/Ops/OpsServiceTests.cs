@@ -24,13 +24,32 @@ public sealed class OpsServiceTests
         var describeResultMapper = new StubOpsDescribeResultMapper();
         var service = new OpsService(preflightService, catalogAccessService, listResultMapper, describeResultMapper);
 
-        var result = await service.GetAllAsync(new OpsCommandInput(null, NormalizeMode(null), NormalizeTimeout(null), null));
+        var result = await service.GetAllAsync(new OpsCommandInput(null, NormalizeMode(null), NormalizeTimeout(null), null, null, null, null));
 
         Assert.False(result.IsSuccess);
         Assert.Equal("invalid readIndexMode", result.Message);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
         Assert.Equal(0, catalogAccessService.CallCount);
         Assert.Equal(0, listResultMapper.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task GetAll_WhenNameRegexIsInvalid_ReturnsFailureWithoutReadingCatalog ()
+    {
+        var preflightService = new StubOpsPreflightService();
+        var catalogAccessService = new StubOpsCatalogAccessService();
+        var listResultMapper = new StubOpsListResultMapper();
+        var describeResultMapper = new StubOpsDescribeResultMapper();
+        var service = new OpsService(preflightService, catalogAccessService, listResultMapper, describeResultMapper);
+
+        var result = await service.GetAllAsync(new OpsCommandInput(null, null, null, null, "[", null, null));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Equal(0, catalogAccessService.CallCount);
+        Assert.Equal(0, listResultMapper.CallCount);
+        Assert.Null(preflightService.LastInput);
     }
 
     [Fact]
@@ -42,12 +61,12 @@ public sealed class OpsServiceTests
         {
             Result = OpsPreflightResult.Success(preflightContext),
         };
-        var catalogOutput = new OpsCatalogReadOutput(
-            Snapshot: CreateSnapshot(
+        var catalogOutput = new OpsListReadOutput(
+            Snapshot: OpsCatalogListSnapshotFactory.FromCatalog(CreateSnapshot(
                 DateTimeOffset.UtcNow,
                 [
                     CreateSceneSaveEntry(),
-                ]),
+                ])),
             AccessInfo: new OpsCatalogAccessInfo(
                 true,
                 true,
@@ -57,13 +76,17 @@ public sealed class OpsServiceTests
                 null));
         var catalogAccessService = new StubOpsCatalogAccessService
         {
-            Result = OpsCatalogReadResult.Success(catalogOutput, "read ok"),
+            ListResult = OpsListReadResult.Success(catalogOutput, "read ok"),
         };
         var expectedResult = OpsListServiceResult.Success(
             new OpsListExecutionOutput(
                 Operations:
                 [
-                    new OpsOperationListItem(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave, "mutation", "advanced"),
+                    new OpsOperationListItem(
+                        MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave,
+                        "mutation",
+                        "advanced",
+                        "Saves a Unity scene asset."),
                 ],
                 ReadIndex: new ReadIndexInfo(
                     true,
@@ -80,7 +103,7 @@ public sealed class OpsServiceTests
         var describeResultMapper = new StubOpsDescribeResultMapper();
         var service = new OpsService(preflightService, catalogAccessService, listResultMapper, describeResultMapper);
 
-        var result = await service.GetAllAsync(new OpsCommandInput("/repo", NormalizeMode("auto"), NormalizeTimeout("1000"), NormalizeReadIndexMode("allowStale"), true));
+        var result = await service.GetAllAsync(new OpsCommandInput("/repo", NormalizeMode("auto"), NormalizeTimeout("1000"), NormalizeReadIndexMode("allowStale"), null, null, null, true));
 
         Assert.Same(expectedResult, result);
         Assert.NotNull(preflightService.LastInput);
@@ -88,6 +111,8 @@ public sealed class OpsServiceTests
         Assert.Equal(1, catalogAccessService.CallCount);
         Assert.Equal(1, listResultMapper.CallCount);
         Assert.Same(catalogOutput, listResultMapper.LastOutput);
+        var operation = Assert.Single(listResultMapper.LastOperations!);
+        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave, operation.Name);
     }
 
     [Fact]
@@ -99,10 +124,8 @@ public sealed class OpsServiceTests
         {
             Result = OpsPreflightResult.Success(preflightContext),
         };
-        var catalogOutput = new OpsCatalogReadOutput(
-            Snapshot: CreateSnapshot(
-                DateTimeOffset.UtcNow,
-                Array.Empty<IndexOpEntryJsonContract>()),
+        var catalogOutput = new OpsDescribeReadOutput(
+            Operation: CreateGoDescribeEntry(),
             AccessInfo: new OpsCatalogAccessInfo(
                 true,
                 true,
@@ -112,7 +135,7 @@ public sealed class OpsServiceTests
                 null));
         var catalogAccessService = new StubOpsCatalogAccessService
         {
-            Result = OpsCatalogReadResult.Success(catalogOutput, "read ok"),
+            DescribeResult = OpsDescribeReadResult.Success(catalogOutput, "read ok"),
         };
         var expectedResult = OpsDescribeServiceResult.Failure("missing", UcliCoreErrorCodes.InvalidArgument);
         var listResultMapper = new StubOpsListResultMapper();
@@ -136,17 +159,16 @@ public sealed class OpsServiceTests
         Assert.True(preflightService.LastInput!.FailFast);
         Assert.Equal(1, describeResultMapper.CallCount);
         Assert.Same(catalogOutput, describeResultMapper.LastOutput);
-        Assert.Equal("ucli.unknown", describeResultMapper.LastOperationName);
     }
 
     private sealed class StubOpsPreflightService : IOpsPreflightService
     {
         public OpsPreflightResult Result { get; set; } = OpsPreflightResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
-        public OpsCommandInput? LastInput { get; private set; }
+        public OpsPreflightInput? LastInput { get; private set; }
 
         public ValueTask<OpsPreflightResult> ExecuteAsync (
-            OpsCommandInput input,
+            OpsPreflightInput input,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -159,15 +181,27 @@ public sealed class OpsServiceTests
     {
         public int CallCount { get; private set; }
 
-        public OpsCatalogReadResult Result { get; set; } = OpsCatalogReadResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
+        public OpsListReadResult ListResult { get; set; } = OpsListReadResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
-        public ValueTask<OpsCatalogReadResult> ReadAsync (
+        public OpsDescribeReadResult DescribeResult { get; set; } = OpsDescribeReadResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
+
+        public ValueTask<OpsListReadResult> ReadListAsync (
             OpsPreflightContext context,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
-            return ValueTask.FromResult(Result);
+            return ValueTask.FromResult(ListResult);
+        }
+
+        public ValueTask<OpsDescribeReadResult> ReadDescribeAsync (
+            OpsPreflightContext context,
+            string? operationName,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            CallCount++;
+            return ValueTask.FromResult(DescribeResult);
         }
     }
 
@@ -175,14 +209,19 @@ public sealed class OpsServiceTests
     {
         public int CallCount { get; private set; }
 
-        public OpsCatalogReadOutput? LastOutput { get; private set; }
+        public OpsListReadOutput? LastOutput { get; private set; }
+
+        public IReadOnlyList<OpsCatalogListEntry>? LastOperations { get; private set; }
 
         public OpsListServiceResult Result { get; set; } = OpsListServiceResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
-        public OpsListServiceResult Map (OpsCatalogReadOutput output)
+        public OpsListServiceResult Map (
+            OpsListReadOutput output,
+            IReadOnlyList<OpsCatalogListEntry> operations)
         {
             CallCount++;
             LastOutput = output;
+            LastOperations = operations;
             return Result;
         }
     }
@@ -191,19 +230,14 @@ public sealed class OpsServiceTests
     {
         public int CallCount { get; private set; }
 
-        public OpsCatalogReadOutput? LastOutput { get; private set; }
-
-        public string? LastOperationName { get; private set; }
+        public OpsDescribeReadOutput? LastOutput { get; private set; }
 
         public OpsDescribeServiceResult Result { get; set; } = OpsDescribeServiceResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
-        public OpsDescribeServiceResult Map (
-            OpsCatalogReadOutput output,
-            string? operationName)
+        public OpsDescribeServiceResult Map (OpsDescribeReadOutput output)
         {
             CallCount++;
             LastOutput = output;
-            LastOperationName = operationName;
             return Result;
         }
     }

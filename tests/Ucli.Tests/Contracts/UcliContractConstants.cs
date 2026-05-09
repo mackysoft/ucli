@@ -22,6 +22,12 @@ internal static class UcliContractConstants
 
         public const string ReadIndexMode = "--readIndexMode";
 
+        public const string NameRegex = "--nameRegex";
+
+        public const string Kind = "--kind";
+
+        public const string MaxPolicy = "--maxPolicy";
+
         public const string PlanToken = "--planToken";
 
         public const string WithPlan = "--withPlan";
