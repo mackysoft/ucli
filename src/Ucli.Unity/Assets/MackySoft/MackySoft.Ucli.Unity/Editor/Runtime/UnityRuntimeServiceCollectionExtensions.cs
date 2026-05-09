@@ -29,7 +29,7 @@ namespace MackySoft.Ucli.Unity.Runtime
             }
 
             services.AddSingleton<IUnityEditorReadinessGate>(_ => new UnityEditorReadinessGate(editorMode));
-            services.AddSingleton<IUnityMainThreadRequestExecutor>(new UnitySynchronizationContextRequestExecutor());
+            services.AddSingleton<IUnityMainThreadRequestExecutor>(_ => new UnitySynchronizationContextRequestExecutor());
             return services;
         }
     }

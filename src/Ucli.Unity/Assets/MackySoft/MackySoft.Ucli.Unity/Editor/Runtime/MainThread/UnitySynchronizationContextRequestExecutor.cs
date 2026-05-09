@@ -7,7 +7,7 @@ using UnityEditor;
 namespace MackySoft.Ucli.Unity.Runtime
 {
     /// <summary> Executes asynchronous work items on Unity main-thread synchronization context. </summary>
-    internal sealed class UnitySynchronizationContextRequestExecutor : IUnityMainThreadRequestExecutor
+    internal sealed class UnitySynchronizationContextRequestExecutor : IUnityMainThreadRequestExecutor, IDisposable
     {
         private readonly object syncRoot = new object();
 
@@ -20,6 +20,8 @@ namespace MackySoft.Ucli.Unity.Runtime
         private bool isProcessorActive;
 
         private bool isRunningInvocation;
+
+        private bool isDisposed;
 
         /// <summary> Initializes a new instance of the <see cref="UnitySynchronizationContextRequestExecutor" /> class. </summary>
         public UnitySynchronizationContextRequestExecutor ()
@@ -37,12 +39,50 @@ namespace MackySoft.Ucli.Unity.Runtime
             this.mainThreadSynchronizationContext = mainThreadSynchronizationContext;
             this.mainThreadId = mainThreadId;
 
-            if (this.mainThreadSynchronizationContext == null)
+            // NOTE:
+            // Unity can replace or temporarily stop servicing the captured SynchronizationContext while the
+            // editor finishes GUI startup or recovers from script reload. Keep the update-loop pump attached as
+            // the authoritative main-thread drain, and use SynchronizationContext.Post only as an eager wake-up.
+            EditorApplication.update += ProcessQueueOnEditorUpdate;
+        }
+
+        /// <inheritdoc />
+        public void Dispose ()
+        {
+            EditorApplication.update -= ProcessQueueOnEditorUpdate;
+            var exception = new ObjectDisposedException(nameof(UnitySynchronizationContextRequestExecutor));
+            List<IMainThreadInvocation>? failures = null;
+            lock (syncRoot)
             {
-                // NOTE:
-                // Unity batchmode does not guarantee SynchronizationContext.Current during InitializeOnLoad.
-                // Keep one update-loop pump attached so background IPC work can still hop onto the main thread.
-                EditorApplication.update += ProcessQueueOnEditorUpdate;
+                if (isDisposed)
+                {
+                    return;
+                }
+
+                isDisposed = true;
+                if (pendingInvocations.Count > 0)
+                {
+                    failures = new List<IMainThreadInvocation>(pendingInvocations.Count);
+                    while (pendingInvocations.Count > 0)
+                    {
+                        failures.Add(pendingInvocations.Dequeue());
+                    }
+                }
+
+                if (!isRunningInvocation)
+                {
+                    isProcessorActive = false;
+                }
+            }
+
+            if (failures == null)
+            {
+                return;
+            }
+
+            foreach (var failure in failures)
+            {
+                failure.TrySetException(exception);
             }
         }
 
@@ -63,6 +103,14 @@ namespace MackySoft.Ucli.Unity.Runtime
                 throw new ArgumentNullException(nameof(workItem));
             }
 
+            lock (syncRoot)
+            {
+                if (isDisposed)
+                {
+                    return Task.FromException<T>(new ObjectDisposedException(nameof(UnitySynchronizationContextRequestExecutor)));
+                }
+            }
+
             if (Thread.CurrentThread.ManagedThreadId == mainThreadId)
             {
                 return workItem();
@@ -72,6 +120,11 @@ namespace MackySoft.Ucli.Unity.Runtime
             var shouldScheduleProcessor = false;
             lock (syncRoot)
             {
+                if (isDisposed)
+                {
+                    return Task.FromException<T>(new ObjectDisposedException(nameof(UnitySynchronizationContextRequestExecutor)));
+                }
+
                 pendingInvocations.Enqueue(invocation);
                 if (!isProcessorActive)
                 {
@@ -116,14 +169,9 @@ namespace MackySoft.Ucli.Unity.Runtime
             }
         }
 
-        /// <summary> Processes queued invocations during the Unity editor update loop when SynchronizationContext is unavailable. </summary>
+        /// <summary> Processes queued invocations during the Unity editor update loop. </summary>
         private void ProcessQueueOnEditorUpdate ()
         {
-            if (mainThreadSynchronizationContext != null)
-            {
-                return;
-            }
-
             ProcessQueueOnMainThread();
         }
 
@@ -133,6 +181,12 @@ namespace MackySoft.Ucli.Unity.Runtime
             IMainThreadInvocation? invocation = null;
             lock (syncRoot)
             {
+                if (isDisposed)
+                {
+                    isProcessorActive = false;
+                    return;
+                }
+
                 if (isRunningInvocation)
                 {
                     return;

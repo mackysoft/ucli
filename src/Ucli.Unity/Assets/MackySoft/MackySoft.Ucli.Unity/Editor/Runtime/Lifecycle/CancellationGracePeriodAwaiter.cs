@@ -30,7 +30,7 @@ namespace MackySoft.Ucli.Unity.Runtime
 
             if (!cancellationToken.CanBeCanceled)
             {
-                await task;
+                await task.ConfigureAwait(false);
                 return;
             }
 
@@ -41,17 +41,17 @@ namespace MackySoft.Ucli.Unity.Runtime
                 taskSource.TrySetResult(true);
             }, cancellationSignalSource);
 
-            var completedTask = await Task.WhenAny(task, cancellationSignalSource.Task);
+            var completedTask = await Task.WhenAny(task, cancellationSignalSource.Task).ConfigureAwait(false);
             if (!ReferenceEquals(completedTask, task) && !task.IsCompleted)
             {
-                var graceCompletionTask = await Task.WhenAny(task, Task.Delay(gracePeriod));
+                var graceCompletionTask = await Task.WhenAny(task, Task.Delay(gracePeriod)).ConfigureAwait(false);
                 if (!ReferenceEquals(graceCompletionTask, task) && !task.IsCompleted)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                 }
             }
 
-            await task;
+            await task.ConfigureAwait(false);
         }
     }
 }
