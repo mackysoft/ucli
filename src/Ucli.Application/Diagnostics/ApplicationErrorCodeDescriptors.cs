@@ -1,7 +1,7 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 
-namespace MackySoft.Ucli.Application.Features.ErrorCatalog.Catalog;
+namespace MackySoft.Ucli.Application.Diagnostics;
 
 internal static class ApplicationErrorCodeDescriptors
 {

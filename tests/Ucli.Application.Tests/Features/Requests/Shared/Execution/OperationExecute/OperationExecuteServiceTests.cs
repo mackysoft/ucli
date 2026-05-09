@@ -401,7 +401,7 @@ public sealed class OperationExecuteServiceTests
     {
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
         var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Denied(
-            ValidationErrorCodes.OperationNotAllowed,
+            OperationAuthorizationErrorCodes.OperationNotAllowed,
             "Operation 'ucli.project.refresh' is blocked by operationPolicy='safe'."));
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Success(
             CreateResponse(
@@ -423,7 +423,7 @@ public sealed class OperationExecuteServiceTests
         Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         Assert.Empty(result.OpResults);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(ValidationErrorCodes.OperationNotAllowed, error.Code);
+        Assert.Equal(OperationAuthorizationErrorCodes.OperationNotAllowed, error.Code);
         Assert.Equal("refresh", error.OpId);
         Assert.Equal(0, ipcRequestExecutor.CallCount);
     }

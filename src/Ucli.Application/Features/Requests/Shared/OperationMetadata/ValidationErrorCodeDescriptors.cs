@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Application.Features.ErrorCatalog.Catalog;
+using MackySoft.Ucli.Application.Shared.Diagnostics;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
@@ -93,7 +93,7 @@ internal static class ValidationErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.No,
-            inspect: ["errors", "errors[].opId", "errors[].message", "payload.plan"],
+            inspect: ["errors", "errors[].opId", "errors[].message", "payload.requestId"],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(

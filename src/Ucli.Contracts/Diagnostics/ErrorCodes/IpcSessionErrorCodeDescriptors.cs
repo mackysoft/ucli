@@ -24,12 +24,12 @@ internal static class IpcSessionErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.No,
-            inspect: ["payload.sessionToken", "ucli daemon status"],
+            inspect: ["ucli daemon status", "ucli daemon list"],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
                     When: null,
-                    Action: "Resolve the active daemon session and send the request with its sessionToken."),
+                    Action: "Resolve the active daemon session through the CLI session resolver, then rerun the command."),
             ],
             relatedCodes: [IpcSessionErrorCodes.SessionTokenInvalid]),
 
@@ -53,12 +53,12 @@ internal static class IpcSessionErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.No,
-            inspect: ["payload.sessionToken", "ucli daemon status"],
+            inspect: ["ucli daemon status", "ucli daemon list"],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
                     When: null,
-                    Action: "Refresh daemon session state, then retry only with the current session token."),
+                    Action: "Refresh daemon session state, then rerun through active session resolution."),
             ],
             relatedCodes: [IpcSessionErrorCodes.SessionTokenRequired]),
     ];

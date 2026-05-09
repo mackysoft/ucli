@@ -83,10 +83,14 @@ internal sealed class ErrorCodeCatalog : IErrorCodeCatalog
             throw new InvalidOperationException($"Error code catalog descriptor '{descriptor.Code.Value}' has null appliesTo.");
         }
 
+        ValidateCommandList(descriptor.Code, descriptor.AppliesTo, nameof(descriptor.AppliesTo));
+
         if (descriptor.PossiblePhases is null)
         {
             throw new InvalidOperationException($"Error code catalog descriptor '{descriptor.Code.Value}' has null possiblePhases.");
         }
+
+        ValidateStringList(descriptor.Code, descriptor.PossiblePhases, nameof(descriptor.PossiblePhases));
 
         if (descriptor.ExecutionSemantics is null)
         {
@@ -107,6 +111,8 @@ internal sealed class ErrorCodeCatalog : IErrorCodeCatalog
         {
             throw new InvalidOperationException($"Error code catalog descriptor '{descriptor.Code.Value}' has null inspect.");
         }
+
+        ValidateStringList(descriptor.Code, descriptor.Inspect, nameof(descriptor.Inspect));
 
         if (descriptor.NextActions is null)
         {
@@ -130,6 +136,20 @@ internal sealed class ErrorCodeCatalog : IErrorCodeCatalog
         }
     }
 
+    private static void ValidateCommandList (
+        UcliErrorCode code,
+        IReadOnlyList<UcliCommand> commands,
+        string propertyName)
+    {
+        for (var i = 0; i < commands.Count; i++)
+        {
+            if (!commands[i].IsValid)
+            {
+                throw new InvalidOperationException($"Error code catalog descriptor '{code.Value}' has invalid {propertyName} item at index {i}.");
+            }
+        }
+    }
+
     private static void ValidateRequiredString (
         UcliErrorCode code,
         string? value,
@@ -138,6 +158,20 @@ internal sealed class ErrorCodeCatalog : IErrorCodeCatalog
         if (string.IsNullOrWhiteSpace(value))
         {
             throw new InvalidOperationException($"Error code catalog descriptor '{code.Value}' has empty {propertyName}.");
+        }
+    }
+
+    private static void ValidateStringList (
+        UcliErrorCode code,
+        IReadOnlyList<string> values,
+        string propertyName)
+    {
+        for (var i = 0; i < values.Count; i++)
+        {
+            if (string.IsNullOrWhiteSpace(values[i]))
+            {
+                throw new InvalidOperationException($"Error code catalog descriptor '{code.Value}' has empty {propertyName} item at index {i}.");
+            }
         }
     }
 

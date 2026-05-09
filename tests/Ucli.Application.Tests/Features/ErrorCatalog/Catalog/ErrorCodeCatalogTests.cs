@@ -1,3 +1,5 @@
+using System.Reflection;
+using MackySoft.Ucli.Application.Diagnostics;
 using MackySoft.Ucli.Application.Features.ErrorCatalog.Catalog;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
@@ -20,6 +22,22 @@ public sealed class ErrorCodeCatalogTests
         Assert.Equal(expectedCodes, actualCodes);
         Assert.Contains(IpcTransportErrorCodes.IpcTimeout, catalog.Descriptors.Select(static descriptor => descriptor.Code));
         Assert.Contains(ProjectContextErrorCodes.ProjectPathNotFound, catalog.Descriptors.Select(static descriptor => descriptor.Code));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WithApplicationContributors_ContainsEveryApplicationErrorCodeDefinition ()
+    {
+        var catalog = CreateCatalog();
+        var actualCodes = catalog.Descriptors
+            .Select(static descriptor => descriptor.Code)
+            .ToHashSet();
+        var expectedCodes = GetErrorCodeDefinitions(typeof(ApplicationErrorCodeDescriptors).Assembly);
+
+        foreach (var expectedCode in expectedCodes)
+        {
+            Assert.Contains(expectedCode, actualCodes);
+        }
     }
 
     [Fact]
@@ -59,6 +77,22 @@ public sealed class ErrorCodeCatalogTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Describe_WithInvalidCode_ReturnsInvalidArgument ()
+    {
+        var service = new ErrorCodeCatalogService(CreateCatalog());
+
+        var result = service.Describe(default, requireKnown: false);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.Known);
+        Assert.Null(result.Descriptor);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.Error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Constructor_WithDuplicateCode_Throws ()
     {
         var descriptor = UcliKnownErrorCodeDescriptors.All[0];
@@ -70,6 +104,51 @@ public sealed class ErrorCodeCatalogTests
         Assert.Throws<InvalidOperationException>(() => new ErrorCodeCatalog(
             [
                 new StubContributor([descriptor, duplicateDescriptor]),
+            ]));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WithInvalidAppliesToCommand_Throws ()
+    {
+        var descriptor = UcliKnownErrorCodeDescriptors.All[0] with
+        {
+            AppliesTo = [default],
+        };
+
+        Assert.Throws<InvalidOperationException>(() => new ErrorCodeCatalog(
+            [
+                new StubContributor([descriptor]),
+            ]));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WithEmptyPossiblePhase_Throws ()
+    {
+        var descriptor = UcliKnownErrorCodeDescriptors.All[0] with
+        {
+            PossiblePhases = [" "],
+        };
+
+        Assert.Throws<InvalidOperationException>(() => new ErrorCodeCatalog(
+            [
+                new StubContributor([descriptor]),
+            ]));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WithEmptyInspectItem_Throws ()
+    {
+        var descriptor = UcliKnownErrorCodeDescriptors.All[0] with
+        {
+            Inspect = [string.Empty],
+        };
+
+        Assert.Throws<InvalidOperationException>(() => new ErrorCodeCatalog(
+            [
+                new StubContributor([descriptor]),
             ]));
     }
 
@@ -95,5 +174,27 @@ public sealed class ErrorCodeCatalogTests
         {
             return descriptors;
         }
+    }
+
+    private static IReadOnlySet<UcliErrorCode> GetErrorCodeDefinitions (Assembly assembly)
+    {
+        var codes = new HashSet<UcliErrorCode>();
+        var types = assembly.GetTypes()
+            .Where(static type => type is { IsClass: true, IsAbstract: true, IsSealed: true }
+                && type.Name.EndsWith("ErrorCodes", StringComparison.Ordinal));
+
+        foreach (var type in types)
+        {
+            var fields = type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+            foreach (var field in fields)
+            {
+                if (field.FieldType == typeof(UcliErrorCode))
+                {
+                    codes.Add((UcliErrorCode)field.GetValue(null)!);
+                }
+            }
+        }
+
+        return codes;
     }
 }

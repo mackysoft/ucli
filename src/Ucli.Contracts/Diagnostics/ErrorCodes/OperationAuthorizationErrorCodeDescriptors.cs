@@ -20,7 +20,7 @@ internal static class OperationAuthorizationErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.No,
-            inspect: ["errors[].opId", "payload.plan", "payload.opResults", "operationPolicy"],
+            inspect: ["errors[].opId", "payload.requestId", "payload.opResults", "operationPolicy"],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(

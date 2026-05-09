@@ -66,7 +66,7 @@ public sealed class OperationAuthorizationServiceTests
         var result = await service.AuthorizeAsync(operation, config, CancellationToken.None);
 
         Assert.False(result.IsAllowed);
-        Assert.Equal(ValidationErrorCodes.OperationNotAllowed, result.ErrorCode);
+        Assert.Equal(OperationAuthorizationErrorCodes.OperationNotAllowed, result.ErrorCode);
         if (!string.IsNullOrWhiteSpace(expectedMessageContains))
         {
             Assert.Contains(expectedMessageContains, result.Message, StringComparison.OrdinalIgnoreCase);

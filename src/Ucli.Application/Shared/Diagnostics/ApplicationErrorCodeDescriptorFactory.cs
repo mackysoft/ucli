@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Application.Features.ErrorCatalog.Catalog;
+namespace MackySoft.Ucli.Application.Shared.Diagnostics;
 
 internal static class ApplicationErrorCodeDescriptorFactory
 {

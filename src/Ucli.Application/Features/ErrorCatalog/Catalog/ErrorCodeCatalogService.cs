@@ -28,6 +28,14 @@ internal sealed class ErrorCodeCatalogService : IErrorCodeCatalogService
         UcliErrorCode code,
         bool requireKnown)
     {
+        if (!code.IsValid)
+        {
+            return ErrorCodeCatalogDescribeResult.Failure(
+                ExecutionError.InvalidArgument(
+                    "Error code must not be empty.",
+                    UcliCoreErrorCodes.InvalidArgument));
+        }
+
         if (catalog.TryFind(code, out var descriptor))
         {
             return ErrorCodeCatalogDescribeResult.Success(descriptor, known: true);

@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Application.Features.ErrorCatalog.Catalog;
+using MackySoft.Ucli.Application.Shared.Diagnostics;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 

@@ -2,6 +2,20 @@ namespace MackySoft.Ucli.Contracts;
 
 internal static class IpcProtocolErrorCodeDescriptors
 {
+    private static readonly UcliCommand[] ProtocolVersionCommands =
+    [
+        UcliCommandIds.Validate,
+        UcliCommandIds.DaemonStart,
+        UcliCommandIds.DaemonStatus,
+        UcliCommandIds.Plan,
+        UcliCommandIds.Call,
+        UcliCommandIds.Resolve,
+        UcliCommandIds.Query,
+        UcliCommandIds.Refresh,
+        UcliCommandIds.Ops,
+        UcliCommandIds.TestRun,
+    ];
+
     private static readonly UcliCommand[] IpcCommands =
     [
         UcliCommandIds.DaemonStart,
@@ -22,7 +36,7 @@ internal static class IpcProtocolErrorCodeDescriptors
             category: "ipc",
             summary: "The IPC protocol versions are incompatible.",
             meaning: "The CLI and Unity-side server do not agree on the supported protocol version for the request.",
-            appliesTo: IpcCommands,
+            appliesTo: ProtocolVersionCommands,
             possiblePhases: ["ipcHandshake", "staticValidation"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,

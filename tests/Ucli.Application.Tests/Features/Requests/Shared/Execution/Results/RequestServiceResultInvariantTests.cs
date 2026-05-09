@@ -319,7 +319,7 @@ public sealed class RequestServiceResultInvariantTests
             ProjectContextErrorCodes.ProjectPathInvalidFormat,
             ProjectContextErrorCodes.ProjectPathNotFound,
             ProjectContextErrorCodes.UnityProjectMarkerMissing,
-            ValidationErrorCodes.ProtocolVersionMismatch,
+            IpcProtocolErrorCodes.ProtocolVersionMismatch,
             ValidationErrorCodes.RequestIdInvalid,
             ValidationErrorCodes.StepsRequired,
             ValidationErrorCodes.StepIdRequired,
@@ -328,7 +328,7 @@ public sealed class RequestServiceResultInvariantTests
             ValidationErrorCodes.StepKindInvalid,
             ValidationErrorCodes.OperationNameRequired,
             ValidationErrorCodes.OperationNotFound,
-            ValidationErrorCodes.OperationNotAllowed,
+            OperationAuthorizationErrorCodes.OperationNotAllowed,
             ValidationErrorCodes.OperationArgsInvalid,
             ValidationErrorCodes.EditStepInvalid,
         };
