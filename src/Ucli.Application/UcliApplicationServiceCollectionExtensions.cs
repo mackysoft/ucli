@@ -143,6 +143,7 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddSingleton<ILogsDaemonService, LogsDaemonService>();
         services.AddSingleton<ILogsUnityRequestValidator, LogsUnityRequestValidator>();
         services.AddSingleton<ILogsUnityService, LogsUnityService>();
+        services.AddSingleton<ILogsUnityClearService, LogsUnityClearService>();
 
         services.AddSingleton<IDaemonCommandExecutionContextResolver, DaemonCommandExecutionContextResolver>();
         services.AddSingleton<IDaemonSessionOutputMapper, DaemonSessionOutputMapper>();

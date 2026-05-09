@@ -2,15 +2,14 @@ using System.Text.Json;
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
-using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 
-/// <summary> Provides the logs unity CLI command entry point. </summary>
-internal sealed class LogsUnityCommand
+/// <summary> Provides the logs unity read CLI command entry point. </summary>
+internal sealed class LogsUnityReadCommand
 {
     private static readonly JsonSerializerOptions JsonLineSerializerOptions = new()
     {
@@ -22,10 +21,10 @@ internal sealed class LogsUnityCommand
 
     private readonly ICommandResultWriter commandResultWriter;
 
-    /// <summary> Initializes a new instance of the LogsUnityCommand class. </summary>
+    /// <summary> Initializes a new instance of the LogsUnityReadCommand class. </summary>
     /// <param name="logsUnityService"> The Unity-log orchestration service dependency. </param>
     /// <param name="commandResultWriter"> The command-result writer dependency. </param>
-    public LogsUnityCommand (
+    public LogsUnityReadCommand (
         ILogsUnityService logsUnityService,
         ICommandResultWriter commandResultWriter)
     {
@@ -33,7 +32,7 @@ internal sealed class LogsUnityCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Executes the logs unity command. </summary>
+    /// <summary> Executes the logs unity read command. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path. When omitted, the current working directory is used.</param>
     /// <param name="tail"> The optional tail count. </param>
     /// <param name="after"> The optional opaque cursor used for incremental reads. </param>
@@ -52,8 +51,8 @@ internal sealed class LogsUnityCommand
     /// <param name="format"> The output format (text|json). </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The command exit code. </returns>
-    [Command(UcliCommandNames.UnitySubcommand)]
-    public async Task<int> UnityAsync (
+    [Command(UcliCommandNames.ReadSubcommand)]
+    public async Task<int> ReadAsync (
         string? projectPath = null,
         int? tail = null,
         string? after = null,
@@ -72,21 +71,11 @@ internal sealed class LogsUnityCommand
         string? format = null,
         CancellationToken cancellationToken = default)
     {
-        try
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            CommandExecutionState.MarkStarted();
-
-            if (!LogsOutputFormatCodec.TryParse(format, out var outputFormat, out var formatErrorMessage))
-            {
-                var invalidFormatResult = CommandResultFactory.FromExecutionError(
-                    UcliCommandNames.LogsUnity,
-                    ExecutionError.InvalidArgument(formatErrorMessage!));
-                commandResultWriter.WriteToStandardOutput(invalidFormatResult);
-                return invalidFormatResult.ExitCode;
-            }
-
-            var serviceResult = await logsUnityService.ExecuteAsync(
+        return await LogsReadCommandExecutor.ExecuteAsync<IpcUnityLogEvent>(
+                UcliCommandNames.LogsUnityRead,
+                format,
+                commandResultWriter,
+                (onLogEvent, executeCancellationToken) => logsUnityService.ExecuteAsync(
                     new LogsUnityServiceRequest(
                         ProjectPath: projectPath,
                         Tail: tail,
@@ -103,27 +92,11 @@ internal sealed class LogsUnityCommand
                         Stream: stream,
                         PollIntervalMilliseconds: pollIntervalMilliseconds,
                         IdleTimeoutMilliseconds: idleTimeoutMilliseconds),
-                    (unityLogEvent, nextCursor, callbackCancellationToken) =>
-                    {
-                        callbackCancellationToken.ThrowIfCancellationRequested();
-                        WriteLogEvent(outputFormat!, unityLogEvent, nextCursor);
-                        return ValueTask.CompletedTask;
-                    },
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (!serviceResult.IsSuccess)
-            {
-                var commandResult = CommandResultFactory.FromExecutionError(UcliCommandNames.LogsUnity, serviceResult.Error!);
-                commandResultWriter.WriteToStandardOutput(commandResult);
-                return commandResult.ExitCode;
-            }
-
-            return (int)CliExitCode.Success;
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            return (int)CliExitCode.Success;
-        }
+                    onLogEvent,
+                    executeCancellationToken),
+                WriteLogEvent,
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private static void WriteLogEvent (
