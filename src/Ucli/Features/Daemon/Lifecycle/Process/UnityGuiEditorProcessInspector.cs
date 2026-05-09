@@ -1,7 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Security.Principal;
-using MackySoft.Ucli.Application.Shared.Foundation;
 using DiagnosticsProcess = System.Diagnostics.Process;
 using DiagnosticsProcessStartInfo = System.Diagnostics.ProcessStartInfo;
 
@@ -53,7 +52,7 @@ internal sealed class UnityGuiEditorProcessInspector : IUnityGuiEditorProcessIns
         {
             return UnityGuiEditorProcessInspection.NotRunning();
         }
-        catch (Exception exception)
+        catch (Exception)
         {
             return new UnityGuiEditorProcessInspection(
                 Exists: true,
@@ -62,9 +61,7 @@ internal sealed class UnityGuiEditorProcessInspector : IUnityGuiEditorProcessIns
                 ProcessName: null,
                 CommandLine: null,
                 ExecutablePath: null,
-                IsOwnedByCurrentUser: null,
-                Error: ExecutionError.InternalError(
-                    $"Failed to read Unity GUI Editor process start time. ProcessId={processId}. {exception.Message}"));
+                IsOwnedByCurrentUser: null);
         }
 
         return new UnityGuiEditorProcessInspection(
@@ -74,8 +71,7 @@ internal sealed class UnityGuiEditorProcessInspector : IUnityGuiEditorProcessIns
             ProcessName: process.ProcessName,
             CommandLine: TryReadCommandLine(process.Id),
             ExecutablePath: TryReadExecutablePath(process),
-            IsOwnedByCurrentUser: IsOwnedByCurrentUser(process.Id),
-            Error: null);
+            IsOwnedByCurrentUser: IsOwnedByCurrentUser(process.Id));
     }
 
     private static bool HasExited (DiagnosticsProcess process)
@@ -104,9 +100,9 @@ internal sealed class UnityGuiEditorProcessInspector : IUnityGuiEditorProcessIns
 
     private static bool? IsOwnedByCurrentUser (int processId)
     {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        if (OperatingSystem.IsWindows())
         {
-            return IsWindowsProcessOwnedByCurrentUser(processId);
+            return IsWindowsProcessOwnedByCurrentUserCore(processId);
         }
 
         var currentUser = Environment.UserName;
@@ -265,16 +261,6 @@ internal sealed class UnityGuiEditorProcessInspector : IUnityGuiEditorProcessIns
         catch (Exception)
         {
         }
-    }
-
-    private static bool? IsWindowsProcessOwnedByCurrentUser (int processId)
-    {
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            return null;
-        }
-
-        return IsWindowsProcessOwnedByCurrentUserCore(processId);
     }
 
     [SupportedOSPlatform("windows")]

@@ -1,6 +1,5 @@
 using System.Runtime.InteropServices;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
-using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
 
@@ -48,43 +47,24 @@ internal sealed class UnityGuiEditorProcessProbe : IUnityGuiEditorProcessProbe
             return UnityGuiEditorProcessProbeResult.NotMatching(UnityGuiEditorProcessProbeStatus.NotRunning);
         }
 
-        if (inspection.Error != null)
-        {
-            return UnityGuiEditorProcessProbeResult.NotMatching(
-                UnityGuiEditorProcessProbeStatus.Uncertain,
-                inspection.StartTimeUtc,
-                inspection.Error);
-        }
-
         if (inspection.StartTimeUtc is not DateTimeOffset processStartTimeUtc)
         {
-            return UnityGuiEditorProcessProbeResult.NotMatching(
-                UnityGuiEditorProcessProbeStatus.Uncertain,
-                error: ExecutionError.InternalError(
-                    $"Failed to read Unity GUI Editor process start time. ProcessId={marker.ProcessId}."));
+            return UnityGuiEditorProcessProbeResult.NotMatching(UnityGuiEditorProcessProbeStatus.Uncertain);
         }
 
         if (processStartTimeUtc > marker.UpdatedAtUtc)
         {
-            return UnityGuiEditorProcessProbeResult.NotMatching(
-                UnityGuiEditorProcessProbeStatus.StaleMarker,
-                processStartTimeUtc);
+            return UnityGuiEditorProcessProbeResult.NotMatching(UnityGuiEditorProcessProbeStatus.StaleMarker);
         }
 
         if (string.IsNullOrWhiteSpace(inspection.CommandLine))
         {
-            return UnityGuiEditorProcessProbeResult.NotMatching(
-                UnityGuiEditorProcessProbeStatus.Uncertain,
-                processStartTimeUtc,
-                ExecutionError.InternalError(
-                    $"Failed to read Unity GUI Editor process command line. ProcessId={marker.ProcessId}."));
+            return UnityGuiEditorProcessProbeResult.NotMatching(UnityGuiEditorProcessProbeStatus.Uncertain);
         }
 
         if (ContainsBatchmodeArgument(inspection.CommandLine))
         {
-            return UnityGuiEditorProcessProbeResult.NotMatching(
-                UnityGuiEditorProcessProbeStatus.Batchmode,
-                processStartTimeUtc);
+            return UnityGuiEditorProcessProbeResult.NotMatching(UnityGuiEditorProcessProbeStatus.Batchmode);
         }
 
         if (inspection.IsOwnedByCurrentUser is not true)
@@ -92,18 +72,15 @@ internal sealed class UnityGuiEditorProcessProbe : IUnityGuiEditorProcessProbe
             return UnityGuiEditorProcessProbeResult.NotMatching(
                 inspection.IsOwnedByCurrentUser == false
                     ? UnityGuiEditorProcessProbeStatus.DifferentUser
-                    : UnityGuiEditorProcessProbeStatus.Uncertain,
-                processStartTimeUtc);
+                    : UnityGuiEditorProcessProbeStatus.Uncertain);
         }
 
         if (!LooksLikeUnityEditorProcess(inspection, marker))
         {
-            return UnityGuiEditorProcessProbeResult.NotMatching(
-                UnityGuiEditorProcessProbeStatus.NotUnityEditor,
-                processStartTimeUtc);
+            return UnityGuiEditorProcessProbeResult.NotMatching(UnityGuiEditorProcessProbeStatus.NotUnityEditor);
         }
 
-        return UnityGuiEditorProcessProbeResult.Matching(processStartTimeUtc);
+        return UnityGuiEditorProcessProbeResult.Matching();
     }
 
     private static bool ContainsBatchmodeArgument (string? commandLine)

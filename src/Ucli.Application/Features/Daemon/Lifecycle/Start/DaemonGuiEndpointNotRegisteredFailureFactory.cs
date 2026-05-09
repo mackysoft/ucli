@@ -8,26 +8,59 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 internal static class DaemonGuiEndpointNotRegisteredFailureFactory
 {
     /// <summary> Creates the timeout error returned when a GUI endpoint is not registered within the start budget. </summary>
-    public static ExecutionError CreateTimeoutError (
+    public static async ValueTask<DaemonStartResult> CreateFailure (
+        ResolvedUnityProjectContext unityProject,
+        IDaemonDiagnosisStore daemonDiagnosisStore,
+        TimeProvider timeProvider,
         string endpointOwnerDescription,
         string editorInstancePath,
         int? processId,
         ExecutionError waitError)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(endpointOwnerDescription);
+        ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(daemonDiagnosisStore);
+        ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentException.ThrowIfNullOrWhiteSpace(editorInstancePath);
+
+        var timeoutError = CreateTimeoutError(endpointOwnerDescription, processId, waitError);
+        var diagnosis = CreateDiagnosis(
+            timeoutError.Message,
+            processId,
+            editorInstancePath,
+            timeProvider.GetUtcNow());
+        var diagnosisWriteResult = await daemonDiagnosisStore.Write(
+                unityProject.RepositoryRoot,
+                unityProject.ProjectFingerprint,
+                diagnosis,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        if (!diagnosisWriteResult.IsSuccess)
+        {
+            return DaemonStartResult.Failure(
+                CreateAugmentedPrimaryError(endpointOwnerDescription, timeoutError, diagnosisWriteResult.Error!),
+                diagnosis);
+        }
+
+        return DaemonStartResult.Failure(timeoutError, diagnosis);
+    }
+
+    private static ExecutionError CreateTimeoutError (
+        string endpointOwnerDescription,
+        int? processId,
+        ExecutionError waitError)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(endpointOwnerDescription);
         ArgumentNullException.ThrowIfNull(waitError);
 
         return ExecutionError.Timeout(
             $"Timed out while waiting for {endpointOwnerDescription} endpoint registration. " +
             $"reason={DaemonDiagnosisReasonValues.GuiEndpointNotRegistered} " +
-            $"editorInstancePath={editorInstancePath} processId={processId}. " +
+            $"processId={processId}. " +
             waitError.Message,
             ExecutionErrorCodes.IpcTimeout);
     }
 
-    /// <summary> Creates the diagnosis persisted and projected for a GUI endpoint registration timeout. </summary>
-    public static DaemonDiagnosis CreateDiagnosis (
+    private static DaemonDiagnosis CreateDiagnosis (
         string message,
         int? processId,
         string editorInstancePath,
@@ -45,5 +78,16 @@ internal static class DaemonGuiEndpointNotRegisteredFailureFactory
             ProcessId: processId,
             EditorInstancePath: editorInstancePath,
             SessionIssuedAtUtc: updatedAtUtc);
+    }
+
+    private static ExecutionError CreateAugmentedPrimaryError (
+        string endpointOwnerDescription,
+        ExecutionError primaryError,
+        ExecutionError diagnosisError)
+    {
+        return ExecutionError.Timeout(
+            $"{endpointOwnerDescription} endpoint registration timed out and diagnosis persistence failed. " +
+            $"StartError={primaryError.Message} DiagnosisError={diagnosisError.Message}",
+            primaryError.Code);
     }
 }

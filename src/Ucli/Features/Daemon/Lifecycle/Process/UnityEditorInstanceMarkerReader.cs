@@ -11,13 +11,7 @@ namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
 /// <summary> Reads Unity <c>Library/EditorInstance.json</c> markers from the resolved project root. </summary>
 internal sealed class UnityEditorInstanceMarkerReader : IUnityEditorInstanceMarkerReader
 {
-    private const string LibraryDirectoryName = "Library";
-
-    private const string MarkerFileName = "EditorInstance.json";
-
     private const string ProcessIdPropertyName = "process_id";
-
-    private const string VersionPropertyName = "version";
 
     private const string AppPathPropertyName = "app_path";
 
@@ -36,7 +30,7 @@ internal sealed class UnityEditorInstanceMarkerReader : IUnityEditorInstanceMark
         string markerPath;
         try
         {
-            markerPath = ResolveMarkerPath(unityProject.UnityProjectRoot);
+            markerPath = UnityEditorInstanceMarkerPath.Resolve(unityProject.UnityProjectRoot);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
@@ -88,7 +82,6 @@ internal sealed class UnityEditorInstanceMarkerReader : IUnityEditorInstanceMark
                 MarkerPath: markerPath,
                 ProcessId: processId,
                 UpdatedAtUtc: new DateTimeOffset(updatedAtUtc, TimeSpan.Zero),
-                Version: ReadOptionalString(document.RootElement, VersionPropertyName),
                 AppPath: ReadOptionalString(document.RootElement, AppPathPropertyName),
                 AppContentsPath: ReadOptionalString(document.RootElement, AppContentsPathPropertyName)));
         }
@@ -134,15 +127,6 @@ internal sealed class UnityEditorInstanceMarkerReader : IUnityEditorInstanceMark
             return ExecutionError.InternalError(
                 $"Failed to inspect Unity Editor instance marker: {markerPath}. {exception.Message}");
         }
-    }
-
-    private static string ResolveMarkerPath (string unityProjectRoot)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
-        return Path.Combine(
-            unityProjectRoot,
-            LibraryDirectoryName,
-            MarkerFileName);
     }
 
     private static bool TryReadProcessId (

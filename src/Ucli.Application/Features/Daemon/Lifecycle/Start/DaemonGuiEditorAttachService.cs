@@ -102,28 +102,15 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
         UnityEditorInstanceMarker marker,
         ExecutionError waitError)
     {
-        var timeoutError = DaemonGuiEndpointNotRegisteredFailureFactory.CreateTimeoutError(
-            "existing GUI Editor",
-            marker.MarkerPath,
-            marker.ProcessId,
-            waitError);
-        var diagnosis = DaemonGuiEndpointNotRegisteredFailureFactory.CreateDiagnosis(
-            timeoutError.Message,
-            marker.ProcessId,
-            marker.MarkerPath,
-            timeProvider.GetUtcNow());
-        var diagnosisWriteResult = await daemonDiagnosisStore.Write(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
-                diagnosis,
-                CancellationToken.None)
+        return await DaemonGuiEndpointNotRegisteredFailureFactory.CreateFailure(
+                unityProject,
+                daemonDiagnosisStore,
+                timeProvider,
+                "existing GUI Editor",
+                marker.MarkerPath,
+                marker.ProcessId,
+                waitError)
             .ConfigureAwait(false);
-        if (!diagnosisWriteResult.IsSuccess)
-        {
-            return DaemonStartResult.Failure(CreateAugmentedPrimaryError(timeoutError, diagnosisWriteResult.Error!), diagnosis);
-        }
-
-        return DaemonStartResult.Failure(timeoutError, diagnosis);
     }
 
     private static ExecutionError CreateTimeoutError (string message)
@@ -131,13 +118,4 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
         return ExecutionError.Timeout(message, ExecutionErrorCodes.IpcTimeout);
     }
 
-    private static ExecutionError CreateAugmentedPrimaryError (
-        ExecutionError primaryError,
-        ExecutionError diagnosisError)
-    {
-        return ExecutionError.Timeout(
-            "Existing GUI Editor endpoint registration timed out and diagnosis persistence failed. " +
-            $"StartError={primaryError.Message} DiagnosisError={diagnosisError.Message}",
-            primaryError.Code);
-    }
 }

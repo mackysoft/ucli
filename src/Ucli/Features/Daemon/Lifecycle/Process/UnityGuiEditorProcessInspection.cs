@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Shared.Foundation;
-
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
 
 /// <summary> Represents inspected process metadata used to verify a GUI Unity Editor marker candidate. </summary>
@@ -10,8 +8,7 @@ internal sealed record UnityGuiEditorProcessInspection (
     string? ProcessName,
     string? CommandLine,
     string? ExecutablePath,
-    bool? IsOwnedByCurrentUser,
-    ExecutionError? Error)
+    bool? IsOwnedByCurrentUser)
 {
     /// <summary> Creates a not-running inspection result. </summary>
     public static UnityGuiEditorProcessInspection NotRunning ()
@@ -23,7 +20,6 @@ internal sealed record UnityGuiEditorProcessInspection (
             ProcessName: null,
             CommandLine: null,
             ExecutablePath: null,
-            IsOwnedByCurrentUser: null,
-            Error: null);
+            IsOwnedByCurrentUser: null);
     }
 }

@@ -138,12 +138,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                     .ConfigureAwait(false);
             }
 
-            if (launchResult.ProcessId is not int processId)
-            {
-                return DaemonStartResult.Failure(ExecutionError.InternalError(
-                    "Unity daemon launch succeeded without a process identifier."));
-            }
-
+            var processId = launchResult.ProcessId!.Value;
             launchedProcessId = processId;
             var updateProcessIdResult = await daemonLaunchSessionService.UpdateProcessId(
                     unityProject,
@@ -215,66 +210,52 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
-        var launchedProcessId = default(int?);
-        try
+        var unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(
+            unityProject.RepositoryRoot,
+            unityProject.ProjectFingerprint);
+        var launchResult = await unityGuiEditorProcessLauncher.Launch(
+                unityProject,
+                unityLogPath,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!launchResult.IsSuccess)
         {
-            var unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint);
-            var launchResult = await unityGuiEditorProcessLauncher.Launch(
-                    unityProject,
-                    unityLogPath,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (!launchResult.IsSuccess)
-            {
-                return DaemonStartResult.Failure(launchResult.Error!);
-            }
+            return DaemonStartResult.Failure(launchResult.Error!);
+        }
 
-            if (launchResult.ProcessId is not int processId)
-            {
-                return DaemonStartResult.Failure(ExecutionError.InternalError(
-                    "Unity GUI Editor launch succeeded without a process identifier."));
-            }
-
-            launchedProcessId = processId;
-            if (!deadline.TryGetRemainingTimeout(out var waitTimeout))
-            {
-                return await CreateGuiEndpointNotRegisteredFailure(
-                        unityProject,
-                        launchedProcessId,
-                        ExecutionError.Timeout(
-                            "Timed out before GUI daemon session registration wait could begin.",
-                            ExecutionErrorCodes.IpcTimeout))
-                    .ConfigureAwait(false);
-            }
-
-            var waitResult = await guiSessionRegistrationAwaiter.WaitForSession(
+        var processId = launchResult.ProcessId!.Value;
+        if (!deadline.TryGetRemainingTimeout(out var waitTimeout))
+        {
+            return await CreateGuiEndpointNotRegisteredFailure(
                     unityProject,
                     processId,
-                    waitTimeout,
-                    cancellationToken)
+                    ExecutionError.Timeout(
+                        "Timed out before GUI daemon session registration wait could begin.",
+                        ExecutionErrorCodes.IpcTimeout))
                 .ConfigureAwait(false);
-            if (waitResult.IsSuccess)
-            {
-                return DaemonStartResult.Started(waitResult.Session!);
-            }
-
-            if (waitResult.Error!.Kind == ExecutionErrorKind.Timeout)
-            {
-                return await CreateGuiEndpointNotRegisteredFailure(
-                        unityProject,
-                        launchedProcessId,
-                        waitResult.Error)
-                    .ConfigureAwait(false);
-            }
-
-            return DaemonStartResult.Failure(waitResult.Error);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+
+        var waitResult = await guiSessionRegistrationAwaiter.WaitForSession(
+                unityProject,
+                processId,
+                waitTimeout,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (waitResult.IsSuccess)
         {
-            throw;
+            return DaemonStartResult.Started(waitResult.Session!);
         }
+
+        if (waitResult.Error!.Kind == ExecutionErrorKind.Timeout)
+        {
+            return await CreateGuiEndpointNotRegisteredFailure(
+                    unityProject,
+                    processId,
+                    waitResult.Error)
+                .ConfigureAwait(false);
+        }
+
+        return DaemonStartResult.Failure(waitResult.Error);
     }
 
     private async ValueTask<DaemonStartResult> CreateFailureWithCompensation (
@@ -343,33 +324,15 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         int? processId,
         ExecutionError waitError)
     {
-        var editorInstancePath = ResolveEditorInstancePath(unityProject.UnityProjectRoot);
-        var timeoutError = DaemonGuiEndpointNotRegisteredFailureFactory.CreateTimeoutError(
-            "GUI Editor",
-            editorInstancePath,
-            processId,
-            waitError);
-        var updatedAtUtc = timeProvider.GetUtcNow();
-        var diagnosis = DaemonGuiEndpointNotRegisteredFailureFactory.CreateDiagnosis(
-            timeoutError.Message,
-            processId,
-            editorInstancePath,
-            updatedAtUtc);
-        var diagnosisWriteResult = await daemonDiagnosisStore.Write(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
-                diagnosis,
-                CancellationToken.None)
+        return await DaemonGuiEndpointNotRegisteredFailureFactory.CreateFailure(
+                unityProject,
+                daemonDiagnosisStore,
+                timeProvider,
+                "GUI Editor",
+                UnityEditorInstanceMarkerPath.Resolve(unityProject.UnityProjectRoot),
+                processId,
+                waitError)
             .ConfigureAwait(false);
-        if (!diagnosisWriteResult.IsSuccess)
-        {
-            return DaemonStartResult.Failure(CreateAugmentedPrimaryError(
-                timeoutError,
-                "GUI Editor endpoint registration timed out and diagnosis persistence failed. " +
-                $"StartError={timeoutError.Message} DiagnosisError={diagnosisWriteResult.Error!.Message}"), diagnosis);
-        }
-
-        return DaemonStartResult.Failure(timeoutError, diagnosis);
     }
 
     private static ExecutionError CreateAugmentedPrimaryError (
@@ -386,10 +349,5 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             ExecutionErrorKind.InternalError => ExecutionError.InternalError(message, primaryError.Code),
             _ => throw new ArgumentOutOfRangeException(nameof(primaryError), primaryError.Kind, "Unsupported execution error kind."),
         };
-    }
-
-    private static string ResolveEditorInstancePath (string unityProjectRoot)
-    {
-        return Path.Combine(unityProjectRoot, "Library", "EditorInstance.json");
     }
 }

@@ -29,7 +29,6 @@ public sealed class UnityEditorInstanceMarkerReaderTests
         Assert.NotNull(result.Marker);
         Assert.Equal(markerPath, result.Marker!.MarkerPath);
         Assert.Equal(1234, result.Marker.ProcessId);
-        Assert.Null(result.Marker.Version);
         Assert.Null(result.Marker.AppPath);
         Assert.Null(result.Marker.AppContentsPath);
     }

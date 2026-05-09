@@ -734,10 +734,6 @@ public sealed class DaemonLaunchServiceTests
 
         public int CallCount { get; private set; }
 
-        public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
-
-        public string? LastUnityLogPath { get; private set; }
-
         public ValueTask<UnityDaemonLaunchResult> Launch (
             ResolvedUnityProjectContext unityProject,
             string unityLogPath,
@@ -745,8 +741,6 @@ public sealed class DaemonLaunchServiceTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
-            LastUnityProject = unityProject;
-            LastUnityLogPath = unityLogPath;
             return ValueTask.FromResult(NextResult);
         }
     }
@@ -758,11 +752,7 @@ public sealed class DaemonLaunchServiceTests
 
         public int CallCount { get; private set; }
 
-        public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
-
         public int LastExpectedProcessId { get; private set; }
-
-        public TimeSpan LastTimeout { get; private set; }
 
         public ValueTask<DaemonGuiSessionRegistrationWaitResult> WaitForSession (
             ResolvedUnityProjectContext unityProject,
@@ -772,9 +762,7 @@ public sealed class DaemonLaunchServiceTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
-            LastUnityProject = unityProject;
             LastExpectedProcessId = expectedProcessId;
-            LastTimeout = timeout;
             return ValueTask.FromResult(NextResult);
         }
     }

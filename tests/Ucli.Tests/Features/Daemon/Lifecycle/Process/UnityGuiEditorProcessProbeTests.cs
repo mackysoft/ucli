@@ -1,6 +1,4 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
-using MackySoft.Ucli.Application.Shared.Foundation;
-
 namespace MackySoft.Ucli.Tests.Daemon;
 
 public sealed class UnityGuiEditorProcessProbeTests
@@ -50,8 +48,6 @@ public sealed class UnityGuiEditorProcessProbeTests
         var result = await Probe(CreateInspection(commandLine: null));
 
         Assert.Equal(UnityGuiEditorProcessProbeStatus.Uncertain, result.Status);
-        Assert.NotNull(result.Error);
-        Assert.Equal(MarkerUpdatedAtUtc.AddSeconds(-1), result.ObservedStartTimeUtc);
     }
 
     [Fact]
@@ -126,25 +122,11 @@ public sealed class UnityGuiEditorProcessProbeTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Probe_WhenInspectionErrorExists_ReturnsUncertainWithError ()
-    {
-        var expectedError = ExecutionError.InternalError("inspect failed");
-        var result = await Probe(CreateInspection(error: expectedError));
-
-        Assert.Equal(UnityGuiEditorProcessProbeStatus.Uncertain, result.Status);
-        Assert.Equal(expectedError, result.Error);
-        Assert.Equal(MarkerUpdatedAtUtc.AddSeconds(-1), result.ObservedStartTimeUtc);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Probe_WhenStartTimeCannotBeRead_ReturnsUncertainWithError ()
+    public async Task Probe_WhenStartTimeCannotBeRead_ReturnsUncertain ()
     {
         var result = await Probe(CreateInspection(startTimeAvailable: false));
 
         Assert.Equal(UnityGuiEditorProcessProbeStatus.Uncertain, result.Status);
-        Assert.NotNull(result.Error);
-        Assert.Null(result.ObservedStartTimeUtc);
     }
 
     [Fact]
@@ -173,7 +155,6 @@ public sealed class UnityGuiEditorProcessProbeTests
             MarkerPath: "/project/Library/EditorInstance.json",
             ProcessId: 1234,
             UpdatedAtUtc: MarkerUpdatedAtUtc,
-            Version: "6000.1.4f1",
             AppPath: appPath,
             AppContentsPath: appContentsPath);
     }
@@ -184,8 +165,7 @@ public sealed class UnityGuiEditorProcessProbeTests
         string? processName = "Unity",
         string? commandLine = "/Applications/Unity -projectPath /project",
         string? executablePath = "/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app/Contents/MacOS/Unity",
-        bool? isOwnedByCurrentUser = true,
-        ExecutionError? error = null)
+        bool? isOwnedByCurrentUser = true)
     {
         return new UnityGuiEditorProcessInspection(
             Exists: true,
@@ -196,8 +176,7 @@ public sealed class UnityGuiEditorProcessProbeTests
             ProcessName: processName,
             CommandLine: commandLine,
             ExecutablePath: executablePath,
-            IsOwnedByCurrentUser: isOwnedByCurrentUser,
-            Error: error);
+            IsOwnedByCurrentUser: isOwnedByCurrentUser);
     }
 
     private sealed class StubUnityGuiEditorProcessInspector : IUnityGuiEditorProcessInspector

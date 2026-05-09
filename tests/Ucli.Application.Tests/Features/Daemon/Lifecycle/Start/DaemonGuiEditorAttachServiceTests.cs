@@ -22,7 +22,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
         };
         var processProbe = new StubUnityGuiEditorProcessProbe
         {
-            Result = UnityGuiEditorProcessProbeResult.Matching(new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero)),
+            Result = UnityGuiEditorProcessProbeResult.Matching(),
         };
         var session = CreateGuiSession();
         var awaiter = new StubDaemonGuiSessionRegistrationAwaiter
@@ -61,7 +61,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
         };
         var processProbe = new StubUnityGuiEditorProcessProbe
         {
-            Result = UnityGuiEditorProcessProbeResult.Matching(new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero)),
+            Result = UnityGuiEditorProcessProbeResult.Matching(),
         };
         var awaiter = new StubDaemonGuiSessionRegistrationAwaiter();
         var diagnosisStore = new StubDaemonDiagnosisStore();
@@ -91,7 +91,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
         };
         var processProbe = new StubUnityGuiEditorProcessProbe
         {
-            Result = UnityGuiEditorProcessProbeResult.Matching(new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero)),
+            Result = UnityGuiEditorProcessProbeResult.Matching(),
         };
         var timeoutError = ExecutionError.Timeout("wait timed out", ExecutionErrorCodes.IpcTimeout);
         var awaiter = new StubDaemonGuiSessionRegistrationAwaiter
@@ -133,7 +133,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
         };
         var processProbe = new StubUnityGuiEditorProcessProbe
         {
-            Result = UnityGuiEditorProcessProbeResult.Matching(new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero)),
+            Result = UnityGuiEditorProcessProbeResult.Matching(),
             OnProbe = () => timeProvider.Advance(TimeSpan.FromMilliseconds(175)),
         };
         var awaiter = new StubDaemonGuiSessionRegistrationAwaiter();
@@ -190,7 +190,6 @@ public sealed class DaemonGuiEditorAttachServiceTests
             MarkerPath: "/repo/UnityProject/Library/EditorInstance.json",
             ProcessId: 1234,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 1, 0, TimeSpan.Zero),
-            Version: "6000.1.4f1",
             AppPath: "/Applications/Unity.app",
             AppContentsPath: "/Applications/Unity.app/Contents");
     }
