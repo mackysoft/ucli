@@ -6,13 +6,6 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class ErrorsCliOutputContractTests
 {
-    private static readonly string[] QueryAssetsFindFamilyCommands =
-    [
-        UcliCommandIds.Query.Name,
-        UcliCommandIds.QueryAssets.Name,
-        UcliCommandIds.QueryAssetsFind.Name,
-    ];
-
     [Fact]
     [Trait("Size", "Medium")]
     public async Task Errors_WithoutSubcommand_ReturnsJsonEnvelopeError ()
@@ -67,11 +60,9 @@ public sealed class ErrorsCliOutputContractTests
         Assert.NotEmpty(codes);
         Assert.Equal(codes.Order(StringComparer.Ordinal).ToArray(), codes);
         Assert.Contains(IpcTransportErrorCodes.IpcTimeout.Value, codes);
+        Assert.All(codeItems, AssertListCodeItemShape);
         var ipcTimeout = codeItems.Single(static code => code.GetProperty("code").GetString() == IpcTransportErrorCodes.IpcTimeout.Value);
-        Assert.False(string.IsNullOrWhiteSpace(ipcTimeout.GetProperty("summary").GetString()));
         Assert.Equal("transport", ipcTimeout.GetProperty("category").GetString());
-        Assert.Equal(UcliErrorRetryClassValues.ContextDependent, ipcTimeout.GetProperty("defaultRetryClass").GetString());
-        Assert.Contains(ipcTimeout.GetProperty("appliesTo").EnumerateArray(), static appliesTo => appliesTo.GetString() == UcliCommandIds.Query.Name);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", static payload => payload
                 .HasInt32("catalogVersion", 1)
@@ -123,10 +114,9 @@ public sealed class ErrorsCliOutputContractTests
         var payload = outputJson.RootElement.GetProperty("payload");
         var codes = payload.GetProperty("codes").EnumerateArray().ToArray();
         Assert.NotEmpty(codes);
+        Assert.All(codes, AssertListCodeItemShape);
         Assert.Contains(codes, static code => code.GetProperty("code").GetString() == IpcTransportErrorCodes.IpcTimeout.Value);
-        Assert.All(codes, static code => Assert.Contains(
-            code.GetProperty("appliesTo").EnumerateArray(),
-            static appliesTo => QueryAssetsFindFamilyCommands.Contains(appliesTo.GetString(), StringComparer.Ordinal)));
+        Assert.DoesNotContain(codes, static code => code.GetProperty("code").GetString() == PlanTokenErrorCodes.PlanTokenExpired.Value);
     }
 
     [Fact]
@@ -339,6 +329,19 @@ public sealed class ErrorsCliOutputContractTests
             .EnumerateArray()
             .Select(static code => code.GetProperty("code").GetString()!)
             .ToArray();
+    }
+
+    private static void AssertListCodeItemShape (JsonElement code)
+    {
+        var propertyNames = code
+            .EnumerateObject()
+            .Select(static property => property.Name)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(["category", "code"], propertyNames);
+        Assert.False(string.IsNullOrWhiteSpace(code.GetProperty("code").GetString()));
+        Assert.False(string.IsNullOrWhiteSpace(code.GetProperty("category").GetString()));
     }
 
     private static void AssertNextActionsHavePublicShape (JsonElement nextActions)

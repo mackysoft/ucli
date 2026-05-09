@@ -48,7 +48,7 @@
   - `--category` は category の exact match とする。
   - `--command` は command identifier の exact match と dot segment family match とする。たとえば `query.assets.find` は `query` に適用される code に一致し、`daemon` は `daemon.start` / `daemon.status` などに適用される code に一致する。
   - 未知 category / command は成功とし、`payload.codes: []` を返す。空 category、空 command、不正な command identifier は `INVALID_ARGUMENT` を返す。
-  - 成功時 payload は `catalogVersion`、`source`、`codes[]` を返す。`codes[]` の各要素は `code`、`category`、`summary`、`defaultRetryClass`、`appliesTo` を持つ。
+  - 成功時 payload は `catalogVersion`、`source`、`codes[]` を返す。`codes[]` の各要素は `code`、`category` のみを持つ。意味、再試行分類、適用 command、次行動は `describe` で取得する。
   - `describe <CODE>` は指定 error code の静的な意味、確認対象、次行動、実行意味論を返す。
   - 未知 code は既定で成功し、`known=false` と unknown fallback descriptor を返す。`--requireKnown` 指定時の未知 code は `INVALID_ARGUMENT` を返す。
 - `ucli skills`
@@ -107,9 +107,9 @@
 | Option | Short | Description |
 | --- | --- | --- |
 | `--category <string?>` | - | category の exact match filter |
-| `--command <string?>` | - | `appliesTo` に含まれる command の exact / dot segment family match filter |
+| `--command <string?>` | - | 関連 command の exact / dot segment family match filter |
 
-成功時 payload は `catalogVersion`、`source`、`codes[]` を返す。`codes[]` の各要素は `code`、`category`、`summary`、`defaultRetryClass`、`appliesTo` を持つ。出力順は `code` の ordinal 昇順とする。該当 code がない場合も成功し、`payload.codes: []` を返す。
+成功時 payload は `catalogVersion`、`source`、`codes[]` を返す。`codes[]` の各要素は `code`、`category` のみを持つ。出力順は `code` の ordinal 昇順とする。該当 code がない場合も成功し、`payload.codes: []` を返す。意味、再試行分類、適用 command、次行動は `errors describe <CODE>` で取得する。
 
 ```bash
 ucli errors list
@@ -130,10 +130,7 @@ ucli errors list --command call
     "codes": [
       {
         "code": "EDITOR_COMPILING",
-        "category": "lifecycle",
-        "summary": "Unity Editor is compiling and cannot accept execution requests.",
-        "defaultRetryClass": "waitThenRetry",
-        "appliesTo": ["plan", "call", "resolve", "query"]
+        "category": "lifecycle"
       }
     ]
   },

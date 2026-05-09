@@ -164,9 +164,8 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 | --- | --- | --- | --- |
 | `code` | string | yes | error code 文字列 |
 | `category` | string | yes | error code の分類 |
-| `summary` | string | yes | 1行の要約 |
-| `defaultRetryClass` | string | yes | code 単体から見た既定の再試行分類 |
-| `appliesTo` | string[] | yes | 関連する CLI command 名。限定しない場合は空配列ではなく代表 command を列挙する |
+
+一覧は探索用の最小 payload とし、意味、再試行分類、適用 command、次行動は `ucli errors describe <CODE>` で取得する。
 
 #### `ucli errors describe`
 
