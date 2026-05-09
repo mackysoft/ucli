@@ -8,6 +8,6 @@ internal interface IOpsPreflightService
     /// <param name="cancellationToken"> The cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to preflight result values. </returns>
     ValueTask<OpsPreflightResult> Execute (
-        OpsCommandInput input,
+        OpsPreflightInput input,
         CancellationToken cancellationToken = default);
 }

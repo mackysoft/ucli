@@ -65,7 +65,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
         {
             return OpsListReadResult.Success(
                 new OpsListReadOutput(
-                    Snapshot: OpsCatalogListSnapshot.FromDescriptors(persistedSnapshot),
+                    Snapshot: OpsCatalogListSnapshotFactory.FromDescriptors(persistedSnapshot),
                     AccessInfo: new OpsCatalogAccessInfo(
                         Used: true,
                         Hit: true,
@@ -204,7 +204,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
 
         return OpsListReadResult.Success(
             new OpsListReadOutput(
-                Snapshot: OpsCatalogListSnapshot.FromCatalog(refreshResult.Snapshot!),
+                Snapshot: OpsCatalogListSnapshotFactory.FromCatalog(refreshResult.Snapshot!),
                 AccessInfo: new OpsCatalogAccessInfo(
                     Used: false,
                     Hit: true,

@@ -49,7 +49,10 @@ internal sealed class OpsService : IOpsService
                 UcliCoreErrorCodes.InvalidArgument);
         }
 
-        var preflightResult = await preflightService.Execute(input, cancellationToken).ConfigureAwait(false);
+        var preflightResult = await preflightService.Execute(
+                OpsPreflightInput.From(input),
+                cancellationToken)
+            .ConfigureAwait(false);
         if (!preflightResult.IsSuccess)
         {
             return OpsListServiceResult.Failure(
@@ -68,7 +71,15 @@ internal sealed class OpsService : IOpsService
                 catalogResult.ErrorCode!.Value);
         }
 
-        return listResultMapper.Map(catalogResult.Output!, filter!);
+        var filterResult = filter!.Apply(catalogResult.Output!.Snapshot.Operations);
+        if (!filterResult.IsSuccess)
+        {
+            return OpsListServiceResult.Failure(
+                filterResult.ErrorMessage!,
+                UcliCoreErrorCodes.InvalidArgument);
+        }
+
+        return listResultMapper.Map(catalogResult.Output, filterResult.Operations!);
     }
 
     /// <inheritdoc />
@@ -80,15 +91,7 @@ internal sealed class OpsService : IOpsService
         ArgumentNullException.ThrowIfNull(input);
 
         var preflightResult = await preflightService.Execute(
-                new OpsCommandInput(
-                    ProjectPath: input.ProjectPath,
-                    Mode: input.Mode,
-                    TimeoutMilliseconds: input.TimeoutMilliseconds,
-                    ReadIndexMode: input.ReadIndexMode,
-                    NameRegex: null,
-                    Kind: null,
-                    MaxPolicy: null,
-                    FailFast: input.FailFast),
+                OpsPreflightInput.From(input),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!preflightResult.IsSuccess)

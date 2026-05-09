@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Preflight;
 using MackySoft.Ucli.Contracts.Configuration;
 
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops;
@@ -19,4 +20,4 @@ internal sealed record OpsCommandInput (
     string? NameRegex,
     UcliOperationKind? Kind,
     OperationPolicy? MaxPolicy,
-    bool FailFast = false);
+    bool FailFast = false) : IOpsPreflightInputSource;

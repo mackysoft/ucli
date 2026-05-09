@@ -20,7 +20,7 @@ internal sealed class IndexOpsDescribeJsonContractWriter : IndexJsonContractWrit
         }
         else
         {
-            IndexOpsCatalogJsonContractWriter.WriteOperationEntry(writer, contract.Operation);
+            IndexOpEntryJsonContractWriter.WriteEntry(writer, contract.Operation);
         }
 
         writer.WriteEndObject();

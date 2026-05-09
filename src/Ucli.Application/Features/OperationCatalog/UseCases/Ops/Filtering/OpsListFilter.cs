@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -37,6 +38,74 @@ internal sealed record OpsListFilter (
         }
 
         filter = new OpsListFilter(regex, input.Kind, input.MaxPolicy);
+        errorMessage = null;
+        return true;
+    }
+
+    /// <summary> Applies this filter to one operation list. </summary>
+    public OpsListFilterApplyResult Apply (IReadOnlyList<OpsCatalogListEntry> operations)
+    {
+        ArgumentNullException.ThrowIfNull(operations);
+
+        if (NameRegex == null && !Kind.HasValue && !MaxPolicy.HasValue)
+        {
+            return OpsListFilterApplyResult.Success(operations);
+        }
+
+        var matchedOperations = new List<OpsCatalogListEntry>();
+        foreach (var operation in operations)
+        {
+            if (!TryIsMatch(operation, out var isMatch, out var errorMessage))
+            {
+                return OpsListFilterApplyResult.Failure(errorMessage!);
+            }
+
+            if (isMatch)
+            {
+                matchedOperations.Add(operation);
+            }
+        }
+
+        return OpsListFilterApplyResult.Success(matchedOperations);
+    }
+
+    private bool TryIsMatch (
+        OpsCatalogListEntry operation,
+        out bool isMatch,
+        out string? errorMessage)
+    {
+        if (NameRegex != null)
+        {
+            if (!RegexPatternUtilities.TryIsMatch(operation.Name, NameRegex, out var regexMatch))
+            {
+                isMatch = false;
+                errorMessage = "nameRegex match timed out.";
+                return false;
+            }
+
+            if (!regexMatch)
+            {
+                isMatch = false;
+                errorMessage = null;
+                return true;
+            }
+        }
+
+        if (Kind.HasValue && operation.Kind != Kind.Value)
+        {
+            isMatch = false;
+            errorMessage = null;
+            return true;
+        }
+
+        if (MaxPolicy.HasValue && operation.Policy > MaxPolicy.Value)
+        {
+            isMatch = false;
+            errorMessage = null;
+            return true;
+        }
+
+        isMatch = true;
         errorMessage = null;
         return true;
     }

@@ -1,8 +1,6 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
-using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops;
-using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Filtering;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Preflight;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
@@ -64,7 +62,7 @@ public sealed class OpsServiceTests
             Result = OpsPreflightResult.Success(preflightContext),
         };
         var catalogOutput = new OpsListReadOutput(
-            Snapshot: OpsCatalogListSnapshot.FromCatalog(CreateSnapshot(
+            Snapshot: OpsCatalogListSnapshotFactory.FromCatalog(CreateSnapshot(
                 DateTimeOffset.UtcNow,
                 [
                     CreateSceneSaveEntry(),
@@ -109,6 +107,8 @@ public sealed class OpsServiceTests
         Assert.Equal(1, catalogAccessService.CallCount);
         Assert.Equal(1, listResultMapper.CallCount);
         Assert.Same(catalogOutput, listResultMapper.LastOutput);
+        var operation = Assert.Single(listResultMapper.LastOperations!);
+        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave, operation.Name);
     }
 
     [Fact]
@@ -161,10 +161,10 @@ public sealed class OpsServiceTests
     {
         public OpsPreflightResult Result { get; set; } = OpsPreflightResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
-        public OpsCommandInput? LastInput { get; private set; }
+        public OpsPreflightInput? LastInput { get; private set; }
 
         public ValueTask<OpsPreflightResult> Execute (
-            OpsCommandInput input,
+            OpsPreflightInput input,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -207,14 +207,17 @@ public sealed class OpsServiceTests
 
         public OpsListReadOutput? LastOutput { get; private set; }
 
+        public IReadOnlyList<OpsCatalogListEntry>? LastOperations { get; private set; }
+
         public OpsListServiceResult Result { get; set; } = OpsListServiceResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
         public OpsListServiceResult Map (
             OpsListReadOutput output,
-            OpsListFilter filter)
+            IReadOnlyList<OpsCatalogListEntry> operations)
         {
             CallCount++;
             LastOutput = output;
+            LastOperations = operations;
             return Result;
         }
     }

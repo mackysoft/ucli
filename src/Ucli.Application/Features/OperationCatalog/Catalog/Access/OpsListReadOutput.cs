@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
-
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 
 /// <summary> Represents the internal list snapshot used by <c>ops list</c>. </summary>

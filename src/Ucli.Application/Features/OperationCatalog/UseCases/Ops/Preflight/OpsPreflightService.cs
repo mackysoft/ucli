@@ -18,7 +18,7 @@ internal sealed class OpsPreflightService : IOpsPreflightService
 
     /// <inheritdoc />
     public async ValueTask<OpsPreflightResult> Execute (
-        OpsCommandInput input,
+        OpsPreflightInput input,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

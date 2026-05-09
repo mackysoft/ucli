@@ -1,4 +1,6 @@
-namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
+using MackySoft.Ucli.Contracts.Configuration;
+
+namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 
 /// <summary> Represents one operation entry needed by <c>ops list</c>. </summary>
 /// <param name="Name"> The operation name. </param>
@@ -6,5 +8,5 @@ namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 /// <param name="Policy"> The operation policy value. </param>
 internal sealed record OpsCatalogListEntry (
     string Name,
-    string Kind,
-    string Policy);
+    UcliOperationKind Kind,
+    OperationPolicy Policy);
