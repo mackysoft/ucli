@@ -26,6 +26,13 @@
 ## 公開コマンド
 - `ucli ops`
   - `list` は利用可能なオペレーション一覧を返す。
+  - `list` は `--nameRegex <regex>`、`--kind <query|mutation|command>`、`--maxPolicy <safe|advanced|dangerous>` による絞り込みを受け付ける。
+  - `--nameRegex` は operation name だけに適用する。glob 構文は受け付けない。
+  - `--kind` は構造化 exact match とし、許可値へ正規化して評価する。
+  - `--maxPolicy` は policy 上限であり、`safe` は safe のみ、`advanced` は safe / advanced、`dangerous` は safe / advanced / dangerous を返す。
+  - `list` の複数フィルタは AND 条件で評価する。該当 operation がない場合も成功とし、`payload.operations: []` を返す。
+  - `list` の出力順は operation name の ordinal 昇順とする。
+  - 無効な regex / kind / maxPolicy は `INVALID_ARGUMENT` を返す。
   - `describe <opName>` は特定オペレーションの agent 向け contract と検証用 schema を返す。
   - `description` / `inputs[].constraints` / `inputs[].variants[].fields[].constraints` / `resultContract` / `assurance` は operation 選択、入力構築、結果解釈の主契約である。
   - source code を受け取る operation では `codeContract` が source forms、entry point 署名、source-visible API、戻り値制約を表す。
