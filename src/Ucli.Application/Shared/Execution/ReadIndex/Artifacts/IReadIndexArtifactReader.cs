@@ -8,6 +8,13 @@ internal interface IReadIndexArtifactReader
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default);
 
+    /// <summary> Reads one <c>ops.describe/&lt;opKey&gt;.json</c> contract referenced by <c>ops.catalog.json</c>. </summary>
+    ValueTask<ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>> ReadOpsDescribe (
+        ResolvedUnityProjectContext unityProject,
+        IndexOpsCatalogEntryJsonContract catalogEntry,
+        string sourceInputsHash,
+        CancellationToken cancellationToken = default);
+
     /// <summary> Reads one <c>types.catalog.json</c> contract. </summary>
     ValueTask<ReadIndexArtifactReadResult<IndexTypesCatalogJsonContract>> ReadTypesCatalog (
         ResolvedUnityProjectContext unityProject,

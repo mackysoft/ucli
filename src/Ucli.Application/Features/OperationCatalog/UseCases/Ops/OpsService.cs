@@ -41,6 +41,13 @@ internal sealed class OpsService : IOpsService
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(input);
 
+        if (!OpsListFilter.TryCreate(input, out var filter, out var filterError))
+        {
+            return OpsListServiceResult.Failure(
+                filterError!,
+                UcliCoreErrorCodes.InvalidArgument);
+        }
+
         var preflightResult = await preflightService.Execute(input, cancellationToken).ConfigureAwait(false);
         if (!preflightResult.IsSuccess)
         {
@@ -49,7 +56,7 @@ internal sealed class OpsService : IOpsService
                 preflightResult.ErrorCode!.Value);
         }
 
-        var catalogResult = await catalogAccessService.Read(
+        var catalogResult = await catalogAccessService.ReadList(
                 preflightResult.Context!,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -60,7 +67,7 @@ internal sealed class OpsService : IOpsService
                 catalogResult.ErrorCode!.Value);
         }
 
-        return listResultMapper.Map(catalogResult.Output!);
+        return listResultMapper.Map(catalogResult.Output!, filter!);
     }
 
     /// <inheritdoc />
@@ -77,6 +84,9 @@ internal sealed class OpsService : IOpsService
                     Mode: input.Mode,
                     TimeoutMilliseconds: input.TimeoutMilliseconds,
                     ReadIndexMode: input.ReadIndexMode,
+                    NameRegex: null,
+                    Kind: null,
+                    MaxPolicy: null,
                     FailFast: input.FailFast),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -87,8 +97,9 @@ internal sealed class OpsService : IOpsService
                 preflightResult.ErrorCode!.Value);
         }
 
-        var catalogResult = await catalogAccessService.Read(
+        var catalogResult = await catalogAccessService.ReadDescribe(
                 preflightResult.Context!,
+                input.OperationName,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!catalogResult.IsSuccess)
@@ -98,6 +109,6 @@ internal sealed class OpsService : IOpsService
                 catalogResult.ErrorCode!.Value);
         }
 
-        return describeResultMapper.Map(catalogResult.Output!, input.OperationName);
+        return describeResultMapper.Map(catalogResult.Output!);
     }
 }

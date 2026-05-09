@@ -1,7 +1,9 @@
+using System.Text;
 using System.Text.Json;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Contracts.Index;
+using MackySoft.Ucli.Infrastructure.Cryptography;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -25,6 +27,140 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
             static contract => IndexCatalogContractValidator.IsValidOpsCatalog(contract),
             "ops.catalog.json",
             cancellationToken);
+    }
+
+    /// <summary> Reads one <c>ops.describe/&lt;opKey&gt;.json</c> contract referenced by <c>ops.catalog.json</c>. </summary>
+    /// <param name="unityProject"> The resolved Unity project context. </param>
+    /// <param name="catalogEntry"> The lightweight catalog entry that references the detail artifact. </param>
+    /// <param name="sourceInputsHash"> The expected source-inputs hash from <c>ops.catalog.json</c>. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> A task that resolves to describe-artifact read result. </returns>
+    public async ValueTask<ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>> ReadOpsDescribe (
+        ResolvedUnityProjectContext unityProject,
+        IndexOpsCatalogEntryJsonContract catalogEntry,
+        string sourceInputsHash,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(catalogEntry);
+
+        if (string.IsNullOrWhiteSpace(sourceInputsHash))
+        {
+            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+                UcliCoreErrorCodes.InvalidArgument,
+                "Source inputs hash must not be empty.");
+        }
+
+        if (string.IsNullOrWhiteSpace(catalogEntry.DescribeKey))
+        {
+            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+                ReadIndexErrorCodes.ReadIndexFormatInvalid,
+                "Index contract file 'ops.catalog.json' is malformed. describeKey is missing.");
+        }
+
+        string contractPath;
+        try
+        {
+            contractPath = UcliStoragePathResolver.ResolveOpsDescribePath(
+                unityProject.RepositoryRoot,
+                unityProject.ProjectFingerprint,
+                catalogEntry.DescribeKey);
+        }
+        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
+        {
+            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+                UcliCoreErrorCodes.InvalidArgument,
+                $"Index path is invalid. {ex.Message}");
+        }
+        catch (ArgumentException ex)
+        {
+            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+                ReadIndexErrorCodes.ReadIndexFormatInvalid,
+                $"Index contract file 'ops.catalog.json' is malformed. {ex.Message}");
+        }
+
+        const string contractName = "catalogs/ops.describe/<opKey>.json";
+        if (!File.Exists(contractPath))
+        {
+            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+                ReadIndexErrorCodes.ReadIndexBootstrapFailed,
+                $"Index contract file was not found: {contractName}.");
+        }
+
+        string json;
+        try
+        {
+            json = await File.ReadAllTextAsync(contractPath, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
+        {
+            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+                UcliCoreErrorCodes.InvalidArgument,
+                $"Index path is invalid: {contractPath}. {ex.Message}");
+        }
+        catch (Exception ex) when (IsIoFailure(ex))
+        {
+            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+                ReadIndexErrorCodes.ReadIndexBootstrapFailed,
+                $"Failed to read index contract file '{contractName}'. {ex.Message}");
+        }
+
+        var actualHash = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(json));
+        if (!string.Equals(actualHash, catalogEntry.DescribeHash, StringComparison.Ordinal))
+        {
+            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+                ReadIndexErrorCodes.ReadIndexFormatInvalid,
+                $"Index contract file '{contractName}' is malformed. describeHash does not match.");
+        }
+
+        IndexOpsDescribeJsonContract? contract;
+        try
+        {
+            contract = IndexOpsDescribeJsonContractSerializer.Deserialize(json);
+        }
+        catch (ArgumentException ex)
+        {
+            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+                ReadIndexErrorCodes.ReadIndexFormatInvalid,
+                $"Index contract file '{contractName}' is malformed. {ex.Message}");
+        }
+        catch (JsonException ex)
+        {
+            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+                ReadIndexErrorCodes.ReadIndexFormatInvalid,
+                $"Index contract file '{contractName}' is malformed. {ex.Message}");
+        }
+
+        if (contract == null || !IndexCatalogContractValidator.IsValidOpsDescribe(contract))
+        {
+            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+                ReadIndexErrorCodes.ReadIndexFormatInvalid,
+                $"Index contract file '{contractName}' is malformed.");
+        }
+
+        if (!string.Equals(contract.SourceInputsHash, sourceInputsHash, StringComparison.Ordinal))
+        {
+            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+                ReadIndexErrorCodes.ReadIndexFormatInvalid,
+                $"Index contract file '{contractName}' is malformed. sourceInputsHash does not match ops.catalog.json.");
+        }
+
+        var operation = contract.Operation!;
+        if (!string.Equals(operation.Name, catalogEntry.Name, StringComparison.Ordinal)
+            || !string.Equals(operation.Kind, catalogEntry.Kind, StringComparison.Ordinal)
+            || !string.Equals(operation.Policy, catalogEntry.Policy, StringComparison.Ordinal))
+        {
+            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+                ReadIndexErrorCodes.ReadIndexFormatInvalid,
+                $"Index contract file '{contractName}' is malformed. operation descriptor does not match ops.catalog.json.");
+        }
+
+        return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Success(contract);
     }
 
     /// <summary> Reads one <c>types.catalog.json</c> contract. </summary>

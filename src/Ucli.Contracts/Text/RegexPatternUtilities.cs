@@ -63,7 +63,7 @@ internal static class RegexPatternUtilities
     /// <param name="regex"> The compiled regex instance when compilation succeeds. </param>
     /// <param name="errorMessage"> The parser error message when compilation fails. </param>
     /// <returns> <see langword="true" /> when compile succeeds; otherwise <see langword="false" />. </returns>
-    private static bool TryCompilePattern (
+    public static bool TryCompilePattern (
         string pattern,
         out Regex? regex,
         out string? errorMessage)

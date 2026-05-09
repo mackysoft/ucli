@@ -14,16 +14,29 @@ internal sealed class IndexOpsCatalogJsonContractWriter : IndexJsonContractWrite
         writer.WriteStartObject();
         WriteRootHeader(writer, contract.SchemaVersion, contract.GeneratedAtUtc);
         WriteNullableString(writer, "sourceInputsHash", contract.SourceInputsHash);
-        WriteArray(writer, "entries", OrderEntriesOrNull(contract.Entries), WriteOperationEntry);
+        WriteArray(writer, "entries", OrderEntriesOrNull(contract.Entries), WriteCatalogEntry);
         writer.WriteEndObject();
     }
 
-    private static IReadOnlyList<IndexOpEntryJsonContract>? OrderEntriesOrNull (IReadOnlyList<IndexOpEntryJsonContract>? entries)
+    private static IReadOnlyList<IndexOpsCatalogEntryJsonContract>? OrderEntriesOrNull (IReadOnlyList<IndexOpsCatalogEntryJsonContract>? entries)
     {
-        return entries == null ? null : IndexJsonOrderingPolicy.OrderOpsEntries(entries);
+        return entries == null ? null : IndexJsonOrderingPolicy.OrderOpsCatalogEntries(entries);
     }
 
-    private static void WriteOperationEntry (
+    private static void WriteCatalogEntry (
+        Utf8JsonWriter writer,
+        IndexOpsCatalogEntryJsonContract entry)
+    {
+        writer.WriteStartObject();
+        WriteNullableString(writer, "name", entry.Name);
+        WriteNullableString(writer, "kind", entry.Kind);
+        WriteNullableString(writer, "policy", entry.Policy);
+        WriteNullableString(writer, "describeKey", entry.DescribeKey);
+        WriteNullableString(writer, "describeHash", entry.DescribeHash);
+        writer.WriteEndObject();
+    }
+
+    internal static void WriteOperationEntry (
         Utf8JsonWriter writer,
         IndexOpEntryJsonContract entry)
     {

@@ -30,6 +30,9 @@ internal sealed class OpsListCommand
     /// <param name="mode">Unity execution mode (auto|daemon|oneshot).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
     /// <param name="readIndexMode">--readIndexMode, readIndex mode (disabled|allowStale|requireFresh).</param>
+    /// <param name="nameRegex">--nameRegex, Optional regular expression applied to operation names.</param>
+    /// <param name="operationKind">--kind, Optional operation kind filter (query|mutation|command).</param>
+    /// <param name="maxPolicy">--maxPolicy, Optional maximum operation policy filter (safe|advanced|dangerous).</param>
     /// <param name="failFast">--failFast, Fails immediately when live fallback hits a non-ready Unity editor lifecycle.</param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
@@ -39,6 +42,9 @@ internal sealed class OpsListCommand
         string? mode = null,
         string? timeout = null,
         string? readIndexMode = null,
+        string? nameRegex = null,
+        string? operationKind = null,
+        string? maxPolicy = null,
         bool failFast = false,
         CancellationToken cancellationToken = default)
     {
@@ -75,12 +81,35 @@ internal sealed class OpsListCommand
             return errorResult.ExitCode;
         }
 
+        var normalizedKindResult = OperationKindOptionNormalizer.Normalize(operationKind);
+        if (!normalizedKindResult.IsSuccess)
+        {
+            var errorResult = CommandResultFactory.FromExecutionError(
+                UcliCommandNames.OpsList,
+                normalizedKindResult.Error!);
+            commandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
+        var normalizedMaxPolicyResult = OperationMaxPolicyOptionNormalizer.Normalize(maxPolicy);
+        if (!normalizedMaxPolicyResult.IsSuccess)
+        {
+            var errorResult = CommandResultFactory.FromExecutionError(
+                UcliCommandNames.OpsList,
+                normalizedMaxPolicyResult.Error!);
+            commandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
         var serviceResult = await opsService.GetAll(
                 new OpsCommandInput(
                     ProjectPath: projectPath,
                     Mode: normalizedModeResult.Mode,
                     TimeoutMilliseconds: normalizedTimeoutResult.TimeoutMilliseconds,
                     ReadIndexMode: normalizedReadIndexModeResult.Mode,
+                    NameRegex: nameRegex,
+                    Kind: normalizedKindResult.Kind,
+                    MaxPolicy: normalizedMaxPolicyResult.Policy,
                     FailFast: failFast),
                 cancellationToken)
             .ConfigureAwait(false);
