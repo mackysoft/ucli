@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
@@ -55,6 +56,24 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator PingHandler_WhenEditorModeIsGui_ReturnsGuiEditorMode () => UniTask.ToCoroutine(async () =>
+        {
+            var handler = new PingUnityIpcMethodHandler(
+                new StubServerVersionProvider("1.2.3"),
+                new StubUnityEditorReadinessGate(DaemonEditorMode.Gui),
+                "project-fingerprint");
+            var request = CreatePingRequest("req-ping-gui", new IpcPingRequest("client"));
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPingResponse payload, out _), Is.True);
+            Assert.That(payload.EditorMode, Is.EqualTo(DaemonEditorModeValues.Gui));
+            Assert.That(payload.ProjectFingerprint, Is.EqualTo("project-fingerprint"));
         });
 
         [UnityTest]

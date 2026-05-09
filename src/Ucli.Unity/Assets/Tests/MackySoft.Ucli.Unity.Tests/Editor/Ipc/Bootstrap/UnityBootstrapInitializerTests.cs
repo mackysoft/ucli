@@ -1,10 +1,11 @@
 using System.Collections.Generic;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
-    public sealed class UnityBatchmodeBootstrapInitializerTests
+    public sealed class UnityBootstrapInitializerTests
     {
         [Test]
         [Category("Size.Small")]
@@ -51,6 +52,66 @@ namespace MackySoft.Ucli.Unity.Tests
                 out _);
 
             Assert.That(result, Is.False);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void TryResolveGuiBootstrapArguments_WhenTargetIsMissing_ReturnsUserOwnedBootstrap ()
+        {
+            var resolved = UnityBootstrapInitializer.TryResolveGuiBootstrapArguments(
+                new[] { "Unity" },
+                out var arguments,
+                out var error);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(arguments, Is.Null);
+            Assert.That(error, Is.EqualTo(IpcGuiBootstrapParseError.None));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void TryResolveGuiBootstrapArguments_WhenCliMarkerIsValid_ReturnsCliBootstrapArguments ()
+        {
+            var resolved = UnityBootstrapInitializer.TryResolveGuiBootstrapArguments(
+                new[]
+                {
+                    "Unity",
+                    IpcGuiBootstrapArgumentNames.Target,
+                    IpcGuiBootstrapTargetValues.Daemon,
+                    IpcGuiBootstrapArgumentNames.OwnerProcessId,
+                    "123",
+                    IpcGuiBootstrapArgumentNames.CanShutdownProcess,
+                    "false",
+                },
+                out var arguments,
+                out var error);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(error, Is.EqualTo(IpcGuiBootstrapParseError.None));
+            Assert.That(arguments.OwnerProcessId, Is.EqualTo(123));
+            Assert.That(arguments.CanShutdownProcess, Is.False);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void TryResolveGuiBootstrapArguments_WhenCliMarkerIsInvalid_ReturnsInvalid ()
+        {
+            var resolved = UnityBootstrapInitializer.TryResolveGuiBootstrapArguments(
+                new[]
+                {
+                    "Unity",
+                    IpcGuiBootstrapArgumentNames.Target,
+                    IpcGuiBootstrapTargetValues.Daemon,
+                    IpcGuiBootstrapArgumentNames.OwnerProcessId,
+                    "0",
+                    IpcGuiBootstrapArgumentNames.CanShutdownProcess,
+                    "false",
+                },
+                out _,
+                out var error);
+
+            Assert.That(resolved, Is.False);
+            Assert.That(error.Kind, Is.EqualTo(IpcGuiBootstrapParseErrorKind.InvalidRequiredValue));
         }
 
         private static IReadOnlyList<string> CreateDaemonBootstrapArgs ()

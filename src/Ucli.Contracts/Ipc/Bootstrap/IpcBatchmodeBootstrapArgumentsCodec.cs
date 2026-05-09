@@ -95,7 +95,7 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
             return false;
         }
 
-        if (!TryGetArgumentValue(args, IpcBatchmodeBootstrapArgumentNames.Target, out var target))
+        if (!IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcBatchmodeBootstrapArgumentNames.Target, out var target))
         {
             error = MissingTarget();
             return false;
@@ -127,12 +127,12 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
         out IpcBatchmodeBootstrapParseError error)
     {
         arguments = default!;
-        if (!TryGetArgumentValue(args, IpcDaemonBootstrapArgumentNames.RepositoryRoot, out var repositoryRoot)
-            || !TryGetArgumentValue(args, IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, out var projectFingerprint)
-            || !TryGetArgumentValue(args, IpcDaemonBootstrapArgumentNames.SessionPath, out var sessionPath)
-            || !TryGetArgumentValue(args, IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, out var sessionIssuedAtUtcText)
-            || !TryGetArgumentValue(args, IpcEndpointBootstrapArgumentNames.TransportKind, out var endpointTransportKind)
-            || !TryGetArgumentValue(args, IpcEndpointBootstrapArgumentNames.Address, out var endpointAddress))
+        if (!IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcDaemonBootstrapArgumentNames.RepositoryRoot, out var repositoryRoot)
+            || !IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, out var projectFingerprint)
+            || !IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcDaemonBootstrapArgumentNames.SessionPath, out var sessionPath)
+            || !IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, out var sessionIssuedAtUtcText)
+            || !IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcEndpointBootstrapArgumentNames.TransportKind, out var endpointTransportKind)
+            || !IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcEndpointBootstrapArgumentNames.Address, out var endpointAddress))
         {
             error = MissingRequiredArguments("uCLI daemon bootstrap arguments are missing.");
             return false;
@@ -173,12 +173,12 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
         out IpcBatchmodeBootstrapParseError error)
     {
         arguments = default!;
-        if (!TryGetArgumentValue(args, IpcOneshotBootstrapArgumentNames.ParentProcessId, out var parentProcessIdText)
-            || !TryGetArgumentValue(args, IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, out var projectFingerprint)
-            || !TryGetArgumentValue(args, IpcOneshotBootstrapArgumentNames.SessionToken, out var sessionToken)
-            || !TryGetArgumentValue(args, IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, out var exitDeadlineUtcText)
-            || !TryGetArgumentValue(args, IpcEndpointBootstrapArgumentNames.TransportKind, out var endpointTransportKind)
-            || !TryGetArgumentValue(args, IpcEndpointBootstrapArgumentNames.Address, out var endpointAddress))
+        if (!IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcOneshotBootstrapArgumentNames.ParentProcessId, out var parentProcessIdText)
+            || !IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, out var projectFingerprint)
+            || !IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcOneshotBootstrapArgumentNames.SessionToken, out var sessionToken)
+            || !IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, out var exitDeadlineUtcText)
+            || !IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcEndpointBootstrapArgumentNames.TransportKind, out var endpointTransportKind)
+            || !IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcEndpointBootstrapArgumentNames.Address, out var endpointAddress))
         {
             error = MissingRequiredArguments("uCLI oneshot bootstrap arguments are missing.");
             return false;
@@ -218,45 +218,6 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
             endpointAddress);
         error = IpcBatchmodeBootstrapParseError.None;
         return true;
-    }
-
-    private static bool TryGetArgumentValue (
-        IReadOnlyList<string> args,
-        string argumentName,
-        out string value)
-    {
-        value = string.Empty;
-        for (var i = 0; i < args.Count - 1; i++)
-        {
-            if (!string.Equals(args[i], argumentName, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            var nextToken = args[i + 1];
-            if (IsKnownArgumentName(nextToken))
-            {
-                continue;
-            }
-
-            value = nextToken;
-            return true;
-        }
-
-        return false;
-    }
-
-    private static bool IsKnownArgumentName (string token)
-    {
-        for (var i = 0; i < KnownArgumentNames.Length; i++)
-        {
-            if (string.Equals(token, KnownArgumentNames[i], StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static IpcBatchmodeBootstrapParseError MissingTarget ()

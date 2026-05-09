@@ -1,8 +1,10 @@
+using MackySoft.Ucli.Contracts.Daemon;
+
 namespace MackySoft.Ucli.Unity.Runtime
 {
     /// <summary> Represents one normalized editor lifecycle snapshot used by ping and readiness gates. </summary>
     internal sealed record UnityEditorLifecycleSnapshot (
-        string Runtime,
+        DaemonEditorMode EditorMode,
         string LifecycleState,
         string? BlockingReason,
         string CompileState,

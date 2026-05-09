@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 
@@ -7,7 +8,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Encodes ping response payload values for Unity IPC server. </summary>
     internal static class UnityPingResponseCodec
     {
-        /// <summary> Creates one ping response payload from runtime environment values. </summary>
+        /// <summary> Creates one ping response payload from Unity editor environment values. </summary>
         /// <param name="unityVersion"> The Unity editor version string. </param>
         /// <param name="serverVersion"> The daemon server version string. </param>
         /// <param name="projectFingerprint"> The Unity project fingerprint served by this IPC host. </param>
@@ -42,7 +43,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             return new IpcPingResponse(
                 ServerVersion: serverVersion,
-                EditorMode: snapshot.Runtime,
+                EditorMode: DaemonEditorModeCodec.ToValue(snapshot.EditorMode),
                 UnityVersion: unityVersion,
                 ProjectFingerprint: projectFingerprint,
                 CompileState: snapshot.CompileState,

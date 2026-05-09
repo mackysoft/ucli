@@ -1,6 +1,7 @@
 using System.Threading;
 using MackySoft.Ucli.Contracts;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
@@ -9,9 +10,6 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     internal sealed class StubUnityEditorReadinessGate : IUnityEditorReadinessGate
     {
-        private static readonly UnityEditorExecutionReadinessResult ReadyResult =
-            UnityEditorExecutionReadinessResult.Ready(CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true));
-
         private readonly TaskCompletionSource<UnityEditorExecutionReadinessResult>? completionSource;
 
         private readonly TaskCompletionSource<bool> waitObserved =
@@ -20,7 +18,12 @@ namespace MackySoft.Ucli.Unity.Tests
         private UnityEditorExecutionReadinessResult currentResult;
 
         public StubUnityEditorReadinessGate ()
-            : this(ReadyResult, null)
+            : this(DaemonEditorMode.Batchmode)
+        {
+        }
+
+        public StubUnityEditorReadinessGate (DaemonEditorMode editorMode)
+            : this(UnityEditorExecutionReadinessResult.Ready(CreateSnapshot(editorMode, IpcEditorLifecycleStateCodec.Ready, null, true)), null)
         {
         }
 
@@ -42,6 +45,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new StubUnityEditorReadinessGate(
                 CreateBlockedResult(
+                    DaemonEditorMode.Batchmode,
                     IpcEditorLifecycleStateCodec.Busy,
                     IpcEditorBlockingReasonCodec.Busy,
                     EditorLifecycleErrorCodes.EditorBusy,
@@ -56,7 +60,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
         public void Release ()
         {
-            currentResult = ReadyResult;
+            currentResult = UnityEditorExecutionReadinessResult.Ready(CreateSnapshot(
+                currentResult.Snapshot.EditorMode,
+                IpcEditorLifecycleStateCodec.Ready,
+                null,
+                true));
             completionSource?.TrySetResult(currentResult);
         }
 
@@ -77,23 +85,25 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 
         private static UnityEditorExecutionReadinessResult CreateBlockedResult (
+            DaemonEditorMode editorMode,
             string lifecycleState,
             string? blockingReason,
             UcliErrorCode errorCode,
             string errorMessage)
         {
             return UnityEditorExecutionReadinessResult.Blocked(
-                CreateSnapshot(lifecycleState, blockingReason, false),
+                CreateSnapshot(editorMode, lifecycleState, blockingReason, false),
                 new IpcError(errorCode, errorMessage, null));
         }
 
         private static UnityEditorLifecycleSnapshot CreateSnapshot (
+            DaemonEditorMode editorMode,
             string lifecycleState,
             string? blockingReason,
             bool canAcceptExecutionRequests)
         {
             return new UnityEditorLifecycleSnapshot(
-                Runtime: "batchmode",
+                EditorMode: editorMode,
                 LifecycleState: lifecycleState,
                 BlockingReason: blockingReason,
                 CompileState: IpcCompileStateCodec.Ready,
