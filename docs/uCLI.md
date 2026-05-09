@@ -133,7 +133,7 @@ Project context resolution 由来の入力不正は、公開 CLI JSON の envelo
 - 進行ログと診断ログは `stderr` に出力する
 - `request-response` 型の公開 CLI JSON 出力は、共通の CLI エンベロープを返す
 - `protocolVersion` は `request-response` 型の公開 CLI JSON 出力、CLI が生成する内部 execute request、内部 IPC 応答で必須とする。ユーザー入力 JSON リクエストには含めない
-- 現在の公開 CLI host が登録している command は `init`、`status`、`refresh`、`resolve`、`query`、`validate`、`plan`、`call`、`daemon`、`logs`、`ops`、`skills`、`test` である
+- 現在の公開 CLI host が登録している command は `init`、`status`、`refresh`、`resolve`、`query`、`validate`、`plan`、`call`、`daemon`、`logs`、`ops`、`errors`、`skills`、`test` である
 - 内部 execute request では、リクエストにも `protocolVersion` を必須とする
 - 互換性判定は `protocolVersion` で行う
 - ただし、CLIフレームワーク（ConsoleAppFramework）の既定経路（`--help` / `help` / `--version` など）は、既定のテキスト出力を返す。これらは本JSON契約の適用対象外とする
@@ -153,11 +153,11 @@ Project context resolution 由来の入力不正は、公開 CLI JSON の envelo
 ### エラーコード台帳
 `errors[].code` は agent が失敗後の次行動を決めるための制御トークンである。`errors[].message` は人間向け説明であり、agent や CI は message の文面で分岐しない。
 
-将来の `ucli errors` は、既知エラーコードの静的な意味を機械可読に返す台帳コマンドとして定義する。目的はエラー文のヘルプ表示ではなく、`IPC_TIMEOUT`、`EDITOR_COMPILING`、`STATE_CHANGED_SINCE_PLAN`、`PLAN_TOKEN_EXPIRED`、`PLAYMODE_PERSISTENCE_FORBIDDEN` のような code を、再試行、待機、再 plan、人間確認、状態不明の判断へ接続することである。
+`ucli errors` は、既知エラーコードの静的な意味を機械可読に返す台帳コマンドである。目的はエラー文のヘルプ表示ではなく、`IPC_TIMEOUT`、`EDITOR_COMPILING`、`STATE_CHANGED_SINCE_PLAN`、`PLAN_TOKEN_EXPIRED`、`PLAYMODE_PERSISTENCE_FORBIDDEN` のような code を、再試行、待機、再 plan、人間確認、状態不明の判断へ接続することである。
 
 - `ucli errors list` は既知 error code の一覧を返す
 - `ucli errors describe <CODE>` は1つの error code の意味、確認対象、既定の再試行分類を返す
-- `ucli errors explain --from <file>` は実際の失敗 JSON を読んで、文脈付きの確認対象と次行動を返す
+- `ucli errors explain --from <file>` は後続仕様とし、実際の失敗 JSON を読んで、文脈付きの確認対象と次行動を返す
 
 初期 UX は `ucli errors` とする。`errors[].code` から自然に発見でき、P0 の対象が error code に限られるためである。Assurance report の `reasonCodes`、`riskCodes`、`claimCodes` まで同じ台帳で扱う段階では、`ucli codes describe --kind error <CODE>` のような一般化を検討する。
 
