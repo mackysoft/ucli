@@ -5,6 +5,21 @@ namespace MackySoft.Ucli.Tests.Cli;
 
 public sealed class UcliCommandCatalogTests
 {
+    [Fact]
+    [Trait("Size", "Small")]
+    public void FilterableCommandNames_MatchPublicCommandCatalog ()
+    {
+        var expected = UcliPublicCommandCatalog.KnownCommands
+            .Select(static command => command.Name)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        var actual = CreateFilterableCommandNamesFromRegisteredPaths()
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(expected, actual);
+    }
+
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(UcliCommandNames.Daemon, UcliCommandNames.StartSubcommand, null, UcliCommandNames.DaemonStart)]
@@ -17,6 +32,8 @@ public sealed class UcliCommandCatalogTests
     [InlineData(UcliCommandNames.Logs, UcliCommandNames.UnitySubcommand, UcliCommandNames.ClearSubcommand, UcliCommandNames.LogsUnityClear)]
     [InlineData(UcliCommandNames.Ops, UcliCommandNames.ListSubcommand, null, UcliCommandNames.OpsList)]
     [InlineData(UcliCommandNames.Ops, UcliCommandNames.DescribeSubcommand, null, UcliCommandNames.OpsDescribe)]
+    [InlineData(UcliCommandNames.Errors, UcliCommandNames.ListSubcommand, null, UcliCommandNames.ErrorsList)]
+    [InlineData(UcliCommandNames.Errors, UcliCommandNames.DescribeSubcommand, null, UcliCommandNames.ErrorsDescribe)]
     [InlineData(UcliCommandNames.Skills, UcliCommandNames.ListSubcommand, null, UcliCommandNames.SkillsList)]
     [InlineData(UcliCommandNames.Skills, UcliCommandNames.ExportSubcommand, null, UcliCommandNames.SkillsExport)]
     [InlineData(UcliCommandNames.Skills, UcliCommandNames.InstallSubcommand, null, UcliCommandNames.SkillsInstall)]
@@ -58,6 +75,7 @@ public sealed class UcliCommandCatalogTests
     [InlineData(UcliCommandNames.Daemon)]
     [InlineData(UcliCommandNames.Logs)]
     [InlineData(UcliCommandNames.Ops)]
+    [InlineData(UcliCommandNames.Errors)]
     [InlineData(UcliCommandNames.Skills)]
     [InlineData(UcliCommandNames.Test)]
     public void IsRegisteredRootCommand_WhenKnownCommandSpecified_ReturnsTrue (string commandName)
@@ -164,5 +182,20 @@ public sealed class UcliCommandCatalogTests
 
         Assert.True(found);
         Assert.Equal([UcliCommandNames.ReadSubcommand], subcommands);
+    }
+
+    private static string[] CreateFilterableCommandNamesFromRegisteredPaths ()
+    {
+        var commandNames = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < UcliCommandCatalog.CommandPaths.Count; i++)
+        {
+            var segments = UcliCommandCatalog.CommandPaths[i].Split(' ');
+            for (var segmentCount = 1; segmentCount <= segments.Length; segmentCount++)
+            {
+                commandNames.Add(string.Join('.', segments.AsSpan(0, segmentCount).ToArray()));
+            }
+        }
+
+        return commandNames.ToArray();
     }
 }

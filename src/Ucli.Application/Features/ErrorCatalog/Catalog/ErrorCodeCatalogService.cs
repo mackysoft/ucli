@@ -2,9 +2,13 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.ErrorCatalog.Catalog;
 
-/// <summary> Implements error-code description lookup and unknown-code fallback semantics. </summary>
+/// <summary> Implements error-code catalog listing, description lookup, and unknown-code fallback semantics. </summary>
 internal sealed class ErrorCodeCatalogService : IErrorCodeCatalogService
 {
+    private static readonly HashSet<UcliCommand> KnownCommandSet = new(UcliPublicCommandCatalog.KnownCommands);
+
+    private static readonly IReadOnlyList<UcliErrorCodeDescriptor> EmptyDescriptors = Array.Empty<UcliErrorCodeDescriptor>();
+
     private static readonly IReadOnlyList<UcliCommand> EmptyCommands = Array.Empty<UcliCommand>();
 
     private static readonly IReadOnlyList<string> EmptyStrings = Array.Empty<string>();
@@ -26,6 +30,59 @@ internal sealed class ErrorCodeCatalogService : IErrorCodeCatalogService
     public ErrorCodeCatalogService (IErrorCodeCatalog catalog)
     {
         this.catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
+    }
+
+    /// <inheritdoc />
+    public ErrorCodeCatalogListResult List (ErrorCodeCatalogListInput input)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        var categoryFilter = input.Category;
+        if (categoryFilter is not null && string.IsNullOrWhiteSpace(categoryFilter))
+        {
+            return ErrorCodeCatalogListResult.Failure(
+                ExecutionError.InvalidArgument(
+                    "category must not be empty.",
+                    UcliCoreErrorCodes.InvalidArgument));
+        }
+
+        UcliCommand? commandFilter = null;
+        if (input.Command is not null)
+        {
+            if (!UcliCommand.TryCreate(input.Command, out var command))
+            {
+                return ErrorCodeCatalogListResult.Failure(
+                    ExecutionError.InvalidArgument(
+                        "command must be a valid command identifier.",
+                        UcliCoreErrorCodes.InvalidArgument));
+            }
+
+            commandFilter = command;
+        }
+
+        if (commandFilter.HasValue && !KnownCommandSet.Contains(commandFilter.Value))
+        {
+            return ErrorCodeCatalogListResult.Success(EmptyDescriptors);
+        }
+
+        var descriptors = new List<UcliErrorCodeDescriptor>();
+        foreach (var descriptor in catalog.Descriptors)
+        {
+            if (categoryFilter is not null
+                && !string.Equals(descriptor.Category, categoryFilter, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (commandFilter.HasValue && !MatchesCommandFilter(descriptor.AppliesTo, commandFilter.Value))
+            {
+                continue;
+            }
+
+            descriptors.Add(descriptor);
+        }
+
+        return ErrorCodeCatalogListResult.Success(descriptors);
     }
 
     /// <inheritdoc />
@@ -73,5 +130,38 @@ internal sealed class ErrorCodeCatalogService : IErrorCodeCatalogService
             Inspect: ["status", "errors[].code", "errors[].opId", "errors[].message"],
             NextActions: UnknownNextActions,
             RelatedCodes: EmptyCodes);
+    }
+
+    private static bool MatchesCommandFilter (
+        IReadOnlyList<UcliCommand> appliesTo,
+        UcliCommand commandFilter)
+    {
+        for (var i = 0; i < appliesTo.Count; i++)
+        {
+            if (IsSameOrRelatedCommand(appliesTo[i].Name, commandFilter.Name))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsSameOrRelatedCommand (
+        string appliesTo,
+        string commandFilter)
+    {
+        return string.Equals(appliesTo, commandFilter, StringComparison.Ordinal)
+            || IsDotSegmentChild(appliesTo, commandFilter)
+            || IsDotSegmentChild(commandFilter, appliesTo);
+    }
+
+    private static bool IsDotSegmentChild (
+        string candidate,
+        string parent)
+    {
+        return candidate.Length > parent.Length
+            && candidate[parent.Length] == '.'
+            && candidate.StartsWith(parent, StringComparison.Ordinal);
     }
 }

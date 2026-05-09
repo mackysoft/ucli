@@ -766,6 +766,13 @@ public sealed class IpcContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void UcliCommandIds_ExposeErrorsCommandLiteral ()
+    {
+        Assert.Equal("errors", UcliCommandIds.Errors.Name);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void UcliCommandIds_ExposeDaemonCommandLiterals ()
     {
         Assert.Equal("daemon", UcliCommandIds.Daemon.Name);
