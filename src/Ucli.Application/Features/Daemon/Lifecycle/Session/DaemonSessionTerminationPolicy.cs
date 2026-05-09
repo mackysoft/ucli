@@ -56,30 +56,29 @@ internal static class DaemonSessionTerminationPolicy
 
     /// <summary> Tries to resolve a process termination target from one daemon session. </summary>
     /// <param name="session"> The daemon session metadata. </param>
-    /// <param name="processId"> The target process identifier when resolution succeeds; otherwise default value. </param>
-    /// <param name="issuedAtUtc"> The expected issued-at timestamp when resolution succeeds; otherwise default value. </param>
+    /// <param name="target"> The process termination target when resolution succeeds; otherwise default value. </param>
     /// <returns> <see langword="true" /> when a process termination target is safe to use; otherwise <see langword="false" />. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="session" /> is <see langword="null" />. </exception>
     public static bool TryGetTerminationTarget (
         DaemonSession session,
-        out int processId,
-        out DateTimeOffset issuedAtUtc)
+        out DaemonProcessTerminationTarget target)
     {
         ArgumentNullException.ThrowIfNull(session);
 
-        processId = default;
-        issuedAtUtc = default;
+        target = default;
 
-        if (ResolveStopCapability(session) != StopCapability.ProcessShutdown
+        if (!TryResolveStopMetadata(session, out _, out var ownerKind)
+            || ownerKind != DaemonSessionOwnerKind.Cli
+            || !session.CanShutdownProcess
             || session.ProcessId is not int candidateProcessId
-            || candidateProcessId <= 0
-            || session.IssuedAtUtc == default)
+            || candidateProcessId <= 0)
         {
             return false;
         }
 
-        processId = candidateProcessId;
-        issuedAtUtc = session.IssuedAtUtc;
+        target = new DaemonProcessTerminationTarget(
+            ProcessId: candidateProcessId,
+            ProcessStartedAtUtc: session.ProcessStartedAtUtc);
         return true;
     }
 

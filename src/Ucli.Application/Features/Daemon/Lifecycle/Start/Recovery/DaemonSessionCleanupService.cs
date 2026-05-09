@@ -47,11 +47,10 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
             return DaemonSessionStoreOperationResult.Failure(unsafeRelaunchError!);
         }
 
-        if (TryGetInvalidSessionStopTarget(readResult, unityProject, out var processId, out var issuedAtUtc))
+        if (TryGetInvalidSessionStopTarget(readResult, unityProject, out var target))
         {
             var stopResult = await processTerminationService.EnsureStoppedAsync(
-                    processId,
-                    issuedAtUtc,
+                    target,
                     timeout,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -83,11 +82,10 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
         ArgumentNullException.ThrowIfNull(session);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        if (TryGetSessionStopTarget(session, unityProject, out var processId, out var issuedAtUtc))
+        if (TryGetSessionStopTarget(session, unityProject, out var target))
         {
             var stopResult = await processTerminationService.EnsureStoppedAsync(
-                    processId,
-                    issuedAtUtc,
+                    target,
                     timeout,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -118,12 +116,12 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
             return false;
         }
 
-        if (session.ProcessId is not int processId || processId <= 0 || session.IssuedAtUtc == default)
+        if (session.ProcessId is not int processId || processId <= 0)
         {
             return false;
         }
 
-        if (TryGetInvalidSessionStopTarget(readResult, unityProject, out _, out _))
+        if (TryGetInvalidSessionStopTarget(readResult, unityProject, out _))
         {
             return false;
         }
@@ -136,17 +134,14 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
     /// <summary> Gets process stop target from invalid session snapshot when identity can be validated safely. </summary>
     /// <param name="readResult"> The daemon session read result. </param>
     /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="processId"> The process identifier when stop target can be determined. </param>
-    /// <param name="issuedAtUtc"> The issued-at timestamp when stop target can be determined. </param>
+    /// <param name="target"> The process termination target when stop target can be determined. </param>
     /// <returns> <see langword="true" /> when stop target can be determined; otherwise <see langword="false" />. </returns>
     private static bool TryGetInvalidSessionStopTarget (
         DaemonSessionReadResult readResult,
         ResolvedUnityProjectContext unityProject,
-        out int processId,
-        out DateTimeOffset issuedAtUtc)
+        out DaemonProcessTerminationTarget target)
     {
-        processId = default;
-        issuedAtUtc = default;
+        target = default;
 
         var session = readResult.Session;
         if (session == null)
@@ -159,17 +154,15 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
             return false;
         }
 
-        return TryGetSessionStopTarget(session, unityProject, out processId, out issuedAtUtc);
+        return TryGetSessionStopTarget(session, unityProject, out target);
     }
 
     private static bool TryGetSessionStopTarget (
         DaemonSession session,
         ResolvedUnityProjectContext unityProject,
-        out int processId,
-        out DateTimeOffset issuedAtUtc)
+        out DaemonProcessTerminationTarget target)
     {
-        processId = default;
-        issuedAtUtc = default;
+        target = default;
 
         if (!string.Equals(session.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
         {
@@ -179,6 +172,6 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
         // NOTE:
         // Cleanup may only terminate processes owned by the current uCLI batchmode
         // contract. User-owned GUI sessions can be stale without granting process shutdown.
-        return DaemonSessionTerminationPolicy.TryGetTerminationTarget(session, out processId, out issuedAtUtc);
+        return DaemonSessionTerminationPolicy.TryGetTerminationTarget(session, out target);
     }
 }

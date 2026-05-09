@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
 using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
@@ -61,6 +62,7 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
             EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
             EndpointAddress: endpoint.Address,
             ProcessId: null,
+            ProcessStartedAtUtc: null,
             OwnerProcessId: Environment.ProcessId);
 
         var writeResult = await daemonSessionStore.WriteAsync(
@@ -76,10 +78,11 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
         return DaemonLaunchSessionWriteResult.Success(session);
     }
 
-    /// <summary> Persists launched daemon process identifier to an existing session snapshot. </summary>
+    /// <summary> Persists launched daemon process identity to an existing session snapshot. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="session"> The existing daemon session snapshot. </param>
     /// <param name="processId"> The launched process identifier when available. </param>
+    /// <param name="processStartedAtUtc"> The launched process start timestamp when available. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The launch-session persistence result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> or <paramref name="session" /> is <see langword="null" />. </exception>
@@ -87,6 +90,7 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         int? processId,
+        DateTimeOffset? processStartedAtUtc,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -98,7 +102,17 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
             return DaemonLaunchSessionWriteResult.Success(session);
         }
 
-        var updatedSession = session with { ProcessId = launchedProcessId };
+        if (processStartedAtUtc is null || processStartedAtUtc.Value == default)
+        {
+            return DaemonLaunchSessionWriteResult.Failure(ExecutionError.InternalError(
+                $"Daemon launch processStartedAtUtc is required when processId is specified. processId={launchedProcessId}."));
+        }
+
+        var updatedSession = session with
+        {
+            ProcessId = launchedProcessId,
+            ProcessStartedAtUtc = processStartedAtUtc,
+        };
         var writeResult = await daemonSessionStore.WriteAsync(
                 unityProject.RepositoryRoot,
                 updatedSession,

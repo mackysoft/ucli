@@ -11,10 +11,14 @@ public static class IpcCompileStateCodec
     /// <summary> Gets the compile-state value used when editor is compiling. </summary>
     public const string Compiling = "compiling";
 
+    /// <summary> Gets the compile-state value used when the most recent script compilation failed. </summary>
+    public const string Failed = "failed";
+
     private static readonly string[] CanonicalLiterals =
     {
         Ready,
         Compiling,
+        Failed,
     };
 
     /// <summary> Converts one compile-activity flag to the IPC compile-state literal. </summary>
@@ -24,6 +28,24 @@ public static class IpcCompileStateCodec
     {
         return isCompiling
             ? Compiling
+            : Ready;
+    }
+
+    /// <summary> Converts compile activity and failure flags to the IPC compile-state literal. </summary>
+    /// <param name="isCompiling"> Whether the editor is currently compiling. </param>
+    /// <param name="hasCompileFailure"> Whether the latest completed compilation failed. </param>
+    /// <returns>The canonical compile-state literal.</returns>
+    public static string ToValue (
+        bool isCompiling,
+        bool hasCompileFailure)
+    {
+        if (isCompiling)
+        {
+            return Compiling;
+        }
+
+        return hasCompileFailure
+            ? Failed
             : Ready;
     }
 

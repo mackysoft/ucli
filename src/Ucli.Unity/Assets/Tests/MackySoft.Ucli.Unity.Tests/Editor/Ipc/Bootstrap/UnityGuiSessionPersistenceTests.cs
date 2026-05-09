@@ -33,6 +33,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(contract.OwnerKind, Is.EqualTo(DaemonSessionOwnerKindValues.User));
                 Assert.That(contract.CanShutdownProcess, Is.False);
                 Assert.That(contract.ProcessId, Is.EqualTo(Process.GetCurrentProcess().Id));
+                Assert.That(contract.ProcessStartedAtUtc, Is.Not.Null);
+                Assert.That(
+                    Math.Abs((contract.ProcessStartedAtUtc!.Value - Process.GetCurrentProcess().StartTime.ToUniversalTime()).TotalSeconds),
+                    Is.LessThanOrEqualTo(2));
                 Assert.That(contract.OwnerProcessId, Is.EqualTo(Process.GetCurrentProcess().Id));
                 Assert.That(contract.EndpointTransportKind, Is.EqualTo(IpcTransportKindValues.NamedPipe));
                 Assert.That(contract.EndpointAddress, Is.EqualTo("ucli-gui-session-tests"));
@@ -105,6 +109,108 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Write_WhenCurrentProcessGuiSessionAlreadyExists_ReplacesSessionJson () => UniTask.ToCoroutine(async () =>
+        {
+            var storageRoot = CreateStorageRoot();
+            try
+            {
+                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, "fingerprint");
+                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
+                Assert.That(sessionDirectoryPath, Is.Not.Null);
+                Directory.CreateDirectory(sessionDirectoryPath!);
+                using var currentProcess = Process.GetCurrentProcess();
+                WriteSessionContract(
+                    sessionPath,
+                    new DaemonSessionJsonContract(
+                        SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+                        SessionToken: "existing-current-process-token",
+                        ProjectFingerprint: "fingerprint",
+                        IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
+                        EditorMode: DaemonEditorModeValues.Gui,
+                        OwnerKind: DaemonSessionOwnerKindValues.User,
+                        CanShutdownProcess: false,
+                        EndpointTransportKind: IpcTransportKindValues.NamedPipe,
+                        EndpointAddress: "ucli-gui-session-tests",
+                        ProcessId: currentProcess.Id,
+                        ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
+                        OwnerProcessId: currentProcess.Id));
+
+                await WriteSessionAsync(
+                    storageRoot,
+                    UnityGuiBootstrapSessionOptions.Create(null));
+
+                var contract = ReadSessionContract(storageRoot);
+                Assert.That(contract.SessionToken, Is.Not.EqualTo("existing-current-process-token"));
+                Assert.That(contract.EditorMode, Is.EqualTo(DaemonEditorModeValues.Gui));
+                Assert.That(contract.OwnerKind, Is.EqualTo(DaemonSessionOwnerKindValues.User));
+                Assert.That(contract.ProcessId, Is.EqualTo(currentProcess.Id));
+                Assert.That(contract.ProcessStartedAtUtc!.Value.UtcDateTime, Is.EqualTo(currentProcess.StartTime.ToUniversalTime()));
+                Assert.That(contract.EndpointAddress, Is.EqualTo("ucli-gui-session-tests"));
+            }
+            finally
+            {
+                DeleteDirectory(storageRoot);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Write_WhenCurrentProcessGuiSessionUsesUnexpectedUnixEndpoint_DoesNotDeleteEndpointResidue () => UniTask.ToCoroutine(async () =>
+        {
+            var storageRoot = CreateStorageRoot();
+            try
+            {
+                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, "fingerprint");
+                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
+                Assert.That(sessionDirectoryPath, Is.Not.Null);
+                Directory.CreateDirectory(sessionDirectoryPath!);
+                using var currentProcess = Process.GetCurrentProcess();
+                var unexpectedEndpointPath = Path.Combine(storageRoot, "unexpected.sock");
+                var expectedEndpointPath = Path.Combine(storageRoot, "expected.sock");
+                File.WriteAllText(unexpectedEndpointPath, "socket residue placeholder");
+                WriteSessionContract(
+                    sessionPath,
+                    new DaemonSessionJsonContract(
+                        SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+                        SessionToken: "existing-current-process-token",
+                        ProjectFingerprint: "fingerprint",
+                        IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
+                        EditorMode: DaemonEditorModeValues.Gui,
+                        OwnerKind: DaemonSessionOwnerKindValues.User,
+                        CanShutdownProcess: false,
+                        EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
+                        EndpointAddress: unexpectedEndpointPath,
+                        ProcessId: currentProcess.Id,
+                        ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
+                        OwnerProcessId: currentProcess.Id));
+
+                InvalidOperationException exception = null;
+                try
+                {
+                    await WriteSessionAsync(
+                        storageRoot,
+                        UnityGuiBootstrapSessionOptions.Create(null),
+                        new IpcEndpoint(IpcTransportKind.UnixDomainSocket, expectedEndpointPath));
+                }
+                catch (InvalidOperationException caughtException)
+                {
+                    exception = caughtException;
+                }
+
+                Assert.That(exception, Is.Not.Null);
+                Assert.That(File.Exists(unexpectedEndpointPath), Is.True);
+                var contract = ReadSessionContract(storageRoot);
+                Assert.That(contract.SessionToken, Is.EqualTo("existing-current-process-token"));
+                Assert.That(contract.EndpointAddress, Is.EqualTo(unexpectedEndpointPath));
+            }
+            finally
+            {
+                DeleteDirectory(storageRoot);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Write_WhenSessionAlreadyExists_DoesNotOverwriteSessionJson () => UniTask.ToCoroutine(async () =>
         {
             var storageRoot = CreateStorageRoot();
@@ -127,6 +233,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         EndpointTransportKind: IpcTransportKindValues.NamedPipe,
                         EndpointAddress: "ucli-existing-session",
                         ProcessId: 123,
+                        ProcessStartedAtUtc: DateTimeOffset.UtcNow,
                         OwnerProcessId: 123));
 
                 InvalidOperationException exception = null;

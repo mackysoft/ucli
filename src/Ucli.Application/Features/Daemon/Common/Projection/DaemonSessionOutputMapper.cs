@@ -23,6 +23,7 @@ internal sealed class DaemonSessionOutputMapper : IDaemonSessionOutputMapper
             EndpointTransportKind: session.EndpointTransportKind,
             EndpointAddress: session.EndpointAddress,
             ProcessId: session.ProcessId,
+            ProcessStartedAtUtc: session.ProcessStartedAtUtc,
             OwnerProcessId: session.OwnerProcessId);
     }
 }

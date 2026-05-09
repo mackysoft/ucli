@@ -824,6 +824,8 @@ public sealed class UnityIpcRequestExecutorTests
     {
         public int ProcessId => 1234;
 
+        public DateTimeOffset? StartTimeUtc => DateTimeOffset.UtcNow;
+
         public bool HasExited { get; private set; }
 
         public int? ExitCode => HasExited ? 0 : null;

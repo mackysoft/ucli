@@ -116,7 +116,7 @@ internal sealed class SupervisorClient
                     EditorMode: editorMode.HasValue
                         ? DaemonEditorModeCodec.ToValue(editorMode.Value)
                         : null));
-            var response = await SendAsync(manifest, request, timeout, cancellationToken).ConfigureAwait(false);
+            var response = await SendWithUnboundedResponseWaitAsync(manifest, request, timeout, cancellationToken).ConfigureAwait(false);
             if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
             {
                 return DaemonStartResult.Failure(
@@ -240,6 +240,16 @@ internal sealed class SupervisorClient
     {
         var endpoint = ResolveEndpoint(manifest);
         return await transportClient.SendAsync(endpoint, request, timeout, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
+        SupervisorInstanceManifest manifest,
+        IpcRequest request,
+        TimeSpan sendTimeout,
+        CancellationToken cancellationToken)
+    {
+        var endpoint = ResolveEndpoint(manifest);
+        return await transportClient.SendWithUnboundedResponseWaitAsync(endpoint, request, sendTimeout, cancellationToken).ConfigureAwait(false);
     }
 
     private static IpcRequest CreateRequest<TPayload> (

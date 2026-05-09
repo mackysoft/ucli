@@ -93,7 +93,7 @@ public sealed class DaemonStartupReadinessProbeTests
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, "Exit Play Mode and retry after lifecycleState=ready.")]
-    [InlineData(IpcEditorLifecycleStateCodec.BlockedByModal, IpcEditorBlockingReasonCodec.ModalDialog, "Resolve the modal dialog and retry after lifecycleState=ready.")]
+    [InlineData(IpcEditorLifecycleStateCodec.ModalBlocked, IpcEditorBlockingReasonCodec.ModalDialog, "Resolve the modal dialog and retry after lifecycleState=ready.")]
     [InlineData(IpcEditorLifecycleStateCodec.SafeMode, IpcEditorBlockingReasonCodec.SafeMode, "Resolve compiler errors and retry after lifecycleState=ready.")]
     [InlineData(IpcEditorLifecycleStateCodec.ShuttingDown, IpcEditorBlockingReasonCodec.Shutdown, "Start a new daemon after shutdown finishes.")]
     public async Task WaitUntilReady_WhenPingReportsNonWaitableLifecycleState_ReturnsInternalErrorImmediately (

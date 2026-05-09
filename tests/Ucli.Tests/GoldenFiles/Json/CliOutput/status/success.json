@@ -15,6 +15,9 @@
     "domainReloadGeneration": null,
     "canAcceptExecutionRequests": false,
     "editorMode": null,
+    "observedAtUtc": null,
+    "actionRequired": null,
+    "primaryDiagnostic": null,
     "timeoutMilliseconds": 5000
   },
   "errors": []

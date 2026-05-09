@@ -684,6 +684,8 @@ public sealed class UnityOneshotIpcClientTests
 
         public int ProcessId => 1234;
 
+        public DateTimeOffset? StartTimeUtc => DateTimeOffset.UtcNow;
+
         public bool HasExited { get; private set; }
 
         public int? ExitCode => HasExited ? exitCode ?? 0 : null;

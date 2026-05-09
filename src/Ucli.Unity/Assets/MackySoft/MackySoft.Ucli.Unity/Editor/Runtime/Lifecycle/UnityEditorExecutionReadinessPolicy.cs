@@ -15,8 +15,11 @@ namespace MackySoft.Ucli.Unity.Runtime
         public static bool IsWaitableState (string lifecycleState)
         {
             return string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Starting, System.StringComparison.Ordinal)
+                || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Recovering, System.StringComparison.Ordinal)
                 || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Busy, System.StringComparison.Ordinal)
-                || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Compiling, System.StringComparison.Ordinal);
+                || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Compiling, System.StringComparison.Ordinal)
+                || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.DomainReloading, System.StringComparison.Ordinal)
+                || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Reimporting, System.StringComparison.Ordinal);
         }
 
         /// <summary> Resolves the canonical blocking-reason literal for one lifecycle state. </summary>
@@ -27,13 +30,17 @@ namespace MackySoft.Ucli.Unity.Runtime
             return lifecycleState switch
             {
                 IpcEditorLifecycleStateCodec.Starting => IpcEditorBlockingReasonCodec.Startup,
+                IpcEditorLifecycleStateCodec.Recovering => IpcEditorBlockingReasonCodec.Recovery,
                 IpcEditorLifecycleStateCodec.Busy => IpcEditorBlockingReasonCodec.Busy,
                 IpcEditorLifecycleStateCodec.Compiling => IpcEditorBlockingReasonCodec.Compile,
+                IpcEditorLifecycleStateCodec.CompileFailed => IpcEditorBlockingReasonCodec.CompileFailed,
                 IpcEditorLifecycleStateCodec.DomainReloading => IpcEditorBlockingReasonCodec.DomainReload,
+                IpcEditorLifecycleStateCodec.Reimporting => IpcEditorBlockingReasonCodec.Reimport,
                 IpcEditorLifecycleStateCodec.Playmode => IpcEditorBlockingReasonCodec.PlayMode,
-                IpcEditorLifecycleStateCodec.BlockedByModal => IpcEditorBlockingReasonCodec.ModalDialog,
+                IpcEditorLifecycleStateCodec.ModalBlocked => IpcEditorBlockingReasonCodec.ModalDialog,
                 IpcEditorLifecycleStateCodec.SafeMode => IpcEditorBlockingReasonCodec.SafeMode,
                 IpcEditorLifecycleStateCodec.ShuttingDown => IpcEditorBlockingReasonCodec.Shutdown,
+                IpcEditorLifecycleStateCodec.Unavailable => IpcEditorBlockingReasonCodec.Unavailable,
                 _ => null,
             };
         }
@@ -49,6 +56,10 @@ namespace MackySoft.Ucli.Unity.Runtime
                     EditorLifecycleErrorCodes.EditorStarting,
                     "Unity editor startup is still in progress. Retry without --failFast or wait until lifecycleState=ready before executing request.",
                     null),
+                IpcEditorLifecycleStateCodec.Recovering => new IpcError(
+                    EditorLifecycleErrorCodes.EditorRecovering,
+                    "Unity editor daemon endpoint is recovering. Retry without --failFast or wait until lifecycleState=ready before executing request.",
+                    null),
                 IpcEditorLifecycleStateCodec.Busy => new IpcError(
                     EditorLifecycleErrorCodes.EditorBusy,
                     "Unity editor is busy with internal work. Retry without --failFast or wait until lifecycleState=ready before executing request.",
@@ -57,15 +68,23 @@ namespace MackySoft.Ucli.Unity.Runtime
                     EditorLifecycleErrorCodes.EditorCompiling,
                     "Unity editor is compiling scripts. Retry without --failFast or wait until lifecycleState=ready before executing request.",
                     null),
+                IpcEditorLifecycleStateCodec.CompileFailed => new IpcError(
+                    EditorLifecycleErrorCodes.EditorCompileFailed,
+                    "Unity editor has script compilation errors. Fix compiler errors and wait until lifecycleState=ready before executing request.",
+                    null),
                 IpcEditorLifecycleStateCodec.DomainReloading => new IpcError(
                     EditorLifecycleErrorCodes.EditorDomainReloading,
                     "Unity editor is reloading the AppDomain. Retry after lifecycleState=ready before executing request.",
+                    null),
+                IpcEditorLifecycleStateCodec.Reimporting => new IpcError(
+                    EditorLifecycleErrorCodes.EditorReimporting,
+                    "Unity editor is refreshing or reimporting assets. Retry without --failFast or wait until lifecycleState=ready before executing request.",
                     null),
                 IpcEditorLifecycleStateCodec.Playmode => new IpcError(
                     EditorLifecycleErrorCodes.EditorPlaymode,
                     "Unity editor is in Play Mode. Exit Play Mode and wait until lifecycleState=ready before executing request.",
                     null),
-                IpcEditorLifecycleStateCodec.BlockedByModal => new IpcError(
+                IpcEditorLifecycleStateCodec.ModalBlocked => new IpcError(
                     EditorLifecycleErrorCodes.EditorModalBlocked,
                     "Unity editor is blocked by a modal dialog. Resolve the dialog and wait until lifecycleState=ready before executing request.",
                     null),
@@ -76,6 +95,10 @@ namespace MackySoft.Ucli.Unity.Runtime
                 IpcEditorLifecycleStateCodec.ShuttingDown => new IpcError(
                     EditorLifecycleErrorCodes.EditorShuttingDown,
                     "Unity editor is shutting down and cannot accept execution requests.",
+                    null),
+                IpcEditorLifecycleStateCodec.Unavailable => new IpcError(
+                    EditorLifecycleErrorCodes.EditorUnavailable,
+                    "Unity editor lifecycle is unavailable because the daemon endpoint cannot be observed.",
                     null),
                 _ => new IpcError(
                     UcliCoreErrorCodes.InternalError,

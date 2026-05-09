@@ -221,6 +221,7 @@ public sealed class SupervisorProjectGatewayTests
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: 1234,
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 5678);
     }
 

@@ -68,18 +68,26 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 serviceProvider = services.BuildServiceProvider();
                 server = serviceProvider.GetRequiredService<IUnityIpcServer>();
+                var readinessGate = serviceProvider.GetRequiredService<IUnityEditorReadinessGate>();
                 var shutdownSignal = serviceProvider.GetRequiredService<IDaemonShutdownSignal>();
                 unityLogCaptureService = serviceProvider.GetRequiredService<UnityLogCaptureService>();
                 unityLogCaptureService.Start();
 
                 await server.StartAsync(endpoint, CancellationToken.None);
+                UnityLifecycleSidecarPersistence.Write(
+                    storageRoot,
+                    projectFingerprint,
+                    readinessGate.CaptureSnapshot());
                 nextState = new ActiveGuiBootstrapState(
                     registration,
                     server,
                     shutdownSignal,
                     unityLogCaptureService,
                     serviceProvider,
-                    daemonLogger);
+                    daemonLogger,
+                    storageRoot,
+                    projectFingerprint,
+                    readinessGate);
                 lock (SyncRoot)
                 {
                     activeState = nextState;
@@ -185,6 +193,14 @@ namespace MackySoft.Ucli.Unity.Ipc
             ActiveGuiBootstrapState state,
             bool requestProcessExit)
         {
+            await StopStateAsync(state, requestProcessExit, deleteSession: true);
+        }
+
+        private static async Task StopStateAsync (
+            ActiveGuiBootstrapState state,
+            bool requestProcessExit,
+            bool deleteSession)
+        {
             if (!state.TryBeginStop())
             {
                 return;
@@ -196,7 +212,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 state.UnityLogCaptureService,
                 state.ServiceProvider,
                 state.DaemonLogger,
-                cleanupContext: null);
+                cleanupContext: null,
+                deleteSession);
 
             if (requestProcessExit)
             {
@@ -224,7 +241,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 unityLogCaptureService,
                 serviceProvider,
                 daemonLogger,
-                cleanupContext: "after failed startup");
+                cleanupContext: "after failed startup",
+                deleteSession: true);
         }
 
         private static async Task ReleaseResourcesAsync (
@@ -233,7 +251,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             IDisposable unityLogCaptureService,
             IServiceProvider serviceProvider,
             IDaemonLogger daemonLogger,
-            string cleanupContext)
+            string cleanupContext,
+            bool deleteSession)
         {
             daemonLogger ??= NoOpDaemonLogger.Instance;
             if (server != null)
@@ -264,7 +283,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
             }
 
-            if (registration != null)
+            if (registration != null && deleteSession)
             {
                 try
                 {
@@ -305,15 +324,53 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static void EnsureEditorLifecycleSubscriptions ()
         {
-            AssemblyReloadEvents.beforeAssemblyReload -= StopSynchronously;
+            AssemblyReloadEvents.beforeAssemblyReload -= StopForDomainReloadSynchronously;
             EditorApplication.quitting -= StopSynchronously;
-            AssemblyReloadEvents.beforeAssemblyReload += StopSynchronously;
+            AssemblyReloadEvents.beforeAssemblyReload += StopForDomainReloadSynchronously;
             EditorApplication.quitting += StopSynchronously;
         }
 
         private static void StopSynchronously ()
         {
             StopAsync(CancellationToken.None).GetAwaiter().GetResult();
+        }
+
+        private static void StopForDomainReloadSynchronously ()
+        {
+            ActiveGuiBootstrapState capturedState;
+            lock (SyncRoot)
+            {
+                capturedState = activeState;
+                activeState = null;
+            }
+
+            if (capturedState == null)
+            {
+                return;
+            }
+
+            try
+            {
+                var snapshot = capturedState.ReadinessGate.CaptureSnapshot() with
+                {
+                    LifecycleState = IpcEditorLifecycleStateCodec.Recovering,
+                    BlockingReason = UnityEditorExecutionReadinessPolicy.ResolveBlockingReason(IpcEditorLifecycleStateCodec.Recovering),
+                    CanAcceptExecutionRequests = false,
+                    ObservedAtUtc = DateTimeOffset.UtcNow,
+                };
+                UnityLifecycleSidecarPersistence.Write(
+                    capturedState.StorageRoot,
+                    capturedState.ProjectFingerprint,
+                    snapshot);
+            }
+            catch (Exception exception)
+            {
+                capturedState.DaemonLogger.Warning(
+                    DaemonLogCategories.Lifecycle,
+                    $"GUI lifecycle recovery sidecar write failed before domain reload. {exception.Message}");
+            }
+
+            StopStateAsync(capturedState, requestProcessExit: false, deleteSession: false).GetAwaiter().GetResult();
         }
 
         private sealed class ActiveGuiBootstrapState
@@ -326,7 +383,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 IDaemonShutdownSignal shutdownSignal,
                 UnityLogCaptureService unityLogCaptureService,
                 IServiceProvider serviceProvider,
-                IDaemonLogger daemonLogger)
+                IDaemonLogger daemonLogger,
+                string storageRoot,
+                string projectFingerprint,
+                IUnityEditorReadinessGate readinessGate)
             {
                 Registration = registration ?? throw new ArgumentNullException(nameof(registration));
                 Server = server ?? throw new ArgumentNullException(nameof(server));
@@ -334,6 +394,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 UnityLogCaptureService = unityLogCaptureService ?? throw new ArgumentNullException(nameof(unityLogCaptureService));
                 ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
                 DaemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
+                StorageRoot = storageRoot ?? throw new ArgumentNullException(nameof(storageRoot));
+                ProjectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
+                ReadinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
             }
 
             public UnityGuiSessionRegistration Registration { get; }
@@ -347,6 +410,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             public IServiceProvider ServiceProvider { get; }
 
             public IDaemonLogger DaemonLogger { get; }
+
+            public string StorageRoot { get; }
+
+            public string ProjectFingerprint { get; }
+
+            public IUnityEditorReadinessGate ReadinessGate { get; }
 
             public bool TryBeginStop ()
             {

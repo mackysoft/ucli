@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
@@ -46,6 +47,7 @@ internal static class DaemonServiceTestContext
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: 1234,
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 9876);
     }
 
@@ -60,6 +62,7 @@ internal static class DaemonServiceTestContext
             EndpointTransportKind: "mapped-transport",
             EndpointAddress: "mapped-endpoint",
             ProcessId: 4321,
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 8765);
     }
 
@@ -300,6 +303,59 @@ internal static class DaemonServiceTestContext
         public bool IsNotRunning (Exception exception)
         {
             return isNotRunning(exception);
+        }
+    }
+
+    internal sealed class StubDaemonLifecycleStore : IDaemonLifecycleStore
+    {
+        public DaemonLifecycleObservationReadResult ReadResult { get; set; } = DaemonLifecycleObservationReadResult.Success(null);
+
+        public DaemonLifecycleStoreOperationResult DeleteResult { get; set; } = DaemonLifecycleStoreOperationResult.Success();
+
+        public int ReadCallCount { get; private set; }
+
+        public int DeleteCallCount { get; private set; }
+
+        public ValueTask<DaemonLifecycleObservationReadResult> ReadAsync (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            ReadCallCount++;
+            return ValueTask.FromResult(ReadResult);
+        }
+
+        public ValueTask<DaemonLifecycleStoreOperationResult> DeleteAsync (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            DeleteCallCount++;
+            return ValueTask.FromResult(DeleteResult);
+        }
+    }
+
+    internal sealed class StubDaemonProcessIdentityAssessor : IDaemonProcessIdentityAssessor
+    {
+        public DaemonProcessIdentityAssessment Assessment { get; set; } = new(
+            DaemonProcessIdentityAssessmentStatus.NotRunning,
+            ObservedStartTimeUtc: null,
+            Error: null);
+
+        public int CallCount { get; private set; }
+
+        public int LastProcessId { get; private set; }
+
+        public DateTimeOffset? LastExpectedProcessStartedAtUtc { get; private set; }
+
+        public DaemonProcessIdentityAssessment AssessByProcessId (
+            int processId,
+            DateTimeOffset? expectedProcessStartedAtUtc)
+        {
+            CallCount++;
+            LastProcessId = processId;
+            LastExpectedProcessStartedAtUtc = expectedProcessStartedAtUtc;
+            return Assessment;
         }
     }
 

@@ -18,6 +18,22 @@ internal sealed class UnityBatchmodeProcessHandle : IUnityBatchmodeProcessHandle
     public int ProcessId => process.Id;
 
     /// <inheritdoc />
+    public DateTimeOffset? StartTimeUtc
+    {
+        get
+        {
+            try
+            {
+                return process.StartTime.ToUniversalTime();
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+    }
+
+    /// <inheritdoc />
     public bool HasExited => process.HasExited;
 
     /// <inheritdoc />

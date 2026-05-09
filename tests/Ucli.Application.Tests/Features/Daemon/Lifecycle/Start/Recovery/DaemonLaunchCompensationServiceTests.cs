@@ -24,8 +24,7 @@ public sealed class DaemonLaunchCompensationServiceTests
 
         var result = await service.CleanupFailedLaunchAsync(
             context,
-            processId: 2468,
-            expectedIssuedAtUtc: DateTimeOffset.UtcNow,
+            target: CreateTarget(2468),
             timeout: TimeSpan.FromMilliseconds(250),
             cancellationToken: CancellationToken.None);
 
@@ -52,8 +51,7 @@ public sealed class DaemonLaunchCompensationServiceTests
 
         var result = await service.CleanupFailedLaunchAsync(
             CreateContext("fingerprint-compensation-stop-fail"),
-            processId: 8642,
-            expectedIssuedAtUtc: DateTimeOffset.UtcNow,
+            target: CreateTarget(8642),
             timeout: TimeSpan.FromMilliseconds(500),
             cancellationToken: CancellationToken.None);
 
@@ -80,8 +78,7 @@ public sealed class DaemonLaunchCompensationServiceTests
 
         var result = await service.CleanupFailedLaunchAsync(
             CreateContext("fingerprint-compensation-cleanup-fail"),
-            processId: 1010,
-            expectedIssuedAtUtc: DateTimeOffset.UtcNow,
+            target: CreateTarget(1010),
             timeout: TimeSpan.FromMilliseconds(400),
             cancellationToken: CancellationToken.None);
 
@@ -107,8 +104,7 @@ public sealed class DaemonLaunchCompensationServiceTests
 
         var result = await service.CleanupFailedLaunchAsync(
             CreateContext("fingerprint-compensation-timeout-cap"),
-            processId: 4040,
-            expectedIssuedAtUtc: DateTimeOffset.UtcNow,
+            target: CreateTarget(4040),
             timeout: TimeSpan.FromSeconds(15),
             cancellationToken: CancellationToken.None);
 
@@ -125,6 +121,13 @@ public sealed class DaemonLaunchCompensationServiceTests
             PathSource: UnityProjectPathSource.CommandOption);
     }
 
+    private static DaemonProcessTerminationTarget CreateTarget (int processId)
+    {
+        return new DaemonProcessTerminationTarget(
+            ProcessId: processId,
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow);
+    }
+
     private sealed class StubDaemonProcessTerminationService : IDaemonProcessTerminationService
     {
         public DaemonSessionStoreOperationResult NextResult { get; set; } = DaemonSessionStoreOperationResult.Success();
@@ -134,8 +137,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         public TimeSpan LastTimeout { get; private set; }
 
         public ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAsync (
-            int? processId,
-            DateTimeOffset? expectedIssuedAtUtc,
+            DaemonProcessTerminationTarget? target,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {

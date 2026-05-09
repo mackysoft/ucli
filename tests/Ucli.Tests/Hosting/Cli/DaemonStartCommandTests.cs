@@ -74,7 +74,12 @@ public sealed class DaemonStartCommandTests
             IsInferred: true,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 6, TimeSpan.Zero),
             ProcessId: 1234,
-            EditorInstancePath: "/repo/UnityProject/Library/EditorInstance.json");
+            EditorInstancePath: "/repo/UnityProject/Library/EditorInstance.json",
+            ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 0, TimeSpan.Zero),
+            UnityLogPath: "/repo/.ucli/local/fingerprints/fp/unity.log",
+            StartupPhase: DaemonDiagnosisStartupPhaseValues.EndpointRegistration,
+            ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
+            PrimaryDiagnostic: null);
         var service = new StubDaemonStartService(DaemonStartExecutionResult.Failure(
             ExecutionError.Timeout("registration timeout", ExecutionErrorCodes.IpcTimeout),
             diagnosis));
@@ -97,6 +102,10 @@ public sealed class DaemonStartCommandTests
         var diagnosisJson = payload.GetProperty("diagnosis");
         Assert.Equal(DaemonDiagnosisReasonValues.GuiEndpointNotRegistered, diagnosisJson.GetProperty("reason").GetString());
         Assert.Equal("/repo/UnityProject/Library/EditorInstance.json", diagnosisJson.GetProperty("editorInstancePath").GetString());
+        Assert.Equal("2026-03-12T04:05:00+00:00", diagnosisJson.GetProperty("processStartedAtUtc").GetString());
+        Assert.Equal("/repo/.ucli/local/fingerprints/fp/unity.log", diagnosisJson.GetProperty("unityLogPath").GetString());
+        Assert.Equal(DaemonDiagnosisStartupPhaseValues.EndpointRegistration, diagnosisJson.GetProperty("startupPhase").GetString());
+        Assert.Equal(DaemonDiagnosisActionRequiredValues.InspectUnityLog, diagnosisJson.GetProperty("actionRequired").GetString());
         Assert.True(diagnosisJson.GetProperty("isInferred").GetBoolean());
     }
 
@@ -115,6 +124,7 @@ public sealed class DaemonStartCommandTests
                 EndpointTransportKind: "namedPipe",
                 EndpointAddress: "ucli-daemon-endpoint",
                 ProcessId: 1234,
+                ProcessStartedAtUtc: DateTimeOffset.UtcNow,
                 OwnerProcessId: 5678));
     }
 

@@ -62,6 +62,60 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         }
     }
 
+    /// <inheritdoc />
+    public async ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
+        IpcEndpoint endpoint,
+        IpcRequest request,
+        TimeSpan sendTimeout,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(sendTimeout, TimeSpan.Zero);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        using var sendTimeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        sendTimeoutCancellationTokenSource.CancelAfter(sendTimeout);
+        var sendCancellationToken = sendTimeoutCancellationTokenSource.Token;
+        var hasConnected = false;
+        try
+        {
+            await using var stream = await ConnectAsync(endpoint, sendCancellationToken).ConfigureAwait(false);
+            hasConnected = true;
+            await IpcFrameCodec.WriteModelAsync(
+                    stream,
+                    request,
+                    IpcJsonSerializerOptions.Default,
+                    cancellationToken: sendCancellationToken)
+                .ConfigureAwait(false);
+
+            var readResult = await IpcFrameCodec.TryReadModelAsync<IpcResponse>(
+                    stream,
+                    IpcJsonSerializerOptions.Default,
+                    cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            if (!readResult.IsSuccess)
+            {
+                throw CreateFrameReadException(readResult.ErrorKind, readResult.ErrorMessage);
+            }
+
+            return readResult.Value;
+        }
+        catch (OperationCanceledException exception)
+            when (!cancellationToken.IsCancellationRequested && sendTimeoutCancellationTokenSource.IsCancellationRequested)
+        {
+            if (!hasConnected)
+            {
+                throw new IpcConnectTimeoutException(
+                    $"IPC connection timed out after {sendTimeout.TotalMilliseconds:0} milliseconds.",
+                    exception);
+            }
+
+            throw new TimeoutException(
+                $"IPC request write timed out after {sendTimeout.TotalMilliseconds:0} milliseconds.",
+                exception);
+        }
+    }
+
     /// <summary> Maps one frame read error kind to legacy exception categories for caller compatibility. </summary>
     /// <param name="errorKind"> The frame read error kind. </param>
     /// <param name="errorMessage"> The diagnostic frame read error message. </param>

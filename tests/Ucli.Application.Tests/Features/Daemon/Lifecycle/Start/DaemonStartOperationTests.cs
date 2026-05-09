@@ -692,6 +692,7 @@ public sealed class DaemonStartOperationTests
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-test-endpoint",
             ProcessId: processId,
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: ownerProcessId);
     }
 
@@ -868,8 +869,7 @@ public sealed class DaemonStartOperationTests
         public int CallCount { get; private set; }
 
         public ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAsync (
-            int? processId,
-            DateTimeOffset? expectedIssuedAtUtc,
+            DaemonProcessTerminationTarget? target,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {

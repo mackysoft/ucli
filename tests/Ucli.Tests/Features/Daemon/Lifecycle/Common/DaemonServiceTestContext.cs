@@ -44,6 +44,7 @@ internal static class DaemonServiceTestContext
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: 1234,
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 9876);
     }
 
@@ -58,6 +59,7 @@ internal static class DaemonServiceTestContext
             EndpointTransportKind: "mapped-transport",
             EndpointAddress: "mapped-endpoint",
             ProcessId: 4321,
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 8765);
     }
 
@@ -311,7 +313,8 @@ internal static class DaemonServiceTestContext
     internal sealed record StubIpcTransportCall (
         IpcEndpoint Endpoint,
         IpcRequest Request,
-        TimeSpan Timeout);
+        TimeSpan Timeout,
+        bool UsesUnboundedResponseWait);
 
     internal sealed class StubIpcTransportClient : IIpcTransportClient
     {
@@ -325,13 +328,28 @@ internal static class DaemonServiceTestContext
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
-            Calls.Add(new StubIpcTransportCall(endpoint, request, timeout));
+            Calls.Add(new StubIpcTransportCall(endpoint, request, timeout, UsesUnboundedResponseWait: false));
             if (SendHandler == null)
             {
                 throw new InvalidOperationException("Stub IPC transport handler is not configured.");
             }
 
             return SendHandler(endpoint, request, timeout, cancellationToken);
+        }
+
+        public ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
+            IpcEndpoint endpoint,
+            IpcRequest request,
+            TimeSpan sendTimeout,
+            CancellationToken cancellationToken = default)
+        {
+            Calls.Add(new StubIpcTransportCall(endpoint, request, sendTimeout, UsesUnboundedResponseWait: true));
+            if (SendHandler == null)
+            {
+                throw new InvalidOperationException("Stub IPC transport handler is not configured.");
+            }
+
+            return SendHandler(endpoint, request, sendTimeout, cancellationToken);
         }
     }
 }

@@ -26,4 +26,16 @@ public static class DaemonDiagnosisReasonValues
 
     /// <summary> Gets the reason value used when a detected GUI Editor process does not register an endpoint before timeout. </summary>
     public const string GuiEndpointNotRegistered = "guiEndpointNotRegistered";
+
+    /// <summary> Gets the reason value used when Unity script compilation blocks GUI daemon bootstrap. </summary>
+    public const string UnityScriptCompilationFailed = "unityScriptCompilationFailed";
+
+    /// <summary> Gets the reason value used when Unity package resolution blocks GUI daemon bootstrap. </summary>
+    public const string UnityPackageResolutionFailed = "unityPackageResolutionFailed";
+
+    /// <summary> Gets the reason value used when Unity Editor requires user action before GUI daemon bootstrap can continue. </summary>
+    public const string EditorUserActionRequired = "unityEditorUserActionRequired";
+
+    /// <summary> Gets the reason value used when Unity Editor exits before GUI daemon bootstrap writes a session. </summary>
+    public const string EditorExitedBeforeBootstrap = "unityEditorExitedBeforeBootstrap";
 }

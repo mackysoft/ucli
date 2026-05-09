@@ -5,14 +5,12 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Shutdown;
 internal interface IDaemonProcessTerminationService
 {
     /// <summary> Ensures daemon process is stopped before timeout expires. </summary>
-    /// <param name="processId"> The daemon process identifier when available. </param>
-    /// <param name="expectedIssuedAtUtc"> The expected daemon-session issuance timestamp used for process identity verification. </param>
+    /// <param name="target"> The daemon process termination target when available. </param>
     /// <param name="timeout"> The process termination timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The process termination result. </returns>
     ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAsync (
-        int? processId,
-        DateTimeOffset? expectedIssuedAtUtc,
+        DaemonProcessTerminationTarget? target,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);
 }

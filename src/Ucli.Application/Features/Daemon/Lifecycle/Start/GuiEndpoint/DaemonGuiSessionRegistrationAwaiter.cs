@@ -32,6 +32,7 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
         ResolvedUnityProjectContext unityProject,
         int expectedProcessId,
         TimeSpan timeout,
+        DateTimeOffset? expectedProcessStartedAtUtc = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -59,7 +60,12 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
                 return DaemonGuiSessionRegistrationWaitResult.Failure(readResult.Error!);
             }
 
-            if (TryGetMatchingGuiSession(readResult, unityProject, expectedProcessId, out var session))
+            if (TryGetMatchingGuiSession(
+                readResult,
+                unityProject,
+                expectedProcessId,
+                expectedProcessStartedAtUtc,
+                out var session))
             {
                 var probeResult = await TryProbeSessionAsync(
                         unityProject,
@@ -96,14 +102,11 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
                 $"Timed out before probing GUI daemon session. ProcessId={session.ProcessId}."));
         }
 
-        var attemptTimeout = remainingTimeout < DaemonTimeouts.ProbeAttemptTimeoutCap
-            ? remainingTimeout
-            : DaemonTimeouts.ProbeAttemptTimeoutCap;
         try
         {
             var pingResponse = await daemonPingInfoClient.PingAndReadAsync(
                     unityProject,
-                    attemptTimeout,
+                    remainingTimeout,
                     session.SessionToken,
                     validateProjectFingerprint: false,
                     cancellationToken: cancellationToken)
@@ -136,6 +139,7 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
         DaemonSessionReadResult readResult,
         ResolvedUnityProjectContext unityProject,
         int expectedProcessId,
+        DateTimeOffset? expectedProcessStartedAtUtc,
         out DaemonSession? session)
     {
         session = null;
@@ -146,6 +150,12 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
 
         var candidate = readResult.Session!;
         if (candidate.ProcessId != expectedProcessId)
+        {
+            return false;
+        }
+
+        if (expectedProcessStartedAtUtc is not null
+            && candidate.ProcessStartedAtUtc != expectedProcessStartedAtUtc)
         {
             return false;
         }

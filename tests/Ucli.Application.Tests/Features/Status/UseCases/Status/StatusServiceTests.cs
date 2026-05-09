@@ -9,7 +9,9 @@ using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Application.Tests.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Tests.Status;
 
@@ -123,13 +125,16 @@ public sealed class StatusServiceTests
         Assert.Equal(DaemonStatusKind.Stale, output.DaemonStatus);
         Assert.Equal("6000.1.4f1", output.UnityVersion);
         Assert.Null(output.ServerVersion);
-        Assert.Null(output.LifecycleState);
-        Assert.Null(output.BlockingReason);
+        Assert.Equal(IpcEditorLifecycleStateCodec.Unavailable, output.LifecycleState);
+        Assert.Equal(IpcEditorBlockingReasonCodec.Unavailable, output.BlockingReason);
         Assert.Null(output.CompileState);
         Assert.Null(output.CompileGeneration);
         Assert.Null(output.DomainReloadGeneration);
         Assert.False(output.CanAcceptExecutionRequests);
         Assert.Null(output.EditorMode);
+        Assert.NotNull(output.ObservedAtUtc);
+        Assert.Equal(DaemonDiagnosisActionRequiredValues.InspectUnityLog, output.ActionRequired);
+        Assert.Null(output.PrimaryDiagnostic);
         Assert.Equal(0, daemonPingInfoClient.CallCount);
     }
 
@@ -225,7 +230,7 @@ public sealed class StatusServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenPingInfoTimesOut_ReturnsTimeoutError ()
+    public async Task Execute_WhenPingInfoTimesOut_ReturnsUnavailableStaleStatus ()
     {
         var contextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
         var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
@@ -240,11 +245,12 @@ public sealed class StatusServiceTests
 
         var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.Output);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
-        Assert.Contains("Timed out while reading daemon ping information.", error.Message, StringComparison.Ordinal);
+        Assert.True(result.IsSuccess);
+        var output = Assert.IsType<StatusExecutionOutput>(result.Output);
+        Assert.Equal(DaemonStatusKind.Stale, output.DaemonStatus);
+        Assert.Equal(IpcEditorLifecycleStateCodec.Unavailable, output.LifecycleState);
+        Assert.False(output.CanAcceptExecutionRequests);
+        Assert.Null(result.Error);
     }
 
     [Fact]
@@ -307,7 +313,9 @@ public sealed class StatusServiceTests
             new StatusDaemonObservationService(
                 daemonStatusOperation,
                 daemonPingInfoClient,
-                new StubDaemonReachabilityClassifier()));
+                new StubDaemonReachabilityClassifier(),
+                new DaemonServiceTestContext.StubDaemonLifecycleStore(),
+                new DaemonServiceTestContext.StubDaemonProcessIdentityAssessor()));
     }
 
     private static ProjectContext CreateContext ()
@@ -336,7 +344,7 @@ public sealed class StatusServiceTests
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-status",
             ProcessId: 1234,
-
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 9876);
     }
 

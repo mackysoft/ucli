@@ -24,30 +24,30 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
     }
 
     /// <summary> Ensures daemon process is stopped before timeout expires. </summary>
-    /// <param name="processId"> The daemon process identifier when available. </param>
-    /// <param name="expectedIssuedAtUtc"> The expected daemon-session issuance timestamp used for process identity verification. </param>
+    /// <param name="target"> The daemon process termination target when available. </param>
     /// <param name="timeout"> The process termination timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The process termination result. </returns>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     public async ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAsync (
-        int? processId,
-        DateTimeOffset? expectedIssuedAtUtc,
+        DaemonProcessTerminationTarget? target,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        if (processId is null)
+        if (target is null)
         {
             return DaemonSessionStoreOperationResult.Success();
         }
 
+        var processId = target.Value.ProcessId;
+
         DiagnosticsProcess process;
         try
         {
-            process = DiagnosticsProcess.GetProcessById(processId.Value);
+            process = DiagnosticsProcess.GetProcessById(processId);
         }
         catch (ArgumentException)
         {
@@ -56,13 +56,10 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
 
         using (process)
         {
-            if (expectedIssuedAtUtc is null)
-            {
-                return DaemonSessionStoreOperationResult.Failure(ExecutionError.InternalError(
-                    $"Daemon process identity could not be verified because expected issuedAtUtc is not available for process '{processId.Value}'."));
-            }
-
-            var identityAssessment = daemonProcessIdentityAssessor.AssessProcess(process, processId.Value, expectedIssuedAtUtc.Value);
+            var identityAssessment = daemonProcessIdentityAssessor.AssessProcess(
+                process,
+                processId,
+                target.Value.ProcessStartedAtUtc);
             switch (identityAssessment.Status)
             {
                 case DaemonProcessIdentityAssessmentStatus.NotRunning:
@@ -74,7 +71,7 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
                 case DaemonProcessIdentityAssessmentStatus.DifferentProcess:
                 case DaemonProcessIdentityAssessmentStatus.Uncertain:
                     return DaemonSessionStoreOperationResult.Failure(identityAssessment.Error ?? ExecutionError.InternalError(
-                        $"Daemon process identity could not be verified for process '{processId.Value}'."));
+                        $"Daemon process identity could not be verified for process '{processId}'."));
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(identityAssessment), identityAssessment.Status, "Unsupported daemon process identity assessment status.");
@@ -86,7 +83,7 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
             if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
             {
                 return DaemonSessionStoreOperationResult.Failure(ExecutionError.Timeout(
-                    $"Timed out while waiting for daemon process '{processId.Value}' to stop."));
+                    $"Timed out while waiting for daemon process '{processId}' to stop."));
             }
 
             var passiveExitWaitTimeout = GetPassiveExitWaitTimeout(remainingTimeout);
@@ -99,7 +96,7 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
             if (!deadline.TryGetRemainingTimeout(out var terminationTimeout))
             {
                 return DaemonSessionStoreOperationResult.Failure(ExecutionError.Timeout(
-                    $"Timed out while waiting for daemon process '{processId.Value}' to stop."));
+                    $"Timed out while waiting for daemon process '{processId}' to stop."));
             }
 
             var terminationResult = await ProcessTerminator.TerminateAsync(
@@ -110,7 +107,7 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
 
             return terminationResult == ProcessTerminationResult.ForceKillFailed
                 ? DaemonSessionStoreOperationResult.Failure(ExecutionError.Timeout(
-                    $"Timed out while force-stopping daemon process '{processId.Value}'."))
+                    $"Timed out while force-stopping daemon process '{processId}'."))
                 : DaemonSessionStoreOperationResult.Success();
         }
     }

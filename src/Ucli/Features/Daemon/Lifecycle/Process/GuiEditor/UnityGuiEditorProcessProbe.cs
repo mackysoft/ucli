@@ -81,7 +81,7 @@ internal sealed class UnityGuiEditorProcessProbe : IUnityGuiEditorProcessProbe
             return UnityGuiEditorProcessProbeResult.NotMatching(UnityGuiEditorProcessProbeStatus.NotUnityEditor);
         }
 
-        return UnityGuiEditorProcessProbeResult.Matching();
+        return UnityGuiEditorProcessProbeResult.Matching(processStartTimeUtc);
     }
 
     private static bool ContainsBatchmodeArgument (string? commandLine)

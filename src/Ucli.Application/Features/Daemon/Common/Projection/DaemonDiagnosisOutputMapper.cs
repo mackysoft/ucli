@@ -21,6 +21,19 @@ internal sealed class DaemonDiagnosisOutputMapper : IDaemonDiagnosisOutputMapper
             IsInferred: diagnosis.IsInferred,
             UpdatedAtUtc: diagnosis.UpdatedAtUtc,
             ProcessId: diagnosis.ProcessId,
-            EditorInstancePath: diagnosis.EditorInstancePath);
+            EditorInstancePath: diagnosis.EditorInstancePath,
+            ProcessStartedAtUtc: diagnosis.ProcessStartedAtUtc,
+            UnityLogPath: diagnosis.UnityLogPath,
+            StartupPhase: diagnosis.StartupPhase,
+            ActionRequired: diagnosis.ActionRequired,
+            PrimaryDiagnostic: diagnosis.PrimaryDiagnostic is null
+                ? null
+                : new DaemonPrimaryDiagnosticOutput(
+                    Kind: diagnosis.PrimaryDiagnostic.Kind,
+                    Code: diagnosis.PrimaryDiagnostic.Code,
+                    File: diagnosis.PrimaryDiagnostic.File,
+                    Line: diagnosis.PrimaryDiagnostic.Line,
+                    Column: diagnosis.PrimaryDiagnostic.Column,
+                    Message: diagnosis.PrimaryDiagnostic.Message));
     }
 }

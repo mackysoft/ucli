@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Shared.Unity.Resolution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Process;
@@ -18,15 +19,19 @@ internal sealed class UnityGuiEditorProcessLauncher : IUnityGuiEditorProcessLaun
 
     private readonly IUnityUcliPluginLocator unityUcliPluginLocator;
 
+    private readonly IUnityProjectLockPreflightService unityProjectLockPreflightService;
+
     /// <summary> Initializes a new instance of the <see cref="UnityGuiEditorProcessLauncher" /> class. </summary>
     public UnityGuiEditorProcessLauncher (
         IUnityVersionResolver unityVersionResolver,
         IUnityEditorPathResolver unityEditorPathResolver,
-        IUnityUcliPluginLocator unityUcliPluginLocator)
+        IUnityUcliPluginLocator unityUcliPluginLocator,
+        IUnityProjectLockPreflightService unityProjectLockPreflightService)
     {
         this.unityVersionResolver = unityVersionResolver ?? throw new ArgumentNullException(nameof(unityVersionResolver));
         this.unityEditorPathResolver = unityEditorPathResolver ?? throw new ArgumentNullException(nameof(unityEditorPathResolver));
         this.unityUcliPluginLocator = unityUcliPluginLocator ?? throw new ArgumentNullException(nameof(unityUcliPluginLocator));
+        this.unityProjectLockPreflightService = unityProjectLockPreflightService ?? throw new ArgumentNullException(nameof(unityProjectLockPreflightService));
     }
 
     /// <inheritdoc />
@@ -42,6 +47,12 @@ internal sealed class UnityGuiEditorProcessLauncher : IUnityGuiEditorProcessLaun
         {
             return UnityDaemonLaunchResult.Failure(ExecutionError.InvalidArgument(
                 "Unity log path must not be empty."));
+        }
+
+        var projectLockValidationError = await ValidateProjectLockAsync(unityProject, cancellationToken).ConfigureAwait(false);
+        if (projectLockValidationError != null)
+        {
+            return UnityDaemonLaunchResult.Failure(projectLockValidationError);
         }
 
         var pluginLocateResult = await unityUcliPluginLocator.LocateAsync(
@@ -77,6 +88,11 @@ internal sealed class UnityGuiEditorProcessLauncher : IUnityGuiEditorProcessLaun
                 FileSystemAccessBoundary.EnsureSecureDirectory(unityLogDirectoryPath);
             }
 
+            // NOTE: GUI startup diagnosis tails this uCLI-managed log before the endpoint exists.
+            // Start from an empty file so stale compiler/package/dialog lines from a previous run
+            // cannot be classified as blockers for this launch attempt.
+            FileUtilities.DeleteIfExists(unityLogPath);
+
             var processStartInfo = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = unityEditorPathResult.UnityEditorPath!,
@@ -97,6 +113,15 @@ internal sealed class UnityGuiEditorProcessLauncher : IUnityGuiEditorProcessLaun
                 processStartInfo.ArgumentList.Add(argumentTokens[i]);
             }
 
+            // NOTE: An external Unity editor can open the project while plugin and editor paths are being resolved.
+            projectLockValidationError = await ValidateProjectLockAsync(unityProject, cancellationToken).ConfigureAwait(false);
+            if (projectLockValidationError != null)
+            {
+                return UnityDaemonLaunchResult.Failure(projectLockValidationError);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
             var process = System.Diagnostics.Process.Start(processStartInfo);
             if (process == null)
             {
@@ -106,7 +131,7 @@ internal sealed class UnityGuiEditorProcessLauncher : IUnityGuiEditorProcessLaun
 
             using (process)
             {
-                return UnityDaemonLaunchResult.Success(process.Id);
+                return UnityDaemonLaunchResult.Success(process.Id, process.StartTime.ToUniversalTime());
             }
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
@@ -123,6 +148,17 @@ internal sealed class UnityGuiEditorProcessLauncher : IUnityGuiEditorProcessLaun
             return UnityDaemonLaunchResult.Failure(ExecutionError.InternalError(
                 $"Failed to start Unity GUI Editor process. {exception.Message}"));
         }
+    }
+
+    private async ValueTask<ExecutionError?> ValidateProjectLockAsync (
+        ResolvedUnityProjectContext unityProject,
+        CancellationToken cancellationToken)
+    {
+        var preflightResult = await unityProjectLockPreflightService.PrepareForUnityProcessStartAsync(
+                unityProject,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return UnityProjectLockPreflightErrorFactory.CreateLaunchBlockingError(unityProject, preflightResult);
     }
 
     /// <summary> Builds Unity editor command-line argument tokens for GUI daemon bootstrap. </summary>

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
@@ -57,6 +58,50 @@ public sealed class SupervisorClientTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task EnsureRunning_UsesOriginalOperationTimeoutAndUnboundedResponseWait ()
+    {
+        var observedOperationTimeoutMilliseconds = 0;
+        var transportClient = new MackySoft.Ucli.Tests.Daemon.DaemonServiceTestContext.StubIpcTransportClient
+        {
+            SendHandler = (endpoint, request, timeout, cancellationToken) =>
+            {
+                Assert.True(IpcPayloadCodec.TryDeserialize(
+                    request.Payload,
+                    out SupervisorIpcContracts.EnsureRunningRequest payload,
+                    out _));
+                observedOperationTimeoutMilliseconds = payload.TimeoutMilliseconds;
+
+                return ValueTask.FromResult(new IpcResponse(
+                    ProtocolVersion: request.ProtocolVersion,
+                    RequestId: request.RequestId,
+                    Status: IpcProtocol.StatusOk,
+                    Payload: IpcPayloadCodec.SerializeToElement(
+                        new SupervisorIpcContracts.EnsureRunningResponse(
+                            StartStatus: "started",
+                            DaemonStatus: "running",
+                            Session: CreateSession())),
+                    Errors: []));
+            },
+        };
+        var client = new SupervisorClient(transportClient);
+        var requestedTimeout = TimeSpan.FromSeconds(5);
+
+        var result = await client.EnsureRunningAsync(
+            CreateManifest(),
+            CreateUnityProject(),
+            requestedTimeout,
+            editorMode: DaemonEditorMode.Gui,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var call = Assert.Single(transportClient.Calls);
+        Assert.True(call.UsesUnboundedResponseWait);
+        Assert.Equal(requestedTimeout, call.Timeout);
+        Assert.Equal((int)requestedTimeout.TotalMilliseconds, observedOperationTimeoutMilliseconds);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task EnsureRunning_WhenFailurePayloadContainsDiagnosis_ReturnsFailureWithDiagnosis ()
     {
         var diagnosis = CreateDiagnosis();
@@ -104,6 +149,23 @@ public sealed class SupervisorClientTests
             RepositoryRoot: "/repo",
             ProjectFingerprint: "fingerprint",
             PathSource: UnityProjectPathSource.CommandOption);
+    }
+
+    private static DaemonSession CreateSession ()
+    {
+        return new DaemonSession(
+            SchemaVersion: DaemonSession.CurrentSchemaVersion,
+            SessionToken: "session-token",
+            ProjectFingerprint: "fingerprint",
+            IssuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
+            EditorMode: DaemonEditorModeValues.Gui,
+            OwnerKind: DaemonSessionOwnerKindValues.Cli,
+            CanShutdownProcess: true,
+            EndpointTransportKind: "unixDomainSocket",
+            EndpointAddress: "/tmp/ucli.sock",
+            ProcessId: 42,
+            ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 1, TimeSpan.Zero),
+            OwnerProcessId: Environment.ProcessId);
     }
 
     private static DaemonDiagnosis CreateDiagnosis ()

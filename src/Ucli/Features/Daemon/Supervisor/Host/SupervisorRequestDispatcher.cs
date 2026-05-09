@@ -165,7 +165,7 @@ internal sealed class SupervisorRequestDispatcher
             editorMode = parsedEditorMode;
         }
 
-        await using var requestLifetime = SupervisorRequestLifetime.Start(stream, timeout, cancellationToken);
+        await using var requestLifetime = SupervisorRequestLifetime.Start(stream, cancellationToken);
 
         DaemonStartResult startResult;
         try
@@ -176,13 +176,6 @@ internal sealed class SupervisorRequestDispatcher
                     editorMode,
                     requestLifetime.CancellationToken)
                 .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (requestLifetime.IsTimeoutCancellation)
-        {
-            return SupervisorIpcResponseFactory.CreateErrorResponse(
-                request,
-                ExecutionErrorCodes.IpcTimeout,
-                $"Supervisor ensureRunning timed out after {payload.TimeoutMilliseconds} milliseconds.");
         }
         catch (OperationCanceledException) when (requestLifetime.IsCallerDisconnectCancellation)
         {
@@ -248,7 +241,7 @@ internal sealed class SupervisorRequestDispatcher
                 $"Supervisor stopProject timeout must be greater than zero. Actual={payload.TimeoutMilliseconds}.");
         }
 
-        await using var requestLifetime = SupervisorRequestLifetime.Start(stream, timeout, cancellationToken);
+        await using var requestLifetime = SupervisorRequestLifetime.Start(stream, cancellationToken);
 
         DaemonStopResult stopResult;
         try
@@ -258,13 +251,6 @@ internal sealed class SupervisorRequestDispatcher
                     timeout,
                     requestLifetime.CancellationToken)
                 .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (requestLifetime.IsTimeoutCancellation)
-        {
-            return SupervisorIpcResponseFactory.CreateErrorResponse(
-                request,
-                ExecutionErrorCodes.IpcTimeout,
-                $"Supervisor stopProject timed out after {payload.TimeoutMilliseconds} milliseconds.");
         }
         catch (OperationCanceledException) when (requestLifetime.IsCallerDisconnectCancellation)
         {

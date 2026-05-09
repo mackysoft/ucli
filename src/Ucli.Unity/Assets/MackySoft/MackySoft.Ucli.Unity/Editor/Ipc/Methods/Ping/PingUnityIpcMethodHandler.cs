@@ -61,9 +61,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return new ValueTask<IpcResponse>(errorResponse!);
             }
 
-            daemonLogger.Info(
-                DaemonLogCategories.Health,
-                "Ping request handled.");
             var payload = UnityPingResponseCodec.CreatePayload(
                 Application.unityVersion,
                 serverVersionProvider.GetVersion(),

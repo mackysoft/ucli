@@ -68,7 +68,7 @@ public sealed class DaemonShutdownClientTests
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-test-endpoint",
             ProcessId: 1234,
-
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 9876);
     }
 

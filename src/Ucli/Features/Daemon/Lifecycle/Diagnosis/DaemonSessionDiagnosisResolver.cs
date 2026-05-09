@@ -31,7 +31,7 @@ internal sealed class DaemonSessionDiagnosisResolver : IDaemonSessionDiagnosisRe
         ArgumentNullException.ThrowIfNull(session);
 
         if (persistedDiagnosis is not null
-            && persistedDiagnosis.SessionIssuedAtUtc == session.IssuedAtUtc)
+            && IsPersistedDiagnosisForSession(persistedDiagnosis, session))
         {
             return persistedDiagnosis;
         }
@@ -50,7 +50,8 @@ internal sealed class DaemonSessionDiagnosisResolver : IDaemonSessionDiagnosisRe
             UpdatedAtUtc: DateTimeOffset.UtcNow,
             ProcessId: resolvedProcessId,
             EditorInstancePath: null,
-            SessionIssuedAtUtc: session.IssuedAtUtc);
+            SessionIssuedAtUtc: session.IssuedAtUtc,
+            ProcessStartedAtUtc: session.ProcessStartedAtUtc);
 
         var writeResult = await daemonDiagnosisStore.WriteAsync(
                 unityProject.RepositoryRoot,
@@ -65,5 +66,19 @@ internal sealed class DaemonSessionDiagnosisResolver : IDaemonSessionDiagnosisRe
         }
 
         return diagnosis;
+    }
+
+    private static bool IsPersistedDiagnosisForSession (
+        DaemonDiagnosis persistedDiagnosis,
+        DaemonSession session)
+    {
+        if (persistedDiagnosis.SessionIssuedAtUtc != session.IssuedAtUtc)
+        {
+            return false;
+        }
+
+        return persistedDiagnosis.ProcessStartedAtUtc is null
+            || session.ProcessStartedAtUtc is null
+            || persistedDiagnosis.ProcessStartedAtUtc == session.ProcessStartedAtUtc;
     }
 }

@@ -13,8 +13,7 @@ public sealed class DaemonProcessTerminationServiceTests
         var service = CreateService();
 
         var result = await service.EnsureStoppedAsync(
-            processId: null,
-            expectedIssuedAtUtc: null,
+            target: null,
             timeout: TimeSpan.FromMilliseconds(100),
             cancellationToken: CancellationToken.None);
 
@@ -30,8 +29,7 @@ public sealed class DaemonProcessTerminationServiceTests
         var currentProcessId = Environment.ProcessId;
 
         var result = await service.EnsureStoppedAsync(
-            processId: currentProcessId,
-            expectedIssuedAtUtc: null,
+            target: CreateTarget(currentProcessId, processStartedAtUtc: null),
             timeout: TimeSpan.FromMilliseconds(100),
             cancellationToken: CancellationToken.None);
 
@@ -43,14 +41,13 @@ public sealed class DaemonProcessTerminationServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task EnsureStopped_WhenProcessStartTimeDoesNotMatchSessionIssuedAt_ReturnsFailure ()
+    public async Task EnsureStopped_WhenProcessStartTimeDoesNotMatchExpectedStartTime_ReturnsFailure ()
     {
         var service = CreateService();
         var currentProcess = Process.GetCurrentProcess();
 
         var result = await service.EnsureStoppedAsync(
-            processId: currentProcess.Id,
-            expectedIssuedAtUtc: DateTimeOffset.UtcNow.AddHours(1),
+            target: CreateTarget(currentProcess.Id, DateTimeOffset.UtcNow.AddHours(1)),
             timeout: TimeSpan.FromMilliseconds(100),
             cancellationToken: CancellationToken.None);
 
@@ -90,8 +87,7 @@ public sealed class DaemonProcessTerminationServiceTests
             await WaitForFileExistsAsync(readyPath, TimeSpan.FromSeconds(5), CancellationToken.None);
 
             var result = await service.EnsureStoppedAsync(
-                process.Id,
-                DateTimeOffset.UtcNow,
+                CreateTarget(process.Id, process.StartTime.ToUniversalTime()),
                 TimeSpan.FromSeconds(10),
                 CancellationToken.None);
 
@@ -137,8 +133,7 @@ public sealed class DaemonProcessTerminationServiceTests
             await WaitForFileExistsAsync(readyPath, TimeSpan.FromSeconds(5), CancellationToken.None);
 
             var result = await service.EnsureStoppedAsync(
-                process.Id,
-                DateTimeOffset.UtcNow,
+                CreateTarget(process.Id, process.StartTime.ToUniversalTime()),
                 TimeSpan.FromSeconds(15),
                 CancellationToken.None);
 
@@ -184,8 +179,7 @@ public sealed class DaemonProcessTerminationServiceTests
             await WaitForFileExistsAsync(readyPath, TimeSpan.FromSeconds(5), CancellationToken.None);
 
             var result = await service.EnsureStoppedAsync(
-                process.Id,
-                DateTimeOffset.UtcNow,
+                CreateTarget(process.Id, process.StartTime.ToUniversalTime()),
                 TimeSpan.FromSeconds(10),
                 CancellationToken.None);
 
@@ -231,8 +225,7 @@ public sealed class DaemonProcessTerminationServiceTests
             await WaitForFileExistsAsync(readyPath, TimeSpan.FromSeconds(5), CancellationToken.None);
 
             var result = await service.EnsureStoppedAsync(
-                process.Id,
-                DateTimeOffset.UtcNow,
+                CreateTarget(process.Id, process.StartTime.ToUniversalTime()),
                 TimeSpan.FromSeconds(15),
                 CancellationToken.None);
 
@@ -251,6 +244,15 @@ public sealed class DaemonProcessTerminationServiceTests
     private static DaemonProcessTerminationService CreateService ()
     {
         return new DaemonProcessTerminationService(new DaemonProcessIdentityAssessor());
+    }
+
+    private static DaemonProcessTerminationTarget CreateTarget (
+        int processId,
+        DateTimeOffset? processStartedAtUtc)
+    {
+        return new DaemonProcessTerminationTarget(
+            ProcessId: processId,
+            ProcessStartedAtUtc: processStartedAtUtc);
     }
 
     private static async Task WaitForFileExistsAsync (

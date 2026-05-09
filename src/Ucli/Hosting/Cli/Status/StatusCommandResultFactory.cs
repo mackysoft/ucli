@@ -32,6 +32,9 @@ internal static class StatusCommandResultFactory
                     domainReloadGeneration = output.DomainReloadGeneration,
                     canAcceptExecutionRequests = output.CanAcceptExecutionRequests,
                     editorMode = output.EditorMode,
+                    observedAtUtc = output.ObservedAtUtc,
+                    actionRequired = output.ActionRequired,
+                    primaryDiagnostic = output.PrimaryDiagnostic,
                     timeoutMilliseconds = output.TimeoutMilliseconds,
                 });
         }

@@ -15,7 +15,9 @@ internal static class DaemonGuiEndpointNotRegisteredFailureFactory
         string endpointOwnerDescription,
         string editorInstancePath,
         int? processId,
-        ExecutionError waitError)
+        ExecutionError waitError,
+        DateTimeOffset? processStartedAtUtc = null,
+        string? unityLogPath = null)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(daemonDiagnosisStore);
@@ -27,7 +29,9 @@ internal static class DaemonGuiEndpointNotRegisteredFailureFactory
             timeoutError.Message,
             processId,
             editorInstancePath,
-            timeProvider.GetUtcNow());
+            timeProvider.GetUtcNow(),
+            processStartedAtUtc,
+            unityLogPath);
         var diagnosisWriteResult = await daemonDiagnosisStore.WriteAsync(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
@@ -64,7 +68,9 @@ internal static class DaemonGuiEndpointNotRegisteredFailureFactory
         string message,
         int? processId,
         string editorInstancePath,
-        DateTimeOffset updatedAtUtc)
+        DateTimeOffset updatedAtUtc,
+        DateTimeOffset? processStartedAtUtc,
+        string? unityLogPath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         ArgumentException.ThrowIfNullOrWhiteSpace(editorInstancePath);
@@ -77,7 +83,11 @@ internal static class DaemonGuiEndpointNotRegisteredFailureFactory
             UpdatedAtUtc: updatedAtUtc,
             ProcessId: processId,
             EditorInstancePath: editorInstancePath,
-            SessionIssuedAtUtc: updatedAtUtc);
+            SessionIssuedAtUtc: updatedAtUtc,
+            ProcessStartedAtUtc: processStartedAtUtc,
+            UnityLogPath: unityLogPath,
+            StartupPhase: DaemonDiagnosisStartupPhaseValues.EndpointRegistration,
+            ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog);
     }
 
     private static ExecutionError CreateAugmentedPrimaryError (

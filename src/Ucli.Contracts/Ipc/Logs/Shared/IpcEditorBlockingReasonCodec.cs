@@ -11,11 +11,20 @@ public static class IpcEditorBlockingReasonCodec
     /// <summary> Gets the blocking reason used while editor internal busy work is running. </summary>
     public const string Busy = "busy";
 
+    /// <summary> Gets the blocking reason used while daemon endpoint recovery is still running. </summary>
+    public const string Recovery = "recovery";
+
     /// <summary> Gets the blocking reason used while script compilation is active. </summary>
     public const string Compile = "compile";
 
+    /// <summary> Gets the blocking reason used after script compilation has failed. </summary>
+    public const string CompileFailed = "compileFailed";
+
     /// <summary> Gets the blocking reason used while domain reload is active. </summary>
     public const string DomainReload = "domainReload";
+
+    /// <summary> Gets the blocking reason used while AssetDatabase refresh or reimport work is active. </summary>
+    public const string Reimport = "reimport";
 
     /// <summary> Gets the blocking reason used while Play Mode is active. </summary>
     public const string PlayMode = "playMode";
@@ -29,16 +38,23 @@ public static class IpcEditorBlockingReasonCodec
     /// <summary> Gets the blocking reason used while shutdown is in progress. </summary>
     public const string Shutdown = "shutdown";
 
+    /// <summary> Gets the blocking reason used when editor lifecycle cannot be observed. </summary>
+    public const string Unavailable = "unavailable";
+
     private static readonly string[] CanonicalLiterals =
     {
         Startup,
         Busy,
+        Recovery,
         Compile,
+        CompileFailed,
         DomainReload,
+        Reimport,
         PlayMode,
         ModalDialog,
         SafeMode,
         Shutdown,
+        Unavailable,
     };
 
     /// <summary> Tries to normalize one raw blocking reason literal. </summary>

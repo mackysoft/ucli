@@ -78,6 +78,45 @@ public static class FileUtilities
         }
     }
 
+    /// <summary> Writes text atomically to the target file path. </summary>
+    /// <param name="path"> The target file path. </param>
+    /// <param name="contents"> The text contents. </param>
+    public static void WriteAllTextAtomically (
+        string path,
+        string contents)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new ArgumentException("path must not be empty.", nameof(path));
+        }
+
+        if (contents == null)
+        {
+            throw new ArgumentNullException(nameof(contents));
+        }
+
+        var pathResult = PathNormalizer.TryNormalizeFullPath(path);
+        if (!pathResult.IsSuccess)
+        {
+            throw new ArgumentException(pathResult.DiagnosticMessage, nameof(path));
+        }
+
+        var directoryPath = Path.GetDirectoryName(pathResult.FullPath!)
+            ?? throw new InvalidOperationException($"Directory path could not be resolved: {path}");
+        Directory.CreateDirectory(directoryPath);
+        var temporaryPath = path + $".tmp.{Guid.NewGuid():N}";
+
+        try
+        {
+            File.WriteAllText(temporaryPath, contents);
+            ReplaceFile(temporaryPath, path);
+        }
+        finally
+        {
+            DeleteIfExists(temporaryPath);
+        }
+    }
+
     /// <summary> Deletes one file and treats a missing file as a valid no-op state. </summary>
     /// <param name="path"> The target file path. </param>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="path" /> is invalid. </exception>

@@ -8,6 +8,8 @@ namespace MackySoft.Ucli.Application.Tests.Daemon;
 
 public sealed class DaemonGuiEditorAttachServiceTests
 {
+    private static readonly DateTimeOffset ProbeProcessStartedAtUtc = new(2026, 5, 9, 0, 0, 0, TimeSpan.Zero);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task TryAttachExistingGuiEditor_WhenMatchingGuiSessionRegisters_ReturnsAlreadyRunning ()
@@ -20,7 +22,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
         };
         var processProbe = new StubUnityGuiEditorProcessProbe
         {
-            Result = UnityGuiEditorProcessProbeResult.Matching(),
+            Result = UnityGuiEditorProcessProbeResult.Matching(ProbeProcessStartedAtUtc),
         };
         var session = CreateGuiSession();
         var awaiter = new StubDaemonGuiSessionRegistrationAwaiter
@@ -43,6 +45,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
         Assert.Equal(1, awaiter.CallCount);
         Assert.Equal(context, awaiter.LastUnityProject);
         Assert.Equal(marker.ProcessId, awaiter.LastExpectedProcessId);
+        Assert.Equal(ProbeProcessStartedAtUtc, awaiter.LastExpectedProcessStartedAtUtc);
         Assert.True(awaiter.LastTimeout > TimeSpan.FromMilliseconds(450));
         Assert.True(awaiter.LastTimeout <= TimeSpan.FromMilliseconds(500));
         Assert.Equal(0, diagnosisStore.WriteCallCount);
@@ -59,7 +62,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
         };
         var processProbe = new StubUnityGuiEditorProcessProbe
         {
-            Result = UnityGuiEditorProcessProbeResult.Matching(),
+            Result = UnityGuiEditorProcessProbeResult.Matching(ProbeProcessStartedAtUtc),
         };
         var awaiter = new StubDaemonGuiSessionRegistrationAwaiter();
         var diagnosisStore = new StubDaemonDiagnosisStore();
@@ -89,7 +92,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
         };
         var processProbe = new StubUnityGuiEditorProcessProbe
         {
-            Result = UnityGuiEditorProcessProbeResult.Matching(),
+            Result = UnityGuiEditorProcessProbeResult.Matching(ProbeProcessStartedAtUtc),
         };
         var timeoutError = ExecutionError.Timeout("wait timed out", ExecutionErrorCodes.IpcTimeout);
         var awaiter = new StubDaemonGuiSessionRegistrationAwaiter
@@ -131,7 +134,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
         };
         var processProbe = new StubUnityGuiEditorProcessProbe
         {
-            Result = UnityGuiEditorProcessProbeResult.Matching(),
+            Result = UnityGuiEditorProcessProbeResult.Matching(ProbeProcessStartedAtUtc),
             OnProbe = () => timeProvider.Advance(TimeSpan.FromMilliseconds(175)),
         };
         var awaiter = new StubDaemonGuiSessionRegistrationAwaiter();
@@ -214,6 +217,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
             EndpointTransportKind: "unixDomainSocket",
             EndpointAddress: "/tmp/ucli.sock",
             ProcessId: 1234,
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: null);
     }
 
@@ -260,17 +264,21 @@ public sealed class DaemonGuiEditorAttachServiceTests
 
         public int LastExpectedProcessId { get; private set; }
 
+        public DateTimeOffset? LastExpectedProcessStartedAtUtc { get; private set; }
+
         public TimeSpan LastTimeout { get; private set; }
 
         public ValueTask<DaemonGuiSessionRegistrationWaitResult> WaitForSessionAsync (
             ResolvedUnityProjectContext unityProject,
             int expectedProcessId,
             TimeSpan timeout,
+            DateTimeOffset? expectedProcessStartedAtUtc = null,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
             LastUnityProject = unityProject;
             LastExpectedProcessId = expectedProcessId;
+            LastExpectedProcessStartedAtUtc = expectedProcessStartedAtUtc;
             LastTimeout = timeout;
             return ValueTask.FromResult(Result);
         }

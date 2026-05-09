@@ -95,9 +95,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
                 catch (Exception exception) when (!cancellationToken.IsCancellationRequested && (exception is IOException or InvalidDataException))
                 {
-                    daemonLogger.Warning(
-                        DaemonLogCategories.Transport,
-                        $"Named pipe listener ignored recoverable connection error: {exception.Message}");
+                    // NOTE: Probe callers may close timed-out streams while Unity is busy on the main thread.
+                    // Emitting these expected connection-local failures to the Unity console can make recovery slower.
                 }
                 finally
                 {

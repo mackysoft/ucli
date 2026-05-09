@@ -8,5 +8,6 @@ internal interface IDaemonGuiSessionRegistrationAwaiter
         ResolvedUnityProjectContext unityProject,
         int expectedProcessId,
         TimeSpan timeout,
+        DateTimeOffset? expectedProcessStartedAtUtc = null,
         CancellationToken cancellationToken = default);
 }

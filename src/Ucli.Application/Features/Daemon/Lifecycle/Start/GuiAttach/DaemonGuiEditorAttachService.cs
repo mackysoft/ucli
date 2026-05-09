@@ -82,6 +82,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
                 unityProject,
                 marker.ProcessId,
                 waitTimeout,
+                expectedProcessStartedAtUtc: probeResult.ProcessStartedAtUtc,
                 cancellationToken)
             .ConfigureAwait(false);
         if (waitResult.IsSuccess)

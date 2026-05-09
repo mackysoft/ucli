@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Inventory;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.EditorInstance;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Gateway;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.GuiEditor;
@@ -11,11 +12,14 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Reachability;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Shutdown;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Inventory;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Observation;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -42,6 +46,7 @@ internal static class DaemonServiceCollectionExtensions
     {
         services.AddSingleton<IDaemonSessionStore, DaemonSessionStore>();
         services.AddSingleton<IDaemonDiagnosisStore, DaemonDiagnosisStore>();
+        services.AddSingleton<IDaemonLifecycleStore, DaemonLifecycleStore>();
         services.AddSingleton<IDaemonSessionDiagnosisResolver, DaemonSessionDiagnosisResolver>();
         services.AddSingleton<DaemonProcessIdentityAssessor>();
         services.AddSingleton<IDaemonProcessIdentityAssessor>(provider => provider.GetRequiredService<DaemonProcessIdentityAssessor>());
@@ -59,6 +64,7 @@ internal static class DaemonServiceCollectionExtensions
         services.AddSingleton<IDaemonPingClient>(provider => provider.GetRequiredService<IpcDaemonPingClient>());
         services.AddSingleton<IDaemonPingInfoClient>(provider => provider.GetRequiredService<IpcDaemonPingClient>());
         services.AddSingleton<IDaemonStartupReadinessProbe, DaemonStartupReadinessProbe>();
+        services.AddSingleton<IDaemonGuiStartupObserver, DaemonGuiStartupObserver>();
         services.AddSingleton<IDaemonShutdownClient, DaemonShutdownClient>();
         services.AddSingleton<IDaemonArtifactCleaner, DaemonArtifactCleaner>();
         services.AddSingleton<IDaemonCleanupReachabilityProbe, DaemonCleanupReachabilityProbe>();

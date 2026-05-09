@@ -141,7 +141,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         }
 
         if (!shutdownResult.IsSuccess
-            && !DaemonSessionTerminationPolicy.TryGetTerminationTarget(session, out _, out _))
+            && !DaemonSessionTerminationPolicy.TryGetTerminationTarget(session, out _))
         {
             return DaemonStopResult.Failure(shutdownResult.Error!);
         }
@@ -215,11 +215,10 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
-        if (DaemonSessionTerminationPolicy.TryGetTerminationTarget(session, out var processId, out var issuedAtUtc))
+        if (DaemonSessionTerminationPolicy.TryGetTerminationTarget(session, out var target))
         {
             var stopProcessResult = await processTerminationService.EnsureStoppedAsync(
-                    processId,
-                    issuedAtUtc,
+                    target,
                     timeout,
                     cancellationToken)
                 .ConfigureAwait(false);

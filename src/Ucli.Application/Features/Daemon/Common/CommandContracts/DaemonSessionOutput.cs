@@ -9,6 +9,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 /// <param name="EndpointTransportKind"> The IPC endpoint transport kind literal. </param>
 /// <param name="EndpointAddress"> The IPC endpoint address literal. </param>
 /// <param name="ProcessId"> The daemon process identifier when available; otherwise <see langword="null" />. </param>
+/// <param name="ProcessStartedAtUtc"> The daemon process start timestamp when available; otherwise <see langword="null" />. </param>
 /// <param name="OwnerProcessId"> The owner process identifier when available; otherwise <see langword="null" />. </param>
 internal sealed record DaemonSessionOutput (
     string ProjectFingerprint,
@@ -19,4 +20,5 @@ internal sealed record DaemonSessionOutput (
     string EndpointTransportKind,
     string EndpointAddress,
     int? ProcessId,
+    DateTimeOffset? ProcessStartedAtUtc,
     int? OwnerProcessId);

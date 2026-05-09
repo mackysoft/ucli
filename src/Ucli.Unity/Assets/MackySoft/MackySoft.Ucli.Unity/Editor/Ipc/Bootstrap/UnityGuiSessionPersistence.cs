@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Daemon;
@@ -57,6 +58,17 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ?? throw new InvalidOperationException($"GUI session directory path could not be resolved: {sessionPath}");
             FileSystemAccessBoundary.EnsureSecureDirectory(sessionDirectoryPath);
 
+            using var currentProcess = Process.GetCurrentProcess();
+            var currentProcessId = currentProcess.Id;
+            var currentProcessStartedAtUtc = currentProcess.StartTime.ToUniversalTime();
+            DeleteCurrentProcessGuiSessionIfPresent(
+                sessionPath,
+                projectFingerprint,
+                endpoint,
+                sessionOptions,
+                currentProcessId,
+                currentProcessStartedAtUtc);
+
             var issuedAtUtc = DateTimeOffset.UtcNow;
             var sessionToken = CreateSessionToken();
             var sessionContract = new DaemonSessionJsonContract(
@@ -69,7 +81,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 CanShutdownProcess: sessionOptions.CanShutdownProcess,
                 EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
                 EndpointAddress: endpoint.Address,
-                ProcessId: Process.GetCurrentProcess().Id,
+                ProcessId: currentProcessId,
+                ProcessStartedAtUtc: currentProcessStartedAtUtc,
                 OwnerProcessId: sessionOptions.OwnerProcessId);
             var json = DaemonSessionJsonContractSerializer.Serialize(sessionContract) + Environment.NewLine;
             await WriteSessionJsonCreateNewAsync(sessionPath, json, cancellationToken).ConfigureAwait(false);
@@ -129,6 +142,45 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
+        private static void DeleteCurrentProcessGuiSessionIfPresent (
+            string sessionPath,
+            string projectFingerprint,
+            IpcEndpoint expectedEndpoint,
+            UnityGuiBootstrapSessionOptions sessionOptions,
+            int currentProcessId,
+            DateTimeOffset currentProcessStartedAtUtc)
+        {
+            if (!File.Exists(sessionPath))
+            {
+                return;
+            }
+
+            DaemonSessionJsonContract sessionContract;
+            try
+            {
+                sessionContract = DaemonSessionJsonContractSerializer.Deserialize(File.ReadAllText(sessionPath));
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or JsonException)
+            {
+                return;
+            }
+
+            if (sessionContract == null
+                || !MatchesCurrentProcessGuiSession(
+                    sessionContract,
+                    projectFingerprint,
+                    expectedEndpoint,
+                    sessionOptions,
+                    currentProcessId,
+                    currentProcessStartedAtUtc))
+            {
+                return;
+            }
+
+            FileUtilities.DeleteIfExists(sessionPath);
+            DeleteUnixEndpointResidue(sessionContract, expectedEndpoint);
+        }
+
         private static async Task WriteSessionJsonCreateNewCoreAsync (
             string sessionPath,
             string json,
@@ -157,6 +209,49 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 FileUtilities.DeleteIfExists(temporaryPath);
             }
+        }
+
+        private static bool MatchesCurrentProcessGuiSession (
+            DaemonSessionJsonContract sessionContract,
+            string projectFingerprint,
+            IpcEndpoint expectedEndpoint,
+            UnityGuiBootstrapSessionOptions sessionOptions,
+            int currentProcessId,
+            DateTimeOffset currentProcessStartedAtUtc)
+        {
+            return sessionContract.SchemaVersion == DaemonSessionStorageContract.CurrentSchemaVersion
+                && string.Equals(sessionContract.ProjectFingerprint, projectFingerprint, StringComparison.Ordinal)
+                && string.Equals(sessionContract.EditorMode, DaemonEditorModeValues.Gui, StringComparison.Ordinal)
+                && string.Equals(sessionContract.OwnerKind, sessionOptions.OwnerKind, StringComparison.Ordinal)
+                && sessionContract.CanShutdownProcess == sessionOptions.CanShutdownProcess
+                && string.Equals(
+                    sessionContract.EndpointTransportKind,
+                    IpcTransportKindCodec.ToValue(expectedEndpoint.TransportKind),
+                    StringComparison.Ordinal)
+                && string.Equals(sessionContract.EndpointAddress, expectedEndpoint.Address, StringComparison.Ordinal)
+                && sessionContract.ProcessId == currentProcessId
+                && sessionContract.ProcessStartedAtUtc == currentProcessStartedAtUtc
+                && sessionContract.OwnerProcessId == sessionOptions.OwnerProcessId;
+        }
+
+        private static void DeleteUnixEndpointResidue (
+            DaemonSessionJsonContract sessionContract,
+            IpcEndpoint expectedEndpoint)
+        {
+            if (expectedEndpoint.TransportKind != IpcTransportKind.UnixDomainSocket
+                || !string.Equals(
+                    sessionContract.EndpointTransportKind,
+                    IpcTransportKindCodec.ToValue(expectedEndpoint.TransportKind),
+                    StringComparison.Ordinal)
+                || !string.Equals(sessionContract.EndpointAddress, expectedEndpoint.Address, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            FileUtilities.DeleteIfExists(expectedEndpoint.Address);
+            UnixSocketPathUtilities.DeleteEmptyFallbackDirectoryIfPresent(
+                expectedEndpoint.Address,
+                UcliIpcEndpointNames.DaemonAddressPrefix);
         }
 
         private static bool MatchesRegistration (

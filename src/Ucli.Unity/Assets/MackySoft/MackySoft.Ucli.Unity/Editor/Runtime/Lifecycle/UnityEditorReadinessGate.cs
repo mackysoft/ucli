@@ -13,15 +13,15 @@ namespace MackySoft.Ucli.Unity.Runtime
     {
         private static readonly UnityEditorLifecycleTelemetryState sharedLifecycleTelemetryState = new UnityEditorLifecycleTelemetryState();
 
-        private readonly UnityEditorLifecycleTelemetryState lifecycleTelemetryState;
+        private static readonly UnityEditorLifecycleMonitor sharedLifecycleMonitor = new UnityEditorLifecycleMonitor(
+            sharedLifecycleTelemetryState,
+            static () => EditorApplication.isCompiling,
+            static () => EditorApplication.isUpdating,
+            static () => EditorApplication.isPlayingOrWillChangePlaymode);
+
+        private readonly UnityEditorLifecycleMonitor lifecycleMonitor;
 
         private readonly DaemonEditorMode editorMode;
-
-        private readonly Func<bool> isCompilingProvider;
-
-        private readonly Func<bool> isUpdatingProvider;
-
-        private readonly Func<bool> isPlaymodeActiveProvider;
 
         private readonly Action<AssemblyReloadEvents.AssemblyReloadCallback> beforeAssemblyReloadSubscriber;
 
@@ -168,12 +168,13 @@ namespace MackySoft.Ucli.Unity.Runtime
             Action<Action> quittingUnsubscriber,
             bool subscribeToEditorEvents)
         {
-            this.lifecycleTelemetryState = lifecycleTelemetryState;
+            this.lifecycleMonitor = new UnityEditorLifecycleMonitor(
+                lifecycleTelemetryState ?? throw new ArgumentNullException(nameof(lifecycleTelemetryState)),
+                isCompilingProvider,
+                isUpdatingProvider,
+                isPlaymodeActiveProvider);
             _ = DaemonEditorModeCodec.ToValue(editorMode);
             this.editorMode = editorMode;
-            this.isCompilingProvider = isCompilingProvider ?? throw new ArgumentNullException(nameof(isCompilingProvider));
-            this.isUpdatingProvider = isUpdatingProvider ?? throw new ArgumentNullException(nameof(isUpdatingProvider));
-            this.isPlaymodeActiveProvider = isPlaymodeActiveProvider ?? throw new ArgumentNullException(nameof(isPlaymodeActiveProvider));
             this.beforeAssemblyReloadSubscriber = beforeAssemblyReloadSubscriber ?? throw new ArgumentNullException(nameof(beforeAssemblyReloadSubscriber));
             this.beforeAssemblyReloadUnsubscriber = beforeAssemblyReloadUnsubscriber ?? throw new ArgumentNullException(nameof(beforeAssemblyReloadUnsubscriber));
             this.quittingSubscriber = quittingSubscriber ?? throw new ArgumentNullException(nameof(quittingSubscriber));
@@ -184,6 +185,7 @@ namespace MackySoft.Ucli.Unity.Runtime
             }
 
             CompilationPipeline.compilationStarted -= OnCompilationStarted;
+            CompilationPipeline.assemblyCompilationFinished -= OnAssemblyCompilationFinished;
             CompilationPipeline.compilationFinished -= OnCompilationFinished;
             AssemblyReloadEvents.beforeAssemblyReload -= OnBeforeAssemblyReload;
             AssemblyReloadEvents.afterAssemblyReload -= OnAfterAssemblyReload;
@@ -192,6 +194,7 @@ namespace MackySoft.Ucli.Unity.Runtime
             EditorApplication.quitting -= OnQuitting;
 
             CompilationPipeline.compilationStarted += OnCompilationStarted;
+            CompilationPipeline.assemblyCompilationFinished += OnAssemblyCompilationFinished;
             CompilationPipeline.compilationFinished += OnCompilationFinished;
             AssemblyReloadEvents.beforeAssemblyReload += OnBeforeAssemblyReload;
             AssemblyReloadEvents.afterAssemblyReload += OnAfterAssemblyReload;
@@ -203,26 +206,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <inheritdoc />
         public UnityEditorLifecycleSnapshot CaptureSnapshot ()
         {
-            var isCompiling = isCompilingProvider();
-            var isUpdating = isUpdatingProvider();
-            var isPlaymodeActive = isPlaymodeActiveProvider();
-            var compileState = IpcCompileStateCodec.ToValue(isCompiling);
-
-            // TODO: GUI / non-batchmode lifecycle support needs dedicated observation paths for
-            // Safe Mode and modal dialogs. Batchmode daemon only reports states that are observable
-            // through public APIs today, so blockedByModal/safeMode remain reserved literals here.
-            var lifecycleState = lifecycleTelemetryState.ResolveLifecycleState(isPlaymodeActive, isCompiling, isUpdating);
-            var blockingReason = UnityEditorExecutionReadinessPolicy.ResolveBlockingReason(lifecycleState);
-            var canAcceptExecutionRequests = string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, System.StringComparison.Ordinal);
-
-            return new UnityEditorLifecycleSnapshot(
-                EditorMode: editorMode,
-                LifecycleState: lifecycleState,
-                BlockingReason: blockingReason,
-                CompileState: compileState,
-                CompileGeneration: lifecycleTelemetryState.CompileGeneration,
-                DomainReloadGeneration: lifecycleTelemetryState.DomainReloadGeneration,
-                CanAcceptExecutionRequests: canAcceptExecutionRequests);
+            return lifecycleMonitor.CaptureSnapshot(editorMode);
         }
 
         /// <inheritdoc />
@@ -260,35 +244,39 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         private static void OnQuitting ()
         {
-            sharedLifecycleTelemetryState.OnShutdownStarted();
+            sharedLifecycleMonitor.OnShutdownStarted();
         }
 
         private static void OnCompilationStarted (object _)
         {
-            sharedLifecycleTelemetryState.OnCompilationStarted();
+            sharedLifecycleMonitor.OnCompilationStarted();
+        }
+
+        private static void OnAssemblyCompilationFinished (
+            string _,
+            CompilerMessage[] messages)
+        {
+            sharedLifecycleMonitor.OnAssemblyCompilationFinished(messages);
         }
 
         private static void OnCompilationFinished (object _)
         {
-            sharedLifecycleTelemetryState.OnCompilationFinished();
+            sharedLifecycleMonitor.OnCompilationFinished();
         }
 
         private static void OnBeforeAssemblyReload ()
         {
-            sharedLifecycleTelemetryState.OnBeforeAssemblyReload();
+            sharedLifecycleMonitor.OnBeforeAssemblyReload();
         }
 
         private static void OnAfterAssemblyReload ()
         {
-            sharedLifecycleTelemetryState.OnAfterAssemblyReload();
+            sharedLifecycleMonitor.OnAfterAssemblyReload();
         }
 
         private static void OnEditorUpdate ()
         {
-            sharedLifecycleTelemetryState.ObserveEditorUpdate(
-                EditorApplication.isPlayingOrWillChangePlaymode,
-                EditorApplication.isCompiling,
-                EditorApplication.isUpdating);
+            sharedLifecycleMonitor.ObserveEditorUpdate();
         }
 
         private sealed class ReadinessWaitState
@@ -332,10 +320,7 @@ namespace MackySoft.Ucli.Unity.Runtime
 
             private void OnEditorUpdate ()
             {
-                readinessGate.lifecycleTelemetryState.ObserveEditorUpdate(
-                    readinessGate.isPlaymodeActiveProvider(),
-                    readinessGate.isCompilingProvider(),
-                    readinessGate.isUpdatingProvider());
+                readinessGate.lifecycleMonitor.ObserveEditorUpdate();
                 var snapshot = readinessGate.CaptureSnapshot();
                 if (snapshot.CanAcceptExecutionRequests)
                 {
@@ -403,7 +388,10 @@ namespace MackySoft.Ucli.Unity.Runtime
                     CompileState: snapshot.CompileState,
                     CompileGeneration: snapshot.CompileGeneration,
                     DomainReloadGeneration: snapshot.DomainReloadGeneration,
-                    CanAcceptExecutionRequests: false);
+                    CanAcceptExecutionRequests: false,
+                    ObservedAtUtc: snapshot.ObservedAtUtc,
+                    ActionRequired: snapshot.ActionRequired,
+                    PrimaryDiagnostic: snapshot.PrimaryDiagnostic);
                 return UnityEditorExecutionReadinessPolicy.CreateBlockedResult(blockedSnapshot);
             }
 

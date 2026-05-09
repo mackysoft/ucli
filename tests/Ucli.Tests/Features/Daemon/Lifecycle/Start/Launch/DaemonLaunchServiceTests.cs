@@ -25,7 +25,7 @@ public sealed class DaemonLaunchServiceTests
         };
         var launcher = new StubUnityDaemonProcessLauncher
         {
-            NextResult = UnityDaemonLaunchResult.Success(999),
+            NextResult = UnityDaemonLaunchResult.Success(999, DateTimeOffset.UtcNow),
         };
         var readinessProbe = new StubDaemonStartupReadinessProbe
         {
@@ -67,11 +67,11 @@ public sealed class DaemonLaunchServiceTests
         var batchmodeLauncher = new StubUnityDaemonProcessLauncher();
         var guiLauncher = new StubUnityGuiEditorProcessLauncher
         {
-            NextResult = UnityDaemonLaunchResult.Success(4321),
+            NextResult = UnityDaemonLaunchResult.Success(4321, DateTimeOffset.UtcNow),
         };
-        var guiAwaiter = new StubDaemonGuiSessionRegistrationAwaiter
+        var guiStartupObserver = new StubDaemonGuiStartupObserver
         {
-            NextResult = DaemonGuiSessionRegistrationWaitResult.Success(registeredSession),
+            NextResult = DaemonGuiStartupObservationResult.Success(registeredSession),
         };
         var readinessProbe = new StubDaemonStartupReadinessProbe();
         var compensationService = new StubDaemonLaunchCompensationService();
@@ -83,7 +83,7 @@ public sealed class DaemonLaunchServiceTests
             compensationService,
             diagnosisStore,
             unityGuiEditorProcessLauncher: guiLauncher,
-            guiSessionRegistrationAwaiter: guiAwaiter);
+            guiStartupObserver: guiStartupObserver);
 
         var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Gui, CancellationToken.None);
 
@@ -92,8 +92,8 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(0, launchSessionService.InitializeCallCount);
         Assert.Equal(0, batchmodeLauncher.CallCount);
         Assert.Equal(1, guiLauncher.CallCount);
-        Assert.Equal(1, guiAwaiter.CallCount);
-        Assert.Equal(4321, guiAwaiter.LastExpectedProcessId);
+        Assert.Equal(1, guiStartupObserver.CallCount);
+        Assert.Equal(4321, guiStartupObserver.LastProcessId);
         Assert.Equal(0, compensationService.CallCount);
         Assert.Equal(0, diagnosisStore.WriteCallCount);
     }
@@ -103,26 +103,28 @@ public sealed class DaemonLaunchServiceTests
     public async Task Launch_WhenEditorModeGuiRegistrationTimesOut_WritesGuiEndpointDiagnosis ()
     {
         var context = CreateContext("fingerprint-gui-launch-timeout");
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
         var launchSessionService = new StubDaemonLaunchSessionService();
         var batchmodeLauncher = new StubUnityDaemonProcessLauncher();
         var guiLauncher = new StubUnityGuiEditorProcessLauncher
         {
-            NextResult = UnityDaemonLaunchResult.Success(5432),
+            NextResult = UnityDaemonLaunchResult.Success(5432, processStartedAtUtc),
         };
         var timeoutError = ExecutionError.Timeout("registration timeout", ExecutionErrorCodes.IpcTimeout);
-        var guiAwaiter = new StubDaemonGuiSessionRegistrationAwaiter
+        var guiStartupObserver = new StubDaemonGuiStartupObserver
         {
-            NextResult = DaemonGuiSessionRegistrationWaitResult.Failure(timeoutError),
+            NextResult = DaemonGuiStartupObservationResult.Failure(timeoutError),
         };
+        var compensationService = new StubDaemonLaunchCompensationService();
         var diagnosisStore = new StubDaemonDiagnosisStore();
         var service = CreateService(
             launchSessionService,
             batchmodeLauncher,
             new StubDaemonStartupReadinessProbe(),
-            new StubDaemonLaunchCompensationService(),
+            compensationService,
             diagnosisStore,
             unityGuiEditorProcessLauncher: guiLauncher,
-            guiSessionRegistrationAwaiter: guiAwaiter);
+            guiStartupObserver: guiStartupObserver);
 
         var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Gui, CancellationToken.None);
 
@@ -135,9 +137,264 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(DaemonDiagnosisReasonValues.GuiEndpointNotRegistered, diagnosisStore.LastDiagnosis!.Reason);
         Assert.True(diagnosisStore.LastDiagnosis.IsInferred);
         Assert.Equal(5432, diagnosisStore.LastDiagnosis.ProcessId);
+        Assert.Equal(processStartedAtUtc, diagnosisStore.LastDiagnosis.ProcessStartedAtUtc);
+        Assert.Equal(
+            Path.Combine("/tmp/repo-root", ".ucli", "local", "fingerprints", context.ProjectFingerprint, "unity.log"),
+            diagnosisStore.LastDiagnosis.UnityLogPath);
+        Assert.Equal(DaemonDiagnosisStartupPhaseValues.EndpointRegistration, diagnosisStore.LastDiagnosis.StartupPhase);
+        Assert.Equal(DaemonDiagnosisActionRequiredValues.InspectUnityLog, diagnosisStore.LastDiagnosis.ActionRequired);
         Assert.Equal(
             Path.Combine("/tmp/unity-project", "Library", "EditorInstance.json"),
             diagnosisStore.LastDiagnosis.EditorInstancePath);
+        Assert.Equal(1, compensationService.CallCount);
+        Assert.Equal(5432, compensationService.LastProcessId);
+        Assert.Equal(processStartedAtUtc, compensationService.LastProcessStartedAtUtc);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenEditorModeGuiStartupWaitIsCanceled_RunsCompensationAndRethrows ()
+    {
+        var context = CreateContext("fingerprint-gui-launch-cancel");
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
+        var guiLauncher = new StubUnityGuiEditorProcessLauncher
+        {
+            NextResult = UnityDaemonLaunchResult.Success(7654, processStartedAtUtc),
+        };
+        using var cancellationTokenSource = new CancellationTokenSource();
+        var guiStartupObserver = new StubDaemonGuiStartupObserver
+        {
+            Handler = _ =>
+            {
+                cancellationTokenSource.Cancel();
+                return ValueTask.FromCanceled<DaemonGuiStartupObservationResult>(cancellationTokenSource.Token);
+            },
+        };
+        var compensationService = new StubDaemonLaunchCompensationService();
+        var service = CreateService(
+            new StubDaemonLaunchSessionService(),
+            new StubUnityDaemonProcessLauncher(),
+            new StubDaemonStartupReadinessProbe(),
+            compensationService,
+            new StubDaemonDiagnosisStore(),
+            unityGuiEditorProcessLauncher: guiLauncher,
+            guiStartupObserver: guiStartupObserver);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Gui, cancellationTokenSource.Token).AsTask());
+
+        Assert.Equal(1, compensationService.CallCount);
+        Assert.Equal(7654, compensationService.LastProcessId);
+        Assert.Equal(processStartedAtUtc, compensationService.LastProcessStartedAtUtc);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenEditorModeGuiStartupObserverFails_RunsCompensationAndReturnsFailure ()
+    {
+        var context = CreateContext("fingerprint-gui-launch-observer-fail");
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
+        var startupError = ExecutionError.InternalError("observer failed");
+        var guiLauncher = new StubUnityGuiEditorProcessLauncher
+        {
+            NextResult = UnityDaemonLaunchResult.Success(8765, processStartedAtUtc),
+        };
+        var guiStartupObserver = new StubDaemonGuiStartupObserver
+        {
+            NextResult = DaemonGuiStartupObservationResult.Failure(startupError),
+        };
+        var compensationService = new StubDaemonLaunchCompensationService();
+        var service = CreateService(
+            new StubDaemonLaunchSessionService(),
+            new StubUnityDaemonProcessLauncher(),
+            new StubDaemonStartupReadinessProbe(),
+            compensationService,
+            new StubDaemonDiagnosisStore(),
+            unityGuiEditorProcessLauncher: guiLauncher,
+            guiStartupObserver: guiStartupObserver);
+
+        var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Gui, CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        Assert.Equal(startupError, result.Error);
+        Assert.Equal(1, compensationService.CallCount);
+        Assert.Equal(8765, compensationService.LastProcessId);
+        Assert.Equal(processStartedAtUtc, compensationService.LastProcessStartedAtUtc);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenEditorModeGuiStartupObserverFindsCompilerError_WritesStartupBlockedDiagnosisAndPreservesGuiProcess ()
+    {
+        var context = CreateContext("fingerprint-gui-launch-compiler-error");
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
+        var guiLauncher = new StubUnityGuiEditorProcessLauncher
+        {
+            NextResult = UnityDaemonLaunchResult.Success(6543, processStartedAtUtc),
+        };
+        var primaryDiagnostic = new DaemonPrimaryDiagnostic(
+            Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
+            Code: "CS1739",
+            File: "Assets/Foo.cs",
+            Line: 74,
+            Column: 17,
+            Message: "Missing parameter");
+        var blocker = new DaemonGuiStartupBlocker(
+            Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
+            Message: "Unity Editor startup is blocked because scripts have compiler errors. FirstError=Assets/Foo.cs(74,17): error CS1739: Missing parameter",
+            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+            ProcessId: 6543,
+            ProcessStartedAtUtc: processStartedAtUtc,
+            UnityLogPath: "/tmp/repo-root/.ucli/local/fingerprints/fingerprint-gui-launch-compiler-error/unity.log",
+            PrimaryDiagnostic: primaryDiagnostic);
+        var guiStartupObserver = new StubDaemonGuiStartupObserver
+        {
+            NextResult = DaemonGuiStartupObservationResult.Blocked(blocker),
+        };
+        var compensationService = new StubDaemonLaunchCompensationService();
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var service = CreateService(
+            new StubDaemonLaunchSessionService(),
+            new StubUnityDaemonProcessLauncher(),
+            new StubDaemonStartupReadinessProbe(),
+            compensationService,
+            diagnosisStore,
+            unityGuiEditorProcessLauncher: guiLauncher,
+            guiStartupObserver: guiStartupObserver);
+
+        var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Gui, CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
+        Assert.Equal(1, diagnosisStore.WriteCallCount);
+        Assert.NotNull(diagnosisStore.LastDiagnosis);
+        Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, diagnosisStore.LastDiagnosis!.Reason);
+        Assert.Equal(DaemonDiagnosisStartupPhaseValues.ScriptCompilation, diagnosisStore.LastDiagnosis.StartupPhase);
+        Assert.Equal(DaemonDiagnosisActionRequiredValues.FixCompileErrors, diagnosisStore.LastDiagnosis.ActionRequired);
+        Assert.Equal(processStartedAtUtc, diagnosisStore.LastDiagnosis.ProcessStartedAtUtc);
+        Assert.Equal(blocker.UnityLogPath, diagnosisStore.LastDiagnosis.UnityLogPath);
+        Assert.Equal(primaryDiagnostic, diagnosisStore.LastDiagnosis.PrimaryDiagnostic);
+        Assert.Equal(diagnosisStore.LastDiagnosis, result.Diagnosis);
+        Assert.Equal(0, compensationService.CallCount);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(
+        DaemonDiagnosisReasonValues.UnityPackageResolutionFailed,
+        DaemonDiagnosisStartupPhaseValues.PackageResolution,
+        DaemonDiagnosisActionRequiredValues.ResolvePackages)]
+    [InlineData(
+        DaemonDiagnosisReasonValues.EditorUserActionRequired,
+        DaemonDiagnosisStartupPhaseValues.UserAction,
+        DaemonDiagnosisActionRequiredValues.ResolveUnityDialog)]
+    public async Task Launch_WhenEditorModeGuiStartupObserverFindsActionableBlocker_WritesDiagnosisAndPreservesGuiProcess (
+        string reason,
+        string startupPhase,
+        string actionRequired)
+    {
+        var context = CreateContext($"fingerprint-gui-launch-{reason}");
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
+        var guiLauncher = new StubUnityGuiEditorProcessLauncher
+        {
+            NextResult = UnityDaemonLaunchResult.Success(6543, processStartedAtUtc),
+        };
+        var blocker = new DaemonGuiStartupBlocker(
+            Reason: reason,
+            Message: "Unity Editor startup is blocked by an actionable GUI state.",
+            StartupPhase: startupPhase,
+            ActionRequired: actionRequired,
+            ProcessId: 6543,
+            ProcessStartedAtUtc: processStartedAtUtc,
+            UnityLogPath: $"/tmp/repo-root/.ucli/local/fingerprints/{context.ProjectFingerprint}/unity.log",
+            PrimaryDiagnostic: null);
+        var guiStartupObserver = new StubDaemonGuiStartupObserver
+        {
+            NextResult = DaemonGuiStartupObservationResult.Blocked(blocker),
+        };
+        var compensationService = new StubDaemonLaunchCompensationService();
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var service = CreateService(
+            new StubDaemonLaunchSessionService(),
+            new StubUnityDaemonProcessLauncher(),
+            new StubDaemonStartupReadinessProbe(),
+            compensationService,
+            diagnosisStore,
+            unityGuiEditorProcessLauncher: guiLauncher,
+            guiStartupObserver: guiStartupObserver);
+
+        var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Gui, CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
+        Assert.Equal(1, diagnosisStore.WriteCallCount);
+        Assert.NotNull(diagnosisStore.LastDiagnosis);
+        Assert.Equal(reason, diagnosisStore.LastDiagnosis!.Reason);
+        Assert.Equal(startupPhase, diagnosisStore.LastDiagnosis.StartupPhase);
+        Assert.Equal(actionRequired, diagnosisStore.LastDiagnosis.ActionRequired);
+        Assert.Equal(processStartedAtUtc, diagnosisStore.LastDiagnosis.ProcessStartedAtUtc);
+        Assert.Equal(blocker.UnityLogPath, diagnosisStore.LastDiagnosis.UnityLogPath);
+        Assert.Equal(diagnosisStore.LastDiagnosis, result.Diagnosis);
+        Assert.Equal(0, compensationService.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenEditorModeGuiStartupObserverFindsProcessExit_CleansArtifactsWithoutTerminationTarget ()
+    {
+        var context = CreateContext("fingerprint-gui-launch-process-exit");
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
+        var guiLauncher = new StubUnityGuiEditorProcessLauncher
+        {
+            NextResult = UnityDaemonLaunchResult.Success(6543, processStartedAtUtc),
+        };
+        var blocker = new DaemonGuiStartupBlocker(
+            Reason: DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap,
+            Message: "Unity Editor process exited before GUI daemon session registration. ProcessId=6543.",
+            StartupPhase: DaemonDiagnosisStartupPhaseValues.ProcessExit,
+            ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
+            ProcessId: 6543,
+            ProcessStartedAtUtc: processStartedAtUtc,
+            UnityLogPath: "/tmp/repo-root/.ucli/local/fingerprints/fingerprint-gui-launch-process-exit/unity.log",
+            PrimaryDiagnostic: new DaemonPrimaryDiagnostic(
+                Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.ProcessExit,
+                Code: null,
+                File: null,
+                Line: null,
+                Column: null,
+                Message: "Unity Editor process exited before GUI daemon session registration. ProcessId=6543."));
+        var guiStartupObserver = new StubDaemonGuiStartupObserver
+        {
+            NextResult = DaemonGuiStartupObservationResult.Blocked(blocker),
+        };
+        var compensationService = new StubDaemonLaunchCompensationService();
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var service = CreateService(
+            new StubDaemonLaunchSessionService(),
+            new StubUnityDaemonProcessLauncher(),
+            new StubDaemonStartupReadinessProbe(),
+            compensationService,
+            diagnosisStore,
+            unityGuiEditorProcessLauncher: guiLauncher,
+            guiStartupObserver: guiStartupObserver);
+
+        var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Gui, CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
+        Assert.Equal(1, diagnosisStore.WriteCallCount);
+        Assert.NotNull(diagnosisStore.LastDiagnosis);
+        Assert.Equal(DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap, diagnosisStore.LastDiagnosis!.Reason);
+        Assert.Equal(1, compensationService.CallCount);
+        Assert.Null(compensationService.LastProcessId);
+        Assert.Null(compensationService.LastProcessStartedAtUtc);
     }
 
     [Fact]
@@ -206,7 +463,7 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(launchError, result.Error);
         Assert.Equal(1, compensationService.CallCount);
         Assert.Null(compensationService.LastProcessId);
-        Assert.Equal(initialSession.IssuedAtUtc, compensationService.LastExpectedIssuedAtUtc);
+        Assert.Null(compensationService.LastProcessStartedAtUtc);
         Assert.Equal(0, launchSessionService.UpdateProcessIdCallCount);
         Assert.Equal(1, diagnosisStore.WriteCallCount);
         Assert.NotNull(diagnosisStore.LastDiagnosis);
@@ -223,6 +480,7 @@ public sealed class DaemonLaunchServiceTests
         var context = CreateContext("fingerprint-session-update-fail");
         var initialSession = CreateSession(processId: null, projectFingerprint: context.ProjectFingerprint);
         var writeError = ExecutionError.InternalError("write failed");
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
         var launchSessionService = new StubDaemonLaunchSessionService
         {
             InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),
@@ -230,7 +488,7 @@ public sealed class DaemonLaunchServiceTests
         };
         var launcher = new StubUnityDaemonProcessLauncher
         {
-            NextResult = UnityDaemonLaunchResult.Success(2222),
+            NextResult = UnityDaemonLaunchResult.Success(2222, processStartedAtUtc),
         };
         var readinessProbe = new StubDaemonStartupReadinessProbe();
         var compensationService = new StubDaemonLaunchCompensationService
@@ -252,8 +510,9 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(1, launchSessionService.UpdateProcessIdCallCount);
         Assert.Equal(1, compensationService.CallCount);
         Assert.Equal(2222, compensationService.LastProcessId);
-        Assert.Equal(initialSession.IssuedAtUtc, compensationService.LastExpectedIssuedAtUtc);
+        Assert.NotNull(compensationService.LastProcessStartedAtUtc);
         Assert.Equal(1, diagnosisStore.WriteCallCount);
+        Assert.Equal(processStartedAtUtc, diagnosisStore.LastDiagnosis?.ProcessStartedAtUtc);
     }
 
     [Fact]
@@ -264,6 +523,7 @@ public sealed class DaemonLaunchServiceTests
         var initialSession = CreateSession(processId: null, projectFingerprint: context.ProjectFingerprint);
         var updatedSession = initialSession with { ProcessId = 7777 };
         var probeError = ExecutionError.Timeout("probe failed");
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
         var launchSessionService = new StubDaemonLaunchSessionService
         {
             InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),
@@ -271,7 +531,7 @@ public sealed class DaemonLaunchServiceTests
         };
         var launcher = new StubUnityDaemonProcessLauncher
         {
-            NextResult = UnityDaemonLaunchResult.Success(7777),
+            NextResult = UnityDaemonLaunchResult.Success(7777, processStartedAtUtc),
         };
         var readinessProbe = new StubDaemonStartupReadinessProbe
         {
@@ -295,9 +555,10 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(probeError, result.Error);
         Assert.Equal(1, compensationService.CallCount);
         Assert.Equal(7777, compensationService.LastProcessId);
-        Assert.Equal(updatedSession.IssuedAtUtc, compensationService.LastExpectedIssuedAtUtc);
+        Assert.NotNull(compensationService.LastProcessStartedAtUtc);
         Assert.Equal(TimeSpan.FromSeconds(10), compensationService.LastTimeout);
         Assert.Equal(1, diagnosisStore.WriteCallCount);
+        Assert.Equal(processStartedAtUtc, diagnosisStore.LastDiagnosis?.ProcessStartedAtUtc);
         Assert.Equal(diagnosisStore.LastDiagnosis, result.Diagnosis);
     }
 
@@ -397,7 +658,7 @@ public sealed class DaemonLaunchServiceTests
         };
         var launcher = new StubUnityDaemonProcessLauncher
         {
-            NextResult = UnityDaemonLaunchResult.Success(7777),
+            NextResult = UnityDaemonLaunchResult.Success(7777, DateTimeOffset.UtcNow),
         };
         var readinessProbe = new StubDaemonStartupReadinessProbe
         {
@@ -443,7 +704,7 @@ public sealed class DaemonLaunchServiceTests
         };
         var launcher = new StubUnityDaemonProcessLauncher
         {
-            NextResult = UnityDaemonLaunchResult.Success(7777),
+            NextResult = UnityDaemonLaunchResult.Success(7777, DateTimeOffset.UtcNow),
         };
         var readinessProbe = new StubDaemonStartupReadinessProbe
         {
@@ -524,7 +785,7 @@ public sealed class DaemonLaunchServiceTests
         };
         var launcher = new StubUnityDaemonProcessLauncher
         {
-            NextResult = UnityDaemonLaunchResult.Success(7777),
+            NextResult = UnityDaemonLaunchResult.Success(7777, DateTimeOffset.UtcNow),
         };
         using var cancellationSource = new CancellationTokenSource();
         var readinessProbe = new StubDaemonStartupReadinessProbe
@@ -555,7 +816,7 @@ public sealed class DaemonLaunchServiceTests
         Assert.True(cancellationSource.IsCancellationRequested);
         Assert.Equal(1, compensationService.CallCount);
         Assert.Equal(7777, compensationService.LastProcessId);
-        Assert.Equal(updatedSession.IssuedAtUtc, compensationService.LastExpectedIssuedAtUtc);
+        Assert.NotNull(compensationService.LastProcessStartedAtUtc);
         Assert.Equal(TimeSpan.FromSeconds(10), compensationService.LastTimeout);
         Assert.Equal(0, diagnosisStore.WriteCallCount);
     }
@@ -611,7 +872,7 @@ public sealed class DaemonLaunchServiceTests
         IDaemonLaunchCompensationService launchCompensationService,
         IDaemonDiagnosisStore? daemonDiagnosisStore = null,
         IUnityGuiEditorProcessLauncher? unityGuiEditorProcessLauncher = null,
-        IDaemonGuiSessionRegistrationAwaiter? guiSessionRegistrationAwaiter = null,
+        IDaemonGuiStartupObserver? guiStartupObserver = null,
         TimeProvider? timeProvider = null)
     {
         return new DaemonLaunchService(
@@ -619,7 +880,7 @@ public sealed class DaemonLaunchServiceTests
             unityDaemonProcessLauncher: unityDaemonProcessLauncher,
             unityGuiEditorProcessLauncher: unityGuiEditorProcessLauncher ?? new StubUnityGuiEditorProcessLauncher(),
             startupReadinessProbe: startupReadinessProbe,
-            guiSessionRegistrationAwaiter: guiSessionRegistrationAwaiter ?? new StubDaemonGuiSessionRegistrationAwaiter(),
+            guiStartupObserver: guiStartupObserver ?? new StubDaemonGuiStartupObserver(),
             daemonLaunchCompensationService: launchCompensationService,
             daemonDiagnosisStore: daemonDiagnosisStore ?? new StubDaemonDiagnosisStore(),
             timeProvider: timeProvider);
@@ -649,7 +910,7 @@ public sealed class DaemonLaunchServiceTests
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-test-endpoint",
             ProcessId: processId,
-
+            ProcessStartedAtUtc: processId is null ? null : DateTimeOffset.UtcNow,
             OwnerProcessId: 9876);
     }
 
@@ -676,6 +937,7 @@ public sealed class DaemonLaunchServiceTests
             ResolvedUnityProjectContext unityProject,
             DaemonSession session,
             int? processId,
+            DateTimeOffset? processStartedAtUtc,
             CancellationToken cancellationToken = default)
         {
             UpdateProcessIdCallCount++;
@@ -685,7 +947,7 @@ public sealed class DaemonLaunchServiceTests
             }
 
             var updatedSession = processId is int pid
-                ? session with { ProcessId = pid }
+                ? session with { ProcessId = pid, ProcessStartedAtUtc = processStartedAtUtc }
                 : session;
             return ValueTask.FromResult(DaemonLaunchSessionWriteResult.Success(updatedSession));
         }
@@ -699,7 +961,7 @@ public sealed class DaemonLaunchServiceTests
 
         public ManualTimeProvider? TimeProvider { get; set; }
 
-        public UnityDaemonLaunchResult NextResult { get; set; } = UnityDaemonLaunchResult.Success(1000);
+        public UnityDaemonLaunchResult NextResult { get; set; } = UnityDaemonLaunchResult.Success(1000, DateTimeOffset.UtcNow);
 
         public int CallCount { get; private set; }
 
@@ -730,7 +992,7 @@ public sealed class DaemonLaunchServiceTests
 
     private sealed class StubUnityGuiEditorProcessLauncher : IUnityGuiEditorProcessLauncher
     {
-        public UnityDaemonLaunchResult NextResult { get; set; } = UnityDaemonLaunchResult.Success(2000);
+        public UnityDaemonLaunchResult NextResult { get; set; } = UnityDaemonLaunchResult.Success(2000, DateTimeOffset.UtcNow);
 
         public int CallCount { get; private set; }
 
@@ -745,24 +1007,33 @@ public sealed class DaemonLaunchServiceTests
         }
     }
 
-    private sealed class StubDaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionRegistrationAwaiter
+    private sealed class StubDaemonGuiStartupObserver : IDaemonGuiStartupObserver
     {
-        public DaemonGuiSessionRegistrationWaitResult NextResult { get; set; } =
-            DaemonGuiSessionRegistrationWaitResult.Success(CreateSession(processId: 2000));
+        public DaemonGuiStartupObservationResult NextResult { get; set; } =
+            DaemonGuiStartupObservationResult.Success(CreateSession(processId: 2000));
+
+        public Func<CancellationToken, ValueTask<DaemonGuiStartupObservationResult>>? Handler { get; set; }
 
         public int CallCount { get; private set; }
 
-        public int LastExpectedProcessId { get; private set; }
+        public int LastProcessId { get; private set; }
 
-        public ValueTask<DaemonGuiSessionRegistrationWaitResult> WaitForSessionAsync (
+        public ValueTask<DaemonGuiStartupObservationResult> WaitForStartupAsync (
             ResolvedUnityProjectContext unityProject,
-            int expectedProcessId,
+            int processId,
+            DateTimeOffset processStartedAtUtc,
+            string unityLogPath,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
-            LastExpectedProcessId = expectedProcessId;
+            LastProcessId = processId;
+            if (Handler is not null)
+            {
+                return Handler(cancellationToken);
+            }
+
             return ValueTask.FromResult(NextResult);
         }
     }
@@ -835,20 +1106,19 @@ public sealed class DaemonLaunchServiceTests
 
         public int? LastProcessId { get; private set; }
 
-        public DateTimeOffset? LastExpectedIssuedAtUtc { get; private set; }
+        public DateTimeOffset? LastProcessStartedAtUtc { get; private set; }
 
         public TimeSpan LastTimeout { get; private set; }
 
         public ValueTask<DaemonSessionStoreOperationResult> CleanupFailedLaunchAsync (
             ResolvedUnityProjectContext unityProject,
-            int? processId,
-            DateTimeOffset? expectedIssuedAtUtc,
+            DaemonProcessTerminationTarget? target,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
-            LastProcessId = processId;
-            LastExpectedIssuedAtUtc = expectedIssuedAtUtc;
+            LastProcessId = target?.ProcessId;
+            LastProcessStartedAtUtc = target?.ProcessStartedAtUtc;
             LastTimeout = timeout;
             return ValueTask.FromResult(NextResult);
         }

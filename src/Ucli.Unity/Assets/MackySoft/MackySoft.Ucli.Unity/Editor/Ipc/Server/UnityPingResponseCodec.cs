@@ -51,7 +51,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 BlockingReason: snapshot.BlockingReason,
                 CompileGeneration: snapshot.CompileGeneration,
                 DomainReloadGeneration: snapshot.DomainReloadGeneration,
-                CanAcceptExecutionRequests: snapshot.CanAcceptExecutionRequests);
+                CanAcceptExecutionRequests: snapshot.CanAcceptExecutionRequests,
+                ObservedAtUtc: snapshot.ObservedAtUtc,
+                ActionRequired: snapshot.ActionRequired,
+                PrimaryDiagnostic: snapshot.PrimaryDiagnostic);
         }
     }
 }

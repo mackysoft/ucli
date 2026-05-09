@@ -28,6 +28,7 @@ internal sealed class DaemonSessionJsonSerializer : IDaemonSessionSerializer
             EndpointTransportKind: StringValueNormalizer.TrimOrEmpty(contract.EndpointTransportKind),
             EndpointAddress: StringValueNormalizer.TrimOrEmpty(contract.EndpointAddress),
             ProcessId: contract.ProcessId,
+            ProcessStartedAtUtc: contract.ProcessStartedAtUtc,
             OwnerProcessId: contract.OwnerProcessId);
     }
 
@@ -50,6 +51,7 @@ internal sealed class DaemonSessionJsonSerializer : IDaemonSessionSerializer
             EndpointTransportKind: session.EndpointTransportKind,
             EndpointAddress: session.EndpointAddress,
             ProcessId: session.ProcessId,
+            ProcessStartedAtUtc: session.ProcessStartedAtUtc,
             OwnerProcessId: session.OwnerProcessId);
 
         return DaemonSessionJsonContractSerializer.Serialize(contract);

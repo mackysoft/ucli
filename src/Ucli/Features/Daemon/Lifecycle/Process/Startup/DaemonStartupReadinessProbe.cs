@@ -98,7 +98,8 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
                         attemptTimeout,
                         cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
-                if (pingResponse.CanAcceptExecutionRequests)
+                if (pingResponse.CanAcceptExecutionRequests
+                    && string.Equals(pingResponse.LifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal))
                 {
                     return DaemonStartupReadinessProbeResult.Ready();
                 }
@@ -216,7 +217,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
                 $"Unity daemon startup cannot continue while {lifecycleDetails}. Retry after lifecycleState=ready.",
             IpcEditorLifecycleStateCodec.Playmode =>
                 $"Unity daemon startup cannot continue while {lifecycleDetails}. Exit Play Mode and retry after lifecycleState=ready.",
-            IpcEditorLifecycleStateCodec.BlockedByModal =>
+            IpcEditorLifecycleStateCodec.ModalBlocked =>
                 $"Unity daemon startup cannot continue while {lifecycleDetails}. Resolve the modal dialog and retry after lifecycleState=ready.",
             IpcEditorLifecycleStateCodec.SafeMode =>
                 $"Unity daemon startup cannot continue while {lifecycleDetails}. Resolve compiler errors and retry after lifecycleState=ready.",
@@ -230,9 +231,11 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
     private static bool IsWaitableLifecycleState (string lifecycleState)
     {
         return string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Starting, StringComparison.Ordinal)
+            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Recovering, StringComparison.Ordinal)
             || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Busy, StringComparison.Ordinal)
             || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Compiling, StringComparison.Ordinal)
-            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.DomainReloading, StringComparison.Ordinal);
+            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.DomainReloading, StringComparison.Ordinal)
+            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Reimporting, StringComparison.Ordinal);
     }
 
     private async ValueTask<ExecutionError?> TryClassifyStartupFailureAsync (

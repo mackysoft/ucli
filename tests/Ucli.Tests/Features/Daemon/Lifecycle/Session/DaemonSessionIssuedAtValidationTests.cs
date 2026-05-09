@@ -58,7 +58,7 @@ public sealed class DaemonSessionIssuedAtValidationTests
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-test",
             ProcessId: 1234,
-
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 9876);
 
         var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);

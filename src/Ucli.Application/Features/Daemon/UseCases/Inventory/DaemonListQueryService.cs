@@ -2,7 +2,11 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Inventory;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
+using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Observation;
+using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Projection;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Git;
 
@@ -19,9 +23,13 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
 
     private readonly IDaemonDiagnosisStore daemonDiagnosisStore;
 
-    private readonly IDaemonPingClient daemonPingClient;
+    private readonly IDaemonPingInfoClient daemonPingInfoClient;
 
     private readonly IDaemonReachabilityClassifier daemonReachabilityClassifier;
+
+    private readonly IDaemonLifecycleStore daemonLifecycleStore;
+
+    private readonly IDaemonProcessIdentityAssessor processIdentityAssessor;
 
     private readonly IDaemonSessionDiagnosisResolver daemonSessionDiagnosisResolver;
 
@@ -36,8 +44,10 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
     /// <param name="unityProjectResolver"> The Unity-project resolver dependency. </param>
     /// <param name="daemonSessionStore"> The daemon session-store dependency. </param>
     /// <param name="daemonDiagnosisStore"> The daemon diagnosis-store dependency. </param>
-    /// <param name="daemonPingClient"> The daemon ping-client dependency. </param>
+    /// <param name="daemonPingInfoClient"> The daemon ping-info client dependency. </param>
     /// <param name="daemonReachabilityClassifier"> The daemon reachability-classifier dependency. </param>
+    /// <param name="daemonLifecycleStore"> The daemon lifecycle observation store dependency. </param>
+    /// <param name="processIdentityAssessor"> The daemon process identity assessor dependency. </param>
     /// <param name="daemonSessionDiagnosisResolver"> The daemon session-diagnosis resolver dependency. </param>
     /// <param name="daemonDiagnosisOutputMapper"> The daemon diagnosis-output mapper dependency. </param>
     /// <param name="worktreeProjectPathResolver"> The worktree project-path resolver dependency. </param>
@@ -48,8 +58,10 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         IUnityProjectResolver unityProjectResolver,
         IDaemonSessionStore daemonSessionStore,
         IDaemonDiagnosisStore daemonDiagnosisStore,
-        IDaemonPingClient daemonPingClient,
+        IDaemonPingInfoClient daemonPingInfoClient,
         IDaemonReachabilityClassifier daemonReachabilityClassifier,
+        IDaemonLifecycleStore daemonLifecycleStore,
+        IDaemonProcessIdentityAssessor processIdentityAssessor,
         IDaemonSessionDiagnosisResolver daemonSessionDiagnosisResolver,
         IDaemonDiagnosisOutputMapper daemonDiagnosisOutputMapper,
         IWorktreeProjectPathResolver worktreeProjectPathResolver,
@@ -59,8 +71,10 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         this.unityProjectResolver = unityProjectResolver ?? throw new ArgumentNullException(nameof(unityProjectResolver));
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
         this.daemonDiagnosisStore = daemonDiagnosisStore ?? throw new ArgumentNullException(nameof(daemonDiagnosisStore));
-        this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
+        this.daemonPingInfoClient = daemonPingInfoClient ?? throw new ArgumentNullException(nameof(daemonPingInfoClient));
         this.daemonReachabilityClassifier = daemonReachabilityClassifier ?? throw new ArgumentNullException(nameof(daemonReachabilityClassifier));
+        this.daemonLifecycleStore = daemonLifecycleStore ?? throw new ArgumentNullException(nameof(daemonLifecycleStore));
+        this.processIdentityAssessor = processIdentityAssessor ?? throw new ArgumentNullException(nameof(processIdentityAssessor));
         this.daemonSessionDiagnosisResolver = daemonSessionDiagnosisResolver ?? throw new ArgumentNullException(nameof(daemonSessionDiagnosisResolver));
         this.daemonDiagnosisOutputMapper = daemonDiagnosisOutputMapper ?? throw new ArgumentNullException(nameof(daemonDiagnosisOutputMapper));
         this.worktreeProjectPathResolver = worktreeProjectPathResolver ?? throw new ArgumentNullException(nameof(worktreeProjectPathResolver));
@@ -249,12 +263,15 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
 
         try
         {
-            await daemonPingClient.PingAsync(
+            var pingResponse = await daemonPingInfoClient.PingAndReadAsync(
                     candidateProject,
                     probeTimeout,
                     session.SessionToken,
-                    probeCancellationScope.Token)
+                    cancellationToken: probeCancellationScope.Token)
                 .ConfigureAwait(false);
+            var observation = StatusDaemonObservationCodec.CreateFromPing(
+                DaemonStatusKind.Running,
+                pingResponse);
 
             return WorktreeObservationResult.Success(CreateItem(
                 worktree,
@@ -262,6 +279,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
                 DaemonListItemState.Running,
                 null,
                 session,
+                observation,
                 diagnosis: null));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -282,16 +300,51 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
                     "Timed out while probing daemon session."));
             }
 
+            var observation = await CreateUnreachableObservationAsync(
+                    candidateProject,
+                    session,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (observation.DaemonStatus == DaemonStatusKind.Running)
+            {
+                return WorktreeObservationResult.Success(CreateItem(
+                    worktree,
+                    candidateProject,
+                    DaemonListItemState.Running,
+                    null,
+                    session,
+                    observation,
+                    diagnosis: null));
+            }
+
             return WorktreeObservationResult.Success(CreateItem(
                 worktree,
                 candidateProject,
                 DaemonListItemState.Error,
                 DaemonListItemReason.ProbeTimeout,
                 session,
+                observation,
                 diagnosis: null));
         }
         catch (Exception exception) when (daemonReachabilityClassifier.IsNotRunning(exception))
         {
+            var observation = await CreateUnreachableObservationAsync(
+                    candidateProject,
+                    session,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (observation.DaemonStatus == DaemonStatusKind.Running)
+            {
+                return WorktreeObservationResult.Success(CreateItem(
+                    worktree,
+                    candidateProject,
+                    DaemonListItemState.Running,
+                    null,
+                    session,
+                    observation,
+                    diagnosis: null));
+            }
+
             var diagnosis = await ResolveStaleDiagnosisAsync(
                     candidateProject,
                     session,
@@ -303,6 +356,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
                 DaemonListItemState.Stale,
                 DaemonListItemReason.StaleSession,
                 session,
+                observation,
                 diagnosis));
         }
         catch (Exception)
@@ -313,6 +367,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
                 DaemonListItemState.Error,
                 DaemonListItemReason.ProbeFailed,
                 session,
+                StatusDaemonObservationCodec.CreateUnavailable(DaemonStatusKind.Stale),
                 diagnosis: null));
         }
     }
@@ -358,6 +413,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             DaemonListItemState.Error,
             reason,
             session: null,
+            observation: null,
             diagnosis: null);
     }
 
@@ -375,6 +431,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         DaemonListItemState state,
         DaemonListItemReason? reason,
         DaemonSession? session,
+        StatusDaemonObservation? observation,
         DaemonDiagnosisOutput? diagnosis)
     {
         return new DaemonListItemOutput(
@@ -387,12 +444,57 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             Reason: reason,
             IssuedAtUtc: session?.IssuedAtUtc,
             ProcessId: session?.ProcessId,
+            ProcessStartedAtUtc: session?.ProcessStartedAtUtc,
             EditorMode: session?.EditorMode,
             OwnerKind: session?.OwnerKind,
             CanShutdownProcess: session?.CanShutdownProcess,
             EndpointTransportKind: session?.EndpointTransportKind,
             EndpointAddress: session?.EndpointAddress,
+            LifecycleState: observation?.LifecycleState,
+            BlockingReason: observation?.BlockingReason,
+            CompileState: observation?.CompileState,
+            CompileGeneration: observation?.CompileGeneration,
+            DomainReloadGeneration: observation?.DomainReloadGeneration,
+            CanAcceptExecutionRequests: observation?.CanAcceptExecutionRequests,
+            ObservedAtUtc: observation?.ObservedAtUtc,
+            ActionRequired: observation?.ActionRequired,
+            PrimaryDiagnostic: observation?.PrimaryDiagnostic,
             Diagnosis: diagnosis);
+    }
+
+    private async ValueTask<StatusDaemonObservation> CreateUnreachableObservationAsync (
+        ResolvedUnityProjectContext candidateProject,
+        DaemonSession session,
+        CancellationToken cancellationToken)
+    {
+        var lifecycleReadResult = await daemonLifecycleStore.ReadAsync(
+                candidateProject.RepositoryRoot,
+                candidateProject.ProjectFingerprint,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (lifecycleReadResult.IsSuccess
+            && lifecycleReadResult.Exists
+            && lifecycleReadResult.Observation!.IsRecovering
+            && DaemonLifecycleObservationMatcher.MatchesSession(lifecycleReadResult.Observation, session)
+            && IsMatchingLiveProcess(session))
+        {
+            return StatusDaemonObservationCodec.CreateFromLifecycleObservation(
+                DaemonStatusKind.Running,
+                lifecycleReadResult.Observation);
+        }
+
+        return StatusDaemonObservationCodec.CreateUnavailable(DaemonStatusKind.Stale);
+    }
+
+    private bool IsMatchingLiveProcess (DaemonSession session)
+    {
+        if (session.ProcessId is not int processId)
+        {
+            return false;
+        }
+
+        return processIdentityAssessor.AssessByProcessId(processId, session.ProcessStartedAtUtc).Status
+            == DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess;
     }
 
     /// <summary> Resolves diagnosis payload for one stale daemon session when available. </summary>

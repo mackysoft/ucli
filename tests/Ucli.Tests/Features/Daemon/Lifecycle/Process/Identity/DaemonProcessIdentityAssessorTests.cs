@@ -27,7 +27,7 @@ public sealed class DaemonProcessIdentityAssessorTests
 
         var result = assessor.AssessByProcessId(
             currentProcess.Id,
-            new DateTimeOffset(currentProcess.StartTime.ToUniversalTime()).AddSeconds(1));
+            currentProcess.StartTime.ToUniversalTime());
 
         Assert.Equal(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess, result.Status);
         Assert.Null(result.Error);
@@ -51,5 +51,24 @@ public sealed class DaemonProcessIdentityAssessorTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Contains("identity mismatch", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void AssessProcess_WhenExpectedProcessStartTimeIsMissing_ReturnsUncertain ()
+    {
+        using var currentProcess = Process.GetCurrentProcess();
+        var assessor = new DaemonProcessIdentityAssessor();
+
+        var result = assessor.AssessProcess(
+            currentProcess,
+            currentProcess.Id,
+            expectedProcessStartedAtUtc: null);
+
+        Assert.Equal(DaemonProcessIdentityAssessmentStatus.Uncertain, result.Status);
+        Assert.NotNull(result.ObservedStartTimeUtc);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Contains("processStartedAtUtc", error.Message, StringComparison.Ordinal);
     }
 }

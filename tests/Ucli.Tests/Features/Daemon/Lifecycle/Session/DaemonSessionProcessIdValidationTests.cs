@@ -44,6 +44,44 @@ public sealed class DaemonSessionProcessIdValidationTests
         Assert.Contains("processId", error.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenProcessStartedAtUtcIsMissingWithProcessId_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "missing-process-started-at-read");
+        var store = new DaemonSessionStore();
+        var projectFingerprint = "fingerprint-missing-process-started-at-read";
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+        await File.WriteAllTextAsync(
+            sessionPath,
+            $$"""
+            {
+              "schemaVersion": {{DaemonSession.CurrentSchemaVersion}},
+              "sessionToken": "token-1",
+              "projectFingerprint": "{{projectFingerprint}}",
+              "issuedAtUtc": "2026-01-01T00:00:00+00:00",
+              "editorMode": "batchmode",
+              "ownerKind": "cli",
+              "canShutdownProcess": true,
+              "endpointTransportKind": "namedPipe",
+              "endpointAddress": "ucli-daemon-test",
+              "processId": 1234,
+              "ownerProcessId": 9876
+            }
+            """,
+            CancellationToken.None);
+
+        var readResult = await store.ReadAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
+
+        Assert.False(readResult.IsSuccess);
+        Assert.False(readResult.Exists);
+        Assert.Equal(DaemonSessionReadFailureKind.InvalidSession, readResult.FailureKind);
+        var error = Assert.IsType<ExecutionError>(readResult.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("processStartedAtUtc", error.Message, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
@@ -63,7 +101,7 @@ public sealed class DaemonSessionProcessIdValidationTests
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-test",
             ProcessId: processId,
-
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 9876);
 
         var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
@@ -72,5 +110,33 @@ public sealed class DaemonSessionProcessIdValidationTests
         var error = Assert.IsType<ExecutionError>(writeResult.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Contains("processId", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Write_WhenProcessStartedAtUtcIsMissingWithProcessId_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "missing-process-started-at-write");
+        var store = new DaemonSessionStore();
+        var session = new DaemonSession(
+            SchemaVersion: DaemonSession.CurrentSchemaVersion,
+            SessionToken: "token-1",
+            ProjectFingerprint: "fingerprint-missing-process-started-at-write",
+            IssuedAtUtc: DateTimeOffset.UtcNow,
+            EditorMode: DaemonEditorModeValues.Batchmode,
+            OwnerKind: DaemonSessionOwnerKindValues.Cli,
+            CanShutdownProcess: true,
+            EndpointTransportKind: "namedPipe",
+            EndpointAddress: "ucli-daemon-test",
+            ProcessId: 1234,
+            ProcessStartedAtUtc: null,
+            OwnerProcessId: 9876);
+
+        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
+
+        Assert.False(writeResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(writeResult.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("processStartedAtUtc", error.Message, StringComparison.Ordinal);
     }
 }

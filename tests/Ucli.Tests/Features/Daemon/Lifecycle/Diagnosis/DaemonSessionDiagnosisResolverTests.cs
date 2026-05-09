@@ -26,6 +26,25 @@ public sealed class DaemonSessionDiagnosisResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task ResolveForSession_WhenPersistedDiagnosisProcessStartedAtUtcDoesNotMatch_ReturnsNullForLiveProcess ()
+    {
+        var unityProject = CreateContext("fingerprint-resolver-process-start-mismatch");
+        var session = CreateSession(processId: Environment.ProcessId, unityProject.ProjectFingerprint);
+        var diagnosis = CreateDiagnosis(session, DaemonDiagnosisReasonValues.ShutdownRequested) with
+        {
+            ProcessStartedAtUtc = session.ProcessStartedAtUtc!.Value.AddSeconds(-1),
+        };
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var resolver = new DaemonSessionDiagnosisResolver(diagnosisStore);
+
+        var result = await resolver.ResolveForSessionAsync(unityProject, session, diagnosis, CancellationToken.None);
+
+        Assert.Null(result);
+        Assert.Equal(0, diagnosisStore.WriteCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task ResolveForSession_WhenPersistedDiagnosisDoesNotMatchAndProcessIsDead_ReturnsSynthesizedDiagnosis ()
     {
         var unityProject = CreateContext("fingerprint-resolver-synth");
@@ -47,6 +66,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
         Assert.True(result.IsInferred);
         Assert.Equal(session.ProcessId, result.ProcessId);
         Assert.Equal(session.IssuedAtUtc, result.SessionIssuedAtUtc);
+        Assert.Equal(session.ProcessStartedAtUtc, result.ProcessStartedAtUtc);
         Assert.Equal(result, diagnosisStore.LastDiagnosis);
         Assert.Equal(1, diagnosisStore.WriteCallCount);
     }
@@ -111,7 +131,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
             EndpointTransportKind: "unixDomainSocket",
             EndpointAddress: "/tmp/ucli.sock",
             ProcessId: processId,
-
+            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 9876);
     }
 
@@ -127,7 +147,8 @@ public sealed class DaemonSessionDiagnosisResolverTests
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 1, 0, 0, TimeSpan.Zero),
             ProcessId: session.ProcessId,
             EditorInstancePath: null,
-            SessionIssuedAtUtc: session.IssuedAtUtc);
+            SessionIssuedAtUtc: session.IssuedAtUtc,
+            ProcessStartedAtUtc: session.ProcessStartedAtUtc);
     }
 
     private sealed class StubDaemonDiagnosisStore : IDaemonDiagnosisStore

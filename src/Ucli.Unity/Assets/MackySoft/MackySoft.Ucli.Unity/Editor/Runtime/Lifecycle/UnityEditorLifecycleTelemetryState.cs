@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Threading;
+using MackySoft.Ucli.Contracts.Ipc;
+using UnityEditor.Compilation;
 
 namespace MackySoft.Ucli.Unity.Runtime
 {
@@ -15,6 +17,12 @@ namespace MackySoft.Ucli.Unity.Runtime
         private bool isShuttingDown;
 
         private bool isStartupPending;
+
+        private bool isRecoveringPending;
+
+        private bool hasCompileFailure;
+
+        private IpcPrimaryDiagnostic primaryDiagnostic;
 
         /// <summary> Initializes a new instance of the <see cref="UnityEditorLifecycleTelemetryState" /> class. </summary>
         public UnityEditorLifecycleTelemetryState ()
@@ -38,13 +46,19 @@ namespace MackySoft.Ucli.Unity.Runtime
             int domainReloadGeneration,
             bool isDomainReloading,
             bool isShuttingDown,
-            bool isStartupPending)
+            bool isStartupPending,
+            bool isRecoveringPending = false,
+            bool hasCompileFailure = false,
+            IpcPrimaryDiagnostic primaryDiagnostic = null)
         {
             this.compileGeneration = compileGeneration;
             this.domainReloadGeneration = domainReloadGeneration;
             this.isDomainReloading = isDomainReloading;
             this.isShuttingDown = isShuttingDown;
             this.isStartupPending = isStartupPending;
+            this.isRecoveringPending = isRecoveringPending;
+            this.hasCompileFailure = hasCompileFailure;
+            this.primaryDiagnostic = primaryDiagnostic;
         }
 
         /// <summary> Gets the current compile-generation counter. </summary>
@@ -52,6 +66,12 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         /// <summary> Gets the current domain-reload generation counter. </summary>
         public string DomainReloadGeneration => Volatile.Read(ref domainReloadGeneration).ToString(CultureInfo.InvariantCulture);
+
+        /// <summary> Gets a value indicating whether the latest completed script compilation failed. </summary>
+        public bool HasCompileFailure => hasCompileFailure;
+
+        /// <summary> Gets the primary diagnostic for the latest lifecycle blocker when available. </summary>
+        public IpcPrimaryDiagnostic PrimaryDiagnostic => primaryDiagnostic;
 
         /// <summary> Resolves the current lifecycle-state from the tracked editor activity flags. </summary>
         /// <param name="isPlaymodeActive"> Whether Play Mode is active or about to activate. </param>
@@ -69,7 +89,9 @@ namespace MackySoft.Ucli.Unity.Runtime
                 isPlaymodeActive,
                 isDomainReloading,
                 isCompiling,
-                isUpdating);
+                hasCompileFailure,
+                isUpdating,
+                isRecoveringPending);
         }
 
         /// <summary> Advances startup tracking after one editor update confirms no higher-priority blocking state remains. </summary>
@@ -81,24 +103,43 @@ namespace MackySoft.Ucli.Unity.Runtime
             bool isCompiling,
             bool isUpdating)
         {
-            if (!isStartupPending)
-            {
-                return;
-            }
-
             if (isShuttingDown || isPlaymodeActive || isDomainReloading || isCompiling || isUpdating)
             {
                 return;
             }
 
             isStartupPending = false;
+            isRecoveringPending = false;
         }
 
         /// <summary> Records the start of one compilation cycle. </summary>
         public void OnCompilationStarted ()
         {
             Interlocked.Increment(ref compileGeneration);
+            hasCompileFailure = false;
+            primaryDiagnostic = null;
             isStartupPending = true;
+        }
+
+        /// <summary> Records compiler diagnostics emitted by one assembly compilation. </summary>
+        /// <param name="messages"> The compiler messages emitted by Unity. </param>
+        public void OnAssemblyCompilationFinished (CompilerMessage[] messages)
+        {
+            if (messages == null)
+            {
+                return;
+            }
+
+            foreach (var message in messages)
+            {
+                if (message.type != CompilerMessageType.Error)
+                {
+                    continue;
+                }
+
+                hasCompileFailure = true;
+                primaryDiagnostic ??= CreateCompilerDiagnostic(message);
+            }
         }
 
         /// <summary> Records the end of one compilation cycle. </summary>
@@ -112,6 +153,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         {
             isDomainReloading = true;
             isStartupPending = true;
+            isRecoveringPending = false;
             Interlocked.Exchange(
                 ref domainReloadGeneration,
                 UnityEditorDomainReloadGenerationStore.Advance(Volatile.Read(ref domainReloadGeneration)));
@@ -122,7 +164,8 @@ namespace MackySoft.Ucli.Unity.Runtime
         {
             isDomainReloading = false;
             domainReloadGeneration = UnityEditorDomainReloadGenerationStore.Restore();
-            isStartupPending = true;
+            isStartupPending = false;
+            isRecoveringPending = true;
         }
 
         /// <summary> Records that editor shutdown has started. </summary>
@@ -143,6 +186,41 @@ namespace MackySoft.Ucli.Unity.Runtime
         internal void SetShuttingDown (bool value)
         {
             isShuttingDown = value;
+        }
+
+        private static IpcPrimaryDiagnostic CreateCompilerDiagnostic (CompilerMessage message)
+        {
+            return new IpcPrimaryDiagnostic(
+                Kind: "compiler",
+                Code: TryExtractCompilerCode(message.message),
+                File: string.IsNullOrWhiteSpace(message.file) ? null : message.file,
+                Line: message.line > 0 ? message.line : null,
+                Column: message.column > 0 ? message.column : null,
+                Message: string.IsNullOrWhiteSpace(message.message) ? null : message.message.Trim());
+        }
+
+        private static string TryExtractCompilerCode (string message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return null;
+            }
+
+            var index = message.IndexOf("CS", System.StringComparison.Ordinal);
+            if (index < 0)
+            {
+                return null;
+            }
+
+            var end = index + 2;
+            while (end < message.Length && char.IsDigit(message[end]))
+            {
+                end++;
+            }
+
+            return end == index + 2
+                ? null
+                : message[index..end];
         }
 
     }

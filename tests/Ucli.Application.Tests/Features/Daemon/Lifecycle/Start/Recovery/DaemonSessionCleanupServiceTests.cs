@@ -32,7 +32,7 @@ public sealed class DaemonSessionCleanupServiceTests
         Assert.True(result.IsSuccess);
         Assert.Equal(1, processTerminationService.CallCount);
         Assert.Equal(3131, processTerminationService.LastProcessId);
-        Assert.Equal(invalidSession.IssuedAtUtc, processTerminationService.LastExpectedIssuedAtUtc);
+        Assert.Equal(invalidSession.ProcessStartedAtUtc, processTerminationService.LastProcessStartedAtUtc);
         Assert.Equal(1, artifactCleaner.CallCount);
     }
 
@@ -55,6 +55,7 @@ public sealed class DaemonSessionCleanupServiceTests
                 EndpointTransportKind: "namedPipe",
                 EndpointAddress: "ucli-daemon-test-endpoint",
                 ProcessId: 7171,
+                ProcessStartedAtUtc: DateTimeOffset.UtcNow,
                 OwnerProcessId: 9876));
         var processTerminationService = new StubDaemonProcessTerminationService
         {
@@ -131,7 +132,7 @@ public sealed class DaemonSessionCleanupServiceTests
         Assert.True(result.IsSuccess);
         Assert.Equal(1, processTerminationService.CallCount);
         Assert.Equal(4242, processTerminationService.LastProcessId);
-        Assert.Equal(session.IssuedAtUtc, processTerminationService.LastExpectedIssuedAtUtc);
+        Assert.Equal(session.ProcessStartedAtUtc, processTerminationService.LastProcessStartedAtUtc);
         Assert.Equal(1, artifactCleaner.CallCount);
     }
 
@@ -220,6 +221,7 @@ public sealed class DaemonSessionCleanupServiceTests
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-test-endpoint",
             ProcessId: processId,
+            ProcessStartedAtUtc: processId is null ? null : DateTimeOffset.UtcNow,
             OwnerProcessId: ownerProcessId);
     }
 
@@ -231,17 +233,16 @@ public sealed class DaemonSessionCleanupServiceTests
 
         public int? LastProcessId { get; private set; }
 
-        public DateTimeOffset? LastExpectedIssuedAtUtc { get; private set; }
+        public DateTimeOffset? LastProcessStartedAtUtc { get; private set; }
 
         public ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAsync (
-            int? processId,
-            DateTimeOffset? expectedIssuedAtUtc,
+            DaemonProcessTerminationTarget? target,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
-            LastProcessId = processId;
-            LastExpectedIssuedAtUtc = expectedIssuedAtUtc;
+            LastProcessId = target?.ProcessId;
+            LastProcessStartedAtUtc = target?.ProcessStartedAtUtc;
             return ValueTask.FromResult(NextResult);
         }
     }

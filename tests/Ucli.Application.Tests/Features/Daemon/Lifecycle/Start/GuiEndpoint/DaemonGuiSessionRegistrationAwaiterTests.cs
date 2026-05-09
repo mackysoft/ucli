@@ -35,6 +35,28 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         Assert.False(pingClient.LastValidateProjectFingerprint);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WaitForSession_WhenTimeoutExceedsProbeCap_PassesRemainingBudgetToPing ()
+    {
+        var unityProject = DaemonServiceTestContext.CreateExecutionContext(5000).Context.UnityProject;
+        var session = CreateGuiSession(unityProject.ProjectFingerprint, processId: 4321);
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Success(session),
+        };
+        var pingClient = new DaemonServiceTestContext.StubDaemonPingInfoClient
+        {
+            Response = CreatePingResponse(unityProject.ProjectFingerprint, DaemonEditorModeValues.Gui),
+        };
+        var awaiter = CreateAwaiter(sessionStore, pingClient);
+
+        var result = await awaiter.WaitForSessionAsync(unityProject, expectedProcessId: 4321, TimeSpan.FromSeconds(5));
+
+        Assert.True(result.IsSuccess);
+        Assert.True(pingClient.LastTimeout > DaemonTimeouts.ProbeAttemptTimeoutCap);
+    }
+
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(9876, "fingerprint", DaemonEditorModeValues.Gui)]
@@ -64,6 +86,40 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         timeProvider.Advance(WaitTimeout);
 
         var result = await TestAwaiter.WaitAsync(resultTask, "session mismatch timeout", TimeSpan.FromSeconds(5));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
+        Assert.Equal(0, pingClient.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WaitForSession_WhenStoredProcessStartTimeDoesNotMatch_DoesNotProbeAndTimesOut ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var firstRead = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var expectedProcessStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
+        var unityProject = DaemonServiceTestContext.CreateExecutionContext(1000).Context.UnityProject;
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Success(CreateGuiSession(
+                unityProject.ProjectFingerprint,
+                processId: 4321,
+                processStartedAtUtc: expectedProcessStartedAtUtc.AddSeconds(1))),
+            OnRead = () => firstRead.TrySetResult(),
+        };
+        var pingClient = new DaemonServiceTestContext.StubDaemonPingInfoClient();
+        var awaiter = CreateAwaiter(sessionStore, pingClient, timeProvider);
+
+        var resultTask = awaiter.WaitForSessionAsync(
+            unityProject,
+            expectedProcessId: 4321,
+            WaitTimeout,
+            expectedProcessStartedAtUtc: expectedProcessStartedAtUtc).AsTask();
+        await TestAwaiter.WaitAsync(firstRead.Task, "first session read", TimeSpan.FromSeconds(5));
+        timeProvider.Advance(WaitTimeout);
+
+        var result = await TestAwaiter.WaitAsync(resultTask, "session start-time mismatch timeout", TimeSpan.FromSeconds(5));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
@@ -236,13 +292,16 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
     private static DaemonSession CreateGuiSession (
         string projectFingerprint,
         int processId,
-        string editorMode = DaemonEditorModeValues.Gui)
+        string editorMode = DaemonEditorModeValues.Gui,
+        DateTimeOffset? processStartedAtUtc = null)
     {
-        return DaemonServiceTestContext.CreateSession() with
+        var session = DaemonServiceTestContext.CreateSession();
+        return session with
         {
             ProjectFingerprint = projectFingerprint,
             ProcessId = processId,
             EditorMode = editorMode,
+            ProcessStartedAtUtc = processStartedAtUtc ?? session.ProcessStartedAtUtc,
         };
     }
 

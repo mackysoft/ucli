@@ -11,7 +11,9 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <param name="isPlaymodeActive"> Whether Play Mode is active or about to activate. </param>
         /// <param name="isDomainReloading"> Whether domain reload is in progress. </param>
         /// <param name="isCompiling"> Whether script compilation is in progress. </param>
+        /// <param name="hasCompileFailure"> Whether the latest completed script compilation failed. </param>
         /// <param name="isUpdating"> Whether editor update/import work is in progress. </param>
+        /// <param name="isRecoveringPending"> Whether daemon endpoint recovery is still in progress. </param>
         /// <returns> The canonical lifecycle-state literal. </returns>
         public static string Resolve (
             bool isStartupPending,
@@ -19,7 +21,9 @@ namespace MackySoft.Ucli.Unity.Runtime
             bool isPlaymodeActive,
             bool isDomainReloading,
             bool isCompiling,
-            bool isUpdating)
+            bool hasCompileFailure,
+            bool isUpdating,
+            bool isRecoveringPending)
         {
             if (isShuttingDown)
             {
@@ -41,9 +45,19 @@ namespace MackySoft.Ucli.Unity.Runtime
                 return IpcEditorLifecycleStateCodec.Compiling;
             }
 
+            if (hasCompileFailure)
+            {
+                return IpcEditorLifecycleStateCodec.CompileFailed;
+            }
+
             if (isUpdating)
             {
-                return IpcEditorLifecycleStateCodec.Busy;
+                return IpcEditorLifecycleStateCodec.Reimporting;
+            }
+
+            if (isRecoveringPending)
+            {
+                return IpcEditorLifecycleStateCodec.Recovering;
             }
 
             if (isStartupPending)

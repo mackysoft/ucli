@@ -25,11 +25,21 @@ public sealed class DaemonListCommandTests
             Reason: DaemonListItemReason.StaleSession,
             IssuedAtUtc: new DateTimeOffset(2026, 03, 09, 12, 0, 0, TimeSpan.Zero),
             ProcessId: 1234,
+            ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 09, 11, 59, 0, TimeSpan.Zero),
             EditorMode: "batchmode",
             OwnerKind: "cli",
             CanShutdownProcess: true,
             EndpointTransportKind: "unixDomainSocket",
             EndpointAddress: "/tmp/ucli.sock",
+            LifecycleState: null,
+            BlockingReason: null,
+            CompileState: null,
+            CompileGeneration: null,
+            DomainReloadGeneration: null,
+            CanAcceptExecutionRequests: null,
+            ObservedAtUtc: null,
+            ActionRequired: null,
+            PrimaryDiagnostic: null,
             Diagnosis: new DaemonDiagnosisOutput(
                 Reason: "shutdownRequested",
                 Message: "daemon shutdown completed",
@@ -37,7 +47,12 @@ public sealed class DaemonListCommandTests
                 IsInferred: false,
                 UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 12, 1, 0, TimeSpan.Zero),
                 ProcessId: 1234,
-                EditorInstancePath: null));
+                EditorInstancePath: null,
+                ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 09, 11, 59, 0, TimeSpan.Zero),
+                UnityLogPath: "/repo/wt-a/.ucli/local/fingerprints/fp-a/unity.log",
+                StartupPhase: DaemonDiagnosisStartupPhaseValues.EndpointRegistration,
+                ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
+                PrimaryDiagnostic: null));
         var service = new StubDaemonListService(
             DaemonListExecutionResult.Success(new DaemonListExecutionOutput(
                 TimeoutMilliseconds: 3000,
@@ -71,6 +86,7 @@ public sealed class DaemonListCommandTests
                 .HasProperty("items", 0, staleItem => staleItem
                     .HasString("state", "stale")
                     .HasString("reason", "staleSession")
+                    .HasString("processStartedAtUtc", "2026-03-09T11:59:00+00:00")
                     .HasString("editorMode", "batchmode")
                     .HasString("ownerKind", "cli")
                     .HasBoolean("canShutdownProcess", true)
@@ -79,7 +95,11 @@ public sealed class DaemonListCommandTests
                         .HasString("message", "daemon shutdown completed")
                         .HasString("reportedBy", DaemonDiagnosisReportedByValues.Unity)
                         .HasBoolean("isInferred", false)
-                        .HasInt32("processId", 1234))));
+                        .HasInt32("processId", 1234)
+                        .HasString("processStartedAtUtc", "2026-03-09T11:59:00+00:00")
+                        .HasString("unityLogPath", "/repo/wt-a/.ucli/local/fingerprints/fp-a/unity.log")
+                        .HasString("startupPhase", DaemonDiagnosisStartupPhaseValues.EndpointRegistration)
+                        .HasString("actionRequired", DaemonDiagnosisActionRequiredValues.InspectUnityLog))));
 
         var itemJson = outputJson.RootElement
             .GetProperty("payload")

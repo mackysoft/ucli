@@ -81,6 +81,7 @@ public sealed class DaemonLaunchSessionServiceTests
             CreateContext("fingerprint-session-no-update"),
             session,
             processId: null,
+            processStartedAtUtc: null,
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -105,12 +106,38 @@ public sealed class DaemonLaunchSessionServiceTests
             CreateContext("fingerprint-session-update-fail"),
             session,
             processId: 4321,
+            processStartedAtUtc: DateTimeOffset.UtcNow,
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(expectedError, result.Error);
         Assert.Equal(1, sessionStore.WriteCallCount);
         Assert.Equal(4321, sessionStore.LastWrittenSession?.ProcessId);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task UpdateProcessId_WhenProcessStartedAtUtcIsMissing_ReturnsFailureWithoutWrite ()
+    {
+        var sessionStore = new StubDaemonSessionStore();
+        var service = new DaemonLaunchSessionService(
+            endpointResolver: new StubIpcEndpointResolver(),
+            daemonSessionStore: sessionStore,
+            sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
+        var session = CreateSession(processId: null);
+
+        var result = await service.UpdateProcessIdAsync(
+            CreateContext("fingerprint-session-update-missing-start"),
+            session,
+            processId: 4321,
+            processStartedAtUtc: null,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Contains("processStartedAtUtc", error.Message, StringComparison.Ordinal);
+        Assert.Equal(0, sessionStore.WriteCallCount);
     }
 
     [Fact]
@@ -124,15 +151,18 @@ public sealed class DaemonLaunchSessionServiceTests
             daemonSessionStore: sessionStore,
             sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
         var session = CreateSession(processId: null);
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero);
 
         var result = await service.UpdateProcessIdAsync(
             CreateContext("fingerprint-session-update-success"),
             session,
             processId: 8765,
+            processStartedAtUtc: processStartedAtUtc,
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(8765, result.Session?.ProcessId);
+        Assert.Equal(processStartedAtUtc, result.Session?.ProcessStartedAtUtc);
         Assert.Equal(1, sessionStore.WriteCallCount);
     }
 
@@ -158,7 +188,7 @@ public sealed class DaemonLaunchSessionServiceTests
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-daemon-test-endpoint",
             ProcessId: processId,
-
+            ProcessStartedAtUtc: processId is null ? null : DateTimeOffset.UtcNow,
             OwnerProcessId: 9876);
     }
 
