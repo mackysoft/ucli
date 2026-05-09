@@ -269,34 +269,112 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
             }
 
-            if (unityLogCaptureService != null)
+            DisposeUnityLogCapture(unityLogCaptureService, daemonLogger, cleanupContext);
+            DeleteSession(registration, daemonLogger, cleanupContext, deleteSession);
+            DisposeServiceProvider(serviceProvider, daemonLogger, cleanupContext);
+        }
+
+        /// <summary> Releases resources from Unity lifecycle callbacks without blocking editor close or domain reload. </summary>
+        /// <param name="registration"> The persisted session registration when available. </param>
+        /// <param name="server"> The IPC server instance when available. </param>
+        /// <param name="unityLogCaptureService"> The Unity log capture service when available. </param>
+        /// <param name="serviceProvider"> The service provider when available. </param>
+        /// <param name="daemonLogger"> The logger used to report cleanup failures. </param>
+        /// <param name="deleteSession"> Whether persisted session metadata should be deleted. </param>
+        internal static void ReleaseResourcesForEditorLifecycleEvent (
+            UnityGuiSessionRegistration registration,
+            IUnityIpcServer server,
+            IDisposable unityLogCaptureService,
+            IServiceProvider serviceProvider,
+            IDaemonLogger daemonLogger,
+            bool deleteSession)
+        {
+            daemonLogger ??= NoOpDaemonLogger.Instance;
+            const string CleanupContext = "during editor lifecycle event";
+
+            // NOTE:
+            // EditorApplication.quitting and beforeAssemblyReload are synchronous Unity main-thread callbacks.
+            // They must not wait for async IPC shutdown completion, and Unity-owned resources must not be
+            // disposed from background continuations. StopAsync synchronously cancels and releases transport
+            // handles before its first await; the remaining listener join is pure IPC cleanup. All explicit
+            // Unity-side disposal below runs on this callback thread.
+            if (server != null)
             {
-                try
-                {
-                    unityLogCaptureService.Dispose();
-                }
-                catch (Exception exception)
-                {
-                    daemonLogger.Warning(
-                        DaemonLogCategories.Lifecycle,
-                        FormatCleanupFailureMessage("GUI Unity log capture disposal", cleanupContext, exception));
-                }
+                _ = StopServerForEditorLifecycleEventAsync(server, daemonLogger, CleanupContext);
             }
 
-            if (registration != null && deleteSession)
+            DisposeUnityLogCapture(unityLogCaptureService, daemonLogger, CleanupContext);
+            DeleteSession(registration, daemonLogger, CleanupContext, deleteSession);
+            DisposeServiceProvider(serviceProvider, daemonLogger, CleanupContext);
+        }
+
+        private static async Task StopServerForEditorLifecycleEventAsync (
+            IUnityIpcServer server,
+            IDaemonLogger daemonLogger,
+            string cleanupContext)
+        {
+            try
             {
-                try
-                {
-                    UnityGuiSessionPersistence.Delete(registration);
-                }
-                catch (Exception exception)
-                {
-                    daemonLogger.Warning(
-                        DaemonLogCategories.Lifecycle,
-                        FormatCleanupFailureMessage("GUI session cleanup", cleanupContext, exception));
-                }
+                await server.StopAsync(CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                daemonLogger.Warning(
+                    DaemonLogCategories.Lifecycle,
+                    FormatCleanupFailureMessage("GUI IPC server stop", cleanupContext, exception));
+            }
+        }
+
+        private static void DisposeUnityLogCapture (
+            IDisposable unityLogCaptureService,
+            IDaemonLogger daemonLogger,
+            string cleanupContext)
+        {
+            if (unityLogCaptureService == null)
+            {
+                return;
             }
 
+            try
+            {
+                unityLogCaptureService.Dispose();
+            }
+            catch (Exception exception)
+            {
+                daemonLogger.Warning(
+                    DaemonLogCategories.Lifecycle,
+                    FormatCleanupFailureMessage("GUI Unity log capture disposal", cleanupContext, exception));
+            }
+        }
+
+        private static void DeleteSession (
+            UnityGuiSessionRegistration registration,
+            IDaemonLogger daemonLogger,
+            string cleanupContext,
+            bool deleteSession)
+        {
+            if (registration == null || !deleteSession)
+            {
+                return;
+            }
+
+            try
+            {
+                UnityGuiSessionPersistence.Delete(registration);
+            }
+            catch (Exception exception)
+            {
+                daemonLogger.Warning(
+                    DaemonLogCategories.Lifecycle,
+                    FormatCleanupFailureMessage("GUI session cleanup", cleanupContext, exception));
+            }
+        }
+
+        private static void DisposeServiceProvider (
+            IServiceProvider serviceProvider,
+            IDaemonLogger daemonLogger,
+            string cleanupContext)
+        {
             if (serviceProvider is IDisposable disposableServiceProvider)
             {
                 try
@@ -332,7 +410,25 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static void StopSynchronously ()
         {
-            StopAsync(CancellationToken.None).GetAwaiter().GetResult();
+            ActiveGuiBootstrapState capturedState;
+            lock (SyncRoot)
+            {
+                capturedState = activeState;
+                activeState = null;
+            }
+
+            if (capturedState == null || !capturedState.TryBeginStop())
+            {
+                return;
+            }
+
+            ReleaseResourcesForEditorLifecycleEvent(
+                capturedState.Registration,
+                capturedState.Server,
+                capturedState.UnityLogCaptureService,
+                capturedState.ServiceProvider,
+                capturedState.DaemonLogger,
+                deleteSession: true);
         }
 
         private static void StopForDomainReloadSynchronously ()
@@ -370,7 +466,18 @@ namespace MackySoft.Ucli.Unity.Ipc
                     $"GUI lifecycle recovery sidecar write failed before domain reload. {exception.Message}");
             }
 
-            StopStateAsync(capturedState, requestProcessExit: false, deleteSession: false).GetAwaiter().GetResult();
+            if (!capturedState.TryBeginStop())
+            {
+                return;
+            }
+
+            ReleaseResourcesForEditorLifecycleEvent(
+                capturedState.Registration,
+                capturedState.Server,
+                capturedState.UnityLogCaptureService,
+                capturedState.ServiceProvider,
+                capturedState.DaemonLogger,
+                deleteSession: false);
         }
 
         private sealed class ActiveGuiBootstrapState

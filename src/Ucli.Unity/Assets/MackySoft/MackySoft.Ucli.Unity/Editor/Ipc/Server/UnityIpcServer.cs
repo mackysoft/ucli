@@ -146,7 +146,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 if (capturedListenerTask != null)
                 {
-                    await capturedListenerTask;
+                    await capturedListenerTask.ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -194,7 +194,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return;
             }
 
-            await CancellationGracePeriodAwaiter.WaitAsync(capturedListenerTask, cancellationToken, WaitForTerminationRaceGracePeriod);
+            await CancellationGracePeriodAwaiter.WaitAsync(capturedListenerTask, cancellationToken, WaitForTerminationRaceGracePeriod)
+                .ConfigureAwait(false);
         }
 
         /// <summary> Handles one IPC request through the configured request-handler pipeline. </summary>
@@ -302,7 +303,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 if (capturedListenerTask != null)
                 {
-                    await capturedListenerTask;
+                    await capturedListenerTask.ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException)
