@@ -316,8 +316,9 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 | `name` | string | yes | operation 名 |
 | `kind` | string | yes | `query`、`command`、または `mutation` |
 | `policy` | string | yes | `safe`、`advanced`、または `dangerous` |
+| `description` | string | yes | operation の目的、使いどころ、注意点 |
 
-`ucli ops list` は一覧と絞り込みに必要な `name` / `kind` / `policy` だけを返す。`description`、`inputs`、`resultContract`、`assurance`、`argsSchema`、`resultSchema` は含めない。operation の詳細契約は `ucli ops describe <opName>` を参照する。
+`ucli ops list` は一覧と絞り込みに必要な `name` / `kind` / `policy` と、operation 選択に必要な短い `description` を返す。`inputs`、`resultContract`、`assurance`、`argsSchema`、`resultSchema` は含めない。operation の詳細契約は `ucli ops describe <opName>` を参照する。
 
 ### `ucli ops describe`
 

@@ -18,10 +18,10 @@ Operation catalog は Unity 側で生成した operation 登録を論理 catalog
 Unity 生成 -> 契約検証 -> source snapshot -> best-effort 永続化 -> persisted load + freshness -> access policy -> CLI projection
 ```
 
-- `ops.catalog.json` は `name` / `kind` / `policy` と describe detail 参照情報を持ち、`ops list` と `ops describe` の事前 lookup に使う
+- `ops.catalog.json` は `name` / `kind` / `policy` / `description` と describe detail 参照情報を持ち、`ops list` と `ops describe` の事前 lookup に使う
 - `ops.describe/<opKey>.json` は `description` / `inputs` / `resultContract` / `assurance` / `codeContract` / schema object を持ち、`ops describe` の単一 operation detail として使う
 - `opKey` は operation name から決定論的に作る不透明な safe key であり、利用者は path を直接組み立てず `ucli ops describe <opName>` を正本として読む
-- `ops list` は軽量 descriptor から `name` / `kind` / `policy` だけを表示用 model へ投影し、`--nameRegex` / `--kind` / `--maxPolicy` の AND 条件で絞り込める
+- `ops list` は軽量 descriptor から `name` / `kind` / `policy` / `description` を表示用 model へ投影し、`--nameRegex` / `--kind` / `--maxPolicy` の AND 条件で絞り込める
 - persisted catalog の読み込み失敗は access policy で分類し、CLI projection は永続化ファイルや freshness 計算の詳細へ依存しない
 
 ## Play Mode 変更での扱い

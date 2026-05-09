@@ -32,6 +32,7 @@
   - `--maxPolicy` は policy 上限であり、`safe` は safe のみ、`advanced` は safe / advanced、`dangerous` は safe / advanced / dangerous を返す。
   - `list` の複数フィルタは AND 条件で評価する。該当 operation がない場合も成功とし、`payload.operations: []` を返す。
   - `list` の出力順は operation name の ordinal 昇順とする。
+  - `list` の各 operation は `name` / `kind` / `policy` / `description` を返す。
   - 無効な regex / kind / maxPolicy は `INVALID_ARGUMENT` を返す。
   - `describe <opName>` は特定オペレーションの agent 向け contract と検証用 schema を返す。
   - `description` / `inputs[].constraints` / `inputs[].variants[].fields[].constraints` / `resultContract` / `assurance` は operation 選択、入力構築、結果解釈の主契約である。
