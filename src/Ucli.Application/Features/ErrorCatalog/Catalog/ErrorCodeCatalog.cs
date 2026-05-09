@@ -1,9 +1,14 @@
 namespace MackySoft.Ucli.Application.Features.ErrorCatalog.Catalog;
 
+/// <summary> Aggregates contributor descriptor sets into one validated, deterministic error-code catalog. </summary>
 internal sealed class ErrorCodeCatalog : IErrorCodeCatalog
 {
     private readonly IReadOnlyDictionary<UcliErrorCode, UcliErrorCodeDescriptor> descriptorsByCode;
 
+    /// <summary> Initializes a new instance of the <see cref="ErrorCodeCatalog" /> class. </summary>
+    /// <param name="contributors"> The contributor set to aggregate. The sequence must not be <see langword="null" /> and must not contain <see langword="null" /> entries. </param>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="contributors" /> is <see langword="null" />. </exception>
+    /// <exception cref="InvalidOperationException"> Thrown when a contributor returns invalid descriptors, duplicate codes, invalid retry classes, or related codes outside the aggregate. </exception>
     public ErrorCodeCatalog (IEnumerable<IErrorCodeCatalogContributor> contributors)
     {
         ArgumentNullException.ThrowIfNull(contributors);
@@ -15,8 +20,10 @@ internal sealed class ErrorCodeCatalog : IErrorCodeCatalog
         descriptorsByCode = Descriptors.ToDictionary(static descriptor => descriptor.Code);
     }
 
+    /// <inheritdoc />
     public IReadOnlyList<UcliErrorCodeDescriptor> Descriptors { get; }
 
+    /// <inheritdoc />
     public bool TryFind (
         UcliErrorCode code,
         out UcliErrorCodeDescriptor descriptor)

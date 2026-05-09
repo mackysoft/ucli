@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.ErrorCatalog.Catalog;
 
+/// <summary> Implements error-code description lookup and unknown-code fallback semantics. </summary>
 internal sealed class ErrorCodeCatalogService : IErrorCodeCatalogService
 {
     private static readonly IReadOnlyList<UcliCommand> EmptyCommands = Array.Empty<UcliCommand>();
@@ -19,11 +20,15 @@ internal sealed class ErrorCodeCatalogService : IErrorCodeCatalogService
 
     private readonly IErrorCodeCatalog catalog;
 
+    /// <summary> Initializes a new instance of the <see cref="ErrorCodeCatalogService" /> class. </summary>
+    /// <param name="catalog"> The validated catalog used for known-code lookup. Must not be <see langword="null" />. </param>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="catalog" /> is <see langword="null" />. </exception>
     public ErrorCodeCatalogService (IErrorCodeCatalog catalog)
     {
         this.catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
     }
 
+    /// <inheritdoc />
     public ErrorCodeCatalogDescribeResult Describe (
         UcliErrorCode code,
         bool requireKnown)
