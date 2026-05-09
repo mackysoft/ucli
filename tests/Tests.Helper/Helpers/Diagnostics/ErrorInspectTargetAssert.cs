@@ -14,6 +14,8 @@ internal static class ErrorInspectTargetAssert
             Assert.NotEqual("errors", inspectTarget);
             Assert.NotEqual("logs daemon", inspectTarget);
             Assert.NotEqual("logs unity", inspectTarget);
+            Assert.NotEqual("ucli logs daemon --level error", inspectTarget);
+            Assert.NotEqual("ucli logs unity --level error", inspectTarget);
         }
     }
 }
