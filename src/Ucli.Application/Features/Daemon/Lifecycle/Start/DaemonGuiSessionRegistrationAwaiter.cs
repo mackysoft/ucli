@@ -1,0 +1,179 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Shared.Foundation;
+
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+
+/// <summary> Implements polling for GUI daemon session registration from an existing Unity Editor process. </summary>
+internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionRegistrationAwaiter
+{
+    private readonly IDaemonSessionStore daemonSessionStore;
+
+    private readonly IDaemonPingInfoClient daemonPingInfoClient;
+
+    private readonly IDaemonReachabilityClassifier reachabilityClassifier;
+
+    private readonly TimeProvider timeProvider;
+
+    /// <summary> Initializes a new instance of the <see cref="DaemonGuiSessionRegistrationAwaiter" /> class. </summary>
+    public DaemonGuiSessionRegistrationAwaiter (
+        IDaemonSessionStore daemonSessionStore,
+        IDaemonPingInfoClient daemonPingInfoClient,
+        IDaemonReachabilityClassifier reachabilityClassifier,
+        TimeProvider? timeProvider = null)
+    {
+        this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
+        this.daemonPingInfoClient = daemonPingInfoClient ?? throw new ArgumentNullException(nameof(daemonPingInfoClient));
+        this.reachabilityClassifier = reachabilityClassifier ?? throw new ArgumentNullException(nameof(reachabilityClassifier));
+        this.timeProvider = timeProvider ?? TimeProvider.System;
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<DaemonGuiSessionRegistrationWaitResult> WaitForSession (
+        ResolvedUnityProjectContext unityProject,
+        int expectedProcessId,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(expectedProcessId, 0);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
+            {
+                return DaemonGuiSessionRegistrationWaitResult.Failure(CreateTimeoutError(
+                    $"Timed out while waiting for GUI daemon session registration. ProcessId={expectedProcessId}."));
+            }
+
+            var readResult = await daemonSessionStore.Read(
+                    unityProject.RepositoryRoot,
+                    unityProject.ProjectFingerprint,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!readResult.IsSuccess && readResult.FailureKind != DaemonSessionReadFailureKind.InvalidSession)
+            {
+                return DaemonGuiSessionRegistrationWaitResult.Failure(readResult.Error!);
+            }
+
+            if (TryGetMatchingGuiSession(readResult, unityProject, expectedProcessId, out var session))
+            {
+                var probeResult = await TryProbeSession(
+                        unityProject,
+                        session!,
+                        deadline,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (probeResult is not null)
+                {
+                    return probeResult;
+                }
+            }
+
+            if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
+            {
+                return DaemonGuiSessionRegistrationWaitResult.Failure(CreateTimeoutError(
+                    $"Timed out while waiting for GUI daemon session registration. ProcessId={expectedProcessId}."));
+            }
+
+            await TimeProviderDelay.Delay(GetRetryDelay(remainingTimeout), timeProvider, cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    private async ValueTask<DaemonGuiSessionRegistrationWaitResult?> TryProbeSession (
+        ResolvedUnityProjectContext unityProject,
+        DaemonSession session,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken)
+    {
+        if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
+        {
+            return DaemonGuiSessionRegistrationWaitResult.Failure(CreateTimeoutError(
+                $"Timed out before probing GUI daemon session. ProcessId={session.ProcessId}."));
+        }
+
+        var attemptTimeout = remainingTimeout < DaemonTimeouts.ProbeAttemptTimeoutCap
+            ? remainingTimeout
+            : DaemonTimeouts.ProbeAttemptTimeoutCap;
+        try
+        {
+            var pingResponse = await daemonPingInfoClient.PingAndRead(
+                    unityProject,
+                    attemptTimeout,
+                    session.SessionToken,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return string.Equals(pingResponse.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal)
+                   && string.Equals(pingResponse.EditorMode, DaemonEditorModeValues.Gui, StringComparison.Ordinal)
+                ? DaemonGuiSessionRegistrationWaitResult.Success(session)
+                : null;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (TimeoutException)
+        {
+            return null;
+        }
+        catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
+        {
+            return null;
+        }
+        catch (Exception exception)
+        {
+            return DaemonGuiSessionRegistrationWaitResult.Failure(ExecutionError.InternalError(
+                $"Failed to probe GUI daemon session. {exception.Message}"));
+        }
+    }
+
+    private static bool TryGetMatchingGuiSession (
+        DaemonSessionReadResult readResult,
+        ResolvedUnityProjectContext unityProject,
+        int expectedProcessId,
+        out DaemonSession? session)
+    {
+        session = null;
+        if (!readResult.IsSuccess || !readResult.Exists)
+        {
+            return false;
+        }
+
+        var candidate = readResult.Session!;
+        if (candidate.ProcessId != expectedProcessId)
+        {
+            return false;
+        }
+
+        if (!string.Equals(candidate.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (!string.Equals(candidate.EditorMode, DaemonEditorModeValues.Gui, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        session = candidate;
+        return true;
+    }
+
+    private static TimeSpan GetRetryDelay (TimeSpan remainingTimeout)
+    {
+        var retryDelayMilliseconds = Math.Min(
+            DaemonTimeouts.StartupProbeRetryDelayMilliseconds,
+            Math.Max(1, (int)Math.Ceiling(remainingTimeout.TotalMilliseconds)));
+        return TimeSpan.FromMilliseconds(retryDelayMilliseconds);
+    }
+
+    private static ExecutionError CreateTimeoutError (string message)
+    {
+        return ExecutionError.Timeout(message, ExecutionErrorCodes.IpcTimeout);
+    }
+}

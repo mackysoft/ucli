@@ -7,10 +7,12 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 /// <param name="IsInferred"> <see langword="true" /> when CLI inferred the diagnosis after observation; otherwise <see langword="false" />. </param>
 /// <param name="UpdatedAtUtc"> The UTC timestamp when the diagnosis was recorded or derived. </param>
 /// <param name="ProcessId"> The daemon process identifier when available; otherwise <see langword="null" />. </param>
+/// <param name="EditorInstancePath"> The Unity <c>Library/EditorInstance.json</c> path associated with the diagnosis when available; otherwise <see langword="null" />. </param>
 internal sealed record DaemonDiagnosisOutput (
     string Reason,
     string Message,
     string ReportedBy,
     bool IsInferred,
     DateTimeOffset UpdatedAtUtc,
-    int? ProcessId);
+    int? ProcessId,
+    string? EditorInstancePath);

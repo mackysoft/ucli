@@ -74,6 +74,7 @@ internal static class DaemonServiceTestContext
             IsInferred: false,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 05, 4, 5, 6, TimeSpan.Zero),
             ProcessId: 1234,
+            EditorInstancePath: null,
             SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero));
     }
 
@@ -387,7 +388,8 @@ internal static class DaemonServiceTestContext
             ReportedBy: DaemonDiagnosisReportedByValues.Unity,
             IsInferred: false,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 05, 4, 5, 6, TimeSpan.Zero),
-            ProcessId: 4321);
+            ProcessId: 4321,
+            EditorInstancePath: null);
 
         public DaemonDiagnosis? LastDiagnosis { get; private set; }
 

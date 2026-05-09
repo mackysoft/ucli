@@ -3,7 +3,9 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Daemon;
@@ -60,6 +62,43 @@ public sealed class DaemonStartCommandTests
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WhenServiceFailureHasDiagnosis_EmitsDiagnosisPayload ()
+    {
+        var diagnosis = new DaemonDiagnosisOutput(
+            Reason: DaemonDiagnosisReasonValues.GuiEndpointNotRegistered,
+            Message: "GUI endpoint was not registered.",
+            ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+            IsInferred: true,
+            UpdatedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 6, TimeSpan.Zero),
+            ProcessId: 1234,
+            EditorInstancePath: "/repo/UnityProject/Library/EditorInstance.json");
+        var service = new StubDaemonStartService(DaemonStartExecutionResult.Failure(
+            ExecutionError.Timeout("registration timeout", ExecutionErrorCodes.IpcTimeout),
+            diagnosis));
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+
+        CommandExecutionState.Reset();
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Start(
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.ToolError, exitCode);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.DaemonStart,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.ToolError);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, ExecutionErrorCodes.IpcTimeout);
+        var payload = outputJson.RootElement.GetProperty("payload");
+        var diagnosisJson = payload.GetProperty("diagnosis");
+        Assert.Equal(DaemonDiagnosisReasonValues.GuiEndpointNotRegistered, diagnosisJson.GetProperty("reason").GetString());
+        Assert.Equal("/repo/UnityProject/Library/EditorInstance.json", diagnosisJson.GetProperty("editorInstancePath").GetString());
+        Assert.True(diagnosisJson.GetProperty("isInferred").GetBoolean());
     }
 
     private static DaemonStartExecutionOutput CreateSuccessOutput ()

@@ -23,4 +23,7 @@ public static class DaemonDiagnosisReasonValues
 
     /// <summary> Gets the reason value used when CLI infers external process termination without persisted diagnosis. </summary>
     public const string ExternalTerminationSuspected = "externalTerminationSuspected";
+
+    /// <summary> Gets the reason value used when a detected GUI Editor process does not register an endpoint before timeout. </summary>
+    public const string GuiEndpointNotRegistered = "guiEndpointNotRegistered";
 }

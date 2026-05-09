@@ -90,6 +90,7 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
             IsInferred: contract.IsInferred!.Value,
             UpdatedAtUtc: contract.UpdatedAtUtc,
             ProcessId: contract.ProcessId,
+            EditorInstancePath: StringValueNormalizer.TrimToNull(contract.EditorInstancePath),
             SessionIssuedAtUtc: contract.SessionIssuedAtUtc);
         return DaemonDiagnosisReadResult.Success(diagnosis);
     }
@@ -127,6 +128,7 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
             IsInferred: diagnosis.IsInferred,
             UpdatedAtUtc: diagnosis.UpdatedAtUtc,
             ProcessId: diagnosis.ProcessId,
+            EditorInstancePath: diagnosis.EditorInstancePath,
             SessionIssuedAtUtc: diagnosis.SessionIssuedAtUtc);
 
         string json;

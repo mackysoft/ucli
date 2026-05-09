@@ -20,6 +20,7 @@ internal sealed class DaemonDiagnosisOutputMapper : IDaemonDiagnosisOutputMapper
             ReportedBy: diagnosis.ReportedBy,
             IsInferred: diagnosis.IsInferred,
             UpdatedAtUtc: diagnosis.UpdatedAtUtc,
-            ProcessId: diagnosis.ProcessId);
+            ProcessId: diagnosis.ProcessId,
+            EditorInstancePath: diagnosis.EditorInstancePath);
     }
 }

@@ -49,6 +49,7 @@ internal sealed class DaemonSessionDiagnosisResolver : IDaemonSessionDiagnosisRe
             IsInferred: true,
             UpdatedAtUtc: DateTimeOffset.UtcNow,
             ProcessId: resolvedProcessId,
+            EditorInstancePath: null,
             SessionIssuedAtUtc: session.IssuedAtUtc);
 
         var writeResult = await daemonDiagnosisStore.Write(

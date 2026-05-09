@@ -56,6 +56,92 @@ public sealed class DaemonLaunchServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Launch_WhenEditorModeGui_LaunchesGuiAndWaitsForRegisteredSessionWithoutPrewritingSession ()
+    {
+        var context = CreateContext("fingerprint-gui-launch-success");
+        var registeredSession = CreateSession(
+            processId: 4321,
+            projectFingerprint: context.ProjectFingerprint) with
+        {
+            EditorMode = DaemonEditorModeValues.Gui,
+        };
+        var launchSessionService = new StubDaemonLaunchSessionService();
+        var batchmodeLauncher = new StubUnityDaemonProcessLauncher();
+        var guiLauncher = new StubUnityGuiEditorProcessLauncher
+        {
+            NextResult = UnityDaemonLaunchResult.Success(4321),
+        };
+        var guiAwaiter = new StubDaemonGuiSessionRegistrationAwaiter
+        {
+            NextResult = DaemonGuiSessionRegistrationWaitResult.Success(registeredSession),
+        };
+        var readinessProbe = new StubDaemonStartupReadinessProbe();
+        var compensationService = new StubDaemonLaunchCompensationService();
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var service = CreateService(
+            launchSessionService,
+            batchmodeLauncher,
+            readinessProbe,
+            compensationService,
+            diagnosisStore,
+            unityGuiEditorProcessLauncher: guiLauncher,
+            guiSessionRegistrationAwaiter: guiAwaiter);
+
+        var result = await service.Launch(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Gui, CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Started, result.Status);
+        Assert.Equal(registeredSession, result.Session);
+        Assert.Equal(0, launchSessionService.InitializeCallCount);
+        Assert.Equal(0, batchmodeLauncher.CallCount);
+        Assert.Equal(1, guiLauncher.CallCount);
+        Assert.Equal(1, guiAwaiter.CallCount);
+        Assert.Equal(4321, guiAwaiter.LastExpectedProcessId);
+        Assert.Equal(0, compensationService.CallCount);
+        Assert.Equal(0, diagnosisStore.WriteCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenEditorModeGuiRegistrationTimesOut_WritesGuiEndpointDiagnosis ()
+    {
+        var context = CreateContext("fingerprint-gui-launch-timeout");
+        var launchSessionService = new StubDaemonLaunchSessionService();
+        var batchmodeLauncher = new StubUnityDaemonProcessLauncher();
+        var guiLauncher = new StubUnityGuiEditorProcessLauncher
+        {
+            NextResult = UnityDaemonLaunchResult.Success(5432),
+        };
+        var timeoutError = ExecutionError.Timeout("registration timeout", ExecutionErrorCodes.IpcTimeout);
+        var guiAwaiter = new StubDaemonGuiSessionRegistrationAwaiter
+        {
+            NextResult = DaemonGuiSessionRegistrationWaitResult.Failure(timeoutError),
+        };
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var service = CreateService(
+            launchSessionService,
+            batchmodeLauncher,
+            new StubDaemonStartupReadinessProbe(),
+            new StubDaemonLaunchCompensationService(),
+            diagnosisStore,
+            unityGuiEditorProcessLauncher: guiLauncher,
+            guiSessionRegistrationAwaiter: guiAwaiter);
+
+        var result = await service.Launch(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Gui, CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
+        Assert.Equal(1, diagnosisStore.WriteCallCount);
+        Assert.NotNull(diagnosisStore.LastDiagnosis);
+        Assert.Equal(DaemonDiagnosisReasonValues.GuiEndpointNotRegistered, diagnosisStore.LastDiagnosis!.Reason);
+        Assert.True(diagnosisStore.LastDiagnosis.IsInferred);
+        Assert.Equal(5432, diagnosisStore.LastDiagnosis.ProcessId);
+        Assert.Equal("/tmp/unity-project/Library/EditorInstance.json", diagnosisStore.LastDiagnosis.EditorInstancePath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Launch_WhenSessionInitializationFails_ReturnsFailureWithoutLaunch ()
     {
         var context = CreateContext("fingerprint-launch-init-fail");
@@ -283,7 +369,7 @@ public sealed class DaemonLaunchServiceTests
             readinessProbe,
             compensationService,
             diagnosisStore,
-            timeProvider);
+            timeProvider: timeProvider);
 
         var result = await service.Launch(context, TimeSpan.FromMilliseconds(1), DaemonEditorMode.Batchmode, CancellationToken.None);
 
@@ -522,12 +608,16 @@ public sealed class DaemonLaunchServiceTests
         IDaemonStartupReadinessProbe startupReadinessProbe,
         IDaemonLaunchCompensationService launchCompensationService,
         IDaemonDiagnosisStore? daemonDiagnosisStore = null,
+        IUnityGuiEditorProcessLauncher? unityGuiEditorProcessLauncher = null,
+        IDaemonGuiSessionRegistrationAwaiter? guiSessionRegistrationAwaiter = null,
         TimeProvider? timeProvider = null)
     {
         return new DaemonLaunchService(
             daemonLaunchSessionService: launchSessionService,
             unityDaemonProcessLauncher: unityDaemonProcessLauncher,
+            unityGuiEditorProcessLauncher: unityGuiEditorProcessLauncher ?? new StubUnityGuiEditorProcessLauncher(),
             startupReadinessProbe: startupReadinessProbe,
+            guiSessionRegistrationAwaiter: guiSessionRegistrationAwaiter ?? new StubDaemonGuiSessionRegistrationAwaiter(),
             daemonLaunchCompensationService: launchCompensationService,
             daemonDiagnosisStore: daemonDiagnosisStore ?? new StubDaemonDiagnosisStore(),
             timeProvider: timeProvider);
@@ -633,6 +723,57 @@ public sealed class DaemonLaunchServiceTests
             }
 
             return NextResult;
+        }
+    }
+
+    private sealed class StubUnityGuiEditorProcessLauncher : IUnityGuiEditorProcessLauncher
+    {
+        public UnityDaemonLaunchResult NextResult { get; set; } = UnityDaemonLaunchResult.Success(2000);
+
+        public int CallCount { get; private set; }
+
+        public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
+
+        public string? LastUnityLogPath { get; private set; }
+
+        public ValueTask<UnityDaemonLaunchResult> Launch (
+            ResolvedUnityProjectContext unityProject,
+            string unityLogPath,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            CallCount++;
+            LastUnityProject = unityProject;
+            LastUnityLogPath = unityLogPath;
+            return ValueTask.FromResult(NextResult);
+        }
+    }
+
+    private sealed class StubDaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionRegistrationAwaiter
+    {
+        public DaemonGuiSessionRegistrationWaitResult NextResult { get; set; } =
+            DaemonGuiSessionRegistrationWaitResult.Success(CreateSession(processId: 2000));
+
+        public int CallCount { get; private set; }
+
+        public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
+
+        public int LastExpectedProcessId { get; private set; }
+
+        public TimeSpan LastTimeout { get; private set; }
+
+        public ValueTask<DaemonGuiSessionRegistrationWaitResult> WaitForSession (
+            ResolvedUnityProjectContext unityProject,
+            int expectedProcessId,
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            CallCount++;
+            LastUnityProject = unityProject;
+            LastExpectedProcessId = expectedProcessId;
+            LastTimeout = timeout;
+            return ValueTask.FromResult(NextResult);
         }
     }
 

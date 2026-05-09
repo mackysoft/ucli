@@ -126,6 +126,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
             IsInferred: false,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 1, 0, 0, TimeSpan.Zero),
             ProcessId: session.ProcessId,
+            EditorInstancePath: null,
             SessionIssuedAtUtc: session.IssuedAtUtc);
     }
 

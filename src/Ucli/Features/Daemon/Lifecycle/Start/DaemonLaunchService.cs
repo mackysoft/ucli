@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
@@ -16,7 +17,11 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
 
     private readonly IUnityDaemonProcessLauncher unityDaemonProcessLauncher;
 
+    private readonly IUnityGuiEditorProcessLauncher unityGuiEditorProcessLauncher;
+
     private readonly IDaemonStartupReadinessProbe startupReadinessProbe;
+
+    private readonly IDaemonGuiSessionRegistrationAwaiter guiSessionRegistrationAwaiter;
 
     private readonly IDaemonLaunchCompensationService daemonLaunchCompensationService;
 
@@ -27,7 +32,9 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
     /// <summary> Initializes a new instance of the <see cref="DaemonLaunchService" /> class. </summary>
     /// <param name="daemonLaunchSessionService"> The daemon launch-session service dependency. </param>
     /// <param name="unityDaemonProcessLauncher"> The Unity daemon process-launcher dependency. </param>
+    /// <param name="unityGuiEditorProcessLauncher"> The Unity GUI Editor process-launcher dependency. </param>
     /// <param name="startupReadinessProbe"> The daemon startup-readiness probe dependency. </param>
+    /// <param name="guiSessionRegistrationAwaiter"> The GUI session-registration awaiter dependency. </param>
     /// <param name="daemonLaunchCompensationService"> The daemon launch-compensation service dependency. </param>
     /// <param name="daemonDiagnosisStore"> The daemon diagnosis store dependency. </param>
     /// <param name="timeProvider"> The time provider used for timeout-budget accounting and timestamps. </param>
@@ -35,14 +42,18 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
     public DaemonLaunchService (
         IDaemonLaunchSessionService daemonLaunchSessionService,
         IUnityDaemonProcessLauncher unityDaemonProcessLauncher,
+        IUnityGuiEditorProcessLauncher unityGuiEditorProcessLauncher,
         IDaemonStartupReadinessProbe startupReadinessProbe,
+        IDaemonGuiSessionRegistrationAwaiter guiSessionRegistrationAwaiter,
         IDaemonLaunchCompensationService daemonLaunchCompensationService,
         IDaemonDiagnosisStore daemonDiagnosisStore,
         TimeProvider? timeProvider = null)
     {
         this.daemonLaunchSessionService = daemonLaunchSessionService ?? throw new ArgumentNullException(nameof(daemonLaunchSessionService));
         this.unityDaemonProcessLauncher = unityDaemonProcessLauncher ?? throw new ArgumentNullException(nameof(unityDaemonProcessLauncher));
+        this.unityGuiEditorProcessLauncher = unityGuiEditorProcessLauncher ?? throw new ArgumentNullException(nameof(unityGuiEditorProcessLauncher));
         this.startupReadinessProbe = startupReadinessProbe ?? throw new ArgumentNullException(nameof(startupReadinessProbe));
+        this.guiSessionRegistrationAwaiter = guiSessionRegistrationAwaiter ?? throw new ArgumentNullException(nameof(guiSessionRegistrationAwaiter));
         this.daemonLaunchCompensationService = daemonLaunchCompensationService ?? throw new ArgumentNullException(nameof(daemonLaunchCompensationService));
         this.daemonDiagnosisStore = daemonDiagnosisStore ?? throw new ArgumentNullException(nameof(daemonDiagnosisStore));
         this.timeProvider = timeProvider ?? TimeProvider.System;
@@ -67,6 +78,30 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
 
+        return editorMode switch
+        {
+            DaemonEditorMode.Batchmode => await LaunchBatchmode(
+                    unityProject,
+                    editorMode,
+                    deadline,
+                    cancellationToken)
+                .ConfigureAwait(false),
+            DaemonEditorMode.Gui => await LaunchGui(
+                    unityProject,
+                    deadline,
+                    cancellationToken)
+                .ConfigureAwait(false),
+            _ => DaemonStartResult.Failure(ExecutionError.InvalidArgument(
+                $"daemon start editorMode is invalid. Actual: {editorMode}.")),
+        };
+    }
+
+    private async ValueTask<DaemonStartResult> LaunchBatchmode (
+        ResolvedUnityProjectContext unityProject,
+        DaemonEditorMode editorMode,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken)
+    {
         var initializeSessionResult = await daemonLaunchSessionService.Initialize(
                 unityProject,
                 editorMode,
@@ -103,7 +138,13 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                     .ConfigureAwait(false);
             }
 
-            launchedProcessId = launchResult.ProcessId;
+            if (launchResult.ProcessId is not int processId)
+            {
+                return DaemonStartResult.Failure(ExecutionError.InternalError(
+                    "Unity daemon launch succeeded without a process identifier."));
+            }
+
+            launchedProcessId = processId;
             var updateProcessIdResult = await daemonLaunchSessionService.UpdateProcessId(
                     unityProject,
                     session,
@@ -169,6 +210,73 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         }
     }
 
+    private async ValueTask<DaemonStartResult> LaunchGui (
+        ResolvedUnityProjectContext unityProject,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken)
+    {
+        var launchedProcessId = default(int?);
+        try
+        {
+            var unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(
+                unityProject.RepositoryRoot,
+                unityProject.ProjectFingerprint);
+            var launchResult = await unityGuiEditorProcessLauncher.Launch(
+                    unityProject,
+                    unityLogPath,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!launchResult.IsSuccess)
+            {
+                return DaemonStartResult.Failure(launchResult.Error!);
+            }
+
+            if (launchResult.ProcessId is not int processId)
+            {
+                return DaemonStartResult.Failure(ExecutionError.InternalError(
+                    "Unity GUI Editor launch succeeded without a process identifier."));
+            }
+
+            launchedProcessId = processId;
+            if (!deadline.TryGetRemainingTimeout(out var waitTimeout))
+            {
+                return await CreateGuiEndpointNotRegisteredFailure(
+                        unityProject,
+                        launchedProcessId,
+                        ExecutionError.Timeout(
+                            "Timed out before GUI daemon session registration wait could begin.",
+                            ExecutionErrorCodes.IpcTimeout))
+                    .ConfigureAwait(false);
+            }
+
+            var waitResult = await guiSessionRegistrationAwaiter.WaitForSession(
+                    unityProject,
+                    processId,
+                    waitTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (waitResult.IsSuccess)
+            {
+                return DaemonStartResult.Started(waitResult.Session!);
+            }
+
+            if (waitResult.Error!.Kind == ExecutionErrorKind.Timeout)
+            {
+                return await CreateGuiEndpointNotRegisteredFailure(
+                        unityProject,
+                        launchedProcessId,
+                        waitResult.Error)
+                    .ConfigureAwait(false);
+            }
+
+            return DaemonStartResult.Failure(waitResult.Error);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+    }
+
     private async ValueTask<DaemonStartResult> CreateFailureWithCompensation (
         ResolvedUnityProjectContext unityProject,
         int? processId,
@@ -187,6 +295,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                     IsInferred: false,
                     UpdatedAtUtc: timeProvider.GetUtcNow(),
                     ProcessId: processId,
+                    EditorInstancePath: null,
                     SessionIssuedAtUtc: expectedIssuedAtUtc),
                 CancellationToken.None)
             .ConfigureAwait(false);
@@ -228,6 +337,44 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         return DaemonStartResult.Failure(primaryError);
     }
 
+    private async ValueTask<DaemonStartResult> CreateGuiEndpointNotRegisteredFailure (
+        ResolvedUnityProjectContext unityProject,
+        int? processId,
+        ExecutionError waitError)
+    {
+        var editorInstancePath = ResolveEditorInstancePath(unityProject.UnityProjectRoot);
+        var timeoutError = ExecutionError.Timeout(
+            "Timed out while waiting for GUI Editor endpoint registration. " +
+            $"reason={DaemonDiagnosisReasonValues.GuiEndpointNotRegistered} " +
+            $"editorInstancePath={editorInstancePath} processId={processId}. " +
+            waitError.Message,
+            ExecutionErrorCodes.IpcTimeout);
+        var updatedAtUtc = timeProvider.GetUtcNow();
+        var diagnosisWriteResult = await daemonDiagnosisStore.Write(
+                unityProject.RepositoryRoot,
+                unityProject.ProjectFingerprint,
+                new DaemonDiagnosis(
+                    Reason: DaemonDiagnosisReasonValues.GuiEndpointNotRegistered,
+                    Message: timeoutError.Message,
+                    ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+                    IsInferred: true,
+                    UpdatedAtUtc: updatedAtUtc,
+                    ProcessId: processId,
+                    EditorInstancePath: editorInstancePath,
+                    SessionIssuedAtUtc: updatedAtUtc),
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        if (!diagnosisWriteResult.IsSuccess)
+        {
+            return DaemonStartResult.Failure(CreateAugmentedPrimaryError(
+                timeoutError,
+                "GUI Editor endpoint registration timed out and diagnosis persistence failed. " +
+                $"StartError={timeoutError.Message} DiagnosisError={diagnosisWriteResult.Error!.Message}"));
+        }
+
+        return DaemonStartResult.Failure(timeoutError);
+    }
+
     private static ExecutionError CreateAugmentedPrimaryError (
         ExecutionError primaryError,
         string message)
@@ -237,10 +384,15 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
 
         return primaryError.Kind switch
         {
-            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message),
-            ExecutionErrorKind.Timeout => ExecutionError.Timeout(message),
-            ExecutionErrorKind.InternalError => ExecutionError.InternalError(message),
+            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message, primaryError.Code),
+            ExecutionErrorKind.Timeout => ExecutionError.Timeout(message, primaryError.Code),
+            ExecutionErrorKind.InternalError => ExecutionError.InternalError(message, primaryError.Code),
             _ => throw new ArgumentOutOfRangeException(nameof(primaryError), primaryError.Kind, "Unsupported execution error kind."),
         };
+    }
+
+    private static string ResolveEditorInstancePath (string unityProjectRoot)
+    {
+        return Path.Combine(unityProjectRoot, "Library", "EditorInstance.json");
     }
 }

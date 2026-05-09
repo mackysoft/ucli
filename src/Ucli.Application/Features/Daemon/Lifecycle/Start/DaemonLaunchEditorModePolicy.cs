@@ -24,11 +24,9 @@ internal static class DaemonLaunchEditorModePolicy
 
         if (editorMode == DaemonEditorMode.Gui)
         {
-            launchEditorMode = default;
-            error = ExecutionError.InternalError(
-                "daemon start --editorMode gui is not implemented until GUI Editor attach and launch support is available.",
-                UcliCoreErrorCodes.CommandNotImplemented);
-            return false;
+            launchEditorMode = DaemonEditorMode.Gui;
+            error = null;
+            return true;
         }
 
         launchEditorMode = default;

@@ -220,7 +220,7 @@ public sealed class DaemonCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Start_WithEditorModeGui_WhenUnityPluginMarkerExists_ReturnsCommandNotImplementedAsSingleJson ()
+    public async Task Start_WithEditorModeGui_WhenUnityPluginMarkerExists_AttemptsGuiLaunchAndReturnsSingleJson ()
     {
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "daemon-start-gui-option");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
@@ -238,14 +238,15 @@ public sealed class DaemonCliOutputContractTests
         await WaitForSupervisorIdleExit(scope, unityProjectPath);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             command: UcliCommandNames.DaemonStart,
             status: "error",
-            exitCode: (int)CliExitCode.ToolError);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.CommandNotImplemented);
-        Assert.Contains("daemon start --editorMode gui is not implemented", result.StdOut, StringComparison.Ordinal);
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
+        Assert.Contains("Unity Editor is not installed for unityVersion", result.StdOut, StringComparison.Ordinal);
+        Assert.DoesNotContain("daemon start --editorMode gui is not implemented", result.StdOut, StringComparison.Ordinal);
         Assert.DoesNotContain("editorMode must be one of", result.StdOut, StringComparison.Ordinal);
         Assert.DoesNotContain("Argument '--editorMode' is not recognized.", result.StdErr, StringComparison.Ordinal);
     }

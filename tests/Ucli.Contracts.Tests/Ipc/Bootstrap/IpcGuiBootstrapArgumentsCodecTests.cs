@@ -6,6 +6,34 @@ public sealed class IpcGuiBootstrapArgumentsCodecTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public void AppendTokens_AppendsGuiBootstrapArgumentPairs ()
+    {
+        var tokens = new List<string>
+        {
+            "-projectPath",
+            "/repo/UnityProject",
+        };
+
+        IpcGuiBootstrapArgumentsCodec.AppendTokens(tokens, new IpcGuiBootstrapArguments(
+            OwnerProcessId: 123,
+            CanShutdownProcess: true));
+
+        Assert.Equal(
+            [
+                "-projectPath",
+                "/repo/UnityProject",
+                IpcGuiBootstrapArgumentNames.Target,
+                IpcGuiBootstrapTargetValues.Daemon,
+                IpcGuiBootstrapArgumentNames.OwnerProcessId,
+                "123",
+                IpcGuiBootstrapArgumentNames.CanShutdownProcess,
+                "true",
+            ],
+            tokens);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void TryParse_WhenGuiBootstrapArgumentsExist_ReturnsPayload ()
     {
         var args = new[]

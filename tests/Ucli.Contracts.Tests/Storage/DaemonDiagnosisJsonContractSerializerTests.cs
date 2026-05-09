@@ -18,6 +18,7 @@ public sealed class DaemonDiagnosisJsonContractSerializerTests
               "isInferred": false,
               "updatedAtUtc": "2026-03-09T00:00:00+00:00",
               "processId": 1234,
+              "editorInstancePath": "/repo/UnityProject/Library/EditorInstance.json",
               "sessionIssuedAtUtc": "2026-03-09T00:00:01+00:00"
             }
             """;
@@ -31,6 +32,7 @@ public sealed class DaemonDiagnosisJsonContractSerializerTests
         Assert.False(contract.IsInferred);
         Assert.Equal(DateTimeOffset.Parse("2026-03-09T00:00:00+00:00"), contract.UpdatedAtUtc);
         Assert.Equal(1234, contract.ProcessId);
+        Assert.Equal("/repo/UnityProject/Library/EditorInstance.json", contract.EditorInstancePath);
         Assert.Equal(DateTimeOffset.Parse("2026-03-09T00:00:01+00:00"), contract.SessionIssuedAtUtc);
     }
 
@@ -64,6 +66,7 @@ public sealed class DaemonDiagnosisJsonContractSerializerTests
             IsInferred: false,
             UpdatedAtUtc: DateTimeOffset.Parse("2026-03-09T00:00:00+00:00"),
             ProcessId: 1234,
+            EditorInstancePath: null,
             SessionIssuedAtUtc: DateTimeOffset.Parse("2026-03-09T00:00:01+00:00"));
 
         var json = DaemonDiagnosisJsonContractSerializer.Serialize(contract);
@@ -81,6 +84,7 @@ public sealed class DaemonDiagnosisJsonContractSerializerTests
             .Required("isInferred", JsonSchemaNode.Value(JsonSchemaType.Boolean))
             .Required("updatedAtUtc", JsonSchemaNode.Value(JsonSchemaType.String))
             .Required("processId", JsonSchemaNode.Value(JsonSchemaType.Int32))
+            .Required("editorInstancePath", JsonSchemaNode.Union(JsonSchemaType.String, JsonSchemaType.Null))
             .Required("sessionIssuedAtUtc", JsonSchemaNode.Value(JsonSchemaType.String)),
         allowAdditionalProperties: false);
 }

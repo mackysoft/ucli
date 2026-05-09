@@ -1,5 +1,6 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
+using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Options;
@@ -95,6 +96,17 @@ internal sealed class DaemonStartCommand
                 });
         }
 
-        return CommandResultFactory.FromExecutionError(UcliCommandNames.DaemonStart, executionResult.Error!);
+        if (executionResult.Diagnosis is null)
+        {
+            return CommandResultFactory.FromExecutionError(UcliCommandNames.DaemonStart, executionResult.Error!);
+        }
+
+        return CommandFailureProjector.Create(
+            UcliCommandNames.DaemonStart,
+            ApplicationFailure.FromExecutionError(executionResult.Error!),
+            payload: new
+            {
+                diagnosis = executionResult.Diagnosis,
+            });
     }
 }

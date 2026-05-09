@@ -72,6 +72,7 @@ internal static class DaemonServiceTestContext
             IsInferred: false,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 05, 4, 5, 6, TimeSpan.Zero),
             ProcessId: 1234,
+            EditorInstancePath: null,
             SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero));
     }
 

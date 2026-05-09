@@ -39,9 +39,13 @@ internal static class DaemonServiceCollectionExtensions
         services.AddSingleton<IDaemonProcessIdentityAssessor>(provider => provider.GetRequiredService<DaemonProcessIdentityAssessor>());
         services.AddSingleton<IDaemonProcessTerminationService, DaemonProcessTerminationService>();
         services.AddSingleton<IDaemonReachabilityClassifier, DaemonReachabilityClassifier>();
+        services.AddSingleton<IUnityEditorInstanceMarkerReader, UnityEditorInstanceMarkerReader>();
+        services.AddSingleton<IUnityGuiEditorProcessProbe, UnityGuiEditorProcessProbe>();
         services.AddSingleton<UnityBatchmodeProcessLauncher>();
         services.AddSingleton<IUnityDaemonProcessLauncher>(provider => provider.GetRequiredService<UnityBatchmodeProcessLauncher>());
         services.AddSingleton<IUnityBatchmodeProcessLauncher>(provider => provider.GetRequiredService<UnityBatchmodeProcessLauncher>());
+        services.AddSingleton<UnityGuiEditorProcessLauncher>();
+        services.AddSingleton<IUnityGuiEditorProcessLauncher>(provider => provider.GetRequiredService<UnityGuiEditorProcessLauncher>());
         services.AddSingleton<IpcDaemonPingClient>();
         services.AddSingleton<IDaemonPingClient>(provider => provider.GetRequiredService<IpcDaemonPingClient>());
         services.AddSingleton<IDaemonPingInfoClient>(provider => provider.GetRequiredService<IpcDaemonPingClient>());

@@ -562,6 +562,7 @@ public sealed class DaemonListQueryServiceTests
                     IsInferred: true,
                     UpdatedAtUtc: DateTimeOffset.UtcNow,
                     ProcessId: processId,
+                    EditorInstancePath: null,
                     SessionIssuedAtUtc: session.IssuedAtUtc);
 
                 await daemonDiagnosisStore.Write(
@@ -622,6 +623,7 @@ public sealed class DaemonListQueryServiceTests
             IsInferred: false,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 12, 1, 0, TimeSpan.Zero),
             ProcessId: session.ProcessId,
+            EditorInstancePath: null,
             SessionIssuedAtUtc: session.IssuedAtUtc);
     }
 

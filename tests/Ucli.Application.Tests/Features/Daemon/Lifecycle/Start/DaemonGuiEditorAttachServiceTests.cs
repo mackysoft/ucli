@@ -1,0 +1,224 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Storage;
+
+namespace MackySoft.Ucli.Application.Tests.Daemon;
+
+public sealed class DaemonGuiEditorAttachServiceTests
+{
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task TryAttachExistingGuiEditor_WhenBatchmodeRequestedAndGuiMarkerMatches_ReturnsEditorModeMismatch ()
+    {
+        var marker = CreateMarker();
+        var markerReader = new StubUnityEditorInstanceMarkerReader
+        {
+            ReadResult = UnityEditorInstanceMarkerReadResult.Success(marker),
+        };
+        var processProbe = new StubUnityGuiEditorProcessProbe
+        {
+            Result = UnityGuiEditorProcessProbeResult.Matching(new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero)),
+        };
+        var awaiter = new StubDaemonGuiSessionRegistrationAwaiter();
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var service = new DaemonGuiEditorAttachService(markerReader, processProbe, awaiter, diagnosisStore);
+
+        var result = await service.TryAttachExistingGuiEditor(
+            CreateContext(),
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Batchmode,
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.False(result!.IsSuccess);
+        Assert.Equal(DaemonErrorCodes.DaemonEditorModeMismatch, result.Error!.Code);
+        Assert.Equal(0, awaiter.CallCount);
+        Assert.Equal(0, diagnosisStore.WriteCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task TryAttachExistingGuiEditor_WhenEndpointRegistrationTimesOut_WritesGuiEndpointDiagnosis ()
+    {
+        var marker = CreateMarker();
+        var markerReader = new StubUnityEditorInstanceMarkerReader
+        {
+            ReadResult = UnityEditorInstanceMarkerReadResult.Success(marker),
+        };
+        var processProbe = new StubUnityGuiEditorProcessProbe
+        {
+            Result = UnityGuiEditorProcessProbeResult.Matching(new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero)),
+        };
+        var timeoutError = ExecutionError.Timeout("wait timed out", ExecutionErrorCodes.IpcTimeout);
+        var awaiter = new StubDaemonGuiSessionRegistrationAwaiter
+        {
+            Result = DaemonGuiSessionRegistrationWaitResult.Failure(timeoutError),
+        };
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var service = new DaemonGuiEditorAttachService(markerReader, processProbe, awaiter, diagnosisStore);
+
+        var result = await service.TryAttachExistingGuiEditor(
+            CreateContext(),
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.False(result!.IsSuccess);
+        Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error.Code);
+        Assert.Equal(1, awaiter.CallCount);
+        Assert.Equal(1, diagnosisStore.WriteCallCount);
+        Assert.NotNull(diagnosisStore.LastDiagnosis);
+        Assert.Equal(DaemonDiagnosisReasonValues.GuiEndpointNotRegistered, diagnosisStore.LastDiagnosis!.Reason);
+        Assert.Equal(DaemonDiagnosisReportedByValues.Cli, diagnosisStore.LastDiagnosis.ReportedBy);
+        Assert.True(diagnosisStore.LastDiagnosis.IsInferred);
+        Assert.Equal(marker.ProcessId, diagnosisStore.LastDiagnosis.ProcessId);
+        Assert.Equal(marker.MarkerPath, diagnosisStore.LastDiagnosis.EditorInstancePath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task TryAttachExistingGuiEditor_WhenProcessProbeRejectsMarker_ReturnsNullWithoutWaiting ()
+    {
+        var markerReader = new StubUnityEditorInstanceMarkerReader
+        {
+            ReadResult = UnityEditorInstanceMarkerReadResult.Success(CreateMarker()),
+        };
+        var processProbe = new StubUnityGuiEditorProcessProbe
+        {
+            Result = UnityGuiEditorProcessProbeResult.NotMatching(UnityGuiEditorProcessProbeStatus.NotUnityEditor),
+        };
+        var awaiter = new StubDaemonGuiSessionRegistrationAwaiter();
+        var service = new DaemonGuiEditorAttachService(
+            markerReader,
+            processProbe,
+            awaiter,
+            new StubDaemonDiagnosisStore());
+
+        var result = await service.TryAttachExistingGuiEditor(
+            CreateContext(),
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            CancellationToken.None);
+
+        Assert.Null(result);
+        Assert.Equal(0, awaiter.CallCount);
+    }
+
+    private static UnityEditorInstanceMarker CreateMarker ()
+    {
+        return new UnityEditorInstanceMarker(
+            MarkerPath: "/repo/UnityProject/Library/EditorInstance.json",
+            ProcessId: 1234,
+            UpdatedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 1, 0, TimeSpan.Zero),
+            Version: "6000.1.4f1",
+            AppPath: "/Applications/Unity.app",
+            AppContentsPath: "/Applications/Unity.app/Contents");
+    }
+
+    private static ResolvedUnityProjectContext CreateContext ()
+    {
+        return new ResolvedUnityProjectContext(
+            UnityProjectRoot: "/repo/UnityProject",
+            RepositoryRoot: "/repo",
+            ProjectFingerprint: "fingerprint",
+            PathSource: UnityProjectPathSource.CommandOption);
+    }
+
+    private static DaemonSession CreateGuiSession ()
+    {
+        return new DaemonSession(
+            SchemaVersion: DaemonSession.CurrentSchemaVersion,
+            SessionToken: "session-token",
+            ProjectFingerprint: "fingerprint",
+            IssuedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 2, 0, TimeSpan.Zero),
+            EditorMode: DaemonEditorModeValues.Gui,
+            OwnerKind: DaemonSessionOwnerKindValues.User,
+            CanShutdownProcess: false,
+            EndpointTransportKind: "unixDomainSocket",
+            EndpointAddress: "/tmp/ucli.sock",
+            ProcessId: 1234,
+            OwnerProcessId: null);
+    }
+
+    private sealed class StubUnityEditorInstanceMarkerReader : IUnityEditorInstanceMarkerReader
+    {
+        public UnityEditorInstanceMarkerReadResult ReadResult { get; set; } =
+            UnityEditorInstanceMarkerReadResult.Success(null);
+
+        public ValueTask<UnityEditorInstanceMarkerReadResult> Read (
+            ResolvedUnityProjectContext unityProject,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(ReadResult);
+        }
+    }
+
+    private sealed class StubUnityGuiEditorProcessProbe : IUnityGuiEditorProcessProbe
+    {
+        public UnityGuiEditorProcessProbeResult Result { get; set; } =
+            UnityGuiEditorProcessProbeResult.NotMatching(UnityGuiEditorProcessProbeStatus.NotRunning);
+
+        public ValueTask<UnityGuiEditorProcessProbeResult> Probe (
+            UnityEditorInstanceMarker marker,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(Result);
+        }
+    }
+
+    private sealed class StubDaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionRegistrationAwaiter
+    {
+        public DaemonGuiSessionRegistrationWaitResult Result { get; set; } =
+            DaemonGuiSessionRegistrationWaitResult.Success(CreateGuiSession());
+
+        public int CallCount { get; private set; }
+
+        public ValueTask<DaemonGuiSessionRegistrationWaitResult> WaitForSession (
+            ResolvedUnityProjectContext unityProject,
+            int expectedProcessId,
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            return ValueTask.FromResult(Result);
+        }
+    }
+
+    private sealed class StubDaemonDiagnosisStore : IDaemonDiagnosisStore
+    {
+        public int WriteCallCount { get; private set; }
+
+        public DaemonDiagnosis? LastDiagnosis { get; private set; }
+
+        public ValueTask<DaemonDiagnosisReadResult> Read (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(DaemonDiagnosisReadResult.Success(null));
+        }
+
+        public ValueTask<DaemonDiagnosisStoreOperationResult> Write (
+            string storageRoot,
+            string projectFingerprint,
+            DaemonDiagnosis diagnosis,
+            CancellationToken cancellationToken = default)
+        {
+            WriteCallCount++;
+            LastDiagnosis = diagnosis;
+            return ValueTask.FromResult(DaemonDiagnosisStoreOperationResult.Success());
+        }
+
+        public ValueTask<DaemonDiagnosisStoreOperationResult> Delete (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(DaemonDiagnosisStoreOperationResult.Success());
+        }
+    }
+}

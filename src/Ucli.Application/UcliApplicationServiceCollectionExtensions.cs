@@ -131,6 +131,8 @@ public static class UcliApplicationServiceCollectionExtensions
 
         services.AddSingleton<IDaemonSessionCleanupService, DaemonSessionCleanupService>();
         services.AddSingleton<IDaemonExistingSessionGateService, DaemonExistingSessionGateService>();
+        services.AddSingleton<IDaemonGuiSessionRegistrationAwaiter, DaemonGuiSessionRegistrationAwaiter>();
+        services.AddSingleton<IDaemonGuiEditorAttachService, DaemonGuiEditorAttachService>();
         services.AddSingleton<IDaemonLaunchCompensationService, DaemonLaunchCompensationService>();
         services.AddSingleton<IDaemonStartOperation, DaemonStartOperation>();
         services.AddSingleton<IDaemonStopOperation, DaemonStopOperation>();

@@ -82,6 +82,7 @@ public sealed class DaemonDiagnosisStoreTests
             IsInferred: false,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
             ProcessId: processId,
+            EditorInstancePath: null,
             SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero));
     }
 }

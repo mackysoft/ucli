@@ -36,7 +36,8 @@ public sealed class DaemonListCommandTests
                 ReportedBy: DaemonDiagnosisReportedByValues.Unity,
                 IsInferred: false,
                 UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 12, 1, 0, TimeSpan.Zero),
-                ProcessId: 1234));
+                ProcessId: 1234,
+                EditorInstancePath: null));
         var service = new StubDaemonListService(
             DaemonListExecutionResult.Success(new DaemonListExecutionOutput(
                 TimeoutMilliseconds: 3000,

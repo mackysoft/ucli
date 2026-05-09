@@ -49,9 +49,10 @@ public sealed class DaemonLaunchSessionServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Initialize_WhenEditorModeIsGui_ReturnsCommandNotImplementedWithoutWritingSession ()
+    public async Task Initialize_WhenEditorModeIsGui_WritesGuiSession ()
     {
         var sessionStore = new StubDaemonSessionStore();
+        sessionStore.WriteResults.Enqueue(DaemonSessionStoreOperationResult.Success());
         var service = new DaemonLaunchSessionService(
             endpointResolver: new StubIpcEndpointResolver(),
             daemonSessionStore: sessionStore,
@@ -59,11 +60,10 @@ public sealed class DaemonLaunchSessionServiceTests
 
         var result = await service.Initialize(CreateContext("fingerprint-session-gui"), DaemonEditorMode.Gui, CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
-        Assert.Equal(UcliCoreErrorCodes.CommandNotImplemented, error.Code);
-        Assert.Equal(0, sessionStore.WriteCallCount);
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Session);
+        Assert.Equal(DaemonEditorModeValues.Gui, result.Session!.EditorMode);
+        Assert.Equal(1, sessionStore.WriteCallCount);
     }
 
     [Fact]
