@@ -67,6 +67,7 @@ public sealed class LogsUnityServiceTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.Equal(UcliCommandIds.LogsUnityRead, resolver.LastTimeoutCommand);
         Assert.Equal(["alpha", "bravo"], emittedMessages);
         Assert.Equal(["stream-1:1", "stream-1:2", "stream-1:3"], unityLogsClient.CapturedAfterValues);
     }

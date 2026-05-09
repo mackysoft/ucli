@@ -267,7 +267,7 @@ public sealed class UnityOneshotIpcClientTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task SendAsync_WhenUnityExitsAndLockFileExists_ReturnsProjectAlreadyOpen ()
+    public async Task SendAsync_WhenUnityExitsAndStaleLockFileExists_ReturnsStartupExitFailureWithCleanupDiagnostic ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "exit-lock-file");
         var unityProject = CreateUnityProject(scope);
@@ -288,7 +288,9 @@ public sealed class UnityOneshotIpcClientTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(UnityProcessErrorCodes.UnityProjectAlreadyOpen, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.Contains("exited before startup readiness", result.Message, StringComparison.Ordinal);
+        Assert.Contains("Stale Unity project lock file was removed", result.Message, StringComparison.Ordinal);
         Assert.Equal(0, processHandle.TerminateCallCount);
     }
 
@@ -497,9 +499,9 @@ public sealed class UnityOneshotIpcClientTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task SendAsync_WhenCleanupTerminatesProcessAndUnityLockFileRemains_ReturnsOriginalFailureWithResidualLockDiagnostic ()
+    public async Task SendAsync_WhenCleanupTerminatesProcessAndStaleUnityLockFileRemains_ReturnsOriginalFailureWithCleanupDiagnostic ()
     {
-        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "request-timeout-residual-lock");
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "request-timeout-stale-lock");
         var unityProject = CreateUnityProject(scope);
         var lockFilePath = scope.GetPath("UnityProject/Temp/UnityLockfile");
         var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
@@ -529,7 +531,7 @@ public sealed class UnityOneshotIpcClientTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
-        Assert.Contains("uCLI terminated the Unity process, but Temp/UnityLockfile remains", result.Message, StringComparison.Ordinal);
+        Assert.Contains("Stale Unity project lock file was removed", result.Message, StringComparison.Ordinal);
         Assert.Contains(lockFilePath, result.Message, StringComparison.Ordinal);
         Assert.Equal(1, processHandle.TerminateCallCount);
     }
@@ -539,7 +541,7 @@ public sealed class UnityOneshotIpcClientTests
         IIpcEndpointResolver endpointResolver,
         IUnityIpcTransportClient transportClient,
         IProjectLifecycleLockProvider lifecycleLockProvider,
-        IUnityProjectLockFileProbe unityProjectLockFileProbe,
+        IUnityProjectLockPreflightService unityProjectLockPreflightService,
         TimeSpan cleanupTimeout,
         TimeSpan cleanupRetryDelay)
     {
@@ -548,7 +550,7 @@ public sealed class UnityOneshotIpcClientTests
             endpointResolver,
             transportClient,
             lifecycleLockProvider,
-            unityProjectLockFileProbe,
+            unityProjectLockPreflightService,
             cleanupTimeout,
             cleanupRetryDelay);
     }
@@ -765,7 +767,7 @@ public sealed class UnityOneshotIpcClientTests
         }
     }
 
-    private sealed class StubUnityProjectLockFileProbe : IUnityProjectLockFileProbe
+    private sealed class StubUnityProjectLockFileProbe : IUnityProjectLockFileProbe, IUnityProjectLockPreflightService
     {
         private readonly UnityProjectLockFileProbeResult result;
 
@@ -782,6 +784,56 @@ public sealed class UnityOneshotIpcClientTests
         public UnityProjectLockFileProbeResult Probe (string unityProjectRoot)
         {
             return result;
+        }
+
+        public ValueTask<UnityProjectLockPreflightResult> PrepareForUnityProcessStartAsync (
+            ResolvedUnityProjectContext unityProject,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(ConvertProbeResult(result, unityProject));
+        }
+
+        public ValueTask<UnityProjectLockPreflightResult> CleanupStaleLockAfterUnityProcessExitAsync (
+            ResolvedUnityProjectContext unityProject,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(ConvertPostExitProbeResult(result));
+        }
+
+        private static UnityProjectLockPreflightResult ConvertProbeResult (
+            UnityProjectLockFileProbeResult result,
+            ResolvedUnityProjectContext unityProject)
+        {
+            if (!result.IsSuccess)
+            {
+                return UnityProjectLockPreflightResult.InspectionFailed(result.ErrorMessage!);
+            }
+
+            if (!result.IsLocked)
+            {
+                return UnityProjectLockPreflightResult.Unlocked(result.LockFilePath!);
+            }
+
+            return UnityProjectLockPreflightResult.ActiveLock(
+                result.LockFilePath!,
+                UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProject.UnityProjectRoot, result.LockFilePath));
+        }
+
+        private static UnityProjectLockPreflightResult ConvertPostExitProbeResult (UnityProjectLockFileProbeResult result)
+        {
+            if (!result.IsSuccess)
+            {
+                return UnityProjectLockPreflightResult.InspectionFailed(result.ErrorMessage!);
+            }
+
+            if (!result.IsLocked)
+            {
+                return UnityProjectLockPreflightResult.Unlocked(result.LockFilePath!);
+            }
+
+            return UnityProjectLockPreflightResult.StaleLockCleared(result.LockFilePath!);
         }
     }
 

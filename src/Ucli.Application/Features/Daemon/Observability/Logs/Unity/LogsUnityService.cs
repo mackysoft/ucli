@@ -6,7 +6,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 
-/// <summary> Implements polling orchestration for <c>logs unity</c> command execution. </summary>
+/// <summary> Implements polling orchestration for <c>logs unity read</c> command execution. </summary>
 internal sealed class LogsUnityService : ILogsUnityService
 {
     private readonly IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver;
@@ -31,7 +31,7 @@ internal sealed class LogsUnityService : ILogsUnityService
     }
 
     /// <inheritdoc />
-    public ValueTask<LogsDaemonServiceResult> ExecuteAsync (
+    public ValueTask<LogsReadServiceResult> ExecuteAsync (
         LogsUnityServiceRequest request,
         Func<IpcUnityLogEvent, string, CancellationToken, ValueTask> onEvent,
         CancellationToken cancellationToken = default)
@@ -42,12 +42,12 @@ internal sealed class LogsUnityService : ILogsUnityService
 
         if (!requestValidator.TryValidate(request, out var query, out var streamOptions, out var argumentValidationError))
         {
-            return ValueTask.FromResult(LogsDaemonServiceResult.Failure(argumentValidationError!));
+            return ValueTask.FromResult(LogsReadServiceResult.Failure(argumentValidationError!));
         }
 
         return LogsStreamPollingExecutor.ExecuteAsync(
             daemonCommandExecutionContextResolver,
-            UcliCommandIds.LogsUnity,
+            UcliCommandIds.LogsUnityRead,
             request.ProjectPath,
             query!,
             request.Stream,

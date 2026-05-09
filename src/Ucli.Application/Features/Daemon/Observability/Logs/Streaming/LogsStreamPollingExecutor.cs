@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Streamin
 internal static class LogsStreamPollingExecutor
 {
     /// <summary> Executes one polling workflow. </summary>
-    public static async ValueTask<LogsDaemonServiceResult> ExecuteAsync<TQuery, TReadResult, TResponse, TEvent> (
+    public static async ValueTask<LogsReadServiceResult> ExecuteAsync<TQuery, TReadResult, TResponse, TEvent> (
         IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver,
         UcliCommand commandId,
         string? projectPath,
@@ -49,7 +49,7 @@ internal static class LogsStreamPollingExecutor
             .ConfigureAwait(false);
         if (!contextResolutionResult.IsSuccess)
         {
-            return LogsDaemonServiceResult.Failure(contextResolutionResult.Error!);
+            return LogsReadServiceResult.Failure(contextResolutionResult.Error!);
         }
 
         var executionContext = contextResolutionResult.Context!;
@@ -69,13 +69,13 @@ internal static class LogsStreamPollingExecutor
             var error = getError(readResult);
             if (error is not null)
             {
-                return LogsDaemonServiceResult.Failure(error);
+                return LogsReadServiceResult.Failure(error);
             }
 
             var response = getResponse(readResult);
             if (response is null)
             {
-                return LogsDaemonServiceResult.Failure(ExecutionError.InternalError(
+                return LogsReadServiceResult.Failure(ExecutionError.InternalError(
                     "Log read client returned neither a response payload nor an error."));
             }
             var events = getEvents(response);
@@ -92,7 +92,7 @@ internal static class LogsStreamPollingExecutor
 
             if (!stream)
             {
-                return LogsDaemonServiceResult.Success();
+                return LogsReadServiceResult.Success();
             }
 
             var now = DateTimeOffset.UtcNow;
@@ -104,7 +104,7 @@ internal static class LogsStreamPollingExecutor
                     streamOptions.IdleTimeout,
                     getTimestamp))
             {
-                return LogsDaemonServiceResult.Success();
+                return LogsReadServiceResult.Success();
             }
 
             query = withAfter(query, nextCursor);

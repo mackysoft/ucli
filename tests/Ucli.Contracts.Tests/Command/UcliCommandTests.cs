@@ -9,7 +9,9 @@ public sealed class UcliCommandTests
     [InlineData("daemon.status")]
     [InlineData("daemon.list")]
     [InlineData("test.run")]
-    [InlineData("logs.daemon")]
+    [InlineData("logs.daemon.read")]
+    [InlineData("logs.unity.read")]
+    [InlineData("logs.unity.clear")]
     public void Constructor_WithValidName_CreatesCommand (string name)
     {
         var command = new UcliCommand(name);
@@ -24,7 +26,9 @@ public sealed class UcliCommandTests
     [InlineData("daemon.status")]
     [InlineData("daemon.list")]
     [InlineData("test.run")]
-    [InlineData("logs.unity")]
+    [InlineData("logs.daemon.read")]
+    [InlineData("logs.unity.read")]
+    [InlineData("logs.unity.clear")]
     public void IsValidName_WithValidName_ReturnsTrue (string name)
     {
         Assert.True(UcliCommand.IsValidName(name));
