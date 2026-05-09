@@ -10,7 +10,7 @@ internal interface IReadIndexValidationCatalogResolver
     /// <param name="readIndexMode"> The effective read-index mode. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to metadata and read-index output information. </returns>
-    ValueTask<ReadIndexValidationCatalogResolutionResult> Resolve (
+    ValueTask<ReadIndexValidationCatalogResolutionResult> ResolveAsync (
         ResolvedUnityProjectContext unityProject,
         ReadIndexMode readIndexMode,
         CancellationToken cancellationToken = default);

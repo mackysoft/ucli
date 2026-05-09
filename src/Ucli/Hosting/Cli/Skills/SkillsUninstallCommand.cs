@@ -42,7 +42,7 @@ internal sealed class SkillsUninstallCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.UninstallSubcommand)]
-    public async Task<int> Uninstall (
+    public async Task<int> UninstallAsync (
         string? host = null,
         string? scope = null,
         string? repoRoot = null,

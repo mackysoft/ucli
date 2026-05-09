@@ -11,7 +11,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <param name="task"> The task to await. </param>
         /// <param name="cancellationToken"> The caller cancellation token. </param>
         /// <param name="gracePeriod"> The bounded grace period used when completion races with cancellation. </param>
-        public static async Task Wait (
+        public static async Task WaitAsync (
             Task task,
             CancellationToken cancellationToken,
             TimeSpan gracePeriod)

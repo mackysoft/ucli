@@ -7,7 +7,7 @@ internal interface IDaemonGuiEditorAttachService
     /// Attempts to attach to an existing GUI Editor for the target project.
     /// Returns <see langword="null" /> when no verified GUI Editor candidate exists and launch flow should continue.
     /// </summary>
-    ValueTask<DaemonStartResult?> TryAttachExistingGuiEditor (
+    ValueTask<DaemonStartResult?> TryAttachExistingGuiEditorAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         DaemonEditorMode? editorMode,

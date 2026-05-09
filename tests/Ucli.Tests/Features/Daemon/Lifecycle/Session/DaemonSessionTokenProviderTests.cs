@@ -17,10 +17,10 @@ public sealed class DaemonSessionTokenProviderTests
         var context = CreateContext(scope.FullPath, "fingerprint-session-exists");
 
         var session = CreateSession(context.ProjectFingerprint, "resolved-token");
-        var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
+        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
         Assert.True(writeResult.IsSuccess);
 
-        var resolveResult = await provider.Resolve(context, CancellationToken.None);
+        var resolveResult = await provider.ResolveAsync(context, CancellationToken.None);
 
         Assert.True(resolveResult.IsSuccess);
         Assert.Equal("resolved-token", resolveResult.Token);
@@ -35,7 +35,7 @@ public sealed class DaemonSessionTokenProviderTests
         var provider = new DaemonSessionTokenProvider(new DaemonSessionStore());
         var context = CreateContext(scope.FullPath, "fingerprint-session-missing");
 
-        var resolveResult = await provider.Resolve(context, CancellationToken.None);
+        var resolveResult = await provider.ResolveAsync(context, CancellationToken.None);
 
         Assert.False(resolveResult.IsSuccess);
         Assert.True(resolveResult.IsSessionNotAvailable);

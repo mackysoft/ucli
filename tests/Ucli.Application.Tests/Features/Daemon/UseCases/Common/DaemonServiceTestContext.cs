@@ -102,7 +102,7 @@ internal static class DaemonServiceTestContext
 
         public CancellationToken LastCancellationToken { get; private set; }
 
-        public ValueTask<DaemonCommandExecutionContextResolutionResult> Resolve (
+        public ValueTask<DaemonCommandExecutionContextResolutionResult> ResolveAsync (
             UcliCommand timeoutCommand,
             string? projectPath,
             int? timeoutMilliseconds,
@@ -131,7 +131,7 @@ internal static class DaemonServiceTestContext
 
         public CancellationToken LastCancellationToken { get; private set; }
 
-        public ValueTask<DaemonStatusResult> GetStatus (
+        public ValueTask<DaemonStatusResult> GetStatusAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
@@ -173,7 +173,7 @@ internal static class DaemonServiceTestContext
 
         public CancellationToken LastTryStopProjectCancellationToken { get; private set; }
 
-        public ValueTask<DaemonStartResult> EnsureRunning (
+        public ValueTask<DaemonStartResult> EnsureRunningAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             DaemonEditorMode? editorMode,
@@ -193,7 +193,7 @@ internal static class DaemonServiceTestContext
             return ValueTask.FromResult(EnsureRunningResult);
         }
 
-        public ValueTask<DaemonStopResult?> TryStopProject (
+        public ValueTask<DaemonStopResult?> TryStopProjectAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
@@ -224,7 +224,7 @@ internal static class DaemonServiceTestContext
 
         public CancellationToken LastCancellationToken { get; private set; }
 
-        public ValueTask<DaemonStopResult> Stop (
+        public ValueTask<DaemonStopResult> StopAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
@@ -267,7 +267,7 @@ internal static class DaemonServiceTestContext
 
         public CancellationToken LastCancellationToken { get; private set; }
 
-        public ValueTask<IpcPingResponse> PingAndRead (
+        public ValueTask<IpcPingResponse> PingAndReadAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             string? sessionToken = null,
@@ -321,7 +321,7 @@ internal static class DaemonServiceTestContext
 
         public CancellationToken LastCancellationToken { get; private set; }
 
-        public ValueTask<DaemonDiagnosis?> ResolveForSession (
+        public ValueTask<DaemonDiagnosis?> ResolveForSessionAsync (
             ResolvedUnityProjectContext unityProject,
             DaemonSession session,
             DaemonDiagnosis? persistedDiagnosis,
@@ -353,7 +353,7 @@ internal static class DaemonServiceTestContext
 
         public CancellationToken LastCancellationToken { get; private set; }
 
-        public ValueTask<DaemonCleanupResult> Cleanup (
+        public ValueTask<DaemonCleanupResult> CleanupAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)

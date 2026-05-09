@@ -28,7 +28,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         };
         var awaiter = CreateAwaiter(sessionStore, pingClient);
 
-        var result = await awaiter.WaitForSession(unityProject, expectedProcessId: 4321, WaitTimeout);
+        var result = await awaiter.WaitForSessionAsync(unityProject, expectedProcessId: 4321, WaitTimeout);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(session, result.Session);
@@ -61,7 +61,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         var pingClient = new DaemonServiceTestContext.StubDaemonPingInfoClient();
         var awaiter = CreateAwaiter(sessionStore, pingClient, timeProvider);
 
-        var resultTask = awaiter.WaitForSession(unityProject, expectedProcessId: 4321, WaitTimeout).AsTask();
+        var resultTask = awaiter.WaitForSessionAsync(unityProject, expectedProcessId: 4321, WaitTimeout).AsTask();
         await TestAwaiter.WaitAsync(firstRead.Task, "first session read", TimeSpan.FromSeconds(5));
         timeProvider.Advance(WaitTimeout);
 
@@ -90,7 +90,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         };
         var awaiter = CreateAwaiter(sessionStore, pingClient, timeProvider);
 
-        var resultTask = awaiter.WaitForSession(unityProject, expectedProcessId: 4321, WaitTimeout).AsTask();
+        var resultTask = awaiter.WaitForSessionAsync(unityProject, expectedProcessId: 4321, WaitTimeout).AsTask();
         await TestAwaiter.WaitAsync(pingObserved.Task, "first ping", TimeSpan.FromSeconds(5));
         timeProvider.Advance(WaitTimeout);
 
@@ -119,7 +119,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         };
         var awaiter = CreateAwaiter(sessionStore, pingClient, timeProvider);
 
-        var resultTask = awaiter.WaitForSession(unityProject, expectedProcessId: 4321, WaitTimeout).AsTask();
+        var resultTask = awaiter.WaitForSessionAsync(unityProject, expectedProcessId: 4321, WaitTimeout).AsTask();
         await TestAwaiter.WaitAsync(pingObserved.Task, "first timeout ping", TimeSpan.FromSeconds(5));
         timeProvider.Advance(WaitTimeout);
 
@@ -147,7 +147,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         };
         var awaiter = CreateAwaiter(sessionStore, pingClient, timeProvider);
 
-        var resultTask = awaiter.WaitForSession(unityProject, expectedProcessId: 4321, WaitTimeout).AsTask();
+        var resultTask = awaiter.WaitForSessionAsync(unityProject, expectedProcessId: 4321, WaitTimeout).AsTask();
         await TestAwaiter.WaitAsync(pingObserved.Task, "first reachability ping", TimeSpan.FromSeconds(5));
         timeProvider.Advance(WaitTimeout);
 
@@ -175,7 +175,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             pingClient,
             reachabilityClassifier: new DaemonServiceTestContext.StubDaemonReachabilityClassifier(_ => false));
 
-        var result = await awaiter.WaitForSession(unityProject, expectedProcessId: 4321, WaitTimeout);
+        var result = await awaiter.WaitForSessionAsync(unityProject, expectedProcessId: 4321, WaitTimeout);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InternalError, result.Error!.Kind);
@@ -211,7 +211,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         };
         var awaiter = CreateAwaiter(sessionStore, pingClient, timeProvider);
 
-        var resultTask = awaiter.WaitForSession(unityProject, expectedProcessId: 4321, WaitTimeout).AsTask();
+        var resultTask = awaiter.WaitForSessionAsync(unityProject, expectedProcessId: 4321, WaitTimeout).AsTask();
         await TestAwaiter.WaitAsync(firstRead.Task, "first invalid session read", TimeSpan.FromSeconds(5));
         timeProvider.Advance(TimeSpan.FromMilliseconds(100));
 
@@ -275,7 +275,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
 
         public int ReadCallCount { get; private set; }
 
-        public ValueTask<DaemonSessionReadResult> Read (
+        public ValueTask<DaemonSessionReadResult> ReadAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -285,7 +285,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             return ValueTask.FromResult(ReadHandler?.Invoke(ReadCallCount) ?? ReadResult);
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Write (
+        public ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
             string storageRoot,
             DaemonSession session,
             CancellationToken cancellationToken = default)
@@ -293,7 +293,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             return ValueTask.FromResult(DaemonSessionStoreOperationResult.Success());
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Delete (
+        public ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)

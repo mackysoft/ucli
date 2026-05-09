@@ -20,7 +20,7 @@ public sealed class TestProfileInitCommandTests
         var command = new TestProfileInitCommand(service, CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        await StandardOutputCapture.Execute(() => command.Init(
+        await StandardOutputCapture.ExecuteAsync(() => command.InitAsync(
             outputPath: "/repo/test.profile",
             force: true,
             cancellationToken: cancellationTokenSource.Token));
@@ -39,7 +39,7 @@ public sealed class TestProfileInitCommandTests
             TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument("profile path already exists."))));
         var command = new TestProfileInitCommand(service, CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Init(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.InitAsync(
             outputPath: "/repo/test.profile.json",
             cancellationToken: CancellationToken.None));
 

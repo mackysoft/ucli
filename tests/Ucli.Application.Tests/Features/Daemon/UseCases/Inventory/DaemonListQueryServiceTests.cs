@@ -59,7 +59,7 @@ public sealed class DaemonListQueryServiceTests
             pingClient,
             new StubDaemonReachabilityClassifier(static _ => false));
 
-        var result = await service.GetList(currentProject, TimeSpan.FromMilliseconds(2500), CancellationToken.None);
+        var result = await service.GetListAsync(currentProject, TimeSpan.FromMilliseconds(2500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
@@ -119,7 +119,7 @@ public sealed class DaemonListQueryServiceTests
             new StubDaemonPingClient(static (_, _, _, _) => ValueTask.CompletedTask),
             new StubDaemonReachabilityClassifier(static _ => false));
 
-        var result = await service.GetList(currentProject, TimeSpan.FromMilliseconds(1200), CancellationToken.None);
+        var result = await service.GetListAsync(currentProject, TimeSpan.FromMilliseconds(1200), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InternalError, result.Error!.Kind);
@@ -140,7 +140,7 @@ public sealed class DaemonListQueryServiceTests
             new StubDaemonPingClient(static (_, _, _, _) => ValueTask.CompletedTask),
             new StubDaemonReachabilityClassifier(static _ => false));
 
-        var result = await service.GetList(currentProject, TimeSpan.FromMilliseconds(3000), CancellationToken.None);
+        var result = await service.GetListAsync(currentProject, TimeSpan.FromMilliseconds(3000), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
@@ -184,7 +184,7 @@ public sealed class DaemonListQueryServiceTests
             new StubDaemonReachabilityClassifier(static _ => false),
             timeProvider);
 
-        var resultTask = service.GetList(currentProject, TimeSpan.FromMilliseconds(150), CancellationToken.None).AsTask();
+        var resultTask = service.GetListAsync(currentProject, TimeSpan.FromMilliseconds(150), CancellationToken.None).AsTask();
         await TestAwaiter.WaitAsync(sessionReadStarted.Task, "Daemon list session read start", SignalWaitTimeout);
         timeProvider.Advance(TimeSpan.FromMilliseconds(150));
 
@@ -226,7 +226,7 @@ public sealed class DaemonListQueryServiceTests
             new StubDaemonReachabilityClassifier(static _ => false),
             timeProvider);
 
-        var resultTask = service.GetList(
+        var resultTask = service.GetListAsync(
                 currentProject,
                 TimeSpan.FromMilliseconds(150),
                 cancellationTokenSource.Token)
@@ -264,7 +264,7 @@ public sealed class DaemonListQueryServiceTests
             new StubDaemonReachabilityClassifier(static _ => false),
             timeProvider);
 
-        var resultTask = service.GetList(currentProject, TimeSpan.FromMilliseconds(150), CancellationToken.None).AsTask();
+        var resultTask = service.GetListAsync(currentProject, TimeSpan.FromMilliseconds(150), CancellationToken.None).AsTask();
         await TestAwaiter.WaitAsync(probeStarted.Task, "Daemon list probe start", SignalWaitTimeout);
         timeProvider.Advance(TimeSpan.FromMilliseconds(150));
 
@@ -299,7 +299,7 @@ public sealed class DaemonListQueryServiceTests
             new StubDaemonReachabilityClassifier(static _ => false),
             timeProvider);
 
-        var resultTask = service.GetList(
+        var resultTask = service.GetListAsync(
                 currentProject,
                 TimeSpan.FromMilliseconds(150),
                 cancellationTokenSource.Token)
@@ -330,7 +330,7 @@ public sealed class DaemonListQueryServiceTests
             new StubDaemonPingClient(static (_, _, _, _) => ValueTask.FromException(new TimeoutException("probe timed out"))),
             new StubDaemonReachabilityClassifier(static _ => false));
 
-        var result = await service.GetList(currentProject, TimeSpan.FromMilliseconds(1200), CancellationToken.None);
+        var result = await service.GetListAsync(currentProject, TimeSpan.FromMilliseconds(1200), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
@@ -385,7 +385,7 @@ public sealed class DaemonListQueryServiceTests
             new StubDaemonReachabilityClassifier(static _ => false),
             timeProvider);
 
-        var result = await service.GetList(currentProject, TimeSpan.FromMilliseconds(10), CancellationToken.None);
+        var result = await service.GetListAsync(currentProject, TimeSpan.FromMilliseconds(10), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
@@ -415,7 +415,7 @@ public sealed class DaemonListQueryServiceTests
             new StubDaemonPingClient(static (_, _, _, _) => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
             new StubDaemonReachabilityClassifier(static exception => exception is SocketException));
 
-        var result = await service.GetList(currentProject, TimeSpan.FromMilliseconds(1200), CancellationToken.None);
+        var result = await service.GetListAsync(currentProject, TimeSpan.FromMilliseconds(1200), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
@@ -449,7 +449,7 @@ public sealed class DaemonListQueryServiceTests
             new StubDaemonPingClient(static (_, _, _, _) => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
             new StubDaemonReachabilityClassifier(static exception => exception is SocketException));
 
-        var result = await service.GetList(currentProject, TimeSpan.FromMilliseconds(1200), CancellationToken.None);
+        var result = await service.GetListAsync(currentProject, TimeSpan.FromMilliseconds(1200), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
@@ -477,7 +477,7 @@ public sealed class DaemonListQueryServiceTests
             new StubDaemonPingClient(static (_, _, _, _) => ValueTask.FromException(new InvalidOperationException("boom"))),
             new StubDaemonReachabilityClassifier(static _ => false));
 
-        var result = await service.GetList(currentProject, TimeSpan.FromMilliseconds(1200), CancellationToken.None);
+        var result = await service.GetListAsync(currentProject, TimeSpan.FromMilliseconds(1200), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
@@ -565,7 +565,7 @@ public sealed class DaemonListQueryServiceTests
                     EditorInstancePath: null,
                     SessionIssuedAtUtc: session.IssuedAtUtc);
 
-                await daemonDiagnosisStore.Write(
+                await daemonDiagnosisStore.WriteAsync(
                         unityProject.RepositoryRoot,
                         unityProject.ProjectFingerprint,
                         diagnosis,
@@ -638,7 +638,7 @@ public sealed class DaemonListQueryServiceTests
 
         public List<string> QueryPaths { get; } = new();
 
-        public ValueTask<GitWorktreeQueryResult> GetWorktreeInfo (
+        public ValueTask<GitWorktreeQueryResult> GetWorktreeInfoAsync (
             string path,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
@@ -701,7 +701,7 @@ public sealed class DaemonListQueryServiceTests
             this.read = read;
         }
 
-        public ValueTask<DaemonSessionReadResult> Read (
+        public ValueTask<DaemonSessionReadResult> ReadAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -709,7 +709,7 @@ public sealed class DaemonListQueryServiceTests
             return read(storageRoot, projectFingerprint, cancellationToken);
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Write (
+        public ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
             string storageRoot,
             DaemonSession session,
             CancellationToken cancellationToken = default)
@@ -717,7 +717,7 @@ public sealed class DaemonListQueryServiceTests
             throw new NotSupportedException();
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Delete (
+        public ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -736,7 +736,7 @@ public sealed class DaemonListQueryServiceTests
 
         public DaemonDiagnosis? LastDiagnosis { get; private set; }
 
-        public ValueTask<DaemonDiagnosisReadResult> Read (
+        public ValueTask<DaemonDiagnosisReadResult> ReadAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -744,7 +744,7 @@ public sealed class DaemonListQueryServiceTests
             return ValueTask.FromResult(OnRead(storageRoot, projectFingerprint));
         }
 
-        public ValueTask<DaemonDiagnosisStoreOperationResult> Write (
+        public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
             string storageRoot,
             string projectFingerprint,
             DaemonDiagnosis diagnosis,
@@ -755,7 +755,7 @@ public sealed class DaemonListQueryServiceTests
             return ValueTask.FromResult(WriteResult);
         }
 
-        public ValueTask<DaemonDiagnosisStoreOperationResult> Delete (
+        public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -773,7 +773,7 @@ public sealed class DaemonListQueryServiceTests
             this.ping = ping;
         }
 
-        public ValueTask Ping (
+        public ValueTask PingAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             string? sessionToken = null,

@@ -34,7 +34,7 @@ public sealed class DaemonSessionProcessIdValidationTests
             """,
             CancellationToken.None);
 
-        var readResult = await store.Read(scope.FullPath, projectFingerprint, CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
@@ -66,7 +66,7 @@ public sealed class DaemonSessionProcessIdValidationTests
 
             OwnerProcessId: 9876);
 
-        var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
+        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 
         Assert.False(writeResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(writeResult.Error);

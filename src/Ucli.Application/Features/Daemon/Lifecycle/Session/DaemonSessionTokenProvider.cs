@@ -20,14 +20,14 @@ internal sealed class DaemonSessionTokenProvider : IDaemonSessionTokenProvider
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon session token resolution result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
-    public async ValueTask<DaemonSessionTokenResolutionResult> Resolve (
+    public async ValueTask<DaemonSessionTokenResolutionResult> ResolveAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
 
-        var readResult = await daemonSessionStore.Read(
+        var readResult = await daemonSessionStore.ReadAsync(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 cancellationToken)

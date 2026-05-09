@@ -25,7 +25,7 @@ internal sealed class UnityGuiEditorProcessProbe : IUnityGuiEditorProcessProbe
     }
 
     /// <inheritdoc />
-    public ValueTask<UnityGuiEditorProcessProbeResult> Probe (
+    public ValueTask<UnityGuiEditorProcessProbeResult> ProbeAsync (
         UnityEditorInstanceMarker marker,
         CancellationToken cancellationToken = default)
     {

@@ -7,7 +7,7 @@ internal interface IOpsCatalogAccessService
     /// <param name="context"> The preflight-resolved execution context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the catalog read result. </returns>
-    ValueTask<OpsCatalogReadResult> Read (
+    ValueTask<OpsCatalogReadResult> ReadAsync (
         OpsPreflightContext context,
         CancellationToken cancellationToken = default);
 }

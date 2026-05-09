@@ -45,7 +45,7 @@ internal sealed class SkillsDoctorCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.DoctorSubcommand)]
-    public async Task<int> Doctor (
+    public async Task<int> DoctorAsync (
         string? host = null,
         string? scope = null,
         string? repoRoot = null,

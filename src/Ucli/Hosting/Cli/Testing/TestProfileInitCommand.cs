@@ -30,7 +30,7 @@ internal sealed class TestProfileInitCommand
     /// <param name="cancellationToken"> The cancellation token propagated by the command pipeline. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.InitSubcommand)]
-    public async Task<int> Init (
+    public async Task<int> InitAsync (
         string? outputPath = null,
         bool force = false,
         CancellationToken cancellationToken = default)

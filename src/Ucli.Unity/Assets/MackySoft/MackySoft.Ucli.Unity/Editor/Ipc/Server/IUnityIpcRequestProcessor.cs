@@ -11,7 +11,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="request"> The incoming IPC request envelope. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by host execution. </param>
         /// <returns> The processed IPC response envelope. </returns>
-        Task<IpcResponse> Process (
+        Task<IpcResponse> ProcessAsync (
             IpcRequest request,
             CancellationToken cancellationToken = default);
     }

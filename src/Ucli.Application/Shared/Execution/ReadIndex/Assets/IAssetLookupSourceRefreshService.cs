@@ -7,7 +7,7 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 internal interface IAssetLookupSourceRefreshService
 {
     /// <summary> Reads one live asset lookup snapshot and attempts to persist refreshed lookup artifacts. </summary>
-    ValueTask<AssetLookupRefreshResult> Refresh (
+    ValueTask<AssetLookupRefreshResult> RefreshAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,

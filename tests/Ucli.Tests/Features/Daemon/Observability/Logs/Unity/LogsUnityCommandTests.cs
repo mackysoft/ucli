@@ -36,7 +36,7 @@ public sealed class LogsUnityCommandTests
             return LogsDaemonServiceResult.Success();
         }), CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Unity(format: "json"));
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.UnityAsync(format: "json"));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
         var lines = standardOutput.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
@@ -68,7 +68,7 @@ public sealed class LogsUnityCommandTests
             return LogsDaemonServiceResult.Success();
         }), CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Unity(format: "text"));
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.UnityAsync(format: "text"));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
         Assert.Equal(
@@ -84,7 +84,7 @@ public sealed class LogsUnityCommandTests
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Unity(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.UnityAsync(
             stream: true,
             cancellationToken: cancellationTokenSource.Token));
 
@@ -116,7 +116,7 @@ public sealed class LogsUnityCommandTests
             this.handler = handler;
         }
 
-        public ValueTask<LogsDaemonServiceResult> Execute (
+        public ValueTask<LogsDaemonServiceResult> ExecuteAsync (
             LogsUnityServiceRequest request,
             Func<IpcUnityLogEvent, string, CancellationToken, ValueTask> onEvent,
             CancellationToken cancellationToken = default)
@@ -127,7 +127,7 @@ public sealed class LogsUnityCommandTests
 
     private sealed class ThrowingLogsUnityService : ILogsUnityService
     {
-        public ValueTask<LogsDaemonServiceResult> Execute (
+        public ValueTask<LogsDaemonServiceResult> ExecuteAsync (
             LogsUnityServiceRequest request,
             Func<IpcUnityLogEvent, string, CancellationToken, ValueTask> onEvent,
             CancellationToken cancellationToken = default)

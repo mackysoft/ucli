@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Streamin
 internal static class LogsStreamPollingExecutor
 {
     /// <summary> Executes one polling workflow. </summary>
-    public static async ValueTask<LogsDaemonServiceResult> Execute<TQuery, TReadResult, TResponse, TEvent> (
+    public static async ValueTask<LogsDaemonServiceResult> ExecuteAsync<TQuery, TReadResult, TResponse, TEvent> (
         IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver,
         UcliCommand commandId,
         string? projectPath,
@@ -41,7 +41,7 @@ internal static class LogsStreamPollingExecutor
         ArgumentNullException.ThrowIfNull(streamTerminationPolicy);
         ArgumentNullException.ThrowIfNull(getTimestamp);
 
-        var contextResolutionResult = await daemonCommandExecutionContextResolver.Resolve(
+        var contextResolutionResult = await daemonCommandExecutionContextResolver.ResolveAsync(
                 commandId,
                 projectPath,
                 timeoutMilliseconds: null,

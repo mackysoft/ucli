@@ -25,14 +25,14 @@ internal sealed class StatusExecutionContextResolver : IStatusExecutionContextRe
     /// <param name="input"> The normalized status command input. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the execution-context resolution result. </returns>
-    public async ValueTask<StatusExecutionContextResolutionResult> Resolve (
+    public async ValueTask<StatusExecutionContextResolutionResult> ResolveAsync (
         StatusCommandInput input,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var contextResolutionResult = await projectContextResolver.Resolve(input.ProjectPath, cancellationToken).ConfigureAwait(false);
+        var contextResolutionResult = await projectContextResolver.ResolveAsync(input.ProjectPath, cancellationToken).ConfigureAwait(false);
         if (!contextResolutionResult.IsSuccess)
         {
             return StatusExecutionContextResolutionResult.Failure(contextResolutionResult.Error!);

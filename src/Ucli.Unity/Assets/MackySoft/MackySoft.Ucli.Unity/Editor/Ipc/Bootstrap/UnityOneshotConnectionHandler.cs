@@ -26,11 +26,11 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <inheritdoc />
-        public async Task<UnityIpcConnectionHandleResult> Handle (
+        public async Task<UnityIpcConnectionHandleResult> HandleAsync (
             Stream stream,
             CancellationToken cancellationToken = default)
         {
-            var result = await innerConnectionHandler.Handle(stream, cancellationToken);
+            var result = await innerConnectionHandler.HandleAsync(stream, cancellationToken);
             if (ShouldSignalCompletion(result))
             {
                 completionSignal.Signal();

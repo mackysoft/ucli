@@ -9,7 +9,7 @@ public sealed class UnityGuiEditorProcessProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenProcessStartsAfterMarker_ReturnsStaleMarker ()
     {
-        var result = await Probe(CreateInspection(startTimeUtc: MarkerUpdatedAtUtc.AddSeconds(1)));
+        var result = await ProbeAsync(CreateInspection(startTimeUtc: MarkerUpdatedAtUtc.AddSeconds(1)));
 
         Assert.Equal(UnityGuiEditorProcessProbeStatus.StaleMarker, result.Status);
     }
@@ -18,7 +18,7 @@ public sealed class UnityGuiEditorProcessProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenCommandLineContainsBatchmode_ReturnsBatchmode ()
     {
-        var result = await Probe(CreateInspection(commandLine: "/Applications/Unity -batchmode -projectPath /project"));
+        var result = await ProbeAsync(CreateInspection(commandLine: "/Applications/Unity -batchmode -projectPath /project"));
 
         Assert.Equal(UnityGuiEditorProcessProbeStatus.Batchmode, result.Status);
     }
@@ -27,7 +27,7 @@ public sealed class UnityGuiEditorProcessProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenProcessBelongsToDifferentUser_ReturnsDifferentUser ()
     {
-        var result = await Probe(CreateInspection(isOwnedByCurrentUser: false));
+        var result = await ProbeAsync(CreateInspection(isOwnedByCurrentUser: false));
 
         Assert.Equal(UnityGuiEditorProcessProbeStatus.DifferentUser, result.Status);
     }
@@ -36,7 +36,7 @@ public sealed class UnityGuiEditorProcessProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenProcessOwnerCannotBeVerified_ReturnsUncertain ()
     {
-        var result = await Probe(CreateInspection(isOwnedByCurrentUser: null));
+        var result = await ProbeAsync(CreateInspection(isOwnedByCurrentUser: null));
 
         Assert.Equal(UnityGuiEditorProcessProbeStatus.Uncertain, result.Status);
     }
@@ -45,7 +45,7 @@ public sealed class UnityGuiEditorProcessProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenCommandLineCannotBeRead_ReturnsUncertain ()
     {
-        var result = await Probe(CreateInspection(commandLine: null));
+        var result = await ProbeAsync(CreateInspection(commandLine: null));
 
         Assert.Equal(UnityGuiEditorProcessProbeStatus.Uncertain, result.Status);
     }
@@ -54,7 +54,7 @@ public sealed class UnityGuiEditorProcessProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenProcessDoesNotLookLikeUnityEditor_ReturnsNotUnityEditor ()
     {
-        var result = await Probe(CreateInspection(
+        var result = await ProbeAsync(CreateInspection(
             processName: "NotEditor",
             commandLine: "/usr/bin/not-editor",
             executablePath: "/usr/bin/not-editor"));
@@ -66,7 +66,7 @@ public sealed class UnityGuiEditorProcessProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenExecutablePathMatchesMarkerApplicationPath_ReturnsMatching ()
     {
-        var result = await Probe(CreateInspection(
+        var result = await ProbeAsync(CreateInspection(
             processName: "Editor",
             commandLine: "/Applications/Editor -projectPath /project",
             executablePath: "/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app/Contents/MacOS/Unity"));
@@ -78,7 +78,7 @@ public sealed class UnityGuiEditorProcessProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenExecutablePathOnlySharesMarkerPrefix_ReturnsNotUnityEditor ()
     {
-        var result = await Probe(CreateInspection(
+        var result = await ProbeAsync(CreateInspection(
             executablePath: "/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.appSibling/Contents/MacOS/Unity"));
 
         Assert.Equal(UnityGuiEditorProcessProbeStatus.NotUnityEditor, result.Status);
@@ -88,7 +88,7 @@ public sealed class UnityGuiEditorProcessProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenMarkerApplicationPathIsRoot_ReturnsNotUnityEditor ()
     {
-        var result = await Probe(
+        var result = await ProbeAsync(
             CreateInspection(executablePath: "/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app/Contents/MacOS/Unity"),
             CreateMarker(appPath: "/", appContentsPath: null));
 
@@ -99,7 +99,7 @@ public sealed class UnityGuiEditorProcessProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenMarkerApplicationPathIsBroadParentDirectory_ReturnsNotUnityEditor ()
     {
-        var result = await Probe(
+        var result = await ProbeAsync(
             CreateInspection(executablePath: "/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app/Contents/MacOS/Unity"),
             CreateMarker(appPath: "/Applications", appContentsPath: null));
 
@@ -110,7 +110,7 @@ public sealed class UnityGuiEditorProcessProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenMarkerHasOnlyProcessIdAndExecutableLooksLikeUnityEditor_ReturnsMatching ()
     {
-        var result = await Probe(
+        var result = await ProbeAsync(
             CreateInspection(
                 processName: "Unity",
                 commandLine: "/Applications/Unity -projectPath /project",
@@ -124,7 +124,7 @@ public sealed class UnityGuiEditorProcessProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenStartTimeCannotBeRead_ReturnsUncertain ()
     {
-        var result = await Probe(CreateInspection(startTimeAvailable: false));
+        var result = await ProbeAsync(CreateInspection(startTimeAvailable: false));
 
         Assert.Equal(UnityGuiEditorProcessProbeStatus.Uncertain, result.Status);
     }
@@ -133,18 +133,18 @@ public sealed class UnityGuiEditorProcessProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenProcessIsCurrentUserGuiUnityEditor_ReturnsMatching ()
     {
-        var result = await Probe(CreateInspection());
+        var result = await ProbeAsync(CreateInspection());
 
         Assert.True(result.IsMatchingGuiEditor);
         Assert.Equal(UnityGuiEditorProcessProbeStatus.MatchingGuiEditor, result.Status);
     }
 
-    private static ValueTask<UnityGuiEditorProcessProbeResult> Probe (
+    private static ValueTask<UnityGuiEditorProcessProbeResult> ProbeAsync (
         UnityGuiEditorProcessInspection inspection,
         UnityEditorInstanceMarker? marker = null)
     {
         var probe = new UnityGuiEditorProcessProbe(new StubUnityGuiEditorProcessInspector(inspection));
-        return probe.Probe(marker ?? CreateMarker(), CancellationToken.None);
+        return probe.ProbeAsync(marker ?? CreateMarker(), CancellationToken.None);
     }
 
     private static UnityEditorInstanceMarker CreateMarker (

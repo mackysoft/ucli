@@ -10,7 +10,7 @@ internal interface IDaemonLaunchSessionService
     /// <param name="editorMode"> The requested daemon Editor mode. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The launch-session persistence result. </returns>
-    ValueTask<DaemonLaunchSessionWriteResult> Initialize (
+    ValueTask<DaemonLaunchSessionWriteResult> InitializeAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonEditorMode editorMode,
         CancellationToken cancellationToken = default);
@@ -21,7 +21,7 @@ internal interface IDaemonLaunchSessionService
     /// <param name="processId"> The launched process identifier when available. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The launch-session persistence result. </returns>
-    ValueTask<DaemonLaunchSessionWriteResult> UpdateProcessId (
+    ValueTask<DaemonLaunchSessionWriteResult> UpdateProcessIdAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         int? processId,

@@ -26,7 +26,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
                 UcliOperationPlanMode.MayCreatePreviewState));
 
-        protected override Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
             PrefabCreateArgs args,
             OperationExecutionContext executionContext,
@@ -41,7 +41,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
         }
 
-        protected override Task<OperationPhaseStepResult> Plan (
+        protected override Task<OperationPhaseStepResult> PlanAsync (
             NormalizedOperation operation,
             PrefabCreateArgs args,
             OperationExecutionContext executionContext,
@@ -73,7 +73,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath))));
         }
 
-        protected override Task<OperationPhaseStepResult> Call (
+        protected override Task<OperationPhaseStepResult> CallAsync (
             NormalizedOperation operation,
             PrefabCreateArgs args,
             OperationExecutionContext executionContext,

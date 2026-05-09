@@ -4,7 +4,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 internal interface IUnityEditorInstanceMarkerReader
 {
     /// <summary> Reads the marker from <c>Library/EditorInstance.json</c> under the resolved Unity project root. </summary>
-    ValueTask<UnityEditorInstanceMarkerReadResult> Read (
+    ValueTask<UnityEditorInstanceMarkerReadResult> ReadAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default);
 }

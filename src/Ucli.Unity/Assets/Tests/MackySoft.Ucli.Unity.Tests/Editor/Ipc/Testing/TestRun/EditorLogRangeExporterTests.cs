@@ -26,7 +26,7 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 await TestAwaiter.WaitAsync(
-                    exporter.ExportRange(sourcePath, destinationPath, 2, 7, CancellationToken.None).AsUniTask(),
+                    exporter.ExportRangeAsync(sourcePath, destinationPath, 2, 7, CancellationToken.None).AsUniTask(),
                     "Editor log range export",
                     AsyncWaitTimeout);
 
@@ -53,7 +53,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 await AsyncExceptionCapture.CaptureAsync<ArgumentOutOfRangeException>(async () =>
                 {
-                    await exporter.ExportRange(sourcePath, destinationPath, 5, 1, CancellationToken.None).AsUniTask();
+                    await exporter.ExportRangeAsync(sourcePath, destinationPath, 5, 1, CancellationToken.None).AsUniTask();
                 }, "Invalid editor log offset", AsyncWaitTimeout);
             }
             finally
@@ -73,7 +73,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             await AsyncExceptionCapture.CaptureAsync<FileNotFoundException>(async () =>
             {
-                await exporter.ExportRange(sourcePath, destinationPath, 0, 0, CancellationToken.None).AsUniTask();
+                await exporter.ExportRangeAsync(sourcePath, destinationPath, 0, 0, CancellationToken.None).AsUniTask();
             }, "Missing editor log source", AsyncWaitTimeout);
             TryDeleteFile(destinationPath);
         });
@@ -91,7 +91,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 await AsyncExceptionCapture.CaptureAsync<UnauthorizedAccessException>(async () =>
                 {
-                    await exporter.ExportRange(sourceDirectoryPath, destinationPath, 0, 0, CancellationToken.None).AsUniTask();
+                    await exporter.ExportRangeAsync(sourceDirectoryPath, destinationPath, 0, 0, CancellationToken.None).AsUniTask();
                 }, "Directory source editor log export", AsyncWaitTimeout);
             }
             finally
@@ -115,7 +115,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 await AsyncExceptionCapture.CaptureAsync<UnauthorizedAccessException>(async () =>
                 {
-                    await exporter.ExportRange(sourcePath, destinationDirectoryPath, 0, 1, CancellationToken.None).AsUniTask();
+                    await exporter.ExportRangeAsync(sourcePath, destinationDirectoryPath, 0, 1, CancellationToken.None).AsUniTask();
                 }, "Directory destination editor log export", AsyncWaitTimeout);
             }
             finally

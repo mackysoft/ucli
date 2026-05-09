@@ -36,7 +36,7 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The launch-session persistence result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
-    public async ValueTask<DaemonLaunchSessionWriteResult> Initialize (
+    public async ValueTask<DaemonLaunchSessionWriteResult> InitializeAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonEditorMode editorMode,
         CancellationToken cancellationToken = default)
@@ -63,7 +63,7 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
             ProcessId: null,
             OwnerProcessId: Environment.ProcessId);
 
-        var writeResult = await daemonSessionStore.Write(
+        var writeResult = await daemonSessionStore.WriteAsync(
                 unityProject.RepositoryRoot,
                 session,
                 cancellationToken)
@@ -83,7 +83,7 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The launch-session persistence result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> or <paramref name="session" /> is <see langword="null" />. </exception>
-    public async ValueTask<DaemonLaunchSessionWriteResult> UpdateProcessId (
+    public async ValueTask<DaemonLaunchSessionWriteResult> UpdateProcessIdAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         int? processId,
@@ -99,7 +99,7 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
         }
 
         var updatedSession = session with { ProcessId = launchedProcessId };
-        var writeResult = await daemonSessionStore.Write(
+        var writeResult = await daemonSessionStore.WriteAsync(
                 unityProject.RepositoryRoot,
                 updatedSession,
                 cancellationToken)

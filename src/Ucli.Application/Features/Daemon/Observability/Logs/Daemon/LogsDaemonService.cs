@@ -35,7 +35,7 @@ internal sealed class LogsDaemonService : ILogsDaemonService
     }
 
     /// <inheritdoc />
-    public ValueTask<LogsDaemonServiceResult> Execute (
+    public ValueTask<LogsDaemonServiceResult> ExecuteAsync (
         LogsDaemonServiceRequest request,
         Func<IpcDaemonLogEvent, string, CancellationToken, ValueTask> onEvent,
         CancellationToken cancellationToken = default)
@@ -49,14 +49,14 @@ internal sealed class LogsDaemonService : ILogsDaemonService
             return ValueTask.FromResult(LogsDaemonServiceResult.Failure(argumentValidationError!));
         }
 
-        return LogsStreamPollingExecutor.Execute(
+        return LogsStreamPollingExecutor.ExecuteAsync(
             daemonCommandExecutionContextResolver,
             UcliCommandIds.LogsDaemon,
             request.ProjectPath,
             query!,
             request.Stream,
             streamOptions!,
-            daemonLogsClient.Read,
+            daemonLogsClient.ReadAsync,
             static readResult => readResult.Response,
             static readResult => readResult.Error,
             static (query, after) => query with

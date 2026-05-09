@@ -7,7 +7,7 @@ internal interface ITestRunPreflightService
     /// <param name="input"> The interpreted command input values. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to preflight result values. </returns>
-    ValueTask<TestRunPreflightResult> Execute (
+    ValueTask<TestRunPreflightResult> ExecuteAsync (
         TestRunCommandInput input,
         CancellationToken cancellationToken = default);
 }

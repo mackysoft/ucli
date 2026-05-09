@@ -40,7 +40,7 @@ public sealed class AssetLookupSnapshotReaderTests
         };
         var reader = new AssetLookupSnapshotReader(executor);
 
-        var result = await reader.Read(
+        var result = await reader.ReadAsync(
             CreateProjectContext().UnityProject,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -72,7 +72,7 @@ public sealed class AssetLookupSnapshotReaderTests
         };
         var reader = new AssetLookupSnapshotReader(executor);
 
-        var result = await reader.Read(
+        var result = await reader.ReadAsync(
             CreateProjectContext().UnityProject,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -114,7 +114,7 @@ public sealed class AssetLookupSnapshotReaderTests
         };
         var reader = new AssetLookupSnapshotReader(executor);
 
-        var result = await reader.Read(CreateProjectContext().UnityProject, UcliConfig.CreateDefault(), UcliCommandIds.Query, UnityExecutionMode.Auto, TimeSpan.FromMilliseconds(1000));
+        var result = await reader.ReadAsync(CreateProjectContext().UnityProject, UcliConfig.CreateDefault(), UcliCommandIds.Query, UnityExecutionMode.Auto, TimeSpan.FromMilliseconds(1000));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
@@ -161,7 +161,7 @@ public sealed class AssetLookupSnapshotReaderTests
         };
         var reader = new AssetLookupSnapshotReader(executor);
 
-        var result = await reader.Read(CreateProjectContext().UnityProject, UcliConfig.CreateDefault(), UcliCommandIds.Query, UnityExecutionMode.Auto, TimeSpan.FromMilliseconds(1000));
+        var result = await reader.ReadAsync(CreateProjectContext().UnityProject, UcliConfig.CreateDefault(), UcliCommandIds.Query, UnityExecutionMode.Auto, TimeSpan.FromMilliseconds(1000));
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Response);
@@ -208,7 +208,7 @@ public sealed class AssetLookupSnapshotReaderTests
         public UnityRequestExecutionResult Result { get; set; }
             = UnityRequestExecutionResultTestFactory.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
-        public ValueTask<UnityRequestExecutionResult> Execute (
+        public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
             UcliCommand command,
             UnityExecutionMode mode,
             TimeSpan timeout,

@@ -21,7 +21,7 @@ public sealed class QueryCommandTests
         var command = new QueryAssetsFindCommand(service, CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Find(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.FindAsync(
             projectPath: "/repo/UnityProject",
             mode: "oneshot",
             timeout: "1234",
@@ -71,7 +71,7 @@ public sealed class QueryCommandTests
         var service = new StubQueryService((_, _) => ValueTask.FromResult(CreateFailureResult(UcliCommandNames.QueryAssetsFind)));
         var command = new QueryAssetsFindCommand(service, CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Find(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.FindAsync(
             type: "UnityEngine.Material, UnityEngine.CoreModule",
             cancellationToken: CancellationToken.None));
 
@@ -105,7 +105,7 @@ public sealed class QueryCommandTests
         var service = new StubQueryService((_, _) => throw new InvalidOperationException("Service should not be called."));
         var command = new QueryAssetsFindCommand(service, CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Find(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.FindAsync(
             type: "UnityEngine.Material, UnityEngine.CoreModule",
             limit: 10,
             all: true,
@@ -130,7 +130,7 @@ public sealed class QueryCommandTests
         var service = new StubQueryService((_, _) => throw new InvalidOperationException("Service should not be called."));
         var command = new QueryGoDescribeCommand(service, CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Describe(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.DescribeAsync(
             globalObjectId: "GlobalObjectId_V1-1-2-3-4-5-6",
             scene: "Assets/Scenes/Main.unity",
             hierarchyPath: "Root",
@@ -152,7 +152,7 @@ public sealed class QueryCommandTests
     [Trait("Size", "Medium")]
     public async Task Query_WhenSubcommandIsMissing_ReturnsJsonInvalidArgument ()
     {
-        var result = await CliProcessRunner.RunCommand(UcliCommandNames.Query);
+        var result = await CliProcessRunner.RunCommandAsync(UcliCommandNames.Query);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -170,7 +170,7 @@ public sealed class QueryCommandTests
     [Trait("Size", "Medium")]
     public async Task AssetsGroup_WhenLeafSubcommandIsMissing_ReturnsJsonInvalidArgument ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Query,
             UcliCommandNames.AssetsSubcommand);
 
@@ -192,7 +192,7 @@ public sealed class QueryCommandTests
     {
         var invalidProjectPath = Path.Combine(Path.GetTempPath(), $"ucli-query-missing-{Guid.NewGuid():N}");
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Query,
             UcliCommandNames.AssetsSubcommand,
             UcliCommandNames.FindSubcommand,
@@ -277,7 +277,7 @@ public sealed class QueryCommandTests
 
         public CancellationToken CapturedCancellationToken { get; private set; }
 
-        public ValueTask<QueryServiceResult> Execute (
+        public ValueTask<QueryServiceResult> ExecuteAsync (
             QueryCommandInput input,
             CancellationToken cancellationToken = default)
         {

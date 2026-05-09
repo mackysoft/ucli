@@ -8,7 +8,7 @@ internal interface ISceneTreeLiteSourceHashCalculator
     /// <param name="scenePath"> The project-relative scene path. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The computed source hash when successful; otherwise <see langword="null" />. </returns>
-    ValueTask<string?> TryCompute (
+    ValueTask<string?> TryComputeAsync (
         string projectRootPath,
         string scenePath,
         CancellationToken cancellationToken = default);

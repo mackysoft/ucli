@@ -23,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                await WriteSession(
+                await WriteSessionAsync(
                     storageRoot,
                     UnityGuiBootstrapSessionOptions.Create(null));
 
@@ -52,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                await WriteSession(
+                await WriteSessionAsync(
                     storageRoot,
                     UnityGuiBootstrapSessionOptions.Create(new IpcGuiBootstrapArguments(
                         OwnerProcessId: 123,
@@ -77,24 +77,24 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                var registration = await WriteSession(
+                var registration = await WriteSessionAsync(
                     storageRoot,
                     UnityGuiBootstrapSessionOptions.Create(null));
                 var sessionToken = ReadSessionContract(storageRoot).SessionToken;
                 var validator = new FileBackedSessionTokenValidator(registration.SessionPath);
 
                 Assert.That(
-                    await validator.Validate(sessionToken, CancellationToken.None),
+                    await validator.ValidateAsync(sessionToken, CancellationToken.None),
                     Is.True);
                 Assert.That(
-                    await validator.Validate("wrong-session-token", CancellationToken.None),
+                    await validator.ValidateAsync("wrong-session-token", CancellationToken.None),
                     Is.False);
 
                 UnityGuiSessionPersistence.Delete(registration);
 
                 Assert.That(File.Exists(registration.SessionPath), Is.False);
                 Assert.That(
-                    await validator.Validate(sessionToken, CancellationToken.None),
+                    await validator.ValidateAsync(sessionToken, CancellationToken.None),
                     Is.False);
             }
             finally
@@ -132,7 +132,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 InvalidOperationException exception = null;
                 try
                 {
-                    await WriteSession(
+                    await WriteSessionAsync(
                         storageRoot,
                         UnityGuiBootstrapSessionOptions.Create(null));
                 }
@@ -162,7 +162,7 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 var endpointResiduePath = Path.Combine(storageRoot, "ipc.sock");
-                var registration = await WriteSession(
+                var registration = await WriteSessionAsync(
                     storageRoot,
                     UnityGuiBootstrapSessionOptions.Create(null),
                     new IpcEndpoint(IpcTransportKind.UnixDomainSocket, endpointResiduePath));
@@ -202,13 +202,13 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                var firstRegistration = await WriteSession(
+                var firstRegistration = await WriteSessionAsync(
                     storageRoot,
                     UnityGuiBootstrapSessionOptions.Create(null));
                 var firstSessionToken = ReadSessionContract(storageRoot).SessionToken;
                 UnityGuiSessionPersistence.Delete(firstRegistration);
 
-                var secondRegistration = await WriteSession(
+                var secondRegistration = await WriteSessionAsync(
                     storageRoot,
                     UnityGuiBootstrapSessionOptions.Create(null));
                 var secondSessionToken = ReadSessionContract(storageRoot).SessionToken;
@@ -222,12 +222,12 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         });
 
-        private static UniTask<UnityGuiSessionRegistration> WriteSession (
+        private static UniTask<UnityGuiSessionRegistration> WriteSessionAsync (
             string storageRoot,
             UnityGuiBootstrapSessionOptions sessionOptions,
             IpcEndpoint endpoint = null)
         {
-            return UnityGuiSessionPersistence.Write(
+            return UnityGuiSessionPersistence.WriteAsync(
                     storageRoot,
                     "fingerprint",
                     endpoint ?? new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-session-tests"),

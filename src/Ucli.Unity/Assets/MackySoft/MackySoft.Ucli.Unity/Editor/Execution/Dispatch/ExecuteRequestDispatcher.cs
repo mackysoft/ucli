@@ -109,7 +109,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         /// <returns> The response envelope for the incoming request. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> or <paramref name="context" /> is <see langword="null" />. </exception>
         /// <exception cref="System.OperationCanceledException"> Thrown when dispatch is canceled. </exception>
-        public async Task<IpcResponse> Dispatch (
+        public async Task<IpcResponse> DispatchAsync (
             IpcExecuteRequest request,
             ExecuteDispatchContext context,
             CancellationToken cancellationToken = default)
@@ -137,10 +137,10 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             }
 
             var requestFingerprint = ExecuteRequestFingerprintCalculator.Create(request);
-            return await requestIdempotencyCoordinator.Execute(
+            return await requestIdempotencyCoordinator.ExecuteAsync(
                     context.RequestId,
                     requestFingerprint,
-                    _ => DispatchCore(request, context, cancellationToken),
+                    _ => DispatchCoreAsync(request, context, cancellationToken),
                     () => ExecuteResponseBuilder.CreateErrorResponse(
                         context,
                         ExecuteRequestErrorCodes.RequestIdConflict,
@@ -157,7 +157,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> The response envelope for the incoming request. </returns>
         /// <exception cref="System.OperationCanceledException"> Thrown when dispatch is canceled. </exception>
-        private async Task<IpcResponse> DispatchCore (
+        private async Task<IpcResponse> DispatchCoreAsync (
             IpcExecuteRequest request,
             ExecuteDispatchContext context,
             CancellationToken cancellationToken)
@@ -184,7 +184,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     SerializerOptions);
             }
 
-            var readinessResult = await readinessGate.EnsureExecutionReady(request.FailFast, cancellationToken).ConfigureAwait(false);
+            var readinessResult = await readinessGate.EnsureExecutionReadyAsync(request.FailFast, cancellationToken).ConfigureAwait(false);
             if (!readinessResult.IsReady)
             {
                 var lifecycleError = readinessResult.Error!;
@@ -198,9 +198,9 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
 
             try
             {
-                return await mainThreadRequestExecutor.Execute(async () =>
+                return await mainThreadRequestExecutor.ExecuteAsync(async () =>
                 {
-                    var trace = await operationPhaseExecutor.Execute(executionCommand, normalizationResult.Request!, cancellationToken);
+                    var trace = await operationPhaseExecutor.ExecuteAsync(executionCommand, normalizationResult.Request!, cancellationToken);
                     return ExecuteResponseBuilder.CreateExecutionResponse(context, trace, SerializerOptions);
                 }, cancellationToken).ConfigureAwait(false);
             }
@@ -233,7 +233,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     CanAcceptExecutionRequests: true);
             }
 
-            public Task<UnityEditorExecutionReadinessResult> EnsureExecutionReady (
+            public Task<UnityEditorExecutionReadinessResult> EnsureExecutionReadyAsync (
                 bool failFast,
                 CancellationToken cancellationToken = default)
             {
@@ -244,7 +244,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
 
         private sealed class InlineUnityMainThreadRequestExecutor : IUnityMainThreadRequestExecutor
         {
-            public Task<T> Execute<T> (
+            public Task<T> ExecuteAsync<T> (
                 Func<Task<T>> workItem,
                 CancellationToken cancellationToken = default)
             {

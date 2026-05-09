@@ -28,7 +28,7 @@ public sealed class GitWorktreeQueryServiceTests
         };
         var service = new GitWorktreeQueryService(commandClient, parser);
 
-        var result = await service.GetWorktreeInfo(
+        var result = await service.GetWorktreeInfoAsync(
             currentProjectPath,
             TimeSpan.FromSeconds(10),
             CancellationToken.None);
@@ -66,7 +66,7 @@ public sealed class GitWorktreeQueryServiceTests
                 ]),
             });
 
-        var result = await service.GetWorktreeInfo(
+        var result = await service.GetWorktreeInfoAsync(
             currentProjectPath,
             TimeSpan.FromSeconds(10),
             CancellationToken.None);
@@ -93,7 +93,7 @@ public sealed class GitWorktreeQueryServiceTests
                 Result = GitWorktreeListParseResult.Failure(ExecutionError.InternalError("missing HEAD")),
             });
 
-        var result = await service.GetWorktreeInfo(
+        var result = await service.GetWorktreeInfoAsync(
             currentProjectPath,
             TimeSpan.FromSeconds(10),
             CancellationToken.None);
@@ -126,7 +126,7 @@ public sealed class GitWorktreeQueryServiceTests
             new StubGitWorktreeListPorcelainParser(),
             timeProvider);
 
-        var result = await service.GetWorktreeInfo(
+        var result = await service.GetWorktreeInfoAsync(
             currentProjectPath,
             TimeSpan.FromMilliseconds(10),
             CancellationToken.None);
@@ -148,7 +148,7 @@ public sealed class GitWorktreeQueryServiceTests
         var commandClient = new StubGitCommandClient();
         var service = new GitWorktreeQueryService(commandClient, new StubGitWorktreeListPorcelainParser());
 
-        var result = await service.GetWorktreeInfo(
+        var result = await service.GetWorktreeInfoAsync(
             projectPath,
             TimeSpan.FromSeconds(10),
             CancellationToken.None);
@@ -191,7 +191,7 @@ public sealed class GitWorktreeQueryServiceTests
 
         public Func<string, TimeSpan, CancellationToken, ValueTask<GitCommandTextResult>>? CurrentWorktreeRootHandler { get; set; }
 
-        public ValueTask<GitCommandTextResult> GetCurrentWorktreeRoot (
+        public ValueTask<GitCommandTextResult> GetCurrentWorktreeRootAsync (
             string path,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
@@ -206,7 +206,7 @@ public sealed class GitWorktreeQueryServiceTests
             return ValueTask.FromResult(CurrentWorktreeRootResult);
         }
 
-        public ValueTask<GitCommandTextResult> GetCurrentProjectRelativePath (
+        public ValueTask<GitCommandTextResult> GetCurrentProjectRelativePathAsync (
             string path,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
@@ -215,7 +215,7 @@ public sealed class GitWorktreeQueryServiceTests
             return ValueTask.FromResult(CurrentProjectRelativePathResult);
         }
 
-        public ValueTask<GitCommandTextResult> GetWorktreeListPorcelain (
+        public ValueTask<GitCommandTextResult> GetWorktreeListPorcelainAsync (
             string path,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)

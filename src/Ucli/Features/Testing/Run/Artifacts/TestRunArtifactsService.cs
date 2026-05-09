@@ -34,7 +34,7 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
     /// <param name="configuration"> The resolved test-run configuration. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the preparation result. </returns>
-    public async ValueTask<ArtifactsPreparationResult> Prepare (
+    public async ValueTask<ArtifactsPreparationResult> PrepareAsync (
         ResolvedTestRunConfiguration configuration,
         CancellationToken cancellationToken = default)
     {
@@ -89,7 +89,7 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
 
             try
             {
-                await metaStore.Write(
+                await metaStore.WriteAsync(
                     configuration,
                     session,
                     finishedAtUtc: startedAtUtc,
@@ -129,7 +129,7 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
     /// <param name="session"> The prepared artifacts session. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the completion result. </returns>
-    public async ValueTask<ArtifactsCompletionResult> Complete (
+    public async ValueTask<ArtifactsCompletionResult> CompleteAsync (
         ResolvedTestRunConfiguration configuration,
         ArtifactsSession session,
         CancellationToken cancellationToken = default)
@@ -140,7 +140,7 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
 
         try
         {
-            await metaStore.Write(
+            await metaStore.WriteAsync(
                 configuration,
                 session,
                 finishedAtUtc: timeProvider.GetUtcNow(),

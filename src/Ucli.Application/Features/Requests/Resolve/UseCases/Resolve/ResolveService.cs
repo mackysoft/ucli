@@ -31,7 +31,7 @@ internal sealed class ResolveService : IResolveService
     }
 
     /// <inheritdoc />
-    public async ValueTask<ResolveServiceResult> Execute (
+    public async ValueTask<ResolveServiceResult> ExecuteAsync (
         ResolveCommandInput input,
         CancellationToken cancellationToken = default)
     {
@@ -40,7 +40,7 @@ internal sealed class ResolveService : IResolveService
         ArgumentNullException.ThrowIfNull(input.Selector);
 
         var requestId = Guid.NewGuid().ToString("D");
-        var projectContextResult = await projectContextResolver.Resolve(input.ProjectPath, cancellationToken).ConfigureAwait(false);
+        var projectContextResult = await projectContextResolver.ResolveAsync(input.ProjectPath, cancellationToken).ConfigureAwait(false);
         if (!projectContextResult.IsSuccess)
         {
             return ResolveServiceResultFactory.FromExecutionError(requestId, projectContextResult.Error!);
@@ -174,7 +174,7 @@ internal sealed class ResolveService : IResolveService
         CancellationToken cancellationToken)
     {
         var readIndex = ReadIndexInfoFactory.Unity(fallbackReason);
-        var executionResult = await unityRequestExecutor.Execute(
+        var executionResult = await unityRequestExecutor.ExecuteAsync(
                 UcliCommandIds.Resolve,
                 executionMode,
                 timeout,

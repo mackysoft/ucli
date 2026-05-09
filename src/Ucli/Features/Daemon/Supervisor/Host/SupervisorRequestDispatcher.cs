@@ -32,7 +32,7 @@ internal sealed class SupervisorRequestDispatcher
     /// <param name="stream"> The accepted transport stream. </param>
     /// <param name="runtimeContext"> The immutable supervisor runtime context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the listener. </param>
-    public async Task HandleConnection (
+    public async Task HandleConnectionAsync (
         Stream stream,
         SupervisorRuntimeContext runtimeContext,
         CancellationToken cancellationToken = default)
@@ -53,15 +53,15 @@ internal sealed class SupervisorRequestDispatcher
             var malformedResponse = SupervisorIpcResponseFactory.CreateMalformedFrameResponse(
                 readResult.ErrorKind,
                 readResult.ErrorMessage);
-            await TryWriteResponse(stream, malformedResponse, cancellationToken).ConfigureAwait(false);
+            await TryWriteResponseAsync(stream, malformedResponse, cancellationToken).ConfigureAwait(false);
             return;
         }
 
-        var response = await ProcessRequest(stream, runtimeContext, readResult.Value, cancellationToken).ConfigureAwait(false);
-        await TryWriteResponse(stream, response, cancellationToken).ConfigureAwait(false);
+        var response = await ProcessRequestAsync(stream, runtimeContext, readResult.Value, cancellationToken).ConfigureAwait(false);
+        await TryWriteResponseAsync(stream, response, cancellationToken).ConfigureAwait(false);
     }
 
-    private async ValueTask<IpcResponse> ProcessRequest (
+    private async ValueTask<IpcResponse> ProcessRequestAsync (
         Stream stream,
         SupervisorRuntimeContext runtimeContext,
         IpcRequest request,
@@ -96,8 +96,8 @@ internal sealed class SupervisorRequestDispatcher
         return request.Method switch
         {
             SupervisorIpcContracts.PingMethod => HandlePing(request, runtimeContext),
-            SupervisorIpcContracts.EnsureRunningMethod => await HandleEnsureRunning(stream, request, runtimeContext, cancellationToken).ConfigureAwait(false),
-            SupervisorIpcContracts.StopProjectMethod => await HandleStopProject(stream, request, runtimeContext, cancellationToken).ConfigureAwait(false),
+            SupervisorIpcContracts.EnsureRunningMethod => await HandleEnsureRunningAsync(stream, request, runtimeContext, cancellationToken).ConfigureAwait(false),
+            SupervisorIpcContracts.StopProjectMethod => await HandleStopProjectAsync(stream, request, runtimeContext, cancellationToken).ConfigureAwait(false),
             _ => SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
                 IpcProtocolErrorCodes.IpcMethodNotSupported,
@@ -116,7 +116,7 @@ internal sealed class SupervisorRequestDispatcher
                 runtimeContext.Manifest.IssuedAtUtc));
     }
 
-    private async ValueTask<IpcResponse> HandleEnsureRunning (
+    private async ValueTask<IpcResponse> HandleEnsureRunningAsync (
         Stream stream,
         IpcRequest request,
         SupervisorRuntimeContext runtimeContext,
@@ -170,7 +170,7 @@ internal sealed class SupervisorRequestDispatcher
         DaemonStartResult startResult;
         try
         {
-            startResult = await projectCoordinator.EnsureRunning(
+            startResult = await projectCoordinator.EnsureRunningAsync(
                     projectContextResult.Context!,
                     timeout,
                     editorMode,
@@ -213,7 +213,7 @@ internal sealed class SupervisorRequestDispatcher
                 Session: startResult.Session!));
     }
 
-    private async ValueTask<IpcResponse> HandleStopProject (
+    private async ValueTask<IpcResponse> HandleStopProjectAsync (
         Stream stream,
         IpcRequest request,
         SupervisorRuntimeContext runtimeContext,
@@ -253,7 +253,7 @@ internal sealed class SupervisorRequestDispatcher
         DaemonStopResult stopResult;
         try
         {
-            stopResult = await projectCoordinator.StopProject(
+            stopResult = await projectCoordinator.StopProjectAsync(
                     projectContextResult.Context!,
                     timeout,
                     requestLifetime.CancellationToken)
@@ -294,7 +294,7 @@ internal sealed class SupervisorRequestDispatcher
                 DaemonStatus: DaemonStatusStateCodec.NotRunning));
     }
 
-    private async Task TryWriteResponse (
+    private async Task TryWriteResponseAsync (
         Stream stream,
         IpcResponse response,
         CancellationToken cancellationToken)

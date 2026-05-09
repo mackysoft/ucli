@@ -32,20 +32,20 @@ internal sealed class TestRunService : ITestRunService
     /// <param name="input"> The interpreted command input values. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the normalized service result. </returns>
-    public async ValueTask<TestRunServiceResult> Execute (
+    public async ValueTask<TestRunServiceResult> ExecuteAsync (
         TestRunCommandInput input,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(input);
 
-        var preflightResult = await preflightService.Execute(input, cancellationToken).ConfigureAwait(false);
+        var preflightResult = await preflightService.ExecuteAsync(input, cancellationToken).ConfigureAwait(false);
         if (!preflightResult.IsSuccess)
         {
             return preflightResult.Failure!;
         }
 
-        var pipelineResult = await executionPipeline.Execute(
+        var pipelineResult = await executionPipeline.ExecuteAsync(
             preflightResult.Context!,
             cancellationToken).ConfigureAwait(false);
         return resultMapper.Map(pipelineResult);

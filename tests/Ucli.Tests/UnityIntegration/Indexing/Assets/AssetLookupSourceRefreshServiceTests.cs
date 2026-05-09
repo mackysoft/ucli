@@ -22,7 +22,7 @@ public sealed class AssetLookupSourceRefreshServiceTests
         calculator.Enqueue(stableSnapshot);
         var service = new AssetLookupSourceRefreshService(reader, store, calculator);
 
-        var result = await service.Refresh(
+        var result = await service.RefreshAsync(
             CreateProjectContext(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -61,7 +61,7 @@ public sealed class AssetLookupSourceRefreshServiceTests
         calculator.Enqueue(snapshot2);
         var service = new AssetLookupSourceRefreshService(reader, store, calculator);
 
-        var result = await service.Refresh(
+        var result = await service.RefreshAsync(
             CreateProjectContext(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -97,7 +97,7 @@ public sealed class AssetLookupSourceRefreshServiceTests
         calculator.Enqueue(snapshot2);
         var service = new AssetLookupSourceRefreshService(reader, store, calculator);
 
-        var result = await service.Refresh(
+        var result = await service.RefreshAsync(
             CreateProjectContext(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -136,7 +136,7 @@ public sealed class AssetLookupSourceRefreshServiceTests
         calculator.Enqueue(snapshot3);
         var service = new AssetLookupSourceRefreshService(reader, store, calculator);
 
-        var result = await service.Refresh(
+        var result = await service.RefreshAsync(
             CreateProjectContext(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
@@ -220,7 +220,7 @@ public sealed class AssetLookupSourceRefreshServiceTests
             results.Enqueue(result);
         }
 
-        public ValueTask<AssetLookupSnapshotFetchResult> Read (
+        public ValueTask<AssetLookupSnapshotFetchResult> ReadAsync (
             ResolvedUnityProjectContext project,
             UcliConfig config,
             UcliCommand command,
@@ -251,7 +251,7 @@ public sealed class AssetLookupSourceRefreshServiceTests
 
         public ReadIndexInputHashSnapshot? InputSnapshot { get; private set; }
 
-        public ValueTask WriteAssetLookups (
+        public ValueTask WriteAssetLookupsAsync (
             string storageRoot,
             string projectFingerprint,
             DateTimeOffset generatedAtUtc,
@@ -268,7 +268,7 @@ public sealed class AssetLookupSourceRefreshServiceTests
             return ValueTask.CompletedTask;
         }
 
-        public ValueTask WriteOpsCatalog (
+        public ValueTask WriteOpsCatalogAsync (
             string storageRoot,
             string projectFingerprint,
             DateTimeOffset generatedAtUtc,
@@ -280,7 +280,7 @@ public sealed class AssetLookupSourceRefreshServiceTests
             throw new NotSupportedException();
         }
 
-        public ValueTask WriteSceneTreeLite (
+        public ValueTask WriteSceneTreeLiteAsync (
             string storageRoot,
             string projectFingerprint,
             DateTimeOffset generatedAtUtc,
@@ -304,14 +304,14 @@ public sealed class AssetLookupSourceRefreshServiceTests
             snapshots.Enqueue(snapshot);
         }
 
-        public ValueTask<ReadIndexCoreInputHashSnapshot?> TryComputeCore (
+        public ValueTask<ReadIndexCoreInputHashSnapshot?> TryComputeCoreAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
             throw new InvalidOperationException("Core snapshot should not be computed in asset lookup refresh tests.");
         }
 
-        public ValueTask<ReadIndexInputHashSnapshot?> TryCompute (
+        public ValueTask<ReadIndexInputHashSnapshot?> TryComputeAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {

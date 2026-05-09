@@ -10,7 +10,7 @@ internal interface IOperationAuthorizationService
     /// <param name="config"> The configuration values that define execution constraints. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the authorization evaluation result. </returns>
-    ValueTask<OperationAuthorizationResult> Authorize (
+    ValueTask<OperationAuthorizationResult> AuthorizeAsync (
         UcliOperationDescriptor operation,
         UcliConfig config,
         CancellationToken cancellationToken = default);

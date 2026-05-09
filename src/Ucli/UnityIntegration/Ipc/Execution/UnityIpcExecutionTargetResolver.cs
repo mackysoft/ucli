@@ -29,7 +29,7 @@ internal sealed class UnityIpcExecutionTargetResolver
     /// <param name="budget"> The shared execution timeout budget. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The resolved target, or a classified failure. </returns>
-    public async ValueTask<UnityIpcExecutionTargetResolutionResult> Resolve (
+    public async ValueTask<UnityIpcExecutionTargetResolutionResult> ResolveAsync (
         UnityExecutionMode mode,
         ResolvedUnityProjectContext unityProject,
         UnityIpcExecutionBudget budget,
@@ -48,7 +48,7 @@ internal sealed class UnityIpcExecutionTargetResolver
         UnityExecutionModeDecisionResult modeDecisionResult;
         try
         {
-            modeDecisionResult = await modeDecisionService.Decide(
+            modeDecisionResult = await modeDecisionService.DecideAsync(
                     mode,
                     unityProject,
                     modeDecisionTimeout,
@@ -68,7 +68,7 @@ internal sealed class UnityIpcExecutionTargetResolver
 
         if (modeDecisionResult.HasContractError)
         {
-            return await ResolveContractFailure(
+            return await ResolveContractFailureAsync(
                     modeDecisionResult.ContractError!,
                     unityProject,
                     budget,
@@ -85,7 +85,7 @@ internal sealed class UnityIpcExecutionTargetResolver
         var decision = modeDecisionResult.Decision!;
         if (decision.Target == UnityExecutionTarget.Oneshot)
         {
-            var pluginFailure = await pluginVerifier.VerifyWithinBudget(
+            var pluginFailure = await pluginVerifier.VerifyWithinBudgetAsync(
                     unityProject.UnityProjectRoot,
                     budget,
                     cancellationToken)
@@ -99,7 +99,7 @@ internal sealed class UnityIpcExecutionTargetResolver
         return UnityIpcExecutionTargetResolutionResult.Success(decision.Target);
     }
 
-    private async ValueTask<UnityIpcExecutionTargetResolutionResult> ResolveContractFailure (
+    private async ValueTask<UnityIpcExecutionTargetResolutionResult> ResolveContractFailureAsync (
         UnityExecutionModeDecisionContractError contractError,
         ResolvedUnityProjectContext unityProject,
         UnityIpcExecutionBudget budget,
@@ -110,7 +110,7 @@ internal sealed class UnityIpcExecutionTargetResolver
                 UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
                 StringComparison.Ordinal))
         {
-            var pluginFailure = await pluginVerifier.VerifyWithinBudget(
+            var pluginFailure = await pluginVerifier.VerifyWithinBudgetAsync(
                     unityProject.UnityProjectRoot,
                     budget,
                     cancellationToken)

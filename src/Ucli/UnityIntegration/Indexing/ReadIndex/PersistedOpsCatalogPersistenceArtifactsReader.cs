@@ -16,14 +16,14 @@ internal sealed class PersistedOpsCatalogPersistenceArtifactsReader : IPersisted
     }
 
     /// <inheritdoc />
-    public async ValueTask<PersistedOpsCatalogPersistenceArtifacts> Read (
+    public async ValueTask<PersistedOpsCatalogPersistenceArtifacts> ReadAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
 
-        var manifestResult = await artifactReader.ReadInputsManifest(
+        var manifestResult = await artifactReader.ReadInputsManifestAsync(
                 unityProject,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -34,7 +34,7 @@ internal sealed class PersistedOpsCatalogPersistenceArtifactsReader : IPersisted
                 HasPersistedAssetLookupArtifacts: true);
         }
 
-        var assetSearchLookupResult = await artifactReader.ReadAssetSearchLookup(
+        var assetSearchLookupResult = await artifactReader.ReadAssetSearchLookupAsync(
                 unityProject,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -45,7 +45,7 @@ internal sealed class PersistedOpsCatalogPersistenceArtifactsReader : IPersisted
                 HasPersistedAssetLookupArtifacts: true);
         }
 
-        var guidPathLookupResult = await artifactReader.ReadGuidPathLookup(
+        var guidPathLookupResult = await artifactReader.ReadGuidPathLookupAsync(
                 unityProject,
                 cancellationToken)
             .ConfigureAwait(false);

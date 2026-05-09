@@ -33,7 +33,7 @@ internal sealed class SupervisorManagedDaemonProcess
         UnityProject = unityProject ?? throw new ArgumentNullException(nameof(unityProject));
         Session = session ?? throw new ArgumentNullException(nameof(session));
         ProcessId = processId;
-        MonitorTask = MonitorProcessById(
+        MonitorTask = MonitorProcessByIdAsync(
             onExited ?? throw new ArgumentNullException(nameof(onExited)),
             monitorCancellationTokenSource.Token);
     }
@@ -54,7 +54,7 @@ internal sealed class SupervisorManagedDaemonProcess
         UnityProject = unityProject ?? throw new ArgumentNullException(nameof(unityProject));
         Session = session ?? throw new ArgumentNullException(nameof(session));
         ProcessId = session.ProcessId;
-        MonitorTask = MonitorProcessByPing(
+        MonitorTask = MonitorProcessByPingAsync(
             daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient)),
             reachabilityClassifier ?? throw new ArgumentNullException(nameof(reachabilityClassifier)),
             onExited ?? throw new ArgumentNullException(nameof(onExited)),
@@ -101,7 +101,7 @@ internal sealed class SupervisorManagedDaemonProcess
         monitorCancellationTokenSource.Cancel();
     }
 
-    private async Task MonitorProcessById (
+    private async Task MonitorProcessByIdAsync (
         Func<SupervisorManagedDaemonProcess, Task> onExited,
         CancellationToken cancellationToken)
     {
@@ -132,7 +132,7 @@ internal sealed class SupervisorManagedDaemonProcess
         }
     }
 
-    private async Task MonitorProcessByPing (
+    private async Task MonitorProcessByPingAsync (
         IDaemonPingClient daemonPingClient,
         IDaemonReachabilityClassifier reachabilityClassifier,
         Func<SupervisorManagedDaemonProcess, Task> onExited,
@@ -150,7 +150,7 @@ internal sealed class SupervisorManagedDaemonProcess
 
                 try
                 {
-                    await daemonPingClient.Ping(
+                    await daemonPingClient.PingAsync(
                             UnityProject,
                             SupervisorConstants.PingTimeout,
                             Session.SessionToken,

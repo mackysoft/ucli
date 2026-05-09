@@ -41,7 +41,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
     /// <returns> The readiness probe result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    public async ValueTask<DaemonStartupReadinessProbeResult> WaitUntilReady (
+    public async ValueTask<DaemonStartupReadinessProbeResult> WaitUntilReadyAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         int? daemonProcessId = null,
@@ -86,7 +86,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
                 : DaemonTimeouts.ProbeAttemptTimeoutCap;
             try
             {
-                var pingResponse = await daemonPingInfoClient.PingAndRead(
+                var pingResponse = await daemonPingInfoClient.PingAndReadAsync(
                         unityProject,
                         attemptTimeout,
                         cancellationToken: cancellationToken)
@@ -242,7 +242,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             }
         }
 
-        var logReadResult = await unityLogReader.ReadTail(
+        var logReadResult = await unityLogReader.ReadTailAsync(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 cancellationToken: cancellationToken)

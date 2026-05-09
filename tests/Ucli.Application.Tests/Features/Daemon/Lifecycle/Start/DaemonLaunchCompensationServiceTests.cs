@@ -24,7 +24,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         var service = new DaemonLaunchCompensationService(processTerminationService, artifactCleaner);
         var context = CreateContext("fingerprint-compensation-success");
 
-        var result = await service.CleanupFailedLaunch(
+        var result = await service.CleanupFailedLaunchAsync(
             context,
             processId: 2468,
             expectedIssuedAtUtc: DateTimeOffset.UtcNow,
@@ -52,7 +52,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         };
         var service = new DaemonLaunchCompensationService(processTerminationService, artifactCleaner);
 
-        var result = await service.CleanupFailedLaunch(
+        var result = await service.CleanupFailedLaunchAsync(
             CreateContext("fingerprint-compensation-stop-fail"),
             processId: 8642,
             expectedIssuedAtUtc: DateTimeOffset.UtcNow,
@@ -80,7 +80,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         };
         var service = new DaemonLaunchCompensationService(processTerminationService, artifactCleaner);
 
-        var result = await service.CleanupFailedLaunch(
+        var result = await service.CleanupFailedLaunchAsync(
             CreateContext("fingerprint-compensation-cleanup-fail"),
             processId: 1010,
             expectedIssuedAtUtc: DateTimeOffset.UtcNow,
@@ -107,7 +107,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         };
         var service = new DaemonLaunchCompensationService(processTerminationService, artifactCleaner);
 
-        var result = await service.CleanupFailedLaunch(
+        var result = await service.CleanupFailedLaunchAsync(
             CreateContext("fingerprint-compensation-timeout-cap"),
             processId: 4040,
             expectedIssuedAtUtc: DateTimeOffset.UtcNow,
@@ -135,7 +135,7 @@ public sealed class DaemonLaunchCompensationServiceTests
 
         public TimeSpan LastTimeout { get; private set; }
 
-        public ValueTask<DaemonSessionStoreOperationResult> EnsureStopped (
+        public ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAsync (
             int? processId,
             DateTimeOffset? expectedIssuedAtUtc,
             TimeSpan timeout,
@@ -153,7 +153,7 @@ public sealed class DaemonLaunchCompensationServiceTests
 
         public int CallCount { get; private set; }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Cleanup (
+        public ValueTask<DaemonSessionStoreOperationResult> CleanupAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {

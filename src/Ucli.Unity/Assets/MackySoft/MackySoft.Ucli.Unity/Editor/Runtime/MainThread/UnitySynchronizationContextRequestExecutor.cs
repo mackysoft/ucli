@@ -53,7 +53,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <returns> The work-item result. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="workItem" /> is <see langword="null" />. </exception>
         /// <exception cref="OperationCanceledException"> Thrown when <paramref name="cancellationToken" /> is canceled. </exception>
-        public Task<T> Execute<T> (
+        public Task<T> ExecuteAsync<T> (
             Func<Task<T>> workItem,
             CancellationToken cancellationToken = default)
         {
@@ -148,17 +148,17 @@ namespace MackySoft.Ucli.Unity.Runtime
                 isRunningInvocation = true;
             }
 
-            _ = RunInvocation(invocation);
+            _ = RunInvocationAsync(invocation);
         }
 
         /// <summary> Runs one queued invocation and releases execution gate after completion. </summary>
         /// <param name="invocation"> The queued invocation payload. </param>
         /// <returns> A task that completes after one invocation run finishes. </returns>
-        private async Task RunInvocation (IMainThreadInvocation invocation)
+        private async Task RunInvocationAsync (IMainThreadInvocation invocation)
         {
             try
             {
-                await invocation.Run();
+                await invocation.RunAsync();
             }
             finally
             {
@@ -220,7 +220,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         private interface IMainThreadInvocation
         {
             /// <summary> Runs queued work item on the Unity main thread. </summary>
-            Task Run ();
+            Task RunAsync ();
 
             /// <summary> Completes the invocation as failed when main-thread scheduling cannot proceed. </summary>
             /// <param name="exception"> The scheduling failure. </param>
@@ -264,7 +264,7 @@ namespace MackySoft.Ucli.Unity.Runtime
 
             /// <summary> Runs posted request delegate and completes invocation result. </summary>
             /// <returns> A task that completes after invocation result has been published. </returns>
-            public async Task Run ()
+            public async Task RunAsync ()
             {
                 try
                 {

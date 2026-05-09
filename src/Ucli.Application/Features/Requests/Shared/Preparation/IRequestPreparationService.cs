@@ -13,7 +13,7 @@ internal interface IRequestPreparationService
     /// <param name="requestJson"> The raw request JSON read by the CLI host. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The request-preparation result. </returns>
-    ValueTask<RequestPreparationResult> Prepare (
+    ValueTask<RequestPreparationResult> PrepareAsync (
         string? projectPath,
         string requestJson,
         CancellationToken cancellationToken = default);

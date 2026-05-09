@@ -40,14 +40,14 @@ internal sealed class DaemonStopService : IDaemonStopService
     /// <param name="timeoutMilliseconds"> The optional normalized timeout value in milliseconds. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-stop execution result. </returns>
-    public async ValueTask<DaemonStopExecutionResult> Stop (
+    public async ValueTask<DaemonStopExecutionResult> StopAsync (
         string? projectPath,
         int? timeoutMilliseconds,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var contextResult = await daemonCommandExecutionContextResolver.Resolve(
+        var contextResult = await daemonCommandExecutionContextResolver.ResolveAsync(
                 UcliCommandIds.DaemonStop,
                 projectPath,
                 timeoutMilliseconds,
@@ -63,7 +63,7 @@ internal sealed class DaemonStopService : IDaemonStopService
         DaemonStopResult? stopResult = null;
         if (deadline.TryGetRemainingTimeout(out var projectLifecycleTimeout))
         {
-            stopResult = await daemonProjectLifecycleGateway.TryStopProject(
+            stopResult = await daemonProjectLifecycleGateway.TryStopProjectAsync(
                     executionContext.Context.UnityProject,
                     projectLifecycleTimeout,
                     cancellationToken)
@@ -78,7 +78,7 @@ internal sealed class DaemonStopService : IDaemonStopService
                     "Timed out before daemon stop fallback could begin."));
             }
 
-            stopResult = await daemonStopOperation.Stop(
+            stopResult = await daemonStopOperation.StopAsync(
                     executionContext.Context.UnityProject,
                     directStopTimeout,
                     cancellationToken)

@@ -21,7 +21,7 @@ internal sealed class TestMutationReadPostconditionStore : IMutationReadPostcond
     public MutationReadPostconditionStoreOperationResult WriteResult { get; set; }
         = MutationReadPostconditionStoreOperationResult.Success();
 
-    public ValueTask<MutationReadPostconditionReadResult> ReadOrNull (
+    public ValueTask<MutationReadPostconditionReadResult> ReadOrNullAsync (
         string storageRoot,
         string projectFingerprint,
         CancellationToken cancellationToken = default)
@@ -33,7 +33,7 @@ internal sealed class TestMutationReadPostconditionStore : IMutationReadPostcond
         return ValueTask.FromResult(ReadResult);
     }
 
-    public ValueTask<MutationReadPostconditionStoreOperationResult> WriteMerged (
+    public ValueTask<MutationReadPostconditionStoreOperationResult> WriteMergedAsync (
         string storageRoot,
         string projectFingerprint,
         OperationExecutionReadPostcondition readPostcondition,

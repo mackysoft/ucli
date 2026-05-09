@@ -33,7 +33,7 @@ internal sealed class DaemonStartCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.StartSubcommand)]
-    public async Task<int> Start (
+    public async Task<int> StartAsync (
         string? projectPath = null,
         string? timeout = null,
         string? editorMode = null,
@@ -62,7 +62,7 @@ internal sealed class DaemonStartCommand
             return errorResult.ExitCode;
         }
 
-        var executionResult = await daemonStartService.Start(
+        var executionResult = await daemonStartService.StartAsync(
                 projectPath,
                 normalizedTimeoutResult.TimeoutMilliseconds,
                 normalizedEditorModeResult.EditorMode,

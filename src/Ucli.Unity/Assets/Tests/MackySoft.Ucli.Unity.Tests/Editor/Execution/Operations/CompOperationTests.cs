@@ -47,7 +47,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 alias: "ensured");
             var context = scope.CreateExecutionContext();
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: true, scenePath);
             Assert.That(context.TryGetTemporaryAliasState("ensured", out var temporaryAliasState), Is.True);
@@ -92,8 +92,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 alias: "ensured");
             var context = scope.CreateExecutionContext();
 
-            var firstResult = await operation.Plan(firstRequest, context, CancellationToken.None);
-            var secondResult = await operation.Plan(secondRequest, context, CancellationToken.None);
+            var firstResult = await operation.PlanAsync(firstRequest, context, CancellationToken.None);
+            var secondResult = await operation.PlanAsync(secondRequest, context, CancellationToken.None);
 
             AssertSuccess(firstResult, applied: false, changed: true, scenePath);
             AssertSuccess(secondResult, applied: false, changed: false, scenePath);
@@ -130,7 +130,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 alias: "ensured");
             var context = scope.CreateExecutionContext();
 
-            var result = await operation.Call(requestOperation, context, CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: true, changed: false, scenePath);
             Assert.That(context.AliasStore.TryGet("ensured", out var resolvedReference), Is.True);
@@ -184,8 +184,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
             var context = scope.CreateExecutionContext();
 
-            var ensureResult = await ensureOperation.Plan(ensureRequest, context, CancellationToken.None);
-            var setResult = await setOperation.Plan(setRequest, context, CancellationToken.None);
+            var ensureResult = await ensureOperation.PlanAsync(ensureRequest, context, CancellationToken.None);
+            var setResult = await setOperation.PlanAsync(setRequest, context, CancellationToken.None);
 
             AssertSuccess(ensureResult, applied: false, changed: true, scenePath);
             AssertSuccess(setResult, applied: false, changed: true, scenePath);
@@ -217,7 +217,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     type = IndexTypeIdFormatter.Format(typeof(GameObject)),
                 });
 
-            var result = await operation.Validate(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.ValidateAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-ensure");
         });
@@ -417,7 +417,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = await operation.Call(requestOperation, context, CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: true, changed: true, scenePath);
             Assert.That(target.IntegerValue, Is.EqualTo(42));
@@ -492,7 +492,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = await operation.Call(requestOperation, context, CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: true, changed: true, scenePath);
             Assert.That(target.ObjectReferenceValue, Is.EqualTo(child));
@@ -540,7 +540,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 allowRequestLocalAliases: false);
 
-            var result = await operation.Call(requestOperation, context, CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-set");
             Assert.That(
@@ -588,7 +588,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: true, scenePath);
             var targetGlobalObjectId = UnityObjectReferenceResolver.CreateResolvedReference(target).GlobalObjectId;
@@ -638,7 +638,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = await operation.Call(requestOperation, context, CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-set");
             Assert.That(target.ObjectReferenceValue, Is.Null);
@@ -740,7 +740,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
 
             using var executionContext = new OperationExecutionContext();
-            var result = await operation.Validate(requestOperation, executionContext, CancellationToken.None);
+            var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-set");
         });
@@ -777,7 +777,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = await operation.Call(requestOperation, context, CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-set");
             Assert.That(target.IntegerValue, Is.EqualTo(1));
@@ -815,7 +815,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false, scenePath);
         });
@@ -864,8 +864,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var ensureResult = await ensureOperation.Plan(ensureRequest, context, CancellationToken.None);
-            var setResult = await setOperation.Plan(setRequest, context, CancellationToken.None);
+            var ensureResult = await ensureOperation.PlanAsync(ensureRequest, context, CancellationToken.None);
+            var setResult = await setOperation.PlanAsync(setRequest, context, CancellationToken.None);
 
             AssertSuccess(ensureResult, applied: false, changed: true, scenePath);
             AssertSuccess(setResult, applied: false, changed: true, scenePath);
@@ -961,10 +961,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var firstEnsureResult = await ensureOperation.Plan(firstEnsureRequest, context, CancellationToken.None);
-            var firstSetResult = await setOperation.Plan(setRequest, context, CancellationToken.None);
-            var secondEnsureResult = await ensureOperation.Plan(secondEnsureRequest, context, CancellationToken.None);
-            var secondSetResult = await setOperation.Plan(secondSetRequest, context, CancellationToken.None);
+            var firstEnsureResult = await ensureOperation.PlanAsync(firstEnsureRequest, context, CancellationToken.None);
+            var firstSetResult = await setOperation.PlanAsync(setRequest, context, CancellationToken.None);
+            var secondEnsureResult = await ensureOperation.PlanAsync(secondEnsureRequest, context, CancellationToken.None);
+            var secondSetResult = await setOperation.PlanAsync(secondSetRequest, context, CancellationToken.None);
 
             AssertSuccess(firstEnsureResult, applied: false, changed: true, scenePath);
             AssertSuccess(firstSetResult, applied: false, changed: true, scenePath);
@@ -1083,10 +1083,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var firstResult = await operation.Plan(firstRequest, context, CancellationToken.None);
-            var secondResult = await operation.Plan(secondRequest, context, CancellationToken.None);
-            var thirdResult = await operation.Plan(thirdRequest, context, CancellationToken.None);
-            var fourthResult = await operation.Plan(fourthRequest, context, CancellationToken.None);
+            var firstResult = await operation.PlanAsync(firstRequest, context, CancellationToken.None);
+            var secondResult = await operation.PlanAsync(secondRequest, context, CancellationToken.None);
+            var thirdResult = await operation.PlanAsync(thirdRequest, context, CancellationToken.None);
+            var fourthResult = await operation.PlanAsync(fourthRequest, context, CancellationToken.None);
 
             AssertSuccess(firstResult, applied: false, changed: true, scenePath);
             AssertSuccess(secondResult, applied: false, changed: true, scenePath);
@@ -1115,7 +1115,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
 
             using var executionContext = new OperationExecutionContext();
-            var result = await operation.Plan(requestOperation, executionContext, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, executionContext, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Result.HasValue, Is.True);
@@ -1142,7 +1142,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
 
             using var executionContext = new OperationExecutionContext();
-            var result = await operation.Plan(requestOperation, executionContext, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, executionContext, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True, result.Failure?.Message);
             Assert.That(result.Result.HasValue, Is.True);

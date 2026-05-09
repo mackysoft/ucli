@@ -53,7 +53,7 @@ public sealed class CallServiceTests
             timeProvider,
             preflightService: preflightService);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("oneshot"),
@@ -127,7 +127,7 @@ public sealed class CallServiceTests
             PhaseExecutionPreflightResult.Success(preparedRequest),
             ipcRequestExecutor);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("daemon"),
@@ -206,7 +206,7 @@ public sealed class CallServiceTests
             PhaseExecutionPreflightResult.Success(preparedRequest),
             ipcRequestExecutor);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("daemon"),
@@ -256,7 +256,7 @@ public sealed class CallServiceTests
             PhaseExecutionPreflightResult.Success(preparedRequest),
             ipcRequestExecutor);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
@@ -303,7 +303,7 @@ public sealed class CallServiceTests
             PhaseExecutionPreflightResult.Success(preparedRequest),
             ipcRequestExecutor);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
@@ -336,7 +336,7 @@ public sealed class CallServiceTests
             PhaseExecutionPreflightResult.Success(preparedRequest),
             ipcRequestExecutor);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
@@ -374,7 +374,7 @@ public sealed class CallServiceTests
             PhaseExecutionPreflightResult.Success(preparedRequest),
             ipcRequestExecutor);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
@@ -415,7 +415,7 @@ public sealed class CallServiceTests
             preflightResult,
             new SpyUnityIpcRequestExecutor());
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
@@ -451,7 +451,7 @@ public sealed class CallServiceTests
             preflightResult,
             new SpyUnityIpcRequestExecutor());
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
@@ -488,7 +488,7 @@ public sealed class CallServiceTests
             preflightResult,
             new SpyUnityIpcRequestExecutor());
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("daemon"),
@@ -543,7 +543,7 @@ public sealed class CallServiceTests
             PhaseExecutionPreflightResult.Success(preparedRequest),
             ipcRequestExecutor);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
@@ -611,7 +611,7 @@ public sealed class CallServiceTests
             PhaseExecutionPreflightResult.Success(preparedRequest),
             ipcRequestExecutor);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
@@ -670,7 +670,7 @@ public sealed class CallServiceTests
             ipcRequestExecutor,
             timeProvider);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("oneshot"),
@@ -718,7 +718,7 @@ public sealed class CallServiceTests
             timeProvider,
             preflightService: preflightService);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("oneshot"),
@@ -775,7 +775,7 @@ public sealed class CallServiceTests
             ipcRequestExecutor,
             mutationReadPostconditionStore: readPostconditionStore);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("oneshot"),
@@ -840,7 +840,7 @@ public sealed class CallServiceTests
             ipcRequestExecutor,
             mutationReadPostconditionStore: readPostconditionStore);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("oneshot"),
@@ -1075,7 +1075,7 @@ public sealed class CallServiceTests
             throw new NotSupportedException();
         }
 
-        public ValueTask<RequestPreparationResult> Prepare (
+        public ValueTask<RequestPreparationResult> PrepareAsync (
             string? projectPath,
             string requestJson,
             CancellationToken cancellationToken = default)
@@ -1100,7 +1100,7 @@ public sealed class CallServiceTests
 
         public bool ReceivedFailFast { get; private set; }
 
-        public ValueTask<PhaseExecutionPreflightResult> Prepare (
+        public ValueTask<PhaseExecutionPreflightResult> PrepareAsync (
             PreparedRequestContext preparedRequest,
             UnityExecutionMode mode,
             ExecutionDeadline deadline,
@@ -1135,7 +1135,7 @@ public sealed class CallServiceTests
 
         public Action<InvocationContext>? OnExecute { get; init; }
 
-        public ValueTask<UnityRequestExecutionResult> Execute (
+        public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
             UcliCommand command,
             UnityExecutionMode mode,
             TimeSpan timeout,

@@ -4,14 +4,14 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 internal interface IReadIndexFreshnessEvaluator
 {
     /// <summary> Observes freshness for one catalog or asset lookup artifact without applying read-index mode constraints. </summary>
-    ValueTask<IndexFreshnessEvaluationResult> Observe (
+    ValueTask<IndexFreshnessEvaluationResult> ObserveAsync (
         ResolvedUnityProjectContext unityProject,
         IndexFreshnessTarget target,
         string? persistedSourceInputsHash,
         CancellationToken cancellationToken = default);
 
     /// <summary> Observes freshness for one scene-tree-lite artifact without applying read-index mode constraints. </summary>
-    ValueTask<IndexFreshnessEvaluationResult> ObserveSceneTreeLite (
+    ValueTask<IndexFreshnessEvaluationResult> ObserveSceneTreeLiteAsync (
         ResolvedUnityProjectContext unityProject,
         string scenePath,
         string? persistedSourceInputsHash,

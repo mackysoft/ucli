@@ -13,7 +13,7 @@ internal interface IDaemonCleanupOperation
     /// <para> <see cref="DaemonCleanupStatus.Skipped" /> is a successful non-destructive outcome used when cleanup cannot safely prove that deleting canonical artifacts is allowed. </para>
     /// <para> <see cref="DaemonCleanupStatus.Failed" /> is reserved for timeout, I/O, and unexpected internal failures. </para>
     /// </returns>
-    ValueTask<DaemonCleanupResult> Cleanup (
+    ValueTask<DaemonCleanupResult> CleanupAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);

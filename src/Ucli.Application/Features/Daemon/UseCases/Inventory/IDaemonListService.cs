@@ -8,7 +8,7 @@ internal interface IDaemonListService
     /// <param name="timeoutMilliseconds"> The optional normalized timeout value in milliseconds. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-list execution result. </returns>
-    ValueTask<DaemonListExecutionResult> GetList (
+    ValueTask<DaemonListExecutionResult> GetListAsync (
         string? projectPath,
         int? timeoutMilliseconds,
         CancellationToken cancellationToken = default);

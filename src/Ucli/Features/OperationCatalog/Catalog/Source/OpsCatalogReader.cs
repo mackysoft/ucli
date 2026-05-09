@@ -20,7 +20,7 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
     }
 
     /// <inheritdoc />
-    public async ValueTask<OpsCatalogFetchResult> Read (
+    public async ValueTask<OpsCatalogFetchResult> ReadAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UnityExecutionMode mode,
@@ -34,7 +34,7 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var executionResult = await ipcRequestExecutor.Execute(
+        var executionResult = await ipcRequestExecutor.ExecuteAsync(
                 UcliCommandIds.Ops,
                 mode,
                 timeout,

@@ -7,7 +7,7 @@ namespace MackySoft.Ucli.UnityIntegration.Indexing.Core;
 internal interface IReadIndexArtifactWriter
 {
     /// <summary> Writes one ops catalog and an optional input manifest. </summary>
-    ValueTask WriteOpsCatalog (
+    ValueTask WriteOpsCatalogAsync (
         string storageRoot,
         string projectFingerprint,
         DateTimeOffset generatedAtUtc,
@@ -17,7 +17,7 @@ internal interface IReadIndexArtifactWriter
         CancellationToken cancellationToken = default);
 
     /// <summary> Writes asset lookup artifacts and the input manifest. </summary>
-    ValueTask WriteAssetLookups (
+    ValueTask WriteAssetLookupsAsync (
         string storageRoot,
         string projectFingerprint,
         DateTimeOffset generatedAtUtc,
@@ -27,7 +27,7 @@ internal interface IReadIndexArtifactWriter
         CancellationToken cancellationToken = default);
 
     /// <summary> Writes one scene-tree-lite lookup artifact. </summary>
-    ValueTask WriteSceneTreeLite (
+    ValueTask WriteSceneTreeLiteAsync (
         string storageRoot,
         string projectFingerprint,
         DateTimeOffset generatedAtUtc,

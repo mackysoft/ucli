@@ -8,7 +8,7 @@ public sealed class InternalSupervisorProcessContractTests
     [Trait("Size", "Medium")]
     public async Task InvalidInternalSupervisorInvocation_ReturnsExitCodeOneWithoutPublicCliOutput ()
     {
-        var result = await CliProcessRunner.RunCommand(SupervisorConstants.InternalServeFlag);
+        var result = await CliProcessRunner.RunCommandAsync(SupervisorConstants.InternalServeFlag);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Equal(string.Empty, result.StdOut);

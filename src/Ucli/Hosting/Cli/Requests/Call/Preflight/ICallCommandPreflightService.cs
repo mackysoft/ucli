@@ -8,7 +8,7 @@ internal interface ICallCommandPreflightService
     /// <param name="requestJson"> The raw request JSON read by the CLI host. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The preflight result containing either the base payload or one normalized failure. </returns>
-    ValueTask<CallCommandPreflightResult> Prepare (
+    ValueTask<CallCommandPreflightResult> PrepareAsync (
         string? projectPath,
         string requestJson,
         CancellationToken cancellationToken = default);

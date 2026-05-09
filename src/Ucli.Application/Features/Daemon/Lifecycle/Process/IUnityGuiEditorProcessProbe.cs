@@ -4,7 +4,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 internal interface IUnityGuiEditorProcessProbe
 {
     /// <summary> Verifies one marker candidate. </summary>
-    ValueTask<UnityGuiEditorProcessProbeResult> Probe (
+    ValueTask<UnityGuiEditorProcessProbeResult> ProbeAsync (
         UnityEditorInstanceMarker marker,
         CancellationToken cancellationToken = default);
 }

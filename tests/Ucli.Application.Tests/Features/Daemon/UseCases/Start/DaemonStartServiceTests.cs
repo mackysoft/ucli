@@ -33,7 +33,7 @@ public sealed class DaemonStartServiceTests
         };
         var service = CreateService(resolver, supervisorProjectGateway, mapper);
 
-        var result = await service.Start(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None);
+        var result = await service.StartAsync(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStartExecutionOutput>(result.Output);
@@ -64,7 +64,7 @@ public sealed class DaemonStartServiceTests
         };
         var service = CreateService(resolver, supervisorProjectGateway, mapper);
 
-        var result = await service.Start(
+        var result = await service.StartAsync(
             projectPath: null,
             timeoutMilliseconds: null,
             editorMode: DaemonEditorMode.Gui,
@@ -85,7 +85,7 @@ public sealed class DaemonStartServiceTests
         var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway();
         var service = CreateService(resolver, supervisorProjectGateway, mapper);
 
-        var result = await service.Start(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None);
+        var result = await service.StartAsync(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -111,7 +111,7 @@ public sealed class DaemonStartServiceTests
         };
         var service = CreateService(resolver, supervisorProjectGateway, mapper);
 
-        var result = await service.Start(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None);
+        var result = await service.StartAsync(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStartExecutionOutput>(result.Output);
@@ -135,7 +135,7 @@ public sealed class DaemonStartServiceTests
         };
         var service = CreateService(resolver, supervisorProjectGateway, mapper);
 
-        var result = await service.Start(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None);
+        var result = await service.StartAsync(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -183,7 +183,7 @@ public sealed class DaemonStartServiceTests
             mapper,
             daemonDiagnosisOutputMapper: diagnosisOutputMapper);
 
-        var result = await service.Start(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None);
+        var result = await service.StartAsync(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error!.Code);
@@ -218,7 +218,7 @@ public sealed class DaemonStartServiceTests
         };
         var service = CreateService(resolver, supervisorProjectGateway, mapper, pluginVerifier, timeProvider: timeProvider);
 
-        var result = await service.Start(
+        var result = await service.StartAsync(
             projectPath: "/tmp/sandbox-unity",
             timeoutMilliseconds: 700,
             editorMode: null,
@@ -250,7 +250,7 @@ public sealed class DaemonStartServiceTests
         var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway();
         var service = CreateService(resolver, supervisorProjectGateway, mapper, pluginVerifier);
 
-        var result = await service.Start(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None);
+        var result = await service.StartAsync(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -281,7 +281,7 @@ public sealed class DaemonStartServiceTests
         };
         var service = CreateService(resolver, supervisorProjectGateway, mapper, pluginVerifier, timeProvider: timeProvider);
 
-        var resultTask = service.Start(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None).AsTask();
+        var resultTask = service.StartAsync(projectPath: null, timeoutMilliseconds: null, editorMode: null, cancellationToken: CancellationToken.None).AsTask();
         await TestAwaiter.WaitAsync(pluginVerifier.Started!.Task, "Unity plugin verification start", SignalWaitTimeout);
         timeProvider.Advance(context.Timeout);
 
@@ -327,7 +327,7 @@ public sealed class DaemonStartServiceTests
 
         public string? LastUnityProjectRoot { get; private set; }
 
-        public ValueTask<UnityPluginVerificationResult> Verify (
+        public ValueTask<UnityPluginVerificationResult> VerifyAsync (
             string unityProjectRoot,
             CancellationToken cancellationToken = default)
         {
@@ -339,10 +339,10 @@ public sealed class DaemonStartServiceTests
                 return ValueTask.FromResult(Result);
             }
 
-            return LocateCore(cancellationToken);
+            return LocateCoreAsync(cancellationToken);
         }
 
-        private async ValueTask<UnityPluginVerificationResult> LocateCore (CancellationToken cancellationToken)
+        private async ValueTask<UnityPluginVerificationResult> LocateCoreAsync (CancellationToken cancellationToken)
         {
             try
             {

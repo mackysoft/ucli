@@ -32,7 +32,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        protected override Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
             GoCreateArgs args,
             OperationExecutionContext executionContext,
@@ -52,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        protected override Task<OperationPhaseStepResult> Plan (
+        protected override Task<OperationPhaseStepResult> PlanAsync (
             NormalizedOperation operation,
             GoCreateArgs args,
             OperationExecutionContext executionContext,
@@ -121,7 +121,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        protected override Task<OperationPhaseStepResult> Call (
+        protected override Task<OperationPhaseStepResult> CallAsync (
             NormalizedOperation operation,
             GoCreateArgs args,
             OperationExecutionContext executionContext,

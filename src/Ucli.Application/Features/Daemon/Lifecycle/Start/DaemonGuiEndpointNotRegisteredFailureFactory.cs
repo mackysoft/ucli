@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 internal static class DaemonGuiEndpointNotRegisteredFailureFactory
 {
     /// <summary> Creates the timeout error returned when a GUI endpoint is not registered within the start budget. </summary>
-    public static async ValueTask<DaemonStartResult> CreateFailure (
+    public static async ValueTask<DaemonStartResult> CreateFailureAsync (
         ResolvedUnityProjectContext unityProject,
         IDaemonDiagnosisStore daemonDiagnosisStore,
         TimeProvider timeProvider,
@@ -28,7 +28,7 @@ internal static class DaemonGuiEndpointNotRegisteredFailureFactory
             processId,
             editorInstancePath,
             timeProvider.GetUtcNow());
-        var diagnosisWriteResult = await daemonDiagnosisStore.Write(
+        var diagnosisWriteResult = await daemonDiagnosisStore.WriteAsync(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 diagnosis,

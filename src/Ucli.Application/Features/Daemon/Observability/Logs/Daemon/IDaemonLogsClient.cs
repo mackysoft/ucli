@@ -11,7 +11,7 @@ internal interface IDaemonLogsClient
     /// <param name="timeout"> The IPC timeout used by the request. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by caller. </param>
     /// <returns> The daemon-log read attempt result. </returns>
-    ValueTask<DaemonLogsClientReadResult> Read (
+    ValueTask<DaemonLogsClientReadResult> ReadAsync (
         ResolvedUnityProjectContext unityProject,
         IpcDaemonLogsReadRequest query,
         TimeSpan timeout,

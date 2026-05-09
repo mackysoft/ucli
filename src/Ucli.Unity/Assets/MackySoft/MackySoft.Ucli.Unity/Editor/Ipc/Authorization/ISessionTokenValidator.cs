@@ -10,7 +10,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="sessionToken"> The token presented by client connection. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> <see langword="true" /> when token is accepted; otherwise <see langword="false" />. </returns>
-        Task<bool> Validate (
+        Task<bool> ValidateAsync (
             string sessionToken,
             CancellationToken cancellationToken = default);
     }

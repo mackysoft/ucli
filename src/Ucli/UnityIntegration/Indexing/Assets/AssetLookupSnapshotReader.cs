@@ -20,7 +20,7 @@ internal sealed class AssetLookupSnapshotReader : IAssetLookupSnapshotReader
     }
 
     /// <inheritdoc />
-    public async ValueTask<AssetLookupSnapshotFetchResult> Read (
+    public async ValueTask<AssetLookupSnapshotFetchResult> ReadAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,
@@ -34,7 +34,7 @@ internal sealed class AssetLookupSnapshotReader : IAssetLookupSnapshotReader
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var executionResult = await ipcRequestExecutor.Execute(
+        var executionResult = await ipcRequestExecutor.ExecuteAsync(
                 command,
                 mode,
                 timeout,

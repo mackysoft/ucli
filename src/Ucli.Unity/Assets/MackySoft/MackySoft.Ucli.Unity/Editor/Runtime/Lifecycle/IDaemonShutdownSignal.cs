@@ -12,6 +12,6 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <summary> Waits until daemon shutdown is requested. </summary>
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> A task that completes when shutdown is requested. </returns>
-        Task Wait (CancellationToken cancellationToken = default);
+        Task WaitAsync (CancellationToken cancellationToken = default);
     }
 }

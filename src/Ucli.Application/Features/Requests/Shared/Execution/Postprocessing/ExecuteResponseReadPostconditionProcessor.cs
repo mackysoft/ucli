@@ -7,7 +7,7 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Postproc
 /// <summary> Applies mutation read-postcondition persistence policy to converted execute responses. </summary>
 internal static class ExecuteResponseReadPostconditionProcessor
 {
-    public static async ValueTask<(ExecuteResponseConversionResult Response, OperationExecutionError? PersistenceError)> Persist (
+    public static async ValueTask<(ExecuteResponseConversionResult Response, OperationExecutionError? PersistenceError)> PersistAsync (
         ExecuteResponseConversionResult response,
         IMutationReadPostconditionStore store,
         string storageRoot,
@@ -20,7 +20,7 @@ internal static class ExecuteResponseReadPostconditionProcessor
 
         var persistenceFailure = response.ReadPostcondition == null || response.ReadPostcondition.Requirements.Count == 0
             ? null
-            : (await store.WriteMerged(
+            : (await store.WriteMergedAsync(
                     storageRoot,
                     projectFingerprint,
                     response.ReadPostcondition,

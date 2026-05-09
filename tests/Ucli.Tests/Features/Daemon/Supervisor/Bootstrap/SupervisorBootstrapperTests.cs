@@ -38,7 +38,7 @@ public sealed class SupervisorBootstrapperTests
             new SupervisorEndpointResolver(),
             timeProvider);
 
-        var resultTask = bootstrapper.EnsureReady(
+        var resultTask = bootstrapper.EnsureReadyAsync(
                 scope.FullPath,
                 TimeSpan.FromMilliseconds(150),
                 CancellationToken.None)
@@ -83,7 +83,7 @@ public sealed class SupervisorBootstrapperTests
             new SupervisorEndpointResolver(),
             timeProvider);
 
-        var resultTask = bootstrapper.EnsureReady(
+        var resultTask = bootstrapper.EnsureReadyAsync(
                 scope.FullPath,
                 TimeSpan.FromMilliseconds(500),
                 CancellationToken.None)
@@ -122,7 +122,7 @@ public sealed class SupervisorBootstrapperTests
             new SupervisorBootstrapLockProvider(),
             new SupervisorEndpointResolver());
 
-        var result = await bootstrapper.EnsureReady(
+        var result = await bootstrapper.EnsureReadyAsync(
             scope.FullPath,
             TimeSpan.FromMilliseconds(150),
             CancellationToken.None);
@@ -177,7 +177,7 @@ public sealed class SupervisorBootstrapperTests
             new SupervisorEndpointResolver(),
             timeProvider);
 
-        var resultTask = bootstrapper.EnsureReady(
+        var resultTask = bootstrapper.EnsureReadyAsync(
                 scope.FullPath,
                 TimeSpan.FromSeconds(30),
                 CancellationToken.None)
@@ -239,7 +239,7 @@ public sealed class SupervisorBootstrapperTests
             new SupervisorEndpointResolver(),
             timeProvider);
 
-        var resultTask = bootstrapper.EnsureReady(
+        var resultTask = bootstrapper.EnsureReadyAsync(
                 scope.FullPath,
                 TimeSpan.FromSeconds(60),
                 CancellationToken.None)
@@ -294,7 +294,7 @@ public sealed class SupervisorBootstrapperTests
             new SupervisorEndpointResolver(),
             timeProvider);
 
-        var resultTask = bootstrapper.EnsureReady(
+        var resultTask = bootstrapper.EnsureReadyAsync(
                 scope.FullPath,
                 TimeSpan.FromSeconds(60),
                 CancellationToken.None)
@@ -339,7 +339,7 @@ public sealed class SupervisorBootstrapperTests
             new SupervisorEndpointResolver(),
             timeProvider);
 
-        var resultTask = bootstrapper.EnsureReady(
+        var resultTask = bootstrapper.EnsureReadyAsync(
                 scope.FullPath,
                 TimeSpan.FromMilliseconds(50),
                 CancellationToken.None)
@@ -402,7 +402,7 @@ public sealed class SupervisorBootstrapperTests
             new SupervisorBootstrapLockProvider(),
             endpointResolver);
 
-        var result = await bootstrapper.EnsureReady(
+        var result = await bootstrapper.EnsureReadyAsync(
             scope.FullPath,
             TimeSpan.FromSeconds(1),
             CancellationToken.None);
@@ -443,6 +443,14 @@ public sealed class SupervisorBootstrapperTests
             }
         }
 
+        // NOTE: ManualTimeProvider can complete the observed task between timer disposal and
+        // task completion publication. Give that completion a short chance to surface before
+        // treating the missing active timer as a bootstrap polling failure.
+        for (var i = 0; i < 10 && !observedTask.IsCompleted && timeProvider.ActiveTimerCount == 0; i++)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(1), cancellationToken).ConfigureAwait(false);
+        }
+
         cancellationToken.ThrowIfCancellationRequested();
         Assert.True(
             observedTask.IsCompleted || timeProvider.ActiveTimerCount > 0,
@@ -457,7 +465,7 @@ public sealed class SupervisorBootstrapperTests
 
         public TaskCompletionSource? LaunchStarted { get; set; }
 
-        public async ValueTask<ExecutionError?> Launch (
+        public async ValueTask<ExecutionError?> LaunchAsync (
             string storageRoot,
             CancellationToken cancellationToken = default)
         {

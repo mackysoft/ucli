@@ -40,7 +40,7 @@ public sealed class SupervisorProjectCoordinatorTests
             diagnosisStore,
             new StubDaemonSessionStore());
 
-        var result = await coordinator.EnsureRunning(
+        var result = await coordinator.EnsureRunningAsync(
                 unityProject,
                 TimeSpan.FromMilliseconds(500),
                 editorMode: null,
@@ -53,7 +53,7 @@ public sealed class SupervisorProjectCoordinatorTests
 
         StopProcess(process);
         await TestProcessAwaiter.WaitForExitAsync(process, "Managed daemon helper process", ProcessExitTimeout);
-        await coordinator.AwaitManagedProcesses();
+        await coordinator.AwaitManagedProcessesAsync();
         Assert.False(coordinator.HasManagedProjects);
     }
 
@@ -82,7 +82,7 @@ public sealed class SupervisorProjectCoordinatorTests
             new StubDaemonDiagnosisStore(),
             new StubDaemonSessionStore());
 
-        var result = await coordinator.EnsureRunning(
+        var result = await coordinator.EnsureRunningAsync(
                 unityProject,
                 TimeSpan.FromMilliseconds(500),
                 editorMode: null,
@@ -93,7 +93,7 @@ public sealed class SupervisorProjectCoordinatorTests
         Assert.True(coordinator.HasManagedProjects);
 
         releasePing.TrySetResult();
-        await coordinator.AwaitManagedProcesses();
+        await coordinator.AwaitManagedProcessesAsync();
         Assert.False(coordinator.HasManagedProjects);
     }
 
@@ -119,7 +119,7 @@ public sealed class SupervisorProjectCoordinatorTests
             new StubDaemonDiagnosisStore(),
             new StubDaemonSessionStore());
 
-        var result = await coordinator.EnsureRunning(
+        var result = await coordinator.EnsureRunningAsync(
                 unityProject,
                 TimeSpan.FromMilliseconds(500),
                 editorMode: DaemonEditorMode.Gui,
@@ -171,7 +171,7 @@ public sealed class SupervisorProjectCoordinatorTests
             new StubDaemonSessionStore());
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        var ensureRunningTask = coordinator.EnsureRunning(
+        var ensureRunningTask = coordinator.EnsureRunningAsync(
                 unityProject,
                 TimeSpan.FromMilliseconds(500),
                 editorMode: null,
@@ -201,7 +201,7 @@ public sealed class SupervisorProjectCoordinatorTests
             stopRelease.TrySetResult();
             StopProcess(process);
             await TestProcessAwaiter.WaitForExitAsync(process, "Managed daemon helper process", ProcessExitTimeout);
-            await coordinator.AwaitManagedProcesses();
+            await coordinator.AwaitManagedProcessesAsync();
         }
 
         Assert.False(coordinator.HasActiveProjectWork);
@@ -249,7 +249,7 @@ public sealed class SupervisorProjectCoordinatorTests
 
         try
         {
-            var result = await coordinator.EnsureRunning(
+            var result = await coordinator.EnsureRunningAsync(
                     unityProject,
                     TimeSpan.FromMilliseconds(70),
                     editorMode: null,
@@ -265,7 +265,7 @@ public sealed class SupervisorProjectCoordinatorTests
             stopRelease.TrySetResult();
             StopProcess(process);
             await TestProcessAwaiter.WaitForExitAsync(process, "Managed daemon helper process", ProcessExitTimeout);
-            await coordinator.AwaitManagedProcesses();
+            await coordinator.AwaitManagedProcessesAsync();
         }
 
         Assert.False(coordinator.HasActiveProjectWork);
@@ -305,7 +305,7 @@ public sealed class SupervisorProjectCoordinatorTests
 
         try
         {
-            var result = await coordinator.EnsureRunning(
+            var result = await coordinator.EnsureRunningAsync(
                     unityProject,
                     TimeSpan.FromMilliseconds(500),
                     editorMode: null,
@@ -321,7 +321,7 @@ public sealed class SupervisorProjectCoordinatorTests
             stopRelease.TrySetResult();
             StopProcess(process);
             await TestProcessAwaiter.WaitForExitAsync(process, "Managed daemon helper process", ProcessExitTimeout);
-            await coordinator.AwaitManagedProcesses();
+            await coordinator.AwaitManagedProcessesAsync();
         }
 
         Assert.False(coordinator.HasActiveProjectWork);
@@ -368,7 +368,7 @@ public sealed class SupervisorProjectCoordinatorTests
 
         try
         {
-            var ensureRunningResult = await coordinator.EnsureRunning(
+            var ensureRunningResult = await coordinator.EnsureRunningAsync(
                     unityProject,
                     TimeSpan.FromMilliseconds(70),
                     editorMode: null,
@@ -377,7 +377,7 @@ public sealed class SupervisorProjectCoordinatorTests
             Assert.Equal(ExecutionErrorKind.Timeout, ensureRunningResult.Error!.Kind);
             await TestAwaiter.WaitAsync(stopStarted.Task, "Daemon stop failure compensation start", SignalWaitTimeout);
 
-            var stopTask = coordinator.StopProject(
+            var stopTask = coordinator.StopProjectAsync(
                     unityProject,
                     TimeSpan.FromMilliseconds(50),
                     CancellationToken.None)
@@ -397,7 +397,7 @@ public sealed class SupervisorProjectCoordinatorTests
             stopRelease.TrySetResult();
             StopProcess(process);
             await TestProcessAwaiter.WaitForExitAsync(process, "Managed daemon helper process", ProcessExitTimeout);
-            await coordinator.AwaitManagedProcesses();
+            await coordinator.AwaitManagedProcessesAsync();
         }
 
         Assert.False(coordinator.HasActiveProjectWork);
@@ -431,14 +431,14 @@ public sealed class SupervisorProjectCoordinatorTests
             diagnosisStore,
             sessionStore);
 
-        var ensureRunningResult = await coordinator.EnsureRunning(
+        var ensureRunningResult = await coordinator.EnsureRunningAsync(
                 unityProject,
                 TimeSpan.FromMilliseconds(500),
                 editorMode: null,
                 CancellationToken.None);
         Assert.True(ensureRunningResult.IsSuccess);
 
-        var stopResult = await coordinator.StopProject(
+        var stopResult = await coordinator.StopProjectAsync(
                 unityProject,
                 TimeSpan.FromMilliseconds(500),
                 CancellationToken.None);
@@ -447,7 +447,7 @@ public sealed class SupervisorProjectCoordinatorTests
 
         StopProcess(process);
         await TestProcessAwaiter.WaitForExitAsync(process, "Managed daemon helper process", ProcessExitTimeout);
-        await coordinator.AwaitManagedProcesses();
+        await coordinator.AwaitManagedProcessesAsync();
 
         Assert.NotNull(diagnosisStore.LastDiagnosis);
         Assert.Equal(DaemonDiagnosisReasonValues.UnexpectedExit, diagnosisStore.LastDiagnosis!.Reason);
@@ -488,7 +488,7 @@ public sealed class SupervisorProjectCoordinatorTests
 
         try
         {
-            var ensureRunningResult = await coordinator.EnsureRunning(
+            var ensureRunningResult = await coordinator.EnsureRunningAsync(
                     unityProject,
                     TimeSpan.FromMilliseconds(500),
                     editorMode: null,
@@ -503,7 +503,7 @@ public sealed class SupervisorProjectCoordinatorTests
         {
             cleanupRelease.TrySetResult();
             await TestProcessAwaiter.WaitForExitAsync(process, "Managed daemon helper process", ProcessExitTimeout);
-            await coordinator.AwaitManagedProcesses();
+            await coordinator.AwaitManagedProcessesAsync();
         }
 
         Assert.False(coordinator.HasManagedProjects);
@@ -532,7 +532,7 @@ public sealed class SupervisorProjectCoordinatorTests
             new StubDaemonDiagnosisStore(),
             sessionStore);
 
-        var ensureRunningResult = await coordinator.EnsureRunning(
+        var ensureRunningResult = await coordinator.EnsureRunningAsync(
                 unityProject,
                 TimeSpan.FromMilliseconds(500),
                 editorMode: null,
@@ -543,7 +543,7 @@ public sealed class SupervisorProjectCoordinatorTests
         StopProcess(process);
         await TestProcessAwaiter.WaitForExitAsync(process, "Managed daemon helper process", ProcessExitTimeout);
         await TestAwaiter.WaitAsync(
-            coordinator.AwaitManagedProcesses(),
+            coordinator.AwaitManagedProcessesAsync(),
             "Supervisor await managed processes after exit cleanup fault",
             SignalWaitTimeout);
 
@@ -653,7 +653,7 @@ public sealed class SupervisorProjectCoordinatorTests
     {
         public DaemonStartResult StartResult { get; set; } = DaemonStartResult.Started(CreateSession(1234));
 
-        public ValueTask<DaemonStartResult> Start (
+        public ValueTask<DaemonStartResult> StartAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             DaemonEditorMode? editorMode,
@@ -673,7 +673,7 @@ public sealed class SupervisorProjectCoordinatorTests
 
         public TimeSpan LastTimeout { get; private set; }
 
-        public ValueTask<DaemonStopResult> Stop (
+        public ValueTask<DaemonStopResult> StopAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
@@ -695,7 +695,7 @@ public sealed class SupervisorProjectCoordinatorTests
 
         public int PingCallCount { get; private set; }
 
-        public async ValueTask Ping (
+        public async ValueTask PingAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             string? sessionToken = null,
@@ -713,7 +713,7 @@ public sealed class SupervisorProjectCoordinatorTests
     {
         public DaemonDiagnosis? LastDiagnosis { get; private set; }
 
-        public ValueTask<DaemonDiagnosisReadResult> Read (
+        public ValueTask<DaemonDiagnosisReadResult> ReadAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -721,7 +721,7 @@ public sealed class SupervisorProjectCoordinatorTests
             return ValueTask.FromResult(DaemonDiagnosisReadResult.Success(null));
         }
 
-        public ValueTask<DaemonDiagnosisStoreOperationResult> Write (
+        public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
             string storageRoot,
             string projectFingerprint,
             DaemonDiagnosis diagnosis,
@@ -731,7 +731,7 @@ public sealed class SupervisorProjectCoordinatorTests
             return ValueTask.FromResult(DaemonDiagnosisStoreOperationResult.Success());
         }
 
-        public ValueTask<DaemonDiagnosisStoreOperationResult> Delete (
+        public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -746,7 +746,7 @@ public sealed class SupervisorProjectCoordinatorTests
 
         public Exception? ReadException { get; set; }
 
-        public ValueTask<DaemonSessionReadResult> Read (
+        public ValueTask<DaemonSessionReadResult> ReadAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -759,7 +759,7 @@ public sealed class SupervisorProjectCoordinatorTests
             return ValueTask.FromResult(DaemonSessionReadResult.Success(Session));
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Write (
+        public ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
             string storageRoot,
             DaemonSession session,
             CancellationToken cancellationToken = default)
@@ -768,7 +768,7 @@ public sealed class SupervisorProjectCoordinatorTests
             return ValueTask.FromResult(DaemonSessionStoreOperationResult.Success());
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Delete (
+        public ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -782,7 +782,7 @@ public sealed class SupervisorProjectCoordinatorTests
     {
         public Func<ResolvedUnityProjectContext, CancellationToken, ValueTask<DaemonSessionStoreOperationResult>>? CleanupHandler { get; set; }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Cleanup (
+        public ValueTask<DaemonSessionStoreOperationResult> CleanupAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {

@@ -8,7 +8,7 @@ internal interface IDaemonStatusOperation
     /// <param name="timeout"> The daemon status timeout. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon status result, including optional diagnosis metadata when available. </returns>
-    ValueTask<DaemonStatusResult> GetStatus (
+    ValueTask<DaemonStatusResult> GetStatusAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);

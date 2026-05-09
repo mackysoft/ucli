@@ -15,7 +15,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The call-pass result. </returns>
-        public async Task<CallPassResult> Execute (
+        public async Task<CallPassResult> ExecuteAsync (
             IReadOnlyList<PreparedOperation> preparedOperations,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
@@ -54,10 +54,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     // Some operations keep request-local plan state inside the phase-operation instance.
                     // Those operations opt into plan replay explicitly through metadata so Call observes
                     // state derived from the current operation immediately beforehand.
-                    var replayedPlanStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStep(
+                    var replayedPlanStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStepAsync(
                         preparedOperation.Operation,
                         OperationPhase.Plan,
-                        ct => preparedOperation.PhaseOperation.Plan(preparedOperation.Operation, executionContext, ct),
+                        ct => preparedOperation.PhaseOperation.PlanAsync(preparedOperation.Operation, executionContext, ct),
                         cancellationToken).ConfigureAwait(false);
                     OperationPhaseExecutionUtilities.MergeTouched(touched, replayedPlanStepResult.Touched);
 
@@ -82,10 +82,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     }
                 }
 
-                var callStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStep(
+                var callStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStepAsync(
                     preparedOperation.Operation,
                     OperationPhase.Call,
-                    ct => preparedOperation.PhaseOperation.Call(preparedOperation.Operation, executionContext, ct),
+                    ct => preparedOperation.PhaseOperation.CallAsync(preparedOperation.Operation, executionContext, ct),
                     cancellationToken).ConfigureAwait(false);
 
                 OperationPhaseExecutionUtilities.MergeTouched(touched, callStepResult.Touched);

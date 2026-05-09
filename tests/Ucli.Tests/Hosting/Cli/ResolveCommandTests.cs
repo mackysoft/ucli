@@ -21,7 +21,7 @@ public sealed class ResolveCommandTests
         var command = new ResolveCommand(service, CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Resolve(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.ResolveAsync(
             projectPath: "/repo/UnityProject",
             mode: "oneshot",
             timeout: "1234",
@@ -76,7 +76,7 @@ public sealed class ResolveCommandTests
         var service = new StubResolveService((_, _) => ValueTask.FromResult(CreateFailureResult()));
         var command = new ResolveCommand(service, CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Resolve(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.ResolveAsync(
             globalObjectId: "GlobalObjectId_V1-1-2-3-4-5-6",
             cancellationToken: CancellationToken.None));
 
@@ -111,7 +111,7 @@ public sealed class ResolveCommandTests
         var service = new StubResolveService((_, _) => throw new InvalidOperationException("Service should not be called."));
         var command = new ResolveCommand(service, CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Resolve(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.ResolveAsync(
             assetGuid: "11111111111111111111111111111111",
             assetPath: "Assets/Example.asset",
             cancellationToken: CancellationToken.None));
@@ -135,7 +135,7 @@ public sealed class ResolveCommandTests
         var service = new StubResolveService((_, _) => throw new InvalidOperationException("Service should not be called."));
         var command = new ResolveCommand(service, CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Resolve(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.ResolveAsync(
             globalObjectId: "GlobalObjectId_V1-1-2-3-4-5-6",
             readIndexMode: "unsupported",
             cancellationToken: CancellationToken.None));
@@ -154,7 +154,7 @@ public sealed class ResolveCommandTests
         var service = new StubResolveService((_, _) => throw new InvalidOperationException("Service should not be called."));
         var command = new ResolveCommand(service, CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Resolve(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.ResolveAsync(
             globalObjectId: "GlobalObjectId_V1-1-2-3-4-5-6",
             mode: "unsupported",
             cancellationToken: CancellationToken.None));
@@ -173,7 +173,7 @@ public sealed class ResolveCommandTests
         var service = new StubResolveService((_, _) => throw new InvalidOperationException("Service should not be called."));
         var command = new ResolveCommand(service, CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Resolve(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.ResolveAsync(
             globalObjectId: "GlobalObjectId_V1-1-2-3-4-5-6",
             timeout: "abc",
             cancellationToken: CancellationToken.None));
@@ -245,7 +245,7 @@ public sealed class ResolveCommandTests
 
         public CancellationToken CapturedCancellationToken { get; private set; }
 
-        public ValueTask<ResolveServiceResult> Execute (
+        public ValueTask<ResolveServiceResult> ExecuteAsync (
             ResolveCommandInput input,
             CancellationToken cancellationToken = default)
         {

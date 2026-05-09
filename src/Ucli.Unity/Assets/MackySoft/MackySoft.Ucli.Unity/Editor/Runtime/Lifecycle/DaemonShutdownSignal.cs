@@ -20,10 +20,10 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <summary> Waits until daemon shutdown is requested. </summary>
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> A task that completes when shutdown is requested. </returns>
-        public async Task Wait (CancellationToken cancellationToken = default)
+        public async Task WaitAsync (CancellationToken cancellationToken = default)
         {
             var signalTask = signalSource.Task;
-            await CancellationGracePeriodAwaiter.Wait(signalTask, cancellationToken, ShutdownSignalRaceGracePeriod);
+            await CancellationGracePeriodAwaiter.WaitAsync(signalTask, cancellationToken, ShutdownSignalRaceGracePeriod);
         }
     }
 }

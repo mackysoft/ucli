@@ -7,7 +7,7 @@ internal interface IUnityUcliPluginLocator
     /// <param name="unityProjectRoot"> The absolute Unity project root path. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The plugin locate result. </returns>
-    ValueTask<UnityUcliPluginLocateResult> Locate (
+    ValueTask<UnityUcliPluginLocateResult> LocateAsync (
         string unityProjectRoot,
         CancellationToken cancellationToken = default);
 }

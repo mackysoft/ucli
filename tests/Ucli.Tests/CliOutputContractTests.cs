@@ -31,7 +31,7 @@ public sealed class CliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "status-success");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         var ucliDirectoryPath = Path.Combine(unityProjectPath, UcliDirectoryName);
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Status,
             UcliContractConstants.CliOption.ProjectPath,
             unityProjectPath);
@@ -48,7 +48,7 @@ public sealed class CliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "init-success");
         var (workingDirectoryPath, _, localDirectoryPath, configPath, gitIgnorePath) = CreateInitTargetPaths(scope, "workspace");
 
-        var result = await RunInit(force: false, workingDirectoryPath);
+        var result = await RunInitAsync(force: false, workingDirectoryPath);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
@@ -88,7 +88,7 @@ public sealed class CliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "init-cwd");
         var (workingDirectoryPath, ucliDirectoryPath, localDirectoryPath, configPath, gitIgnorePath) = CreateInitTargetPaths(scope, "workspace");
 
-        await RunInit(force: false, workingDirectoryPath);
+        await RunInitAsync(force: false, workingDirectoryPath);
 
         FileSystemAssert.ForDirectory(ucliDirectoryPath).Exists();
         FileSystemAssert.ForDirectory(localDirectoryPath).DoesNotExist();
@@ -109,7 +109,7 @@ public sealed class CliOutputContractTests
             PrepareLegacyTemplateFiles(scope, configPath, gitIgnorePath);
         }
 
-        await RunInit(force, workingDirectoryPath);
+        await RunInitAsync(force, workingDirectoryPath);
 
         AssertDefaultConfigValues(configPath);
     }
@@ -127,7 +127,7 @@ public sealed class CliOutputContractTests
             PrepareLegacyTemplateFiles(scope, configPath, gitIgnorePath);
         }
 
-        await RunInit(force, workingDirectoryPath);
+        await RunInitAsync(force, workingDirectoryPath);
 
         Assert.Equal(UcliContractConstants.LocalDirectoryIgnoreEntry + Environment.NewLine, File.ReadAllText(gitIgnorePath));
     }
@@ -148,7 +148,7 @@ public sealed class CliOutputContractTests
             : gitIgnorePath;
         WriteFileUnderScope(scope, existingTemplateFilePath, existingContent);
 
-        var result = await RunInit(force: false, workingDirectoryPath);
+        var result = await RunInitAsync(force: false, workingDirectoryPath);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -176,7 +176,7 @@ public sealed class CliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "init-project-path-option");
         var (workingDirectoryPath, _, _, _, _) = CreateInitTargetPaths(scope, "workspace");
 
-        var result = await CliProcessRunner.RunCommandWithWorkingDirectory(
+        var result = await CliProcessRunner.RunCommandWithWorkingDirectoryAsync(
             workingDirectoryPath,
             UcliCommandNames.Init,
             UcliContractConstants.CliOption.ProjectPath,
@@ -199,7 +199,7 @@ public sealed class CliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Status_WithUnknownOption_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommand(UcliCommandNames.Status, UcliContractConstants.CliOption.Unknown);
+        var result = await CliProcessRunner.RunCommandAsync(UcliCommandNames.Status, UcliContractConstants.CliOption.Unknown);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -220,7 +220,7 @@ public sealed class CliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "status-invalid-timeout");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Status,
             UcliContractConstants.CliOption.ProjectPath,
             unityProjectPath,
@@ -245,7 +245,7 @@ public sealed class CliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Status_WithModeOption_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Status,
             UcliContractConstants.CliOption.Mode,
             "auto");
@@ -267,7 +267,7 @@ public sealed class CliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task UnknownCommand_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommand("unknown");
+        var result = await CliProcessRunner.RunCommandAsync("unknown");
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -281,20 +281,20 @@ public sealed class CliOutputContractTests
             expectedCode: "INVALID_ARGUMENT");
     }
 
-    private static async Task<CommandExecutionResult> RunInit (
+    private static async Task<CommandExecutionResult> RunInitAsync (
         bool force = false,
         string? workingDirectory = null)
     {
         if (string.IsNullOrWhiteSpace(workingDirectory))
         {
             return force
-                ? await CliProcessRunner.RunCommand(UcliCommandNames.Init, UcliContractConstants.CliOption.Force)
-                : await CliProcessRunner.RunCommand(UcliCommandNames.Init);
+                ? await CliProcessRunner.RunCommandAsync(UcliCommandNames.Init, UcliContractConstants.CliOption.Force)
+                : await CliProcessRunner.RunCommandAsync(UcliCommandNames.Init);
         }
 
         return force
-            ? await CliProcessRunner.RunCommandWithWorkingDirectory(workingDirectory, UcliCommandNames.Init, UcliContractConstants.CliOption.Force)
-            : await CliProcessRunner.RunCommandWithWorkingDirectory(workingDirectory, UcliCommandNames.Init);
+            ? await CliProcessRunner.RunCommandWithWorkingDirectoryAsync(workingDirectory, UcliCommandNames.Init, UcliContractConstants.CliOption.Force)
+            : await CliProcessRunner.RunCommandWithWorkingDirectoryAsync(workingDirectory, UcliCommandNames.Init);
     }
 
     private static (string WorkingDirectoryPath, string UcliDirectoryPath, string LocalDirectoryPath, string ConfigPath, string GitIgnorePath) CreateInitTargetPaths (

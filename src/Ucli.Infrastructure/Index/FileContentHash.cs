@@ -9,7 +9,7 @@ internal static class FileContentHash
     /// <param name="filePath"> The file path to hash. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The computed hash when the file can be read; otherwise <see langword="null" />. </returns>
-    public static async ValueTask<string?> TryComputeFileHash (
+    public static async ValueTask<string?> TryComputeFileHashAsync (
         string filePath,
         CancellationToken cancellationToken = default)
     {

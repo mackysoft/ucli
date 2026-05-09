@@ -11,7 +11,7 @@ internal interface IDaemonSessionDiagnosisResolver
     /// <param name="persistedDiagnosis"> The previously persisted diagnosis metadata when available. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The matched or synthesized daemon diagnosis metadata when available. </returns>
-    ValueTask<DaemonDiagnosis?> ResolveForSession (
+    ValueTask<DaemonDiagnosis?> ResolveForSessionAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         DaemonDiagnosis? persistedDiagnosis,

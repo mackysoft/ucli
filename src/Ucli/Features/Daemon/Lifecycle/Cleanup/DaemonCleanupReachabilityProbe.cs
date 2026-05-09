@@ -40,7 +40,7 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
     /// </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> or <paramref name="sessionToken" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="sessionToken" /> is empty or whitespace. </exception>
-    public async ValueTask<DaemonCleanupReachabilityProbeResult> Probe (
+    public async ValueTask<DaemonCleanupReachabilityProbeResult> ProbeAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
         string sessionToken,
@@ -65,7 +65,7 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
         // cleanup. Only direct endpoint-level absence evidence may map to NotRunning here.
         try
         {
-            await daemonPingClient.Ping(
+            await daemonPingClient.PingAsync(
                     unityProject,
                     pingTimeout,
                     sessionToken,

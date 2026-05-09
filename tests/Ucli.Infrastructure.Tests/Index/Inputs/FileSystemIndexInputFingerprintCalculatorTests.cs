@@ -13,12 +13,12 @@ public sealed class FileSystemIndexInputFingerprintCalculatorTests
         PrepareRequiredInputs(scope);
         var calculator = new FileSystemIndexInputFingerprintCalculator();
 
-        var before = await calculator.TryComputeCore(scope.FullPath, CancellationToken.None);
+        var before = await calculator.TryComputeCoreAsync(scope.FullPath, CancellationToken.None);
         Assert.NotNull(before);
 
         scope.WriteFile(Path.Combine("Assets", "Data", "Spawner.asset"), "changed");
 
-        var after = await calculator.TryComputeCore(scope.FullPath, CancellationToken.None);
+        var after = await calculator.TryComputeCoreAsync(scope.FullPath, CancellationToken.None);
         Assert.NotNull(after);
 
         Assert.Equal(before!.ScriptAssembliesHash, after!.ScriptAssembliesHash);
@@ -36,12 +36,12 @@ public sealed class FileSystemIndexInputFingerprintCalculatorTests
         PrepareRequiredInputs(scope);
         var calculator = new FileSystemIndexInputFingerprintCalculator();
 
-        var before = await calculator.TryCompute(scope.FullPath, CancellationToken.None);
+        var before = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
         Assert.NotNull(before);
 
         scope.WriteFile(Path.Combine("Assets", "Data", "Spawner.asset"), "changed");
 
-        var after = await calculator.TryCompute(scope.FullPath, CancellationToken.None);
+        var after = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
         Assert.NotNull(after);
 
         Assert.NotEqual(before!.AssetsContentHash, after!.AssetsContentHash);
@@ -61,7 +61,7 @@ public sealed class FileSystemIndexInputFingerprintCalculatorTests
         PrepareRequiredInputs(scope);
         var calculator = new FileSystemIndexInputFingerprintCalculator();
 
-        var before = await calculator.TryCompute(scope.FullPath, CancellationToken.None);
+        var before = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
         Assert.NotNull(before);
 
         switch (changeKind)
@@ -99,7 +99,7 @@ public sealed class FileSystemIndexInputFingerprintCalculatorTests
                 throw new InvalidOperationException($"Unsupported change kind: {changeKind}");
         }
 
-        var after = await calculator.TryCompute(scope.FullPath, CancellationToken.None);
+        var after = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
         Assert.NotNull(after);
 
         Assert.NotEqual(before!.AssetsContentHash, after!.AssetsContentHash);

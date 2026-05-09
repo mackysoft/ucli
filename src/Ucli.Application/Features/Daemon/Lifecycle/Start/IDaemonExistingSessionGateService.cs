@@ -18,7 +18,7 @@ internal interface IDaemonExistingSessionGateService
     /// The resolved daemon start result when workflow should complete;
     /// otherwise <see langword="null" /> when fresh launch should continue.
     /// </returns>
-    ValueTask<DaemonStartResult?> TryHandleExistingSession (
+    ValueTask<DaemonStartResult?> TryHandleExistingSessionAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         TimeSpan timeout,

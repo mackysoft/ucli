@@ -11,7 +11,7 @@ internal sealed class SupervisorExternalProcessRunner
     /// <param name="arguments"> The argument list passed to the process. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The captured process execution result. </returns>
-    public async ValueTask<SupervisorExternalProcessExecutionResult> Run (
+    public async ValueTask<SupervisorExternalProcessExecutionResult> RunAsync (
         string fileName,
         IReadOnlyList<string> arguments,
         CancellationToken cancellationToken = default)
@@ -44,14 +44,14 @@ internal sealed class SupervisorExternalProcessRunner
     /// <param name="fileName"> The executable file name. </param>
     /// <param name="arguments"> The argument list passed to the process. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
-    public async ValueTask RunIgnoringExitCode (
+    public async ValueTask RunIgnoringExitCodeAsync (
         string fileName,
         IReadOnlyList<string> arguments,
         CancellationToken cancellationToken = default)
     {
         try
         {
-            await Run(fileName, arguments, cancellationToken).ConfigureAwait(false);
+            await RunAsync(fileName, arguments, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

@@ -17,7 +17,7 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
     }
 
     /// <inheritdoc />
-    public async ValueTask<DaemonDiagnosisReadResult> Read (
+    public async ValueTask<DaemonDiagnosisReadResult> ReadAsync (
         string storageRoot,
         string projectFingerprint,
         CancellationToken cancellationToken = default)
@@ -38,7 +38,7 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
         string? json;
         try
         {
-            json = await FileUtilities.ReadAllTextOrNull(diagnosisPath, cancellationToken).ConfigureAwait(false);
+            json = await FileUtilities.ReadAllTextOrNullAsync(diagnosisPath, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
@@ -96,7 +96,7 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
     }
 
     /// <inheritdoc />
-    public async ValueTask<DaemonDiagnosisStoreOperationResult> Write (
+    public async ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
         string storageRoot,
         string projectFingerprint,
         DaemonDiagnosis diagnosis,
@@ -147,7 +147,7 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
             var diagnosisDirectoryPath = Path.GetDirectoryName(diagnosisPath)
                 ?? throw new InvalidOperationException($"Daemon diagnosis directory path could not be resolved: {diagnosisPath}");
             FileSystemAccessBoundary.EnsureSecureDirectory(diagnosisDirectoryPath);
-            await FileUtilities.WriteAllTextAtomically(diagnosisPath, json, cancellationToken).ConfigureAwait(false);
+            await FileUtilities.WriteAllTextAtomicallyAsync(diagnosisPath, json, cancellationToken).ConfigureAwait(false);
             return DaemonDiagnosisStoreOperationResult.Success();
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
@@ -163,7 +163,7 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
     }
 
     /// <inheritdoc />
-    public async ValueTask<DaemonDiagnosisStoreOperationResult> Delete (
+    public async ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
         string storageRoot,
         string projectFingerprint,
         CancellationToken cancellationToken = default)

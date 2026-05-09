@@ -7,7 +7,7 @@ internal interface IPersistedOpsCatalogReader
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The persisted ops-catalog read result. </returns>
-    ValueTask<PersistedOpsCatalogReadResult> Read (
+    ValueTask<PersistedOpsCatalogReadResult> ReadAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default);
 }

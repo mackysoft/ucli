@@ -30,7 +30,7 @@ internal sealed class UnityGuiEditorProcessLauncher : IUnityGuiEditorProcessLaun
     }
 
     /// <inheritdoc />
-    public async ValueTask<UnityDaemonLaunchResult> Launch (
+    public async ValueTask<UnityDaemonLaunchResult> LaunchAsync (
         ResolvedUnityProjectContext unityProject,
         string unityLogPath,
         CancellationToken cancellationToken = default)
@@ -44,7 +44,7 @@ internal sealed class UnityGuiEditorProcessLauncher : IUnityGuiEditorProcessLaun
                 "Unity log path must not be empty."));
         }
 
-        var pluginLocateResult = await unityUcliPluginLocator.Locate(
+        var pluginLocateResult = await unityUcliPluginLocator.LocateAsync(
                 unityProject.UnityProjectRoot,
                 cancellationToken)
             .ConfigureAwait(false);

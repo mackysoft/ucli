@@ -33,7 +33,7 @@ public sealed class AssetSearchLookupAccessServiceTests
         var service = new AssetSearchLookupAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService);
         var project = CreateProject();
 
-        var result = await service.Search(
+        var result = await service.SearchAsync(
             project,
             UcliConfig.CreateDefault(),
             mode: UnityExecutionMode.Auto,
@@ -94,7 +94,7 @@ public sealed class AssetSearchLookupAccessServiceTests
         };
         var service = new AssetSearchLookupAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService);
 
-        var result = await service.Search(
+        var result = await service.SearchAsync(
             CreateProject(),
             UcliConfig.CreateDefault(),
             mode: UnityExecutionMode.Auto,
@@ -160,7 +160,7 @@ public sealed class AssetSearchLookupAccessServiceTests
         };
         var service = new AssetSearchLookupAccessService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService);
 
-        var result = await service.Search(
+        var result = await service.SearchAsync(
             CreateProject(),
             UcliConfig.CreateDefault(),
             mode: UnityExecutionMode.Auto,
@@ -184,7 +184,7 @@ public sealed class AssetSearchLookupAccessServiceTests
             new TestMutationReadPostconditionStore(),
             new StubAssetLookupSourceRefreshService());
 
-        var result = await service.Search(
+        var result = await service.SearchAsync(
             CreateProject(),
             UcliConfig.CreateDefault(),
             mode: UnityExecutionMode.Auto,
@@ -228,14 +228,14 @@ public sealed class AssetSearchLookupAccessServiceTests
         public ReadIndexArtifactReadResult<IndexAssetSearchLookupJsonContract> AssetSearchLookupResult { get; set; }
             = ReadIndexArtifactReadResult<IndexAssetSearchLookupJsonContract>.Failure(ReadIndexErrorCodes.ReadIndexBootstrapFailed, "missing");
 
-        public ValueTask<ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>> ReadOpsCatalog (ResolvedUnityProjectContext unityProject, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<ReadIndexArtifactReadResult<IndexTypesCatalogJsonContract>> ReadTypesCatalog (ResolvedUnityProjectContext unityProject, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<ReadIndexArtifactReadResult<IndexSchemasCatalogJsonContract>> ReadSchemasCatalog (ResolvedUnityProjectContext unityProject, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>> ReadGuidPathLookup (ResolvedUnityProjectContext unityProject, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookup (ResolvedUnityProjectContext unityProject, string scenePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<ReadIndexArtifactReadResult<IndexInputsManifestJsonContract>> ReadInputsManifest (ResolvedUnityProjectContext unityProject, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>> ReadOpsCatalogAsync (ResolvedUnityProjectContext unityProject, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexTypesCatalogJsonContract>> ReadTypesCatalogAsync (ResolvedUnityProjectContext unityProject, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexSchemasCatalogJsonContract>> ReadSchemasCatalogAsync (ResolvedUnityProjectContext unityProject, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>> ReadGuidPathLookupAsync (ResolvedUnityProjectContext unityProject, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookupAsync (ResolvedUnityProjectContext unityProject, string scenePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexInputsManifestJsonContract>> ReadInputsManifestAsync (ResolvedUnityProjectContext unityProject, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
-        public ValueTask<ReadIndexArtifactReadResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookup (
+        public ValueTask<ReadIndexArtifactReadResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookupAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
@@ -257,7 +257,7 @@ public sealed class AssetSearchLookupAccessServiceTests
 
         public string? LastPersistedSourceInputsHash { get; private set; }
 
-        public ValueTask<IndexFreshnessEvaluationResult> Observe (
+        public ValueTask<IndexFreshnessEvaluationResult> ObserveAsync (
             ResolvedUnityProjectContext unityProject,
             IndexFreshnessTarget target,
             string? persistedSourceInputsHash,
@@ -271,7 +271,7 @@ public sealed class AssetSearchLookupAccessServiceTests
             return ValueTask.FromResult(Result);
         }
 
-        public ValueTask<IndexFreshnessEvaluationResult> ObserveSceneTreeLite (
+        public ValueTask<IndexFreshnessEvaluationResult> ObserveSceneTreeLiteAsync (
             ResolvedUnityProjectContext unityProject,
             string scenePath,
             string? persistedSourceInputsHash,
@@ -292,7 +292,7 @@ public sealed class AssetSearchLookupAccessServiceTests
         public AssetLookupRefreshResult Result { get; set; }
             = AssetLookupRefreshResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
-        public ValueTask<AssetLookupRefreshResult> Refresh (
+        public ValueTask<AssetLookupRefreshResult> RefreshAsync (
             ResolvedUnityProjectContext project,
             UcliConfig config,
             UcliCommand command,

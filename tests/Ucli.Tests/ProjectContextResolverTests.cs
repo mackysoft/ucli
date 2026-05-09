@@ -18,7 +18,7 @@ public sealed class ProjectContextResolverTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         var resolver = CreateResolver();
 
-        var result = await resolver.Resolve(unityProjectPath, CancellationToken.None);
+        var result = await resolver.ResolveAsync(unityProjectPath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Null(result.Error);
@@ -38,7 +38,7 @@ public sealed class ProjectContextResolverTests
         using var scope = TestDirectories.CreateTempScope("init-status-context-resolver", "file-config");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         var configStore = new UcliConfigStore();
-        var saveResult = await configStore.Save(
+        var saveResult = await configStore.SaveAsync(
             unityProjectPath,
             new UcliConfig(
                 SchemaVersion: 1,
@@ -55,7 +55,7 @@ public sealed class ProjectContextResolverTests
 
         var resolver = CreateResolver(configStore: configStore);
 
-        var result = await resolver.Resolve(unityProjectPath, CancellationToken.None);
+        var result = await resolver.ResolveAsync(unityProjectPath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var context = Assert.IsType<ProjectContext>(result.Context);
@@ -74,7 +74,7 @@ public sealed class ProjectContextResolverTests
         var invalidPath = scope.GetPath("MissingUnityProject");
         var resolver = CreateResolver();
 
-        var result = await resolver.Resolve(invalidPath, CancellationToken.None);
+        var result = await resolver.ResolveAsync(invalidPath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Context);
@@ -95,7 +95,7 @@ public sealed class ProjectContextResolverTests
         scope.WriteFile(relativeConfigPath, "{");
         var resolver = CreateResolver(configStore: configStore);
 
-        var result = await resolver.Resolve(unityProjectPath, CancellationToken.None);
+        var result = await resolver.ResolveAsync(unityProjectPath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Context);
@@ -114,7 +114,7 @@ public sealed class ProjectContextResolverTests
             [UcliEnvironmentVariableNames.ProjectPath] = unityProjectPath,
         });
 
-        var result = await resolver.Resolve(null, CancellationToken.None);
+        var result = await resolver.ResolveAsync(null, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var context = Assert.IsType<ProjectContext>(result.Context);

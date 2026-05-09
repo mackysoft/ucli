@@ -24,7 +24,7 @@ public sealed class TestRunArtifactsServiceTests
             UcliStoragePathNames.UcliDirectoryName,
             UcliStoragePathNames.GitIgnoreFileName);
 
-        var result = await service.Prepare(configuration);
+        var result = await service.PrepareAsync(configuration);
 
         Assert.True(result.IsSuccess);
         var session = Assert.IsType<ArtifactsSession>(result.Session);
@@ -59,14 +59,14 @@ public sealed class TestRunArtifactsServiceTests
         var timeProvider = new ManualTimeProvider();
         var service = new TestRunArtifactsService(new TestRunMetaStore(), timeProvider);
 
-        var prepareResult = await service.Prepare(configuration);
+        var prepareResult = await service.PrepareAsync(configuration);
         Assert.True(prepareResult.IsSuccess);
         var session = Assert.IsType<ArtifactsSession>(prepareResult.Session);
 
         var before = ReadMetaJson(session.Paths.MetaJsonPath);
         timeProvider.Advance(TimeSpan.FromMilliseconds(20));
 
-        var completeResult = await service.Complete(configuration, session);
+        var completeResult = await service.CompleteAsync(configuration, session);
 
         var after = ReadMetaJson(session.Paths.MetaJsonPath);
         Assert.True(completeResult.IsSuccess);

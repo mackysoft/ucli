@@ -18,7 +18,7 @@ public sealed class RequestStaticValidationPreflightServiceTests
             resolver,
             new StubRequestStaticValidator(ValidationResult.Success()));
 
-        var result = await service.Prepare(
+        var result = await service.PrepareAsync(
             CreatePreparedRequestContext(),
             readIndexMode: ReadIndexMode.RequireFresh,
             cancellationToken: CancellationToken.None);
@@ -43,7 +43,7 @@ public sealed class RequestStaticValidationPreflightServiceTests
             resolver,
             new StubRequestStaticValidator(ValidationResult.Failure(ExecutionError.Timeout("Static validation timed out."))));
 
-        var result = await service.Prepare(
+        var result = await service.PrepareAsync(
             preparedRequest,
             readIndexMode: null,
             cancellationToken: CancellationToken.None);
@@ -75,7 +75,7 @@ public sealed class RequestStaticValidationPreflightServiceTests
             resolver,
             validator);
 
-        var result = await service.Prepare(
+        var result = await service.PrepareAsync(
             preparedRequest,
             readIndexMode: null,
             cancellationToken: CancellationToken.None);
@@ -111,7 +111,7 @@ public sealed class RequestStaticValidationPreflightServiceTests
             resolver,
             validator);
 
-        var result = await service.Prepare(
+        var result = await service.PrepareAsync(
             preparedRequest,
             readIndexMode: null,
             cancellationToken: CancellationToken.None);
@@ -141,7 +141,7 @@ public sealed class RequestStaticValidationPreflightServiceTests
             resolver,
             validator);
 
-        var result = await service.Prepare(
+        var result = await service.PrepareAsync(
             preparedRequest,
             readIndexMode: null,
             cancellationToken: CancellationToken.None);
@@ -221,7 +221,7 @@ public sealed class RequestStaticValidationPreflightServiceTests
 
         public int CallCount { get; private set; }
 
-        public ValueTask<ReadIndexValidationCatalogResolutionResult> Resolve (
+        public ValueTask<ReadIndexValidationCatalogResolutionResult> ResolveAsync (
             ResolvedUnityProjectContext unityProject,
             ReadIndexMode readIndexMode,
             CancellationToken cancellationToken = default)
@@ -244,7 +244,7 @@ public sealed class RequestStaticValidationPreflightServiceTests
             this.result = result ?? throw new ArgumentNullException(nameof(result));
         }
 
-        public ValueTask<ValidationResult> Validate (
+        public ValueTask<ValidationResult> ValidateAsync (
             ValidateRequest request,
             RequestStaticValidationCatalog catalog,
             UcliConfig config,
@@ -268,7 +268,7 @@ public sealed class RequestStaticValidationPreflightServiceTests
 
         public int CallCount { get; private set; }
 
-        public ValueTask<ValidationResult> Validate (
+        public ValueTask<ValidationResult> ValidateAsync (
             ValidateRequest request,
             RequestStaticValidationCatalog catalog,
             UcliConfig config,

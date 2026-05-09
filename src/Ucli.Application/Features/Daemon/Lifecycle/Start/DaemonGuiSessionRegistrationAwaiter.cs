@@ -29,7 +29,7 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
     }
 
     /// <inheritdoc />
-    public async ValueTask<DaemonGuiSessionRegistrationWaitResult> WaitForSession (
+    public async ValueTask<DaemonGuiSessionRegistrationWaitResult> WaitForSessionAsync (
         ResolvedUnityProjectContext unityProject,
         int expectedProcessId,
         TimeSpan timeout,
@@ -50,7 +50,7 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
                     $"Timed out while waiting for GUI daemon session registration. ProcessId={expectedProcessId}."));
             }
 
-            var readResult = await daemonSessionStore.Read(
+            var readResult = await daemonSessionStore.ReadAsync(
                     unityProject.RepositoryRoot,
                     unityProject.ProjectFingerprint,
                     cancellationToken)
@@ -62,7 +62,7 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
 
             if (TryGetMatchingGuiSession(readResult, unityProject, expectedProcessId, out var session))
             {
-                var probeResult = await TryProbeSession(
+                var probeResult = await TryProbeSessionAsync(
                         unityProject,
                         session!,
                         deadline,
@@ -80,12 +80,12 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
                     $"Timed out while waiting for GUI daemon session registration. ProcessId={expectedProcessId}."));
             }
 
-            await TimeProviderDelay.Delay(GetRetryDelay(remainingTimeout), timeProvider, cancellationToken)
+            await TimeProviderDelay.DelayAsync(GetRetryDelay(remainingTimeout), timeProvider, cancellationToken)
                 .ConfigureAwait(false);
         }
     }
 
-    private async ValueTask<DaemonGuiSessionRegistrationWaitResult?> TryProbeSession (
+    private async ValueTask<DaemonGuiSessionRegistrationWaitResult?> TryProbeSessionAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         ExecutionDeadline deadline,
@@ -102,7 +102,7 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
             : DaemonTimeouts.ProbeAttemptTimeoutCap;
         try
         {
-            var pingResponse = await daemonPingInfoClient.PingAndRead(
+            var pingResponse = await daemonPingInfoClient.PingAndReadAsync(
                     unityProject,
                     attemptTimeout,
                     session.SessionToken,

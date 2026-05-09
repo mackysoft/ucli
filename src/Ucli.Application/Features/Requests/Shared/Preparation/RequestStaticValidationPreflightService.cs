@@ -23,7 +23,7 @@ internal sealed class RequestStaticValidationPreflightService : IRequestStaticVa
     }
 
     /// <inheritdoc />
-    public async ValueTask<RequestStaticValidationPreflightResult> Prepare (
+    public async ValueTask<RequestStaticValidationPreflightResult> PrepareAsync (
         PreparedRequestContext preparedRequest,
         ReadIndexMode? readIndexMode,
         CancellationToken cancellationToken = default)
@@ -32,7 +32,7 @@ internal sealed class RequestStaticValidationPreflightService : IRequestStaticVa
         ArgumentNullException.ThrowIfNull(preparedRequest);
 
         var readIndexModeResult = ReadIndexModeResolver.Resolve(readIndexMode, preparedRequest.ProjectContext.Config);
-        var validationCatalogResolutionResult = await readIndexValidationCatalogResolver.Resolve(
+        var validationCatalogResolutionResult = await readIndexValidationCatalogResolver.ResolveAsync(
                 preparedRequest.ProjectContext.UnityProject,
                 readIndexModeResult.Mode!.Value,
                 cancellationToken)
@@ -48,7 +48,7 @@ internal sealed class RequestStaticValidationPreflightService : IRequestStaticVa
                 validationCatalogResolutionResult.ErrorCode);
         }
 
-        var validationResult = await requestStaticValidator.Validate(
+        var validationResult = await requestStaticValidator.ValidateAsync(
                 preparedRequest.Request,
                 validationCatalogResolutionResult.Catalog,
                 preparedRequest.ProjectContext.Config,

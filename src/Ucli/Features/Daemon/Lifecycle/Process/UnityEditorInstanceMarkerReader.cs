@@ -20,7 +20,7 @@ internal sealed class UnityEditorInstanceMarkerReader : IUnityEditorInstanceMark
     private const long MaxMarkerByteLength = 16 * 1024;
 
     /// <inheritdoc />
-    public async ValueTask<UnityEditorInstanceMarkerReadResult> Read (
+    public async ValueTask<UnityEditorInstanceMarkerReadResult> ReadAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
@@ -47,7 +47,7 @@ internal sealed class UnityEditorInstanceMarkerReader : IUnityEditorInstanceMark
         string? json;
         try
         {
-            json = await FileUtilities.ReadAllTextOrNull(markerPath, cancellationToken).ConfigureAwait(false);
+            json = await FileUtilities.ReadAllTextOrNullAsync(markerPath, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {

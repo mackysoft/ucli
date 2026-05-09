@@ -32,7 +32,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
         var diagnosisStore = new StubDaemonDiagnosisStore();
         var service = new DaemonGuiEditorAttachService(markerReader, processProbe, awaiter, diagnosisStore);
 
-        var result = await service.TryAttachExistingGuiEditor(
+        var result = await service.TryAttachExistingGuiEditorAsync(
             context,
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
@@ -67,7 +67,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
         var diagnosisStore = new StubDaemonDiagnosisStore();
         var service = new DaemonGuiEditorAttachService(markerReader, processProbe, awaiter, diagnosisStore);
 
-        var result = await service.TryAttachExistingGuiEditor(
+        var result = await service.TryAttachExistingGuiEditorAsync(
             CreateContext(),
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
@@ -101,7 +101,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
         var diagnosisStore = new StubDaemonDiagnosisStore();
         var service = new DaemonGuiEditorAttachService(markerReader, processProbe, awaiter, diagnosisStore);
 
-        var result = await service.TryAttachExistingGuiEditor(
+        var result = await service.TryAttachExistingGuiEditorAsync(
             CreateContext(),
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
@@ -144,7 +144,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
             new StubDaemonDiagnosisStore(),
             timeProvider);
 
-        var result = await service.TryAttachExistingGuiEditor(
+        var result = await service.TryAttachExistingGuiEditorAsync(
             CreateContext(),
             TimeSpan.FromMilliseconds(1000),
             editorMode: null,
@@ -174,7 +174,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
             awaiter,
             new StubDaemonDiagnosisStore());
 
-        var result = await service.TryAttachExistingGuiEditor(
+        var result = await service.TryAttachExistingGuiEditorAsync(
             CreateContext(),
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
@@ -226,7 +226,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
 
         public Action? OnRead { get; set; }
 
-        public ValueTask<UnityEditorInstanceMarkerReadResult> Read (
+        public ValueTask<UnityEditorInstanceMarkerReadResult> ReadAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
@@ -242,7 +242,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
 
         public Action? OnProbe { get; set; }
 
-        public ValueTask<UnityGuiEditorProcessProbeResult> Probe (
+        public ValueTask<UnityGuiEditorProcessProbeResult> ProbeAsync (
             UnityEditorInstanceMarker marker,
             CancellationToken cancellationToken = default)
         {
@@ -264,7 +264,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
 
         public TimeSpan LastTimeout { get; private set; }
 
-        public ValueTask<DaemonGuiSessionRegistrationWaitResult> WaitForSession (
+        public ValueTask<DaemonGuiSessionRegistrationWaitResult> WaitForSessionAsync (
             ResolvedUnityProjectContext unityProject,
             int expectedProcessId,
             TimeSpan timeout,
@@ -284,7 +284,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
 
         public DaemonDiagnosis? LastDiagnosis { get; private set; }
 
-        public ValueTask<DaemonDiagnosisReadResult> Read (
+        public ValueTask<DaemonDiagnosisReadResult> ReadAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -292,7 +292,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
             return ValueTask.FromResult(DaemonDiagnosisReadResult.Success(null));
         }
 
-        public ValueTask<DaemonDiagnosisStoreOperationResult> Write (
+        public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
             string storageRoot,
             string projectFingerprint,
             DaemonDiagnosis diagnosis,
@@ -303,7 +303,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
             return ValueTask.FromResult(DaemonDiagnosisStoreOperationResult.Success());
         }
 
-        public ValueTask<DaemonDiagnosisStoreOperationResult> Delete (
+        public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)

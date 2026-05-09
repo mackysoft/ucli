@@ -8,7 +8,7 @@ internal sealed class StubProjectLifecycleLockProvider : IProjectLifecycleLockPr
 
     public ProjectLifecycleLockRequest? LastRequest { get; private set; }
 
-    public ValueTask<IAsyncDisposable> Acquire (
+    public ValueTask<IAsyncDisposable> AcquireAsync (
         ProjectLifecycleLockRequest request,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)

@@ -37,7 +37,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
     }
 
     /// <inheritdoc />
-    public async ValueTask WriteOpsCatalog (
+    public async ValueTask WriteOpsCatalogAsync (
         string storageRoot,
         string projectFingerprint,
         DateTimeOffset generatedAtUtc,
@@ -61,7 +61,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
             SourceInputsHash: sourceInputsHash,
             Entries: operations.ToArray());
 
-        await FileUtilities.WriteAllTextAtomically(
+        await FileUtilities.WriteAllTextAtomicallyAsync(
                 opsCatalogPath,
                 opsCatalogWriter.Write(opsCatalog),
                 cancellationToken)
@@ -69,7 +69,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
 
         if (manifestInputSnapshot != null)
         {
-            await WriteInputsManifest(
+            await WriteInputsManifestAsync(
                     storageRoot,
                     projectFingerprint,
                     generatedAtUtc,
@@ -80,7 +80,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
     }
 
     /// <inheritdoc />
-    public async ValueTask WriteAssetLookups (
+    public async ValueTask WriteAssetLookupsAsync (
         string storageRoot,
         string projectFingerprint,
         DateTimeOffset generatedAtUtc,
@@ -112,21 +112,21 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
             SourceInputsHash: inputSnapshot.GuidPathHash,
             Entries: guidPathEntries);
 
-        await FileUtilities.WriteAllTextAtomically(
+        await FileUtilities.WriteAllTextAtomicallyAsync(
                 assetSearchLookupPath,
                 assetSearchLookupWriter.Write(assetSearchLookup),
                 cancellationToken)
             .ConfigureAwait(false);
-        await FileUtilities.WriteAllTextAtomically(
+        await FileUtilities.WriteAllTextAtomicallyAsync(
                 guidPathLookupPath,
                 guidPathLookupWriter.Write(guidPathLookup),
                 cancellationToken)
             .ConfigureAwait(false);
-        await WriteInputsManifest(storageRoot, projectFingerprint, generatedAtUtc, inputSnapshot, cancellationToken).ConfigureAwait(false);
+        await WriteInputsManifestAsync(storageRoot, projectFingerprint, generatedAtUtc, inputSnapshot, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
-    public async ValueTask WriteSceneTreeLite (
+    public async ValueTask WriteSceneTreeLiteAsync (
         string storageRoot,
         string projectFingerprint,
         DateTimeOffset generatedAtUtc,
@@ -153,14 +153,14 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
             SourceInputsHash: sourceInputsHash,
             Roots: roots);
 
-        await FileUtilities.WriteAllTextAtomically(
+        await FileUtilities.WriteAllTextAtomicallyAsync(
                 lookupPath,
                 sceneTreeLiteLookupWriter.Write(lookup),
                 cancellationToken)
             .ConfigureAwait(false);
     }
 
-    private async ValueTask WriteInputsManifest (
+    private async ValueTask WriteInputsManifestAsync (
         string storageRoot,
         string projectFingerprint,
         DateTimeOffset generatedAtUtc,
@@ -182,7 +182,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
             GuidPathHash: inputSnapshot.GuidPathHash,
             CombinedHash: inputSnapshot.CombinedHash);
 
-        await FileUtilities.WriteAllTextAtomically(
+        await FileUtilities.WriteAllTextAtomicallyAsync(
                 inputsManifestPath,
                 inputsManifestWriter.Write(inputsManifest),
                 cancellationToken)

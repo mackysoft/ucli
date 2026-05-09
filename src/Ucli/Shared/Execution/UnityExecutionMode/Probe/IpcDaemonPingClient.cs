@@ -37,13 +37,13 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="sessionToken" /> is empty or whitespace. </exception>
-    public async ValueTask Ping (
+    public async ValueTask PingAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         string? sessionToken = null,
         CancellationToken cancellationToken = default)
     {
-        var response = await SendPingRequest(unityProject, timeout, sessionToken, cancellationToken).ConfigureAwait(false);
+        var response = await SendPingRequestAsync(unityProject, timeout, sessionToken, cancellationToken).ConfigureAwait(false);
         if (!DaemonPingResponseCodec.TryDecodePayloadForProject(
                 response,
                 unityProject.ProjectFingerprint,
@@ -65,14 +65,14 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="sessionToken" /> is empty or whitespace. </exception>
     /// <exception cref="DaemonPingResponseException"> Thrown when daemon reports contract failures or payload deserialization fails. </exception>
-    public async ValueTask<IpcPingResponse> PingAndRead (
+    public async ValueTask<IpcPingResponse> PingAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         string? sessionToken = null,
         bool validateProjectFingerprint = true,
         CancellationToken cancellationToken = default)
     {
-        var response = await SendPingRequest(unityProject, timeout, sessionToken, cancellationToken).ConfigureAwait(false);
+        var response = await SendPingRequestAsync(unityProject, timeout, sessionToken, cancellationToken).ConfigureAwait(false);
         IpcPingResponse? payload;
         DaemonPingResponseException? error;
         var isDecoded = validateProjectFingerprint
@@ -97,7 +97,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
     /// <param name="sessionToken"> Optional pre-resolved daemon session token. When <see langword="null" />, this method resolves token from session storage. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the raw ping response. </returns>
-    private async ValueTask<IpcResponse> SendPingRequest (
+    private async ValueTask<IpcResponse> SendPingRequestAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         string? sessionToken,
@@ -107,7 +107,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var effectiveSessionToken = await ResolveSessionToken(unityProject, sessionToken, cancellationToken).ConfigureAwait(false);
+        var effectiveSessionToken = await ResolveSessionTokenAsync(unityProject, sessionToken, cancellationToken).ConfigureAwait(false);
 
         return await transportClient.SendAsync(
                 unityProject.RepositoryRoot,
@@ -123,7 +123,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
     /// <param name="sessionToken"> The optional explicit session token input. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the effective session token. </returns>
-    private async ValueTask<string> ResolveSessionToken (
+    private async ValueTask<string> ResolveSessionTokenAsync (
         ResolvedUnityProjectContext unityProject,
         string? sessionToken,
         CancellationToken cancellationToken)
@@ -134,7 +134,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
             return sessionToken;
         }
 
-        var sessionTokenResult = await daemonSessionTokenProvider.Resolve(unityProject, cancellationToken).ConfigureAwait(false);
+        var sessionTokenResult = await daemonSessionTokenProvider.ResolveAsync(unityProject, cancellationToken).ConfigureAwait(false);
         if (!sessionTokenResult.IsSuccess)
         {
             if (sessionTokenResult.IsSessionNotAvailable)

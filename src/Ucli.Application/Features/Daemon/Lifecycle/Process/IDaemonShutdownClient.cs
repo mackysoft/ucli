@@ -11,7 +11,7 @@ internal interface IDaemonShutdownClient
     /// <param name="timeout"> The IPC timeout used for shutdown request. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The shutdown attempt result. </returns>
-    ValueTask<DaemonShutdownAttemptResult> SendShutdown (
+    ValueTask<DaemonShutdownAttemptResult> SendShutdownAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         TimeSpan timeout,

@@ -22,7 +22,7 @@ public sealed class UnityEditorInstanceMarkerReaderTests
 
         var reader = new UnityEditorInstanceMarkerReader();
 
-        var result = await reader.Read(CreateContext(unityProjectRoot), CancellationToken.None);
+        var result = await reader.ReadAsync(CreateContext(unityProjectRoot), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.True(result.Exists);
@@ -42,7 +42,7 @@ public sealed class UnityEditorInstanceMarkerReaderTests
         Directory.CreateDirectory(unityProjectRoot);
         var reader = new UnityEditorInstanceMarkerReader();
 
-        var result = await reader.Read(CreateContext(unityProjectRoot), CancellationToken.None);
+        var result = await reader.ReadAsync(CreateContext(unityProjectRoot), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.False(result.Exists);
@@ -61,7 +61,7 @@ public sealed class UnityEditorInstanceMarkerReaderTests
         await File.WriteAllTextAsync(markerPath, new string(' ', 17 * 1024));
         var reader = new UnityEditorInstanceMarkerReader();
 
-        var result = await reader.Read(CreateContext(unityProjectRoot), CancellationToken.None);
+        var result = await reader.ReadAsync(CreateContext(unityProjectRoot), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);

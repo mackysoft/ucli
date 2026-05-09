@@ -24,7 +24,7 @@ public sealed class OpsServiceTests
         var describeResultMapper = new StubOpsDescribeResultMapper();
         var service = new OpsService(preflightService, catalogAccessService, listResultMapper, describeResultMapper);
 
-        var result = await service.GetAll(new OpsCommandInput(null, NormalizeMode(null), NormalizeTimeout(null), null));
+        var result = await service.GetAllAsync(new OpsCommandInput(null, NormalizeMode(null), NormalizeTimeout(null), null));
 
         Assert.False(result.IsSuccess);
         Assert.Equal("invalid readIndexMode", result.Message);
@@ -80,7 +80,7 @@ public sealed class OpsServiceTests
         var describeResultMapper = new StubOpsDescribeResultMapper();
         var service = new OpsService(preflightService, catalogAccessService, listResultMapper, describeResultMapper);
 
-        var result = await service.GetAll(new OpsCommandInput("/repo", NormalizeMode("auto"), NormalizeTimeout("1000"), NormalizeReadIndexMode("allowStale"), true));
+        var result = await service.GetAllAsync(new OpsCommandInput("/repo", NormalizeMode("auto"), NormalizeTimeout("1000"), NormalizeReadIndexMode("allowStale"), true));
 
         Assert.Same(expectedResult, result);
         Assert.NotNull(preflightService.LastInput);
@@ -122,7 +122,7 @@ public sealed class OpsServiceTests
         };
         var service = new OpsService(preflightService, catalogAccessService, listResultMapper, describeResultMapper);
 
-        var result = await service.Describe(
+        var result = await service.DescribeAsync(
             new OpsDescribeCommandInput(
                 OperationName: "ucli.unknown",
                 ProjectPath: "/repo",
@@ -145,7 +145,7 @@ public sealed class OpsServiceTests
 
         public OpsCommandInput? LastInput { get; private set; }
 
-        public ValueTask<OpsPreflightResult> Execute (
+        public ValueTask<OpsPreflightResult> ExecuteAsync (
             OpsCommandInput input,
             CancellationToken cancellationToken = default)
         {
@@ -161,7 +161,7 @@ public sealed class OpsServiceTests
 
         public OpsCatalogReadResult Result { get; set; } = OpsCatalogReadResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
-        public ValueTask<OpsCatalogReadResult> Read (
+        public ValueTask<OpsCatalogReadResult> ReadAsync (
             OpsPreflightContext context,
             CancellationToken cancellationToken = default)
         {

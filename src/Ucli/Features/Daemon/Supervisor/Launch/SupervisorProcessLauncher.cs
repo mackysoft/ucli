@@ -34,7 +34,7 @@ internal sealed class SupervisorProcessLauncher : ISupervisorProcessLauncher
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> One structured error when launch fails; otherwise <see langword="null" />. </returns>
-    public async ValueTask<ExecutionError?> Launch (
+    public async ValueTask<ExecutionError?> LaunchAsync (
         string storageRoot,
         CancellationToken cancellationToken = default)
     {
@@ -49,12 +49,12 @@ internal sealed class SupervisorProcessLauncher : ISupervisorProcessLauncher
         var launchCommand = launchCommandResult.Command!;
         if (OperatingSystem.IsMacOS())
         {
-            return await launchdLauncher.Launch(storageRoot, launchCommand, cancellationToken).ConfigureAwait(false);
+            return await launchdLauncher.LaunchAsync(storageRoot, launchCommand, cancellationToken).ConfigureAwait(false);
         }
 
         if (OperatingSystem.IsLinux())
         {
-            return await systemdRunLauncher.Launch(storageRoot, launchCommand, cancellationToken).ConfigureAwait(false);
+            return await systemdRunLauncher.LaunchAsync(storageRoot, launchCommand, cancellationToken).ConfigureAwait(false);
         }
 
         if (OperatingSystem.IsWindows())

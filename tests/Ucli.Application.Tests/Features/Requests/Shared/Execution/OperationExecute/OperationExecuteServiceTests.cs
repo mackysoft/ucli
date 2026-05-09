@@ -66,7 +66,7 @@ public sealed class OperationExecuteServiceTests
                     errors: [])));
         var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore(), timeProvider);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             RefreshOperation,
             CreateInput(
                 projectPath: "/repo/UnityProject",
@@ -134,7 +134,7 @@ public sealed class OperationExecuteServiceTests
                     readPostcondition: readPostcondition)));
         var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, readPostconditionStore);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             RefreshOperation,
             CreateInput(
                 projectPath: "/repo/UnityProject",
@@ -184,7 +184,7 @@ public sealed class OperationExecuteServiceTests
                     readPostcondition: readPostcondition)));
         var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, readPostconditionStore);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             RefreshOperation,
             CreateInput(
                 projectPath: "/repo/UnityProject",
@@ -245,7 +245,7 @@ public sealed class OperationExecuteServiceTests
                     errors: [])));
         var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore());
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             RefreshOperation,
             CreateInput(
                 projectPath: "/repo/UnityProject",
@@ -327,7 +327,7 @@ public sealed class OperationExecuteServiceTests
         };
         var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore(), timeProvider);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             RefreshOperation,
             CreateInput(
                 projectPath: "/repo/UnityProject",
@@ -379,7 +379,7 @@ public sealed class OperationExecuteServiceTests
         };
         var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore(), timeProvider);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             RefreshOperation,
             CreateInput(
                 projectPath: "/repo/UnityProject",
@@ -410,7 +410,7 @@ public sealed class OperationExecuteServiceTests
                 errors: [])));
         var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore());
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             RefreshOperation,
             CreateInput(
                 projectPath: "/repo/UnityProject",
@@ -450,7 +450,7 @@ public sealed class OperationExecuteServiceTests
             errorCode));
         var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore());
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             RefreshOperation,
             CreateInput(
                 projectPath: "/repo/UnityProject",
@@ -482,7 +482,7 @@ public sealed class OperationExecuteServiceTests
             UcliCoreErrorCodes.InternalError));
         var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore());
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             RefreshOperation,
             CreateInput(
                 projectPath: "/repo/UnityProject",
@@ -524,7 +524,7 @@ public sealed class OperationExecuteServiceTests
                 ])));
         var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore());
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             RefreshOperation,
             CreateInput(
                 projectPath: "/repo/UnityProject",
@@ -556,7 +556,7 @@ public sealed class OperationExecuteServiceTests
                 Errors: []))));
         var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore());
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             RefreshOperation,
             CreateInput(
                 projectPath: "/repo/UnityProject",
@@ -642,7 +642,7 @@ public sealed class OperationExecuteServiceTests
             this.result = result;
         }
 
-        public ValueTask<ProjectContextResolutionResult> Resolve (
+        public ValueTask<ProjectContextResolutionResult> ResolveAsync (
             string? projectPath,
             CancellationToken cancellationToken = default)
         {
@@ -662,7 +662,7 @@ public sealed class OperationExecuteServiceTests
 
         public UcliOperationDescriptor? CapturedOperation { get; private set; }
 
-        public ValueTask<OperationAuthorizationResult> Authorize (
+        public ValueTask<OperationAuthorizationResult> AuthorizeAsync (
             UcliOperationDescriptor operation,
             UcliConfig config,
             CancellationToken cancellationToken = default)
@@ -702,7 +702,7 @@ public sealed class OperationExecuteServiceTests
 
         public UnityRequestPayload CapturedPayload => invocations[^1].Payload;
 
-        public ValueTask<UnityRequestExecutionResult> Execute (
+        public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
             UcliCommand command,
             UnityExecutionMode mode,
             TimeSpan timeout,

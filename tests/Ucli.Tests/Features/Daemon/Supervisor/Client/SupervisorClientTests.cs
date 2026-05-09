@@ -23,7 +23,7 @@ public sealed class SupervisorClientTests
             EndpointAddress: "ucli-supervisor-test",
             IssuedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero));
 
-        var result = await client.ProbeReachability(
+        var result = await client.ProbeReachabilityAsync(
             manifest,
             TimeSpan.FromMilliseconds(100),
             CancellationToken.None);
@@ -47,7 +47,7 @@ public sealed class SupervisorClientTests
             EndpointAddress: "ucli-supervisor-test",
             IssuedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero));
 
-        var result = await client.ProbeReachability(
+        var result = await client.ProbeReachabilityAsync(
             manifest,
             TimeSpan.FromMilliseconds(100),
             CancellationToken.None);
@@ -75,7 +75,7 @@ public sealed class SupervisorClientTests
         };
         var client = new SupervisorClient(transportClient);
 
-        var result = await client.EnsureRunning(
+        var result = await client.EnsureRunningAsync(
             CreateManifest(),
             CreateUnityProject(),
             TimeSpan.FromMilliseconds(100),

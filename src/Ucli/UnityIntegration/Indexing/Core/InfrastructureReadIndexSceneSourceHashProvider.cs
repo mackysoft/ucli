@@ -16,12 +16,12 @@ internal sealed class InfrastructureReadIndexSceneSourceHashProvider : IReadInde
     }
 
     /// <inheritdoc />
-    public ValueTask<string?> TryCompute (
+    public ValueTask<string?> TryComputeAsync (
         ResolvedUnityProjectContext unityProject,
         string scenePath,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
-        return sourceHashCalculator.TryCompute(unityProject.UnityProjectRoot, scenePath, cancellationToken);
+        return sourceHashCalculator.TryComputeAsync(unityProject.UnityProjectRoot, scenePath, cancellationToken);
     }
 }

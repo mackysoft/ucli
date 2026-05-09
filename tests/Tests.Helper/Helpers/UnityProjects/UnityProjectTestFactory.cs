@@ -39,7 +39,7 @@ internal static class UnityProjectTestFactory
     /// <param name="scope"> The root test-directory scope. </param>
     /// <param name="projectRelativePath"> The relative project path under the scope root. </param>
     /// <returns> A task that resolves to the written marker file path. </returns>
-    internal static Task<string> WriteUcliUnityPluginMarker (
+    internal static Task<string> WriteUcliUnityPluginMarkerAsync (
         TestDirectoryScope scope,
         string projectRelativePath)
     {

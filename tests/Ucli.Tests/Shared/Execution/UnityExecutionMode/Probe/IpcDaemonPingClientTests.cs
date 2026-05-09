@@ -23,7 +23,7 @@ public sealed class IpcDaemonPingClientTests
         var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
         var context = CreateContext();
 
-        await pingClient.Ping(context, DefaultTimeout, cancellationToken: CancellationToken.None);
+        await pingClient.PingAsync(context, DefaultTimeout, cancellationToken: CancellationToken.None);
 
         Assert.Equal(1, unityIpcClient.CallCount);
         Assert.Equal(1, sessionTokenProvider.CallCount);
@@ -51,7 +51,7 @@ public sealed class IpcDaemonPingClientTests
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
             await TestAwaiter.WaitAsync(
-                pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: cancellationTokenSource.Token).AsTask(),
+                pingClient.PingAsync(CreateContext(), DefaultTimeout, cancellationToken: cancellationTokenSource.Token).AsTask(),
                 "Canceled daemon ping",
                 AsyncWaitTimeout);
         });
@@ -68,7 +68,7 @@ public sealed class IpcDaemonPingClientTests
         var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
         var context = CreateContext();
 
-        await pingClient.Ping(context, DefaultTimeout, "provided-token", CancellationToken.None);
+        await pingClient.PingAsync(context, DefaultTimeout, "provided-token", CancellationToken.None);
 
         Assert.Equal(1, unityIpcClient.CallCount);
         Assert.Equal(0, sessionTokenProvider.CallCount);
@@ -94,7 +94,7 @@ public sealed class IpcDaemonPingClientTests
         var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Success("resolved-token"));
         var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
 
-        var result = await pingClient.PingAndRead(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None);
+        var result = await pingClient.PingAndReadAsync(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None);
 
         Assert.Equal(1, unityIpcClient.CallCount);
         Assert.Equal(1, sessionTokenProvider.CallCount);
@@ -120,7 +120,7 @@ public sealed class IpcDaemonPingClientTests
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
             await TestAwaiter.WaitAsync(
-                pingClient.PingAndRead(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None).AsTask(),
+                pingClient.PingAndReadAsync(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None).AsTask(),
                 "Invalid ping payload result",
                 AsyncWaitTimeout);
         });
@@ -147,7 +147,7 @@ public sealed class IpcDaemonPingClientTests
         var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Success("resolved-token"));
         var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
 
-        var result = await pingClient.PingAndRead(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None);
+        var result = await pingClient.PingAndReadAsync(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None);
 
         Assert.Equal("0.5.0", result.ServerVersion);
         Assert.Equal("batchmode", result.EditorMode);
@@ -156,8 +156,8 @@ public sealed class IpcDaemonPingClientTests
     }
 
     [Theory]
-    [InlineData(nameof(IpcDaemonPingClient.Ping))]
-    [InlineData(nameof(IpcDaemonPingClient.PingAndRead))]
+    [InlineData(nameof(IpcDaemonPingClient.PingAsync))]
+    [InlineData(nameof(IpcDaemonPingClient.PingAndReadAsync))]
     [Trait("Size", "Small")]
     public async Task PingMethods_WhenProjectFingerprintMismatches_ThrowsDaemonPingResponseException (string methodName)
     {
@@ -173,7 +173,7 @@ public sealed class IpcDaemonPingClientTests
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
             await TestAwaiter.WaitAsync(
-                InvokePingMethod(pingClient, methodName).AsTask(),
+                InvokePingMethodAsync(pingClient, methodName).AsTask(),
                 "Mismatched project fingerprint ping result",
                 AsyncWaitTimeout);
         });
@@ -194,7 +194,7 @@ public sealed class IpcDaemonPingClientTests
         var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Success("resolved-token"));
         var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
 
-        var result = await pingClient.PingAndRead(
+        var result = await pingClient.PingAndReadAsync(
             CreateContext(),
             DefaultTimeout,
             validateProjectFingerprint: false,
@@ -218,7 +218,7 @@ public sealed class IpcDaemonPingClientTests
         await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
             await TestAwaiter.WaitAsync(
-                pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None).AsTask(),
+                pingClient.PingAsync(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None).AsTask(),
                 "Error status ping result",
                 AsyncWaitTimeout);
         });
@@ -244,7 +244,7 @@ public sealed class IpcDaemonPingClientTests
         await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
             await TestAwaiter.WaitAsync(
-                pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None).AsTask(),
+                pingClient.PingAsync(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None).AsTask(),
                 "Ping response errors result",
                 AsyncWaitTimeout);
         });
@@ -261,7 +261,7 @@ public sealed class IpcDaemonPingClientTests
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
             await TestAwaiter.WaitAsync(
-                pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None).AsTask(),
+                pingClient.PingAsync(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None).AsTask(),
                 "Missing session token ping result",
                 AsyncWaitTimeout);
         });
@@ -285,7 +285,7 @@ public sealed class IpcDaemonPingClientTests
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
             await TestAwaiter.WaitAsync(
-                pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None).AsTask(),
+                pingClient.PingAsync(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None).AsTask(),
                 "Session token resolution failure ping result",
                 AsyncWaitTimeout);
         });
@@ -310,7 +310,7 @@ public sealed class IpcDaemonPingClientTests
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
             await TestAwaiter.WaitAsync(
-                pingClient.Ping(CreateContext(), timeout, cancellationToken: CancellationToken.None).AsTask(),
+                pingClient.PingAsync(CreateContext(), timeout, cancellationToken: CancellationToken.None).AsTask(),
                 "Invalid timeout ping result",
                 AsyncWaitTimeout);
         });
@@ -329,14 +329,14 @@ public sealed class IpcDaemonPingClientTests
             PathSource: UnityProjectPathSource.CommandOption);
     }
 
-    private static ValueTask InvokePingMethod (
+    private static ValueTask InvokePingMethodAsync (
         IpcDaemonPingClient pingClient,
         string methodName)
     {
         return methodName switch
         {
-            nameof(IpcDaemonPingClient.Ping) => pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None),
-            nameof(IpcDaemonPingClient.PingAndRead) => new ValueTask(pingClient.PingAndRead(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None).AsTask()),
+            nameof(IpcDaemonPingClient.PingAsync) => pingClient.PingAsync(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None),
+            nameof(IpcDaemonPingClient.PingAndReadAsync) => new ValueTask(pingClient.PingAndReadAsync(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None).AsTask()),
             _ => throw new ArgumentOutOfRangeException(nameof(methodName), methodName, "Unsupported ping method."),
         };
     }
@@ -393,7 +393,7 @@ public sealed class IpcDaemonPingClientTests
 
         public int CallCount { get; private set; }
 
-        public ValueTask<DaemonSessionTokenResolutionResult> Resolve (
+        public ValueTask<DaemonSessionTokenResolutionResult> ResolveAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {

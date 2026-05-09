@@ -9,7 +9,7 @@ internal interface ITestRunExecutionPipeline
     /// <param name="context"> The preflight-resolved execution context. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to pipeline output values. </returns>
-    ValueTask<TestRunExecutionPipelineResult> Execute (
+    ValueTask<TestRunExecutionPipelineResult> ExecuteAsync (
         TestRunExecutionContext context,
         CancellationToken cancellationToken = default);
 }

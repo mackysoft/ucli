@@ -94,13 +94,13 @@ internal static class DaemonServiceTestContext
             IssuedAtUtc: new DateTimeOffset(2026, 03, 05, 2, 3, 4, TimeSpan.Zero));
     }
 
-    public static async Task WriteSupervisorManifest (
+    public static async Task WriteSupervisorManifestAsync (
         string storageRoot,
         SupervisorInstanceManifest manifest,
         CancellationToken cancellationToken = default)
     {
         var store = new SupervisorManifestStore();
-        await store.Write(storageRoot, manifest, cancellationToken).ConfigureAwait(false);
+        await store.WriteAsync(storageRoot, manifest, cancellationToken).ConfigureAwait(false);
     }
 
     public static SupervisorClient CreateSupervisorClient (IIpcTransportClient transportClient)
@@ -176,7 +176,7 @@ internal static class DaemonServiceTestContext
 
         public CancellationToken LastCancellationToken { get; private set; }
 
-        public ValueTask<DaemonCommandExecutionContextResolutionResult> Resolve (
+        public ValueTask<DaemonCommandExecutionContextResolutionResult> ResolveAsync (
             UcliCommand timeoutCommand,
             string? projectPath,
             int? timeoutMilliseconds,
@@ -205,7 +205,7 @@ internal static class DaemonServiceTestContext
 
         public CancellationToken LastCancellationToken { get; private set; }
 
-        public ValueTask<DaemonStartResult> Start (
+        public ValueTask<DaemonStartResult> StartAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             DaemonEditorMode? editorMode,
@@ -232,7 +232,7 @@ internal static class DaemonServiceTestContext
 
         public CancellationToken LastCancellationToken { get; private set; }
 
-        public ValueTask<DaemonStopResult> Stop (
+        public ValueTask<DaemonStopResult> StopAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
@@ -273,7 +273,7 @@ internal static class DaemonServiceTestContext
 
         public CancellationToken LastCancellationToken { get; private set; }
 
-        public ValueTask<IpcPingResponse> PingAndRead (
+        public ValueTask<IpcPingResponse> PingAndReadAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             string? sessionToken = null,

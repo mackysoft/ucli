@@ -80,7 +80,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var request = CreateRequest("req-unsupported", method: "unknown.method", payload: 0);
 
             var response = await TestAwaiter.WaitAsync(
-                dispatcher.Dispatch(request, CancellationToken.None).AsUniTask(),
+                dispatcher.DispatchAsync(request, CancellationToken.None).AsUniTask(),
                 "Unsupported IPC method dispatch",
                 AsyncWaitTimeout);
 
@@ -102,7 +102,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var request = CreateRequest("req-throw", IpcMethodNames.Ping, new IpcPingRequest("tests"));
 
             var response = await TestAwaiter.WaitAsync(
-                dispatcher.Dispatch(request, CancellationToken.None).AsUniTask(),
+                dispatcher.DispatchAsync(request, CancellationToken.None).AsUniTask(),
                 "Throwing IPC method dispatch",
                 AsyncWaitTimeout);
 
@@ -125,7 +125,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var request = CreateRequest("req-ok", IpcMethodNames.Ping, new IpcPingRequest("tests"));
 
             var response = await TestAwaiter.WaitAsync(
-                dispatcher.Dispatch(request, CancellationToken.None).AsUniTask(),
+                dispatcher.DispatchAsync(request, CancellationToken.None).AsUniTask(),
                 "Successful IPC method dispatch",
                 AsyncWaitTimeout);
 
@@ -148,7 +148,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
-                await dispatcher.Dispatch(request, cancellationTokenSource.Token).AsUniTask();
+                await dispatcher.DispatchAsync(request, cancellationTokenSource.Token).AsUniTask();
             }, "Canceled IPC method dispatch", AsyncWaitTimeout);
             Assert.That(handler.CallCount, Is.EqualTo(0));
         });
@@ -192,7 +192,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public string Method { get; }
 
-            public ValueTask<IpcResponse> Handle (
+            public ValueTask<IpcResponse> HandleAsync (
                 IpcRequest request,
                 CancellationToken cancellationToken)
             {

@@ -39,7 +39,7 @@ public sealed class UnityIpcRequestExecutorTests
             new StubUnityUcliPluginLocator(),
             CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
             UnityExecutionMode.Daemon,
             DefaultTimeout,
@@ -79,7 +79,7 @@ public sealed class UnityIpcRequestExecutorTests
             pluginLocator,
             CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
             UnityExecutionMode.Auto,
             DefaultTimeout,
@@ -127,7 +127,7 @@ public sealed class UnityIpcRequestExecutorTests
             pluginLocator,
             CreateClients(daemonTransportClient, oneshotTransportClient, sessionTokenProvider, launcher));
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
             UnityExecutionMode.Auto,
             DefaultTimeout,
@@ -174,7 +174,7 @@ public sealed class UnityIpcRequestExecutorTests
             new StubUnityUcliPluginLocator(),
             CreateClients(daemonTransportClient, oneshotTransportClient, sessionTokenProvider, launcher));
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
             UnityExecutionMode.Auto,
             DefaultTimeout,
@@ -234,7 +234,7 @@ public sealed class UnityIpcRequestExecutorTests
             new StubUnityUcliPluginLocator(),
             CreateClients(daemonTransportClient, oneshotTransportClient, sessionTokenProvider, launcher));
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
             UnityExecutionMode.Auto,
             DefaultTimeout,
@@ -284,7 +284,7 @@ public sealed class UnityIpcRequestExecutorTests
             new StubUnityUcliPluginLocator(),
             CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
             UnityExecutionMode.Auto,
             DefaultTimeout,
@@ -333,7 +333,7 @@ public sealed class UnityIpcRequestExecutorTests
             new StubUnityUcliPluginLocator(),
             CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
             UnityExecutionMode.Auto,
             DefaultTimeout,
@@ -374,7 +374,7 @@ public sealed class UnityIpcRequestExecutorTests
             pluginLocator,
             CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
             UnityExecutionMode.Oneshot,
             DefaultTimeout,
@@ -415,7 +415,7 @@ public sealed class UnityIpcRequestExecutorTests
             pluginLocator,
             CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
             UnityExecutionMode.Daemon,
             DefaultTimeout,
@@ -462,7 +462,7 @@ public sealed class UnityIpcRequestExecutorTests
             pluginLocator,
             CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
             UnityExecutionMode.Oneshot,
             TimeSpan.FromMilliseconds(120),
@@ -509,7 +509,7 @@ public sealed class UnityIpcRequestExecutorTests
             CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher),
             timeProvider);
 
-        var result = await executor.Execute(
+        var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
             UnityExecutionMode.Auto,
             TimeSpan.FromMilliseconds(100),
@@ -655,7 +655,7 @@ public sealed class UnityIpcRequestExecutorTests
             this.result = result;
         }
 
-        public ValueTask<UnityExecutionModeDecisionResult> Decide (
+        public ValueTask<UnityExecutionModeDecisionResult> DecideAsync (
             UnityExecutionMode mode,
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
@@ -714,7 +714,7 @@ public sealed class UnityIpcRequestExecutorTests
         public DaemonSessionTokenResolutionResult Result { get; set; }
             = DaemonSessionTokenResolutionResult.SessionNotAvailable();
 
-        public ValueTask<DaemonSessionTokenResolutionResult> Resolve (
+        public ValueTask<DaemonSessionTokenResolutionResult> ResolveAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
@@ -738,7 +738,7 @@ public sealed class UnityIpcRequestExecutorTests
 
         public int CallCount { get; private set; }
 
-        public ValueTask<IpcPingResponse> PingAndRead (
+        public ValueTask<IpcPingResponse> PingAndReadAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             string? sessionToken = null,
@@ -767,7 +767,7 @@ public sealed class UnityIpcRequestExecutorTests
 
         public int CallCount { get; private set; }
 
-        public ValueTask<UnityBatchmodeProcessLaunchResult> Launch (
+        public ValueTask<UnityBatchmodeProcessLaunchResult> LaunchAsync (
             ResolvedUnityProjectContext unityProject,
             IpcBatchmodeBootstrapArguments bootstrapArguments,
             string unityLogPath,
@@ -792,7 +792,7 @@ public sealed class UnityIpcRequestExecutorTests
                 "/tmp/ucli-plugin.json",
                 UnityUcliPluginLocator.ExpectedProtocolVersion);
 
-        public ValueTask<UnityUcliPluginLocateResult> Locate (
+        public ValueTask<UnityUcliPluginLocateResult> LocateAsync (
             string unityProjectRoot,
             CancellationToken cancellationToken = default)
         {
@@ -803,10 +803,10 @@ public sealed class UnityIpcRequestExecutorTests
                 return ValueTask.FromResult(Result);
             }
 
-            return LocateCore(cancellationToken);
+            return LocateCoreAsync(cancellationToken);
         }
 
-        private async ValueTask<UnityUcliPluginLocateResult> LocateCore (CancellationToken cancellationToken)
+        private async ValueTask<UnityUcliPluginLocateResult> LocateCoreAsync (CancellationToken cancellationToken)
         {
             try
             {

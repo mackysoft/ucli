@@ -26,14 +26,14 @@ internal sealed class DaemonListService : IDaemonListService
     /// <param name="timeoutMilliseconds"> The optional normalized timeout value in milliseconds. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-list execution result. </returns>
-    public async ValueTask<DaemonListExecutionResult> GetList (
+    public async ValueTask<DaemonListExecutionResult> GetListAsync (
         string? projectPath,
         int? timeoutMilliseconds,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var contextResult = await daemonCommandExecutionContextResolver.Resolve(
+        var contextResult = await daemonCommandExecutionContextResolver.ResolveAsync(
                 UcliCommandIds.DaemonList,
                 projectPath,
                 timeoutMilliseconds,
@@ -45,7 +45,7 @@ internal sealed class DaemonListService : IDaemonListService
         }
 
         var executionContext = contextResult.Context!;
-        return await daemonListQueryService.GetList(
+        return await daemonListQueryService.GetListAsync(
                 executionContext.Context.UnityProject,
                 executionContext.Timeout,
                 cancellationToken)

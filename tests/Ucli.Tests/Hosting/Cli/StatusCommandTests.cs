@@ -31,7 +31,7 @@ public sealed class StatusCommandTests
         var command = new StatusCommand(service, CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        await StandardOutputCapture.Execute(() => command.Status(
+        await StandardOutputCapture.ExecuteAsync(() => command.StatusAsync(
             projectPath: "/repo/UnityProject",
             timeout: "1234",
             cancellationToken: cancellationTokenSource.Token));
@@ -49,7 +49,7 @@ public sealed class StatusCommandTests
         var service = new StubStatusService((_, _) => throw new InvalidOperationException("Service should not be called."));
         var command = new StatusCommand(service, CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Status(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.StatusAsync(
             timeout: "abc",
             cancellationToken: CancellationToken.None));
 
@@ -78,7 +78,7 @@ public sealed class StatusCommandTests
 
         public CancellationToken CapturedCancellationToken { get; private set; }
 
-        public ValueTask<StatusExecutionResult> Execute (
+        public ValueTask<StatusExecutionResult> ExecuteAsync (
             StatusCommandInput input,
             CancellationToken cancellationToken = default)
         {

@@ -14,7 +14,7 @@ namespace MackySoft.Ucli.Unity.Index
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> The build result. </returns>
         /// <exception cref="ArgumentException"> Thrown when <paramref name="projectRootPath" /> is <see langword="null" />, empty, or whitespace. </exception>
-        ValueTask<IndexCatalogBuildResult> Build (
+        ValueTask<IndexCatalogBuildResult> BuildAsync (
             string projectRootPath,
             CancellationToken cancellationToken = default);
     }

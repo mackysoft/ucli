@@ -22,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         public string Method => IpcMethodNames.Execute;
 
         /// <inheritdoc />
-        public async ValueTask<IpcResponse> Handle (
+        public async ValueTask<IpcResponse> HandleAsync (
             IpcRequest request,
             CancellationToken cancellationToken)
         {
@@ -43,7 +43,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             var context = new ExecuteDispatchContext(
                 RequestId: request.RequestId,
                 ProtocolVersion: request.ProtocolVersion);
-            return await executeRequestDispatcher.Dispatch(executeRequest!, context, cancellationToken);
+            return await executeRequestDispatcher.DispatchAsync(executeRequest!, context, cancellationToken);
         }
     }
 }

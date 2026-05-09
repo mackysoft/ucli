@@ -30,7 +30,7 @@ namespace MackySoft.Ucli.Unity.Index
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> The extraction result. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="assetTypes" /> is <see langword="null" />. </exception>
-        public async ValueTask<IndexSchemaExtractionResult> Extract (
+        public async ValueTask<IndexSchemaExtractionResult> ExtractAsync (
             IReadOnlyList<Type> assetTypes,
             CancellationToken cancellationToken = default)
         {

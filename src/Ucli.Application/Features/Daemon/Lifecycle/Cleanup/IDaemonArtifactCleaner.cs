@@ -9,7 +9,7 @@ internal interface IDaemonArtifactCleaner
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The cleanup operation result. </returns>
-    ValueTask<DaemonSessionStoreOperationResult> Cleanup (
+    ValueTask<DaemonSessionStoreOperationResult> CleanupAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default);
 }

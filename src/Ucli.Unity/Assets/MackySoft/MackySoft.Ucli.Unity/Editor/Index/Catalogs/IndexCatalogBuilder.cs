@@ -46,7 +46,7 @@ namespace MackySoft.Ucli.Unity.Index
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> The build result. </returns>
         /// <exception cref="ArgumentException"> Thrown when <paramref name="projectRootPath" /> is <see langword="null" />, empty, or whitespace. </exception>
-        public async ValueTask<IndexCatalogBuildResult> Build (
+        public async ValueTask<IndexCatalogBuildResult> BuildAsync (
             string projectRootPath,
             CancellationToken cancellationToken = default)
         {
@@ -58,7 +58,7 @@ namespace MackySoft.Ucli.Unity.Index
 
             try
             {
-                var inputSnapshot = await inputFingerprintCalculator.TryCompute(projectRootPath, cancellationToken);
+                var inputSnapshot = await inputFingerprintCalculator.TryComputeAsync(projectRootPath, cancellationToken);
                 if (inputSnapshot == null)
                 {
                     return IndexCatalogBuildResult.Failure("Failed to compute index input snapshot.");
@@ -68,8 +68,8 @@ namespace MackySoft.Ucli.Unity.Index
                 var projectTypeCatalog = projectTypeCatalogSource.Resolve();
 
                 cancellationToken.ThrowIfCancellationRequested();
-                var componentSchemaResult = await componentSchemaExtractor.Extract(projectTypeCatalog.ComponentTypes, cancellationToken);
-                var assetSchemaResult = await assetSchemaExtractor.Extract(projectTypeCatalog.AssetTypes, cancellationToken);
+                var componentSchemaResult = await componentSchemaExtractor.ExtractAsync(projectTypeCatalog.ComponentTypes, cancellationToken);
+                var assetSchemaResult = await assetSchemaExtractor.ExtractAsync(projectTypeCatalog.AssetTypes, cancellationToken);
                 var schemaEntries = IndexJsonOrderingPolicy.OrderSchemaEntries(
                     componentSchemaResult.Entries.Concat(assetSchemaResult.Entries));
 

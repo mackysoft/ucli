@@ -21,7 +21,7 @@ internal static class QueryCommandExecutionHelper
     }
 
     /// <summary> Executes a typed-query operation through the query service and writes the command result. </summary>
-    public static async Task<int> Execute (
+    public static async Task<int> ExecuteAsync (
         IQueryService queryService,
         QueryCommonOptions options,
         QueryOperationRequest operation,
@@ -33,7 +33,7 @@ internal static class QueryCommandExecutionHelper
         ArgumentNullException.ThrowIfNull(operation);
         ArgumentNullException.ThrowIfNull(commandResultWriter);
 
-        var serviceResult = await queryService.Execute(
+        var serviceResult = await queryService.ExecuteAsync(
                 new QueryCommandInput(
                     ProjectPath: options.ProjectPath,
                     Mode: options.Mode,

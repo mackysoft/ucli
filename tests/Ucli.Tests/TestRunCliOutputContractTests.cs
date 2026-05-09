@@ -11,7 +11,7 @@ public sealed class TestRunCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Test_WithoutSubcommand_ReturnsFrameworkHelpOutput ()
     {
-        var result = await CliProcessRunner.RunCommand(UcliCommandNames.Test);
+        var result = await CliProcessRunner.RunCommandAsync(UcliCommandNames.Test);
 
         AssertFrameworkHelpOutput(result);
     }
@@ -20,7 +20,7 @@ public sealed class TestRunCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Test_WithUnknownSubcommand_ReturnsFrameworkHelpOutput ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Test,
             "unknown");
 
@@ -31,7 +31,7 @@ public sealed class TestRunCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task TestProfile_WithoutSubcommand_ReturnsFrameworkHelpOutput ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Test,
             UcliCommandNames.Profile);
 
@@ -42,7 +42,7 @@ public sealed class TestRunCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task TestProfile_WithUnknownSubcommand_ReturnsFrameworkHelpOutput ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Test,
             UcliCommandNames.Profile,
             "unknown");
@@ -54,7 +54,7 @@ public sealed class TestRunCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task WithUnknownOption_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Test,
             UcliCommandNames.RunSubcommand,
             UcliContractConstants.CliOption.Unknown);
@@ -79,7 +79,7 @@ public sealed class TestRunCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "test-run-missing-project");
         var missingProjectPath = scope.GetPath("workspace/UnityProject");
 
-        var result = await RunTestRun(projectPath: missingProjectPath);
+        var result = await RunTestRunAsync(projectPath: missingProjectPath);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -107,7 +107,7 @@ public sealed class TestRunCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "test-run-fail-fast-camel-case");
         var missingProjectPath = scope.GetPath("workspace/UnityProject");
 
-        var result = await RunTestRun(projectPath: missingProjectPath, failFast: true);
+        var result = await RunTestRunAsync(projectPath: missingProjectPath, failFast: true);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -126,7 +126,7 @@ public sealed class TestRunCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task WithInvalidMode_ReturnsTestRunInvalidInputEnvelope ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Test,
             UcliCommandNames.RunSubcommand,
             UcliContractConstants.CliOption.Mode,
@@ -140,7 +140,7 @@ public sealed class TestRunCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task WithWhitespaceTestPlatform_ReturnsTestRunInvalidInputEnvelope ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Test,
             UcliCommandNames.RunSubcommand,
             UcliContractConstants.CliOption.TestPlatform,
@@ -165,7 +165,7 @@ public sealed class TestRunCliOutputContractTests
                 .IsNull("summaryJsonPath"));
     }
 
-    private static Task<CommandExecutionResult> RunTestRun (
+    private static Task<CommandExecutionResult> RunTestRunAsync (
         string? projectPath = null,
         bool failFast = false)
     {
@@ -186,7 +186,7 @@ public sealed class TestRunCliOutputContractTests
             args.Add(UcliContractConstants.CliOption.FailFast);
         }
 
-        return CliProcessRunner.RunCommand(args.ToArray());
+        return CliProcessRunner.RunCommandAsync(args.ToArray());
     }
 
     private static void AssertFrameworkHelpOutput (CommandExecutionResult result)

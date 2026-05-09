@@ -4,7 +4,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 internal interface IDaemonGuiSessionRegistrationAwaiter
 {
     /// <summary> Waits for a GUI session belonging to the expected process identifier. </summary>
-    ValueTask<DaemonGuiSessionRegistrationWaitResult> WaitForSession (
+    ValueTask<DaemonGuiSessionRegistrationWaitResult> WaitForSessionAsync (
         ResolvedUnityProjectContext unityProject,
         int expectedProcessId,
         TimeSpan timeout,

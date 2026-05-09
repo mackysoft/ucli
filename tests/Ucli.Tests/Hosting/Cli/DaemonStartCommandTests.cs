@@ -27,7 +27,7 @@ public sealed class DaemonStartCommandTests
         var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
 
         CommandExecutionState.Reset();
-        var (exitCode, _) = await StandardOutputCapture.Execute(() => command.Start(
+        var (exitCode, _) = await StandardOutputCapture.ExecuteAsync(() => command.StartAsync(
             projectPath: "/repo/UnityProject",
             timeout: "1234",
             editorMode: editorModeOption,
@@ -48,7 +48,7 @@ public sealed class DaemonStartCommandTests
         var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
 
         CommandExecutionState.Reset();
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Start(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.StartAsync(
             editorMode: "unsupported",
             cancellationToken: CancellationToken.None));
 
@@ -82,7 +82,7 @@ public sealed class DaemonStartCommandTests
         var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
 
         CommandExecutionState.Reset();
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Start(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.StartAsync(
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.ToolError, exitCode);
@@ -138,7 +138,7 @@ public sealed class DaemonStartCommandTests
 
         public CancellationToken LastCancellationToken { get; private set; }
 
-        public ValueTask<DaemonStartExecutionResult> Start (
+        public ValueTask<DaemonStartExecutionResult> StartAsync (
             string? projectPath,
             int? timeoutMilliseconds,
             DaemonEditorMode? editorMode,

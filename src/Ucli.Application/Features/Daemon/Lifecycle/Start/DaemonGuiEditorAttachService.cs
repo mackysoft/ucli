@@ -33,7 +33,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
     }
 
     /// <inheritdoc />
-    public async ValueTask<DaemonStartResult?> TryAttachExistingGuiEditor (
+    public async ValueTask<DaemonStartResult?> TryAttachExistingGuiEditorAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         DaemonEditorMode? editorMode,
@@ -44,7 +44,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
-        var markerReadResult = await markerReader.Read(unityProject, cancellationToken).ConfigureAwait(false);
+        var markerReadResult = await markerReader.ReadAsync(unityProject, cancellationToken).ConfigureAwait(false);
         if (!markerReadResult.IsSuccess)
         {
             return DaemonStartResult.Failure(markerReadResult.Error!);
@@ -56,7 +56,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
         }
 
         var marker = markerReadResult.Marker!;
-        var probeResult = await processProbe.Probe(marker, cancellationToken).ConfigureAwait(false);
+        var probeResult = await processProbe.ProbeAsync(marker, cancellationToken).ConfigureAwait(false);
         if (!probeResult.IsMatchingGuiEditor)
         {
             return null;
@@ -71,14 +71,14 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
 
         if (!deadline.TryGetRemainingTimeout(out var waitTimeout))
         {
-            return await CreateGuiEndpointNotRegisteredFailure(
+            return await CreateGuiEndpointNotRegisteredFailureAsync(
                     unityProject,
                     marker,
                     CreateTimeoutError($"Timed out before waiting for existing GUI Editor endpoint registration. ProcessId={marker.ProcessId}."))
                 .ConfigureAwait(false);
         }
 
-        var waitResult = await sessionRegistrationAwaiter.WaitForSession(
+        var waitResult = await sessionRegistrationAwaiter.WaitForSessionAsync(
                 unityProject,
                 marker.ProcessId,
                 waitTimeout,
@@ -94,15 +94,15 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
             return DaemonStartResult.Failure(waitResult.Error);
         }
 
-        return await CreateGuiEndpointNotRegisteredFailure(unityProject, marker, waitResult.Error).ConfigureAwait(false);
+        return await CreateGuiEndpointNotRegisteredFailureAsync(unityProject, marker, waitResult.Error).ConfigureAwait(false);
     }
 
-    private async ValueTask<DaemonStartResult> CreateGuiEndpointNotRegisteredFailure (
+    private async ValueTask<DaemonStartResult> CreateGuiEndpointNotRegisteredFailureAsync (
         ResolvedUnityProjectContext unityProject,
         UnityEditorInstanceMarker marker,
         ExecutionError waitError)
     {
-        return await DaemonGuiEndpointNotRegisteredFailureFactory.CreateFailure(
+        return await DaemonGuiEndpointNotRegisteredFailureFactory.CreateFailureAsync(
                 unityProject,
                 daemonDiagnosisStore,
                 timeProvider,

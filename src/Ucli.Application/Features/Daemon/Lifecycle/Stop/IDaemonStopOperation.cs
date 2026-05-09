@@ -8,7 +8,7 @@ internal interface IDaemonStopOperation
     /// <param name="timeout"> The daemon stop timeout. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon stop result. </returns>
-    ValueTask<DaemonStopResult> Stop (
+    ValueTask<DaemonStopResult> StopAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);

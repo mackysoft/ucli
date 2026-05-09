@@ -16,7 +16,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="bootstrapArguments"> The daemon bootstrap arguments that define storage scope. </param>
         /// <param name="reason"> The normalized daemon diagnosis reason. </param>
         /// <param name="message"> The human-readable daemon diagnosis message. </param>
-        internal static async Task Write (
+        internal static async Task WriteAsync (
             IpcDaemonBootstrapArguments bootstrapArguments,
             string reason,
             string message,
@@ -56,7 +56,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ?? throw new InvalidOperationException($"Daemon diagnosis directory path could not be resolved: {diagnosisPath}");
             UcliLocalStorageBootstrapper.EnsureInitialized(diagnosisDirectoryPath);
             Directory.CreateDirectory(diagnosisDirectoryPath);
-            await FileUtilities.WriteAllTextAtomically(diagnosisPath, json, cancellationToken).ConfigureAwait(false);
+            await FileUtilities.WriteAllTextAtomicallyAsync(diagnosisPath, json, cancellationToken).ConfigureAwait(false);
         }
     }
 }

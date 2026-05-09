@@ -13,7 +13,7 @@ internal sealed class SupervisorBootstrapLockProvider
     /// <param name="timeout"> The timeout budget. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The async-disposable lock handle. </returns>
-    public async ValueTask<IAsyncDisposable> Acquire (
+    public async ValueTask<IAsyncDisposable> AcquireAsync (
         string storageRoot,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)

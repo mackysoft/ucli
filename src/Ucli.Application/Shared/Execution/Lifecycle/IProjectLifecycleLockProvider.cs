@@ -8,7 +8,7 @@ internal interface IProjectLifecycleLockProvider
     /// <param name="timeout"> The timeout budget used while waiting for lock acquisition. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The async-disposable lock handle that must be disposed to release lock. </returns>
-    ValueTask<IAsyncDisposable> Acquire (
+    ValueTask<IAsyncDisposable> AcquireAsync (
         ProjectLifecycleLockRequest request,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);

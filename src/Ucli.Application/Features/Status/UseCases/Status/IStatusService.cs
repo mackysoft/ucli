@@ -9,7 +9,7 @@ internal interface IStatusService
     /// <param name="input"> The normalized status command input. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the status execution result. </returns>
-    ValueTask<StatusExecutionResult> Execute (
+    ValueTask<StatusExecutionResult> ExecuteAsync (
         StatusCommandInput input,
         CancellationToken cancellationToken = default);
 }

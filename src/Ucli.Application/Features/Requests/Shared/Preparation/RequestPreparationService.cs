@@ -48,7 +48,7 @@ internal sealed class RequestPreparationService : IRequestPreparationService
     }
 
     /// <inheritdoc />
-    public async ValueTask<RequestPreparationResult> Prepare (
+    public async ValueTask<RequestPreparationResult> PrepareAsync (
         string? projectPath,
         string requestJson,
         CancellationToken cancellationToken = default)
@@ -61,7 +61,7 @@ internal sealed class RequestPreparationService : IRequestPreparationService
             return RequestPreparationResult.Failure(parseRequestResult.Error!);
         }
 
-        var projectContextResult = await projectContextResolver.Resolve(projectPath, cancellationToken).ConfigureAwait(false);
+        var projectContextResult = await projectContextResolver.ResolveAsync(projectPath, cancellationToken).ConfigureAwait(false);
         if (!projectContextResult.IsSuccess)
         {
             return RequestPreparationResult.Failure(projectContextResult.Error!);
