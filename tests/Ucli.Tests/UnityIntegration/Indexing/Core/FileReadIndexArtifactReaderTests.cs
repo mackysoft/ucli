@@ -1,5 +1,4 @@
 using MackySoft.Tests;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
@@ -21,23 +20,12 @@ public sealed class FileReadIndexArtifactReaderTests
             SourceInputsHash: "source-hash",
             Entries:
             [
-                new IndexOpEntryJsonContract(
+                new IndexOpsCatalogEntryJsonContract(
                     Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                     Kind: "query",
                     Policy: "safe",
-                    ArgsSchemaJson: """{"type":"object"}""",
-                    ResultSchemaJson: """{"type":"object"}""")
-                {
-                    Description = "Returns a GameObject description including components and child hierarchy.",
-                    Inputs = Array.Empty<UcliOperationInputContract>(),
-                    ResultContract = UcliOperationResultContract.One<GameObjectDescriptionResult>("GameObject description result."),
-                    Assurance = new UcliOperationAssuranceContract(
-                        Array.Empty<string>(),
-                        mayDirty: false,
-                        mayPersist: false,
-                        Array.Empty<string>(),
-                        UcliOperationPlanModeValues.ObservesLiveUnity),
-                },
+                    DescribeKey: new string('a', 64),
+                    DescribeHash: new string('b', 64)),
             ]);
         WriteText(UcliStoragePathResolver.ResolveOpsCatalogPath(scope.FullPath, fingerprint), Write(contract));
 

@@ -15,7 +15,7 @@ public sealed class IndexCatalogContractValidatorTests
             SourceInputsHash: "source-hash",
             Entries:
             [
-                CreateValidOpsEntry(),
+                CreateValidOpsCatalogEntry(),
             ]);
 
         var result = IndexCatalogContractValidator.IsValidOpsCatalog(contract);
@@ -27,20 +27,17 @@ public sealed class IndexCatalogContractValidatorTests
     [Trait("Size", "Small")]
     public void IsValidOpsCatalog_ReturnsFalse_WhenDescribeContractIsMissing ()
     {
-        var contract = new IndexOpsCatalogJsonContract(
+        var contract = new IndexOpsDescribeJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
             SourceInputsHash: "source-hash",
-            Entries:
-            [
-                new IndexOpEntryJsonContract(
-                    Name: "ucli.scene.open",
-                    Kind: UcliOperationKindValues.Command,
-                    Policy: OperationPolicyValues.Safe,
-                    ArgsSchemaJson: """{"type":"object"}"""),
-            ]);
+            Operation: new IndexOpEntryJsonContract(
+                Name: "ucli.scene.open",
+                Kind: UcliOperationKindValues.Command,
+                Policy: OperationPolicyValues.Safe,
+                ArgsSchemaJson: """{"type":"object"}"""));
 
-        var result = IndexCatalogContractValidator.IsValidOpsCatalog(contract);
+        var result = IndexCatalogContractValidator.IsValidOpsDescribe(contract);
 
         Assert.False(result);
     }
@@ -49,16 +46,13 @@ public sealed class IndexCatalogContractValidatorTests
     [Trait("Size", "Small")]
     public void IsValidOpsCatalog_ReturnsFalse_WhenArgsSchemaUsesUnsupportedKeyword ()
     {
-        var contract = new IndexOpsCatalogJsonContract(
+        var contract = new IndexOpsDescribeJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
             SourceInputsHash: "source-hash",
-            Entries:
-            [
-                CreateValidOpsEntry(argsSchemaJson: """{"type":"object","oneOf":[]}"""),
-            ]);
+            Operation: CreateValidOpsEntry(argsSchemaJson: """{"type":"object","oneOf":[]}"""));
 
-        var result = IndexCatalogContractValidator.IsValidOpsCatalog(contract);
+        var result = IndexCatalogContractValidator.IsValidOpsDescribe(contract);
 
         Assert.False(result);
     }
@@ -67,16 +61,13 @@ public sealed class IndexCatalogContractValidatorTests
     [Trait("Size", "Small")]
     public void IsValidOpsCatalog_ReturnsFalse_WhenNoResultEntryHasResultSchema ()
     {
-        var contract = new IndexOpsCatalogJsonContract(
+        var contract = new IndexOpsDescribeJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
             SourceInputsHash: "source-hash",
-            Entries:
-            [
-                CreateValidOpsEntry(resultSchemaJson: """{"type":"object"}"""),
-            ]);
+            Operation: CreateValidOpsEntry(resultSchemaJson: """{"type":"object"}"""));
 
-        var result = IndexCatalogContractValidator.IsValidOpsCatalog(contract);
+        var result = IndexCatalogContractValidator.IsValidOpsDescribe(contract);
 
         Assert.False(result);
     }
@@ -85,52 +76,49 @@ public sealed class IndexCatalogContractValidatorTests
     [Trait("Size", "Small")]
     public void IsValidOpsCatalog_ReturnsTrue_WhenDescribeContractHasMultiFieldVariant ()
     {
-        var contract = new IndexOpsCatalogJsonContract(
+        var contract = new IndexOpsDescribeJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
             SourceInputsHash: "source-hash",
-            Entries:
-            [
-                CreateValidOpsEntry(
-                    inputs:
-                    [
-                        new UcliOperationInputContract(
-                            name: "target",
-                            valueType: "object",
-                            description: "Object reference to resolve.",
-                            constraints: Array.Empty<UcliOperationInputConstraintContract>(),
-                            variants:
-                            [
-                                new UcliOperationInputVariantContract(
-                                    name: "sceneHierarchy",
-                                    description: "Use scene and hierarchy path.",
-                                    fields:
-                                    [
-                                        new UcliOperationInputVariantFieldContract(
-                                            name: "scene",
-                                            argsPath: "$.target.scene",
-                                            description: "Scene asset path.",
-                                            constraints:
-                                            [
-                                                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.AssetExists)
-                                                {
-                                                    AssetKind = UcliOperationAssetKindValues.Scene,
-                                                },
-                                            ]),
-                                        new UcliOperationInputVariantFieldContract(
-                                            name: "hierarchyPath",
-                                            argsPath: "$.target.hierarchyPath",
-                                            description: "Hierarchy path.",
-                                            constraints:
-                                            [
-                                                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.HierarchyPath),
-                                            ]),
-                                    ]),
-                            ]),
-                    ]),
-            ]);
+            Operation: CreateValidOpsEntry(
+                inputs:
+                [
+                    new UcliOperationInputContract(
+                        name: "target",
+                        valueType: "object",
+                        description: "Object reference to resolve.",
+                        constraints: Array.Empty<UcliOperationInputConstraintContract>(),
+                        variants:
+                        [
+                            new UcliOperationInputVariantContract(
+                                name: "sceneHierarchy",
+                                description: "Use scene and hierarchy path.",
+                                fields:
+                                [
+                                    new UcliOperationInputVariantFieldContract(
+                                        name: "scene",
+                                        argsPath: "$.target.scene",
+                                        description: "Scene asset path.",
+                                        constraints:
+                                        [
+                                            new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.AssetExists)
+                                            {
+                                                AssetKind = UcliOperationAssetKindValues.Scene,
+                                            },
+                                        ]),
+                                    new UcliOperationInputVariantFieldContract(
+                                        name: "hierarchyPath",
+                                        argsPath: "$.target.hierarchyPath",
+                                        description: "Hierarchy path.",
+                                        constraints:
+                                        [
+                                            new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.HierarchyPath),
+                                        ]),
+                                ]),
+                        ]),
+                ]));
 
-        var result = IndexCatalogContractValidator.IsValidOpsCatalog(contract);
+        var result = IndexCatalogContractValidator.IsValidOpsDescribe(contract);
 
         Assert.True(result);
     }
@@ -163,16 +151,13 @@ public sealed class IndexCatalogContractValidatorTests
                         Array.Empty<UcliCodeApiMemberContract>()),
                 }),
         };
-        var contract = new IndexOpsCatalogJsonContract(
+        var contract = new IndexOpsDescribeJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
             SourceInputsHash: "source-hash",
-            Entries:
-            [
-                entry,
-            ]);
+            Operation: entry);
 
-        var result = IndexCatalogContractValidator.IsValidOpsCatalog(contract);
+        var result = IndexCatalogContractValidator.IsValidOpsDescribe(contract);
 
         Assert.True(result);
     }
@@ -181,24 +166,21 @@ public sealed class IndexCatalogContractValidatorTests
     [Trait("Size", "Small")]
     public void IsValidOpsCatalog_ReturnsFalse_WhenDescribeContractInputIsInvalid ()
     {
-        var contract = new IndexOpsCatalogJsonContract(
+        var contract = new IndexOpsDescribeJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
             SourceInputsHash: "source-hash",
-            Entries:
-            [
-                CreateValidOpsEntry(
-                    inputs:
-                    [
-                        new UcliOperationInputContract(
-                            name: "var",
-                            valueType: "object",
-                            description: "Object reference to resolve.",
-                            constraints: Array.Empty<UcliOperationInputConstraintContract>()),
-                    ]),
-            ]);
+            Operation: CreateValidOpsEntry(
+                inputs:
+                [
+                    new UcliOperationInputContract(
+                        name: "var",
+                        valueType: "object",
+                        description: "Object reference to resolve.",
+                        constraints: Array.Empty<UcliOperationInputConstraintContract>()),
+                ]));
 
-        var result = IndexCatalogContractValidator.IsValidOpsCatalog(contract);
+        var result = IndexCatalogContractValidator.IsValidOpsDescribe(contract);
 
         Assert.False(result);
     }
@@ -210,16 +192,13 @@ public sealed class IndexCatalogContractValidatorTests
     [InlineData("""{"type":"object","additionalProperties":false,"required":["var"],"properties":{"target":{"type":"string"}}}""")]
     public void IsValidOpsCatalog_ReturnsFalse_WhenArgsSchemaExposesRequestLocalAliasProperty (string argsSchemaJson)
     {
-        var contract = new IndexOpsCatalogJsonContract(
+        var contract = new IndexOpsDescribeJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
             SourceInputsHash: "source-hash",
-            Entries:
-            [
-                CreateValidOpsEntry(argsSchemaJson: argsSchemaJson),
-            ]);
+            Operation: CreateValidOpsEntry(argsSchemaJson: argsSchemaJson));
 
-        var result = IndexCatalogContractValidator.IsValidOpsCatalog(contract);
+        var result = IndexCatalogContractValidator.IsValidOpsDescribe(contract);
 
         Assert.False(result);
     }
@@ -681,5 +660,15 @@ public sealed class IndexCatalogContractValidatorTests
                 Array.Empty<string>(),
                 UcliOperationPlanModeValues.ValidationOnly),
         };
+    }
+
+    private static IndexOpsCatalogEntryJsonContract CreateValidOpsCatalogEntry ()
+    {
+        return new IndexOpsCatalogEntryJsonContract(
+            Name: "ucli.scene.open",
+            Kind: UcliOperationKindValues.Command,
+            Policy: OperationPolicyValues.Safe,
+            DescribeKey: new string('a', 64),
+            DescribeHash: new string('b', 64));
     }
 }

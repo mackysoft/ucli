@@ -24,6 +24,9 @@ public sealed class OpsPreflightServiceTests
                 Mode: NormalizeMode("daemon"),
                 TimeoutMilliseconds: NormalizeTimeout("1200"),
                 ReadIndexMode: NormalizeReadIndexMode(ReadIndexModeValues.AllowStale),
+                NameRegex: null,
+                Kind: null,
+                MaxPolicy: null,
                 FailFast: true));
 
         Assert.True(result.IsSuccess);

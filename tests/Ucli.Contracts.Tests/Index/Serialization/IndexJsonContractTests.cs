@@ -221,25 +221,18 @@ public sealed class IndexJsonContractTests
     [Trait("Size", "Small")]
     public void IndexOpsCatalogJsonContractSerializer_RoundTripsContract ()
     {
-        var describe = CreateGoDescribeContract();
         var contract = new IndexOpsCatalogJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
             SourceInputsHash: "source-hash",
             Entries:
             [
-                new IndexOpEntryJsonContract(
+                new IndexOpsCatalogEntryJsonContract(
                     Name: UcliPrimitiveOperationNames.GoDescribe,
                     Kind: "query",
                     Policy: "safe",
-                    ArgsSchemaJson: """{"type":"object"}""",
-                    ResultSchemaJson: """{"type":"object"}""")
-                {
-                    Description = describe.Description,
-                    Inputs = describe.Inputs,
-                    ResultContract = describe.ResultContract,
-                    Assurance = describe.Assurance,
-                },
+                    DescribeKey: new string('a', 64),
+                    DescribeHash: new string('b', 64)),
             ]);
 
         var json = Write(contract);
@@ -251,13 +244,49 @@ public sealed class IndexJsonContractTests
         Assert.NotNull(deserialized.Entries);
         Assert.Single(deserialized.Entries);
         Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, deserialized.Entries[0].Name);
-        Assert.Equal(describe.Description, deserialized.Entries[0].Description);
-        Assert.NotNull(deserialized.Entries[0].Inputs);
-        Assert.NotNull(deserialized.Entries[0].ResultContract);
-        Assert.Equal("GameObjectDescriptionResult", deserialized.Entries[0].ResultContract!.ResultType);
-        Assert.NotNull(deserialized.Entries[0].Assurance);
+        Assert.Equal("query", deserialized.Entries[0].Kind);
+        Assert.Equal("safe", deserialized.Entries[0].Policy);
+        Assert.Equal(new string('a', 64), deserialized.Entries[0].DescribeKey);
+        Assert.Equal(new string('b', 64), deserialized.Entries[0].DescribeHash);
+    }
 
-        var targetInput = deserialized.Entries[0].Inputs!.Single(input =>
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IndexOpsDescribeJsonContractSerializer_RoundTripsContract ()
+    {
+        var describe = CreateGoDescribeContract();
+        var contract = new IndexOpsDescribeJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "source-hash",
+            Operation: new IndexOpEntryJsonContract(
+                Name: UcliPrimitiveOperationNames.GoDescribe,
+                Kind: "query",
+                Policy: "safe",
+                ArgsSchemaJson: """{"type":"object"}""",
+                ResultSchemaJson: """{"type":"object"}""")
+            {
+                Description = describe.Description,
+                Inputs = describe.Inputs,
+                ResultContract = describe.ResultContract,
+                Assurance = describe.Assurance,
+            });
+
+        var json = Write(contract);
+        var deserialized = IndexOpsDescribeJsonContractSerializer.Deserialize(json);
+
+        Assert.NotNull(deserialized);
+        Assert.Equal(contract.SchemaVersion, deserialized.SchemaVersion);
+        Assert.Equal(contract.SourceInputsHash, deserialized.SourceInputsHash);
+        Assert.NotNull(deserialized.Operation);
+        Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, deserialized.Operation.Name);
+        Assert.Equal(describe.Description, deserialized.Operation.Description);
+        Assert.NotNull(deserialized.Operation.Inputs);
+        Assert.NotNull(deserialized.Operation.ResultContract);
+        Assert.Equal("GameObjectDescriptionResult", deserialized.Operation.ResultContract!.ResultType);
+        Assert.NotNull(deserialized.Operation.Assurance);
+
+        var targetInput = deserialized.Operation.Inputs!.Single(input =>
             string.Equals(input.Name, "target", StringComparison.Ordinal));
         var globalObjectIdVariant = targetInput.Variants!.Single(variant =>
             string.Equals(variant.Name, "byGlobalObjectId", StringComparison.Ordinal));
@@ -268,7 +297,7 @@ public sealed class IndexJsonContractTests
         Assert.Contains(globalObjectIdField.Constraints!, constraint => constraint.Kind == UcliOperationInputConstraintKindValues.GlobalObjectId);
 
         using var jsonDocument = JsonDocument.Parse(json);
-        var operationElement = jsonDocument.RootElement.GetProperty("entries")[0];
+        var operationElement = jsonDocument.RootElement.GetProperty("operation");
         var targetInputElement = operationElement.GetProperty("inputs").EnumerateArray().Single(input =>
             string.Equals(input.GetProperty("name").GetString(), "target", StringComparison.Ordinal));
         var globalObjectIdVariantElement = targetInputElement.GetProperty("variants").EnumerateArray().Single(variant =>
@@ -325,7 +354,7 @@ public sealed class IndexJsonContractTests
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
             SourceInputsHash: "hash",
-            Entries: Array.Empty<IndexOpEntryJsonContract>()));
+            Entries: Array.Empty<IndexOpsCatalogEntryJsonContract>()));
         var inputsManifestJson = Write(new IndexInputsManifestJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
@@ -578,31 +607,18 @@ public sealed class IndexJsonContractTests
             SourceInputsHash: "hash",
             Entries:
             [
-                new IndexOpEntryJsonContract(
+                new IndexOpsCatalogEntryJsonContract(
                     Name: "z.op",
                     Kind: "mutation",
                     Policy: "dangerous",
-                    ArgsSchemaJson: """{"type":"object"}""",
-                    ResultSchemaJson: """{"type":"object"}"""),
-                new IndexOpEntryJsonContract(
+                    DescribeKey: new string('f', 64),
+                    DescribeHash: new string('9', 64)),
+                new IndexOpsCatalogEntryJsonContract(
                     Name: "a.op",
                     Kind: "query",
                     Policy: "safe",
-                    ArgsSchemaJson: """{"type":"object"}""")
-                {
-                    Description = "A operation.",
-                    Inputs =
-                    [
-                        new UcliOperationInputContract(
-                            name: "target",
-                            valueType: "object",
-                            description: "Target input.",
-                            constraints:
-                            [
-                                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.AssetExists),
-                            ]),
-                    ],
-                },
+                    DescribeKey: new string('a', 64),
+                    DescribeHash: new string('1', 64)),
             ]);
 
         var json = Write(contract);
@@ -619,33 +635,15 @@ public sealed class IndexJsonContractTests
                       "name": "a.op",
                       "kind": "query",
                       "policy": "safe",
-                      "argsSchemaJson": "{\u0022type\u0022:\u0022object\u0022}",
-                      "description": "A operation.",
-                      "inputs": [
-                        {
-                          "name": "target",
-                          "description": "Target input.",
-                          "valueType": "object",
-                          "constraints": [
-                            {
-                              "kind": "assetExists"
-                            }
-                          ]
-                        }
-                      ],
-                      "resultContract": null,
-                      "assurance": null
+                      "describeKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "describeHash": "1111111111111111111111111111111111111111111111111111111111111111"
                     },
                     {
                       "name": "z.op",
                       "kind": "mutation",
                       "policy": "dangerous",
-                      "argsSchemaJson": "{\u0022type\u0022:\u0022object\u0022}",
-                      "resultSchemaJson": "{\u0022type\u0022:\u0022object\u0022}",
-                      "description": null,
-                      "inputs": null,
-                      "resultContract": null,
-                      "assurance": null
+                      "describeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                      "describeHash": "9999999999999999999999999999999999999999999999999999999999999999"
                     }
                   ]
                 }
@@ -655,122 +653,119 @@ public sealed class IndexJsonContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IndexOpsCatalogJsonContractWriter_WritesOptionalOperationMetadata ()
+    public void IndexOpsDescribeJsonContractWriter_WritesOptionalOperationMetadata ()
     {
-        var contract = new IndexOpsCatalogJsonContract(
+        var contract = new IndexOpsDescribeJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
             SourceInputsHash: "hash",
-            Entries:
-            [
-                new IndexOpEntryJsonContract(
-                    Name: "write.asset",
-                    Kind: "mutation",
-                    Policy: "safe",
-                    ArgsSchemaJson: """{"type":"object"}""",
-                    ResultSchemaJson: """{"$ref":"#/definitions/WriteResult"}""")
-                {
-                    Description = "Writes one asset.",
-                    Inputs =
-                    [
-                        new UcliOperationInputContract(
-                            name: "target",
-                            valueType: "object",
-                            description: "Target input.",
-                            constraints:
-                            [
-                                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.AssetExists)
-                                {
-                                    AssetKind = UcliOperationAssetKindValues.Scene,
-                                },
-                                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.ReferenceResolvable)
-                                {
-                                    TargetKind = UcliOperationReferenceTargetKindValues.GameObject,
-                                },
-                                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.TypeAssignableTo)
-                                {
-                                    TypeKind = UcliOperationTypeKindValues.Component,
-                                },
-                                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.SerializedProperty)
-                                {
-                                    Access = UcliOperationSerializedPropertyAccessValues.Write,
-                                },
-                                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.Range)
-                                {
-                                    Min = 1.5,
-                                    Max = 3.5,
-                                },
-                            ],
-                            argsPath: "$.target",
-                            variants:
-                            [
-                                new UcliOperationInputVariantContract(
-                                    name: "byPath",
-                                    description: "Path selector.",
-                                    fields:
-                                    [
-                                        new UcliOperationInputVariantFieldContract(
-                                            name: "path",
-                                            argsPath: "$.target.path",
-                                            description: "Serialized path.",
-                                            constraints:
-                                            [
-                                                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.NonEmpty),
-                                            ]),
-                                    ]),
-                            ]),
-                    ],
-                    ResultContract = new UcliOperationResultContract(
-                        emitted: true,
-                        resultType: "WriteResult",
-                        description: "Written result."),
-                    Assurance = new UcliOperationAssuranceContract(
-                        sideEffects:
+            Operation: new IndexOpEntryJsonContract(
+                Name: "write.asset",
+                Kind: "mutation",
+                Policy: "safe",
+                ArgsSchemaJson: """{"type":"object"}""",
+                ResultSchemaJson: """{"$ref":"#/definitions/WriteResult"}""")
+            {
+                Description = "Writes one asset.",
+                Inputs =
+                [
+                    new UcliOperationInputContract(
+                        name: "target",
+                        valueType: "object",
+                        description: "Target input.",
+                        constraints:
                         [
-                            UcliOperationSideEffectValues.WritesAsset,
+                            new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.AssetExists)
+                            {
+                                AssetKind = UcliOperationAssetKindValues.Scene,
+                            },
+                            new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.ReferenceResolvable)
+                            {
+                                TargetKind = UcliOperationReferenceTargetKindValues.GameObject,
+                            },
+                            new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.TypeAssignableTo)
+                            {
+                                TypeKind = UcliOperationTypeKindValues.Component,
+                            },
+                            new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.SerializedProperty)
+                            {
+                                Access = UcliOperationSerializedPropertyAccessValues.Write,
+                            },
+                            new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.Range)
+                            {
+                                Min = 1.5,
+                                Max = 3.5,
+                            },
                         ],
-                        mayDirty: true,
-                        mayPersist: true,
-                        touchedKinds:
+                        argsPath: "$.target",
+                        variants:
                         [
-                            IpcExecuteTouchedResourceKindNames.Asset,
-                        ],
-                        planMode: UcliOperationPlanModeValues.MayCreatePreviewState),
-                    CodeContract = new UcliOperationCodeContract(
-                        "csharp",
-                        new UcliCodeEntryPointContract(
-                            "public static object? Run(UcliCsEvalContext context)",
-                            "Compiled source must contain exactly one matching Run method.",
-                            requiredStatic: true,
-                            new[] { "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext" },
-                            "JSON-serializable value."),
-                        new[]
-                        {
-                            new UcliCodeSourceFormContract(CsEvalSourceKindValues.CompilationUnit, "Complete C# compilation unit."),
-                            new UcliCodeSourceFormContract(CsEvalSourceKindValues.Snippet, "Run method body snippet."),
-                        },
-                        new[]
-                        {
-                            new UcliCodeApiTypeContract(
-                                "UcliCsEvalContext",
-                                "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext",
-                                "Execution context.",
-                                new[]
-                                {
-                                    new UcliCodeApiMemberContract(
-                                        UcliCodeApiMemberKindValues.Method,
-                                        "Log",
-                                        "Records an informational eval log entry.",
-                                        type: null,
-                                        returnType: "void",
-                                        parameters:
+                            new UcliOperationInputVariantContract(
+                                name: "byPath",
+                                description: "Path selector.",
+                                fields:
+                                [
+                                    new UcliOperationInputVariantFieldContract(
+                                        name: "path",
+                                        argsPath: "$.target.path",
+                                        description: "Serialized path.",
+                                        constraints:
                                         [
-                                            new UcliCodeApiParameterContract("message", "System.String", "Log message text."),
+                                            new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.NonEmpty),
                                         ]),
-                                }),
-                        }),
-                },
-            ]);
+                                ]),
+                        ]),
+                ],
+                ResultContract = new UcliOperationResultContract(
+                    emitted: true,
+                    resultType: "WriteResult",
+                    description: "Written result."),
+                Assurance = new UcliOperationAssuranceContract(
+                    sideEffects:
+                    [
+                        UcliOperationSideEffectValues.WritesAsset,
+                    ],
+                    mayDirty: true,
+                    mayPersist: true,
+                    touchedKinds:
+                    [
+                        IpcExecuteTouchedResourceKindNames.Asset,
+                    ],
+                    planMode: UcliOperationPlanModeValues.MayCreatePreviewState),
+                CodeContract = new UcliOperationCodeContract(
+                    "csharp",
+                    new UcliCodeEntryPointContract(
+                        "public static object? Run(UcliCsEvalContext context)",
+                        "Compiled source must contain exactly one matching Run method.",
+                        requiredStatic: true,
+                        new[] { "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext" },
+                        "JSON-serializable value."),
+                    new[]
+                    {
+                        new UcliCodeSourceFormContract(CsEvalSourceKindValues.CompilationUnit, "Complete C# compilation unit."),
+                        new UcliCodeSourceFormContract(CsEvalSourceKindValues.Snippet, "Run method body snippet."),
+                    },
+                    new[]
+                    {
+                        new UcliCodeApiTypeContract(
+                            "UcliCsEvalContext",
+                            "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext",
+                            "Execution context.",
+                            new[]
+                            {
+                                new UcliCodeApiMemberContract(
+                                    UcliCodeApiMemberKindValues.Method,
+                                    "Log",
+                                    "Records an informational eval log entry.",
+                                    type: null,
+                                    returnType: "void",
+                                    parameters:
+                                    [
+                                        new UcliCodeApiParameterContract("message", "System.String", "Log message text."),
+                                    ]),
+                            }),
+                    }),
+            });
 
         var json = Write(contract);
 
@@ -781,116 +776,54 @@ public sealed class IndexJsonContractTests
                   "schemaVersion": 1,
                   "generatedAtUtc": "2026-03-03T00:00:00+00:00",
                   "sourceInputsHash": "hash",
-                  "entries": [
-                    {
-                      "name": "write.asset",
-                      "kind": "mutation",
-                      "policy": "safe",
-                      "argsSchemaJson": "{\u0022type\u0022:\u0022object\u0022}",
-                      "resultSchemaJson": "{\u0022$ref\u0022:\u0022#/definitions/WriteResult\u0022}",
-                      "description": "Writes one asset.",
-                      "inputs": [
-                        {
-                          "name": "target",
-                          "description": "Target input.",
-                          "valueType": "object",
-                          "constraints": [
-                            {
-                              "kind": "assetExists",
-                              "assetKind": "scene"
-                            },
-                            {
-                              "kind": "referenceResolvable",
-                              "targetKind": "gameObject"
-                            },
-                            {
-                              "kind": "typeAssignableTo",
-                              "typeKind": "component"
-                            },
-                            {
-                              "kind": "serializedProperty",
-                              "access": "write"
-                            },
-                            {
-                              "kind": "range",
-                              "min": 1.5,
-                              "max": 3.5
-                            }
-                          ],
-                          "argsPath": "$.target",
-                          "variants": [
-                            {
-                              "name": "byPath",
-                              "description": "Path selector.",
-                              "fields": [
-                                {
-                                  "name": "path",
-                                  "argsPath": "$.target.path",
-                                  "description": "Serialized path.",
-                                  "constraints": [
-                                    {
-                                      "kind": "nonEmpty"
-                                    }
-                                  ]
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ],
-                      "resultContract": {
-                        "emitted": true,
-                        "resultType": "WriteResult",
-                        "description": "Written result."
-                      },
-                      "assurance": {
-                        "sideEffects": [
-                          "writesAsset"
-                        ],
-                        "mayDirty": true,
-                        "mayPersist": true,
-                        "touchedKinds": [
-                          "asset"
-                        ],
-                        "planMode": "mayCreatePreviewState"
-                      },
-                      "codeContract": {
-                        "language": "csharp",
-                        "entryPoint": {
-                          "signature": "public static object? Run(UcliCsEvalContext context)",
-                          "matchRule": "Compiled source must contain exactly one matching Run method.",
-                          "requiredStatic": true,
-                          "parameterTypes": [
-                            "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext"
-                          ],
-                          "returnValue": "JSON-serializable value."
-                        },
-                        "sourceForms": [
+                  "operation": {
+                    "name": "write.asset",
+                    "kind": "mutation",
+                    "policy": "safe",
+                    "argsSchemaJson": "{\u0022type\u0022:\u0022object\u0022}",
+                    "resultSchemaJson": "{\u0022$ref\u0022:\u0022#/definitions/WriteResult\u0022}",
+                    "description": "Writes one asset.",
+                    "inputs": [
+                      {
+                        "name": "target",
+                        "description": "Target input.",
+                        "valueType": "object",
+                        "constraints": [
                           {
-                            "kind": "compilationUnit",
-                            "description": "Complete C# compilation unit."
+                            "kind": "assetExists",
+                            "assetKind": "scene"
                           },
                           {
-                            "kind": "snippet",
-                            "description": "Run method body snippet."
+                            "kind": "referenceResolvable",
+                            "targetKind": "gameObject"
+                          },
+                          {
+                            "kind": "typeAssignableTo",
+                            "typeKind": "component"
+                          },
+                          {
+                            "kind": "serializedProperty",
+                            "access": "write"
+                          },
+                          {
+                            "kind": "range",
+                            "min": 1.5,
+                            "max": 3.5
                           }
                         ],
-                        "apiTypes": [
+                        "argsPath": "$.target",
+                        "variants": [
                           {
-                            "name": "UcliCsEvalContext",
-                            "fullName": "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext",
-                            "description": "Execution context.",
-                            "members": [
+                            "name": "byPath",
+                            "description": "Path selector.",
+                            "fields": [
                               {
-                                "kind": "method",
-                                "name": "Log",
-                                "description": "Records an informational eval log entry.",
-                                "returnType": "void",
-                                "parameters": [
+                                "name": "path",
+                                "argsPath": "$.target.path",
+                                "description": "Serialized path.",
+                                "constraints": [
                                   {
-                                    "name": "message",
-                                    "type": "System.String",
-                                    "description": "Log message text."
+                                    "kind": "nonEmpty"
                                   }
                                 ]
                               }
@@ -898,8 +831,68 @@ public sealed class IndexJsonContractTests
                           }
                         ]
                       }
+                    ],
+                    "resultContract": {
+                      "emitted": true,
+                      "resultType": "WriteResult",
+                      "description": "Written result."
+                    },
+                    "assurance": {
+                      "sideEffects": [
+                        "writesAsset"
+                      ],
+                      "mayDirty": true,
+                      "mayPersist": true,
+                      "touchedKinds": [
+                        "asset"
+                      ],
+                      "planMode": "mayCreatePreviewState"
+                    },
+                    "codeContract": {
+                      "language": "csharp",
+                      "entryPoint": {
+                        "signature": "public static object? Run(UcliCsEvalContext context)",
+                        "matchRule": "Compiled source must contain exactly one matching Run method.",
+                        "requiredStatic": true,
+                        "parameterTypes": [
+                          "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext"
+                        ],
+                        "returnValue": "JSON-serializable value."
+                      },
+                      "sourceForms": [
+                        {
+                          "kind": "compilationUnit",
+                          "description": "Complete C# compilation unit."
+                        },
+                        {
+                          "kind": "snippet",
+                          "description": "Run method body snippet."
+                        }
+                      ],
+                      "apiTypes": [
+                        {
+                          "name": "UcliCsEvalContext",
+                          "fullName": "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext",
+                          "description": "Execution context.",
+                          "members": [
+                            {
+                              "kind": "method",
+                              "name": "Log",
+                              "description": "Records an informational eval log entry.",
+                              "returnType": "void",
+                              "parameters": [
+                                {
+                                  "name": "message",
+                                  "type": "System.String",
+                                  "description": "Log message text."
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
                     }
-                  ]
+                  }
                 }
                 """),
             json);
@@ -1075,6 +1068,11 @@ public sealed class IndexJsonContractTests
     private static string Write (IndexOpsCatalogJsonContract contract)
     {
         return new IndexOpsCatalogJsonContractWriter().Write(contract);
+    }
+
+    private static string Write (IndexOpsDescribeJsonContract contract)
+    {
+        return new IndexOpsDescribeJsonContractWriter().Write(contract);
     }
 
     private static string Write (IndexInputsManifestJsonContract contract)

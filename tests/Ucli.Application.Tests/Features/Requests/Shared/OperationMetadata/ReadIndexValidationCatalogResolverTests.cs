@@ -154,5 +154,21 @@ public sealed class ReadIndexValidationCatalogResolverTests
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(result);
         }
+
+        public ValueTask<PersistedOpsCatalogDescriptorReadResult> ReadDescriptors (
+            ResolvedUnityProjectContext unityProject,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
+        public ValueTask<PersistedOpsDescribeReadResult> ReadDescribe (
+            ResolvedUnityProjectContext unityProject,
+            OpsCatalogDescriptorSnapshot catalogSnapshot,
+            IndexOpsCatalogEntryJsonContract catalogEntry,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
     }
 }

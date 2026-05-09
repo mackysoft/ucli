@@ -227,6 +227,7 @@ public sealed class FileReadIndexArtifactWriterTests
     {
         return new FileReadIndexArtifactWriter(
             new IndexOpsCatalogJsonContractWriter(),
+            new IndexOpsDescribeJsonContractWriter(),
             new IndexAssetSearchLookupJsonContractWriter(),
             new IndexGuidPathLookupJsonContractWriter(),
             new IndexSceneTreeLiteLookupJsonContractWriter(),
