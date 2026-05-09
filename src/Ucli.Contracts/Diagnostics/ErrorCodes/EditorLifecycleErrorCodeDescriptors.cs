@@ -41,6 +41,41 @@ internal static class EditorLifecycleErrorCodeDescriptors
             "Domain reload is active or has disconnected the IPC session; a completed response is not available during this lifecycle transition.",
             "readinessWait"),
 
+        CreateTransient(
+            EditorLifecycleErrorCodes.EditorRecovering,
+            "Unity Editor is recovering its IPC session.",
+            "The Unity process is still alive but the daemon endpoint is temporarily unavailable during Editor lifecycle recovery.",
+            "readinessWait"),
+
+        CreateTransient(
+            EditorLifecycleErrorCodes.EditorReimporting,
+            "Unity Editor is refreshing or reimporting assets.",
+            "Asset refresh or reimport work is active, so Unity cannot reliably accept execution requests until the Editor returns to a ready state.",
+            "readinessWait"),
+
+        UcliErrorCodeDescriptorFactory.Create(
+            code: EditorLifecycleErrorCodes.EditorCompileFailed,
+            category: "lifecycle",
+            summary: "Unity script compilation failed.",
+            meaning: "Unity reported one or more script compilation errors, so script-backed operations cannot execute until the project compiles successfully.",
+            appliesTo: UnityExecutionCommands,
+            possiblePhases: ["readinessWait", "scriptCompilation"],
+            impliesNotApplied: true,
+            mayBeIndeterminate: false,
+            safeToRetry: UcliErrorRetryClassValues.No,
+            inspect: ["status", "payload.lifecycleState", "payload.primaryDiagnostic", UcliErrorInspectTargets.UnityErrorLogsCommand],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Fix the reported Unity compiler diagnostics, wait for lifecycleState=ready, then retry."),
+            ],
+            relatedCodes:
+            [
+                EditorLifecycleErrorCodes.EditorCompiling,
+                EditorLifecycleErrorCodes.EditorSafeMode,
+            ]),
+
         UcliErrorCodeDescriptorFactory.Create(
             code: EditorLifecycleErrorCodes.EditorPlaymode,
             category: "lifecycle",
@@ -123,6 +158,30 @@ internal static class EditorLifecycleErrorCodeDescriptors
                     Action: "Wait for shutdown to complete, start or select a live Editor session, then inspect state before retrying."),
             ],
             relatedCodes: null),
+
+        UcliErrorCodeDescriptorFactory.Create(
+            code: EditorLifecycleErrorCodes.EditorUnavailable,
+            category: "lifecycle",
+            summary: "Unity Editor lifecycle state is unavailable.",
+            meaning: "The client could not obtain a reliable lifecycle state from the daemon endpoint, and no recovery evidence was sufficient to classify the Editor as ready or waitable.",
+            appliesTo: UnityExecutionCommands,
+            possiblePhases: ["readinessWait", "ipcProbe", "daemonRecovery"],
+            impliesNotApplied: null,
+            mayBeIndeterminate: true,
+            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            inspect: ["status", UcliErrorInspectTargets.DaemonStatusCommand, UcliErrorInspectTargets.DaemonErrorLogsCommand, UcliErrorInspectTargets.UnityErrorLogsCommand],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Inspect daemon status and Unity logs, resolve any visible Unity prompt or project blocker, then retry only after lifecycleState becomes ready."),
+            ],
+            relatedCodes:
+            [
+                EditorLifecycleErrorCodes.EditorRecovering,
+                EditorLifecycleErrorCodes.EditorModalBlocked,
+                EditorLifecycleErrorCodes.EditorShuttingDown,
+            ]),
     ];
 
     private static UcliErrorCodeDescriptor CreateTransient (
@@ -153,6 +212,8 @@ internal static class EditorLifecycleErrorCodeDescriptors
                 EditorLifecycleErrorCodes.EditorBusy,
                 EditorLifecycleErrorCodes.EditorCompiling,
                 EditorLifecycleErrorCodes.EditorDomainReloading,
+                EditorLifecycleErrorCodes.EditorRecovering,
+                EditorLifecycleErrorCodes.EditorReimporting,
             }.Where(relatedCode => relatedCode != code).ToArray());
     }
 }
