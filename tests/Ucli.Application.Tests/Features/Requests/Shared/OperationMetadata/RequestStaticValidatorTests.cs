@@ -12,13 +12,13 @@ public sealed class RequestStaticValidatorTests
 {
     public static TheoryData<string, UcliErrorCode> InvalidRequestCases => new()
     {
-        { "protocol-version-mismatch", ValidationErrorCodes.ProtocolVersionMismatch },
+        { "protocol-version-mismatch", IpcProtocolErrorCodes.ProtocolVersionMismatch },
         { "request-id-invalid", ValidationErrorCodes.RequestIdInvalid },
         { "request-id-not-canonical-d", ValidationErrorCodes.RequestIdInvalid },
         { "steps-required", ValidationErrorCodes.StepsRequired },
         { "step-id-duplicated", ValidationErrorCodes.StepIdDuplicated },
         { "operation-not-found", ValidationErrorCodes.OperationNotFound },
-        { "operation-not-allowed", ValidationErrorCodes.OperationNotAllowed },
+        { "operation-not-allowed", OperationAuthorizationErrorCodes.OperationNotAllowed },
         { "edit-step-invalid", ValidationErrorCodes.EditStepInvalid },
     };
 
@@ -135,7 +135,7 @@ public sealed class RequestStaticValidatorTests
         var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
         Assert.False(result.IsValid);
-        AssertContainsError(result, ValidationErrorCodes.ProtocolVersionMismatch);
+        AssertContainsError(result, IpcProtocolErrorCodes.ProtocolVersionMismatch);
         AssertContainsError(result, ValidationErrorCodes.RequestIdInvalid);
         Assert.Null(result.Error);
     }

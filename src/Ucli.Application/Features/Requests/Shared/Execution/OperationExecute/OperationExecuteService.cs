@@ -85,7 +85,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 requestId,
                 [
                     new ValidationError(
-                        authorizationResult.ErrorCode ?? ValidationErrorCodes.OperationNotAllowed,
+                        authorizationResult.ErrorCode ?? OperationAuthorizationErrorCodes.OperationNotAllowed,
                         authorizationResult.Message,
                         definition.OperationId),
                 ],

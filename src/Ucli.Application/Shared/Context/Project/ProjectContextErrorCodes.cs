@@ -12,14 +12,19 @@ internal static class ProjectContextErrorCodes
     /// <summary> Gets the error code used when a directory is missing required Unity project markers. </summary>
     public static readonly UcliErrorCode UnityProjectMarkerMissing = new("UNITY_PROJECT_MARKER_MISSING");
 
+    /// <summary> Gets the error codes owned by project-context resolution. </summary>
+    public static IReadOnlyCollection<UcliErrorCode> All { get; } =
+    [
+        ProjectPathInvalidFormat,
+        ProjectPathNotFound,
+        UnityProjectMarkerMissing,
+    ];
+
     /// <summary> Gets a value indicating whether <paramref name="errorCode" /> is a project-context invalid-argument code. </summary>
     /// <param name="errorCode"> The machine-readable error code. </param>
     /// <returns> <see langword="true" /> when the code belongs to project-context resolution; otherwise <see langword="false" />. </returns>
     public static bool Contains (UcliErrorCode? errorCode)
     {
-        return errorCode.HasValue
-            && (errorCode.Value == ProjectPathInvalidFormat
-                || errorCode.Value == ProjectPathNotFound
-                || errorCode.Value == UnityProjectMarkerMissing);
+        return errorCode.HasValue && All.Contains(errorCode.Value);
     }
 }

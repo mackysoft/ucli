@@ -36,7 +36,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
         if (request.ProtocolVersion != IpcProtocol.CurrentVersion)
         {
             errors.Add(new ValidationError(
-                Code: ValidationErrorCodes.ProtocolVersionMismatch,
+                Code: IpcProtocolErrorCodes.ProtocolVersionMismatch,
                 Message: $"protocolVersion must be {IpcProtocol.CurrentVersion}. Actual: {request.ProtocolVersion}.",
                 OpId: null));
         }
@@ -299,9 +299,9 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                 ? $"Edit step '{stepId ?? string.Empty}' requires operation '{operationName}'. {authorizationResult.Message}"
                 : authorizationResult.Message;
             errors.Add(new ValidationError(
-                Code: authorizationResult.ErrorCode ?? ValidationErrorCodes.OperationNotAllowed,
-                Message: message,
-                OpId: stepId));
+                Code: authorizationResult.ErrorCode ?? OperationAuthorizationErrorCodes.OperationNotAllowed,
+            Message: message,
+            OpId: stepId));
         }
     }
 }
