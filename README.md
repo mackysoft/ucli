@@ -224,7 +224,7 @@ The request protocol does not change between these modes. Runtime choice is oper
 
 > **IMPORTANT:** Except for `ucli logs`, the automation commands listed below write one JSON result envelope to standard output. Help and version output are human-readable command-line output. Progress messages and diagnostics that are not part of the JSON result contract are written to standard error.
 
-`ucli logs unity` and `ucli logs daemon` write log entries to standard output. Use `--format json` when a runner needs newline-delimited JSON log events.
+`ucli logs unity read` and `ucli logs daemon read` write log entries to standard output. Use `--format json` when a runner needs newline-delimited JSON log events.
 
 > **IMPORTANT:** Automation should parse standard output and treat standard error as diagnostic text.
 
@@ -866,8 +866,8 @@ Test artifacts are written under `.ucli/local/fingerprints/<projectFingerprint>/
 > **TIP:** When a command or test fails, read Unity and daemon logs before retrying:
 
 ```bash
-ucli logs unity --tail 200 --level error
-ucli logs daemon --tail 200
+ucli logs unity read --tail 200 --level error
+ucli logs daemon read --tail 200
 ```
 
 Stop the daemon at the end of an interactive automation session:
@@ -943,7 +943,7 @@ For bug reports, include:
 - The command you ran
 - `--mode` and `--readIndexMode` values, when relevant
 - For `ucli test run` failures, `payload.artifactsDir` or `payload.summaryJsonPath` when available
-- Error output or logs from `ucli logs unity` / `ucli logs daemon`
+- Error output or logs from `ucli logs unity read` / `ucli logs daemon read`
 
 Use [Pull Requests](https://github.com/mackysoft/ucli/pulls) for focused fixes and README improvements.
 

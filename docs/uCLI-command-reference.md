@@ -19,7 +19,7 @@
 | `ucli ops` | primitive operation の一覧・詳細を返す | `list` / `describe` を持つ |
 | `ucli skills` | 公式 SKILL の一覧、配布、導入、更新、削除、診断を行う | `list` / `export` / `install` / `update` / `uninstall` / `doctor` |
 | `ucli status` | daemon と lifecycle の状態を返す | `ProjectVersion.txt` 由来の `unityVersion` を返す |
-| `ucli logs` | Unity / daemon のログを取得する | 成功時はイベントストリームを返す |
+| `ucli logs` | Unity / daemon のログ取得、GUI Editor の Unity Console 表示クリアを行う | 取得系の成功時はイベントストリームを返す |
 | `ucli daemon` | daemon の起動・停止・掃除・状態取得を行う | `start` / `stop` / `cleanup` / `status` / `list` |
 | `ucli test` | Unity Test Framework 実行と結果正規化を扱う | `run` / `profile init` |
 
@@ -113,6 +113,10 @@
   - `PLAYMODE_PERSISTENCE_FORBIDDEN`
 - daemon Editor mode エラー
   - `DAEMON_EDITOR_MODE_MISMATCH`
+- Unity project lock エラー
+  - `UNITY_PROJECT_ALREADY_OPEN`: 対象 project を開いている live Unity process が確認できる
+  - `UNITY_PROJECT_LOCK_AMBIGUOUS`: `Temp/UnityLockfile` はあるが、所有 process の有無を安全に判定できない
+  - `UNITY_PROJECT_LOCK_CLEANUP_FAILED`: stale lock と判定できたが、`Temp/UnityLockfile` の削除に失敗した
 - timeout
   - 既定待機の timeout も既存の `IPC_TIMEOUT` を使用する。
 
@@ -219,17 +223,18 @@ ucli daemon list --projectPath ./UnityProject
 ```
 
 ## `ucli logs`
-ログ取得コマンド。`ucli logs unity` と `ucli logs daemon` を提供する。
+ログ取得と GUI Editor の Unity Console 表示クリアのコマンド。`ucli logs unity read`、`ucli logs daemon read`、`ucli logs unity clear` を提供する。
 
 ### `logs` 出力契約
-- `ucli logs` の成功時は共通エンベロープを返さず、`stdout` にログイベントを逐次出力する。
+- `ucli logs unity read` と `ucli logs daemon read` の成功時は共通エンベロープを返さず、`stdout` にログイベントを逐次出力する。
 - `--format json` は NDJSON とし、1イベントを1行のJSONオブジェクトで出力する。
 - `--format text` は1イベントを1行のテキストで出力する。
 - `--stream` 未指定時は取得条件に一致する範囲を出力して終了する。
 - `--stream` 指定時は終了条件（`Ctrl+C`、`--idleTimeoutMilliseconds` 到達、`--until` 到達）まで継続出力する。
 - 入力検証エラーなど、ストリーム開始前に失敗した場合は共通エンベロープの `status=error` を1件返して終了する。
+- `ucli logs unity clear` の成功時は `command=logs.unity.clear`、共通エンベロープの `status=ok` を1件返す。
 
-### `logs` 共通 options（`unity` / `daemon`）
+### `logs read` 共通 options（`unity read` / `daemon read`）
 | Option | Short | Description |
 | --- | --- | --- |
 | `--projectPath <string?>` | `-p` | 対象Unity project root path |
@@ -245,7 +250,7 @@ ucli daemon list --projectPath ./UnityProject
 | `--idleTimeoutMilliseconds <int?>` | - | `--stream` 時に新規ログが無い状態で自動終了するまでの時間（ミリ秒）。`1..2147483647` |
 | `--format <string?>` | - | `json` / `text` |
 
-### `logs unity` options
+### `logs unity read` options
 | Option | Short | Description |
 | --- | --- | --- |
 | `--source <string?>` | - | `compile` / `runtime` / `all` |
@@ -253,32 +258,42 @@ ucli daemon list --projectPath ./UnityProject
 | `--stackTraceMaxFrames <int?>` | - | スタックトレースの最大フレーム数（`1..512`） |
 | `--stackTraceMaxChars <int?>` | - | スタックトレースの最大文字数（`256..131072`） |
 
-### `logs daemon` options
+### `logs daemon read` options
 | Option | Short | Description |
 | --- | --- | --- |
 | `--category <string?>` | - | `lifecycle` / `ipc` / `auth` / `transport` / `health` / `all` |
+
+### `logs unity clear` options
+| Option | Short | Description |
+| --- | --- | --- |
+| `--projectPath <string?>` | `-p` | 対象Unity project root path |
+| `--timeout <int?>` | - | IPC待機タイムアウト（ミリ秒）。`1..2147483647` |
 
 ### `logs` オプション規則
 - `--after` と `--since` を同時指定した場合は `--after` を優先する。
 - `--since` は `2026-03-05T10:30:00+09:00` や `2026-03-05T01:30:00Z` の形式を受け付ける。
 - `--since` と `--until` を同時指定する場合は `since <= until` を必須とする。
 - `--queryTarget=stack` と `--stackTrace=none` を同時指定した場合、stack 検索にはヒットしない。
-- `ucli logs daemon` で `--queryTarget=stack` を指定した場合は `INVALID_ARGUMENT` とする。
+- `ucli logs daemon read` で `--queryTarget=stack` を指定した場合は `INVALID_ARGUMENT` とする。
 - `--stackTrace=none` の場合、`--stackTraceMaxFrames` と `--stackTraceMaxChars` は無効化される。
-- `--category` は `ucli logs daemon` でのみ指定可能とする。
+- `--category` は `ucli logs daemon read` でのみ指定可能とする。
 - `--stream` はサーバープッシュではなく、`nextCursor` を使った増分ポーリングで実装する。
 - `--pollIntervalMilliseconds` は `--stream` 指定時のみ有効とする。
 - `--idleTimeoutMilliseconds` は `--stream` 指定時のみ有効とし、無通信時間が閾値を超えた時点で正常終了する。
 - `--stream` と `--until` を同時指定した場合、`until` 到達時に正常終了する。
 - `--format=json` は `--stream` 有無にかかわらず NDJSON を出力する。
+- `ucli logs unity clear` は GUI Editor の Unity Console 表示を消す操作であり、daemon log、Unity log stream、`.ucli` 配下の物理ログファイルは削除しない。
+- `ucli logs unity clear` は `--projectPath` と `--timeout` 以外の `logs` 取得 options を受け付けない。
+- `ucli logs unity clear` の成功時 `payload` は `clearStatus` と `timeoutMilliseconds` を返す。field 定義は [uCLI-property-reference.md](uCLI-property-reference.md) を参照する。
 
 ### `logs` 実行例
 ```bash
-ucli logs unity --projectPath ./UnityProject --tail 200 --level error --source runtime
-ucli logs unity --projectPath ./UnityProject --after "<cursor>" --stream --format text
-ucli logs daemon --projectPath ./UnityProject --since "2026-03-05T00:00:00+09:00" --format json
-ucli logs daemon --projectPath ./UnityProject --stream --pollIntervalMilliseconds 500 --idleTimeoutMilliseconds 60000 --category ipc
-ucli logs unity --projectPath ./UnityProject --since "2026-03-05T09:00:00+09:00" --until "2026-03-05T10:00:00+09:00"
+ucli logs unity read --projectPath ./UnityProject --tail 200 --level error --source runtime
+ucli logs unity read --projectPath ./UnityProject --after "<cursor>" --stream --format text
+ucli logs daemon read --projectPath ./UnityProject --since "2026-03-05T00:00:00+09:00" --format json
+ucli logs daemon read --projectPath ./UnityProject --stream --pollIntervalMilliseconds 500 --idleTimeoutMilliseconds 60000 --category ipc
+ucli logs unity read --projectPath ./UnityProject --since "2026-03-05T09:00:00+09:00" --until "2026-03-05T10:00:00+09:00"
+ucli logs unity clear --projectPath ./UnityProject
 ```
 
 ## `ucli init`
