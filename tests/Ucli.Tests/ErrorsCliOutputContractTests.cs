@@ -305,6 +305,10 @@ public sealed class ErrorsCliOutputContractTests
             command: UcliCommandNames.ErrorsDescribe,
             status: "error",
             exitCode: (int)CliExitCode.InvalidArgument);
+        Assert.Contains(
+            "not known",
+            outputJson.RootElement.GetProperty("message").GetString(),
+            StringComparison.Ordinal);
         CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
     }
 

@@ -26,7 +26,7 @@ internal sealed class ErrorsDescribeCommand
 
     /// <summary> Executes <c>errors describe</c> and emits the JSON result contract. </summary>
     /// <param name="code"> The target error code. </param>
-    /// <param name="requireKnown"> Rejects codes that are absent from this client's catalog. </param>
+    /// <param name="requireKnown">--requireKnown, Rejects codes that are absent from this client's catalog. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.DescribeSubcommand)]
