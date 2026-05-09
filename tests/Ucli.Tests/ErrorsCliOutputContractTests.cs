@@ -63,6 +63,7 @@ public sealed class ErrorsCliOutputContractTests
         Assert.All(codeItems, AssertListCodeItemShape);
         var ipcTimeout = codeItems.Single(static code => code.GetProperty("code").GetString() == IpcTransportErrorCodes.IpcTimeout.Value);
         Assert.Equal("transport", ipcTimeout.GetProperty("category").GetString());
+        Assert.Equal("The command timeout budget was exhausted.", ipcTimeout.GetProperty("summary").GetString());
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", static payload => payload
                 .HasInt32("catalogVersion", 1)
@@ -339,9 +340,10 @@ public sealed class ErrorsCliOutputContractTests
             .Order(StringComparer.Ordinal)
             .ToArray();
 
-        Assert.Equal(["category", "code"], propertyNames);
+        Assert.Equal(["category", "code", "summary"], propertyNames);
         Assert.False(string.IsNullOrWhiteSpace(code.GetProperty("code").GetString()));
         Assert.False(string.IsNullOrWhiteSpace(code.GetProperty("category").GetString()));
+        Assert.False(string.IsNullOrWhiteSpace(code.GetProperty("summary").GetString()));
     }
 
     private static void AssertNextActionsHavePublicShape (JsonElement nextActions)

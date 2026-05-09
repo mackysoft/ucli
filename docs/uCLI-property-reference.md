@@ -164,8 +164,9 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 | --- | --- | --- | --- |
 | `code` | string | yes | error code 文字列 |
 | `category` | string | yes | error code の分類 |
+| `summary` | string | yes | 一覧上で code を選ぶための短い要約 |
 
-一覧は探索用の最小 payload とし、意味、再試行分類、適用 command、次行動は `ucli errors describe <CODE>` で取得する。
+一覧は探索用の小さい payload とし、意味、再試行分類、適用 command、次行動は `ucli errors describe <CODE>` で取得する。
 
 #### `ucli errors describe`
 

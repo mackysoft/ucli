@@ -25,6 +25,7 @@ internal static class ErrorCodeCatalogPayloadProjector
             {
                 code = descriptor.Code.Value,
                 category = descriptor.Category,
+                summary = descriptor.Summary,
             }).ToArray(),
         };
     }
