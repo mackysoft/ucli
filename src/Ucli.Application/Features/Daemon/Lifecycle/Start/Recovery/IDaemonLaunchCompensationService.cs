@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
-namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
 
 /// <summary> Applies cleanup compensation when daemon launch workflow fails. </summary>
 internal interface IDaemonLaunchCompensationService

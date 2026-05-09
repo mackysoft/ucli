@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
-namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.ExistingSession;
 
 /// <summary> Evaluates whether daemon start can reuse an existing session snapshot. </summary>
 internal interface IDaemonExistingSessionGateService

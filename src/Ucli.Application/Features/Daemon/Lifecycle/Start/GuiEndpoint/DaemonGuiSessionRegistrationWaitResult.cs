@@ -1,7 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
-namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 
 /// <summary> Represents the result of waiting for a GUI daemon session registration. </summary>
 /// <param name="Session"> The matching GUI daemon session when registration completed. </param>

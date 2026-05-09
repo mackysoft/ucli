@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
-namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
 
 /// <summary> Persists launch-session snapshots required by daemon startup workflow. </summary>
 internal interface IDaemonLaunchSessionService

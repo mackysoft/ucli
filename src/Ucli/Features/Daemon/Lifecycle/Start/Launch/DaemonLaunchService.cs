@@ -1,6 +1,9 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
@@ -8,7 +11,7 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 
-namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Start;
+namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Start.Launch;
 
 /// <summary> Implements daemon launch workflow with failure-compensation handling. </summary>
 internal sealed class DaemonLaunchService : IDaemonLaunchService

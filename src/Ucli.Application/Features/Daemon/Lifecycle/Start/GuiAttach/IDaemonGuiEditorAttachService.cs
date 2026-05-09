@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiAttach;
 
 /// <summary> Resolves daemon start from an already-open Unity GUI Editor when possible. </summary>
 internal interface IDaemonGuiEditorAttachService

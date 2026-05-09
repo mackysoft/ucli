@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 
 /// <summary> Waits until a GUI Editor process registers a matching daemon session. </summary>
 internal interface IDaemonGuiSessionRegistrationAwaiter

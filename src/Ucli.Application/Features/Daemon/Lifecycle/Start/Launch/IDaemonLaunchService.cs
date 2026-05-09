@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
 
 /// <summary> Launches daemon process and applies startup-compensation workflow when start fails. </summary>
 internal interface IDaemonLaunchService

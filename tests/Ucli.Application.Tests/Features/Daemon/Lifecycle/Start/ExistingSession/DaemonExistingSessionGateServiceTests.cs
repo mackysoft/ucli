@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
 using MackySoft.Tests;

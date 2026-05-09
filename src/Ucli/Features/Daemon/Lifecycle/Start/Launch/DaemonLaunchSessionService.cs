@@ -1,10 +1,10 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
-namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Start;
+namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Start.Launch;
 
 /// <summary> Implements launch-session creation and persistence for daemon startup workflow. </summary>
 internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService

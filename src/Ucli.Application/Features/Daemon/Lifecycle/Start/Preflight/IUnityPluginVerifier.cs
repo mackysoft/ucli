@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Preflight;
 
 /// <summary> Verifies that one Unity project contains the uCLI Unity plugin required by daemon startup. </summary>
 internal interface IUnityPluginVerifier

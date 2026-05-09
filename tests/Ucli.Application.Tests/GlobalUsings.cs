@@ -1,3 +1,10 @@
+global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.ExistingSession;
+global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiAttach;
+global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
+global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
+global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Preflight;
+global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
 global using MackySoft.Ucli.Application.Shared.Context.Project;
 global using MackySoft.Ucli.Application.Shared.Execution;
 global using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;

@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
 
-namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
 
 /// <summary> Resolves daemon Editor mode values that are supported by fresh launch orchestration. </summary>
 internal static class DaemonLaunchEditorModePolicy

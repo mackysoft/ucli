@@ -3,7 +3,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
-namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
 
 /// <summary> Implements session-cleanup workflow for invalid or stale daemon sessions before new start attempts. </summary>
 internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService

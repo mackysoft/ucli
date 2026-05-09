@@ -1,7 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
-namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
 
 /// <summary> Represents a daemon launch-session persistence result. </summary>
 /// <param name="Session"> The persisted daemon session on success; otherwise <see langword="null" />. </param>

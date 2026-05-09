@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
 
-namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Preflight;
 
 /// <summary> Represents the result of one uCLI Unity plugin verification attempt. </summary>
 /// <param name="Error"> The structured verification error on failure; otherwise <see langword="null" />. </param>

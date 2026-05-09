@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
-namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
 
 /// <summary> Cleans daemon artifacts before start execution when stale or invalid sessions are detected. </summary>
 internal interface IDaemonSessionCleanupService

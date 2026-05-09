@@ -1,3 +1,7 @@
+global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
+global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
+global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
 global using MackySoft.Ucli.Application.Shared.Context.Project;
 global using MackySoft.Ucli.Application.Shared.Execution;
 global using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
@@ -11,7 +15,7 @@ global using MackySoft.Ucli.Features.Daemon.Lifecycle.Cleanup;
 global using MackySoft.Ucli.Features.Daemon.Lifecycle.Diagnosis;
 global using MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
 global using MackySoft.Ucli.Features.Daemon.Lifecycle.Session;
-global using MackySoft.Ucli.Features.Daemon.Lifecycle.Start;
+global using MackySoft.Ucli.Features.Daemon.Lifecycle.Start.Launch;
 global using MackySoft.Ucli.Features.Daemon.Observability.Logs.Ipc;
 global using MackySoft.Ucli.Features.Daemon.Supervisor.Bootstrap;
 global using MackySoft.Ucli.Features.Daemon.Supervisor.Client;
