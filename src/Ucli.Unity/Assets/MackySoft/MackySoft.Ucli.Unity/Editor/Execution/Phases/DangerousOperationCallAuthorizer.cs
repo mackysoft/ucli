@@ -13,8 +13,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Enforces dangerous operation call authorization inside the Unity IPC server. </summary>
     internal sealed class DangerousOperationCallAuthorizer : IDangerousOperationCallAuthorizer
     {
-        private static readonly UcliErrorCode OperationNotAllowedErrorCode = new UcliErrorCode("OPERATION_NOT_ALLOWED");
-
         private readonly IPlanTokenEnvironment environment;
 
         /// <summary> Initializes a new instance of the <see cref="DangerousOperationCallAuthorizer" /> class. </summary>
@@ -77,7 +75,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return new OperationFailure(
-                Code: OperationNotAllowedErrorCode,
+                Code: OperationAuthorizationErrorCodes.OperationNotAllowed,
                 Message: $"Step '{operation.Id}' requires dangerous operation '{operation.Op}'. Specify --allowDangerous to execute dangerous operations.",
                 OpId: operation.Id);
         }
@@ -149,7 +147,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             string message)
         {
             return new OperationFailure(
-                Code: OperationNotAllowedErrorCode,
+                Code: OperationAuthorizationErrorCodes.OperationNotAllowed,
                 Message: message,
                 OpId: operation.Id);
         }

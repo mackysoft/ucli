@@ -14,6 +14,7 @@ using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Stop;
+using MackySoft.Ucli.Application.Features.ErrorCatalog.Catalog;
 using MackySoft.Ucli.Application.Features.Init.UseCases.Init;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
@@ -58,6 +59,7 @@ public static class UcliApplicationServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddUcliApplicationSharedServices();
+        services.AddUcliApplicationErrorCatalogServices();
         services.AddUcliApplicationRequestServices();
         services.AddUcliApplicationOperationCatalogServices();
         services.AddUcliApplicationDaemonServices();
@@ -76,6 +78,15 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddSingleton<IAssetSearchLookupAccessService, AssetSearchLookupAccessService>();
         services.AddSingleton<IGuidPathLookupAccessService, GuidPathLookupAccessService>();
         services.AddSingleton<ISceneTreeLiteAccessService, SceneTreeLiteAccessService>();
+        return services;
+    }
+
+    private static IServiceCollection AddUcliApplicationErrorCatalogServices (this IServiceCollection services)
+    {
+        services.AddSingleton<IErrorCodeCatalogContributor, ContractsErrorCodeCatalogContributor>();
+        services.AddSingleton<IErrorCodeCatalogContributor, ApplicationErrorCodeCatalogContributor>();
+        services.AddSingleton<IErrorCodeCatalog, ErrorCodeCatalog>();
+        services.AddSingleton<IErrorCodeCatalogService, ErrorCodeCatalogService>();
         return services;
     }
 

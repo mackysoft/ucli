@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 internal static class ValidationErrorCodes
 {
     /// <summary> Gets the error code used when protocolVersion differs from supported value. </summary>
-    public static readonly UcliErrorCode ProtocolVersionMismatch = new UcliErrorCode("PROTOCOL_VERSION_MISMATCH");
+    public static readonly UcliErrorCode ProtocolVersionMismatch = IpcProtocolErrorCodes.ProtocolVersionMismatch;
 
     /// <summary> Gets the error code used when requestId is not a valid UUID. </summary>
     public static readonly UcliErrorCode RequestIdInvalid = new UcliErrorCode("REQUEST_ID_INVALID");
@@ -33,7 +33,7 @@ internal static class ValidationErrorCodes
     public static readonly UcliErrorCode OperationNotFound = new UcliErrorCode("OPERATION_NOT_FOUND");
 
     /// <summary> Gets the error code used when operation is blocked by authorization rules. </summary>
-    public static readonly UcliErrorCode OperationNotAllowed = new UcliErrorCode("OPERATION_NOT_ALLOWED");
+    public static readonly UcliErrorCode OperationNotAllowed = OperationAuthorizationErrorCodes.OperationNotAllowed;
 
     /// <summary> Gets the error code used when an op step args object violates the registered schema. </summary>
     public static readonly UcliErrorCode OperationArgsInvalid = new UcliErrorCode("OPERATION_ARGS_INVALID");
