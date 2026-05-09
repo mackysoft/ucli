@@ -9,7 +9,7 @@ public static class FileUtilities
     /// <param name="path"> The target file path. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The text when file exists; otherwise <see langword="null" />. </returns>
-    public static async ValueTask<string?> ReadAllTextOrNull (
+    public static async ValueTask<string?> ReadAllTextOrNullAsync (
         string path,
         CancellationToken cancellationToken = default)
     {
@@ -39,7 +39,7 @@ public static class FileUtilities
     /// <param name="contents"> The text contents. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that completes when the write operation finishes. </returns>
-    public static async ValueTask WriteAllTextAtomically (
+    public static async ValueTask WriteAllTextAtomicallyAsync (
         string path,
         string contents,
         CancellationToken cancellationToken = default)

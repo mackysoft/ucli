@@ -31,7 +31,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> The response envelope for the request. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> is <see langword="null" />. </exception>
-        public async Task<IpcResponse> Dispatch (
+        public async Task<IpcResponse> DispatchAsync (
             IpcRequest request,
             CancellationToken cancellationToken = default)
         {
@@ -53,7 +53,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         null);
                 }
 
-                return await methodHandler.Handle(request, cancellationToken);
+                return await methodHandler.HandleAsync(request, cancellationToken);
             }
             catch (OperationCanceledException)
             {

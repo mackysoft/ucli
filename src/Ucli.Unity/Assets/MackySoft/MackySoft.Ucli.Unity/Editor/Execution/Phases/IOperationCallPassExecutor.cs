@@ -14,7 +14,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The call-pass result. </returns>
-        Task<CallPassResult> Execute (
+        Task<CallPassResult> ExecuteAsync (
             IReadOnlyList<PreparedOperation> preparedOperations,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default);

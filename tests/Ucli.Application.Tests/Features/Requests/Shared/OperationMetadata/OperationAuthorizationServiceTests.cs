@@ -39,7 +39,7 @@ public sealed class OperationAuthorizationServiceTests
             ParseOperationPolicy(requiredPolicy));
         var config = CreateConfig(ParseOperationPolicy(configuredPolicy), allowlistPattern);
 
-        var result = await service.Authorize(operation, config, CancellationToken.None);
+        var result = await service.AuthorizeAsync(operation, config, CancellationToken.None);
 
         Assert.True(result.IsAllowed);
         Assert.Null(result.ErrorCode);
@@ -63,7 +63,7 @@ public sealed class OperationAuthorizationServiceTests
             ParseOperationPolicy(requiredPolicy));
         var config = CreateConfig(ParseOperationPolicy(configuredPolicy), allowlistPattern);
 
-        var result = await service.Authorize(operation, config, CancellationToken.None);
+        var result = await service.AuthorizeAsync(operation, config, CancellationToken.None);
 
         Assert.False(result.IsAllowed);
         Assert.Equal(ValidationErrorCodes.OperationNotAllowed, result.ErrorCode);

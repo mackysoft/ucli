@@ -7,7 +7,7 @@ internal interface IUnityPluginVerifier
     /// <param name="unityProjectRoot"> The Unity project root path. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The plugin verification result. </returns>
-    ValueTask<UnityPluginVerificationResult> Verify (
+    ValueTask<UnityPluginVerificationResult> VerifyAsync (
         string unityProjectRoot,
         CancellationToken cancellationToken = default);
 }

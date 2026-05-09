@@ -37,7 +37,7 @@ internal sealed class OpsListCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.ListSubcommand)]
-    public async Task<int> List (
+    public async Task<int> ListAsync (
         string? projectPath = null,
         string? mode = null,
         string? timeout = null,
@@ -101,7 +101,7 @@ internal sealed class OpsListCommand
             return errorResult.ExitCode;
         }
 
-        var serviceResult = await opsService.GetAll(
+        var serviceResult = await opsService.GetAllAsync(
                 new OpsCommandInput(
                     ProjectPath: projectPath,
                     Mode: normalizedModeResult.Mode,

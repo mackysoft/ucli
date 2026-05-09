@@ -93,7 +93,7 @@ public sealed class SkillExportService
                     return SkillOperationResult<string>.FailureResult(filePathResult.Failure!.Code, filePathResult.Failure.Message);
                 }
 
-                await SkillPackageFileWriter.WriteAllTextAtomically(filePathResult.Value!, file.Content, cancellationToken).ConfigureAwait(false);
+                await SkillPackageFileWriter.WriteAllTextAtomicallyAsync(filePathResult.Value!, file.Content, cancellationToken).ConfigureAwait(false);
             }
         }
 

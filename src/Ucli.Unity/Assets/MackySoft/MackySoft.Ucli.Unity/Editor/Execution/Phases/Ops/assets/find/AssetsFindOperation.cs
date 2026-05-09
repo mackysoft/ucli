@@ -27,7 +27,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 Array.Empty<string>(),
                 UcliOperationPlanMode.ObservesLiveUnity));
 
-        protected override Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
             AssetsFindArgs args,
             OperationExecutionContext executionContext,
@@ -39,7 +39,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 : failure!);
         }
 
-        protected override Task<OperationPhaseStepResult> Plan (
+        protected override Task<OperationPhaseStepResult> PlanAsync (
             NormalizedOperation operation,
             AssetsFindArgs args,
             OperationExecutionContext executionContext,
@@ -49,7 +49,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(Execute(operation, args, executionContext, applied: false, includeTemporaryState: true));
         }
 
-        protected override Task<OperationPhaseStepResult> Call (
+        protected override Task<OperationPhaseStepResult> CallAsync (
             NormalizedOperation operation,
             AssetsFindArgs args,
             OperationExecutionContext executionContext,

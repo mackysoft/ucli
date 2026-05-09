@@ -32,14 +32,14 @@ internal sealed class PlanService : IPlanService
     }
 
     /// <inheritdoc />
-    public async ValueTask<PlanServiceResult> Execute (
+    public async ValueTask<PlanServiceResult> ExecuteAsync (
         PlanCommandInput input,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(input);
 
-        var requestPreparationResult = await requestPreparationService.Prepare(
+        var requestPreparationResult = await requestPreparationService.PrepareAsync(
                 input.ProjectPath,
                 input.RequestJson,
                 cancellationToken)
@@ -49,7 +49,7 @@ internal sealed class PlanService : IPlanService
             return PlanFailureResultFactory.FromExecutionError(requestPreparationResult.Error!);
         }
 
-        var requestStaticValidationPreflightResult = await requestStaticValidationPreflightService.Prepare(
+        var requestStaticValidationPreflightResult = await requestStaticValidationPreflightService.PrepareAsync(
                 requestPreparationResult.PreparedRequest!,
                 input.ReadIndexMode,
                 cancellationToken)
@@ -88,7 +88,7 @@ internal sealed class PlanService : IPlanService
 
         var executionMode = input.Mode ?? UnityExecutionMode.Auto;
 
-        var executionResult = await unityIpcRequestExecutor.Execute(
+        var executionResult = await unityIpcRequestExecutor.ExecuteAsync(
                 UcliCommandIds.Plan,
                 executionMode,
                 timeoutResolutionResult.Timeout!.Value,

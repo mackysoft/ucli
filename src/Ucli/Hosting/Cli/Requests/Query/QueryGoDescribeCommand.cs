@@ -44,7 +44,7 @@ internal sealed class QueryGoDescribeCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.DescribeSubcommand)]
-    public async Task<int> Describe (
+    public async Task<int> DescribeAsync (
         string? projectPath = null,
         string? mode = null,
         string? timeout = null,
@@ -78,7 +78,7 @@ internal sealed class QueryGoDescribeCommand
             return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QueryGoDescribe, depthResult.Error!);
         }
 
-        return await QueryCommandExecutionHelper.Execute(
+        return await QueryCommandExecutionHelper.ExecuteAsync(
                 queryService,
                 commonOptionsResult.Options!,
                 new QueryUnityOperationRequest(

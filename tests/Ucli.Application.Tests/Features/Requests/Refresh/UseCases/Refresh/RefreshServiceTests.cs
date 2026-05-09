@@ -16,7 +16,7 @@ public sealed class RefreshServiceTests
         var operationExecuteService = new SpyOperationExecuteService(RefreshTestResultFactory.Success());
         var service = new RefreshService(operationExecuteService);
 
-        var result = await service.Execute(
+        var result = await service.ExecuteAsync(
             new RefreshCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: UnityExecutionMode.Oneshot,
@@ -54,7 +54,7 @@ public sealed class RefreshServiceTests
 
         public OperationExecuteInput? CapturedInput { get; private set; }
 
-        public ValueTask<OperationExecuteResult> Execute (
+        public ValueTask<OperationExecuteResult> ExecuteAsync (
             OperationExecuteDefinition definition,
             OperationExecuteInput input,
             CancellationToken cancellationToken = default)

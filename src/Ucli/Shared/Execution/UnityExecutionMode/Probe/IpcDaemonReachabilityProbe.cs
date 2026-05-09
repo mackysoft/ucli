@@ -34,7 +34,7 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
     /// <returns> The daemon reachability probe result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    public async ValueTask<DaemonReachabilityProbeResult> Probe (
+    public async ValueTask<DaemonReachabilityProbeResult> ProbeAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
@@ -77,7 +77,7 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
                 : DaemonTimeouts.ProbeAttemptTimeoutCap;
             try
             {
-                await daemonPingClient.Ping(
+                await daemonPingClient.PingAsync(
                         unityProject,
                         attemptTimeout,
                         cancellationToken: cancellationToken)

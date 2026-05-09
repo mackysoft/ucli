@@ -41,7 +41,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
     }
 
     /// <inheritdoc />
-    public async ValueTask<UnityRequestExecutionResult> Execute (
+    public async ValueTask<UnityRequestExecutionResult> ExecuteAsync (
         UcliCommand command,
         UnityExecutionMode mode,
         TimeSpan timeout,
@@ -63,7 +63,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
 
         var dispatchRequest = requestBuilder.Build(payload);
         var budget = UnityIpcExecutionBudget.Start(timeout, timeProvider);
-        var targetResolution = await targetResolver.Resolve(
+        var targetResolution = await targetResolver.ResolveAsync(
                 mode,
                 unityProject,
                 budget,
@@ -78,7 +78,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
         if (targetResolution.Target == UnityExecutionTarget.Daemon
             && daemonReadinessGate.TryReadReadinessGatedOpsRead(dispatchRequest, out var opsReadRequest))
         {
-            return await daemonReadinessGate.Execute(
+            return await daemonReadinessGate.ExecuteAsync(
                     unityProject,
                     dispatchRequest,
                     opsReadRequest!,

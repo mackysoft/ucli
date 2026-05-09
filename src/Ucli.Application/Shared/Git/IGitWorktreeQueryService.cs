@@ -8,7 +8,7 @@ internal interface IGitWorktreeQueryService
     /// <param name="timeout"> The timeout budget for this Git worktree query. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Git worktree query result. </returns>
-    ValueTask<GitWorktreeQueryResult> GetWorktreeInfo (
+    ValueTask<GitWorktreeQueryResult> GetWorktreeInfoAsync (
         string path,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);

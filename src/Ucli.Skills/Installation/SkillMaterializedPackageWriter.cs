@@ -124,7 +124,7 @@ public sealed class SkillMaterializedPackageWriter : ISkillMaterializedPackageWr
                     return SkillOperationResult<bool>.FailureResult(stagingPathResult.Failure!.Code, stagingPathResult.Failure.Message);
                 }
 
-                await SkillPackageFileWriter.WriteAllTextAtomically(stagingPathResult.Value!, file.Content, cancellationToken).ConfigureAwait(false);
+                await SkillPackageFileWriter.WriteAllTextAtomicallyAsync(stagingPathResult.Value!, file.Content, cancellationToken).ConfigureAwait(false);
             }
 
             cancellationToken.ThrowIfCancellationRequested();

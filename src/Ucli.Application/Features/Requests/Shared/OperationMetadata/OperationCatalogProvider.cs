@@ -23,11 +23,11 @@ internal sealed class OperationCatalogProvider : IOperationCatalogProvider
     }
 
     /// <inheritdoc />
-    public async ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetOperations (CancellationToken cancellationToken = default)
+    public async ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetOperationsAsync (CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var contextResult = await projectContextResolver.Resolve(
+        var contextResult = await projectContextResolver.ResolveAsync(
                 projectPath: null,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -38,7 +38,7 @@ internal sealed class OperationCatalogProvider : IOperationCatalogProvider
                 "Operation catalog context could not be resolved."));
         }
 
-        return await operationCatalogDiscoveryService.Discover(
+        return await operationCatalogDiscoveryService.DiscoverAsync(
                 contextResult.Context!.UnityProject,
                 contextResult.Context.Config,
                 mode: UnityExecutionMode.Auto,
@@ -48,7 +48,7 @@ internal sealed class OperationCatalogProvider : IOperationCatalogProvider
     }
 
     /// <inheritdoc />
-    public async ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetOperations (
+    public async ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetOperationsAsync (
         ResolvedUnityProjectContext unityProject,
         UcliConfig config,
         UnityExecutionMode mode = UnityExecutionMode.Auto,
@@ -60,7 +60,7 @@ internal sealed class OperationCatalogProvider : IOperationCatalogProvider
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(config);
 
-        return await operationCatalogDiscoveryService.Discover(
+        return await operationCatalogDiscoveryService.DiscoverAsync(
                 unityProject,
                 config,
                 mode,

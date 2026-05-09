@@ -17,14 +17,14 @@ internal sealed class OpsPreflightService : IOpsPreflightService
     }
 
     /// <inheritdoc />
-    public async ValueTask<OpsPreflightResult> Execute (
+    public async ValueTask<OpsPreflightResult> ExecuteAsync (
         OpsPreflightInput input,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(input);
 
-        var contextResult = await projectContextResolver.Resolve(
+        var contextResult = await projectContextResolver.ResolveAsync(
                 input.ProjectPath,
                 cancellationToken)
             .ConfigureAwait(false);

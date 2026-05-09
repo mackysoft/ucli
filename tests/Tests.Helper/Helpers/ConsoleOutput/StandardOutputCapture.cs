@@ -9,7 +9,7 @@ internal static class StandardOutputCapture
     /// <summary> Executes one asynchronous action while redirecting standard output to an in-memory writer. </summary>
     /// <param name="action"> The asynchronous action that writes to standard output. </param>
     /// <returns> The action exit code together with the captured standard-output text. </returns>
-    internal static async Task<(int ExitCode, string StandardOutput)> Execute (Func<Task<int>> action)
+    internal static async Task<(int ExitCode, string StandardOutput)> ExecuteAsync (Func<Task<int>> action)
     {
         ArgumentNullException.ThrowIfNull(action);
 

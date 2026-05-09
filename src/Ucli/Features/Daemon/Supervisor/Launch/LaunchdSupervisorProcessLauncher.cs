@@ -22,7 +22,7 @@ internal sealed class LaunchdSupervisorProcessLauncher
     /// <param name="launchCommand"> The resolved relaunch command. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> One structured error when launch fails; otherwise <see langword="null" />. </returns>
-    public async ValueTask<ExecutionError?> Launch (
+    public async ValueTask<ExecutionError?> LaunchAsync (
         string storageRoot,
         SupervisorLaunchCommand launchCommand,
         CancellationToken cancellationToken = default)
@@ -36,7 +36,7 @@ internal sealed class LaunchdSupervisorProcessLauncher
             var plistPath = UcliStoragePathResolver.ResolveSupervisorLaunchAgentPlistPath(normalizedStorageRoot);
             var logPath = UcliStoragePathResolver.ResolveSupervisorLogPath(normalizedStorageRoot);
             var label = BuildLaunchdLabel(normalizedStorageRoot);
-            var userId = await ResolveCurrentUserId(cancellationToken).ConfigureAwait(false);
+            var userId = await ResolveCurrentUserIdAsync(cancellationToken).ConfigureAwait(false);
             if (userId == null)
             {
                 return ExecutionError.InternalError("Current user identifier could not be resolved for supervisor LaunchAgent.");
@@ -50,15 +50,15 @@ internal sealed class LaunchdSupervisorProcessLauncher
             }
 
             var plistContents = LaunchAgentPlistDocumentFactory.Build(label, launchCommand, normalizedStorageRoot, logPath);
-            await FileUtilities.WriteAllTextAtomically(plistPath, plistContents + Environment.NewLine, cancellationToken).ConfigureAwait(false);
+            await FileUtilities.WriteAllTextAtomicallyAsync(plistPath, plistContents + Environment.NewLine, cancellationToken).ConfigureAwait(false);
 
-            await processRunner.RunIgnoringExitCode(
+            await processRunner.RunIgnoringExitCodeAsync(
                     "launchctl",
                     ["bootout", $"{userDomain}/{label}"],
                     cancellationToken)
                 .ConfigureAwait(false);
 
-            var bootstrapResult = await processRunner.Run(
+            var bootstrapResult = await processRunner.RunAsync(
                     "launchctl",
                     ["bootstrap", userDomain, plistPath],
                     cancellationToken)
@@ -69,7 +69,7 @@ internal sealed class LaunchdSupervisorProcessLauncher
                     $"Failed to bootstrap supervisor LaunchAgent. {SupervisorExternalProcessRunner.FormatFailure(bootstrapResult)}");
             }
 
-            var kickstartResult = await processRunner.Run(
+            var kickstartResult = await processRunner.RunAsync(
                     "launchctl",
                     ["kickstart", "-k", $"{userDomain}/{label}"],
                     cancellationToken)
@@ -92,9 +92,9 @@ internal sealed class LaunchdSupervisorProcessLauncher
         }
     }
 
-    private async ValueTask<string?> ResolveCurrentUserId (CancellationToken cancellationToken)
+    private async ValueTask<string?> ResolveCurrentUserIdAsync (CancellationToken cancellationToken)
     {
-        var result = await processRunner.Run("id", ["-u"], cancellationToken).ConfigureAwait(false);
+        var result = await processRunner.RunAsync("id", ["-u"], cancellationToken).ConfigureAwait(false);
         var output = result.StandardOutput.Trim();
         return result.ExitCode == 0 && output.Length > 0 ? output : null;
     }

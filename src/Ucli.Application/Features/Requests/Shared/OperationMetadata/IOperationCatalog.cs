@@ -12,12 +12,12 @@ internal interface IOperationCatalog
     /// <para> A task that resolves to the operation descriptor. </para>
     /// <para> Returns <see langword="null" /> when the operation does not exist. </para>
     /// </returns>
-    ValueTask<UcliOperationDescriptor?> Get (string name, CancellationToken cancellationToken = default);
+    ValueTask<UcliOperationDescriptor?> GetAsync (string name, CancellationToken cancellationToken = default);
 
     /// <summary> Asynchronously gets all registered operation descriptors. </summary>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the descriptor list ordered by operation name. </returns>
-    ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (CancellationToken cancellationToken = default);
+    ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (CancellationToken cancellationToken = default);
 
     /// <summary> Asynchronously gets all registered operation descriptors for the specified resolved Unity project. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
@@ -25,7 +25,7 @@ internal interface IOperationCatalog
     /// <param name="failFast"> Whether live catalog discovery should fail immediately instead of waiting for Unity readiness. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the descriptor list ordered by operation name. </returns>
-    ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
+    ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (
         ResolvedUnityProjectContext unityProject,
         UcliConfig config,
         UnityExecutionMode mode = UnityExecutionMode.Auto,

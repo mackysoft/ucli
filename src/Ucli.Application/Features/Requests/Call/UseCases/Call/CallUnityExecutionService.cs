@@ -28,7 +28,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
     }
 
     /// <inheritdoc />
-    public async ValueTask<CallServiceResult> Execute (
+    public async ValueTask<CallServiceResult> ExecuteAsync (
         PhaseExecutionPreparedRequest preparedRequest,
         UnityExecutionMode mode,
         CallCommandInput input,
@@ -53,7 +53,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                     baseOutput);
             }
 
-            var planExecutionResult = await unityIpcRequestExecutor.Execute(
+            var planExecutionResult = await unityIpcRequestExecutor.ExecuteAsync(
                     UcliCommandIds.Call,
                     mode,
                     planTimeout,
@@ -114,7 +114,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                 baseOutput);
         }
 
-        var callExecutionResult = await unityIpcRequestExecutor.Execute(
+        var callExecutionResult = await unityIpcRequestExecutor.ExecuteAsync(
                 UcliCommandIds.Call,
                 mode,
                 callTimeout,
@@ -142,7 +142,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             OpResults = convertedCallResponse.OpResults,
             ReadPostcondition = convertedCallResponse.ReadPostcondition,
         };
-        var postprocessedCallResponse = await ExecuteResponseReadPostconditionProcessor.Persist(
+        var postprocessedCallResponse = await ExecuteResponseReadPostconditionProcessor.PersistAsync(
                 convertedCallResponse,
                 mutationReadPostconditionStore,
                 preparedRequest.UnityProject.RepositoryRoot,

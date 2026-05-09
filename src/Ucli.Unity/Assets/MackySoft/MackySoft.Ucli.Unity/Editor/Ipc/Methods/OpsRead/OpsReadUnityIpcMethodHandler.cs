@@ -29,7 +29,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         public string Method => IpcMethodNames.OpsRead;
 
         /// <inheritdoc />
-        public async ValueTask<IpcResponse> Handle (
+        public async ValueTask<IpcResponse> HandleAsync (
             IpcRequest request,
             CancellationToken cancellationToken)
         {
@@ -49,7 +49,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (payload!.RequireReadinessGate)
             {
-                var readinessResult = await readinessGate.EnsureExecutionReady(payload.FailFast, cancellationToken).ConfigureAwait(false);
+                var readinessResult = await readinessGate.EnsureExecutionReadyAsync(payload.FailFast, cancellationToken).ConfigureAwait(false);
                 if (!readinessResult.IsReady)
                 {
                     var error = readinessResult.Error!;

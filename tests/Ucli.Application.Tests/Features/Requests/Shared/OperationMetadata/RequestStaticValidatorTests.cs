@@ -32,7 +32,7 @@ public sealed class RequestStaticValidatorTests
         var validator = CreateValidator();
         var request = CreateInvalidRequest(scenario);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
         AssertContainsError(result, expectedErrorCode);
     }
@@ -48,7 +48,7 @@ public sealed class RequestStaticValidatorTests
                 null,
             ]);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
         Assert.False(result.IsValid);
         AssertContainsError(result, ValidationErrorCodes.StepIdRequired);
@@ -62,7 +62,7 @@ public sealed class RequestStaticValidatorTests
         var validator = CreateValidator();
         var request = CreateRequest(steps: Array.Empty<ValidateRequestStep?>());
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
         Assert.True(result.IsValid);
         Assert.Empty(result.Errors);
@@ -82,7 +82,7 @@ public sealed class RequestStaticValidatorTests
                 }),
             ]);
 
-        var result = await validator.Validate(
+        var result = await validator.ValidateAsync(
             request,
             RequestStaticValidationCatalog.Unavailable,
             CreateConfig(OperationPolicy.Safe, "^ucli\\."),
@@ -112,7 +112,7 @@ public sealed class RequestStaticValidatorTests
                     """),
             ]);
 
-        var result = await validator.Validate(
+        var result = await validator.ValidateAsync(
             request,
             RequestStaticValidationCatalog.Unavailable,
             CreateConfig(OperationPolicy.Safe, "^ucli\\."),
@@ -132,7 +132,7 @@ public sealed class RequestStaticValidatorTests
             requestId: "invalid-request-id",
             steps: Array.Empty<ValidateRequestStep?>());
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
         Assert.False(result.IsValid);
         AssertContainsError(result, ValidationErrorCodes.ProtocolVersionMismatch);
@@ -178,7 +178,7 @@ public sealed class RequestStaticValidatorTests
                         .Replace("__SCENE_QUERY_OP__", UcliPrimitiveOperationNames.SceneQuery, StringComparison.Ordinal)),
             ]);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
         Assert.False(result.IsValid);
         AssertContainsError(result, ValidationErrorCodes.EditStepInvalid);
@@ -200,7 +200,7 @@ public sealed class RequestStaticValidatorTests
                     argsJson: argsJson),
             ]);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
         Assert.False(result.IsValid);
         AssertContainsError(result, ValidationErrorCodes.OperationArgsInvalid);
@@ -224,7 +224,7 @@ public sealed class RequestStaticValidatorTests
                 }),
             ]);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
 
         Assert.True(result.IsValid);
     }
@@ -242,7 +242,7 @@ public sealed class RequestStaticValidatorTests
                 }),
             ]);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
         Assert.True(result.IsValid);
     }
@@ -263,7 +263,7 @@ public sealed class RequestStaticValidatorTests
                 }),
             ]);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
         Assert.True(result.IsValid);
     }
@@ -287,7 +287,7 @@ public sealed class RequestStaticValidatorTests
                 }),
             ]);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
 
         Assert.True(result.IsValid);
         Assert.Empty(result.Errors);
@@ -313,7 +313,7 @@ public sealed class RequestStaticValidatorTests
                 }),
             ]);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
         Assert.True(result.IsValid);
         Assert.Empty(result.Errors);
@@ -347,7 +347,7 @@ public sealed class RequestStaticValidatorTests
                 }),
             ]);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
 
         Assert.True(result.IsValid);
         Assert.Empty(result.Errors);
@@ -378,7 +378,7 @@ public sealed class RequestStaticValidatorTests
                 }),
             ]);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
 
         Assert.False(result.IsValid);
         AssertContainsError(result, ValidationErrorCodes.OperationArgsInvalid);
@@ -469,7 +469,7 @@ public sealed class RequestStaticValidatorTests
                 }),
             ]);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
 
         Assert.True(result.IsValid);
         Assert.Empty(result.Errors);
@@ -490,7 +490,7 @@ public sealed class RequestStaticValidatorTests
                 }),
             ]);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
         Assert.True(result.IsValid);
         Assert.Empty(result.Errors);
@@ -511,7 +511,7 @@ public sealed class RequestStaticValidatorTests
                 }),
             ]);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
         Assert.True(result.IsValid);
         Assert.Empty(result.Errors);
@@ -532,7 +532,7 @@ public sealed class RequestStaticValidatorTests
                 }),
             ]);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
         Assert.True(result.IsValid);
         Assert.Empty(result.Errors);
@@ -557,7 +557,7 @@ public sealed class RequestStaticValidatorTests
                 }),
             ]);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
 
         Assert.True(result.IsValid);
         Assert.Empty(result.Errors);
@@ -587,7 +587,7 @@ public sealed class RequestStaticValidatorTests
                 }),
             ]);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
 
         Assert.True(result.IsValid);
         Assert.Empty(result.Errors);
@@ -613,7 +613,7 @@ public sealed class RequestStaticValidatorTests
                 }),
             ]);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
 
         Assert.False(result.IsValid);
         AssertContainsError(result, ValidationErrorCodes.OperationArgsInvalid);
@@ -637,7 +637,7 @@ public sealed class RequestStaticValidatorTests
                 }),
             ]);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
 
         Assert.False(result.IsValid);
         AssertContainsError(result, ValidationErrorCodes.OperationArgsInvalid);
@@ -661,7 +661,7 @@ public sealed class RequestStaticValidatorTests
                 }),
             ]);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
         Assert.True(result.IsValid);
         Assert.Empty(result.Errors);
@@ -708,7 +708,7 @@ public sealed class RequestStaticValidatorTests
                     """),
             ]);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
 
         Assert.True(result.IsValid);
         Assert.Empty(result.Errors);
@@ -756,7 +756,7 @@ public sealed class RequestStaticValidatorTests
                         .Replace("__SCENE_QUERY_OP__", UcliPrimitiveOperationNames.SceneQuery, StringComparison.Ordinal)),
             ]);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
 
         Assert.True(result.IsValid);
         Assert.Empty(result.Errors);
@@ -798,7 +798,7 @@ public sealed class RequestStaticValidatorTests
                     """),
             ]);
 
-        var result = await validator.Validate(
+        var result = await validator.ValidateAsync(
             request,
             CreateUnityProject(),
             CreateConfig(OperationPolicy.Advanced, "^ucli\\."),
@@ -842,7 +842,7 @@ public sealed class RequestStaticValidatorTests
                     """),
             ]);
 
-        var result = await validator.Validate(
+        var result = await validator.ValidateAsync(
             request,
             CreateUnityProject(),
             CreateConfig(OperationPolicy.Advanced, "^ucli\\.asset\\.create$"),
@@ -886,7 +886,7 @@ public sealed class RequestStaticValidatorTests
                     """),
             ]);
 
-        var result = await validator.Validate(
+        var result = await validator.ValidateAsync(
             request,
             CreateUnityProject(),
             CreateConfig(OperationPolicy.Advanced, "^ucli\\.asset\\.create$"),
@@ -929,7 +929,7 @@ public sealed class RequestStaticValidatorTests
                     """),
             ]);
 
-        var result = await validator.Validate(
+        var result = await validator.ValidateAsync(
             request,
             CreateUnityProject(),
             CreateConfig(OperationPolicy.Advanced, "^ucli\\.comp\\.ensure$"),
@@ -972,7 +972,7 @@ public sealed class RequestStaticValidatorTests
                     """),
             ]);
 
-        var result = await validator.Validate(
+        var result = await validator.ValidateAsync(
             request,
             CreateUnityProject(),
             CreateConfig(OperationPolicy.Advanced, "^ucli\\.comp\\.ensure$"),
@@ -1015,7 +1015,7 @@ public sealed class RequestStaticValidatorTests
                     """),
             ]);
 
-        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
 
         Assert.False(result.IsValid);
         AssertContainsError(result, ValidationErrorCodes.EditStepInvalid);
@@ -1200,7 +1200,7 @@ public sealed class RequestStaticValidatorTests
 
 internal static class RequestStaticValidatorTestExtensions
 {
-    public static ValueTask<ValidationResult> Validate (
+    public static ValueTask<ValidationResult> ValidateAsync (
         this IRequestStaticValidator validator,
         ValidateRequest request,
         IReadOnlyList<UcliOperationDescriptor>? operations,
@@ -1212,7 +1212,7 @@ internal static class RequestStaticValidatorTestExtensions
         ArgumentNullException.ThrowIfNull(config);
         cancellationToken.ThrowIfCancellationRequested();
 
-        return validator.Validate(
+        return validator.ValidateAsync(
             request,
             operations is null
                 ? RequestStaticValidationCatalog.Unavailable
@@ -1221,7 +1221,7 @@ internal static class RequestStaticValidatorTestExtensions
             cancellationToken);
     }
 
-    public static async ValueTask<ValidationResult> Validate (
+    public static async ValueTask<ValidationResult> ValidateAsync (
         this IRequestStaticValidator validator,
         ValidateRequest request,
         ResolvedUnityProjectContext unityProject,
@@ -1234,9 +1234,9 @@ internal static class RequestStaticValidatorTestExtensions
         ArgumentNullException.ThrowIfNull(config);
 
         var operations = await new InMemoryOperationCatalogProvider()
-            .GetOperations(cancellationToken)
+            .GetOperationsAsync(cancellationToken)
             .ConfigureAwait(false);
-        return await validator.Validate(
+        return await validator.ValidateAsync(
                 request,
                 RequestStaticValidationCatalog.Available(operations),
                 config,

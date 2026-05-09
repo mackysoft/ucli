@@ -26,7 +26,7 @@ internal sealed class SupervisorClient
     /// <param name="timeout"> The ping timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The classified probe outcome. </returns>
-    public async ValueTask<SupervisorReachabilityProbeStatus> ProbeReachability (
+    public async ValueTask<SupervisorReachabilityProbeStatus> ProbeReachabilityAsync (
         SupervisorInstanceManifest manifest,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
@@ -37,7 +37,7 @@ internal sealed class SupervisorClient
                 manifest,
                 SupervisorIpcContracts.PingMethod,
                 new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion));
-            var response = await Send(manifest, request, timeout, cancellationToken).ConfigureAwait(false);
+            var response = await SendAsync(manifest, request, timeout, cancellationToken).ConfigureAwait(false);
             if (IpcResponseFailureReader.TryRead(response, out _, out _))
             {
                 return SupervisorReachabilityProbeStatus.Unreachable;
@@ -91,7 +91,7 @@ internal sealed class SupervisorClient
     /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The mapped daemon-start result. </returns>
-    public async ValueTask<DaemonStartResult> EnsureRunning (
+    public async ValueTask<DaemonStartResult> EnsureRunningAsync (
         SupervisorInstanceManifest manifest,
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
@@ -115,7 +115,7 @@ internal sealed class SupervisorClient
                     EditorMode: editorMode.HasValue
                         ? DaemonEditorModeCodec.ToValue(editorMode.Value)
                         : null));
-            var response = await Send(manifest, request, timeout, cancellationToken).ConfigureAwait(false);
+            var response = await SendAsync(manifest, request, timeout, cancellationToken).ConfigureAwait(false);
             if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
             {
                 return DaemonStartResult.Failure(MapResponseFailure(firstError, status));
@@ -165,7 +165,7 @@ internal sealed class SupervisorClient
     /// <param name="timeout"> The command timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The mapped daemon-stop result. </returns>
-    public async ValueTask<DaemonStopResult> StopProject (
+    public async ValueTask<DaemonStopResult> StopProjectAsync (
         SupervisorInstanceManifest manifest,
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
@@ -185,7 +185,7 @@ internal sealed class SupervisorClient
                     UnityProjectRoot: unityProject.UnityProjectRoot,
                     ProjectFingerprint: unityProject.ProjectFingerprint,
                     TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds)));
-            var response = await Send(manifest, request, timeout, cancellationToken).ConfigureAwait(false);
+            var response = await SendAsync(manifest, request, timeout, cancellationToken).ConfigureAwait(false);
             if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
             {
                 return DaemonStopResult.Failure(MapResponseFailure(firstError, status));
@@ -229,7 +229,7 @@ internal sealed class SupervisorClient
         }
     }
 
-    private async ValueTask<IpcResponse> Send (
+    private async ValueTask<IpcResponse> SendAsync (
         SupervisorInstanceManifest manifest,
         IpcRequest request,
         TimeSpan timeout,

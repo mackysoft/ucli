@@ -27,7 +27,7 @@ internal sealed class SupervisorTransportServer
     /// <param name="connectionHandler"> The per-connection request handler. </param>
     /// <param name="onStarted"> The callback invoked after the listener becomes ready. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the host. </param>
-    public async Task Run (
+    public async Task RunAsync (
         IpcEndpoint endpoint,
         Func<Stream, CancellationToken, Task> connectionHandler,
         Func<CancellationToken, Task> onStarted,
@@ -41,11 +41,11 @@ internal sealed class SupervisorTransportServer
         {
             try
             {
-                await RunNamedPipe(endpoint.Address, connectionHandler, onStarted, cancellationToken).ConfigureAwait(false);
+                await RunNamedPipeAsync(endpoint.Address, connectionHandler, onStarted, cancellationToken).ConfigureAwait(false);
             }
             finally
             {
-                await AwaitActiveConnections().ConfigureAwait(false);
+                await AwaitActiveConnectionsAsync().ConfigureAwait(false);
             }
 
             return;
@@ -55,11 +55,11 @@ internal sealed class SupervisorTransportServer
         {
             try
             {
-                await RunUnixSocket(endpoint.Address, connectionHandler, onStarted, cancellationToken).ConfigureAwait(false);
+                await RunUnixSocketAsync(endpoint.Address, connectionHandler, onStarted, cancellationToken).ConfigureAwait(false);
             }
             finally
             {
-                await AwaitActiveConnections().ConfigureAwait(false);
+                await AwaitActiveConnectionsAsync().ConfigureAwait(false);
             }
 
             return;
@@ -81,7 +81,7 @@ internal sealed class SupervisorTransportServer
         }
     }
 
-    private async Task RunNamedPipe (
+    private async Task RunNamedPipeAsync (
         string address,
         Func<Stream, CancellationToken, Task> connectionHandler,
         Func<CancellationToken, Task> onStarted,
@@ -146,7 +146,7 @@ internal sealed class SupervisorTransportServer
         }
     }
 
-    private async Task RunUnixSocket (
+    private async Task RunUnixSocketAsync (
         string address,
         Func<Stream, CancellationToken, Task> connectionHandler,
         Func<CancellationToken, Task> onStarted,
@@ -216,7 +216,7 @@ internal sealed class SupervisorTransportServer
         CancellationToken cancellationToken)
     {
         var connectionId = Interlocked.Increment(ref nextConnectionId);
-        var connectionTask = HandleConnection(stream, connectionHandler, cancellationToken);
+        var connectionTask = HandleConnectionAsync(stream, connectionHandler, cancellationToken);
         activeConnectionTasks.TryAdd(connectionId, connectionTask);
         _ = connectionTask.ContinueWith(
             _ =>
@@ -229,7 +229,7 @@ internal sealed class SupervisorTransportServer
             TaskScheduler.Default);
     }
 
-    private async Task HandleConnection (
+    private async Task HandleConnectionAsync (
         Stream stream,
         Func<Stream, CancellationToken, Task> connectionHandler,
         CancellationToken cancellationToken)
@@ -252,7 +252,7 @@ internal sealed class SupervisorTransportServer
         }
     }
 
-    private async Task AwaitActiveConnections ()
+    private async Task AwaitActiveConnectionsAsync ()
     {
         var connectionTasks = activeConnectionTasks.Values.ToArray();
         if (connectionTasks.Length == 0)

@@ -30,7 +30,7 @@ internal sealed class ProjectContextResolver : IProjectContextResolver
     /// <param name="projectPath"> The optional <c>--projectPath</c> value. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the context-resolution result that contains either a fully resolved context or a structured error. </returns>
-    public async ValueTask<ProjectContextResolutionResult> Resolve (
+    public async ValueTask<ProjectContextResolutionResult> ResolveAsync (
         string? projectPath,
         CancellationToken cancellationToken = default)
     {
@@ -44,7 +44,7 @@ internal sealed class ProjectContextResolver : IProjectContextResolver
         }
 
         var unityProjectContext = unityProjectResult.Context!;
-        var configLoadResult = await configStore.Load(unityProjectContext.RepositoryRoot, cancellationToken).ConfigureAwait(false);
+        var configLoadResult = await configStore.LoadAsync(unityProjectContext.RepositoryRoot, cancellationToken).ConfigureAwait(false);
         if (!configLoadResult.IsSuccess)
         {
             return ProjectContextResolutionResult.Failure(UcliConfigDiagnosticErrorMapper.ToExecutionError(

@@ -15,7 +15,7 @@ public sealed class OpsCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Ops_WithoutSubcommand_ReturnsJsonEnvelopeError ()
     {
-        var result = await CliProcessRunner.RunCommand(UcliCommandNames.Ops);
+        var result = await CliProcessRunner.RunCommandAsync(UcliCommandNames.Ops);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -33,7 +33,7 @@ public sealed class OpsCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Ops_WithUnknownSubcommand_ReturnsJsonEnvelopeError ()
     {
-        var result = await CliProcessRunner.RunCommand(UcliCommandNames.Ops, "unknown");
+        var result = await CliProcessRunner.RunCommandAsync(UcliCommandNames.Ops, "unknown");
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -51,7 +51,7 @@ public sealed class OpsCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task OpsList_WithUnknownOption_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Ops,
             UcliCommandNames.ListSubcommand,
             UcliContractConstants.CliOption.Unknown);
@@ -79,7 +79,7 @@ public sealed class OpsCliOutputContractTests
         string optionValue,
         string expectedMessage)
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Ops,
             UcliCommandNames.ListSubcommand,
             optionName,
@@ -106,7 +106,7 @@ public sealed class OpsCliOutputContractTests
         var invalidProjectPath = Path.Combine(scope.FullPath, "NotUnityProject");
         Directory.CreateDirectory(invalidProjectPath);
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Ops,
             UcliCommandNames.ListSubcommand,
             UcliContractConstants.CliOption.FailFast,
@@ -157,7 +157,7 @@ public sealed class OpsCliOutputContractTests
                             UcliOperationPlanMode.ObservesLiveUnity))),
             ]);
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Ops,
             UcliCommandNames.ListSubcommand,
             UcliContractConstants.CliOption.ProjectPath,
@@ -213,7 +213,7 @@ public sealed class OpsCliOutputContractTests
                     resultSchemaJson: """{"type":"object"}"""),
             ]);
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Ops,
             UcliCommandNames.ListSubcommand,
             UcliContractConstants.CliOption.ProjectPath,
@@ -251,7 +251,7 @@ public sealed class OpsCliOutputContractTests
                     resultSchemaJson: """{"type":"object"}"""),
             ]);
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Ops,
             UcliCommandNames.ListSubcommand,
             UcliContractConstants.CliOption.ProjectPath,
@@ -293,7 +293,7 @@ public sealed class OpsCliOutputContractTests
                     resultSchemaJson: """{"type":"object"}"""),
             ]);
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Ops,
             UcliCommandNames.DescribeSubcommand,
             UcliPrimitiveOperationNames.GoDescribe,
@@ -365,7 +365,7 @@ public sealed class OpsCliOutputContractTests
                             UcliOperationPlanMode.ObservesLiveUnity))),
             ]);
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Ops,
             UcliCommandNames.DescribeSubcommand,
             UcliPrimitiveOperationNames.SceneOpen,
@@ -402,7 +402,7 @@ public sealed class OpsCliOutputContractTests
                     resultSchemaJson: """{"type":"object"}"""),
             ]);
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Ops,
             UcliCommandNames.DescribeSubcommand,
             "ucli.unknown",
@@ -440,7 +440,7 @@ public sealed class OpsCliOutputContractTests
                     resultSchemaJson: """{"type":"object"}"""),
             ]);
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Ops,
             UcliCommandNames.ListSubcommand,
             UcliContractConstants.CliOption.ProjectPath,
@@ -480,7 +480,7 @@ public sealed class OpsCliOutputContractTests
                     resultSchemaJson: """{"type":"object"}"""),
             ]);
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Ops,
             UcliCommandNames.ListSubcommand,
             UcliContractConstants.CliOption.ProjectPath,
@@ -501,7 +501,7 @@ public sealed class OpsCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "list-disabled-invalid-timeout");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Ops,
             UcliCommandNames.ListSubcommand,
             UcliContractConstants.CliOption.ProjectPath,
@@ -536,7 +536,7 @@ public sealed class OpsCliOutputContractTests
             new IndexGuidPathLookupJsonContractWriter(),
             new IndexSceneTreeLiteLookupJsonContractWriter(),
             new IndexInputsManifestJsonContractWriter());
-        writer.WriteOpsCatalog(
+        writer.WriteOpsCatalogAsync(
                 unityProjectPath,
                 fingerprint,
                 DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),

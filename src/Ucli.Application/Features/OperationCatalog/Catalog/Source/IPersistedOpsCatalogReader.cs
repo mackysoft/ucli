@@ -7,7 +7,7 @@ internal interface IPersistedOpsCatalogReader
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The persisted ops-catalog read result. </returns>
-    ValueTask<PersistedOpsCatalogReadResult> Read (
+    ValueTask<PersistedOpsCatalogReadResult> ReadAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default);
 
@@ -15,7 +15,7 @@ internal interface IPersistedOpsCatalogReader
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The persisted lightweight ops-catalog read result. </returns>
-    ValueTask<PersistedOpsCatalogDescriptorReadResult> ReadDescriptors (
+    ValueTask<PersistedOpsCatalogDescriptorReadResult> ReadDescriptorsAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default);
 
@@ -25,7 +25,7 @@ internal interface IPersistedOpsCatalogReader
     /// <param name="catalogEntry"> The matching lightweight catalog entry. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The persisted describe read result. </returns>
-    ValueTask<PersistedOpsDescribeReadResult> ReadDescribe (
+    ValueTask<PersistedOpsDescribeReadResult> ReadDescribeAsync (
         ResolvedUnityProjectContext unityProject,
         OpsCatalogDescriptorSnapshot catalogSnapshot,
         IndexOpsCatalogEntryJsonContract catalogEntry,

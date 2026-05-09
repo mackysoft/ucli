@@ -4,12 +4,12 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 internal interface IReadIndexInputFingerprintProvider
 {
     /// <summary> Tries to compute one core input fingerprint snapshot. </summary>
-    ValueTask<ReadIndexCoreInputHashSnapshot?> TryComputeCore (
+    ValueTask<ReadIndexCoreInputHashSnapshot?> TryComputeCoreAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default);
 
     /// <summary> Tries to compute one full input fingerprint snapshot. </summary>
-    ValueTask<ReadIndexInputHashSnapshot?> TryCompute (
+    ValueTask<ReadIndexInputHashSnapshot?> TryComputeAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default);
 }

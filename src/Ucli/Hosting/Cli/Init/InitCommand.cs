@@ -29,7 +29,7 @@ internal sealed class InitCommand
     /// <param name="cancellationToken"> The cancellation token propagated by the command pipeline. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Init)]
-    public async Task<int> Init (
+    public async Task<int> InitAsync (
         bool force = false,
         CancellationToken cancellationToken = default)
     {

@@ -13,7 +13,7 @@ public sealed class PlanCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Plan_WithUnknownOption_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommand(UcliCommandNames.Plan, UcliContractConstants.CliOption.Unknown);
+        var result = await CliProcessRunner.RunCommandAsync(UcliCommandNames.Plan, UcliContractConstants.CliOption.Unknown);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -30,7 +30,7 @@ public sealed class PlanCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Plan_WhenRequestStepsPropertyIsMissing_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommandWithStandardInput(
+        var result = await CliProcessRunner.RunCommandWithStandardInputAsync(
             """{}""",
             UcliCommandNames.Plan);
 
@@ -53,7 +53,7 @@ public sealed class PlanCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Plan_WithInvalidReadIndexMode_ReturnsInvalidArgumentErrorWithoutPayload ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Plan,
             UcliContractConstants.CliOption.ReadIndexMode,
             "unsupported");
@@ -76,7 +76,7 @@ public sealed class PlanCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("plan-cli-output-contract", "fail-fast-camel-case");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
 
-        var result = await CliProcessRunner.RunCommandWithStandardInput(
+        var result = await CliProcessRunner.RunCommandWithStandardInputAsync(
             CreateRequestJson(),
             UcliCommandNames.Plan,
             UcliContractConstants.CliOption.FailFast,
@@ -105,7 +105,7 @@ public sealed class PlanCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("plan-cli-output-contract", "invalid-timeout");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
 
-        var result = await CliProcessRunner.RunCommandWithStandardInput(
+        var result = await CliProcessRunner.RunCommandWithStandardInputAsync(
             CreateRequestJson(),
             UcliCommandNames.Plan,
             UcliContractConstants.CliOption.ProjectPath,
@@ -141,7 +141,7 @@ public sealed class PlanCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("plan-cli-output-contract", "invalid-mode");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
 
-        var result = await CliProcessRunner.RunCommandWithStandardInput(
+        var result = await CliProcessRunner.RunCommandWithStandardInputAsync(
             CreateRequestJson(),
             UcliCommandNames.Plan,
             UcliContractConstants.CliOption.ProjectPath,
@@ -164,9 +164,9 @@ public sealed class PlanCliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("plan-cli-output-contract", "daemon-not-running");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        await UnityProjectTestFactory.WriteUcliUnityPluginMarker(scope, "UnityProject");
+        await UnityProjectTestFactory.WriteUcliUnityPluginMarkerAsync(scope, "UnityProject");
 
-        var result = await CliProcessRunner.RunCommandWithStandardInput(
+        var result = await CliProcessRunner.RunCommandWithStandardInputAsync(
             CreateRequestJson(),
             UcliCommandNames.Plan,
             UcliContractConstants.CliOption.ProjectPath,

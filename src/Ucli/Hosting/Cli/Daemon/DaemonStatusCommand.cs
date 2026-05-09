@@ -31,7 +31,7 @@ internal sealed class DaemonStatusCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Status)]
-    public async Task<int> Status (
+    public async Task<int> StatusAsync (
         string? projectPath = null,
         string? timeout = null,
         CancellationToken cancellationToken = default)
@@ -49,7 +49,7 @@ internal sealed class DaemonStatusCommand
             return errorResult.ExitCode;
         }
 
-        var executionResult = await daemonStatusService.GetStatus(
+        var executionResult = await daemonStatusService.GetStatusAsync(
                 projectPath,
                 normalizedTimeoutResult.TimeoutMilliseconds,
                 cancellationToken)

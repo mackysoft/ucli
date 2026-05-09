@@ -36,7 +36,7 @@ public sealed class SupervisorExitHandlerTests
             processId: -1,
             static _ => Task.CompletedTask);
 
-        await exitHandler.HandleExit(managedProcess, CancellationToken.None);
+        await exitHandler.HandleExitAsync(managedProcess, CancellationToken.None);
 
         var logPath = UcliStoragePathResolver.ResolveSupervisorLogPath(repositoryRoot);
         var logText = await File.ReadAllTextAsync(logPath);
@@ -71,7 +71,7 @@ public sealed class SupervisorExitHandlerTests
             processId: -1,
             static _ => Task.CompletedTask);
 
-        await exitHandler.HandleExit(managedProcess, CancellationToken.None);
+        await exitHandler.HandleExitAsync(managedProcess, CancellationToken.None);
 
         Assert.Equal(1, artifactCleaner.CleanupCallCount);
 
@@ -117,7 +117,7 @@ public sealed class SupervisorExitHandlerTests
             this.session = session;
         }
 
-        public ValueTask<DaemonSessionReadResult> Read (
+        public ValueTask<DaemonSessionReadResult> ReadAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -125,7 +125,7 @@ public sealed class SupervisorExitHandlerTests
             return ValueTask.FromResult(ReadResult ?? DaemonSessionReadResult.Success(session));
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Write (
+        public ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
             string storageRoot,
             DaemonSession session,
             CancellationToken cancellationToken = default)
@@ -134,7 +134,7 @@ public sealed class SupervisorExitHandlerTests
             return ValueTask.FromResult(DaemonSessionStoreOperationResult.Success());
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Delete (
+        public ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -148,7 +148,7 @@ public sealed class SupervisorExitHandlerTests
         public DaemonDiagnosisStoreOperationResult WriteResult { get; set; } =
             DaemonDiagnosisStoreOperationResult.Success();
 
-        public ValueTask<DaemonDiagnosisReadResult> Read (
+        public ValueTask<DaemonDiagnosisReadResult> ReadAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -156,7 +156,7 @@ public sealed class SupervisorExitHandlerTests
             return ValueTask.FromResult(DaemonDiagnosisReadResult.Success(null));
         }
 
-        public ValueTask<DaemonDiagnosisStoreOperationResult> Write (
+        public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
             string storageRoot,
             string projectFingerprint,
             DaemonDiagnosis diagnosis,
@@ -165,7 +165,7 @@ public sealed class SupervisorExitHandlerTests
             return ValueTask.FromResult(WriteResult);
         }
 
-        public ValueTask<DaemonDiagnosisStoreOperationResult> Delete (
+        public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -181,7 +181,7 @@ public sealed class SupervisorExitHandlerTests
 
         public int CleanupCallCount { get; private set; }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Cleanup (
+        public ValueTask<DaemonSessionStoreOperationResult> CleanupAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {

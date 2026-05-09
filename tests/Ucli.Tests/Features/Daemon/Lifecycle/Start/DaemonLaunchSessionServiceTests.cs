@@ -20,7 +20,7 @@ public sealed class DaemonLaunchSessionServiceTests
             sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
         var context = CreateContext("fingerprint-session-init");
 
-        var result = await service.Initialize(context, DaemonEditorMode.Batchmode, CancellationToken.None);
+        var result = await service.InitializeAsync(context, DaemonEditorMode.Batchmode, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var session = Assert.IsType<DaemonSession>(result.Session);
@@ -40,7 +40,7 @@ public sealed class DaemonLaunchSessionServiceTests
             daemonSessionStore: sessionStore,
             sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
 
-        var result = await service.Initialize(CreateContext("fingerprint-session-init-fail"), DaemonEditorMode.Batchmode, CancellationToken.None);
+        var result = await service.InitializeAsync(CreateContext("fingerprint-session-init-fail"), DaemonEditorMode.Batchmode, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(expectedError, result.Error);
@@ -57,7 +57,7 @@ public sealed class DaemonLaunchSessionServiceTests
             daemonSessionStore: sessionStore,
             sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
 
-        var result = await service.Initialize(CreateContext("fingerprint-session-gui"), DaemonEditorMode.Gui, CancellationToken.None);
+        var result = await service.InitializeAsync(CreateContext("fingerprint-session-gui"), DaemonEditorMode.Gui, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -77,7 +77,7 @@ public sealed class DaemonLaunchSessionServiceTests
             sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
         var session = CreateSession(processId: null);
 
-        var result = await service.UpdateProcessId(
+        var result = await service.UpdateProcessIdAsync(
             CreateContext("fingerprint-session-no-update"),
             session,
             processId: null,
@@ -101,7 +101,7 @@ public sealed class DaemonLaunchSessionServiceTests
             sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
         var session = CreateSession(processId: null);
 
-        var result = await service.UpdateProcessId(
+        var result = await service.UpdateProcessIdAsync(
             CreateContext("fingerprint-session-update-fail"),
             session,
             processId: 4321,
@@ -125,7 +125,7 @@ public sealed class DaemonLaunchSessionServiceTests
             sessionTokenGenerator: new StubDaemonSessionTokenGenerator());
         var session = CreateSession(processId: null);
 
-        var result = await service.UpdateProcessId(
+        var result = await service.UpdateProcessIdAsync(
             CreateContext("fingerprint-session-update-success"),
             session,
             processId: 8765,
@@ -180,7 +180,7 @@ public sealed class DaemonLaunchSessionServiceTests
 
         public DaemonSession? LastWrittenSession { get; private set; }
 
-        public ValueTask<DaemonSessionReadResult> Read (
+        public ValueTask<DaemonSessionReadResult> ReadAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -188,7 +188,7 @@ public sealed class DaemonLaunchSessionServiceTests
             return ValueTask.FromResult(DaemonSessionReadResult.Success(null));
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Write (
+        public ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
             string storageRoot,
             DaemonSession session,
             CancellationToken cancellationToken = default)
@@ -203,7 +203,7 @@ public sealed class DaemonLaunchSessionServiceTests
             return ValueTask.FromResult(WriteResults.Dequeue());
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Delete (
+        public ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)

@@ -11,7 +11,7 @@ internal interface IDaemonSessionCleanupService
     /// <param name="timeout"> The timeout used for process-termination attempts. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The cleanup operation result. </returns>
-    ValueTask<DaemonSessionStoreOperationResult> CleanupInvalidSessionArtifacts (
+    ValueTask<DaemonSessionStoreOperationResult> CleanupInvalidSessionArtifactsAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSessionReadResult readResult,
         TimeSpan timeout,
@@ -23,7 +23,7 @@ internal interface IDaemonSessionCleanupService
     /// <param name="timeout"> The timeout used for process-termination attempts. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The cleanup operation result. </returns>
-    ValueTask<DaemonSessionStoreOperationResult> CleanupStaleSessionArtifacts (
+    ValueTask<DaemonSessionStoreOperationResult> CleanupStaleSessionArtifactsAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         TimeSpan timeout,

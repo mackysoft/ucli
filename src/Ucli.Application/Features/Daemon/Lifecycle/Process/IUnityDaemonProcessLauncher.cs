@@ -11,7 +11,7 @@ internal interface IUnityDaemonProcessLauncher
     /// <param name="unityLogPath"> The Unity log file path passed to Unity <c>-logFile</c>. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon launch result. </returns>
-    ValueTask<UnityDaemonLaunchResult> Launch (
+    ValueTask<UnityDaemonLaunchResult> LaunchAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         string unityLogPath,

@@ -18,7 +18,7 @@ public sealed class ReadIndexValidationCatalogResolverTests
                 [CreateGoDescribeEntry()]));
         var resolver = new ReadIndexValidationCatalogResolver(loader);
 
-        var result = await resolver.Resolve(
+        var result = await resolver.ResolveAsync(
             CreateUnityProject(),
             ReadIndexMode.Disabled,
             CancellationToken.None);
@@ -44,7 +44,7 @@ public sealed class ReadIndexValidationCatalogResolverTests
                     ReadIndexErrorCodes.ReadIndexBootstrapFailed,
                     "Index contract file was not found: ops.catalog.json."))));
 
-        var result = await resolver.Resolve(
+        var result = await resolver.ResolveAsync(
             CreateUnityProject(),
             ReadIndexMode.AllowStale,
             CancellationToken.None);
@@ -66,7 +66,7 @@ public sealed class ReadIndexValidationCatalogResolverTests
                 IndexFreshness.Stale,
                 [CreateGoDescribeEntry()])));
 
-        var result = await resolver.Resolve(
+        var result = await resolver.ResolveAsync(
             CreateUnityProject(),
             ReadIndexMode.RequireFresh,
             CancellationToken.None);
@@ -90,7 +90,7 @@ public sealed class ReadIndexValidationCatalogResolverTests
                     ReadIndexErrorCodes.ReadIndexFormatInvalid,
                     "Index contract file 'ops.catalog.json' is malformed."))));
 
-        var result = await resolver.Resolve(
+        var result = await resolver.ResolveAsync(
             CreateUnityProject(),
             ReadIndexMode.AllowStale,
             CancellationToken.None);
@@ -112,7 +112,7 @@ public sealed class ReadIndexValidationCatalogResolverTests
                 IndexFreshness.Probable,
                 [CreateGoDescribeEntry()])));
 
-        var result = await resolver.Resolve(
+        var result = await resolver.ResolveAsync(
             CreateUnityProject(),
             ReadIndexMode.AllowStale,
             CancellationToken.None);
@@ -146,7 +146,7 @@ public sealed class ReadIndexValidationCatalogResolverTests
 
         public int CallCount { get; private set; }
 
-        public ValueTask<PersistedOpsCatalogReadResult> Read (
+        public ValueTask<PersistedOpsCatalogReadResult> ReadAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
@@ -155,14 +155,14 @@ public sealed class ReadIndexValidationCatalogResolverTests
             return ValueTask.FromResult(result);
         }
 
-        public ValueTask<PersistedOpsCatalogDescriptorReadResult> ReadDescriptors (
+        public ValueTask<PersistedOpsCatalogDescriptorReadResult> ReadDescriptorsAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
         }
 
-        public ValueTask<PersistedOpsDescribeReadResult> ReadDescribe (
+        public ValueTask<PersistedOpsDescribeReadResult> ReadDescribeAsync (
             ResolvedUnityProjectContext unityProject,
             OpsCatalogDescriptorSnapshot catalogSnapshot,
             IndexOpsCatalogEntryJsonContract catalogEntry,

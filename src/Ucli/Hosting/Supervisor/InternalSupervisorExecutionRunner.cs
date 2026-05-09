@@ -21,7 +21,7 @@ internal sealed class InternalSupervisorExecutionRunner
 
         await using var serviceProvider = BuildServiceProvider();
         var supervisorHost = serviceProvider.GetRequiredService<SupervisorHost>();
-        return await supervisorHost.Run(repositoryRoot, cancellationToken).ConfigureAwait(false);
+        return await supervisorHost.RunAsync(repositoryRoot, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary> Builds the service provider used by the hidden supervisor host. </summary>

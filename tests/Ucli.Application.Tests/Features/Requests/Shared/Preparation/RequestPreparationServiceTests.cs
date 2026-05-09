@@ -47,7 +47,7 @@ public sealed class RequestPreparationServiceTests
             ProjectContextResolutionResult.Success(projectContext));
         var service = CreateService(parser, projectContextResolver);
 
-        var result = await service.Prepare(
+        var result = await service.PrepareAsync(
             projectPath: "/tmp/project",
             requestJson: requestJson,
             cancellationToken: CancellationToken.None);
@@ -71,7 +71,7 @@ public sealed class RequestPreparationServiceTests
             new SpyValidateRequestJsonParser(ValidateRequestJsonParseResult.Failure(error)),
             new SpyProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext())));
 
-        var result = await service.Prepare(
+        var result = await service.PrepareAsync(
             projectPath: "/tmp/project",
             requestJson: requestJson,
             cancellationToken: CancellationToken.None);
@@ -93,7 +93,7 @@ public sealed class RequestPreparationServiceTests
             parser,
             new SpyProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext())));
 
-        var result = await service.Prepare(
+        var result = await service.PrepareAsync(
             projectPath: "/tmp/project",
             requestJson: requestJson,
             cancellationToken: CancellationToken.None);
@@ -118,7 +118,7 @@ public sealed class RequestPreparationServiceTests
             parser,
             projectContextResolver);
 
-        var result = await service.Prepare(
+        var result = await service.PrepareAsync(
             projectPath: "/tmp/project",
             requestJson: requestJson,
             cancellationToken: CancellationToken.None);
@@ -140,7 +140,7 @@ public sealed class RequestPreparationServiceTests
             new SpyValidateRequestJsonParser(ValidateRequestJsonParseResult.Success(CreateRequest())),
             new SpyProjectContextResolver(ProjectContextResolutionResult.Failure(error)));
 
-        var result = await service.Prepare(
+        var result = await service.PrepareAsync(
             projectPath: "/tmp/project",
             requestJson: requestJson,
             cancellationToken: CancellationToken.None);
@@ -161,7 +161,7 @@ public sealed class RequestPreparationServiceTests
             ProjectContextResolutionResult.Success(CreateProjectContext()));
         var service = CreateService(parser, projectContextResolver);
 
-        var result = await service.Prepare(
+        var result = await service.PrepareAsync(
             projectPath: "/tmp/project",
             requestJson: requestJson,
             cancellationToken: token);
@@ -262,7 +262,7 @@ public sealed class RequestPreparationServiceTests
 
         public int CallCount { get; private set; }
 
-        public ValueTask<ProjectContextResolutionResult> Resolve (
+        public ValueTask<ProjectContextResolutionResult> ResolveAsync (
             string? projectPath,
             CancellationToken cancellationToken = default)
         {

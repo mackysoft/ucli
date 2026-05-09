@@ -9,7 +9,7 @@ internal interface IDaemonStartOperation
     /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon start result. </returns>
-    ValueTask<DaemonStartResult> Start (
+    ValueTask<DaemonStartResult> StartAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         DaemonEditorMode? editorMode,

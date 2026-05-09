@@ -45,7 +45,7 @@ public sealed class OpsCatalogAccessServiceTests
         var sourceRefreshService = new StubOpsCatalogSourceRefreshService();
         var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
 
-        var result = await service.ReadList(CreatePreflightContext(ReadIndexMode.AllowStale), CancellationToken.None);
+        var result = await service.ReadListAsync(CreatePreflightContext(ReadIndexMode.AllowStale), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(OpsCatalogSource.Index, result.Output!.AccessInfo.Source);
@@ -73,7 +73,7 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
 
-        var result = await service.ReadList(CreatePreflightContext(ReadIndexMode.RequireFresh), CancellationToken.None);
+        var result = await service.ReadListAsync(CreatePreflightContext(ReadIndexMode.RequireFresh), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(OpsCatalogSource.Source, result.Output!.AccessInfo.Source);
@@ -109,7 +109,7 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
 
-        var result = await service.ReadList(CreatePreflightContext(ReadIndexMode.RequireFresh), CancellationToken.None);
+        var result = await service.ReadListAsync(CreatePreflightContext(ReadIndexMode.RequireFresh), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(OpsCatalogSource.Source, result.Output!.AccessInfo.Source);
@@ -133,7 +133,7 @@ public sealed class OpsCatalogAccessServiceTests
         var sourceRefreshService = new StubOpsCatalogSourceRefreshService();
         var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
 
-        var result = await service.ReadList(CreatePreflightContext(ReadIndexMode.AllowStale), CancellationToken.None);
+        var result = await service.ReadListAsync(CreatePreflightContext(ReadIndexMode.AllowStale), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
@@ -151,7 +151,7 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var service = new OpsCatalogAccessService(new StubPersistedOpsCatalogReader(), sourceRefreshService);
 
-        var result = await service.ReadList(CreatePreflightContext(ReadIndexMode.Disabled), CancellationToken.None);
+        var result = await service.ReadListAsync(CreatePreflightContext(ReadIndexMode.Disabled), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(OpsCatalogSource.Source, result.Output!.AccessInfo.Source);
@@ -175,7 +175,7 @@ public sealed class OpsCatalogAccessServiceTests
         var sourceRefreshService = new StubOpsCatalogSourceRefreshService();
         var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
 
-        var result = await service.ReadDescribe(
+        var result = await service.ReadDescribeAsync(
             CreatePreflightContext(ReadIndexMode.RequireFresh),
             sceneSave.Name,
             CancellationToken.None);
@@ -210,7 +210,7 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
 
-        var result = await service.ReadDescribe(
+        var result = await service.ReadDescribeAsync(
             CreatePreflightContext(ReadIndexMode.RequireFresh),
             UcliPrimitiveOperationNames.GoDescribe,
             CancellationToken.None);
@@ -232,7 +232,7 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var service = new OpsCatalogAccessService(new StubPersistedOpsCatalogReader(), sourceRefreshService);
 
-        var result = await service.ReadDescribe(
+        var result = await service.ReadDescribeAsync(
             CreatePreflightContext(ReadIndexMode.Disabled),
             UcliPrimitiveOperationNames.GoDescribe,
             CancellationToken.None);
@@ -261,7 +261,7 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
 
-        var result = await service.ReadDescribe(
+        var result = await service.ReadDescribeAsync(
             CreatePreflightContext(ReadIndexMode.RequireFresh),
             UcliPrimitiveOperationNames.GoDescribe,
             CancellationToken.None);
@@ -288,7 +288,7 @@ public sealed class OpsCatalogAccessServiceTests
         var sourceRefreshService = new StubOpsCatalogSourceRefreshService();
         var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
 
-        var result = await service.ReadDescribe(
+        var result = await service.ReadDescribeAsync(
             CreatePreflightContext(ReadIndexMode.AllowStale),
             UcliPrimitiveOperationNames.GoDescribe,
             CancellationToken.None);
@@ -312,7 +312,7 @@ public sealed class OpsCatalogAccessServiceTests
         var sourceRefreshService = new StubOpsCatalogSourceRefreshService();
         var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
 
-        var result = await service.ReadDescribe(
+        var result = await service.ReadDescribeAsync(
             CreatePreflightContext(ReadIndexMode.RequireFresh),
             UcliPrimitiveOperationNames.SceneSave,
             CancellationToken.None);
@@ -340,7 +340,7 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
 
-        var result = await service.ReadDescribe(
+        var result = await service.ReadDescribeAsync(
             CreatePreflightContext(ReadIndexMode.RequireFresh),
             UcliPrimitiveOperationNames.GoDescribe,
             CancellationToken.None);
@@ -383,7 +383,7 @@ public sealed class OpsCatalogAccessServiceTests
 
         public IndexOpsCatalogEntryJsonContract? LastDescribeCatalogEntry { get; private set; }
 
-        public ValueTask<PersistedOpsCatalogReadResult> Read (
+        public ValueTask<PersistedOpsCatalogReadResult> ReadAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
@@ -392,7 +392,7 @@ public sealed class OpsCatalogAccessServiceTests
             return ValueTask.FromResult(Result);
         }
 
-        public ValueTask<PersistedOpsCatalogDescriptorReadResult> ReadDescriptors (
+        public ValueTask<PersistedOpsCatalogDescriptorReadResult> ReadDescriptorsAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
@@ -423,7 +423,7 @@ public sealed class OpsCatalogAccessServiceTests
             return ValueTask.FromResult(PersistedOpsCatalogDescriptorReadResult.Success(snapshot!, Result.Freshness!.Value));
         }
 
-        public ValueTask<PersistedOpsDescribeReadResult> ReadDescribe (
+        public ValueTask<PersistedOpsDescribeReadResult> ReadDescribeAsync (
             ResolvedUnityProjectContext unityProject,
             OpsCatalogDescriptorSnapshot catalogSnapshot,
             IndexOpsCatalogEntryJsonContract catalogEntry,
@@ -454,7 +454,7 @@ public sealed class OpsCatalogAccessServiceTests
         public OpsCatalogSourceRefreshResult Result { get; set; }
             = OpsCatalogSourceRefreshResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
-        public ValueTask<OpsCatalogSourceRefreshResult> Refresh (
+        public ValueTask<OpsCatalogSourceRefreshResult> RefreshAsync (
             ResolvedUnityProjectContext project,
             UcliConfig config,
             UnityExecutionMode mode,

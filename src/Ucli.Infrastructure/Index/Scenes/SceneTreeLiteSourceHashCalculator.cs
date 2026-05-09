@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Infrastructure.Index;
 internal sealed class SceneTreeLiteSourceHashCalculator : ISceneTreeLiteSourceHashCalculator
 {
     /// <inheritdoc />
-    public async ValueTask<string?> TryCompute (
+    public async ValueTask<string?> TryComputeAsync (
         string projectRootPath,
         string scenePath,
         CancellationToken cancellationToken = default)
@@ -36,13 +36,13 @@ internal sealed class SceneTreeLiteSourceHashCalculator : ISceneTreeLiteSourceHa
         var absoluteScenePath = scenePathResult.FullPath!;
         var absoluteMetaPath = absoluteScenePath + ".meta";
 
-        var sceneHash = await FileContentHash.TryComputeFileHash(absoluteScenePath, cancellationToken).ConfigureAwait(false);
+        var sceneHash = await FileContentHash.TryComputeFileHashAsync(absoluteScenePath, cancellationToken).ConfigureAwait(false);
         if (sceneHash == null)
         {
             return null;
         }
 
-        var metaHash = await FileContentHash.TryComputeFileHash(absoluteMetaPath, cancellationToken).ConfigureAwait(false);
+        var metaHash = await FileContentHash.TryComputeFileHashAsync(absoluteMetaPath, cancellationToken).ConfigureAwait(false);
         if (metaHash == null)
         {
             return null;

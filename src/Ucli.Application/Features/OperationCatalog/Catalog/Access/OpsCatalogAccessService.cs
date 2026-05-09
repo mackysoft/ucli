@@ -22,7 +22,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
     }
 
     /// <inheritdoc />
-    public async ValueTask<OpsListReadResult> ReadList (
+    public async ValueTask<OpsListReadResult> ReadListAsync (
         OpsPreflightContext context,
         CancellationToken cancellationToken = default)
     {
@@ -31,14 +31,14 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
 
         if (context.ReadIndexMode == ReadIndexMode.Disabled)
         {
-            return await ReadListFromSource(
+            return await ReadListFromSourceAsync(
                     context,
                     "readIndex disabled by mode.",
                     cancellationToken)
                 .ConfigureAwait(false);
         }
 
-        var persistedCatalogResult = await persistedOpsCatalogReader.ReadDescriptors(
+        var persistedCatalogResult = await persistedOpsCatalogReader.ReadDescriptorsAsync(
                 context.Context.UnityProject,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -52,7 +52,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
                     failure.ErrorCode);
             }
 
-            return await ReadListFromSource(
+            return await ReadListFromSourceAsync(
                     context,
                     failure.Message,
                     cancellationToken)
@@ -76,7 +76,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
                 "Read-index ops catalog hit.");
         }
 
-        return await ReadListFromSource(
+        return await ReadListFromSourceAsync(
                 context,
                 $"Existing ops index freshness is '{ReadIndexAccessUtilities.DescribeFreshness(persistedFreshness)}'.",
                 cancellationToken)
@@ -84,7 +84,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
     }
 
     /// <inheritdoc />
-    public async ValueTask<OpsDescribeReadResult> ReadDescribe (
+    public async ValueTask<OpsDescribeReadResult> ReadDescribeAsync (
         OpsPreflightContext context,
         string? operationName,
         CancellationToken cancellationToken = default)
@@ -101,7 +101,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
 
         if (context.ReadIndexMode == ReadIndexMode.Disabled)
         {
-            return await ReadDescribeFromSource(
+            return await ReadDescribeFromSourceAsync(
                     context,
                     operationName,
                     "readIndex disabled by mode.",
@@ -109,7 +109,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
                 .ConfigureAwait(false);
         }
 
-        var persistedCatalogResult = await persistedOpsCatalogReader.ReadDescriptors(
+        var persistedCatalogResult = await persistedOpsCatalogReader.ReadDescriptorsAsync(
                 context.Context.UnityProject,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -123,7 +123,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
                     failure.ErrorCode);
             }
 
-            return await ReadDescribeFromSource(
+            return await ReadDescribeFromSourceAsync(
                     context,
                     operationName,
                     failure.Message,
@@ -135,7 +135,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
         var persistedSnapshot = persistedCatalogResult.Snapshot!;
         if (context.ReadIndexMode != ReadIndexMode.AllowStale && persistedFreshness != IndexFreshness.Fresh)
         {
-            return await ReadDescribeFromSource(
+            return await ReadDescribeFromSourceAsync(
                     context,
                     operationName,
                     $"Existing ops index freshness is '{ReadIndexAccessUtilities.DescribeFreshness(persistedFreshness)}'.",
@@ -152,7 +152,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
                 UcliCoreErrorCodes.InvalidArgument);
         }
 
-        var describeResult = await persistedOpsCatalogReader.ReadDescribe(
+        var describeResult = await persistedOpsCatalogReader.ReadDescribeAsync(
                 context.Context.UnityProject,
                 persistedSnapshot,
                 catalogEntry,
@@ -160,7 +160,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
             .ConfigureAwait(false);
         if (!describeResult.IsSuccess)
         {
-            return await ReadDescribeFromSource(
+            return await ReadDescribeFromSourceAsync(
                     context,
                     operationName,
                     describeResult.ReadFailure!.Message,
@@ -181,12 +181,12 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
             $"Read-index ops describe hit for '{operationName}'.");
     }
 
-    private async ValueTask<OpsListReadResult> ReadListFromSource (
+    private async ValueTask<OpsListReadResult> ReadListFromSourceAsync (
         OpsPreflightContext context,
         string fallbackReason,
         CancellationToken cancellationToken)
     {
-        var refreshResult = await sourceRefreshService.Refresh(
+        var refreshResult = await sourceRefreshService.RefreshAsync(
                 context.Context.UnityProject,
                 context.Context.Config,
                 context.Mode,
@@ -215,13 +215,13 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
             "Ops catalog read completed.");
     }
 
-    private async ValueTask<OpsDescribeReadResult> ReadDescribeFromSource (
+    private async ValueTask<OpsDescribeReadResult> ReadDescribeFromSourceAsync (
         OpsPreflightContext context,
         string operationName,
         string fallbackReason,
         CancellationToken cancellationToken)
     {
-        var refreshResult = await sourceRefreshService.Refresh(
+        var refreshResult = await sourceRefreshService.RefreshAsync(
                 context.Context.UnityProject,
                 context.Context.Config,
                 context.Mode,
@@ -258,5 +258,4 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
                     FallbackReason: refreshResult.FallbackReason)),
             $"Ops describe completed for '{operationName}'.");
     }
-
 }

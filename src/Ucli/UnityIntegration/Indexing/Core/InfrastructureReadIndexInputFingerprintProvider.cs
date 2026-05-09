@@ -16,13 +16,13 @@ internal sealed class InfrastructureReadIndexInputFingerprintProvider : IReadInd
     }
 
     /// <inheritdoc />
-    public async ValueTask<ReadIndexCoreInputHashSnapshot?> TryComputeCore (
+    public async ValueTask<ReadIndexCoreInputHashSnapshot?> TryComputeCoreAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
-        var snapshot = await inputFingerprintCalculator.TryComputeCore(unityProject.UnityProjectRoot, cancellationToken).ConfigureAwait(false);
+        var snapshot = await inputFingerprintCalculator.TryComputeCoreAsync(unityProject.UnityProjectRoot, cancellationToken).ConfigureAwait(false);
         return snapshot == null
             ? null
             : new ReadIndexCoreInputHashSnapshot(
@@ -34,13 +34,13 @@ internal sealed class InfrastructureReadIndexInputFingerprintProvider : IReadInd
     }
 
     /// <inheritdoc />
-    public async ValueTask<ReadIndexInputHashSnapshot?> TryCompute (
+    public async ValueTask<ReadIndexInputHashSnapshot?> TryComputeAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
-        var snapshot = await inputFingerprintCalculator.TryCompute(unityProject.UnityProjectRoot, cancellationToken).ConfigureAwait(false);
+        var snapshot = await inputFingerprintCalculator.TryComputeAsync(unityProject.UnityProjectRoot, cancellationToken).ConfigureAwait(false);
         return snapshot == null
             ? null
             : new ReadIndexInputHashSnapshot(

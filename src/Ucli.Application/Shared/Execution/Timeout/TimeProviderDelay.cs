@@ -10,7 +10,7 @@ internal static class TimeProviderDelay
     /// <returns> A task that completes when the delay elapses or cancellation is requested. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="timeProvider" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="delay" /> is less than <see cref="TimeSpan.Zero" />. </exception>
-    public static Task Delay (
+    public static Task DelayAsync (
         TimeSpan delay,
         TimeProvider timeProvider,
         CancellationToken cancellationToken = default)

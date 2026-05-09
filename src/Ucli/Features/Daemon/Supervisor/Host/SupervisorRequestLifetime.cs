@@ -67,7 +67,7 @@ internal sealed class SupervisorRequestLifetime : IAsyncDisposable
             listenerCancellationToken,
             timeoutCancellationTokenSource.Token,
             disconnectCancellationTokenSource.Token);
-        var disconnectMonitorTask = MonitorCallerDisconnect(
+        var disconnectMonitorTask = MonitorCallerDisconnectAsync(
             stream,
             disconnectCancellationTokenSource,
             monitorCancellationTokenSource.Token);
@@ -100,7 +100,7 @@ internal sealed class SupervisorRequestLifetime : IAsyncDisposable
         requestCancellationTokenSource.Dispose();
     }
 
-    private static async Task MonitorCallerDisconnect (
+    private static async Task MonitorCallerDisconnectAsync (
         Stream stream,
         CancellationTokenSource disconnectCancellationTokenSource,
         CancellationToken cancellationToken)

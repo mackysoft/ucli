@@ -21,7 +21,7 @@ internal sealed class DaemonCommandExecutionContextResolver : IDaemonCommandExec
     /// <param name="timeoutMilliseconds"> The optional normalized timeout value in milliseconds. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-command execution-context resolution result. </returns>
-    public async ValueTask<DaemonCommandExecutionContextResolutionResult> Resolve (
+    public async ValueTask<DaemonCommandExecutionContextResolutionResult> ResolveAsync (
         UcliCommand timeoutCommand,
         string? projectPath,
         int? timeoutMilliseconds,
@@ -34,7 +34,7 @@ internal sealed class DaemonCommandExecutionContextResolver : IDaemonCommandExec
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        var contextResolutionResult = await projectContextResolver.Resolve(projectPath, cancellationToken).ConfigureAwait(false);
+        var contextResolutionResult = await projectContextResolver.ResolveAsync(projectPath, cancellationToken).ConfigureAwait(false);
         if (!contextResolutionResult.IsSuccess)
         {
             return DaemonCommandExecutionContextResolutionResult.Failure(contextResolutionResult.Error!);

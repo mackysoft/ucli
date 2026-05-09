@@ -32,7 +32,7 @@ public sealed class DaemonStartOperationTests
             },
             daemonDiagnosisStore: diagnosisStore);
 
-        var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), editorMode: null,
+        var result = await operation.StartAsync(context, TimeSpan.FromMilliseconds(500), editorMode: null,
                 cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -65,7 +65,7 @@ public sealed class DaemonStartOperationTests
             daemonLaunchService: launchService,
             daemonDiagnosisStore: diagnosisStore);
 
-        var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), editorMode: null,
+        var result = await operation.StartAsync(context, TimeSpan.FromMilliseconds(500), editorMode: null,
                 cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -99,7 +99,7 @@ public sealed class DaemonStartOperationTests
             daemonLaunchService: launchService,
             daemonDiagnosisStore: diagnosisStore);
 
-        var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), editorMode: null,
+        var result = await operation.StartAsync(context, TimeSpan.FromMilliseconds(500), editorMode: null,
                 cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
@@ -131,7 +131,7 @@ public sealed class DaemonStartOperationTests
             daemonLaunchService: launchService,
             daemonDiagnosisStore: diagnosisStore);
 
-        var result = await operation.Start(
+        var result = await operation.StartAsync(
             context,
             TimeSpan.FromMilliseconds(500),
             editorMode: DaemonEditorMode.Gui,
@@ -172,7 +172,7 @@ public sealed class DaemonStartOperationTests
             daemonExistingSessionGateService: existingSessionGateService,
             daemonLaunchService: launchService);
 
-        var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), editorMode: null,
+        var result = await operation.StartAsync(context, TimeSpan.FromMilliseconds(500), editorMode: null,
                 cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Started, result.Status);
@@ -212,7 +212,7 @@ public sealed class DaemonStartOperationTests
             daemonExistingSessionGateService: existingSessionGateService,
             daemonLaunchService: launchService);
 
-        var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), editorMode: null,
+        var result = await operation.StartAsync(context, TimeSpan.FromMilliseconds(500), editorMode: null,
                 cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
@@ -258,7 +258,7 @@ public sealed class DaemonStartOperationTests
             daemonExistingSessionGateService: new StubDaemonExistingSessionGateService(),
             daemonLaunchService: launchService);
 
-        var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), editorMode: null,
+        var result = await operation.StartAsync(context, TimeSpan.FromMilliseconds(500), editorMode: null,
                 cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
@@ -291,7 +291,7 @@ public sealed class DaemonStartOperationTests
             daemonExistingSessionGateService: existingSessionGateService,
             daemonLaunchService: launchService);
 
-        var result = await operation.Start(CreateContext("fingerprint-start-path-invalid"), TimeSpan.FromMilliseconds(500), editorMode: null,
+        var result = await operation.StartAsync(CreateContext("fingerprint-start-path-invalid"), TimeSpan.FromMilliseconds(500), editorMode: null,
                 cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
@@ -323,7 +323,7 @@ public sealed class DaemonStartOperationTests
             daemonExistingSessionGateService: existingSessionGateService,
             daemonLaunchService: launchService);
 
-        var result = await operation.Start(CreateContext("fingerprint-start-existing"), TimeSpan.FromMilliseconds(500), editorMode: null,
+        var result = await operation.StartAsync(CreateContext("fingerprint-start-existing"), TimeSpan.FromMilliseconds(500), editorMode: null,
                 cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.AlreadyRunning, result.Status);
@@ -356,7 +356,7 @@ public sealed class DaemonStartOperationTests
             daemonExistingSessionGateService: existingSessionGateService,
             daemonLaunchService: launchService);
 
-        var result = await operation.Start(
+        var result = await operation.StartAsync(
             CreateContext("fingerprint-start-existing-editor-mode"),
             TimeSpan.FromMilliseconds(500),
             editorMode: DaemonEditorMode.Batchmode,
@@ -392,7 +392,7 @@ public sealed class DaemonStartOperationTests
             daemonExistingSessionGateService: existingSessionGateService,
             daemonLaunchService: launchService);
 
-        var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), editorMode: null,
+        var result = await operation.StartAsync(context, TimeSpan.FromMilliseconds(500), editorMode: null,
                 cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Started, result.Status);
@@ -424,7 +424,7 @@ public sealed class DaemonStartOperationTests
             daemonExistingSessionGateService: existingSessionGateService,
             daemonLaunchService: launchService);
 
-        var result = await operation.Start(CreateContext("fingerprint-start-existing-failed"), TimeSpan.FromMilliseconds(500), editorMode: null,
+        var result = await operation.StartAsync(CreateContext("fingerprint-start-existing-failed"), TimeSpan.FromMilliseconds(500), editorMode: null,
                 cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
@@ -453,7 +453,7 @@ public sealed class DaemonStartOperationTests
             daemonExistingSessionGateService: existingSessionGateService,
             daemonLaunchService: launchService);
 
-        var result = await operation.Start(CreateContext("fingerprint-start-no-session"), TimeSpan.FromMilliseconds(500), editorMode: null,
+        var result = await operation.StartAsync(CreateContext("fingerprint-start-no-session"), TimeSpan.FromMilliseconds(500), editorMode: null,
                 cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Started, result.Status);
@@ -476,7 +476,7 @@ public sealed class DaemonStartOperationTests
             daemonExistingSessionGateService: new StubDaemonExistingSessionGateService(),
             daemonLaunchService: launchService);
 
-        var result = await operation.Start(
+        var result = await operation.StartAsync(
             CreateContext("fingerprint-start-gui-not-implemented"),
             TimeSpan.FromMilliseconds(500),
             editorMode: DaemonEditorMode.Gui,
@@ -504,7 +504,7 @@ public sealed class DaemonStartOperationTests
             daemonLaunchService: new StubDaemonLaunchService(),
             lifecycleLockProvider: lockProvider);
 
-        var result = await operation.Start(
+        var result = await operation.StartAsync(
             CreateContext("fingerprint-start-lock-timeout"),
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
@@ -535,7 +535,7 @@ public sealed class DaemonStartOperationTests
             },
             lifecycleLockProvider: lockProvider);
 
-        var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), editorMode: null,
+        var result = await operation.StartAsync(context, TimeSpan.FromMilliseconds(500), editorMode: null,
                 cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -594,7 +594,7 @@ public sealed class DaemonStartOperationTests
 
         public Action? OnRead { get; set; }
 
-        public ValueTask<DaemonSessionReadResult> Read (
+        public ValueTask<DaemonSessionReadResult> ReadAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -603,7 +603,7 @@ public sealed class DaemonStartOperationTests
             return ValueTask.FromResult(ReadResult);
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Write (
+        public ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
             string storageRoot,
             DaemonSession session,
             CancellationToken cancellationToken = default)
@@ -611,7 +611,7 @@ public sealed class DaemonStartOperationTests
             return ValueTask.FromResult(DaemonSessionStoreOperationResult.Success());
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Delete (
+        public ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -630,7 +630,7 @@ public sealed class DaemonStartOperationTests
 
         public int CleanupStaleSessionArtifactsCallCount { get; private set; }
 
-        public ValueTask<DaemonSessionStoreOperationResult> CleanupInvalidSessionArtifacts (
+        public ValueTask<DaemonSessionStoreOperationResult> CleanupInvalidSessionArtifactsAsync (
             ResolvedUnityProjectContext unityProject,
             DaemonSessionReadResult readResult,
             TimeSpan timeout,
@@ -640,7 +640,7 @@ public sealed class DaemonStartOperationTests
             return ValueTask.FromResult(CleanupInvalidSessionArtifactsResult);
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> CleanupStaleSessionArtifacts (
+        public ValueTask<DaemonSessionStoreOperationResult> CleanupStaleSessionArtifactsAsync (
             ResolvedUnityProjectContext unityProject,
             DaemonSession session,
             TimeSpan timeout,
@@ -661,7 +661,7 @@ public sealed class DaemonStartOperationTests
 
         public DaemonEditorMode? LastEditorMode { get; private set; }
 
-        public ValueTask<DaemonStartResult?> TryHandleExistingSession (
+        public ValueTask<DaemonStartResult?> TryHandleExistingSessionAsync (
             ResolvedUnityProjectContext unityProject,
             DaemonSession session,
             TimeSpan timeout,
@@ -683,7 +683,7 @@ public sealed class DaemonStartOperationTests
 
         public DaemonEditorMode? LastEditorMode { get; private set; }
 
-        public ValueTask<DaemonStartResult> Launch (
+        public ValueTask<DaemonStartResult> LaunchAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             DaemonEditorMode editorMode,
@@ -705,7 +705,7 @@ public sealed class DaemonStartOperationTests
 
         public string? LastProjectFingerprint { get; private set; }
 
-        public ValueTask<DaemonDiagnosisReadResult> Read (
+        public ValueTask<DaemonDiagnosisReadResult> ReadAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -713,7 +713,7 @@ public sealed class DaemonStartOperationTests
             return ValueTask.FromResult(DaemonDiagnosisReadResult.Success(null));
         }
 
-        public ValueTask<DaemonDiagnosisStoreOperationResult> Write (
+        public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
             string storageRoot,
             string projectFingerprint,
             DaemonDiagnosis diagnosis,
@@ -722,7 +722,7 @@ public sealed class DaemonStartOperationTests
             return ValueTask.FromResult(DaemonDiagnosisStoreOperationResult.Success());
         }
 
-        public ValueTask<DaemonDiagnosisStoreOperationResult> Delete (
+        public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -740,7 +740,7 @@ public sealed class DaemonStartOperationTests
 
         public int CallCount { get; private set; }
 
-        public ValueTask<DaemonSessionStoreOperationResult> EnsureStopped (
+        public ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAsync (
             int? processId,
             DateTimeOffset? expectedIssuedAtUtc,
             TimeSpan timeout,
@@ -757,7 +757,7 @@ public sealed class DaemonStartOperationTests
 
         public int CallCount { get; private set; }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Cleanup (
+        public ValueTask<DaemonSessionStoreOperationResult> CleanupAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {

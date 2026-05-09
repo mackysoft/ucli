@@ -24,7 +24,7 @@ public sealed class DaemonCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "daemon-status-success");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Daemon,
             UcliCommandNames.Status,
             UcliContractConstants.CliOption.ProjectPath,
@@ -63,7 +63,7 @@ public sealed class DaemonCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "daemon-stop-success");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Daemon,
             UcliCommandNames.StopSubcommand,
             UcliContractConstants.CliOption.ProjectPath,
@@ -93,7 +93,7 @@ public sealed class DaemonCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "daemon-cleanup-success");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Daemon,
             UcliCommandNames.CleanupSubcommand,
             UcliContractConstants.CliOption.ProjectPath,
@@ -123,7 +123,7 @@ public sealed class DaemonCliOutputContractTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         WriteUnsafeInvalidSession(unityProjectPath);
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Daemon,
             UcliCommandNames.CleanupSubcommand,
             UcliContractConstants.CliOption.ProjectPath,
@@ -149,7 +149,7 @@ public sealed class DaemonCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Start_WithUnknownOption_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Daemon,
             UcliCommandNames.StartSubcommand,
             UcliContractConstants.CliOption.Unknown);
@@ -171,7 +171,7 @@ public sealed class DaemonCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Start_WithInvalidEditorMode_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Daemon,
             UcliCommandNames.StartSubcommand,
             UcliContractConstants.CliOption.EditorMode,
@@ -197,7 +197,7 @@ public sealed class DaemonCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "daemon-start-batchmode-option");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Daemon,
             UcliCommandNames.StartSubcommand,
             UcliContractConstants.CliOption.ProjectPath,
@@ -224,9 +224,9 @@ public sealed class DaemonCliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "daemon-start-gui-option");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        await UnityProjectTestFactory.WriteUcliUnityPluginMarker(scope, "UnityProject");
+        await UnityProjectTestFactory.WriteUcliUnityPluginMarkerAsync(scope, "UnityProject");
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Daemon,
             UcliCommandNames.StartSubcommand,
             UcliContractConstants.CliOption.ProjectPath,
@@ -235,7 +235,7 @@ public sealed class DaemonCliOutputContractTests
             "30000",
             UcliContractConstants.CliOption.EditorMode,
             "gui");
-        await WaitForSupervisorIdleExit(scope, unityProjectPath);
+        await WaitForSupervisorIdleExitAsync(scope, unityProjectPath);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
@@ -254,7 +254,7 @@ public sealed class DaemonCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Stop_WithUnknownOption_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Daemon,
             UcliCommandNames.StopSubcommand,
             UcliContractConstants.CliOption.Unknown);
@@ -276,7 +276,7 @@ public sealed class DaemonCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Cleanup_WithUnknownOption_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Daemon,
             UcliCommandNames.CleanupSubcommand,
             UcliContractConstants.CliOption.Unknown);
@@ -298,7 +298,7 @@ public sealed class DaemonCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Status_WithUnknownOption_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Daemon,
             UcliCommandNames.Status,
             UcliContractConstants.CliOption.Unknown);
@@ -321,10 +321,10 @@ public sealed class DaemonCliOutputContractTests
     public async Task List_WithProjectPath_WhenNoDaemonSessionExists_ReturnsSuccessJsonContractAsSingleJson ()
     {
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "daemon-list-success");
-        await InitializeGitRepository(scope);
+        await InitializeGitRepositoryAsync(scope);
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
 
-        var result = await CliProcessRunner.RunCommandWithWorkingDirectory(
+        var result = await CliProcessRunner.RunCommandWithWorkingDirectoryAsync(
             scope.FullPath,
             UcliCommandNames.Daemon,
             UcliCommandNames.ListSubcommand,
@@ -356,7 +356,7 @@ public sealed class DaemonCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task List_WithUnknownOption_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Daemon,
             UcliCommandNames.ListSubcommand,
             UcliContractConstants.CliOption.Unknown);
@@ -378,7 +378,7 @@ public sealed class DaemonCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Daemon_WithoutSubcommand_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommand(UcliCommandNames.Daemon);
+        var result = await CliProcessRunner.RunCommandAsync(UcliCommandNames.Daemon);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -396,7 +396,7 @@ public sealed class DaemonCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Daemon_WithUnknownOption_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Daemon,
             UcliContractConstants.CliOption.Unknown);
 
@@ -416,7 +416,7 @@ public sealed class DaemonCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Daemon_WithUnknownSubcommand_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Daemon,
             "foo");
 
@@ -436,7 +436,7 @@ public sealed class DaemonCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Daemon_WithHelpOption_ReturnsHelpOutputAndSuccessExitCode ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Daemon,
             "--help");
 
@@ -449,7 +449,7 @@ public sealed class DaemonCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task Daemon_WithVersionOption_ReturnsVersionOutputAndSuccessExitCode ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Daemon,
             "--version");
 
@@ -461,7 +461,7 @@ public sealed class DaemonCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task DaemonStart_WithHelpOutput_IncludesShortProjectPathOption ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Daemon,
             UcliCommandNames.StartSubcommand,
             "--help");
@@ -474,7 +474,7 @@ public sealed class DaemonCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task DaemonStart_WithHelpOutput_IncludesEditorModeOption ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Daemon,
             UcliCommandNames.StartSubcommand,
             "--help");
@@ -487,7 +487,7 @@ public sealed class DaemonCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task DaemonStop_WithHelpOutput_IncludesShortProjectPathOption ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Daemon,
             UcliCommandNames.StopSubcommand,
             "--help");
@@ -500,7 +500,7 @@ public sealed class DaemonCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task DaemonStatus_WithHelpOutput_IncludesShortProjectPathOption ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Daemon,
             UcliCommandNames.Status,
             "--help");
@@ -513,7 +513,7 @@ public sealed class DaemonCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task DaemonCleanup_WithHelpOutput_IncludesShortProjectPathOption ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Daemon,
             UcliCommandNames.CleanupSubcommand,
             "--help");
@@ -526,7 +526,7 @@ public sealed class DaemonCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task DaemonList_WithHelpOutput_IncludesShortProjectPathOption ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Daemon,
             UcliCommandNames.ListSubcommand,
             "--help");
@@ -535,12 +535,12 @@ public sealed class DaemonCliOutputContractTests
         Assert.Contains("-p, --projectPath", result.StdOut, StringComparison.Ordinal);
     }
 
-    private static Task InitializeGitRepository (TestDirectoryScope scope)
+    private static Task InitializeGitRepositoryAsync (TestDirectoryScope scope)
     {
-        return RunGit(scope.FullPath, "init");
+        return RunGitAsync(scope.FullPath, "init");
     }
 
-    private static async Task RunGit (
+    private static async Task RunGitAsync (
         string workingDirectory,
         params string[] arguments)
     {
@@ -569,7 +569,7 @@ public sealed class DaemonCliOutputContractTests
             $"Git command failed. Args={string.Join(' ', arguments)} stdout={standardOutput} stderr={standardError}");
     }
 
-    private static async Task WaitForSupervisorIdleExit (
+    private static async Task WaitForSupervisorIdleExitAsync (
         TestDirectoryScope scope,
         string unityProjectPath)
     {

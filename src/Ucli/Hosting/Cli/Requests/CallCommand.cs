@@ -48,7 +48,7 @@ internal sealed class CallCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Call)]
-    public async Task<int> Call (
+    public async Task<int> CallAsync (
         string? projectPath = null,
         string? mode = null,
         string? timeout = null,
@@ -70,7 +70,7 @@ internal sealed class CallCommand
                 return WriteRequestReadFailure(requestInputReadResult);
             }
 
-            var preflightResult = await callCommandPreflightService.Prepare(
+            var preflightResult = await callCommandPreflightService.PrepareAsync(
                     projectPath,
                     requestInputReadResult.Json!,
                     cancellationToken)
@@ -90,7 +90,7 @@ internal sealed class CallCommand
                 return WriteRequestReadFailure(requestInputReadResult);
             }
 
-            var preflightResult = await callCommandPreflightService.Prepare(
+            var preflightResult = await callCommandPreflightService.PrepareAsync(
                     projectPath,
                     requestInputReadResult.Json!,
                     cancellationToken)
@@ -107,7 +107,7 @@ internal sealed class CallCommand
             return WriteRequestReadFailure(serviceRequestInputReadResult);
         }
 
-        var serviceResult = await callService.Execute(
+        var serviceResult = await callService.ExecuteAsync(
                 new CallCommandInput(
                     ProjectPath: projectPath,
                     Mode: normalizedModeResult.Mode,

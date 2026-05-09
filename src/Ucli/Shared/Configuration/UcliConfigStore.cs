@@ -56,7 +56,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     /// </param>
     /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the config-load result. When <c>.ucli/config.json</c> does not exist, default config values are returned with <see cref="ConfigSource.Default" />. </returns>
-    public async ValueTask<UcliConfigLoadResult> Load (
+    public async ValueTask<UcliConfigLoadResult> LoadAsync (
         string storageRoot,
         CancellationToken cancellationToken = default)
     {
@@ -132,7 +132,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the config-save result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="config" /> is <see langword="null" />. </exception>
-    public async ValueTask<UcliConfigSaveResult> Save (
+    public async ValueTask<UcliConfigSaveResult> SaveAsync (
         string storageRoot,
         UcliConfig config,
         CancellationToken cancellationToken = default)

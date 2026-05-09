@@ -94,7 +94,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     break;
 
                 case BootstrapStartupKind.Gui:
-                    _ = UnityGuiBootstrap.Start(guiBootstrapArguments);
+                    _ = UnityGuiBootstrap.StartAsync(guiBootstrapArguments);
                     break;
 
                 default:
@@ -107,7 +107,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             switch (batchmodeBootstrapArguments)
             {
                 case IpcDaemonBootstrapArguments daemonBootstrapArguments:
-                    _ = UnityDaemonBootstrap.Start(daemonBootstrapArguments);
+                    _ = UnityDaemonBootstrap.StartAsync(daemonBootstrapArguments);
                     break;
 
                 case IpcOneshotBootstrapArguments oneshotBootstrapArguments:

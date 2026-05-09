@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 internal interface IGuidPathLookupAccessService
 {
     /// <summary> Resolves one asset GUID to its asset path. </summary>
-    ValueTask<GuidPathLookupReadResult> TryResolveAssetGuid (
+    ValueTask<GuidPathLookupReadResult> TryResolveAssetGuidAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UnityExecutionModeValue mode,
@@ -18,7 +18,7 @@ internal interface IGuidPathLookupAccessService
         CancellationToken cancellationToken = default);
 
     /// <summary> Resolves one asset path to its asset GUID. </summary>
-    ValueTask<GuidPathLookupReadResult> TryResolveAssetPath (
+    ValueTask<GuidPathLookupReadResult> TryResolveAssetPathAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UnityExecutionModeValue mode,

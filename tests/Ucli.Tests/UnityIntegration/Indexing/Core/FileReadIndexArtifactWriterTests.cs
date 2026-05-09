@@ -21,7 +21,7 @@ public sealed class FileReadIndexArtifactWriterTests
         ];
         var snapshot = CreateSnapshot();
 
-        await writer.WriteOpsCatalog(
+        await writer.WriteOpsCatalogAsync(
             scope.FullPath,
             "fingerprint",
             generatedAtUtc,
@@ -32,8 +32,8 @@ public sealed class FileReadIndexArtifactWriterTests
 
         var reader = new FileReadIndexArtifactReader();
         var project = CreateProject(scope, "fingerprint");
-        var catalogResult = await reader.ReadOpsCatalog(project, CancellationToken.None);
-        var manifestResult = await reader.ReadInputsManifest(project, CancellationToken.None);
+        var catalogResult = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
+        var manifestResult = await reader.ReadInputsManifestAsync(project, CancellationToken.None);
 
         Assert.True(catalogResult.IsSuccess);
         Assert.True(manifestResult.IsSuccess);
@@ -55,7 +55,7 @@ public sealed class FileReadIndexArtifactWriterTests
             CreateGoDescribeEntry(),
         ];
 
-        await writer.WriteOpsCatalog(
+        await writer.WriteOpsCatalogAsync(
             scope.FullPath,
             "fingerprint",
             generatedAtUtc,
@@ -66,8 +66,8 @@ public sealed class FileReadIndexArtifactWriterTests
 
         var reader = new FileReadIndexArtifactReader();
         var project = CreateProject(scope, "fingerprint");
-        var catalogResult = await reader.ReadOpsCatalog(project, CancellationToken.None);
-        var manifestResult = await reader.ReadInputsManifest(project, CancellationToken.None);
+        var catalogResult = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
+        var manifestResult = await reader.ReadInputsManifestAsync(project, CancellationToken.None);
 
         Assert.True(catalogResult.IsSuccess);
         Assert.False(manifestResult.IsSuccess);
@@ -87,7 +87,7 @@ public sealed class FileReadIndexArtifactWriterTests
         var oldOperation = CreateGoDescribeEntry();
         var newOperation = oldOperation with { Description = "Updated operation description." };
 
-        await writer.WriteOpsCatalog(
+        await writer.WriteOpsCatalogAsync(
             scope.FullPath,
             "fingerprint",
             DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
@@ -98,7 +98,7 @@ public sealed class FileReadIndexArtifactWriterTests
 
         var failingWriter = CreateWriter(new ThrowingOpsCatalogJsonContractWriter());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(async () => await failingWriter.WriteOpsCatalog(
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await failingWriter.WriteOpsCatalogAsync(
             scope.FullPath,
             "fingerprint",
             DateTimeOffset.Parse("2026-03-08T00:01:00+00:00"),
@@ -107,11 +107,11 @@ public sealed class FileReadIndexArtifactWriterTests
             manifestInputSnapshot: null,
             CancellationToken.None));
 
-        var catalogResult = await reader.ReadOpsCatalog(project, CancellationToken.None);
+        var catalogResult = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
         Assert.True(catalogResult.IsSuccess);
         Assert.Equal("old-ops-hash", catalogResult.Value!.SourceInputsHash);
 
-        var describeResult = await reader.ReadOpsDescribe(
+        var describeResult = await reader.ReadOpsDescribeAsync(
             project,
             catalogResult.Value.Entries![0],
             catalogResult.Value.SourceInputsHash!,
@@ -147,7 +147,7 @@ public sealed class FileReadIndexArtifactWriterTests
             new IndexGuidPathEntryJsonContract("22222222222222222222222222222222", "Assets/Z.asset"),
         ];
 
-        await writer.WriteAssetLookups(
+        await writer.WriteAssetLookupsAsync(
             scope.FullPath,
             "fingerprint",
             generatedAtUtc,
@@ -158,9 +158,9 @@ public sealed class FileReadIndexArtifactWriterTests
 
         var reader = new FileReadIndexArtifactReader();
         var project = CreateProject(scope, "fingerprint");
-        var assetSearchResult = await reader.ReadAssetSearchLookup(project, CancellationToken.None);
-        var guidPathResult = await reader.ReadGuidPathLookup(project, CancellationToken.None);
-        var manifestResult = await reader.ReadInputsManifest(project, CancellationToken.None);
+        var assetSearchResult = await reader.ReadAssetSearchLookupAsync(project, CancellationToken.None);
+        var guidPathResult = await reader.ReadGuidPathLookupAsync(project, CancellationToken.None);
+        var manifestResult = await reader.ReadInputsManifestAsync(project, CancellationToken.None);
 
         Assert.True(assetSearchResult.IsSuccess);
         Assert.True(guidPathResult.IsSuccess);
@@ -186,7 +186,7 @@ public sealed class FileReadIndexArtifactWriterTests
                 Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
         ];
 
-        await writer.WriteSceneTreeLite(
+        await writer.WriteSceneTreeLiteAsync(
             scope.FullPath,
             "fingerprint",
             generatedAtUtc,
@@ -197,7 +197,7 @@ public sealed class FileReadIndexArtifactWriterTests
 
         var reader = new FileReadIndexArtifactReader();
         var project = CreateProject(scope, "fingerprint");
-        var result = await reader.ReadSceneTreeLiteLookup(
+        var result = await reader.ReadSceneTreeLiteLookupAsync(
             project,
             "Assets/Scenes/Main.unity",
             CancellationToken.None);
@@ -223,7 +223,7 @@ public sealed class FileReadIndexArtifactWriterTests
         var secondGeneratedAtUtc = DateTimeOffset.Parse("2026-04-14T00:01:00+00:00");
         var updatedGeneratedAtUtc = DateTimeOffset.Parse("2026-04-14T00:02:00+00:00");
 
-        await writer.WriteSceneTreeLite(
+        await writer.WriteSceneTreeLiteAsync(
             scope.FullPath,
             "fingerprint",
             firstGeneratedAtUtc,
@@ -231,7 +231,7 @@ public sealed class FileReadIndexArtifactWriterTests
             [CreateSceneRoot("FirstRoot")],
             "first-hash",
             CancellationToken.None);
-        await writer.WriteSceneTreeLite(
+        await writer.WriteSceneTreeLiteAsync(
             scope.FullPath,
             "fingerprint",
             secondGeneratedAtUtc,
@@ -239,7 +239,7 @@ public sealed class FileReadIndexArtifactWriterTests
             [CreateSceneRoot("SecondRoot")],
             "second-hash",
             CancellationToken.None);
-        await writer.WriteSceneTreeLite(
+        await writer.WriteSceneTreeLiteAsync(
             scope.FullPath,
             "fingerprint",
             updatedGeneratedAtUtc,
@@ -250,11 +250,11 @@ public sealed class FileReadIndexArtifactWriterTests
 
         var reader = new FileReadIndexArtifactReader();
         var project = CreateProject(scope, "fingerprint");
-        var firstResult = await reader.ReadSceneTreeLiteLookup(
+        var firstResult = await reader.ReadSceneTreeLiteLookupAsync(
             project,
             "Assets/Scenes/First.unity",
             CancellationToken.None);
-        var secondResult = await reader.ReadSceneTreeLiteLookup(
+        var secondResult = await reader.ReadSceneTreeLiteLookupAsync(
             project,
             "Assets/Scenes/Second.unity",
             CancellationToken.None);

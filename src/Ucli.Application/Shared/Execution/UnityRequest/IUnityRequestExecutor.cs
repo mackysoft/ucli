@@ -14,7 +14,7 @@ internal interface IUnityRequestExecutor
     /// <param name="payload"> The host-executed Unity request payload. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The IPC execution result. </returns>
-    ValueTask<UnityRequestExecutionResult> Execute (
+    ValueTask<UnityRequestExecutionResult> ExecuteAsync (
         UcliCommand command,
         MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision.UnityExecutionMode mode,
         TimeSpan timeout,

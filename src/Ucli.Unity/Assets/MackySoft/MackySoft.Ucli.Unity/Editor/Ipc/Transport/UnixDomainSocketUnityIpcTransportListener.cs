@@ -33,7 +33,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="cancellationToken"> The cancellation token for listener lifecycle. </param>
         /// <exception cref="ArgumentException"> Thrown when <paramref name="address" /> is empty. </exception>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="connectionHandler" /> is <see langword="null" />. </exception>
-        public async Task Run (
+        public async Task RunAsync (
             string address,
             IUnityIpcConnectionHandler connectionHandler,
             Action onStarted,
@@ -81,7 +81,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     {
                         using var acceptedSocket = await listener.AcceptAsync();
                         using var networkStream = new NetworkStream(acceptedSocket, ownsSocket: false);
-                        await connectionHandler.Handle(networkStream, cancellationToken);
+                        await connectionHandler.HandleAsync(networkStream, cancellationToken);
                     }
                     catch (OperationCanceledException)
                     {

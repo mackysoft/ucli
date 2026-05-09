@@ -17,11 +17,11 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         var timeProvider = new ManualTimeProvider();
         var provider = CreateProvider(scope, timeProvider);
         var lockRequest = CreateRequest(scope.CreateDirectory("UnityProject"));
-        var firstHandle = await provider.Acquire(
+        var firstHandle = await provider.AcquireAsync(
             lockRequest,
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
-        var secondAcquireTask = provider.Acquire(
+        var secondAcquireTask = provider.AcquireAsync(
             lockRequest,
             TimeSpan.FromSeconds(2),
             CancellationToken.None).AsTask();
@@ -42,13 +42,13 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         var timeProvider = new ManualTimeProvider();
         var provider = CreateProvider(scope, timeProvider);
         var lockRequest = CreateRequest(scope.CreateDirectory("UnityProject"));
-        var firstHandle = await provider.Acquire(
+        var firstHandle = await provider.AcquireAsync(
             lockRequest,
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
         using var waitingCts = new CancellationTokenSource();
 
-        var waitingTask = provider.Acquire(
+        var waitingTask = provider.AcquireAsync(
                 lockRequest,
                 TimeSpan.FromSeconds(5),
                 waitingCts.Token)
@@ -73,12 +73,12 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         var timeProvider = new ManualTimeProvider();
         var provider = CreateProvider(scope, timeProvider);
         var lockRequest = CreateRequest(scope.CreateDirectory("UnityProject"));
-        var firstHandle = await provider.Acquire(
+        var firstHandle = await provider.AcquireAsync(
             lockRequest,
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
 
-        var waitingTask = provider.Acquire(
+        var waitingTask = provider.AcquireAsync(
                 lockRequest,
                 TimeSpan.FromMilliseconds(150),
                 CancellationToken.None)
@@ -106,12 +106,12 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         var unityProjectRoot = scope.CreateDirectory("UnityProject");
         var firstRequest = CreateRequest(unityProjectRoot);
         var secondRequest = CreateRequest(unityProjectRoot);
-        var firstHandle = await firstProvider.Acquire(
+        var firstHandle = await firstProvider.AcquireAsync(
             firstRequest,
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
 
-        var secondAcquireTask = secondProvider.Acquire(
+        var secondAcquireTask = secondProvider.AcquireAsync(
             secondRequest,
             TimeSpan.FromSeconds(2),
             CancellationToken.None).AsTask();
@@ -132,12 +132,12 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         var provider = CreateProvider(scope, new ManualTimeProvider());
         var firstRequest = CreateRequest(scope.CreateDirectory("UnityProjectA"));
         var secondRequest = CreateRequest(scope.CreateDirectory("UnityProjectB"));
-        var firstHandle = await provider.Acquire(
+        var firstHandle = await provider.AcquireAsync(
             firstRequest,
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
 
-        var secondHandle = await provider.Acquire(
+        var secondHandle = await provider.AcquireAsync(
             secondRequest,
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
@@ -162,12 +162,12 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
             return;
         }
 
-        var firstHandle = await firstProvider.Acquire(
+        var firstHandle = await firstProvider.AcquireAsync(
             CreateRequest(targetProjectRoot),
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
 
-        var secondAcquireTask = secondProvider.Acquire(
+        var secondAcquireTask = secondProvider.AcquireAsync(
             CreateRequest(symlinkProjectRoot),
             TimeSpan.FromSeconds(2),
             CancellationToken.None).AsTask();
@@ -197,12 +197,12 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
             return;
         }
 
-        var firstHandle = await firstProvider.Acquire(
+        var firstHandle = await firstProvider.AcquireAsync(
             CreateRequest(projectRoot),
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
 
-        var secondAcquireTask = secondProvider.Acquire(
+        var secondAcquireTask = secondProvider.AcquireAsync(
             CreateRequest(caseVariantProjectRoot),
             TimeSpan.FromSeconds(2),
             CancellationToken.None).AsTask();
@@ -230,7 +230,7 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         var timeProvider = new ManualTimeProvider();
         var lockStorageRoot = Path.Combine(scope.FullPath, "locks", "unity-projects");
         var provider = new FileSystemProjectLifecycleLockProvider(timeProvider, lockStorageRoot);
-        var handle = await provider.Acquire(
+        var handle = await provider.AcquireAsync(
             CreateRequest(scope.CreateDirectory("UnityProject")),
             TimeSpan.FromSeconds(5),
             CancellationToken.None);

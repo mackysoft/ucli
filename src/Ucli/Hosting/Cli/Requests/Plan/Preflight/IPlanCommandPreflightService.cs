@@ -11,7 +11,7 @@ internal interface IPlanCommandPreflightService
     /// <param name="readIndexMode"> The optional normalized <c>--readIndexMode</c> override. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The preflight result containing either the base payload or one normalized failure. </returns>
-    ValueTask<PlanCommandPreflightResult> Prepare (
+    ValueTask<PlanCommandPreflightResult> PrepareAsync (
         string? projectPath,
         string requestJson,
         ReadIndexMode? readIndexMode,

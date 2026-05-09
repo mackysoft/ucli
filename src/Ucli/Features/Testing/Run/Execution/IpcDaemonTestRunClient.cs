@@ -40,7 +40,7 @@ internal sealed class IpcDaemonTestRunClient : IDaemonTestRunClient
     /// <param name="failFast"> Whether daemon execution should fail immediately instead of waiting for lifecycle readiness. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the Unity test execution result. </returns>
-    public async ValueTask<UnityTestExecutionResult> Execute (
+    public async ValueTask<UnityTestExecutionResult> ExecuteAsync (
         ResolvedTestRunConfiguration configuration,
         ArtifactPaths artifactPaths,
         TimeSpan timeout,
@@ -56,7 +56,7 @@ internal sealed class IpcDaemonTestRunClient : IDaemonTestRunClient
 
         try
         {
-            var sessionTokenResult = await ResolveSessionToken(
+            var sessionTokenResult = await ResolveSessionTokenAsync(
                     configuration,
                     deadline,
                     timeout,
@@ -133,7 +133,7 @@ internal sealed class IpcDaemonTestRunClient : IDaemonTestRunClient
     /// <param name="timeout"> The original daemon execution timeout budget. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> One tuple containing the resolved session token or a normalized failure result. </returns>
-    private async ValueTask<(string? SessionToken, UnityTestExecutionResult? FailureResult)> ResolveSessionToken (
+    private async ValueTask<(string? SessionToken, UnityTestExecutionResult? FailureResult)> ResolveSessionTokenAsync (
         ResolvedTestRunConfiguration configuration,
         ExecutionDeadline deadline,
         TimeSpan timeout,
@@ -152,7 +152,7 @@ internal sealed class IpcDaemonTestRunClient : IDaemonTestRunClient
         DaemonSessionTokenResolutionResult sessionTokenResult;
         try
         {
-            sessionTokenResult = await daemonSessionTokenProvider.Resolve(
+            sessionTokenResult = await daemonSessionTokenProvider.ResolveAsync(
                     configuration.UnityProject,
                     sessionTokenCancellationScope.Token)
                 .ConfigureAwait(false);

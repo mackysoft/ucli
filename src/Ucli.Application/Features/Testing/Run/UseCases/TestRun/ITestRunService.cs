@@ -9,7 +9,7 @@ internal interface ITestRunService
     /// <param name="input"> The interpreted test-run command input. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the test-run service result. </returns>
-    ValueTask<TestRunServiceResult> Execute (
+    ValueTask<TestRunServiceResult> ExecuteAsync (
         TestRunCommandInput input,
         CancellationToken cancellationToken = default);
 }

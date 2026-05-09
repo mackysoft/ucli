@@ -31,7 +31,7 @@ public sealed class SupervisorStabilityVerifierTests
         var unityProject = CreateUnityProject();
         var session = CreateSession();
 
-        var result = await verifier.EnsureStable(
+        var result = await verifier.EnsureStableAsync(
             unityProject,
             session,
             TimeSpan.FromMilliseconds(180),
@@ -63,7 +63,7 @@ public sealed class SupervisorStabilityVerifierTests
             pingClient,
             new SupervisorDiagnosisWriter(diagnosisStore));
 
-        var result = await verifier.EnsureStable(
+        var result = await verifier.EnsureStableAsync(
             CreateUnityProject(),
             CreateSession(),
             TimeSpan.FromMilliseconds(400),
@@ -93,7 +93,7 @@ public sealed class SupervisorStabilityVerifierTests
             pingClient,
             new SupervisorDiagnosisWriter(diagnosisStore));
 
-        var result = await verifier.EnsureStable(
+        var result = await verifier.EnsureStableAsync(
             CreateUnityProject(),
             CreateSession(),
             TimeSpan.FromMilliseconds(400),
@@ -135,7 +135,7 @@ public sealed class SupervisorStabilityVerifierTests
 
         public List<TimeSpan> Timeouts { get; } = [];
 
-        public async ValueTask Ping (
+        public async ValueTask PingAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             string? sessionToken = null,
@@ -158,7 +158,7 @@ public sealed class SupervisorStabilityVerifierTests
         public DaemonDiagnosisStoreOperationResult WriteResult { get; set; } =
             DaemonDiagnosisStoreOperationResult.Success();
 
-        public ValueTask<DaemonDiagnosisReadResult> Read (
+        public ValueTask<DaemonDiagnosisReadResult> ReadAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -166,7 +166,7 @@ public sealed class SupervisorStabilityVerifierTests
             return ValueTask.FromResult(DaemonDiagnosisReadResult.Success(null));
         }
 
-        public ValueTask<DaemonDiagnosisStoreOperationResult> Write (
+        public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
             string storageRoot,
             string projectFingerprint,
             DaemonDiagnosis diagnosis,
@@ -176,7 +176,7 @@ public sealed class SupervisorStabilityVerifierTests
             return ValueTask.FromResult(WriteResult);
         }
 
-        public ValueTask<DaemonDiagnosisStoreOperationResult> Delete (
+        public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)

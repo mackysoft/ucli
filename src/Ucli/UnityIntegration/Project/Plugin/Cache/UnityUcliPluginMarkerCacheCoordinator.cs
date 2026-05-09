@@ -29,7 +29,7 @@ internal sealed class UnityUcliPluginMarkerCacheCoordinator
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> One located marker result when cache succeeded; otherwise <see langword="null" />. </returns>
-    public async ValueTask<UnityUcliPluginLocateResult?> TryLocateFromCache (
+    public async ValueTask<UnityUcliPluginLocateResult?> TryLocateFromCacheAsync (
         string unityProjectRoot,
         string storageRoot,
         string projectFingerprint,
@@ -39,7 +39,7 @@ internal sealed class UnityUcliPluginMarkerCacheCoordinator
         ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
 
-        var cacheReadResult = await pluginMarkerCacheStore.ReadOrNull(
+        var cacheReadResult = await pluginMarkerCacheStore.ReadOrNullAsync(
                 storageRoot,
                 projectFingerprint,
                 cancellationToken)
@@ -77,7 +77,7 @@ internal sealed class UnityUcliPluginMarkerCacheCoordinator
             return null;
         }
 
-        var markerError = await pluginMarkerValidator.ValidateMarker(cachedMarkerPath, cancellationToken).ConfigureAwait(false);
+        var markerError = await pluginMarkerValidator.ValidateMarkerAsync(cachedMarkerPath, cancellationToken).ConfigureAwait(false);
         if (markerError != null)
         {
             DeleteBestEffort(storageRoot, projectFingerprint);
@@ -121,7 +121,7 @@ internal sealed class UnityUcliPluginMarkerCacheCoordinator
         // marker cache is an optimization layer under .ucli/local and must not change
         // the primary command outcome when persistence is unavailable or delayed.
         var cacheMutationVersion = Interlocked.Increment(ref this.cacheMutationVersion);
-        _ = PersistCacheWriteBestEffort(
+        _ = PersistCacheWriteBestEffortAsync(
             storageRoot,
             projectFingerprint,
             cache,
@@ -141,13 +141,13 @@ internal sealed class UnityUcliPluginMarkerCacheCoordinator
         // NOTE:
         // stale marker cache should never block fallback scanning.
         var cacheMutationVersion = Interlocked.Increment(ref this.cacheMutationVersion);
-        _ = PersistCacheDeleteBestEffort(
+        _ = PersistCacheDeleteBestEffortAsync(
             storageRoot,
             projectFingerprint,
             cacheMutationVersion);
     }
 
-    private async Task PersistCacheWriteBestEffort (
+    private async Task PersistCacheWriteBestEffortAsync (
         string storageRoot,
         string projectFingerprint,
         UnityUcliPluginMarkerCache cache,
@@ -165,7 +165,7 @@ internal sealed class UnityUcliPluginMarkerCacheCoordinator
                 return;
             }
 
-            _ = await pluginMarkerCacheStore.Write(
+            _ = await pluginMarkerCacheStore.WriteAsync(
                     storageRoot,
                     projectFingerprint,
                     cache,
@@ -178,7 +178,7 @@ internal sealed class UnityUcliPluginMarkerCacheCoordinator
         }
     }
 
-    private async Task PersistCacheDeleteBestEffort (
+    private async Task PersistCacheDeleteBestEffortAsync (
         string storageRoot,
         string projectFingerprint,
         long cacheMutationVersion)

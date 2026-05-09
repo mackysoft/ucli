@@ -36,7 +36,7 @@ internal sealed class ValidateCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Validate)]
-    public async Task<int> Validate (
+    public async Task<int> ValidateAsync (
         string? projectPath = null,
         string? readIndexMode = null,
         CancellationToken cancellationToken = default)
@@ -60,7 +60,7 @@ internal sealed class ValidateCommand
             return errorResult.ExitCode;
         }
 
-        var serviceResult = await validateService.Execute(
+        var serviceResult = await validateService.ExecuteAsync(
                 new ValidateCommandInput(
                     ProjectPath: projectPath,
                     ReadIndexMode: normalizedReadIndexModeResult.Mode,

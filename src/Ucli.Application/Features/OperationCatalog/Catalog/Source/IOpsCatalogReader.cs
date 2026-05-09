@@ -14,7 +14,7 @@ internal interface IOpsCatalogReader
     /// <param name="requireReadinessGate"> Whether the Unity-side readiness gate should be applied to this catalog read. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the read result. </returns>
-    ValueTask<OpsCatalogFetchResult> Read (
+    ValueTask<OpsCatalogFetchResult> ReadAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UnityExecutionMode mode,

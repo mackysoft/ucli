@@ -26,7 +26,7 @@ internal sealed class IpcUnityLogsClient : IUnityLogsClient
     }
 
     /// <inheritdoc />
-    public async ValueTask<UnityLogsClientReadResult> Read (
+    public async ValueTask<UnityLogsClientReadResult> ReadAsync (
         ResolvedUnityProjectContext unityProject,
         IpcUnityLogsReadRequest query,
         TimeSpan timeout,
@@ -39,7 +39,7 @@ internal sealed class IpcUnityLogsClient : IUnityLogsClient
 
         try
         {
-            var sessionTokenResolutionResult = await daemonSessionTokenProvider.Resolve(unityProject, cancellationToken).ConfigureAwait(false);
+            var sessionTokenResolutionResult = await daemonSessionTokenProvider.ResolveAsync(unityProject, cancellationToken).ConfigureAwait(false);
             if (!sessionTokenResolutionResult.IsSuccess)
             {
                 if (sessionTokenResolutionResult.IsSessionNotAvailable)

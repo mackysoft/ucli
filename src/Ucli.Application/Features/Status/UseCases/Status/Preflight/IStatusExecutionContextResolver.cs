@@ -7,7 +7,7 @@ internal interface IStatusExecutionContextResolver
     /// <param name="input"> The normalized status command input. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the execution-context resolution result. </returns>
-    ValueTask<StatusExecutionContextResolutionResult> Resolve (
+    ValueTask<StatusExecutionContextResolutionResult> ResolveAsync (
         StatusCommandInput input,
         CancellationToken cancellationToken = default);
 }

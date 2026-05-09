@@ -19,14 +19,14 @@ internal sealed class PersistedOpsCatalogReader : IPersistedOpsCatalogReader
     }
 
     /// <inheritdoc />
-    public async ValueTask<PersistedOpsCatalogReadResult> Read (
+    public async ValueTask<PersistedOpsCatalogReadResult> ReadAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
 
-        var descriptorsResult = await ReadDescriptors(unityProject, cancellationToken).ConfigureAwait(false);
+        var descriptorsResult = await ReadDescriptorsAsync(unityProject, cancellationToken).ConfigureAwait(false);
         if (!descriptorsResult.IsSuccess)
         {
             return PersistedOpsCatalogReadResult.Failure(descriptorsResult.ReadFailure!);
@@ -38,7 +38,7 @@ internal sealed class PersistedOpsCatalogReader : IPersistedOpsCatalogReader
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var describeResult = await ReadDescribe(
+            var describeResult = await ReadDescribeAsync(
                     unityProject,
                     descriptors,
                     descriptors.Entries[i],
@@ -70,14 +70,14 @@ internal sealed class PersistedOpsCatalogReader : IPersistedOpsCatalogReader
     }
 
     /// <inheritdoc />
-    public async ValueTask<PersistedOpsCatalogDescriptorReadResult> ReadDescriptors (
+    public async ValueTask<PersistedOpsCatalogDescriptorReadResult> ReadDescriptorsAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
 
-        var opsCatalogResult = await artifactReader.ReadOpsCatalog(
+        var opsCatalogResult = await artifactReader.ReadOpsCatalogAsync(
                 unityProject,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -102,7 +102,7 @@ internal sealed class PersistedOpsCatalogReader : IPersistedOpsCatalogReader
                     $"Index contract file 'ops.catalog.json' is malformed. {validationError}"));
         }
 
-        var freshnessResult = await freshnessEvaluator.Observe(
+        var freshnessResult = await freshnessEvaluator.ObserveAsync(
                 unityProject,
                 IndexFreshnessTarget.OpsCatalog,
                 snapshot!.SourceInputsHash,
@@ -123,7 +123,7 @@ internal sealed class PersistedOpsCatalogReader : IPersistedOpsCatalogReader
     }
 
     /// <inheritdoc />
-    public async ValueTask<PersistedOpsDescribeReadResult> ReadDescribe (
+    public async ValueTask<PersistedOpsDescribeReadResult> ReadDescribeAsync (
         ResolvedUnityProjectContext unityProject,
         OpsCatalogDescriptorSnapshot catalogSnapshot,
         IndexOpsCatalogEntryJsonContract catalogEntry,
@@ -134,7 +134,7 @@ internal sealed class PersistedOpsCatalogReader : IPersistedOpsCatalogReader
         ArgumentNullException.ThrowIfNull(catalogSnapshot);
         ArgumentNullException.ThrowIfNull(catalogEntry);
 
-        var describeResult = await artifactReader.ReadOpsDescribe(
+        var describeResult = await artifactReader.ReadOpsDescribeAsync(
                 unityProject,
                 catalogEntry,
                 catalogSnapshot.SourceInputsHash,

@@ -24,9 +24,9 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Starts or replaces the active GUI daemon session registration. </summary>
         /// <param name="bootstrapArguments"> Optional CLI GUI bootstrap arguments. </param>
         /// <returns> A task that completes when the GUI endpoint has been registered. </returns>
-        public static async Task Start (IpcGuiBootstrapArguments bootstrapArguments)
+        public static async Task StartAsync (IpcGuiBootstrapArguments bootstrapArguments)
         {
-            await Stop(CancellationToken.None);
+            await StopAsync(CancellationToken.None);
             var daemonLogStream = new DaemonLogRingBuffer();
             var daemonLogger = new DaemonLogger(daemonLogStream);
             ActiveGuiBootstrapState nextState = null;
@@ -41,7 +41,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var projectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, projectRoot);
                 var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(storageRoot, projectFingerprint);
                 var sessionOptions = UnityGuiBootstrapSessionOptions.Create(bootstrapArguments);
-                registration = await UnityGuiSessionPersistence.Write(
+                registration = await UnityGuiSessionPersistence.WriteAsync(
                     storageRoot,
                     projectFingerprint,
                     endpoint,
@@ -72,7 +72,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 unityLogCaptureService = serviceProvider.GetRequiredService<UnityLogCaptureService>();
                 unityLogCaptureService.Start();
 
-                await server.Start(endpoint, CancellationToken.None);
+                await server.StartAsync(endpoint, CancellationToken.None);
                 nextState = new ActiveGuiBootstrapState(
                     registration,
                     server,
@@ -83,7 +83,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 lock (SyncRoot)
                 {
                     activeState = nextState;
-                    _ = Monitor(nextState);
+                    _ = MonitorAsync(nextState);
                 }
 
                 EnsureEditorLifecycleSubscriptions();
@@ -101,11 +101,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                 if (nextState != null)
                 {
                     ClearActiveState(nextState);
-                    await StopState(nextState, requestProcessExit: false);
+                    await StopStateAsync(nextState, requestProcessExit: false);
                     return;
                 }
 
-                await CleanupFailedStart(
+                await CleanupFailedStartAsync(
                     registration,
                     server,
                     unityLogCaptureService,
@@ -117,7 +117,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Stops the active GUI daemon session registration when one exists. </summary>
         /// <param name="cancellationToken"> The cancellation token propagated by caller lifecycle. </param>
         /// <returns> A task that completes after active resources have been released. </returns>
-        public static async Task Stop (CancellationToken cancellationToken)
+        public static async Task StopAsync (CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             ActiveGuiBootstrapState capturedState;
@@ -132,15 +132,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return;
             }
 
-            await StopState(capturedState, requestProcessExit: false);
+            await StopStateAsync(capturedState, requestProcessExit: false);
         }
 
-        private static async Task Monitor (ActiveGuiBootstrapState state)
+        private static async Task MonitorAsync (ActiveGuiBootstrapState state)
         {
             try
             {
-                var shutdownWaitTask = state.ShutdownSignal.Wait(CancellationToken.None);
-                var serverTerminationTask = state.Server.WaitForTermination(CancellationToken.None);
+                var shutdownWaitTask = state.ShutdownSignal.WaitAsync(CancellationToken.None);
+                var serverTerminationTask = state.Server.WaitForTerminationAsync(CancellationToken.None);
                 var completedTask = await Task.WhenAny(shutdownWaitTask, serverTerminationTask);
                 if (ReferenceEquals(completedTask, serverTerminationTask))
                 {
@@ -149,7 +149,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         DaemonLogCategories.Lifecycle,
                         "GUI IPC server loop terminated before shutdown signal.");
                     ClearActiveState(state);
-                    await StopState(state, requestProcessExit: false);
+                    await StopStateAsync(state, requestProcessExit: false);
                     return;
                 }
 
@@ -158,7 +158,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     DaemonLogCategories.Lifecycle,
                     "GUI daemon shutdown signal received. Stopping IPC server and invalidating session.");
                 ClearActiveState(state);
-                await StopState(state, requestProcessExit: state.Registration.CanShutdownProcess);
+                await StopStateAsync(state, requestProcessExit: state.Registration.CanShutdownProcess);
             }
             catch (Exception exception)
             {
@@ -181,7 +181,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private static async Task StopState (
+        private static async Task StopStateAsync (
             ActiveGuiBootstrapState state,
             bool requestProcessExit)
         {
@@ -190,7 +190,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return;
             }
 
-            await ReleaseResources(
+            await ReleaseResourcesAsync(
                 state.Registration,
                 state.Server,
                 state.UnityLogCaptureService,
@@ -211,14 +211,14 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="serviceProvider"> The service provider when already built. </param>
         /// <param name="daemonLogger"> The logger used to report cleanup failures. </param>
         /// <returns> A task that completes after all available resources are released. </returns>
-        internal static async Task CleanupFailedStart (
+        internal static async Task CleanupFailedStartAsync (
             UnityGuiSessionRegistration registration,
             IUnityIpcServer server,
             IDisposable unityLogCaptureService,
             IServiceProvider serviceProvider,
             IDaemonLogger daemonLogger)
         {
-            await ReleaseResources(
+            await ReleaseResourcesAsync(
                 registration,
                 server,
                 unityLogCaptureService,
@@ -227,7 +227,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 cleanupContext: "after failed startup");
         }
 
-        private static async Task ReleaseResources (
+        private static async Task ReleaseResourcesAsync (
             UnityGuiSessionRegistration registration,
             IUnityIpcServer server,
             IDisposable unityLogCaptureService,
@@ -240,7 +240,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 try
                 {
-                    await server.Stop(CancellationToken.None);
+                    await server.StopAsync(CancellationToken.None);
                 }
                 catch (Exception exception)
                 {
@@ -313,7 +313,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static void StopSynchronously ()
         {
-            Stop(CancellationToken.None).GetAwaiter().GetResult();
+            StopAsync(CancellationToken.None).GetAwaiter().GetResult();
         }
 
         private sealed class ActiveGuiBootstrapState

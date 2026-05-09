@@ -20,7 +20,7 @@ internal sealed class DaemonSessionDiagnosisResolver : IDaemonSessionDiagnosisRe
     }
 
     /// <inheritdoc />
-    public async ValueTask<DaemonDiagnosis?> ResolveForSession (
+    public async ValueTask<DaemonDiagnosis?> ResolveForSessionAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         DaemonDiagnosis? persistedDiagnosis,
@@ -51,7 +51,7 @@ internal sealed class DaemonSessionDiagnosisResolver : IDaemonSessionDiagnosisRe
             ProcessId: resolvedProcessId,
             SessionIssuedAtUtc: session.IssuedAtUtc);
 
-        var writeResult = await daemonDiagnosisStore.Write(
+        var writeResult = await daemonDiagnosisStore.WriteAsync(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 diagnosis,

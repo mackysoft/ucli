@@ -74,7 +74,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> The response payload. </returns>
         /// <exception cref="ArgumentException"> Thrown when request payload violates contract. </exception>
         /// <exception cref="InvalidOperationException"> Thrown when run artifacts cannot be produced. </exception>
-        public async Task<UnityTestRunServiceResult> Execute (
+        public async Task<UnityTestRunServiceResult> ExecuteAsync (
             IpcTestRunRequest request,
             CancellationToken cancellationToken = default)
         {
@@ -85,21 +85,21 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var requestContext = requestContextFactory.Create(request);
-            var readinessResult = await readinessGate.EnsureExecutionReady(request.FailFast, cancellationToken).ConfigureAwait(false);
+            var readinessResult = await readinessGate.EnsureExecutionReadyAsync(request.FailFast, cancellationToken).ConfigureAwait(false);
             if (!readinessResult.IsReady)
             {
                 return UnityTestRunServiceResult.Failure(readinessResult.Error!);
             }
 
             var startOffset = GetFileLengthOrZero(requestContext.ConsoleLogPath);
-            var testResult = await mainThreadRequestExecutor.Execute(
-                () => unityTestRunner.Run(requestContext, cancellationToken),
+            var testResult = await mainThreadRequestExecutor.ExecuteAsync(
+                () => unityTestRunner.RunAsync(requestContext, cancellationToken),
                 cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             var endOffset = GetFileLengthOrZero(requestContext.ConsoleLogPath);
 
             testResultsXmlWriter.Write(testResult, requestContext.ResultsXmlPath);
-            await editorLogRangeExporter.ExportRange(
+            await editorLogRangeExporter.ExportRangeAsync(
                 requestContext.ConsoleLogPath,
                 requestContext.EditorLogPath,
                 startOffset,
@@ -120,7 +120,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private sealed class InlineUnityMainThreadRequestExecutor : IUnityMainThreadRequestExecutor
         {
-            public Task<T> Execute<T> (
+            public Task<T> ExecuteAsync<T> (
                 Func<Task<T>> workItem,
                 CancellationToken cancellationToken = default)
             {

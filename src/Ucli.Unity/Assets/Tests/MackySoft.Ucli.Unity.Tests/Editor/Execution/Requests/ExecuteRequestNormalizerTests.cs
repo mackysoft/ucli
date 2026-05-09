@@ -578,7 +578,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 temporaryScene.GetRootGameObjects(),
                 Has.Some.Matches<GameObject>(gameObject => gameObject.name == "Renamed"));
 
-            var ensureResult = await new CompEnsureOperation().Plan(compiledOperations[0], executionContext, CancellationToken.None);
+            var ensureResult = await new CompEnsureOperation().PlanAsync(compiledOperations[0], executionContext, CancellationToken.None);
 
             Assert.That(ensureResult.IsSuccess, Is.True, ensureResult.Failure?.Message);
         });
@@ -750,7 +750,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Is.True,
                 openError?.Message);
             var openOperation = new SceneOpenOperation();
-            var openPlanResult = await openOperation.Plan(openOperations[0], executionContext, CancellationToken.None);
+            var openPlanResult = await openOperation.PlanAsync(openOperations[0], executionContext, CancellationToken.None);
 
             Assert.That(openPlanResult.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request, 1, executionContext);
@@ -818,7 +818,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(executionContext.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
             Assert.That(EditorSceneManager.IsPreviewScene(temporaryScene), Is.True);
 
-            var deleteResult = await new GoDeleteOperation().Plan(compiledOperations[0], executionContext, CancellationToken.None);
+            var deleteResult = await new GoDeleteOperation().PlanAsync(compiledOperations[0], executionContext, CancellationToken.None);
 
             Assert.That(deleteResult.IsSuccess, Is.True, deleteResult.Failure?.Message);
         });
@@ -1037,7 +1037,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(temporaryPrefabRoot, Is.Not.SameAs(prefabStage.prefabContentsRoot));
             Assert.That(temporaryPrefabRoot!.transform.GetChild(0).name, Is.EqualTo("Renamed"));
 
-            var ensureResult = await new CompEnsureOperation().Plan(compiledOperations[0], executionContext, CancellationToken.None);
+            var ensureResult = await new CompEnsureOperation().PlanAsync(compiledOperations[0], executionContext, CancellationToken.None);
 
             Assert.That(ensureResult.IsSuccess, Is.True, ensureResult.Failure?.Message);
         });
@@ -1105,7 +1105,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Is.True,
                 openError?.Message);
             var openOperation = new PrefabOpenOperation();
-            var openPlanResult = await openOperation.Plan(openOperations[0], executionContext, CancellationToken.None);
+            var openPlanResult = await openOperation.PlanAsync(openOperations[0], executionContext, CancellationToken.None);
 
             Assert.That(openPlanResult.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request, 1, executionContext);
@@ -1178,7 +1178,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out var openError),
                 Is.True,
                 openError?.Message);
-            var openPlanResult = await new PrefabOpenOperation().Plan(openOperations[0], executionContext, CancellationToken.None);
+            var openPlanResult = await new PrefabOpenOperation().PlanAsync(openOperations[0], executionContext, CancellationToken.None);
 
             Assert.That(openPlanResult.IsSuccess, Is.True, openPlanResult.Failure?.Message);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request, 1, executionContext);
@@ -1253,7 +1253,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out var openError),
                 Is.True,
                 openError?.Message);
-            var openPlanResult = await new PrefabOpenOperation().Plan(openOperations[0], executionContext, CancellationToken.None);
+            var openPlanResult = await new PrefabOpenOperation().PlanAsync(openOperations[0], executionContext, CancellationToken.None);
 
             Assert.That(openPlanResult.IsSuccess, Is.True, openPlanResult.Failure?.Message);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request, 1, executionContext);

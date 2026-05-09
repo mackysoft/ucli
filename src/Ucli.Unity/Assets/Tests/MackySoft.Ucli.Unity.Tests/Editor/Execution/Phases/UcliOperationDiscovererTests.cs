@@ -516,7 +516,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 policy: OperationPolicy.Safe,
                 describeContract: CreateDescribeContract("ucli.tests.discover"));
 
-            public Task<OperationPhaseStepResult> Validate (
+            public Task<OperationPhaseStepResult> ValidateAsync (
                 NormalizedOperation operation,
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
@@ -524,7 +524,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(OperationPhaseStepResult.Success());
             }
 
-            public Task<OperationPhaseStepResult> Plan (
+            public Task<OperationPhaseStepResult> PlanAsync (
                 NormalizedOperation operation,
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
@@ -532,7 +532,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(OperationPhaseStepResult.Success());
             }
 
-            public Task<OperationPhaseStepResult> Call (
+            public Task<OperationPhaseStepResult> CallAsync (
                 NormalizedOperation operation,
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
@@ -556,7 +556,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     Array.Empty<string>(),
                     UcliOperationPlanMode.ValidationOnly));
 
-            protected override Task<OperationPhaseStepResult> Validate (
+            protected override Task<OperationPhaseStepResult> ValidateAsync (
                 NormalizedOperation operation,
                 GenericDiscoverableArgs args,
                 OperationExecutionContext executionContext,
@@ -565,7 +565,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(OperationPhaseStepResult.Success());
             }
 
-            protected override Task<OperationPhaseStepResult> Plan (
+            protected override Task<OperationPhaseStepResult> PlanAsync (
                 NormalizedOperation operation,
                 GenericDiscoverableArgs args,
                 OperationExecutionContext executionContext,
@@ -574,7 +574,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(OperationPhaseStepResult.Success());
             }
 
-            protected override Task<OperationPhaseStepResult> Call (
+            protected override Task<OperationPhaseStepResult> CallAsync (
                 NormalizedOperation operation,
                 GenericDiscoverableArgs args,
                 OperationExecutionContext executionContext,
@@ -599,7 +599,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     Array.Empty<string>(),
                     UcliOperationPlanMode.ValidationOnly));
 
-            protected override Task<OperationPhaseStepResult> Validate (
+            protected override Task<OperationPhaseStepResult> ValidateAsync (
                 NormalizedOperation operation,
                 GenericDiscoverableArgs args,
                 OperationExecutionContext executionContext,
@@ -608,7 +608,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(OperationPhaseStepResult.Success());
             }
 
-            protected override Task<OperationPhaseStepResult> Plan (
+            protected override Task<OperationPhaseStepResult> PlanAsync (
                 NormalizedOperation operation,
                 GenericDiscoverableArgs args,
                 OperationExecutionContext executionContext,
@@ -617,7 +617,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(OperationPhaseStepResult.Success());
             }
 
-            protected override Task<OperationPhaseStepResult> Call (
+            protected override Task<OperationPhaseStepResult> CallAsync (
                 NormalizedOperation operation,
                 GenericDiscoverableArgs args,
                 OperationExecutionContext executionContext,
@@ -642,7 +642,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     Array.Empty<string>(),
                     UcliOperationPlanMode.ValidationOnly));
 
-            protected override Task<OperationPhaseStepResult> Validate (
+            protected override Task<OperationPhaseStepResult> ValidateAsync (
                 NormalizedOperation operation,
                 GenericDiscoverableArgs args,
                 OperationExecutionContext executionContext,
@@ -651,7 +651,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(OperationPhaseStepResult.Success());
             }
 
-            protected override Task<OperationPhaseStepResult> Plan (
+            protected override Task<OperationPhaseStepResult> PlanAsync (
                 NormalizedOperation operation,
                 GenericDiscoverableArgs args,
                 OperationExecutionContext executionContext,
@@ -660,7 +660,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(OperationPhaseStepResult.Success());
             }
 
-            protected override Task<OperationPhaseStepResult> Call (
+            protected override Task<OperationPhaseStepResult> CallAsync (
                 NormalizedOperation operation,
                 GenericDiscoverableArgs args,
                 OperationExecutionContext executionContext,

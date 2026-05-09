@@ -29,7 +29,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="operationPreflight"> Optional preflight executed after operation resolution and before validate/plan execution. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The one-operation step outcome. </returns>
-        public async Task<OperationPlanStepOutcome> Execute (
+        public async Task<OperationPlanStepOutcome> ExecuteAsync (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
             Func<NormalizedOperation, IUcliOperation, OperationFailure?>? operationPreflight,
@@ -77,10 +77,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             var touched = new List<OperationTouch>();
-            var validateStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStep(
+            var validateStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStepAsync(
                 operation,
                 OperationPhase.Validate,
-                ct => phaseOperation.Validate(operation, executionContext, ct),
+                ct => phaseOperation.ValidateAsync(operation, executionContext, ct),
                 cancellationToken).ConfigureAwait(false);
             OperationPhaseExecutionUtilities.MergeTouched(touched, validateStepResult.Touched);
             if (!validateStepResult.IsSuccess)
@@ -101,10 +101,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     PreparedOperation: null);
             }
 
-            var planStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStep(
+            var planStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStepAsync(
                 operation,
                 OperationPhase.Plan,
-                ct => phaseOperation.Plan(operation, executionContext, ct),
+                ct => phaseOperation.PlanAsync(operation, executionContext, ct),
                 cancellationToken).ConfigureAwait(false);
             OperationPhaseExecutionUtilities.MergeTouched(touched, planStepResult.Touched);
             if (!planStepResult.IsSuccess)

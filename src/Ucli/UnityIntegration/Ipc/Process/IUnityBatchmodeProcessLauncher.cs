@@ -12,7 +12,7 @@ internal interface IUnityBatchmodeProcessLauncher
     /// <param name="unityLogPath"> The Unity log file path passed to Unity <c>-logFile</c>. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The launch result that contains either the started process handle or one structured launch error. </returns>
-    ValueTask<UnityBatchmodeProcessLaunchResult> Launch (
+    ValueTask<UnityBatchmodeProcessLaunchResult> LaunchAsync (
         ResolvedUnityProjectContext unityProject,
         IpcBatchmodeBootstrapArguments bootstrapArguments,
         string unityLogPath,

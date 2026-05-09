@@ -40,7 +40,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 readinessGate,
                 mainThreadRequestExecutor);
 
-            var responseTask = service.Execute(CreateRequest(failFast: false), CancellationToken.None).AsUniTask();
+            var responseTask = service.ExecuteAsync(CreateRequest(failFast: false), CancellationToken.None).AsUniTask();
             await TestAwaiter.WaitAsync(readinessGate.WaitObserved, "Unity test run service readiness wait", SignalWaitTimeout);
 
             Assert.That(readinessGate.CallCount, Is.EqualTo(1));
@@ -77,7 +77,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 readinessGate,
                 mainThreadRequestExecutor);
 
-            var response = await service.Execute(CreateRequest(failFast: true), CancellationToken.None).AsUniTask();
+            var response = await service.ExecuteAsync(CreateRequest(failFast: true), CancellationToken.None).AsUniTask();
 
             Assert.That(response.IsSuccess, Is.False);
             Assert.That(response.Error!.Code, Is.EqualTo(EditorLifecycleErrorCodes.EditorBusy));
@@ -108,7 +108,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             await AsyncExceptionCapture.CaptureAsync<ArgumentException>(async () =>
             {
-                await service.Execute(CreateRequest(), CancellationToken.None).AsUniTask();
+                await service.ExecuteAsync(CreateRequest(), CancellationToken.None).AsUniTask();
             }, "Invalid Unity test run request without readiness wait", SignalWaitTimeout);
 
             Assert.That(readinessGate.CallCount, Is.EqualTo(0));
@@ -170,7 +170,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public int CallCount { get; private set; }
 
-            public Task<ITestResultAdaptor> Run (
+            public Task<ITestResultAdaptor> RunAsync (
                 UnityTestRunRequestContext requestContext,
                 CancellationToken cancellationToken = default)
             {
@@ -196,7 +196,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             public int CallCount { get; private set; }
 
-            public Task ExportRange (
+            public Task ExportRangeAsync (
                 string sourcePath,
                 string destinationPath,
                 long startOffset,
@@ -213,7 +213,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             public int CallCount { get; private set; }
 
-            public Task<T> Execute<T> (
+            public Task<T> ExecuteAsync<T> (
                 Func<Task<T>> workItem,
                 CancellationToken cancellationToken = default)
             {

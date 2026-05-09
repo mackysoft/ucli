@@ -10,7 +10,7 @@ internal interface IRequestStaticValidationPreflightService
     /// <param name="readIndexMode"> The optional normalized <c>--readIndexMode</c> value. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The shared static-validation preflight result. </returns>
-    ValueTask<RequestStaticValidationPreflightResult> Prepare (
+    ValueTask<RequestStaticValidationPreflightResult> PrepareAsync (
         PreparedRequestContext preparedRequest,
         ReadIndexMode? readIndexMode,
         CancellationToken cancellationToken = default);

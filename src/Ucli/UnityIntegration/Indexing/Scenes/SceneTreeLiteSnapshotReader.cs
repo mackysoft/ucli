@@ -36,7 +36,7 @@ internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var executionResult = await ipcRequestExecutor.Execute(
+        var executionResult = await ipcRequestExecutor.ExecuteAsync(
                 command,
                 mode,
                 timeout,

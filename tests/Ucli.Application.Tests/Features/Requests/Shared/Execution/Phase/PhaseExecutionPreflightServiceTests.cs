@@ -26,7 +26,7 @@ public sealed class PhaseExecutionPreflightServiceTests
             new StubOperationCatalog(operations),
             new StubRequestStaticValidator(ValidationResult.Success()));
 
-        var result = await service.Prepare(
+        var result = await service.PrepareAsync(
             preparedRequest,
             mode: UnityExecutionMode.Auto,
             deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(30000), TimeProvider.System),
@@ -62,7 +62,7 @@ public sealed class PhaseExecutionPreflightServiceTests
             new StubOperationCatalog([operation]),
             new StubRequestStaticValidator(new ValidationResult(validationErrors)));
 
-        var result = await service.Prepare(
+        var result = await service.PrepareAsync(
             preparedRequest,
             mode: UnityExecutionMode.Auto,
             deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(30000), TimeProvider.System),
@@ -87,7 +87,7 @@ public sealed class PhaseExecutionPreflightServiceTests
             new StubOperationCatalog([CreateOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, OperationPolicy.Safe)]),
             new StubRequestStaticValidator(ValidationResult.Failure(error)));
 
-        var result = await service.Prepare(
+        var result = await service.PrepareAsync(
             preparedRequest,
             mode: UnityExecutionMode.Auto,
             deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(30000), TimeProvider.System),
@@ -110,7 +110,7 @@ public sealed class PhaseExecutionPreflightServiceTests
             new ThrowingOperationCatalog(),
             new SpyRequestStaticValidator());
 
-        var result = await service.Prepare(
+        var result = await service.PrepareAsync(
             preparedRequest,
             mode: UnityExecutionMode.Auto,
             deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(30000), TimeProvider.System),
@@ -134,7 +134,7 @@ public sealed class PhaseExecutionPreflightServiceTests
                 ExecutionError.InvalidArgument("Mode must be auto, daemon, or oneshot."))),
             new SpyRequestStaticValidator());
 
-        var result = await service.Prepare(
+        var result = await service.PrepareAsync(
             preparedRequest,
             mode: (UnityExecutionMode)999,
             deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(30000), TimeProvider.System),
@@ -159,7 +159,7 @@ public sealed class PhaseExecutionPreflightServiceTests
                 UnityExecutionModeDecisionErrorCodes.DaemonNotRunning)),
             new SpyRequestStaticValidator());
 
-        var result = await service.Prepare(
+        var result = await service.PrepareAsync(
             preparedRequest,
             mode: UnityExecutionMode.Daemon,
             deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(30000), TimeProvider.System),
@@ -188,7 +188,7 @@ public sealed class PhaseExecutionPreflightServiceTests
         var validationService = new SpyRequestStaticValidator();
         var service = new PhaseExecutionPreflightService(operationCatalog, validationService);
 
-        var result = await service.Prepare(
+        var result = await service.PrepareAsync(
             preparedRequest,
             mode: UnityExecutionMode.Auto,
             deadline: deadline,
@@ -216,7 +216,7 @@ public sealed class PhaseExecutionPreflightServiceTests
         var validationService = new SpyRequestStaticValidator(ValidationResult.Success());
         var service = new PhaseExecutionPreflightService(operationCatalog, validationService);
 
-        var result = await service.Prepare(
+        var result = await service.PrepareAsync(
             preparedRequest,
             mode: UnityExecutionMode.Daemon,
             deadline: deadline,
@@ -288,19 +288,19 @@ public sealed class PhaseExecutionPreflightServiceTests
             this.operations = operations ?? throw new ArgumentNullException(nameof(operations));
         }
 
-        public ValueTask<UcliOperationDescriptor?> Get (string name, CancellationToken cancellationToken = default)
+        public ValueTask<UcliOperationDescriptor?> GetAsync (string name, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(operations.FirstOrDefault(operation => string.Equals(operation.Name, name, StringComparison.Ordinal)));
         }
 
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (CancellationToken cancellationToken = default)
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(operations);
         }
 
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (
             ResolvedUnityProjectContext unityProject,
             UcliConfig config,
             UnityExecutionMode mode = UnityExecutionMode.Auto,
@@ -337,19 +337,19 @@ public sealed class PhaseExecutionPreflightServiceTests
 
         public bool ReceivedFailFast { get; private set; }
 
-        public ValueTask<UcliOperationDescriptor?> Get (string name, CancellationToken cancellationToken = default)
+        public ValueTask<UcliOperationDescriptor?> GetAsync (string name, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(operations.FirstOrDefault(operation => string.Equals(operation.Name, name, StringComparison.Ordinal)));
         }
 
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (CancellationToken cancellationToken = default)
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(operations);
         }
 
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (
             ResolvedUnityProjectContext unityProject,
             UcliConfig config,
             UnityExecutionMode mode = UnityExecutionMode.Auto,
@@ -368,19 +368,19 @@ public sealed class PhaseExecutionPreflightServiceTests
 
     private sealed class ThrowingOperationCatalog : IOperationCatalog
     {
-        public ValueTask<UcliOperationDescriptor?> Get (string name, CancellationToken cancellationToken = default)
+        public ValueTask<UcliOperationDescriptor?> GetAsync (string name, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             throw new InvalidOperationException("catalog load failed.");
         }
 
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (CancellationToken cancellationToken = default)
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             throw new InvalidOperationException("catalog load failed.");
         }
 
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (
             ResolvedUnityProjectContext unityProject,
             UcliConfig config,
             UnityExecutionMode mode = UnityExecutionMode.Auto,
@@ -402,19 +402,19 @@ public sealed class PhaseExecutionPreflightServiceTests
             this.exception = exception ?? throw new ArgumentNullException(nameof(exception));
         }
 
-        public ValueTask<UcliOperationDescriptor?> Get (string name, CancellationToken cancellationToken = default)
+        public ValueTask<UcliOperationDescriptor?> GetAsync (string name, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             throw exception;
         }
 
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (CancellationToken cancellationToken = default)
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             throw exception;
         }
 
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (
             ResolvedUnityProjectContext unityProject,
             UcliConfig config,
             UnityExecutionMode mode = UnityExecutionMode.Auto,
@@ -436,7 +436,7 @@ public sealed class PhaseExecutionPreflightServiceTests
             this.result = result ?? throw new ArgumentNullException(nameof(result));
         }
 
-        public ValueTask<ValidationResult> Validate (
+        public ValueTask<ValidationResult> ValidateAsync (
             ValidateRequest request,
             RequestStaticValidationCatalog catalog,
             UcliConfig config,
@@ -469,7 +469,7 @@ public sealed class PhaseExecutionPreflightServiceTests
 
         public RequestStaticValidationCatalog? ReceivedCatalog { get; private set; }
 
-        public ValueTask<ValidationResult> Validate (
+        public ValueTask<ValidationResult> ValidateAsync (
             ValidateRequest request,
             RequestStaticValidationCatalog catalog,
             UcliConfig config,

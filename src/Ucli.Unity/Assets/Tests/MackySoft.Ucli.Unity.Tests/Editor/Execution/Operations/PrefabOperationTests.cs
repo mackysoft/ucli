@@ -50,7 +50,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 alias: "created");
 
-            var result = await operation.Call(requestOperation, context, CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: true, changed: true);
             AssertTouchSet(
@@ -82,7 +82,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
 
             using var executionContext = new OperationExecutionContext();
-            var result = await operation.Validate(requestOperation, executionContext, CancellationToken.None);
+            var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-prefab-create");
         });
@@ -107,7 +107,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = prefabPath,
                 });
 
-            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-prefab-open");
             Assert.That(result.Failure!.Message, Does.Contain("Dirty loaded scene blocks opening prefab"));
@@ -133,7 +133,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = prefabPath,
                 });
 
-            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-prefab-open");
             Assert.That(result.Failure!.Message, Does.Contain("Dirty loaded scene blocks opening prefab"));
@@ -160,7 +160,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = targetPrefabPath,
                 });
 
-            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-prefab-open");
             Assert.That(result.Failure!.Message, Does.Contain("Dirty prefab stage blocks opening prefab"));
@@ -184,7 +184,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 alias: "root");
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             AssertTouchSet(result, (OperationTouchKind.Prefab, prefabPath));
@@ -261,10 +261,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var openResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
-            var createResult = await goCreateOperation.Plan(createRequest, context, CancellationToken.None);
-            var ensureResult = await compEnsureOperation.Plan(ensureRequest, context, CancellationToken.None);
-            var setResult = await compSetOperation.Plan(setRequest, context, CancellationToken.None);
+            var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
+            var createResult = await goCreateOperation.PlanAsync(createRequest, context, CancellationToken.None);
+            var ensureResult = await compEnsureOperation.PlanAsync(ensureRequest, context, CancellationToken.None);
+            var setResult = await compSetOperation.PlanAsync(setRequest, context, CancellationToken.None);
 
             AssertSuccess(openResult, applied: false, changed: false);
             AssertSuccess(createResult, applied: false, changed: true);
@@ -298,7 +298,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 alias: "root");
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             AssertTouchSet(result, (OperationTouchKind.Prefab, prefabPath));
@@ -349,7 +349,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = prefabPath,
                 });
 
-            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var prefabContentsRoot), Is.True);
@@ -400,8 +400,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 alias: "component");
 
-            var openResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
-            var ensureResult = await ensureOperation.Plan(ensureRequest, context, CancellationToken.None);
+            var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
+            var ensureResult = await ensureOperation.PlanAsync(ensureRequest, context, CancellationToken.None);
 
             AssertSuccess(openResult, applied: false, changed: false);
             AssertSuccess(ensureResult, applied: false, changed: true);
@@ -471,10 +471,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = prefabPath,
                 });
 
-            var openResult = await openOperation.Call(openRequest, context, CancellationToken.None);
-            var ensureResult = await ensureOperation.Call(ensureRequest, context, CancellationToken.None);
-            var setResult = await setOperation.Call(setRequest, context, CancellationToken.None);
-            var saveResult = await saveOperation.Call(saveRequest, context, CancellationToken.None);
+            var openResult = await openOperation.CallAsync(openRequest, context, CancellationToken.None);
+            var ensureResult = await ensureOperation.CallAsync(ensureRequest, context, CancellationToken.None);
+            var setResult = await setOperation.CallAsync(setRequest, context, CancellationToken.None);
+            var saveResult = await saveOperation.CallAsync(saveRequest, context, CancellationToken.None);
 
             AssertSuccess(openResult, applied: true, changed: false);
             AssertSuccess(ensureResult, applied: true, changed: true);
@@ -564,11 +564,11 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = prefabPath,
                 });
 
-            var openResult = await openOperation.Call(openRequest, context, CancellationToken.None);
-            var createResult = await goCreateOperation.Call(createRequest, context, CancellationToken.None);
-            var ensureResult = await ensureOperation.Call(ensureRequest, context, CancellationToken.None);
-            var setResult = await setOperation.Call(setRequest, context, CancellationToken.None);
-            var saveResult = await saveOperation.Call(saveRequest, context, CancellationToken.None);
+            var openResult = await openOperation.CallAsync(openRequest, context, CancellationToken.None);
+            var createResult = await goCreateOperation.CallAsync(createRequest, context, CancellationToken.None);
+            var ensureResult = await ensureOperation.CallAsync(ensureRequest, context, CancellationToken.None);
+            var setResult = await setOperation.CallAsync(setRequest, context, CancellationToken.None);
+            var saveResult = await saveOperation.CallAsync(saveRequest, context, CancellationToken.None);
 
             AssertSuccess(openResult, applied: true, changed: false);
             AssertSuccess(createResult, applied: true, changed: true);
@@ -606,7 +606,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = prefabPath,
                 });
 
-            var saveResult = await saveOperation.Call(saveRequest, scope.CreateExecutionContext(), CancellationToken.None);
+            var saveResult = await saveOperation.CallAsync(saveRequest, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertSuccess(saveResult, applied: true, changed: true);
             AssertTouchSet(saveResult, (OperationTouchKind.Prefab, prefabPath));
@@ -634,7 +634,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = prefabPath,
                 });
 
-            var saveResult = await saveOperation.Plan(saveRequest, context, CancellationToken.None);
+            var saveResult = await saveOperation.PlanAsync(saveRequest, context, CancellationToken.None);
 
             AssertInvalidArgument(saveResult, "op-prefab-save");
         });
@@ -664,8 +664,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = prefabPath,
                 });
 
-            var openPlanResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
-            var savePlanResult = await saveOperation.Plan(saveRequest, context, CancellationToken.None);
+            var openPlanResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
+            var savePlanResult = await saveOperation.PlanAsync(saveRequest, context, CancellationToken.None);
 
             AssertSuccess(openPlanResult, applied: false, changed: false);
             AssertSuccess(savePlanResult, applied: false, changed: false);
@@ -687,7 +687,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = prefabPath,
                 });
 
-            var saveResult = await saveOperation.Call(saveRequest, scope.CreateExecutionContext(), CancellationToken.None);
+            var saveResult = await saveOperation.CallAsync(saveRequest, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(saveResult, "op-prefab-save");
         });

@@ -35,7 +35,7 @@ internal sealed class OpsService : IOpsService
     }
 
     /// <inheritdoc />
-    public async ValueTask<OpsListServiceResult> GetAll (
+    public async ValueTask<OpsListServiceResult> GetAllAsync (
         OpsCommandInput input,
         CancellationToken cancellationToken = default)
     {
@@ -49,7 +49,7 @@ internal sealed class OpsService : IOpsService
                 UcliCoreErrorCodes.InvalidArgument);
         }
 
-        var preflightResult = await preflightService.Execute(
+        var preflightResult = await preflightService.ExecuteAsync(
                 OpsPreflightInput.From(input),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -60,7 +60,7 @@ internal sealed class OpsService : IOpsService
                 preflightResult.ErrorCode!.Value);
         }
 
-        var catalogResult = await catalogAccessService.ReadList(
+        var catalogResult = await catalogAccessService.ReadListAsync(
                 preflightResult.Context!,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -83,14 +83,14 @@ internal sealed class OpsService : IOpsService
     }
 
     /// <inheritdoc />
-    public async ValueTask<OpsDescribeServiceResult> Describe (
+    public async ValueTask<OpsDescribeServiceResult> DescribeAsync (
         OpsDescribeCommandInput input,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(input);
 
-        var preflightResult = await preflightService.Execute(
+        var preflightResult = await preflightService.ExecuteAsync(
                 OpsPreflightInput.From(input),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -101,7 +101,7 @@ internal sealed class OpsService : IOpsService
                 preflightResult.ErrorCode!.Value);
         }
 
-        var catalogResult = await catalogAccessService.ReadDescribe(
+        var catalogResult = await catalogAccessService.ReadDescribeAsync(
                 preflightResult.Context!,
                 input.OperationName,
                 cancellationToken)

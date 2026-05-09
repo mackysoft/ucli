@@ -53,7 +53,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon launch result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
-    public async ValueTask<UnityDaemonLaunchResult> Launch (
+    public async ValueTask<UnityDaemonLaunchResult> LaunchAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         string unityLogPath,
@@ -66,7 +66,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
         var endpoint = endpointResolver.Resolve(
             unityProject.RepositoryRoot,
             unityProject.ProjectFingerprint);
-        var batchmodeLaunchResult = await Launch(
+        var batchmodeLaunchResult = await LaunchAsync(
                 unityProject,
                 new IpcDaemonBootstrapArguments(
                     RepositoryRoot: unityProject.RepositoryRoot,
@@ -90,7 +90,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
     }
 
     /// <inheritdoc />
-    public ValueTask<UnityBatchmodeProcessLaunchResult> Launch (
+    public ValueTask<UnityBatchmodeProcessLaunchResult> LaunchAsync (
         ResolvedUnityProjectContext unityProject,
         IpcBatchmodeBootstrapArguments bootstrapArguments,
         string unityLogPath,
@@ -106,14 +106,14 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
                 "Unity log path must not be empty.")));
         }
 
-        return LaunchValidated(
+        return LaunchValidatedAsync(
             unityProject,
             bootstrapArguments,
             unityLogPath,
             cancellationToken);
     }
 
-    private async ValueTask<UnityBatchmodeProcessLaunchResult> LaunchValidated (
+    private async ValueTask<UnityBatchmodeProcessLaunchResult> LaunchValidatedAsync (
         ResolvedUnityProjectContext unityProject,
         IpcBatchmodeBootstrapArguments bootstrapArguments,
         string unityLogPath,
@@ -125,7 +125,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
             return UnityBatchmodeProcessLaunchResult.Failure(projectLockValidationError);
         }
 
-        var pluginLocateResult = await unityUcliPluginLocator.Locate(
+        var pluginLocateResult = await unityUcliPluginLocator.LocateAsync(
                 unityProject.UnityProjectRoot,
                 cancellationToken)
             .ConfigureAwait(false);

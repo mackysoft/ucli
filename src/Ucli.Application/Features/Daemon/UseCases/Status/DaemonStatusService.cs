@@ -62,14 +62,14 @@ internal sealed class DaemonStatusService : IDaemonStatusService
     /// <param name="timeoutMilliseconds"> The optional normalized timeout value in milliseconds. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-status execution result. </returns>
-    public async ValueTask<DaemonStatusExecutionResult> GetStatus (
+    public async ValueTask<DaemonStatusExecutionResult> GetStatusAsync (
         string? projectPath,
         int? timeoutMilliseconds,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var contextResult = await daemonCommandExecutionContextResolver.Resolve(
+        var contextResult = await daemonCommandExecutionContextResolver.ResolveAsync(
                 UcliCommandIds.DaemonStatus,
                 projectPath,
                 timeoutMilliseconds,
@@ -88,7 +88,7 @@ internal sealed class DaemonStatusService : IDaemonStatusService
                 "Timed out before daemon status probe could begin."));
         }
 
-        var statusResult = await daemonStatusOperation.GetStatus(
+        var statusResult = await daemonStatusOperation.GetStatusAsync(
                 executionContext.Context.UnityProject,
                 statusTimeout,
                 cancellationToken)
@@ -135,7 +135,7 @@ internal sealed class DaemonStatusService : IDaemonStatusService
 
             try
             {
-                var pingResponse = await daemonPingInfoClient.PingAndRead(
+                var pingResponse = await daemonPingInfoClient.PingAndReadAsync(
                         executionContext.Context.UnityProject,
                         pingInfoTimeout,
                         statusResult.Session.SessionToken,
@@ -176,7 +176,7 @@ internal sealed class DaemonStatusService : IDaemonStatusService
                 daemonStatus = DaemonStatusKind.Stale;
                 try
                 {
-                    diagnosis = await daemonSessionDiagnosisResolver.ResolveForSession(
+                    diagnosis = await daemonSessionDiagnosisResolver.ResolveForSessionAsync(
                             executionContext.Context.UnityProject,
                             statusResult.Session,
                             persistedDiagnosis,

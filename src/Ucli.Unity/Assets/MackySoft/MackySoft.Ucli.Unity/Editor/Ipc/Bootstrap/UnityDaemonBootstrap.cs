@@ -14,7 +14,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         /// <summary> Starts Unity daemon mode after batchmode initialization is ready. </summary>
         /// <returns> A task that completes after daemon mode exits or bootstrap failure requests process exit. </returns>
-        internal static async Task Start (IpcDaemonBootstrapArguments bootstrapArguments)
+        internal static async Task StartAsync (IpcDaemonBootstrapArguments bootstrapArguments)
         {
             if (bootstrapArguments == null)
             {
@@ -34,7 +34,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     daemonLogger.Error(
                         DaemonLogCategories.Lifecycle,
                         errorMessage);
-                    diagnosisWritten = await PersistDiagnosis(
+                    diagnosisWritten = await PersistDiagnosisAsync(
                         bootstrapArguments,
                         DaemonDiagnosisReasonValues.StartupFailed,
                         errorMessage,
@@ -62,14 +62,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                     unityLogCaptureService.Start();
 
                     var endpoint = new IpcEndpoint(transportKind, bootstrapArguments.EndpointAddress);
-                    await server.Start(endpoint, CancellationToken.None);
+                    await server.StartAsync(endpoint, CancellationToken.None);
                     daemonStarted = true;
                     daemonLogger.Info(
                         DaemonLogCategories.Lifecycle,
                         $"uCLI daemon started. repoRoot={bootstrapArguments.RepositoryRoot}, fingerprint={bootstrapArguments.ProjectFingerprint}, endpoint={bootstrapArguments.EndpointAddress}");
 
-                    var shutdownWaitTask = shutdownSignal.Wait(CancellationToken.None);
-                    var serverTerminationTask = server.WaitForTermination(CancellationToken.None);
+                    var shutdownWaitTask = shutdownSignal.WaitAsync(CancellationToken.None);
+                    var serverTerminationTask = server.WaitForTerminationAsync(CancellationToken.None);
                     var completedTask = await Task.WhenAny(shutdownWaitTask, serverTerminationTask);
                     if (ReferenceEquals(completedTask, serverTerminationTask))
                     {
@@ -78,7 +78,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         daemonLogger.Error(
                             DaemonLogCategories.Lifecycle,
                             Message);
-                        diagnosisWritten = await PersistDiagnosis(
+                        diagnosisWritten = await PersistDiagnosisAsync(
                             bootstrapArguments,
                             DaemonDiagnosisReasonValues.ListenerTerminated,
                             Message,
@@ -90,11 +90,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                     daemonLogger.Info(
                         DaemonLogCategories.Lifecycle,
                         "Daemon shutdown signal received. Stopping IPC server.");
-                    await server.Stop(CancellationToken.None);
+                    await server.StopAsync(CancellationToken.None);
                     daemonLogger.Info(
                         DaemonLogCategories.Lifecycle,
                         "IPC server stop completed. Exiting Unity batchmode process.");
-                    diagnosisWritten = await PersistDiagnosis(
+                    diagnosisWritten = await PersistDiagnosisAsync(
                         bootstrapArguments,
                         DaemonDiagnosisReasonValues.ShutdownRequested,
                         "Daemon shutdown completed after shutdown request.",
@@ -118,7 +118,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     exception);
                 if (!diagnosisWritten)
                 {
-                    diagnosisWritten = await PersistDiagnosis(
+                    diagnosisWritten = await PersistDiagnosisAsync(
                         bootstrapArguments,
                         daemonStarted
                             ? DaemonDiagnosisReasonValues.UnhandledException
@@ -133,7 +133,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private static async Task<bool> PersistDiagnosis (
+        private static async Task<bool> PersistDiagnosisAsync (
             IpcDaemonBootstrapArguments bootstrapArguments,
             string reason,
             string message,
@@ -141,7 +141,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             try
             {
-                await DaemonDiagnosisPersistence.Write(
+                await DaemonDiagnosisPersistence.WriteAsync(
                     bootstrapArguments,
                     reason,
                     message,

@@ -39,7 +39,7 @@ public sealed class DaemonStopOperationTests
             processTerminationService: processTerminationService,
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.Stop(CreateContext("fingerprint-stop-failure"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.StopAsync(CreateContext("fingerprint-stop-failure"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.Equal(DaemonStopStatus.Failed, result.Status);
         Assert.Equal(shutdownError, result.Error);
@@ -77,7 +77,7 @@ public sealed class DaemonStopOperationTests
             processTerminationService: processTerminationService,
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.Stop(CreateContext("fingerprint-stop-not-running"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.StopAsync(CreateContext("fingerprint-stop-not-running"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.Equal(DaemonStopStatus.Stopped, result.Status);
         Assert.Null(result.Error);
@@ -110,7 +110,7 @@ public sealed class DaemonStopOperationTests
             processTerminationService: processTerminationService,
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.Stop(CreateContext("fingerprint-stop-pidless"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.StopAsync(CreateContext("fingerprint-stop-pidless"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.Equal(DaemonStopStatus.Stopped, result.Status);
         Assert.Equal(1, shutdownClient.CallCount);
@@ -140,7 +140,7 @@ public sealed class DaemonStopOperationTests
             processTerminationService: processTerminationService,
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.Stop(CreateContext("fingerprint-stop-pidless-failure"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.StopAsync(CreateContext("fingerprint-stop-pidless-failure"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.Equal(DaemonStopStatus.Failed, result.Status);
         Assert.Equal(shutdownError, result.Error);
@@ -177,7 +177,7 @@ public sealed class DaemonStopOperationTests
             processTerminationService: processTerminationService,
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.Stop(CreateContext("fingerprint-stop-disallowed"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.StopAsync(CreateContext("fingerprint-stop-disallowed"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.Equal(DaemonStopStatus.Stopped, result.Status);
         Assert.Null(result.Error);
@@ -214,7 +214,7 @@ public sealed class DaemonStopOperationTests
             processTerminationService: processTerminationService,
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.Stop(CreateContext("fingerprint-stop-cli-endpoint-only"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.StopAsync(CreateContext("fingerprint-stop-cli-endpoint-only"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.Equal(DaemonStopStatus.Stopped, result.Status);
         Assert.Null(result.Error);
@@ -254,7 +254,7 @@ public sealed class DaemonStopOperationTests
             processTerminationService: processTerminationService,
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.Stop(CreateContext("fingerprint-stop-cli-gui"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.StopAsync(CreateContext("fingerprint-stop-cli-gui"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.Equal(DaemonStopStatus.Stopped, result.Status);
         Assert.Equal(1, shutdownClient.CallCount);
@@ -276,7 +276,7 @@ public sealed class DaemonStopOperationTests
             processTerminationService: new StubDaemonProcessTerminationService(),
             artifactCleaner: new StubDaemonArtifactCleaner());
 
-        var result = await operation.Stop(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.StopAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.Equal(DaemonStopStatus.NotRunning, result.Status);
         var lockRequest = Assert.IsType<ProjectLifecycleLockRequest>(lockProvider.LastRequest);
@@ -298,7 +298,7 @@ public sealed class DaemonStopOperationTests
             processTerminationService: new StubDaemonProcessTerminationService(),
             artifactCleaner: new StubDaemonArtifactCleaner());
 
-        var result = await operation.Stop(
+        var result = await operation.StopAsync(
             CreateContext("fingerprint-stop-lock-timeout"),
             TimeSpan.FromMilliseconds(500),
             CancellationToken.None);
@@ -340,7 +340,7 @@ public sealed class DaemonStopOperationTests
             artifactCleaner: artifactCleaner,
             timeProvider: timeProvider);
 
-        var result = await operation.Stop(
+        var result = await operation.StopAsync(
             CreateContext("fingerprint-stop-timeout-finalization"),
             TimeSpan.FromMilliseconds(20),
             CancellationToken.None);
@@ -388,7 +388,7 @@ public sealed class DaemonStopOperationTests
     {
         public DaemonSessionReadResult ReadResult { get; set; } = DaemonSessionReadResult.Success(null);
 
-        public ValueTask<DaemonSessionReadResult> Read (
+        public ValueTask<DaemonSessionReadResult> ReadAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -396,7 +396,7 @@ public sealed class DaemonStopOperationTests
             return ValueTask.FromResult(ReadResult);
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Write (
+        public ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
             string storageRoot,
             DaemonSession session,
             CancellationToken cancellationToken = default)
@@ -404,7 +404,7 @@ public sealed class DaemonStopOperationTests
             return ValueTask.FromResult(DaemonSessionStoreOperationResult.Success());
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Delete (
+        public ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
@@ -423,7 +423,7 @@ public sealed class DaemonStopOperationTests
 
         public int CallCount { get; private set; }
 
-        public async ValueTask<DaemonShutdownAttemptResult> SendShutdown (
+        public async ValueTask<DaemonShutdownAttemptResult> SendShutdownAsync (
             ResolvedUnityProjectContext unityProject,
             DaemonSession session,
             TimeSpan timeout,
@@ -458,7 +458,7 @@ public sealed class DaemonStopOperationTests
 
         public TimeSpan? LastTimeout { get; private set; }
 
-        public ValueTask<DaemonSessionStoreOperationResult> EnsureStopped (
+        public ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAsync (
             int? processId,
             DateTimeOffset? expectedIssuedAtUtc,
             TimeSpan timeout,
@@ -478,7 +478,7 @@ public sealed class DaemonStopOperationTests
 
         public int CallCount { get; private set; }
 
-        public ValueTask<DaemonSessionStoreOperationResult> Cleanup (
+        public ValueTask<DaemonSessionStoreOperationResult> CleanupAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {

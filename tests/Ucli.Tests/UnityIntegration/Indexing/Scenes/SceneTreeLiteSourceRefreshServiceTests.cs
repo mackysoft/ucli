@@ -212,7 +212,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
 
         public string? SourceInputsHash { get; private set; }
 
-        public ValueTask WriteSceneTreeLite (
+        public ValueTask WriteSceneTreeLiteAsync (
             string storageRoot,
             string projectFingerprint,
             DateTimeOffset generatedAtUtc,
@@ -227,7 +227,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             return ValueTask.CompletedTask;
         }
 
-        public ValueTask WriteOpsCatalog (
+        public ValueTask WriteOpsCatalogAsync (
             string storageRoot,
             string projectFingerprint,
             DateTimeOffset generatedAtUtc,
@@ -239,7 +239,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             throw new NotSupportedException();
         }
 
-        public ValueTask WriteAssetLookups (
+        public ValueTask WriteAssetLookupsAsync (
             string storageRoot,
             string projectFingerprint,
             DateTimeOffset generatedAtUtc,
@@ -263,7 +263,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             results.Enqueue(result);
         }
 
-        public ValueTask<string?> TryCompute (
+        public ValueTask<string?> TryComputeAsync (
             ResolvedUnityProjectContext unityProject,
             string scenePath,
             CancellationToken cancellationToken = default)

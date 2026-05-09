@@ -38,7 +38,7 @@ internal sealed class SkillsExportCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.ExportSubcommand)]
-    public async Task<int> Export (
+    public async Task<int> ExportAsync (
         string? host = null,
         string? output = null,
         string? format = null,

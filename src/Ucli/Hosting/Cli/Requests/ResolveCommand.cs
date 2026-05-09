@@ -41,7 +41,7 @@ internal sealed class ResolveCommand
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Resolve)]
-    public async Task<int> Resolve (
+    public async Task<int> ResolveAsync (
         string? projectPath = null,
         string? mode = null,
         string? timeout = null,
@@ -100,7 +100,7 @@ internal sealed class ResolveCommand
             return errorResult.ExitCode;
         }
 
-        var serviceResult = await resolveService.Execute(
+        var serviceResult = await resolveService.ExecuteAsync(
                 new ResolveCommandInput(
                     ProjectPath: projectPath,
                     Mode: normalizedModeResult.Mode,

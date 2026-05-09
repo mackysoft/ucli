@@ -31,7 +31,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        protected override Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
             GoDescribeArgs args,
             OperationExecutionContext executionContext,
@@ -51,14 +51,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        protected override Task<OperationPhaseStepResult> Plan (
+        protected override Task<OperationPhaseStepResult> PlanAsync (
             NormalizedOperation operation,
             GoDescribeArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Execute(operation, args, executionContext, applied: false);
+            return ExecuteAsync(operation, args, executionContext, applied: false);
         }
 
         /// <summary> Executes call phase for <c>ucli.go.describe</c>. </summary>
@@ -66,14 +66,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        protected override Task<OperationPhaseStepResult> Call (
+        protected override Task<OperationPhaseStepResult> CallAsync (
             NormalizedOperation operation,
             GoDescribeArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Execute(operation, args, executionContext, applied: true);
+            return ExecuteAsync(operation, args, executionContext, applied: true);
         }
 
         /// <summary> Executes the shared plan/call flow. </summary>
@@ -81,7 +81,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="applied"> The applied flag for the successful phase result. </param>
         /// <returns> The phase-step result. </returns>
-        private static Task<OperationPhaseStepResult> Execute (
+        private static Task<OperationPhaseStepResult> ExecuteAsync (
             NormalizedOperation operation,
             GoDescribeArgs args,
             OperationExecutionContext executionContext,

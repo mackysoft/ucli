@@ -46,7 +46,7 @@ internal sealed class DaemonStatusOperation : IDaemonStatusOperation
     /// <returns> The daemon status result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    public async ValueTask<DaemonStatusResult> GetStatus (
+    public async ValueTask<DaemonStatusResult> GetStatusAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
@@ -55,7 +55,7 @@ internal sealed class DaemonStatusOperation : IDaemonStatusOperation
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        var diagnosisReadResult = await daemonDiagnosisStore.Read(
+        var diagnosisReadResult = await daemonDiagnosisStore.ReadAsync(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 cancellationToken)
@@ -64,7 +64,7 @@ internal sealed class DaemonStatusOperation : IDaemonStatusOperation
             ? diagnosisReadResult.Diagnosis
             : null;
 
-        var readResult = await daemonSessionStore.Read(
+        var readResult = await daemonSessionStore.ReadAsync(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 cancellationToken)
@@ -81,7 +81,7 @@ internal sealed class DaemonStatusOperation : IDaemonStatusOperation
 
         try
         {
-            await daemonPingClient.Ping(
+            await daemonPingClient.PingAsync(
                     unityProject,
                     timeout,
                     readResult.Session!.SessionToken,
@@ -100,7 +100,7 @@ internal sealed class DaemonStatusOperation : IDaemonStatusOperation
         }
         catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
         {
-            var staleDiagnosis = await daemonSessionDiagnosisResolver.ResolveForSession(
+            var staleDiagnosis = await daemonSessionDiagnosisResolver.ResolveForSessionAsync(
                     unityProject,
                     readResult.Session!,
                     persistedDiagnosis,

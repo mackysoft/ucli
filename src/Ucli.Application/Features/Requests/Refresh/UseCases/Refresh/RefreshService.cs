@@ -33,13 +33,13 @@ internal sealed class RefreshService : IRefreshService
     }
 
     /// <inheritdoc />
-    public ValueTask<OperationExecuteResult> Execute (
+    public ValueTask<OperationExecuteResult> ExecuteAsync (
         RefreshCommandInput input,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
 
-        return operationExecuteService.Execute(
+        return operationExecuteService.ExecuteAsync(
             RefreshOperation,
             new OperationExecuteInput(
                 ProjectPath: input.ProjectPath,

@@ -18,7 +18,7 @@ public sealed class TestProfileInitCliOutputContractTests
         var workingDirectoryPath = scope.CreateDirectory("workspace");
         var expectedProfilePath = Path.Combine(workingDirectoryPath, TestProfileFileName);
 
-        var result = await RunTestProfileInit(workingDirectory: workingDirectoryPath);
+        var result = await RunTestProfileInitAsync(workingDirectory: workingDirectoryPath);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
@@ -56,7 +56,7 @@ public sealed class TestProfileInitCliOutputContractTests
             workingDirectoryPath,
             expectedRelativePath.Replace('/', Path.DirectorySeparatorChar));
 
-        var result = await RunTestProfileInit(
+        var result = await RunTestProfileInitAsync(
             workingDirectory: workingDirectoryPath,
             outputPath: outputPath);
 
@@ -89,7 +89,7 @@ public sealed class TestProfileInitCliOutputContractTests
         var workingDirectoryPath = scope.CreateDirectory("workspace");
         var existingProfilePath = scope.WriteFile(Path.Combine("workspace", "profiles", "existing-profile.json"), "{\"legacy\":true}");
 
-        var result = await RunTestProfileInit(
+        var result = await RunTestProfileInitAsync(
             workingDirectory: workingDirectoryPath,
             outputPath: existingProfilePath,
             force: false);
@@ -116,7 +116,7 @@ public sealed class TestProfileInitCliOutputContractTests
         var workingDirectoryPath = scope.CreateDirectory("workspace");
         var existingProfilePath = scope.WriteFile(Path.Combine("workspace", "profiles", "existing-profile.json"), "{\"legacy\":true}");
 
-        var result = await RunTestProfileInit(
+        var result = await RunTestProfileInitAsync(
             workingDirectory: workingDirectoryPath,
             outputPath: existingProfilePath,
             force: true);
@@ -150,7 +150,7 @@ public sealed class TestProfileInitCliOutputContractTests
         var workingDirectoryPath = scope.CreateDirectory("workspace");
         var directoryPath = scope.CreateDirectory(Path.Combine("workspace", "existing-directory.json"));
 
-        var result = await RunTestProfileInit(
+        var result = await RunTestProfileInitAsync(
             workingDirectory: workingDirectoryPath,
             outputPath: directoryPath);
 
@@ -175,7 +175,7 @@ public sealed class TestProfileInitCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "test-profile-init-directory-style-output");
         var workingDirectoryPath = scope.CreateDirectory("workspace");
 
-        var result = await RunTestProfileInit(
+        var result = await RunTestProfileInitAsync(
             workingDirectory: workingDirectoryPath,
             outputPath: outputPath);
 
@@ -195,7 +195,7 @@ public sealed class TestProfileInitCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task WithUnknownOption_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Test,
             UcliCommandNames.Profile,
             UcliCommandNames.InitSubcommand,
@@ -214,7 +214,7 @@ public sealed class TestProfileInitCliOutputContractTests
         Assert.Contains(UnknownOptionMessage, result.StdErr, StringComparison.Ordinal);
     }
 
-    private static async Task<CommandExecutionResult> RunTestProfileInit (
+    private static async Task<CommandExecutionResult> RunTestProfileInitAsync (
         string? workingDirectory = null,
         string? outputPath = null,
         bool force = false)
@@ -238,8 +238,8 @@ public sealed class TestProfileInitCliOutputContractTests
         }
 
         return string.IsNullOrWhiteSpace(workingDirectory)
-            ? await CliProcessRunner.RunCommand(args.ToArray())
-            : await CliProcessRunner.RunCommandWithWorkingDirectory(workingDirectory, args.ToArray());
+            ? await CliProcessRunner.RunCommandAsync(args.ToArray())
+            : await CliProcessRunner.RunCommandWithWorkingDirectoryAsync(workingDirectory, args.ToArray());
     }
 
     private static void AssertDefaultTestProfileValues (string profilePath)

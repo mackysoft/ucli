@@ -135,7 +135,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var sourceHashBeforeRead = await sceneSourceHashProvider.TryCompute(project, scenePath, cancellationToken).ConfigureAwait(false);
+        var sourceHashBeforeRead = await sceneSourceHashProvider.TryComputeAsync(project, scenePath, cancellationToken).ConfigureAwait(false);
         var fetchResult = await snapshotReader.ReadAsync(
                 project,
                 config,
@@ -161,7 +161,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
             return (fetchResult, DirtyLiveSourcePersistenceSkippedMessage, false);
         }
 
-        var sourceHashAfterRead = await sceneSourceHashProvider.TryCompute(project, scenePath, cancellationToken).ConfigureAwait(false);
+        var sourceHashAfterRead = await sceneSourceHashProvider.TryComputeAsync(project, scenePath, cancellationToken).ConfigureAwait(false);
         if (sourceHashAfterRead == null)
         {
             return (fetchResult, SourceHashFailureMessage, false);
@@ -174,7 +174,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
 
         try
         {
-            await artifactWriter.WriteSceneTreeLite(
+            await artifactWriter.WriteSceneTreeLiteAsync(
                     project.RepositoryRoot,
                     project.ProjectFingerprint,
                     fetchResult.Response!.GeneratedAtUtc,

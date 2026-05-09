@@ -20,7 +20,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                var registration = await UnityGuiSessionPersistence.Write(
+                var registration = await UnityGuiSessionPersistence.WriteAsync(
                     storageRoot,
                     "fingerprint",
                     new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-bootstrap-tests"),
@@ -30,7 +30,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var logCapture = new SpyDisposable();
                 var serviceProvider = new SpyServiceProvider();
 
-                await UnityGuiBootstrap.CleanupFailedStart(
+                await UnityGuiBootstrap.CleanupFailedStartAsync(
                     registration,
                     server,
                     logCapture,
@@ -55,14 +55,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                var registration = await UnityGuiSessionPersistence.Write(
+                var registration = await UnityGuiSessionPersistence.WriteAsync(
                     storageRoot,
                     "fingerprint",
                     new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-bootstrap-tests"),
                     UnityGuiBootstrapSessionOptions.Create(null),
                     CancellationToken.None);
 
-                await UnityGuiBootstrap.CleanupFailedStart(
+                await UnityGuiBootstrap.CleanupFailedStartAsync(
                     registration,
                     server: null,
                     unityLogCaptureService: null,
@@ -84,7 +84,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                var registration = await UnityGuiSessionPersistence.Write(
+                var registration = await UnityGuiSessionPersistence.WriteAsync(
                     storageRoot,
                     "fingerprint",
                     new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-bootstrap-tests"),
@@ -94,7 +94,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var logCapture = new SpyDisposable();
                 var serviceProvider = new SpyServiceProvider();
 
-                await UnityGuiBootstrap.CleanupFailedStart(
+                await UnityGuiBootstrap.CleanupFailedStartAsync(
                     registration,
                     server,
                     logCapture,
@@ -136,14 +136,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public int StopCallCount { get; private set; }
 
-            public Task Start (
+            public Task StartAsync (
                 IpcEndpoint endpoint,
                 CancellationToken cancellationToken = default)
             {
                 return Task.CompletedTask;
             }
 
-            public Task Stop (CancellationToken cancellationToken = default)
+            public Task StopAsync (CancellationToken cancellationToken = default)
             {
                 StopCallCount++;
                 if (throwOnStop)
@@ -154,7 +154,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.CompletedTask;
             }
 
-            public Task WaitForTermination (CancellationToken cancellationToken = default)
+            public Task WaitForTerminationAsync (CancellationToken cancellationToken = default)
             {
                 return Task.CompletedTask;
             }

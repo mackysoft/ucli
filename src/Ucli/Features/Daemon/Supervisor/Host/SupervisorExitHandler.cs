@@ -35,14 +35,14 @@ internal sealed class SupervisorExitHandler
     /// <summary> Handles one managed Unity daemon process exit. </summary>
     /// <param name="managedProcess"> The managed process that exited. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
-    public async Task HandleExit (
+    public async Task HandleExitAsync (
         SupervisorManagedDaemonProcess managedProcess,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(managedProcess);
 
-        var currentSessionRead = await daemonSessionStore.Read(
+        var currentSessionRead = await daemonSessionStore.ReadAsync(
                 managedProcess.UnityProject.RepositoryRoot,
                 managedProcess.UnityProject.ProjectFingerprint,
                 cancellationToken)
@@ -60,7 +60,7 @@ internal sealed class SupervisorExitHandler
         }
         else if (!currentSessionRead.IsSuccess)
         {
-            await runtimeLogger.Write(
+            await runtimeLogger.WriteAsync(
                     managedProcess.UnityProject.RepositoryRoot,
                     "error",
                     $"Supervisor session read failed during exit cleanup. fingerprint={managedProcess.UnityProject.ProjectFingerprint} kind={currentSessionRead.FailureKind} error={currentSessionRead.Error!.Message}",
@@ -70,7 +70,7 @@ internal sealed class SupervisorExitHandler
 
         if (shouldWriteUnexpectedDiagnosis)
         {
-            var diagnosisWriteResult = await diagnosisWriter.WriteUnexpected(
+            var diagnosisWriteResult = await diagnosisWriter.WriteUnexpectedAsync(
                     managedProcess.UnityProject,
                     managedProcess.Session,
                     DaemonDiagnosisReasonValues.UnexpectedExit,
@@ -79,7 +79,7 @@ internal sealed class SupervisorExitHandler
                 .ConfigureAwait(false);
             if (!diagnosisWriteResult.IsSuccess)
             {
-                await runtimeLogger.Write(
+                await runtimeLogger.WriteAsync(
                         managedProcess.UnityProject.RepositoryRoot,
                         "error",
                         $"Supervisor diagnosis write failed after daemon exit. fingerprint={managedProcess.UnityProject.ProjectFingerprint} error={diagnosisWriteResult.Error!.Message}",
@@ -88,13 +88,13 @@ internal sealed class SupervisorExitHandler
             }
         }
 
-        var cleanupResult = await daemonArtifactCleaner.Cleanup(
+        var cleanupResult = await daemonArtifactCleaner.CleanupAsync(
                 managedProcess.UnityProject,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!cleanupResult.IsSuccess)
         {
-            await runtimeLogger.Write(
+            await runtimeLogger.WriteAsync(
                     managedProcess.UnityProject.RepositoryRoot,
                     "error",
                     $"Supervisor artifact cleanup failed after daemon exit. fingerprint={managedProcess.UnityProject.ProjectFingerprint} error={cleanupResult.Error!.Message}",
@@ -102,7 +102,7 @@ internal sealed class SupervisorExitHandler
                 .ConfigureAwait(false);
         }
 
-        await runtimeLogger.Write(
+        await runtimeLogger.WriteAsync(
                 managedProcess.UnityProject.RepositoryRoot,
                 managedProcess.IsStopRequested ? "info" : "warning",
                 $"Unity daemon exited. fingerprint={managedProcess.UnityProject.ProjectFingerprint} pid={managedProcess.ProcessId?.ToString() ?? "unknown"} stopRequested={managedProcess.IsStopRequested}",

@@ -40,7 +40,7 @@ public sealed class StatusServiceTests
             daemonStatusOperation,
             daemonPingInfoClient);
 
-        var result = await service.Execute(new StatusCommandInput(null, null), CancellationToken.None);
+        var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<StatusExecutionOutput>(result.Output);
@@ -81,7 +81,7 @@ public sealed class StatusServiceTests
             daemonStatusOperation,
             daemonPingInfoClient);
 
-        var result = await service.Execute(new StatusCommandInput(null, null), CancellationToken.None);
+        var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<StatusExecutionOutput>(result.Output);
@@ -117,7 +117,7 @@ public sealed class StatusServiceTests
             daemonStatusOperation,
             daemonPingInfoClient);
 
-        var result = await service.Execute(new StatusCommandInput(null, null), CancellationToken.None);
+        var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<StatusExecutionOutput>(result.Output);
@@ -153,7 +153,7 @@ public sealed class StatusServiceTests
             daemonStatusOperation,
             daemonPingInfoClient);
 
-        var result = await service.Execute(new StatusCommandInput(null, 0), CancellationToken.None);
+        var result = await service.ExecuteAsync(new StatusCommandInput(null, 0), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -183,7 +183,7 @@ public sealed class StatusServiceTests
             daemonStatusOperation,
             daemonPingInfoClient);
 
-        var result = await service.Execute(new StatusCommandInput(null, null), CancellationToken.None);
+        var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -214,7 +214,7 @@ public sealed class StatusServiceTests
             daemonStatusOperation,
             daemonPingInfoClient);
 
-        var result = await service.Execute(new StatusCommandInput(null, null), CancellationToken.None);
+        var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -239,7 +239,7 @@ public sealed class StatusServiceTests
             daemonStatusOperation,
             daemonPingInfoClient);
 
-        var result = await service.Execute(new StatusCommandInput(null, null), CancellationToken.None);
+        var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -263,7 +263,7 @@ public sealed class StatusServiceTests
             daemonStatusOperation,
             daemonPingInfoClient);
 
-        var result = await service.Execute(new StatusCommandInput(null, null), CancellationToken.None);
+        var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<StatusExecutionOutput>(result.Output);
@@ -288,7 +288,7 @@ public sealed class StatusServiceTests
             daemonStatusOperation,
             daemonPingInfoClient);
 
-        var result = await service.Execute(new StatusCommandInput(null, null), CancellationToken.None);
+        var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -350,7 +350,7 @@ public sealed class StatusServiceTests
             this.resolutionResult = resolutionResult;
         }
 
-        public ValueTask<ProjectContextResolutionResult> Resolve (
+        public ValueTask<ProjectContextResolutionResult> ResolveAsync (
             string? projectPath,
             CancellationToken cancellationToken = default)
         {
@@ -389,7 +389,7 @@ public sealed class StatusServiceTests
 
         public int GetStatusCallCount { get; private set; }
 
-        public ValueTask<DaemonStatusResult> GetStatus (
+        public ValueTask<DaemonStatusResult> GetStatusAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
@@ -417,7 +417,7 @@ public sealed class StatusServiceTests
 
         public string? LastSessionToken { get; private set; }
 
-        public ValueTask<IpcPingResponse> PingAndRead (
+        public ValueTask<IpcPingResponse> PingAndReadAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             string? sessionToken = null,

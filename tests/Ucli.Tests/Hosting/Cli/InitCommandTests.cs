@@ -22,7 +22,7 @@ public sealed class InitCommandTests
         var command = new InitCommand(service, CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        await StandardOutputCapture.Execute(() => command.Init(
+        await StandardOutputCapture.ExecuteAsync(() => command.InitAsync(
             force: true,
             cancellationToken: cancellationTokenSource.Token));
 
@@ -39,7 +39,7 @@ public sealed class InitCommandTests
             InitExecutionResult.Failure(ExecutionError.InvalidArgument("template files already exist."))));
         var command = new InitCommand(service, CommandResultTestWriter.Create());
 
-        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Init(
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.InitAsync(
             force: false,
             cancellationToken: CancellationToken.None));
 

@@ -29,7 +29,7 @@ public sealed class RequestStaticValidationServiceTests
         var request = CreateRequest();
         var token = new CancellationTokenSource().Token;
 
-        var result = await service.Validate(request, projectContext, token);
+        var result = await service.ValidateAsync(request, projectContext, token);
 
         Assert.True(result.IsValid);
         Assert.Equal(token, pureValidator.ReceivedToken);
@@ -48,7 +48,7 @@ public sealed class RequestStaticValidationServiceTests
             new ThrowingOperationCatalog(),
             new SpyRequestStaticValidator(ValidationResult.Success()));
 
-        var result = await service.Validate(
+        var result = await service.ValidateAsync(
             CreateRequest(),
             CreateProjectContext(),
             CancellationToken.None);
@@ -69,7 +69,7 @@ public sealed class RequestStaticValidationServiceTests
                 ExecutionError.Timeout("Timed out before operation metadata discovery could begin."))),
             new SpyRequestStaticValidator(ValidationResult.Success()));
 
-        var result = await service.Validate(
+        var result = await service.ValidateAsync(
             CreateRequest(),
             CreateProjectContext(),
             CancellationToken.None);
@@ -98,7 +98,7 @@ public sealed class RequestStaticValidationServiceTests
             ]),
             new SpyRequestStaticValidator(ValidationResult.Failure(error)));
 
-        var result = await service.Validate(
+        var result = await service.ValidateAsync(
             CreateRequest(),
             CreateProjectContext(),
             CancellationToken.None);
@@ -136,19 +136,19 @@ public sealed class RequestStaticValidationServiceTests
             this.operations = operations ?? throw new ArgumentNullException(nameof(operations));
         }
 
-        public ValueTask<UcliOperationDescriptor?> Get (string name, CancellationToken cancellationToken = default)
+        public ValueTask<UcliOperationDescriptor?> GetAsync (string name, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult<UcliOperationDescriptor?>(null);
         }
 
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (CancellationToken cancellationToken = default)
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(operations);
         }
 
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (
             ResolvedUnityProjectContext unityProject,
             UcliConfig config,
             UnityExecutionMode mode = UnityExecutionMode.Auto,
@@ -165,17 +165,17 @@ public sealed class RequestStaticValidationServiceTests
 
     private sealed class ThrowingOperationCatalog : IOperationCatalog
     {
-        public ValueTask<UcliOperationDescriptor?> Get (string name, CancellationToken cancellationToken = default)
+        public ValueTask<UcliOperationDescriptor?> GetAsync (string name, CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
         }
 
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (CancellationToken cancellationToken = default)
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
         }
 
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (
             ResolvedUnityProjectContext unityProject,
             UcliConfig config,
             UnityExecutionMode mode = UnityExecutionMode.Auto,
@@ -197,17 +197,17 @@ public sealed class RequestStaticValidationServiceTests
             this.exception = exception ?? throw new ArgumentNullException(nameof(exception));
         }
 
-        public ValueTask<UcliOperationDescriptor?> Get (string name, CancellationToken cancellationToken = default)
+        public ValueTask<UcliOperationDescriptor?> GetAsync (string name, CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
         }
 
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (CancellationToken cancellationToken = default)
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
         }
 
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (
             ResolvedUnityProjectContext unityProject,
             UcliConfig config,
             UnityExecutionMode mode = UnityExecutionMode.Auto,
@@ -237,7 +237,7 @@ public sealed class RequestStaticValidationServiceTests
 
         public UcliConfig? ReceivedConfig { get; private set; }
 
-        public ValueTask<ValidationResult> Validate (
+        public ValueTask<ValidationResult> ValidateAsync (
             ValidateRequest request,
             RequestStaticValidationCatalog catalog,
             UcliConfig config,

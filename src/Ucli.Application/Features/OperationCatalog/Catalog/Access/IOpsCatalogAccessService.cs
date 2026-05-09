@@ -7,7 +7,7 @@ internal interface IOpsCatalogAccessService
     /// <param name="context"> The preflight-resolved execution context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the list read result. </returns>
-    ValueTask<OpsListReadResult> ReadList (
+    ValueTask<OpsListReadResult> ReadListAsync (
         OpsPreflightContext context,
         CancellationToken cancellationToken = default);
 
@@ -16,7 +16,7 @@ internal interface IOpsCatalogAccessService
     /// <param name="operationName"> The requested operation name. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the describe read result. </returns>
-    ValueTask<OpsDescribeReadResult> ReadDescribe (
+    ValueTask<OpsDescribeReadResult> ReadDescribeAsync (
         OpsPreflightContext context,
         string? operationName,
         CancellationToken cancellationToken = default);

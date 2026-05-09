@@ -16,11 +16,11 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to catalog-read result. </returns>
-    public ValueTask<ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>> ReadOpsCatalog (
+    public ValueTask<ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>> ReadOpsCatalogAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
-        return ReadContract(
+        return ReadContractAsync(
             unityProject,
             UcliStoragePathResolver.ResolveOpsCatalogPath,
             static json => IndexOpsCatalogJsonContractSerializer.Deserialize(json),
@@ -35,7 +35,7 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
     /// <param name="sourceInputsHash"> The expected source-inputs hash from <c>ops.catalog.json</c>. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to describe-artifact read result. </returns>
-    public async ValueTask<ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>> ReadOpsDescribe (
+    public async ValueTask<ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>> ReadOpsDescribeAsync (
         ResolvedUnityProjectContext unityProject,
         IndexOpsCatalogEntryJsonContract catalogEntry,
         string sourceInputsHash,
@@ -167,11 +167,11 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to catalog-read result. </returns>
-    public ValueTask<ReadIndexArtifactReadResult<IndexTypesCatalogJsonContract>> ReadTypesCatalog (
+    public ValueTask<ReadIndexArtifactReadResult<IndexTypesCatalogJsonContract>> ReadTypesCatalogAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
-        return ReadContract(
+        return ReadContractAsync(
             unityProject,
             UcliStoragePathResolver.ResolveTypesCatalogPath,
             static json => IndexTypesCatalogJsonContractSerializer.Deserialize(json),
@@ -184,11 +184,11 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to catalog-read result. </returns>
-    public ValueTask<ReadIndexArtifactReadResult<IndexSchemasCatalogJsonContract>> ReadSchemasCatalog (
+    public ValueTask<ReadIndexArtifactReadResult<IndexSchemasCatalogJsonContract>> ReadSchemasCatalogAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
-        return ReadContract(
+        return ReadContractAsync(
             unityProject,
             UcliStoragePathResolver.ResolveSchemasCatalogPath,
             static json => IndexSchemasCatalogJsonContractSerializer.Deserialize(json),
@@ -201,11 +201,11 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to lookup-read result. </returns>
-    public ValueTask<ReadIndexArtifactReadResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookup (
+    public ValueTask<ReadIndexArtifactReadResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookupAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
-        return ReadContract(
+        return ReadContractAsync(
             unityProject,
             UcliStoragePathResolver.ResolveAssetSearchLookupPath,
             static json => IndexAssetSearchLookupJsonContractSerializer.Deserialize(json),
@@ -218,11 +218,11 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to lookup-read result. </returns>
-    public ValueTask<ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>> ReadGuidPathLookup (
+    public ValueTask<ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>> ReadGuidPathLookupAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
-        return ReadContract(
+        return ReadContractAsync(
             unityProject,
             UcliStoragePathResolver.ResolveGuidPathLookupPath,
             static json => IndexGuidPathLookupJsonContractSerializer.Deserialize(json),
@@ -236,7 +236,7 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
     /// <param name="scenePath"> The project-relative scene path represented by the lookup. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to lookup-read result. </returns>
-    public async ValueTask<ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookup (
+    public async ValueTask<ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookupAsync (
         ResolvedUnityProjectContext unityProject,
         string scenePath,
         CancellationToken cancellationToken = default)
@@ -271,7 +271,7 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
                 ex.Message);
         }
 
-        var result = await ReadContract(
+        var result = await ReadContractAsync(
                 contractPath,
                 static json => IndexSceneTreeLiteLookupJsonContractSerializer.Deserialize(json),
                 static contract => IndexCatalogContractValidator.IsValidSceneTreeLiteLookup(contract),
@@ -298,11 +298,11 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to manifest-read result. </returns>
-    public ValueTask<ReadIndexArtifactReadResult<IndexInputsManifestJsonContract>> ReadInputsManifest (
+    public ValueTask<ReadIndexArtifactReadResult<IndexInputsManifestJsonContract>> ReadInputsManifestAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
-        return ReadContract(
+        return ReadContractAsync(
             unityProject,
             UcliStoragePathResolver.ResolveIndexInputsManifestPath,
             static json => IndexInputsManifestJsonContractSerializer.Deserialize(json),
@@ -311,7 +311,7 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
             cancellationToken);
     }
 
-    private static async ValueTask<ReadIndexArtifactReadResult<TContract>> ReadContract<TContract> (
+    private static async ValueTask<ReadIndexArtifactReadResult<TContract>> ReadContractAsync<TContract> (
         ResolvedUnityProjectContext unityProject,
         Func<string, string, string> pathResolver,
         Func<string, TContract?> deserialize,
@@ -349,7 +349,7 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
                 $"Index path is invalid. {ex.Message}");
         }
 
-        return await ReadContract(
+        return await ReadContractAsync(
                 contractPath,
                 deserialize,
                 validator,
@@ -358,7 +358,7 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
             .ConfigureAwait(false);
     }
 
-    private static async ValueTask<ReadIndexArtifactReadResult<TContract>> ReadContract<TContract> (
+    private static async ValueTask<ReadIndexArtifactReadResult<TContract>> ReadContractAsync<TContract> (
         string contractPath,
         Func<string, TContract?> deserialize,
         Func<TContract, bool> validator,

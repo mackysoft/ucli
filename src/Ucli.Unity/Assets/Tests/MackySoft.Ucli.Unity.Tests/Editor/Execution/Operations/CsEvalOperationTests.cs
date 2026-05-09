@@ -64,7 +64,7 @@ namespace EvalScripts
 }
 ");
 
-            var result = await operation.Plan(request, context, CancellationToken.None);
+            var result = await operation.PlanAsync(request, context, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Applied, Is.False);
@@ -99,7 +99,7 @@ namespace EvalScripts
 }
 ");
 
-            var result = await operation.Plan(request, context, CancellationToken.None);
+            var result = await operation.PlanAsync(request, context, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Result!.Value.GetProperty("sourceKind").GetString(), Is.EqualTo(CsEvalSourceKindValues.CompilationUnit));
@@ -122,9 +122,9 @@ return new { value = 7 };
             using var planContext = new OperationExecutionContext();
             using var callContext = new OperationExecutionContext();
 
-            var firstPlan = await operation.Plan(CreateOperation(source), planContext, CancellationToken.None);
-            var secondPlan = await operation.Plan(CreateOperation(source), planContext, CancellationToken.None);
-            var call = await operation.Call(CreateOperation(source), callContext, CancellationToken.None);
+            var firstPlan = await operation.PlanAsync(CreateOperation(source), planContext, CancellationToken.None);
+            var secondPlan = await operation.PlanAsync(CreateOperation(source), planContext, CancellationToken.None);
+            var call = await operation.CallAsync(CreateOperation(source), callContext, CancellationToken.None);
 
             Assert.That(firstPlan.IsSuccess, Is.True);
             Assert.That(secondPlan.IsSuccess, Is.True);
@@ -178,7 +178,7 @@ context.DeclareNoTouchedResources();
 return new { count = 2 };
 ");
 
-            var result = await operation.Call(request, context, CancellationToken.None);
+            var result = await operation.CallAsync(request, context, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True);
             var payload = result.Result!.Value;
@@ -202,7 +202,7 @@ context.Log(""no return"");
 context.DeclareNoTouchedResources();
 ");
 
-            var result = await operation.Call(request, context, CancellationToken.None);
+            var result = await operation.CallAsync(request, context, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True);
             var payload = result.Result!.Value;
@@ -219,7 +219,7 @@ context.DeclareNoTouchedResources();
             var request = CreateOperation(
                 source: "new { ok = true, label = \"expr\" }");
 
-            var result = await operation.Call(request, context, CancellationToken.None);
+            var result = await operation.CallAsync(request, context, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True);
             var value = result.Result!.Value.GetProperty("returnValue").GetProperty("value");
@@ -241,7 +241,7 @@ context.DeclareNoTouchedResources();
 return new { value = new StringBuilder().Append(""ok"").ToString() };
 ");
 
-            var result = await operation.Call(request, context, CancellationToken.None);
+            var result = await operation.CallAsync(request, context, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True);
             var value = result.Result!.Value.GetProperty("returnValue").GetProperty("value");
@@ -258,7 +258,7 @@ return new { value = new StringBuilder().Append(""ok"").ToString() };
                 source: @"context.Log(""first"");
 return missingSymbol;");
 
-            var result = await operation.Plan(request, context, CancellationToken.None);
+            var result = await operation.PlanAsync(request, context, CancellationToken.None);
 
             AssertInvalidArgument(result);
             var payload = result.Result!.Value;
@@ -289,7 +289,7 @@ namespace EvalScripts
 }
 ");
 
-            var result = await operation.Plan(request, context, CancellationToken.None);
+            var result = await operation.PlanAsync(request, context, CancellationToken.None);
 
             AssertInvalidArgument(result);
             var payload = result.Result!.Value;
@@ -323,7 +323,7 @@ namespace EvalScripts
 }
 ");
 
-            var result = await operation.Call(request, context, CancellationToken.None);
+            var result = await operation.CallAsync(request, context, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Applied, Is.True);
@@ -369,7 +369,7 @@ namespace EvalScripts
 }
 ");
 
-            var result = await operation.Call(request, context, CancellationToken.None);
+            var result = await operation.CallAsync(request, context, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Applied, Is.True);
@@ -407,7 +407,7 @@ namespace EvalScripts
 }
 ");
 
-            var result = await operation.Call(request, context, CancellationToken.None);
+            var result = await operation.CallAsync(request, context, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Applied, Is.True);
@@ -447,7 +447,7 @@ namespace EvalScripts
 }
 ");
 
-            var result = await operation.Call(request, context, CancellationToken.None);
+            var result = await operation.CallAsync(request, context, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Applied, Is.True);
@@ -490,7 +490,7 @@ namespace EvalScripts
 }
 ");
 
-            var result = await operation.Call(request, context, CancellationToken.None);
+            var result = await operation.CallAsync(request, context, CancellationToken.None);
 
             AssertInvalidArgument(result);
             Assert.That(result.Applied, Is.True);
@@ -528,7 +528,7 @@ context.DeclareTouchedAsset(""Assets/Eval.asset"");
 return " + cases[i] + @";
 ");
 
-                var result = await operation.Call(request, context, CancellationToken.None);
+                var result = await operation.CallAsync(request, context, CancellationToken.None);
 
                 AssertInvalidArgument(result, cases[i]);
                 Assert.That(result.Applied, Is.True, cases[i]);
@@ -576,7 +576,7 @@ namespace EvalScripts
 }
 ");
 
-            var result = await operation.Call(request, context, CancellationToken.None);
+            var result = await operation.CallAsync(request, context, CancellationToken.None);
 
             AssertInvalidArgument(result);
             Assert.That(result.Applied, Is.True);
@@ -623,7 +623,7 @@ namespace EvalScripts
 }
 ");
 
-            var result = await operation.Call(request, context, CancellationToken.None);
+            var result = await operation.CallAsync(request, context, CancellationToken.None);
 
             AssertInvalidArgument(result);
             Assert.That(result.Applied, Is.True);
@@ -648,7 +648,7 @@ namespace EvalScripts
             var request = CreateOperation(
                 source: "return new string('x', 9 * 1024 * 1024);");
 
-            var result = await operation.Call(request, context, CancellationToken.None);
+            var result = await operation.CallAsync(request, context, CancellationToken.None);
 
             AssertInvalidArgument(result);
             Assert.That(result.Applied, Is.True);
@@ -665,7 +665,7 @@ namespace EvalScripts
             using var context = new OperationExecutionContext();
             var request = CreateOperation(new string('x', CsEvalSafetyLimits.MaxSourceBytes + 1));
 
-            var result = await operation.Plan(request, context, CancellationToken.None);
+            var result = await operation.PlanAsync(request, context, CancellationToken.None);
 
             AssertInvalidArgument(result);
             var diagnostic = result.Result!.Value.GetProperty("compile").GetProperty("diagnostics")[0];
@@ -686,7 +686,7 @@ for (var i = 0; i < " + (CsEvalSafetyLimits.MaxLogEntries + 1) + @"; i++)
 context.DeclareNoTouchedResources();
 ");
 
-            var result = await operation.Call(request, context, CancellationToken.None);
+            var result = await operation.CallAsync(request, context, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True);
             var logs = result.Result!.Value.GetProperty("logs");
@@ -709,7 +709,7 @@ for (var i = 0; i < " + (CsEvalSafetyLimits.MaxTouchedResources + 1) + @"; i++)
 return null;
 ");
 
-            var result = await operation.Call(request, context, CancellationToken.None);
+            var result = await operation.CallAsync(request, context, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True);
             var payload = result.Result!.Value;
@@ -742,7 +742,7 @@ namespace EvalScripts
 }
 ");
 
-            var result = await operation.Call(request, context, CancellationToken.None);
+            var result = await operation.CallAsync(request, context, CancellationToken.None);
 
             AssertInvalidArgument(result);
             Assert.That(result.Applied, Is.True);
@@ -923,7 +923,7 @@ namespace EvalScripts
             {
                 var testCase = cases[i];
                 using var context = new OperationExecutionContext();
-                var result = await operation.Call(CreateOperation(testCase.Source), context, CancellationToken.None);
+                var result = await operation.CallAsync(CreateOperation(testCase.Source), context, CancellationToken.None);
 
                 AssertInvalidArgument(result, testCase.Name);
                 Assert.That(result.Applied, Is.False, testCase.Name);
@@ -974,7 +974,7 @@ namespace EvalScripts
 }
 ");
 
-            var result = await operation.Call(request, context, CancellationToken.None);
+            var result = await operation.CallAsync(request, context, CancellationToken.None);
 
             AssertInvalidArgument(result);
             Assert.That(result.Applied, Is.False);
@@ -1026,7 +1026,7 @@ namespace EvalScripts
 }
 ");
 
-                var result = await operation.Call(request, context, CancellationToken.None);
+                var result = await operation.CallAsync(request, context, CancellationToken.None);
 
                 AssertInvalidArgument(result, cases[i]);
                 Assert.That(result.Applied, Is.True, cases[i]);
@@ -1065,7 +1065,7 @@ namespace EvalScripts
 }
 ");
 
-            var result = await operation.Call(request, context, CancellationToken.None);
+            var result = await operation.CallAsync(request, context, CancellationToken.None);
 
             AssertInvalidArgument(result);
             var payload = result.Result!.Value;
@@ -1097,7 +1097,7 @@ namespace EvalScripts
 }
 ");
 
-            var result = await operation.Call(request, context, CancellationToken.None);
+            var result = await operation.CallAsync(request, context, CancellationToken.None);
 
             AssertInvalidArgument(result);
             Assert.That(result.Applied, Is.True);

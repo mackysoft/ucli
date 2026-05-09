@@ -23,7 +23,7 @@ internal sealed class SupervisorDiagnosisWriter
     /// <param name="reason"> The diagnosis reason value. </param>
     /// <param name="message"> The diagnosis message body. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
-    public async ValueTask<DaemonDiagnosisStoreOperationResult> WriteUnexpected (
+    public async ValueTask<DaemonDiagnosisStoreOperationResult> WriteUnexpectedAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         string reason,
@@ -42,7 +42,7 @@ internal sealed class SupervisorDiagnosisWriter
             UpdatedAtUtc: DateTimeOffset.UtcNow,
             ProcessId: session.ProcessId,
             SessionIssuedAtUtc: session.IssuedAtUtc);
-        return await daemonDiagnosisStore.Write(
+        return await daemonDiagnosisStore.WriteAsync(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 diagnosis,

@@ -10,7 +10,7 @@ internal interface IStatusDaemonObservationService
     /// <param name="timeout"> The effective timeout used for daemon probing. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the daemon observation result. </returns>
-    ValueTask<StatusDaemonObservationResult> Observe (
+    ValueTask<StatusDaemonObservationResult> ObserveAsync (
         ProjectContext context,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);

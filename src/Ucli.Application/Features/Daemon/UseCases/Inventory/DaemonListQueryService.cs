@@ -73,7 +73,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
     /// <param name="timeout"> The shared daemon-list timeout budget. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-list execution result. </returns>
-    public async ValueTask<DaemonListExecutionResult> GetList (
+    public async ValueTask<DaemonListExecutionResult> GetListAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
@@ -92,7 +92,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             return DaemonListExecutionResult.Failure(gitWorktreeQueryTimeoutError!);
         }
 
-        var gitWorktreeQueryResult = await gitWorktreeQueryService.GetWorktreeInfo(
+        var gitWorktreeQueryResult = await gitWorktreeQueryService.GetWorktreeInfoAsync(
                 unityProject.UnityProjectRoot,
                 gitWorktreeQueryTimeout,
                 cancellationToken)
@@ -112,7 +112,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             cancellationToken.ThrowIfCancellationRequested();
             var worktree = orderedWorktrees[index];
 
-            var observationResult = await TryObserveWorktree(
+            var observationResult = await TryObserveWorktreeAsync(
                     worktree,
                     gitWorktreeQuery.ProjectRelativePath,
                     deadline,
@@ -150,7 +150,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
     /// <param name="deadline"> The shared daemon-list execution deadline. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The observed daemon-list item result. </returns>
-    private async ValueTask<WorktreeObservationResult> TryObserveWorktree (
+    private async ValueTask<WorktreeObservationResult> TryObserveWorktreeAsync (
         GitWorktreeInfo worktree,
         string projectRelativePath,
         ExecutionDeadline deadline,
@@ -184,7 +184,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         DaemonSessionReadResult sessionReadResult;
         try
         {
-            sessionReadResult = await daemonSessionStore.Read(
+            sessionReadResult = await daemonSessionStore.ReadAsync(
                     candidateProject.RepositoryRoot,
                     candidateProject.ProjectFingerprint,
                     sessionReadCancellationScope.Token)
@@ -211,7 +211,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             return WorktreeObservationResult.Success(item: null);
         }
 
-        return await ProbeDaemonSession(
+        return await ProbeDaemonSessionAsync(
                 worktree,
                 candidateProject,
                 sessionReadResult.Session!,
@@ -227,7 +227,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
     /// <param name="deadline"> The shared daemon-list execution deadline. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The observed daemon-list item result. </returns>
-    private async ValueTask<WorktreeObservationResult> ProbeDaemonSession (
+    private async ValueTask<WorktreeObservationResult> ProbeDaemonSessionAsync (
         GitWorktreeInfo worktree,
         ResolvedUnityProjectContext candidateProject,
         DaemonSession session,
@@ -250,7 +250,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
 
         try
         {
-            await daemonPingClient.Ping(
+            await daemonPingClient.PingAsync(
                     candidateProject,
                     probeTimeout,
                     session.SessionToken,
@@ -293,7 +293,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         }
         catch (Exception exception) when (daemonReachabilityClassifier.IsNotRunning(exception))
         {
-            var diagnosis = await ResolveStaleDiagnosis(
+            var diagnosis = await ResolveStaleDiagnosisAsync(
                     candidateProject,
                     session,
                     cancellationToken)
@@ -401,7 +401,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
     /// <param name="session"> The stale daemon session metadata. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon diagnosis payload when available; otherwise <see langword="null" />. </returns>
-    private async ValueTask<DaemonDiagnosisOutput?> ResolveStaleDiagnosis (
+    private async ValueTask<DaemonDiagnosisOutput?> ResolveStaleDiagnosisAsync (
         ResolvedUnityProjectContext candidateProject,
         DaemonSession session,
         CancellationToken cancellationToken)
@@ -410,7 +410,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         ArgumentNullException.ThrowIfNull(candidateProject);
         ArgumentNullException.ThrowIfNull(session);
 
-        var diagnosisReadResult = await daemonDiagnosisStore.Read(
+        var diagnosisReadResult = await daemonDiagnosisStore.ReadAsync(
                 candidateProject.RepositoryRoot,
                 candidateProject.ProjectFingerprint,
                 cancellationToken)
@@ -419,7 +419,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             ? diagnosisReadResult.Diagnosis
             : null;
 
-        var diagnosis = await daemonSessionDiagnosisResolver.ResolveForSession(
+        var diagnosis = await daemonSessionDiagnosisResolver.ResolveForSessionAsync(
                 candidateProject,
                 session,
                 persistedDiagnosis,

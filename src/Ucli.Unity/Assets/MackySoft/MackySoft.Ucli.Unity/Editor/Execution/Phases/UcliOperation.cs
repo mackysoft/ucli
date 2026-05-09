@@ -15,7 +15,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public abstract UcliOperationMetadata Metadata { get; }
 
         /// <inheritdoc />
-        public Task<OperationPhaseStepResult> Validate (
+        public Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
@@ -26,11 +26,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            return Validate(operation, args!, executionContext, cancellationToken);
+            return ValidateAsync(operation, args!, executionContext, cancellationToken);
         }
 
         /// <inheritdoc />
-        public Task<OperationPhaseStepResult> Plan (
+        public Task<OperationPhaseStepResult> PlanAsync (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
@@ -41,11 +41,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            return Plan(operation, args!, executionContext, cancellationToken);
+            return PlanAsync(operation, args!, executionContext, cancellationToken);
         }
 
         /// <inheritdoc />
-        public Task<OperationPhaseStepResult> Call (
+        public Task<OperationPhaseStepResult> CallAsync (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
@@ -56,25 +56,25 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            return Call(operation, args!, executionContext, cancellationToken);
+            return CallAsync(operation, args!, executionContext, cancellationToken);
         }
 
         /// <summary> Executes the validate phase with typed args. </summary>
-        protected abstract Task<OperationPhaseStepResult> Validate (
+        protected abstract Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
             TArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken);
 
         /// <summary> Executes the plan phase with typed args. </summary>
-        protected abstract Task<OperationPhaseStepResult> Plan (
+        protected abstract Task<OperationPhaseStepResult> PlanAsync (
             NormalizedOperation operation,
             TArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken);
 
         /// <summary> Executes the call phase with typed args. </summary>
-        protected abstract Task<OperationPhaseStepResult> Call (
+        protected abstract Task<OperationPhaseStepResult> CallAsync (
             NormalizedOperation operation,
             TArgs args,
             OperationExecutionContext executionContext,

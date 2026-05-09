@@ -13,7 +13,7 @@ internal interface IDaemonTestRunClient
     /// <param name="failFast"> Whether daemon execution should fail immediately instead of waiting for lifecycle readiness. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the Unity test execution result. </returns>
-    ValueTask<UnityTestExecutionResult> Execute (
+    ValueTask<UnityTestExecutionResult> ExecuteAsync (
         ResolvedTestRunConfiguration configuration,
         ArtifactPaths artifactPaths,
         TimeSpan timeout,

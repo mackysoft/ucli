@@ -11,7 +11,7 @@ internal interface ITestRunMetaStore
     /// <param name="finishedAtUtc"> The completion timestamp to persist. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that completes when metadata writing is finished. </returns>
-    ValueTask Write (
+    ValueTask WriteAsync (
         ResolvedTestRunConfiguration configuration,
         ArtifactsSession session,
         DateTimeOffset finishedAtUtc,

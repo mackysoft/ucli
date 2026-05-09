@@ -27,7 +27,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             try
             {
-                DaemonDiagnosisPersistence.Write(
+                DaemonDiagnosisPersistence.WriteAsync(
                         bootstrapArguments,
                         DaemonDiagnosisReasonValues.ListenerTerminated,
                         "listener terminated",

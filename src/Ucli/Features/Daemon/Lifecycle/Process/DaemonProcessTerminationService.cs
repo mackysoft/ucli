@@ -29,7 +29,7 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The process termination result. </returns>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    public async ValueTask<DaemonSessionStoreOperationResult> EnsureStopped (
+    public async ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAsync (
         int? processId,
         DateTimeOffset? expectedIssuedAtUtc,
         TimeSpan timeout,

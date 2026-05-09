@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.UnityIntegration.Indexing.Assets;
 internal interface IAssetLookupSnapshotReader
 {
     /// <summary> Reads one live asset lookup snapshot from Unity. </summary>
-    ValueTask<AssetLookupSnapshotFetchResult> Read (
+    ValueTask<AssetLookupSnapshotFetchResult> ReadAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,

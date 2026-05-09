@@ -32,7 +32,7 @@ public sealed class FileReadIndexArtifactReaderTests
             ]);
         WriteText(UcliStoragePathResolver.ResolveOpsCatalogPath(scope.FullPath, fingerprint), Write(contract));
 
-        var result = await reader.ReadOpsCatalog(project, CancellationToken.None);
+        var result = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
@@ -54,7 +54,7 @@ public sealed class FileReadIndexArtifactReaderTests
         var operation = CreateGoDescribeEntry();
         var catalogEntry = WriteOpsDescribe(scope.FullPath, fingerprint, operation, sourceInputsHash);
 
-        var result = await reader.ReadOpsDescribe(project, catalogEntry, sourceInputsHash, CancellationToken.None);
+        var result = await reader.ReadOpsDescribeAsync(project, catalogEntry, sourceInputsHash, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
@@ -78,7 +78,7 @@ public sealed class FileReadIndexArtifactReaderTests
             new string('a', 64),
             new string('b', 64));
 
-        var result = await reader.ReadOpsDescribe(project, catalogEntry, "source-hash", CancellationToken.None);
+        var result = await reader.ReadOpsDescribeAsync(project, catalogEntry, "source-hash", CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
@@ -98,7 +98,7 @@ public sealed class FileReadIndexArtifactReaderTests
         var catalogEntry = WriteOpsDescribe(scope.FullPath, fingerprint, operation, "source-hash");
         catalogEntry = catalogEntry with { DescribeHash = new string('0', 64) };
 
-        var result = await reader.ReadOpsDescribe(project, catalogEntry, "source-hash", CancellationToken.None);
+        var result = await reader.ReadOpsDescribeAsync(project, catalogEntry, "source-hash", CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
@@ -118,7 +118,7 @@ public sealed class FileReadIndexArtifactReaderTests
         var operation = CreateGoDescribeEntry();
         var catalogEntry = WriteOpsDescribe(scope.FullPath, fingerprint, operation, "other-source-hash");
 
-        var result = await reader.ReadOpsDescribe(project, catalogEntry, "source-hash", CancellationToken.None);
+        var result = await reader.ReadOpsDescribeAsync(project, catalogEntry, "source-hash", CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
@@ -139,7 +139,7 @@ public sealed class FileReadIndexArtifactReaderTests
         var catalogEntry = WriteOpsDescribe(scope.FullPath, fingerprint, operation, "source-hash");
         catalogEntry = catalogEntry with { Name = UcliPrimitiveOperationNames.GoDescribe };
 
-        var result = await reader.ReadOpsDescribe(project, catalogEntry, "source-hash", CancellationToken.None);
+        var result = await reader.ReadOpsDescribeAsync(project, catalogEntry, "source-hash", CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
@@ -178,7 +178,7 @@ public sealed class FileReadIndexArtifactReaderTests
             ]);
         WriteText(UcliStoragePathResolver.ResolveTypesCatalogPath(scope.FullPath, fingerprint), Write(contract));
 
-        var result = await reader.ReadTypesCatalog(project, CancellationToken.None);
+        var result = await reader.ReadTypesCatalogAsync(project, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
@@ -196,7 +196,7 @@ public sealed class FileReadIndexArtifactReaderTests
         var reader = new FileReadIndexArtifactReader();
         var project = CreateProject(scope, "fingerprint");
 
-        var result = await reader.ReadSchemasCatalog(project, CancellationToken.None);
+        var result = await reader.ReadSchemasCatalogAsync(project, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
@@ -214,7 +214,7 @@ public sealed class FileReadIndexArtifactReaderTests
         var catalogPath = UcliStoragePathResolver.ResolveSchemasCatalogPath(scope.FullPath, "fingerprint");
         WriteText(catalogPath, "{");
 
-        var result = await reader.ReadSchemasCatalog(project, CancellationToken.None);
+        var result = await reader.ReadSchemasCatalogAsync(project, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
@@ -250,7 +250,7 @@ public sealed class FileReadIndexArtifactReaderTests
             ]);
         WriteText(UcliStoragePathResolver.ResolveAssetSearchLookupPath(scope.FullPath, fingerprint), Write(contract));
 
-        var result = await reader.ReadAssetSearchLookup(project, CancellationToken.None);
+        var result = await reader.ReadAssetSearchLookupAsync(project, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
@@ -269,7 +269,7 @@ public sealed class FileReadIndexArtifactReaderTests
         var lookupPath = UcliStoragePathResolver.ResolveGuidPathLookupPath(scope.FullPath, "fingerprint");
         WriteText(lookupPath, "{");
 
-        var result = await reader.ReadGuidPathLookup(project, CancellationToken.None);
+        var result = await reader.ReadGuidPathLookupAsync(project, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
@@ -300,7 +300,7 @@ public sealed class FileReadIndexArtifactReaderTests
             ]);
         WriteText(UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(scope.FullPath, fingerprint, scenePath), Write(contract));
 
-        var result = await reader.ReadSceneTreeLiteLookup(project, scenePath, CancellationToken.None);
+        var result = await reader.ReadSceneTreeLiteLookupAsync(project, scenePath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
@@ -333,7 +333,7 @@ public sealed class FileReadIndexArtifactReaderTests
             ]);
         WriteText(UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(scope.FullPath, fingerprint, requestedScenePath), Write(contract));
 
-        var result = await reader.ReadSceneTreeLiteLookup(project, requestedScenePath, CancellationToken.None);
+        var result = await reader.ReadSceneTreeLiteLookupAsync(project, requestedScenePath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
@@ -366,7 +366,7 @@ public sealed class FileReadIndexArtifactReaderTests
             }
             """);
 
-        var result = await reader.ReadInputsManifest(project, CancellationToken.None);
+        var result = await reader.ReadInputsManifestAsync(project, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);

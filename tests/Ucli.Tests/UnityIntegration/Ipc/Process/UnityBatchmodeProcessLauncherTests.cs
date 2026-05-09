@@ -50,7 +50,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
             },
             new StubUnityProjectLockFileProbe());
 
-        var result = await launcher.Launch(
+        var result = await launcher.LaunchAsync(
             new ResolvedUnityProjectContext(
                 UnityProjectRoot: "/tmp/unity-project",
                 RepositoryRoot: "/tmp/repository-root",
@@ -84,7 +84,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
             new StubUnityUcliPluginLocator(),
             new StubUnityProjectLockFileProbe(UnityProjectLockFileProbeResult.Locked("/tmp/unity-project/Temp/UnityLockfile")));
 
-        var result = await launcher.Launch(
+        var result = await launcher.LaunchAsync(
             new ResolvedUnityProjectContext(
                 UnityProjectRoot: "/tmp/unity-project",
                 RepositoryRoot: "/tmp/repository-root",
@@ -125,7 +125,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
             new StubUnityUcliPluginLocator(),
             lockFileProbe);
 
-        var result = await launcher.Launch(
+        var result = await launcher.LaunchAsync(
             new ResolvedUnityProjectContext(
                 UnityProjectRoot: "/tmp/unity-project",
                 RepositoryRoot: "/tmp/repository-root",
@@ -169,7 +169,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
-            _ = await launcher.Launch(
+            _ = await launcher.LaunchAsync(
                 new ResolvedUnityProjectContext(
                     UnityProjectRoot: "/tmp/unity-project",
                     RepositoryRoot: "/tmp/repository-root",
@@ -238,7 +238,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
 
         public Action? OnLocate { get; set; }
 
-        public ValueTask<UnityUcliPluginLocateResult> Locate (
+        public ValueTask<UnityUcliPluginLocateResult> LocateAsync (
             string unityProjectRoot,
             CancellationToken cancellationToken = default)
         {

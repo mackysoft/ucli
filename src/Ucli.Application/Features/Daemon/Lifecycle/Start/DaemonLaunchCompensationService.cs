@@ -32,7 +32,7 @@ internal sealed class DaemonLaunchCompensationService : IDaemonLaunchCompensatio
     /// <returns> The compensation result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    public async ValueTask<DaemonSessionStoreOperationResult> CleanupFailedLaunch (
+    public async ValueTask<DaemonSessionStoreOperationResult> CleanupFailedLaunchAsync (
         ResolvedUnityProjectContext unityProject,
         int? processId,
         DateTimeOffset? expectedIssuedAtUtc,
@@ -47,7 +47,7 @@ internal sealed class DaemonLaunchCompensationService : IDaemonLaunchCompensatio
             ? DaemonTimeouts.LaunchCompensationTimeout
             : timeout;
 
-        var stopResult = await processTerminationService.EnsureStopped(
+        var stopResult = await processTerminationService.EnsureStoppedAsync(
                 processId,
                 expectedIssuedAtUtc,
                 compensationTimeout,
@@ -58,6 +58,6 @@ internal sealed class DaemonLaunchCompensationService : IDaemonLaunchCompensatio
             return stopResult;
         }
 
-        return await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
+        return await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
     }
 }

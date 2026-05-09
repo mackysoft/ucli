@@ -17,7 +17,7 @@ internal sealed class OperationCatalogDiscoveryService : IOperationCatalogDiscov
     }
 
     /// <inheritdoc />
-    public async ValueTask<IReadOnlyList<UcliOperationDescriptor>> Discover (
+    public async ValueTask<IReadOnlyList<UcliOperationDescriptor>> DiscoverAsync (
         ResolvedUnityProjectContext unityProject,
         UcliConfig config,
         UnityExecutionMode mode = UnityExecutionMode.Auto,
@@ -49,7 +49,7 @@ internal sealed class OperationCatalogDiscoveryService : IOperationCatalogDiscov
         var resolvedTimeout = effectiveTimeout
             ?? throw new InvalidOperationException("Operation catalog timeout must be resolved before discovery begins.");
 
-        var catalogResult = await opsCatalogReader.Read(
+        var catalogResult = await opsCatalogReader.ReadAsync(
                 unityProject,
                 config,
                 mode,

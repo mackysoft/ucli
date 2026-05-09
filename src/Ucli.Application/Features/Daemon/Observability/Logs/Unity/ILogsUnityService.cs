@@ -11,7 +11,7 @@ internal interface ILogsUnityService
     /// <param name="onEvent"> The event callback invoked for each emitted event. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Unity-log service execution result. </returns>
-    ValueTask<LogsDaemonServiceResult> Execute (
+    ValueTask<LogsDaemonServiceResult> ExecuteAsync (
         LogsUnityServiceRequest request,
         Func<IpcUnityLogEvent, string, CancellationToken, ValueTask> onEvent,
         CancellationToken cancellationToken = default);

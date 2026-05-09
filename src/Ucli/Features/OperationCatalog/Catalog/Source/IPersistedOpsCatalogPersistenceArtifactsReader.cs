@@ -9,7 +9,7 @@ internal interface IPersistedOpsCatalogPersistenceArtifactsReader
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The persisted artifact state used to persist refreshed ops catalogs. </returns>
-    ValueTask<PersistedOpsCatalogPersistenceArtifacts> Read (
+    ValueTask<PersistedOpsCatalogPersistenceArtifacts> ReadAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default);
 }

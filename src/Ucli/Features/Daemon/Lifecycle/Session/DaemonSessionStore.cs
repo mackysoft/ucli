@@ -38,7 +38,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon session read result. </returns>
-    public async ValueTask<DaemonSessionReadResult> Read (
+    public async ValueTask<DaemonSessionReadResult> ReadAsync (
         string storageRoot,
         string projectFingerprint,
         CancellationToken cancellationToken = default)
@@ -60,7 +60,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
         string? json;
         try
         {
-            json = await FileUtilities.ReadAllTextOrNull(sessionPath, cancellationToken).ConfigureAwait(false);
+            json = await FileUtilities.ReadAllTextOrNullAsync(sessionPath, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
@@ -128,7 +128,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
     /// <param name="session"> The daemon session metadata to persist. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon session storage operation result. </returns>
-    public async ValueTask<DaemonSessionStoreOperationResult> Write (
+    public async ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
         string storageRoot,
         DaemonSession session,
         CancellationToken cancellationToken = default)
@@ -168,7 +168,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
             var sessionDirectoryPath = Path.GetDirectoryName(sessionPath)
                 ?? throw new InvalidOperationException($"Daemon session directory path could not be resolved: {sessionPath}");
             FileSystemAccessBoundary.EnsureSecureDirectory(sessionDirectoryPath);
-            await FileUtilities.WriteAllTextAtomically(sessionPath, json, cancellationToken).ConfigureAwait(false);
+            await FileUtilities.WriteAllTextAtomicallyAsync(sessionPath, json, cancellationToken).ConfigureAwait(false);
             FileSystemAccessBoundary.EnsureSecureFile(sessionPath);
             return DaemonSessionStoreOperationResult.Success();
         }
@@ -189,7 +189,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon session storage operation result. </returns>
-    public async ValueTask<DaemonSessionStoreOperationResult> Delete (
+    public async ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
         string storageRoot,
         string projectFingerprint,
         CancellationToken cancellationToken = default)

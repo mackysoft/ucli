@@ -23,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var coordinator = new ExecuteRequestIdempotencyCoordinator();
             var executeCount = 0;
             var requestId = "req-1";
-            var firstResponse = await coordinator.Execute(
+            var firstResponse = await coordinator.ExecuteAsync(
                 requestId: requestId,
                 requestFingerprint: "fingerprint-1",
                 executeRequest: _ =>
@@ -33,7 +33,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 createConflictResponse: () => CreateConflictResponse(requestId));
 
-            var secondResponse = await coordinator.Execute(
+            var secondResponse = await coordinator.ExecuteAsync(
                 requestId: requestId,
                 requestFingerprint: "fingerprint-1",
                 executeRequest: _ =>
@@ -57,7 +57,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var executeCount = 0;
             var conflictCount = 0;
             var requestId = "req-1";
-            _ = await coordinator.Execute(
+            _ = await coordinator.ExecuteAsync(
                 requestId: requestId,
                 requestFingerprint: "fingerprint-1",
                 executeRequest: _ =>
@@ -71,7 +71,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     return CreateConflictResponse(requestId);
                 });
 
-            var conflictResponse = await coordinator.Execute(
+            var conflictResponse = await coordinator.ExecuteAsync(
                 requestId: requestId,
                 requestFingerprint: "fingerprint-2",
                 executeRequest: _ =>
@@ -103,7 +103,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var ownerStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var ownerRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-            var ownerTask = coordinator.Execute(
+            var ownerTask = coordinator.ExecuteAsync(
                 requestId: requestId,
                 requestFingerprint: "fingerprint-1",
                 executeRequest: async _ =>
@@ -117,7 +117,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             await TestAwaiter.WaitAsync(ownerStarted.Task, "Owner request start", SignalWaitTimeout);
 
-            var waiterTask = coordinator.Execute(
+            var waiterTask = coordinator.ExecuteAsync(
                 requestId: requestId,
                 requestFingerprint: "fingerprint-1",
                 executeRequest: _ =>
@@ -157,7 +157,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var ownerStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var ownerRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-            var ownerTask = coordinator.Execute(
+            var ownerTask = coordinator.ExecuteAsync(
                 requestId: requestId,
                 requestFingerprint: "fingerprint-1",
                 executeRequest: async _ =>
@@ -172,7 +172,7 @@ namespace MackySoft.Ucli.Unity.Tests
             await TestAwaiter.WaitAsync(ownerStarted.Task, "Owner request start", SignalWaitTimeout);
 
             using var waiterCancellationTokenSource = new CancellationTokenSource();
-            var waiterTask = coordinator.Execute(
+            var waiterTask = coordinator.ExecuteAsync(
                 requestId: requestId,
                 requestFingerprint: "fingerprint-1",
                 executeRequest: _ =>
@@ -221,7 +221,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var ownerRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var conflictExecutionCount = 0;
 
-            var ownerTask = coordinator.Execute(
+            var ownerTask = coordinator.ExecuteAsync(
                 requestId: requestId,
                 requestFingerprint: "fingerprint-1",
                 executeRequest: async _ =>
@@ -233,7 +233,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 createConflictResponse: () => CreateConflictResponse(requestId));
             await TestAwaiter.WaitAsync(ownerStarted.Task, "Owner request start", SignalWaitTimeout);
 
-            var conflictResponse = await coordinator.Execute(
+            var conflictResponse = await coordinator.ExecuteAsync(
                 requestId: requestId,
                 requestFingerprint: "fingerprint-2",
                 executeRequest: _ =>
@@ -270,7 +270,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var executeCount = 0;
             var requestId = "req-1";
 
-            var firstResponse = await coordinator.Execute(
+            var firstResponse = await coordinator.ExecuteAsync(
                 requestId: requestId,
                 requestFingerprint: "fingerprint-1",
                 executeRequest: _ =>
@@ -281,7 +281,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 createConflictResponse: () => CreateConflictResponse(requestId));
 
             nowUtc = nowUtc.AddHours(25);
-            var secondResponse = await coordinator.Execute(
+            var secondResponse = await coordinator.ExecuteAsync(
                 requestId: requestId,
                 requestFingerprint: "fingerprint-1",
                 executeRequest: _ =>
@@ -307,26 +307,26 @@ namespace MackySoft.Ucli.Unity.Tests
                 utcNowProvider: () => nowUtc);
             var executeCount = 0;
 
-            await Execute("req-1", "fingerprint-1", "first-1");
+            await ExecuteAsync("req-1", "fingerprint-1", "first-1");
             nowUtc = nowUtc.AddMinutes(1);
-            await Execute("req-2", "fingerprint-2", "second-1");
+            await ExecuteAsync("req-2", "fingerprint-2", "second-1");
             nowUtc = nowUtc.AddMinutes(1);
-            await Execute("req-3", "fingerprint-3", "third-1");
+            await ExecuteAsync("req-3", "fingerprint-3", "third-1");
 
             // req-1 should be evicted because max entries is 2.
             nowUtc = nowUtc.AddMinutes(1);
-            var req1ResponseAfterEviction = await Execute("req-1", "fingerprint-1", "first-2");
+            var req1ResponseAfterEviction = await ExecuteAsync("req-1", "fingerprint-1", "first-2");
 
             // req-2 should still be cached.
-            var req2ResponseFromCache = await Execute("req-2", "fingerprint-2", "second-2");
+            var req2ResponseFromCache = await ExecuteAsync("req-2", "fingerprint-2", "second-2");
 
             Assert.That(executeCount, Is.EqualTo(5));
             Assert.That(GetMarker(req1ResponseAfterEviction), Is.EqualTo("first-2"));
             Assert.That(GetMarker(req2ResponseFromCache), Is.EqualTo("second-2"));
 
-            async Task<IpcResponse> Execute (string requestId, string requestFingerprint, string marker)
+            async Task<IpcResponse> ExecuteAsync (string requestId, string requestFingerprint, string marker)
             {
-                return await coordinator.Execute(
+                return await coordinator.ExecuteAsync(
                     requestId: requestId,
                     requestFingerprint: requestFingerprint,
                     executeRequest: _ =>
