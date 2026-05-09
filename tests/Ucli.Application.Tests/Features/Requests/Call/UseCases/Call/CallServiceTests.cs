@@ -355,7 +355,7 @@ public sealed class CallServiceTests
         Assert.Empty(result.Output.OpResults);
         Assert.Equal(0, ipcRequestExecutor.CallCount);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(ValidationErrorCodes.OperationNotAllowed, error.Code);
+        Assert.Equal(OperationAuthorizationErrorCodes.OperationNotAllowed, error.Code);
         Assert.Equal("step-1", error.OpId);
     }
 
@@ -390,7 +390,7 @@ public sealed class CallServiceTests
         Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         Assert.Equal(0, ipcRequestExecutor.CallCount);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(ValidationErrorCodes.OperationNotAllowed, error.Code);
+        Assert.Equal(OperationAuthorizationErrorCodes.OperationNotAllowed, error.Code);
         Assert.Equal("edit-1", error.OpId);
     }
 

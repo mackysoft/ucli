@@ -25,7 +25,7 @@ internal sealed class OperationAuthorizationService : IOperationAuthorizationSer
         if (!IsPolicyAllowed(operation.Policy, config.OperationPolicy))
         {
             return ValueTask.FromResult(OperationAuthorizationResult.Denied(
-                ValidationErrorCodes.OperationNotAllowed,
+                OperationAuthorizationErrorCodes.OperationNotAllowed,
                 $"Operation '{operation.Name}' is blocked by operationPolicy='{config.OperationPolicy}'."));
         }
 
@@ -35,12 +35,12 @@ internal sealed class OperationAuthorizationService : IOperationAuthorizationSer
             if (allowlistResult.InvalidPattern is not null)
             {
                 return ValueTask.FromResult(OperationAuthorizationResult.Denied(
-                    ValidationErrorCodes.OperationNotAllowed,
+                    OperationAuthorizationErrorCodes.OperationNotAllowed,
                     $"Operation allowlist contains invalid regex pattern: {allowlistResult.InvalidPattern}."));
             }
 
             return ValueTask.FromResult(OperationAuthorizationResult.Denied(
-                ValidationErrorCodes.OperationNotAllowed,
+                OperationAuthorizationErrorCodes.OperationNotAllowed,
                 $"Operation '{operation.Name}' does not match operationAllowlist."));
         }
 

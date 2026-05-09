@@ -1,13 +1,8 @@
-using System.Reflection;
-
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
 /// <summary> Defines machine-readable validation error codes for static request validation. </summary>
 internal static class ValidationErrorCodes
 {
-    /// <summary> Gets the error code used when protocolVersion differs from supported value. </summary>
-    public static readonly UcliErrorCode ProtocolVersionMismatch = new UcliErrorCode("PROTOCOL_VERSION_MISMATCH");
-
     /// <summary> Gets the error code used when requestId is not a valid UUID. </summary>
     public static readonly UcliErrorCode RequestIdInvalid = new UcliErrorCode("REQUEST_ID_INVALID");
 
@@ -32,9 +27,6 @@ internal static class ValidationErrorCodes
     /// <summary> Gets the error code used when op name is not registered. </summary>
     public static readonly UcliErrorCode OperationNotFound = new UcliErrorCode("OPERATION_NOT_FOUND");
 
-    /// <summary> Gets the error code used when operation is blocked by authorization rules. </summary>
-    public static readonly UcliErrorCode OperationNotAllowed = new UcliErrorCode("OPERATION_NOT_ALLOWED");
-
     /// <summary> Gets the error code used when an op step args object violates the registered schema. </summary>
     public static readonly UcliErrorCode OperationArgsInvalid = new UcliErrorCode("OPERATION_ARGS_INVALID");
 
@@ -42,6 +34,9 @@ internal static class ValidationErrorCodes
     public static readonly UcliErrorCode EditStepInvalid = new UcliErrorCode("EDIT_STEP_INVALID");
 
     private static readonly IReadOnlySet<UcliErrorCode> AllCodes = CreateAllCodes();
+
+    /// <summary> Gets the error codes owned by static request validation. </summary>
+    public static IReadOnlyCollection<UcliErrorCode> All => AllCodes;
 
     /// <summary> Returns whether the specified code belongs to static request validation. </summary>
     public static bool Contains (UcliErrorCode code)
@@ -51,17 +46,18 @@ internal static class ValidationErrorCodes
 
     private static IReadOnlySet<UcliErrorCode> CreateAllCodes ()
     {
-        var fields = typeof(ValidationErrorCodes).GetFields(BindingFlags.Public | BindingFlags.Static);
-        var codes = new HashSet<UcliErrorCode>();
-        for (var i = 0; i < fields.Length; i++)
+        return new HashSet<UcliErrorCode>
         {
-            var field = fields[i];
-            if (field is { IsInitOnly: true, FieldType: var fieldType } && fieldType == typeof(UcliErrorCode))
-            {
-                codes.Add((UcliErrorCode)field.GetValue(null)!);
-            }
-        }
-
-        return codes;
+            RequestIdInvalid,
+            StepsRequired,
+            StepIdRequired,
+            StepIdDuplicated,
+            StepKindRequired,
+            StepKindInvalid,
+            OperationNameRequired,
+            OperationNotFound,
+            OperationArgsInvalid,
+            EditStepInvalid,
+        };
     }
 }

@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
-
 namespace MackySoft.Ucli.Application.Shared.Execution;
 
 /// <summary> Resolves application outcomes from machine-readable failure codes. </summary>
@@ -67,14 +65,6 @@ internal static class ApplicationFailureOutcomeResolver
     /// <returns> <see langword="true" /> when the code maps to <see cref="ApplicationOutcome.InvalidArgument" />; otherwise <see langword="false" />. </returns>
     public static bool IsInvalidArgumentCode (UcliErrorCode errorCode)
     {
-        return errorCode == UcliCoreErrorCodes.InvalidArgument
-            || errorCode == PlanTokenErrorCodes.PlanTokenRequired
-            || errorCode == PlanTokenErrorCodes.PlanTokenInvalid
-            || errorCode == PlanTokenErrorCodes.PlanTokenExpired
-            || errorCode == PlanTokenErrorCodes.PlanTokenRequestMismatch
-            || errorCode == PlanTokenErrorCodes.StateChangedSincePlan
-            || ValidationErrorCodes.Contains(errorCode)
-            || ProjectContextErrorCodes.Contains(errorCode);
+        return InvalidArgumentErrorCodeSet.Contains(errorCode);
     }
-
 }

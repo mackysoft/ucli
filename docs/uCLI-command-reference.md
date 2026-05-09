@@ -86,6 +86,139 @@
   - `--readIndexMode` は受け付けない。
   - 成功時 payload は `requestId`、`opResults`、必要時のみ `plan` を返す。
 
+## 将来コマンド: `ucli errors`
+`ucli errors` は、`errors[].code` を agent が安全な次行動へ接続するための機械可読な error code 台帳を返す。これはエラー文のヘルプ表示ではなく、`errors[].message` に分岐ロジックを埋め込まないための制御契約である。
+
+`ucli errors` は P0 では error code だけを扱う。将来、Assurance report の `reasonCodes`、`riskCodes`、`claimCodes` を同じ枠で扱う段階では、`ucli codes` への一般化を検討する。
+
+### `errors list`
+既知 error code の一覧を返す。
+
+| Option | Short | Description |
+| --- | --- | --- |
+| `--category <string?>` | - | category の exact match filter |
+| `--command <string?>` | - | `appliesTo` に含まれる command の exact match filter |
+
+成功時 payload は `catalogVersion`、`source`、`codes[]` を返す。`codes[]` の各要素は `code`、`category`、`summary`、`defaultRetryClass`、`appliesTo` を持つ。出力順は `code` の ordinal 昇順とする。該当 code がない場合も成功し、`payload.codes: []` を返す。
+
+```bash
+ucli errors list
+ucli errors list --category lifecycle
+ucli errors list --command call
+```
+
+```json
+{
+  "protocolVersion": 1,
+  "command": "errors.list",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "Error code catalog returned.",
+  "payload": {
+    "catalogVersion": 1,
+    "source": "bundled",
+    "codes": [
+      {
+        "code": "EDITOR_COMPILING",
+        "category": "lifecycle",
+        "summary": "Unity Editor is compiling and cannot accept execution requests.",
+        "defaultRetryClass": "waitThenRetry",
+        "appliesTo": ["plan", "call", "resolve", "query"]
+      }
+    ]
+  },
+  "errors": []
+}
+```
+
+### `errors describe`
+指定した error code の静的な意味と確認対象を返す。
+
+| Argument / Option | Short | Description |
+| --- | --- | --- |
+| `<CODE>` | - | 説明対象の error code |
+| `--requireKnown` | - | 未知 code を `INVALID_ARGUMENT` として失敗させる |
+
+既定では未知 code も成功し、`payload.known=false` を返す。これは `errors[].code` が open code set であるためである。
+
+```bash
+ucli errors describe IPC_TIMEOUT
+ucli errors describe SOME_FUTURE_CODE
+ucli errors describe SOME_FUTURE_CODE --requireKnown
+```
+
+```json
+{
+  "protocolVersion": 1,
+  "command": "errors.describe",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "Error code description returned.",
+  "payload": {
+    "code": "IPC_TIMEOUT",
+    "known": true,
+    "category": "transport",
+    "summary": "The command timeout budget was exhausted.",
+    "meaning": "The CLI did not receive a completed response before the timeout budget expired.",
+    "appliesTo": ["daemon.start", "plan", "call", "resolve", "query", "refresh", "test.run"],
+    "possiblePhases": ["readinessWait", "ipcDispatch", "unityExecution"],
+    "executionSemantics": {
+      "impliesNotApplied": false,
+      "mayBeIndeterminate": true,
+      "safeToRetry": "contextDependent"
+    },
+    "inspect": [
+      "status",
+      "payload.opResults",
+      "payload.opResults[].applied",
+      "payload.opResults[].changed",
+      "payload.opResults[].touched",
+      "payload.readPostcondition",
+      "ucli logs daemon read --level error",
+      "ucli logs unity read --level error"
+    ],
+    "nextActions": [
+      {
+        "when": "executionState is indeterminate or payload evidence is incomplete",
+        "action": "Do not blindly retry. Inspect returned operation evidence and logs first."
+      }
+    ],
+    "relatedCodes": ["EDITOR_COMPILING", "EDITOR_DOMAIN_RELOADING", "EDITOR_BUSY"]
+  },
+  "errors": []
+}
+```
+
+未知 code の成功レスポンスは次の意味を持つ。
+
+```json
+{
+  "code": "SOME_FUTURE_CODE",
+  "known": false,
+  "category": "unknown",
+  "summary": "This code is not known to this uCLI client.",
+  "executionSemantics": {
+    "impliesNotApplied": null,
+    "mayBeIndeterminate": true,
+    "safeToRetry": "unknown"
+  },
+  "nextActions": [
+    {
+      "action": "Treat as generic failure. Inspect the full result and update uCLI if this code came from a newer server."
+    }
+  ]
+}
+```
+
+### `errors explain`
+`ucli errors explain --from <file>` は P1 の将来仕様とする。これは台帳の静的説明ではなく、実際の失敗 JSON を読んで `errors[].code`、`payload.opResults`、`payload.readPostcondition`、診断情報から次に確認すべき対象を返す。
+
+```bash
+ucli call < request.json > result.json
+ucli errors explain --from result.json
+ucli errors explain < result.json
+```
+
 ## 実行系コマンド共通規則
 
 ### 出力契約の参照先

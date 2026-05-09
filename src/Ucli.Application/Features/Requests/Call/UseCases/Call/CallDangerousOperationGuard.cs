@@ -40,7 +40,7 @@ internal sealed class CallDangerousOperationGuard : ICallDangerousOperationGuard
                     if (TryFindDangerousOperation(operationName, preparedRequest.OperationsByName, out var operationDescriptor))
                     {
                         return new ValidationError(
-                            ValidationErrorCodes.OperationNotAllowed,
+                            OperationAuthorizationErrorCodes.OperationNotAllowed,
                             $"Step '{step.StepId ?? string.Empty}' requires dangerous operation '{operationDescriptor!.Name}'. Specify --allowDangerous to execute dangerous operations.",
                             step.StepId);
                     }
@@ -68,7 +68,7 @@ internal sealed class CallDangerousOperationGuard : ICallDangerousOperationGuard
                         }
 
                         return new ValidationError(
-                            ValidationErrorCodes.OperationNotAllowed,
+                            OperationAuthorizationErrorCodes.OperationNotAllowed,
                             $"Edit step '{step.StepId ?? string.Empty}' requires dangerous operation '{operationDescriptor!.Name}'. Specify --allowDangerous to execute dangerous operations.",
                             step.StepId);
                     }

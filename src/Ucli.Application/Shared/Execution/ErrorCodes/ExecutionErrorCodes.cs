@@ -7,5 +7,5 @@ internal static class ExecutionErrorCodes
     public static readonly UcliErrorCode Canceled = new UcliErrorCode("CANCELED");
 
     /// <summary> Gets the error code used when IPC execution exceeds configured timeout. </summary>
-    public static readonly UcliErrorCode IpcTimeout = new UcliErrorCode("IPC_TIMEOUT");
+    public static readonly UcliErrorCode IpcTimeout = IpcTransportErrorCodes.IpcTimeout;
 }
