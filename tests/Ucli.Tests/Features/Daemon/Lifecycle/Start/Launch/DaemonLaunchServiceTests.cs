@@ -144,7 +144,7 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(DaemonDiagnosisStartupPhaseValues.EndpointRegistration, diagnosisStore.LastDiagnosis.StartupPhase);
         Assert.Equal(DaemonDiagnosisActionRequiredValues.InspectUnityLog, diagnosisStore.LastDiagnosis.ActionRequired);
         Assert.Equal(
-            Path.GetFullPath(Path.Combine("/tmp/unity-project", "Library", "EditorInstance.json")),
+            Path.Combine("/tmp/unity-project", "Library", "EditorInstance.json"),
             diagnosisStore.LastDiagnosis.EditorInstancePath);
         Assert.Equal(1, compensationService.CallCount);
         Assert.Equal(5432, compensationService.LastProcessId);
