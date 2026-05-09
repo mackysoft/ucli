@@ -82,7 +82,7 @@ public sealed class RegexPatternUtilitiesTests
     {
         Assert.Throws<ArgumentNullException>(() =>
         {
-            _ = RegexPatternUtilities.TryIsMatch(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, null!, out _);
+            _ = RegexPatternUtilities.TryIsMatch(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, (string)null!, out _);
         });
     }
 }

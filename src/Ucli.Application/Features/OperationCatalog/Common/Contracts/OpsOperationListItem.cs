@@ -4,7 +4,9 @@ namespace MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
 /// <param name="Name"> The operation name. </param>
 /// <param name="Kind"> The operation kind literal. </param>
 /// <param name="Policy"> The operation policy literal. </param>
+/// <param name="Description"> The operation purpose description. </param>
 internal sealed record OpsOperationListItem (
     string Name,
     string Kind,
-    string Policy);
+    string Policy,
+    string Description);

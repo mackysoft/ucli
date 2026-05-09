@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
+using MackySoft.Ucli.Contracts.Configuration;
 
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
 
@@ -16,21 +17,25 @@ internal sealed class OpsListResultMapper : IOpsListResultMapper
     }
 
     /// <inheritdoc />
-    public OpsListServiceResult Map (OpsCatalogReadOutput output)
+    public OpsListServiceResult Map (
+        OpsListReadOutput output,
+        IReadOnlyList<OpsCatalogListEntry> operations)
     {
         ArgumentNullException.ThrowIfNull(output);
+        ArgumentNullException.ThrowIfNull(operations);
 
-        var operations = output.Snapshot.Operations
+        var outputOperations = operations
             .OrderBy(static operation => operation.Name, StringComparer.Ordinal)
             .Select(static operation => new OpsOperationListItem(
-                Name: operation.Name!,
-                Kind: operation.Kind!,
-                Policy: operation.Policy!))
+                Name: operation.Name,
+                Kind: UcliOperationKindCodec.ToValue(operation.Kind),
+                Policy: OperationPolicyCodec.ToValue(operation.Policy),
+                Description: operation.Description))
             .ToArray();
 
         return OpsListServiceResult.Success(
             new OpsListExecutionOutput(
-                Operations: operations,
+                Operations: outputOperations,
                 ReadIndex: readIndexInfoMapper.Map(output.AccessInfo)),
             "uCLI ops list completed.");
     }

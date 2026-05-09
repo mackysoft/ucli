@@ -312,12 +312,32 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 | `opResults` | array | yes | `ucli.resolve` の `plan` 結果。成功時は単一要素 |
 | `readIndex` | object | yes | 最終結果の観測元。shape は `payload.readIndex` を参照 |
 
+### `ucli ops list`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `operations` | array | yes | 利用可能な operation の一覧。絞り込み条件に該当しない場合は空配列 |
+| `readIndex` | object | yes | catalog / detail の観測元。shape は `payload.readIndex` を参照 |
+
+#### `ucli ops list payload.operations[]`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | string | yes | operation 名 |
+| `kind` | string | yes | `query`、`command`、または `mutation` |
+| `policy` | string | yes | `safe`、`advanced`、または `dangerous` |
+| `description` | string | yes | operation の目的、使いどころ、注意点 |
+
+`ucli ops list` は一覧と絞り込みに必要な `name` / `kind` / `policy` と、operation 選択に必要な短い `description` を返す。`inputs`、`resultContract`、`assurance`、`argsSchema`、`resultSchema` は含めない。operation の詳細契約は `ucli ops describe <opName>` を参照する。
+
 ### `ucli ops describe`
 
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
 | `operation` | object | yes | 対象 operation の詳細 |
-| `readIndex` | object | yes | catalog の観測元。shape は `payload.readIndex` を参照 |
+| `readIndex` | object | yes | catalog / detail の観測元。shape は `payload.readIndex` を参照 |
+
+`ucli ops describe` は指定した単一 operation の detail を返す。readIndex の永続化形式が list descriptor と describe detail に分かれていても、公開 payload の shape は変えない。
 
 #### `ucli ops describe payload.operation`
 

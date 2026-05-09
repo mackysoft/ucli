@@ -4,9 +4,9 @@ namespace MackySoft.Ucli.Contracts.Index;
 /// <param name="SchemaVersion"> The schema-version value. </param>
 /// <param name="GeneratedAtUtc"> The generated-at timestamp. </param>
 /// <param name="SourceInputsHash"> The source-inputs hash value. </param>
-/// <param name="Entries"> The operation entries. </param>
+/// <param name="Entries"> The lightweight operation descriptor entries. </param>
 internal sealed record IndexOpsCatalogJsonContract (
     int SchemaVersion,
     DateTimeOffset GeneratedAtUtc,
     string? SourceInputsHash,
-    IReadOnlyList<IndexOpEntryJsonContract>? Entries);
+    IReadOnlyList<IndexOpsCatalogEntryJsonContract>? Entries);

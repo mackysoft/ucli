@@ -38,6 +38,7 @@ internal static class SharedServiceCollectionExtensions
         services.AddSingleton<IGitWorktreeListPorcelainParser, GitWorktreeListPorcelainParser>();
         services.AddSingleton<IGitWorktreeQueryService, GitWorktreeQueryService>();
         services.AddSingleton<IJsonContractWriter<IndexOpsCatalogJsonContract>, IndexOpsCatalogJsonContractWriter>();
+        services.AddSingleton<IJsonContractWriter<IndexOpsDescribeJsonContract>, IndexOpsDescribeJsonContractWriter>();
         services.AddSingleton<IJsonContractWriter<IndexTypesCatalogJsonContract>, IndexTypesCatalogJsonContractWriter>();
         services.AddSingleton<IJsonContractWriter<IndexSchemasCatalogJsonContract>, IndexSchemasCatalogJsonContractWriter>();
         services.AddSingleton<IJsonContractWriter<IndexInputsManifestJsonContract>, IndexInputsManifestJsonContractWriter>();
