@@ -3,7 +3,7 @@
 > 全体契約は [uCLI.md](uCLI.md)、JSON プロパティ定義は [uCLI-property-reference.md](uCLI-property-reference.md)、JSON リクエスト入力契約は [json-request-spec.md](json-request-spec.md) を参照する。
 > 実装登録の正本は `UcliCommandCatalog` と help output であり、この文書は利用者向けの一覧、option、エラー契約、実行例を説明する。
 >
-> 現在の公開 CLI host が登録している top-level command は `init`、`status`、`refresh`、`resolve`、`query`、`validate`、`plan`、`call`、`daemon`、`logs`、`ops`、`skills`、`test` である。
+> 現在の公開 CLI host が登録している top-level command は `init`、`status`、`refresh`、`resolve`、`query`、`validate`、`plan`、`call`、`daemon`、`logs`、`ops`、`errors`、`skills`、`test` である。
 
 ## コマンド概要
 
@@ -17,6 +17,7 @@
 | `ucli plan` | JSON リクエストの plan フェーズを実行する | static preflight 後に Unity IPC `plan` を実行する |
 | `ucli call` | JSON リクエストの call フェーズを実行する | static preflight 後に Unity IPC `call` を実行する |
 | `ucli ops` | primitive operation の一覧・詳細を返す | `list` / `describe` を持つ |
+| `ucli errors` | 既知 error code の静的な意味と再試行分類を返す | `list` / `describe` を持つ |
 | `ucli skills` | 公式 SKILL の一覧、配布、導入、更新、削除、診断を行う | `list` / `export` / `install` / `update` / `uninstall` / `doctor` |
 | `ucli status` | daemon と lifecycle の状態を返す | `ProjectVersion.txt` 由来の `unityVersion` を返す |
 | `ucli logs` | Unity / daemon のログ取得、GUI Editor の Unity Console 表示クリアを行う | 取得系の成功時はイベントストリームを返す |
@@ -41,6 +42,15 @@
   - `--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--readIndexMode <disabled|allowStale|requireFresh>`、`--failFast` を受け付ける。
   - `--failFast` は live source fallback に対してのみ適用し、readIndex hit では Unity 接続も readiness wait も行わない。
   - `mode` / `timeout` は readIndex hit 時も妥当性を検証し、不正値は `INVALID_ARGUMENT` を返す。
+- `ucli errors`
+  - `list` は既知 error code の一覧を返す。
+  - `list` は `--category <string?>` と `--command <string?>` を受け付ける。
+  - `--category` は category の exact match とする。
+  - `--command` は command identifier の exact match と dot segment family match とする。たとえば `query.assets.find` は `query` に適用される code に一致し、`daemon` は `daemon.start` / `daemon.status` などに適用される code に一致する。
+  - 未知 category / command は成功とし、`payload.codes: []` を返す。空 category、空 command、不正な command identifier は `INVALID_ARGUMENT` を返す。
+  - 成功時 payload は `catalogVersion`、`source`、`codes[]` を返す。`codes[]` の各要素は `code`、`category`、`summary` を持つ。意味、再試行分類、適用 command、次行動は `describe` で取得する。
+  - `describe <CODE>` は指定 error code の静的な意味、確認対象、次行動、実行意味論を返す。
+  - 未知 code は既定で成功し、`known=false` と unknown fallback descriptor を返す。`--requireKnown` 指定時の未知 code は `INVALID_ARGUMENT` を返す。
 - `ucli skills`
   - `list` は bundled official SKILL と supported host を返す。
   - `list` の `supportedHosts[]` は `host`、`projectTargetDirectory`、`userTargetDirectory`、`reloadGuidance` を返す。
@@ -86,7 +96,7 @@
   - `--readIndexMode` は受け付けない。
   - 成功時 payload は `requestId`、`opResults`、必要時のみ `plan` を返す。
 
-## 将来コマンド: `ucli errors`
+## エラーコード台帳: `ucli errors`
 `ucli errors` は、`errors[].code` を agent が安全な次行動へ接続するための機械可読な error code 台帳を返す。これはエラー文のヘルプ表示ではなく、`errors[].message` に分岐ロジックを埋め込まないための制御契約である。
 
 `ucli errors` は P0 では error code だけを扱う。将来、Assurance report の `reasonCodes`、`riskCodes`、`claimCodes` を同じ枠で扱う段階では、`ucli codes` への一般化を検討する。
@@ -97,9 +107,9 @@
 | Option | Short | Description |
 | --- | --- | --- |
 | `--category <string?>` | - | category の exact match filter |
-| `--command <string?>` | - | `appliesTo` に含まれる command の exact match filter |
+| `--command <string?>` | - | 関連 command の exact / dot segment family match filter |
 
-成功時 payload は `catalogVersion`、`source`、`codes[]` を返す。`codes[]` の各要素は `code`、`category`、`summary`、`defaultRetryClass`、`appliesTo` を持つ。出力順は `code` の ordinal 昇順とする。該当 code がない場合も成功し、`payload.codes: []` を返す。
+成功時 payload は `catalogVersion`、`source`、`codes[]` を返す。`codes[]` の各要素は `code`、`category`、`summary` を持つ。出力順は `code` の ordinal 昇順とする。該当 code がない場合も成功し、`payload.codes: []` を返す。意味、再試行分類、適用 command、次行動は `errors describe <CODE>` で取得する。
 
 ```bash
 ucli errors list
@@ -121,9 +131,7 @@ ucli errors list --command call
       {
         "code": "EDITOR_COMPILING",
         "category": "lifecycle",
-        "summary": "Unity Editor is compiling and cannot accept execution requests.",
-        "defaultRetryClass": "waitThenRetry",
-        "appliesTo": ["plan", "call", "resolve", "query"]
+        "summary": "Unity Editor is compiling scripts."
       }
     ]
   },
@@ -136,7 +144,7 @@ ucli errors list --command call
 
 | Argument / Option | Short | Description |
 | --- | --- | --- |
-| `<CODE>` | - | 説明対象の error code |
+| `<CODE>` | - | 説明対象の error code。最大 128 文字の大文字 machine token とし、各 dot segment は英大文字で始まり、以降は英大文字、数字、underscore を受け付ける |
 | `--requireKnown` | - | 未知 code を `INVALID_ARGUMENT` として失敗させる |
 
 既定では未知 code も成功し、`payload.known=false` を返す。これは `errors[].code` が open code set であるためである。
@@ -210,8 +218,8 @@ ucli errors describe SOME_FUTURE_CODE --requireKnown
 }
 ```
 
-### `errors explain`
-`ucli errors explain --from <file>` は P1 の将来仕様とする。これは台帳の静的説明ではなく、実際の失敗 JSON を読んで `errors[].code`、`payload.opResults`、`payload.readPostcondition`、診断情報から次に確認すべき対象を返す。
+### P1: `errors explain`
+`ucli errors explain --from <file>` は後続仕様とする。これは台帳の静的説明ではなく、実際の失敗 JSON を読んで `errors[].code`、`payload.opResults`、`payload.readPostcondition`、診断情報から次に確認すべき対象を返す。
 
 ```bash
 ucli call < request.json > result.json

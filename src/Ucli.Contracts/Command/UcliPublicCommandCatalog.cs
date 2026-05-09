@@ -1,0 +1,57 @@
+namespace MackySoft.Ucli.Contracts;
+
+/// <summary> Defines public command identifiers accepted by command-scoped contracts and catalog filters. </summary>
+public static class UcliPublicCommandCatalog
+{
+    /// <summary> Gets top-level commands, command groups, and leaf commands in public identifier form. </summary>
+    public static IReadOnlyCollection<UcliCommand> KnownCommands { get; } =
+    [
+        UcliCommandIds.Init,
+        UcliCommandIds.Status,
+        UcliCommandIds.Refresh,
+        UcliCommandIds.Resolve,
+        UcliCommandIds.Query,
+        UcliCommandIds.QueryAssets,
+        UcliCommandIds.QueryAssetsFind,
+        UcliCommandIds.QueryScene,
+        UcliCommandIds.QuerySceneTree,
+        UcliCommandIds.QueryGo,
+        UcliCommandIds.QueryGoDescribe,
+        UcliCommandIds.QueryComp,
+        UcliCommandIds.QueryCompSchema,
+        UcliCommandIds.QueryAsset,
+        UcliCommandIds.QueryAssetSchema,
+        UcliCommandIds.Validate,
+        UcliCommandIds.Plan,
+        UcliCommandIds.Call,
+        UcliCommandIds.Daemon,
+        UcliCommandIds.DaemonStart,
+        UcliCommandIds.DaemonStop,
+        UcliCommandIds.DaemonCleanup,
+        UcliCommandIds.DaemonStatus,
+        UcliCommandIds.DaemonList,
+        UcliCommandIds.Logs,
+        UcliCommandIds.LogsDaemon,
+        UcliCommandIds.LogsDaemonRead,
+        UcliCommandIds.LogsUnity,
+        UcliCommandIds.LogsUnityRead,
+        UcliCommandIds.LogsUnityClear,
+        UcliCommandIds.Ops,
+        UcliCommandIds.OpsList,
+        UcliCommandIds.OpsDescribe,
+        UcliCommandIds.Errors,
+        UcliCommandIds.ErrorsList,
+        UcliCommandIds.ErrorsDescribe,
+        UcliCommandIds.Skills,
+        UcliCommandIds.SkillsList,
+        UcliCommandIds.SkillsExport,
+        UcliCommandIds.SkillsInstall,
+        UcliCommandIds.SkillsUpdate,
+        UcliCommandIds.SkillsUninstall,
+        UcliCommandIds.SkillsDoctor,
+        UcliCommandIds.Test,
+        UcliCommandIds.TestRun,
+        UcliCommandIds.TestProfile,
+        UcliCommandIds.TestProfileInit,
+    ];
+}

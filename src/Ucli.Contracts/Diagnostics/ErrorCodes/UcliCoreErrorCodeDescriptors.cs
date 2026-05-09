@@ -16,6 +16,7 @@ internal static class UcliCoreErrorCodeDescriptors
         UcliCommandIds.LogsDaemonRead,
         UcliCommandIds.LogsUnityRead,
         UcliCommandIds.LogsUnityClear,
+        UcliCommandIds.Errors,
         UcliCommandIds.Test,
         UcliCommandIds.TestRun,
         UcliCommandIds.TestProfileInit,

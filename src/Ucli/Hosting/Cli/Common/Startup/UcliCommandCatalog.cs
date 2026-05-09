@@ -3,6 +3,7 @@ using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Tokens;
 using MackySoft.Ucli.Hosting.Cli.Daemon;
 using MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
+using MackySoft.Ucli.Hosting.Cli.Errors;
 using MackySoft.Ucli.Hosting.Cli.Init;
 using MackySoft.Ucli.Hosting.Cli.Ops;
 using MackySoft.Ucli.Hosting.Cli.Requests;
@@ -60,6 +61,14 @@ internal static class UcliCommandCatalog
         ],
         []);
 
+    private static readonly CommandGroupEntry ErrorsCommandGroup = new(
+        UcliCommandNames.Errors,
+        [
+            new CommandLeafEntry(UcliCommandNames.ListSubcommand, UcliCommandNames.ErrorsList),
+            new CommandLeafEntry(UcliCommandNames.DescribeSubcommand, UcliCommandNames.ErrorsDescribe),
+        ],
+        []);
+
     private static readonly CommandGroupEntry SkillsCommandGroup = new(
         UcliCommandNames.Skills,
         [
@@ -108,6 +117,7 @@ internal static class UcliCommandCatalog
         DaemonCommandGroup,
         LogsCommandGroup,
         OpsCommandGroup,
+        ErrorsCommandGroup,
         SkillsCommandGroup,
         QueryCommandGroup,
         TestCommandGroup,
@@ -159,6 +169,8 @@ internal static class UcliCommandCatalog
         app.Add<LogsUnityClearCommand>("logs unity");
         app.Add<OpsListCommand>("ops");
         app.Add<OpsDescribeCommand>("ops");
+        app.Add<ErrorsListCommand>("errors");
+        app.Add<ErrorsDescribeCommand>("errors");
         app.Add<SkillsListCommand>("skills");
         app.Add<SkillsExportCommand>("skills");
         app.Add<SkillsInstallCommand>("skills");
