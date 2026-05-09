@@ -9,12 +9,14 @@
       {
         "name": "ucli.comp.schema",
         "kind": "query",
-        "policy": "advanced"
+        "policy": "advanced",
+        "description": "Returns a GameObject description including components and child hierarchy."
       },
       {
         "name": "ucli.go.describe",
         "kind": "query",
-        "policy": "safe"
+        "policy": "safe",
+        "description": "Returns a GameObject description including components and child hierarchy."
       }
     ],
     "readIndex": {

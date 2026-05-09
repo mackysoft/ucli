@@ -82,7 +82,11 @@ public sealed class OpsServiceTests
             new OpsListExecutionOutput(
                 Operations:
                 [
-                    new OpsOperationListItem(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave, "mutation", "advanced"),
+                    new OpsOperationListItem(
+                        MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave,
+                        "mutation",
+                        "advanced",
+                        "Saves a Unity scene asset."),
                 ],
                 ReadIndex: new ReadIndexInfo(
                     true,

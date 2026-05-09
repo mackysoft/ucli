@@ -409,6 +409,7 @@ public sealed class OpsCatalogAccessServiceTests
                     operation.Name,
                     operation.Kind,
                     operation.Policy,
+                    operation.Description,
                     new string((char)('a' + index), 64),
                     new string((char)('1' + index), 64)))
                 .ToArray();

@@ -73,6 +73,7 @@ public sealed class PersistedOpsCatalogReaderTests
                     Name: UcliPrimitiveOperationNames.GoDescribe,
                     Kind: "query",
                     Policy: "safe",
+                    Description: "Returns a GameObject description.",
                     DescribeKey: new string('a', 64),
                     DescribeHash: string.Empty)))),
             freshnessEvaluator);
@@ -145,6 +146,7 @@ public sealed class PersistedOpsCatalogReaderTests
             Name: UcliPrimitiveOperationNames.GoDescribe,
             Kind: "query",
             Policy: "safe",
+            Description: "Returns a GameObject description.",
             DescribeKey: new string('a', 64),
             DescribeHash: new string('b', 64)));
     }

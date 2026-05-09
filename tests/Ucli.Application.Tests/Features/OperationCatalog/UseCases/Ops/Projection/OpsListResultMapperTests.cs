@@ -32,7 +32,9 @@ public sealed class OpsListResultMapperTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, result.Output!.Operations[0].Name);
+        Assert.Equal("Returns a GameObject description including components and child hierarchy.", result.Output.Operations[0].Description);
         Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave, result.Output.Operations[1].Name);
+        Assert.Equal("Saves a Unity scene asset.", result.Output.Operations[1].Description);
         Assert.Equal(ReadIndexInfoSource.Index, result.Output.ReadIndex.Source);
         Assert.Equal(MackySoft.Ucli.Contracts.Index.IndexFreshness.Fresh, result.Output.ReadIndex.Freshness);
     }

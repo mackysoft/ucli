@@ -27,6 +27,7 @@ public sealed class FileReadIndexArtifactReaderTests
                     Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                     Kind: "query",
                     Policy: "safe",
+                    Description: "Returns a GameObject description.",
                     DescribeKey: new string('a', 64),
                     DescribeHash: new string('b', 64)),
             ]);
@@ -39,6 +40,7 @@ public sealed class FileReadIndexArtifactReaderTests
         Assert.Equal(1, result.Value.SchemaVersion);
         Assert.NotNull(result.Value.Entries);
         Assert.Single(result.Value.Entries);
+        Assert.Equal("Returns a GameObject description.", result.Value.Entries[0].Description);
         Assert.Null(result.Error);
     }
 
@@ -75,6 +77,7 @@ public sealed class FileReadIndexArtifactReaderTests
             UcliPrimitiveOperationNames.GoDescribe,
             "query",
             "safe",
+            "Returns a GameObject description.",
             new string('a', 64),
             new string('b', 64));
 
@@ -414,6 +417,7 @@ public sealed class FileReadIndexArtifactReaderTests
             operation.Name,
             operation.Kind,
             operation.Policy,
+            operation.Description,
             describeKey,
             describeHash);
     }

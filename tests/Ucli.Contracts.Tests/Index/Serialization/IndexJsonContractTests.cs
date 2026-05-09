@@ -231,6 +231,7 @@ public sealed class IndexJsonContractTests
                     Name: UcliPrimitiveOperationNames.GoDescribe,
                     Kind: "query",
                     Policy: "safe",
+                    Description: "Returns a GameObject description.",
                     DescribeKey: new string('a', 64),
                     DescribeHash: new string('b', 64)),
             ]);
@@ -246,6 +247,7 @@ public sealed class IndexJsonContractTests
         Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, deserialized.Entries[0].Name);
         Assert.Equal("query", deserialized.Entries[0].Kind);
         Assert.Equal("safe", deserialized.Entries[0].Policy);
+        Assert.Equal("Returns a GameObject description.", deserialized.Entries[0].Description);
         Assert.Equal(new string('a', 64), deserialized.Entries[0].DescribeKey);
         Assert.Equal(new string('b', 64), deserialized.Entries[0].DescribeHash);
     }
@@ -599,7 +601,7 @@ public sealed class IndexJsonContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IndexOpsCatalogJsonContractWriter_WritesFixedOrderJsonAndOmitPolicy ()
+    public void IndexOpsCatalogJsonContractWriter_WritesFixedOrderJsonWithDescription ()
     {
         var contract = new IndexOpsCatalogJsonContract(
             SchemaVersion: 1,
@@ -611,12 +613,14 @@ public sealed class IndexJsonContractTests
                     Name: "z.op",
                     Kind: "mutation",
                     Policy: "dangerous",
+                    Description: "Runs z operation.",
                     DescribeKey: new string('f', 64),
                     DescribeHash: new string('9', 64)),
                 new IndexOpsCatalogEntryJsonContract(
                     Name: "a.op",
                     Kind: "query",
                     Policy: "safe",
+                    Description: "Runs a operation.",
                     DescribeKey: new string('a', 64),
                     DescribeHash: new string('1', 64)),
             ]);
@@ -635,6 +639,7 @@ public sealed class IndexJsonContractTests
                       "name": "a.op",
                       "kind": "query",
                       "policy": "safe",
+                      "description": "Runs a operation.",
                       "describeKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                       "describeHash": "1111111111111111111111111111111111111111111111111111111111111111"
                     },
@@ -642,6 +647,7 @@ public sealed class IndexJsonContractTests
                       "name": "z.op",
                       "kind": "mutation",
                       "policy": "dangerous",
+                      "description": "Runs z operation.",
                       "describeKey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                       "describeHash": "9999999999999999999999999999999999999999999999999999999999999999"
                     }

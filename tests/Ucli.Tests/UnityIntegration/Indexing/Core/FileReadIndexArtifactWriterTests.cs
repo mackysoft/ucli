@@ -40,6 +40,7 @@ public sealed class FileReadIndexArtifactWriterTests
         Assert.Equal(generatedAtUtc, catalogResult.Value!.GeneratedAtUtc);
         Assert.Equal("ops-hash", catalogResult.Value.SourceInputsHash);
         Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, catalogResult.Value.Entries![0].Name);
+        Assert.Equal("Returns a GameObject description including components and child hierarchy.", catalogResult.Value.Entries[0].Description);
         Assert.Equal(snapshot.CombinedHash, manifestResult.Value!.CombinedHash);
     }
 

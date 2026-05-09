@@ -25,6 +25,24 @@ public sealed class IndexCatalogContractValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IsValidOpsCatalog_ReturnsFalse_WhenDescriptionIsMissing ()
+    {
+        var contract = new IndexOpsCatalogJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "source-hash",
+            Entries:
+            [
+                CreateValidOpsCatalogEntry() with { Description = null },
+            ]);
+
+        var result = IndexCatalogContractValidator.IsValidOpsCatalog(contract);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IsValidOpsCatalog_ReturnsFalse_WhenDescribeContractIsMissing ()
     {
         var contract = new IndexOpsDescribeJsonContract(
@@ -668,6 +686,7 @@ public sealed class IndexCatalogContractValidatorTests
             Name: "ucli.scene.open",
             Kind: UcliOperationKindValues.Command,
             Policy: OperationPolicyValues.Safe,
+            Description: "Opens a Unity scene.",
             DescribeKey: new string('a', 64),
             DescribeHash: new string('b', 64));
     }
