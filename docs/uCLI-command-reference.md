@@ -174,8 +174,8 @@ ucli errors describe SOME_FUTURE_CODE --requireKnown
       "payload.opResults[].changed",
       "payload.opResults[].touched",
       "payload.readPostcondition",
-      "logs daemon",
-      "logs unity"
+      "ucli logs daemon --level error",
+      "ucli logs unity --level error"
     ],
     "nextActions": [
       {
