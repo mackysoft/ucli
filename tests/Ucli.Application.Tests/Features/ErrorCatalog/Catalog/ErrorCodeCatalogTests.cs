@@ -1,4 +1,4 @@
-using System.Reflection;
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Diagnostics;
 using MackySoft.Ucli.Application.Features.ErrorCatalog.Catalog;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -32,11 +32,25 @@ public sealed class ErrorCodeCatalogTests
         var actualCodes = catalog.Descriptors
             .Select(static descriptor => descriptor.Code)
             .ToHashSet();
-        var expectedCodes = GetErrorCodeDefinitions(typeof(ApplicationErrorCodeDescriptors).Assembly);
+        var expectedCodes = StaticFieldValueReader.ReadFromStaticClasses<UcliErrorCode>(
+            typeof(ApplicationErrorCodeDescriptors).Assembly,
+            "ErrorCodes");
 
         foreach (var expectedCode in expectedCodes)
         {
             Assert.Contains(expectedCode, actualCodes);
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WithApplicationContributors_DescriptorsDoNotUseBroadInspectTargets ()
+    {
+        var catalog = CreateCatalog();
+
+        foreach (var descriptor in catalog.Descriptors)
+        {
+            ErrorInspectTargetAssert.DoesNotUseBroadOrSensitiveTargets(descriptor.Inspect);
         }
     }
 
@@ -57,6 +71,7 @@ public sealed class ErrorCodeCatalogTests
         Assert.Null(result.Descriptor.ExecutionSemantics.ImpliesNotApplied);
         Assert.True(result.Descriptor.ExecutionSemantics.MayBeIndeterminate);
         Assert.Equal(UcliErrorRetryClassValues.Unknown, result.Descriptor.ExecutionSemantics.SafeToRetry);
+        ErrorInspectTargetAssert.DoesNotUseBroadOrSensitiveTargets(result.Descriptor.Inspect);
     }
 
     [Fact]
@@ -176,25 +191,4 @@ public sealed class ErrorCodeCatalogTests
         }
     }
 
-    private static IReadOnlySet<UcliErrorCode> GetErrorCodeDefinitions (Assembly assembly)
-    {
-        var codes = new HashSet<UcliErrorCode>();
-        var types = assembly.GetTypes()
-            .Where(static type => type is { IsClass: true, IsAbstract: true, IsSealed: true }
-                && type.Name.EndsWith("ErrorCodes", StringComparison.Ordinal));
-
-        foreach (var type in types)
-        {
-            var fields = type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
-            foreach (var field in fields)
-            {
-                if (field.FieldType == typeof(UcliErrorCode))
-                {
-                    codes.Add((UcliErrorCode)field.GetValue(null)!);
-                }
-            }
-        }
-
-        return codes;
-    }
 }

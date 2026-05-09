@@ -1,4 +1,4 @@
-using System.Reflection;
+using MackySoft.Tests;
 
 namespace MackySoft.Ucli.Contracts.Tests.Diagnostics;
 
@@ -19,58 +19,11 @@ public sealed class UcliErrorCodeDescriptorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void KnownDescriptors_IncludeKnownContractsErrorCodes ()
-    {
-        var expectedCodes = new[]
-        {
-            UcliCoreErrorCodes.InvalidArgument,
-            UcliCoreErrorCodes.NotInitialized,
-            UcliCoreErrorCodes.CommandNotImplemented,
-            UcliCoreErrorCodes.InternalError,
-            DaemonErrorCodes.DaemonEditorModeMismatch,
-            EditorLifecycleErrorCodes.EditorStarting,
-            EditorLifecycleErrorCodes.EditorBusy,
-            EditorLifecycleErrorCodes.EditorCompiling,
-            EditorLifecycleErrorCodes.EditorDomainReloading,
-            EditorLifecycleErrorCodes.EditorPlaymode,
-            EditorLifecycleErrorCodes.EditorModalBlocked,
-            EditorLifecycleErrorCodes.EditorSafeMode,
-            EditorLifecycleErrorCodes.EditorShuttingDown,
-            ExecuteRequestErrorCodes.RequestIdConflict,
-            IpcProtocolErrorCodes.ProtocolVersionMismatch,
-            IpcProtocolErrorCodes.IpcMethodNotSupported,
-            IpcProtocolErrorCodes.IpcFrameTooLarge,
-            IpcSessionErrorCodes.SessionTokenRequired,
-            IpcSessionErrorCodes.SessionTokenInvalid,
-            IpcTransportErrorCodes.IpcTimeout,
-            OperationAuthorizationErrorCodes.OperationNotAllowed,
-            PlanTokenErrorCodes.PlanTokenRequired,
-            PlanTokenErrorCodes.PlanTokenInvalid,
-            PlanTokenErrorCodes.PlanTokenExpired,
-            PlanTokenErrorCodes.PlanTokenRequestMismatch,
-            PlanTokenErrorCodes.StateChangedSincePlan,
-            PlayModeErrorCodes.PlayModeNotActive,
-            PlayModeErrorCodes.PlayModeRequiresGuiEditor,
-            PlayModeErrorCodes.PlayModePersistenceForbidden,
-            ReadIndexErrorCodes.ReadIndexBootstrapFailed,
-            ReadIndexErrorCodes.ReadIndexFormatInvalid,
-            ReadIndexErrorCodes.ReadIndexFreshRequired,
-        };
-        var actualCodes = UcliKnownErrorCodeDescriptors.All
-            .Select(static descriptor => descriptor.Code)
-            .ToHashSet();
-
-        foreach (var expectedCode in expectedCodes)
-        {
-            Assert.Contains(expectedCode, actualCodes);
-        }
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void KnownDescriptors_IncludeEveryContractsErrorCodeDefinition ()
     {
-        var expectedCodes = GetErrorCodeDefinitions(typeof(UcliErrorCode).Assembly);
+        var expectedCodes = StaticFieldValueReader.ReadFromStaticClasses<UcliErrorCode>(
+            typeof(UcliErrorCode).Assembly,
+            "ErrorCodes");
         var actualCodes = UcliKnownErrorCodeDescriptors.All
             .Select(static descriptor => descriptor.Code)
             .ToHashSet();
@@ -114,13 +67,7 @@ public sealed class UcliErrorCodeDescriptorTests
                 Assert.False(string.IsNullOrWhiteSpace(possiblePhase));
             }
 
-            foreach (var inspectItem in descriptor.Inspect)
-            {
-                Assert.False(string.IsNullOrWhiteSpace(inspectItem));
-                Assert.DoesNotContain("planToken", inspectItem, StringComparison.OrdinalIgnoreCase);
-                Assert.DoesNotContain("sessionToken", inspectItem, StringComparison.OrdinalIgnoreCase);
-                Assert.NotEqual("payload.plan", inspectItem);
-            }
+            ErrorInspectTargetAssert.DoesNotUseBroadOrSensitiveTargets(descriptor.Inspect);
 
             foreach (var nextAction in descriptor.NextActions)
             {
@@ -165,25 +112,4 @@ public sealed class UcliErrorCodeDescriptorTests
         return UcliKnownErrorCodeDescriptors.All.Single(descriptor => descriptor.Code == code);
     }
 
-    private static IReadOnlySet<UcliErrorCode> GetErrorCodeDefinitions (Assembly assembly)
-    {
-        var codes = new HashSet<UcliErrorCode>();
-        var types = assembly.GetTypes()
-            .Where(static type => type is { IsClass: true, IsAbstract: true, IsSealed: true }
-                && type.Name.EndsWith("ErrorCodes", StringComparison.Ordinal));
-
-        foreach (var type in types)
-        {
-            var fields = type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
-            foreach (var field in fields)
-            {
-                if (field.FieldType == typeof(UcliErrorCode))
-                {
-                    codes.Add((UcliErrorCode)field.GetValue(null)!);
-                }
-            }
-        }
-
-        return codes;
-    }
 }

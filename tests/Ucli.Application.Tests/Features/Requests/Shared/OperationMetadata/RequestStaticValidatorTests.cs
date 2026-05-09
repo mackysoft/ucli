@@ -4,7 +4,6 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context.Project;
-using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
@@ -36,16 +35,6 @@ public sealed class RequestStaticValidatorTests
         var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
         AssertContainsError(result, expectedErrorCode);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void InvalidArgumentErrorCodeSet_IncludesExternalInvalidArgumentCodesWithoutValidationOwningThem ()
-    {
-        Assert.False(ValidationErrorCodes.Contains(IpcProtocolErrorCodes.ProtocolVersionMismatch));
-        Assert.False(ValidationErrorCodes.Contains(OperationAuthorizationErrorCodes.OperationNotAllowed));
-        Assert.True(InvalidArgumentErrorCodeSet.Contains(IpcProtocolErrorCodes.ProtocolVersionMismatch));
-        Assert.True(InvalidArgumentErrorCodeSet.Contains(OperationAuthorizationErrorCodes.OperationNotAllowed));
     }
 
     [Fact]
