@@ -7,10 +7,12 @@ namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 /// <param name="Output"> The daemon-start execution output on success; otherwise <see langword="null" />. </param>
 /// <param name="Error"> The structured execution error on failure; otherwise <see langword="null" />. </param>
 /// <param name="Diagnosis"> The daemon diagnosis output attached to a failure; otherwise <see langword="null" />. </param>
+/// <param name="Startup"> The startup observation attached to a failure; otherwise <see langword="null" />. </param>
 internal sealed record DaemonStartExecutionResult (
     DaemonStartExecutionOutput? Output,
     ExecutionError? Error,
-    DaemonDiagnosisOutput? Diagnosis)
+    DaemonDiagnosisOutput? Diagnosis,
+    DaemonStartupObservation? Startup)
 {
     /// <summary> Gets a value indicating whether daemon-start workflow execution succeeded. </summary>
     public bool IsSuccess => Output is not null && Error is null;
@@ -22,19 +24,21 @@ internal sealed record DaemonStartExecutionResult (
     public static DaemonStartExecutionResult Success (DaemonStartExecutionOutput output)
     {
         ArgumentNullException.ThrowIfNull(output);
-        return new DaemonStartExecutionResult(output, null, null);
+        return new DaemonStartExecutionResult(output, null, null, null);
     }
 
     /// <summary> Creates a failed daemon-start execution result. </summary>
     /// <param name="error"> The structured execution error. </param>
     /// <param name="diagnosis"> The optional diagnosis output attached to the failure. </param>
+    /// <param name="startup"> The optional startup observation attached to the failure. </param>
     /// <returns> The failed daemon-start execution result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="error" /> is <see langword="null" />. </exception>
     public static DaemonStartExecutionResult Failure (
         ExecutionError error,
-        DaemonDiagnosisOutput? diagnosis = null)
+        DaemonDiagnosisOutput? diagnosis = null,
+        DaemonStartupObservation? startup = null)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return new DaemonStartExecutionResult(null, error, diagnosis);
+        return new DaemonStartExecutionResult(null, error, diagnosis, startup);
     }
 }

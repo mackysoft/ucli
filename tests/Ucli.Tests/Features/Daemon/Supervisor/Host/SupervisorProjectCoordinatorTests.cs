@@ -56,6 +56,33 @@ public sealed class SupervisorProjectCoordinatorTests
     }
 
     [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureRunning_WhenOnStartupBlockedIsSpecified_PassesPolicyToStartOperation ()
+    {
+        var unityProject = CreateUnityProject();
+        var startOperation = new StubDaemonStartOperation
+        {
+            StartResult = DaemonStartResult.AlreadyRunning(CreateSession(processId: null)),
+        };
+        var coordinator = CreateCoordinator(
+            startOperation,
+            new StubDaemonStopOperation(),
+            new StubDaemonPingClient(),
+            new StubDaemonDiagnosisStore(),
+            new StubDaemonSessionStore());
+
+        var result = await coordinator.EnsureRunningAsync(
+            unityProject,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Terminate,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(DaemonStartupBlockedProcessPolicy.Terminate, startOperation.LastOnStartupBlocked);
+    }
+
+    [Fact]
     [Trait("Size", "Medium")]
     public async Task EnsureRunning_WhenDaemonIsAlreadyRunningWithoutProcessId_TracksPidlessSessionUntilPingMonitorDetectsExit ()
     {
@@ -693,12 +720,16 @@ public sealed class SupervisorProjectCoordinatorTests
     {
         public DaemonStartResult StartResult { get; set; } = DaemonStartResult.Started(CreateSession(1234));
 
+        public DaemonStartupBlockedProcessPolicy LastOnStartupBlocked { get; private set; }
+
         public ValueTask<DaemonStartResult> StartAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             DaemonEditorMode? editorMode,
+            DaemonStartupBlockedProcessPolicy onStartupBlocked,
             CancellationToken cancellationToken = default)
         {
+            LastOnStartupBlocked = onStartupBlocked;
             return ValueTask.FromResult(StartResult);
         }
     }

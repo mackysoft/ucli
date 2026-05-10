@@ -61,6 +61,7 @@ public sealed class SupervisorClientTests
     public async Task EnsureRunning_UsesOriginalOperationTimeoutAndUnboundedResponseWait ()
     {
         var observedOperationTimeoutMilliseconds = 0;
+        var observedOnStartupBlocked = (string?)null;
         var transportClient = new MackySoft.Ucli.Tests.Daemon.DaemonServiceTestContext.StubIpcTransportClient
         {
             SendHandler = (endpoint, request, timeout, cancellationToken) =>
@@ -70,6 +71,7 @@ public sealed class SupervisorClientTests
                     out SupervisorIpcContracts.EnsureRunningRequest payload,
                     out _));
                 observedOperationTimeoutMilliseconds = payload.TimeoutMilliseconds;
+                observedOnStartupBlocked = payload.OnStartupBlocked;
 
                 return ValueTask.FromResult(new IpcResponse(
                     ProtocolVersion: request.ProtocolVersion,
@@ -91,13 +93,15 @@ public sealed class SupervisorClientTests
             CreateUnityProject(),
             requestedTimeout,
             editorMode: DaemonEditorMode.Gui,
-            CancellationToken.None);
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Terminate,
+            cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var call = Assert.Single(transportClient.Calls);
         Assert.True(call.UsesUnboundedResponseWait);
         Assert.Equal(requestedTimeout, call.Timeout);
         Assert.Equal((int)requestedTimeout.TotalMilliseconds, observedOperationTimeoutMilliseconds);
+        Assert.Equal(DaemonStartupBlockedProcessPolicyValues.Terminate, observedOnStartupBlocked);
     }
 
     [Fact]
@@ -125,7 +129,8 @@ public sealed class SupervisorClientTests
             CreateUnityProject(),
             TimeSpan.FromMilliseconds(100),
             editorMode: DaemonEditorMode.Gui,
-            CancellationToken.None);
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error!.Code);

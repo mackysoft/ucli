@@ -165,6 +165,18 @@ internal sealed class SupervisorRequestDispatcher
             editorMode = parsedEditorMode;
         }
 
+        var onStartupBlocked = DaemonStartupBlockedProcessPolicy.Auto;
+        if (payload.OnStartupBlocked != null)
+        {
+            if (!DaemonStartupBlockedProcessPolicyCodec.TryParse(payload.OnStartupBlocked, out onStartupBlocked))
+            {
+                return SupervisorIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    UcliCoreErrorCodes.InvalidArgument,
+                    $"Supervisor ensureRunning onStartupBlocked is invalid. Actual={payload.OnStartupBlocked}.");
+            }
+        }
+
         await using var requestLifetime = SupervisorRequestLifetime.Start(stream, cancellationToken);
 
         DaemonStartResult startResult;
@@ -174,6 +186,7 @@ internal sealed class SupervisorRequestDispatcher
                     projectContextResult.Context!,
                     timeout,
                     editorMode,
+                    onStartupBlocked,
                     requestLifetime.CancellationToken)
                 .ConfigureAwait(false);
         }

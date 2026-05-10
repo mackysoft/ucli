@@ -85,7 +85,12 @@ public sealed class DaemonLaunchServiceTests
             unityGuiEditorProcessLauncher: guiLauncher,
             guiStartupObserver: guiStartupObserver);
 
-        var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Gui, CancellationToken.None);
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Gui,
+            DaemonStartupBlockedProcessPolicy.Terminate,
+            CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Started, result.Status);
         Assert.Equal(registeredSession, result.Session);
@@ -222,9 +227,12 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(processStartedAtUtc, compensationService.LastProcessStartedAtUtc);
     }
 
-    [Fact]
+    [Theory]
     [Trait("Size", "Small")]
-    public async Task Launch_WhenEditorModeGuiStartupObserverFindsCompilerError_WritesStartupBlockedDiagnosisAndPreservesGuiProcess ()
+    [InlineData(DaemonStartupBlockedProcessPolicy.Auto)]
+    [InlineData(DaemonStartupBlockedProcessPolicy.Keep)]
+    public async Task Launch_WhenEditorModeGuiStartupObserverFindsCompilerErrorWithKeepPolicy_WritesStartupBlockedDiagnosisAndPreservesGuiProcess (
+        DaemonStartupBlockedProcessPolicy onStartupBlocked)
     {
         var context = CreateContext("fingerprint-gui-launch-compiler-error");
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
@@ -263,7 +271,12 @@ public sealed class DaemonLaunchServiceTests
             unityGuiEditorProcessLauncher: guiLauncher,
             guiStartupObserver: guiStartupObserver);
 
-        var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Gui, CancellationToken.None);
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Gui,
+            onStartupBlocked,
+            CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -279,6 +292,59 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(primaryDiagnostic, diagnosisStore.LastDiagnosis.PrimaryDiagnostic);
         Assert.Equal(diagnosisStore.LastDiagnosis, result.Diagnosis);
         Assert.Equal(0, compensationService.CallCount);
+        Assert.NotNull(result.Startup);
+        Assert.Equal(DaemonStartupProcessActionValues.Kept, result.Startup!.ProcessAction);
+        Assert.Equal(DaemonStartupBlockingReasonValues.Compile, result.Startup.StartupBlockingReason);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenEditorModeGuiStartupBlockedAndPolicyTerminates_TerminatesCliLaunchedGuiProcess ()
+    {
+        var context = CreateContext("fingerprint-gui-launch-terminate");
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
+        var guiLauncher = new StubUnityGuiEditorProcessLauncher
+        {
+            NextResult = UnityDaemonLaunchResult.Success(6544, processStartedAtUtc),
+        };
+        var blocker = new DaemonGuiStartupBlocker(
+            Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
+            Message: "Unity Editor startup is blocked because scripts have compiler errors.",
+            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+            ProcessId: 6544,
+            ProcessStartedAtUtc: processStartedAtUtc,
+            UnityLogPath: $"/tmp/repo-root/.ucli/local/fingerprints/{context.ProjectFingerprint}/unity.log",
+            PrimaryDiagnostic: null);
+        var guiStartupObserver = new StubDaemonGuiStartupObserver
+        {
+            NextResult = DaemonGuiStartupObservationResult.Blocked(blocker),
+        };
+        var compensationService = new StubDaemonLaunchCompensationService();
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var service = CreateService(
+            new StubDaemonLaunchSessionService(),
+            new StubUnityDaemonProcessLauncher(),
+            new StubDaemonStartupReadinessProbe(),
+            compensationService,
+            diagnosisStore,
+            unityGuiEditorProcessLauncher: guiLauncher,
+            guiStartupObserver: guiStartupObserver);
+
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Gui,
+            DaemonStartupBlockedProcessPolicy.Terminate,
+            CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        Assert.Equal(1, diagnosisStore.WriteCallCount);
+        Assert.Equal(1, compensationService.CallCount);
+        Assert.Equal(6544, compensationService.LastProcessId);
+        Assert.Equal(processStartedAtUtc, compensationService.LastProcessStartedAtUtc);
+        Assert.NotNull(result.Startup);
+        Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup!.ProcessAction);
     }
 
     [Theory]
@@ -395,6 +461,10 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(1, compensationService.CallCount);
         Assert.Null(compensationService.LastProcessId);
         Assert.Null(compensationService.LastProcessStartedAtUtc);
+        Assert.NotNull(result.Startup);
+        Assert.Equal(DaemonStartupProcessActionValues.None, result.Startup!.ProcessAction);
+        Assert.Equal(DaemonStartupBlockingReasonValues.ProcessExit, result.Startup.StartupBlockingReason);
+        Assert.False(result.Startup.CanShutdownProcess);
     }
 
     [Fact]

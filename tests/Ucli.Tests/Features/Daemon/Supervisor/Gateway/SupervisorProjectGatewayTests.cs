@@ -23,6 +23,7 @@ public sealed class SupervisorProjectGatewayTests
         var transportClient = new DaemonServiceTestContext.StubIpcTransportClient();
         var observedEnsureRunningTimeout = TimeSpan.Zero;
         var observedEditorMode = (string?)null;
+        var observedOnStartupBlocked = (string?)null;
         transportClient.SendHandler = (endpoint, request, timeout, cancellationToken) =>
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -45,6 +46,7 @@ public sealed class SupervisorProjectGatewayTests
                     out _));
                 observedEnsureRunningTimeout = TimeSpan.FromMilliseconds(payload.TimeoutMilliseconds);
                 observedEditorMode = payload.EditorMode;
+                observedOnStartupBlocked = payload.OnStartupBlocked;
                 return ValueTask.FromResult(DaemonServiceTestContext.CreateSuccessResponse(
                     request,
                     new SupervisorIpcContracts.EnsureRunningResponse(
@@ -74,6 +76,7 @@ public sealed class SupervisorProjectGatewayTests
             CreateUnityProject(scope.FullPath),
             TimeSpan.FromMilliseconds(900),
             editorMode: DaemonEditorMode.Gui,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Keep,
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -82,6 +85,7 @@ public sealed class SupervisorProjectGatewayTests
         Assert.True(observedEnsureRunningTimeout > TimeSpan.Zero);
         Assert.True(observedEnsureRunningTimeout < TimeSpan.FromMilliseconds(900));
         Assert.Equal(DaemonEditorModeValues.Gui, observedEditorMode);
+        Assert.Equal(DaemonStartupBlockedProcessPolicyValues.Keep, observedOnStartupBlocked);
     }
 
     [Fact]

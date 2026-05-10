@@ -152,12 +152,14 @@ public sealed class SupervisorRequestDispatcherTests
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
-                        EditorMode: " gui "))));
+                        EditorMode: " gui ",
+                        OnStartupBlocked: " terminate "))));
 
         Assert.True(
             string.Equals(IpcProtocol.StatusOk, response.Status, StringComparison.Ordinal),
             string.Join(Environment.NewLine, response.Errors.Select(error => $"{error.Code.Value}: {error.Message}")));
         Assert.Equal(DaemonEditorMode.Gui, startOperation.LastEditorMode);
+        Assert.Equal(DaemonStartupBlockedProcessPolicy.Terminate, startOperation.LastOnStartupBlocked);
     }
 
     [Fact]
@@ -184,6 +186,38 @@ public sealed class SupervisorRequestDispatcherTests
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
                         EditorMode: "unsupported"))));
+
+        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        var error = Assert.Single(response.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
+        Assert.Equal(0, startOperation.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenOnStartupBlockedIsInvalid_ReturnsInvalidArgumentWithoutStartOperation ()
+    {
+        var startOperation = new StubDaemonStartOperation();
+        var dispatcher = CreateDispatcher(startOperation);
+        var runtimeContext = CreateRuntimeContext();
+        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
+
+        var response = await SendRequestAsync(
+            dispatcher,
+            runtimeContext,
+            new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "request-invalid-startup-policy",
+                SessionToken: runtimeContext.Manifest.SessionToken,
+                Method: SupervisorIpcContracts.EnsureRunningMethod,
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.EnsureRunningRequest(
+                        UnityProjectRoot: unityProjectRoot,
+                        ProjectFingerprint: projectFingerprint,
+                        TimeoutMilliseconds: 1000,
+                        EditorMode: null,
+                        OnStartupBlocked: "unsupported"))));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -431,14 +465,18 @@ public sealed class SupervisorRequestDispatcherTests
 
         public DaemonEditorMode? LastEditorMode { get; private set; }
 
+        public DaemonStartupBlockedProcessPolicy LastOnStartupBlocked { get; private set; }
+
         public async ValueTask<DaemonStartResult> StartAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             DaemonEditorMode? editorMode,
+            DaemonStartupBlockedProcessPolicy onStartupBlocked,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
             LastEditorMode = editorMode;
+            LastOnStartupBlocked = onStartupBlocked;
             if (WaitUntilCancellation)
             {
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);

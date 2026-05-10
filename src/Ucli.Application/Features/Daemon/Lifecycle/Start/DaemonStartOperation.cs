@@ -66,6 +66,31 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         DaemonEditorMode? editorMode,
         CancellationToken cancellationToken = default)
     {
+        return await StartAsync(
+                unityProject,
+                timeout,
+                editorMode,
+                DaemonStartupBlockedProcessPolicy.Auto,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary> Starts daemon lifecycle for the specified Unity project context. </summary>
+    /// <param name="unityProject"> The resolved Unity project context. </param>
+    /// <param name="timeout"> The daemon startup timeout. </param>
+    /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
+    /// <param name="onStartupBlocked"> The startup-blocked process policy requested by the caller. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> The daemon start result. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
+    public async ValueTask<DaemonStartResult> StartAsync (
+        ResolvedUnityProjectContext unityProject,
+        TimeSpan timeout,
+        DaemonEditorMode? editorMode,
+        DaemonStartupBlockedProcessPolicy onStartupBlocked,
+        CancellationToken cancellationToken = default)
+    {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
@@ -128,6 +153,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                     deadline,
                     diagnosisCleanupError,
                     editorMode,
+                    onStartupBlocked,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -159,6 +185,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 deadline,
                 diagnosisCleanupError,
                 editorMode,
+                onStartupBlocked,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -169,6 +196,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         ExecutionDeadline deadline,
         ExecutionError? diagnosisCleanupError,
         DaemonEditorMode? editorMode,
+        DaemonStartupBlockedProcessPolicy onStartupBlocked,
         CancellationToken cancellationToken)
     {
         if (readResult.FailureKind != DaemonSessionReadFailureKind.InvalidSession)
@@ -199,6 +227,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 deadline,
                 diagnosisCleanupError,
                 editorMode,
+                onStartupBlocked,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -208,6 +237,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         ExecutionDeadline deadline,
         ExecutionError? diagnosisCleanupError,
         DaemonEditorMode? editorMode,
+        DaemonStartupBlockedProcessPolicy onStartupBlocked,
         CancellationToken cancellationToken)
     {
         if (!deadline.TryGetRemainingTimeout(out var attachTimeout))
@@ -244,6 +274,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 unityProject,
                 launchTimeout,
                 launchEditorMode,
+                onStartupBlocked,
                 cancellationToken)
             .ConfigureAwait(false);
         return CreateResult(launchResult, diagnosisCleanupError);
@@ -276,7 +307,8 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
 
         return DaemonStartResult.Failure(
             CreateAugmentedPrimaryError(result.Error, diagnosisCleanupError),
-            result.Diagnosis);
+            result.Diagnosis,
+            result.Startup);
     }
 
     private static ExecutionError CreateAugmentedPrimaryError (

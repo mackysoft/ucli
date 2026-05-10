@@ -8,6 +8,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
@@ -80,6 +81,31 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         DaemonEditorMode editorMode,
         CancellationToken cancellationToken = default)
     {
+        return await LaunchAsync(
+                unityProject,
+                timeout,
+                editorMode,
+                DaemonStartupBlockedProcessPolicy.Auto,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary> Launches daemon lifecycle for the specified Unity project context. </summary>
+    /// <param name="unityProject"> The resolved Unity project context. </param>
+    /// <param name="timeout"> The daemon startup timeout. </param>
+    /// <param name="editorMode"> The requested daemon Editor mode. </param>
+    /// <param name="onStartupBlocked"> The startup-blocked process policy requested by the caller. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> The daemon start result. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
+    public async ValueTask<DaemonStartResult> LaunchAsync (
+        ResolvedUnityProjectContext unityProject,
+        TimeSpan timeout,
+        DaemonEditorMode editorMode,
+        DaemonStartupBlockedProcessPolicy onStartupBlocked,
+        CancellationToken cancellationToken = default)
+    {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
@@ -96,6 +122,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             DaemonEditorMode.Gui => await LaunchGuiAsync(
                     unityProject,
                     deadline,
+                    onStartupBlocked,
                     cancellationToken)
                 .ConfigureAwait(false),
             _ => DaemonStartResult.Failure(ExecutionError.InvalidArgument(
@@ -221,6 +248,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
     private async ValueTask<DaemonStartResult> LaunchGuiAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
+        DaemonStartupBlockedProcessPolicy onStartupBlocked,
         CancellationToken cancellationToken)
     {
         var unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(
@@ -282,7 +310,8 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         {
             return await CreateGuiStartupBlockedFailureAsync(
                     unityProject,
-                    waitResult.Blocker!)
+                    waitResult.Blocker!,
+                    onStartupBlocked)
                 .ConfigureAwait(false);
         }
 
@@ -461,7 +490,8 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
 
     private async ValueTask<DaemonStartResult> CreateGuiStartupBlockedFailureAsync (
         ResolvedUnityProjectContext unityProject,
-        DaemonGuiStartupBlocker blocker)
+        DaemonGuiStartupBlocker blocker,
+        DaemonStartupBlockedProcessPolicy onStartupBlocked)
     {
         ArgumentNullException.ThrowIfNull(blocker);
 
@@ -487,11 +517,16 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 diagnosis,
                 CancellationToken.None)
             .ConfigureAwait(false);
-        var cleanupResult = await CleanupGuiStartupBlockedArtifactsAsync(
+        var processPolicyResult = await ApplyGuiStartupBlockedProcessPolicyAsync(
                 unityProject,
                 blocker,
+                onStartupBlocked,
                 CancellationToken.None)
             .ConfigureAwait(false);
+        var startup = CreateGuiStartupBlockedObservation(
+            blocker,
+            processPolicyResult.ProcessAction);
+        var cleanupResult = processPolicyResult.CleanupResult;
         if (!diagnosisWriteResult.IsSuccess && cleanupResult is { IsSuccess: false })
         {
             return DaemonStartResult.Failure(CreateAugmentedPrimaryError(
@@ -499,7 +534,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 "GUI startup is blocked, diagnosis persistence failed, and cleanup failed. " +
                 $"StartupError={primaryError.Message} " +
                 $"DiagnosisError={diagnosisWriteResult.Error!.Message} " +
-                $"CleanupError={cleanupResult.Error!.Message}"), diagnosis);
+                $"CleanupError={cleanupResult.Error!.Message}"), diagnosis, startup);
         }
 
         if (!diagnosisWriteResult.IsSuccess)
@@ -508,7 +543,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 primaryError,
                 "GUI startup is blocked and diagnosis persistence failed. " +
                 $"StartupError={primaryError.Message} " +
-                $"DiagnosisError={diagnosisWriteResult.Error!.Message}"), diagnosis);
+                $"DiagnosisError={diagnosisWriteResult.Error!.Message}"), diagnosis, startup);
         }
 
         if (cleanupResult is { IsSuccess: false })
@@ -517,41 +552,134 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 primaryError,
                 "GUI startup is blocked and cleanup failed. " +
                 $"StartupError={primaryError.Message} " +
-                $"CleanupError={cleanupResult.Error!.Message}"), diagnosis);
+                $"CleanupError={cleanupResult.Error!.Message}"), diagnosis, startup);
         }
 
-        return DaemonStartResult.Failure(primaryError, diagnosis);
+        return DaemonStartResult.Failure(primaryError, diagnosis, startup);
     }
 
-    private async ValueTask<DaemonSessionStoreOperationResult?> CleanupGuiStartupBlockedArtifactsAsync (
+    private async ValueTask<GuiStartupBlockedProcessPolicyResult> ApplyGuiStartupBlockedProcessPolicyAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonGuiStartupBlocker blocker,
+        DaemonStartupBlockedProcessPolicy onStartupBlocked,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!ShouldCleanupGuiStartupBlockedArtifacts(blocker))
+        if (IsProcessExitBlocker(blocker))
         {
-            return null;
+            var cleanupResult = await daemonLaunchCompensationService.CleanupFailedLaunchAsync(
+                    unityProject,
+                    target: null,
+                    DaemonTimeouts.LaunchCompensationTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return new GuiStartupBlockedProcessPolicyResult(
+                cleanupResult,
+                DaemonStartupProcessActionValues.None);
         }
 
-        return await daemonLaunchCompensationService.CleanupFailedLaunchAsync(
+        if (onStartupBlocked != DaemonStartupBlockedProcessPolicy.Terminate)
+        {
+            // NOTE: GUI blockers are kept by default so users can resolve Safe Mode, modal, or project errors in Unity.
+            return new GuiStartupBlockedProcessPolicyResult(
+                CleanupResult: null,
+                ProcessAction: DaemonStartupProcessActionValues.Kept);
+        }
+
+        var terminationResult = await daemonLaunchCompensationService.CleanupFailedLaunchAsync(
                 unityProject,
-                target: null,
+                CreateTerminationTarget(blocker.ProcessId, blocker.ProcessStartedAtUtc),
                 DaemonTimeouts.LaunchCompensationTimeout,
                 cancellationToken)
             .ConfigureAwait(false);
+
+        return new GuiStartupBlockedProcessPolicyResult(
+            terminationResult,
+            terminationResult.IsSuccess
+                ? DaemonStartupProcessActionValues.Terminated
+                : DaemonStartupProcessActionValues.Unknown);
     }
 
-    private static bool ShouldCleanupGuiStartupBlockedArtifacts (DaemonGuiStartupBlocker blocker)
+    private static bool IsProcessExitBlocker (DaemonGuiStartupBlocker blocker)
     {
         ArgumentNullException.ThrowIfNull(blocker);
-        // NOTE: Known Unity startup blockers leave the CLI-launched GUI open so users can inspect and fix the project in Unity.
         return string.Equals(
             blocker.Reason,
             DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap,
             StringComparison.Ordinal);
     }
+
+    private static DaemonStartupObservation CreateGuiStartupBlockedObservation (
+        DaemonGuiStartupBlocker blocker,
+        string processAction)
+    {
+        ArgumentNullException.ThrowIfNull(blocker);
+        ArgumentException.ThrowIfNullOrWhiteSpace(processAction);
+
+        return new DaemonStartupObservation(
+            StartupStatus: DaemonStartupStatusValues.Blocked,
+            StartupBlockingReason: ResolveStartupBlockingReason(blocker),
+            LaunchAttemptId: null,
+            EditorMode: DaemonEditorModeValues.Gui,
+            OwnerKind: DaemonSessionOwnerKindValues.Cli,
+            CanShutdownProcess: !IsProcessExitBlocker(blocker),
+            ProcessId: blocker.ProcessId,
+            StartedAtUtc: blocker.ProcessStartedAtUtc,
+            ElapsedMilliseconds: null,
+            ProcessAction: processAction,
+            ProcessTermination: null,
+            ArtifactPath: null,
+            RetryDisposition: ResolveRetryDisposition(blocker),
+            SafeToRetryImmediately: false);
+    }
+
+    private static string ResolveStartupBlockingReason (DaemonGuiStartupBlocker blocker)
+    {
+        if (string.Equals(blocker.Reason, DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, StringComparison.Ordinal))
+        {
+            return DaemonStartupBlockingReasonValues.Compile;
+        }
+
+        if (string.Equals(blocker.Reason, DaemonDiagnosisReasonValues.UnityPackageResolutionFailed, StringComparison.Ordinal))
+        {
+            return DaemonStartupBlockingReasonValues.PackageResolution;
+        }
+
+        if (string.Equals(blocker.Reason, DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap, StringComparison.Ordinal))
+        {
+            return DaemonStartupBlockingReasonValues.ProcessExit;
+        }
+
+        if (string.Equals(blocker.Reason, DaemonDiagnosisReasonValues.EditorUserActionRequired, StringComparison.Ordinal))
+        {
+            return blocker.PrimaryDiagnostic?.Message?.Contains("Safe Mode", StringComparison.OrdinalIgnoreCase) == true
+                ? DaemonStartupBlockingReasonValues.SafeMode
+                : DaemonStartupBlockingReasonValues.ModalDialog;
+        }
+
+        return DaemonStartupBlockingReasonValues.Unknown;
+    }
+
+    private static string ResolveRetryDisposition (DaemonGuiStartupBlocker blocker)
+    {
+        if (string.Equals(blocker.ActionRequired, DaemonDiagnosisActionRequiredValues.ResolveUnityDialog, StringComparison.Ordinal))
+        {
+            return DaemonStartupRetryDispositionValues.ManualActionRequired;
+        }
+
+        if (string.Equals(blocker.ActionRequired, DaemonDiagnosisActionRequiredValues.FixCompileErrors, StringComparison.Ordinal)
+            || string.Equals(blocker.ActionRequired, DaemonDiagnosisActionRequiredValues.ResolvePackages, StringComparison.Ordinal))
+        {
+            return DaemonStartupRetryDispositionValues.RetryAfterFix;
+        }
+
+        return DaemonStartupRetryDispositionValues.Unknown;
+    }
+
+    private sealed record GuiStartupBlockedProcessPolicyResult (
+        DaemonSessionStoreOperationResult? CleanupResult,
+        string ProcessAction);
 
     private static ExecutionError CreateAugmentedPrimaryError (
         ExecutionError primaryError,

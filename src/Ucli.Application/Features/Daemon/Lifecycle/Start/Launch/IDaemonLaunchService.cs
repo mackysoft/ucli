@@ -7,11 +7,13 @@ internal interface IDaemonLaunchService
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="timeout"> The daemon startup timeout. </param>
     /// <param name="editorMode"> The requested daemon Editor mode. </param>
+    /// <param name="onStartupBlocked"> The startup-blocked process policy requested by the caller. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon start result. </returns>
     ValueTask<DaemonStartResult> LaunchAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         DaemonEditorMode editorMode,
+        DaemonStartupBlockedProcessPolicy onStartupBlocked,
         CancellationToken cancellationToken = default);
 }

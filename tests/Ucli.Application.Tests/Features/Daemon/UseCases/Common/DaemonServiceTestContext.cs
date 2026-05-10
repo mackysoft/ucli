@@ -152,7 +152,7 @@ internal static class DaemonServiceTestContext
 
         public DaemonStopResult? TryStopProjectResult { get; set; }
 
-        public Func<ResolvedUnityProjectContext, TimeSpan, DaemonEditorMode?, CancellationToken, ValueTask<DaemonStartResult>>? EnsureRunningHandler { get; set; }
+        public Func<ResolvedUnityProjectContext, TimeSpan, DaemonEditorMode?, DaemonStartupBlockedProcessPolicy, CancellationToken, ValueTask<DaemonStartResult>>? EnsureRunningHandler { get; set; }
 
         public Func<ResolvedUnityProjectContext, TimeSpan, CancellationToken, ValueTask<DaemonStopResult?>>? TryStopProjectHandler { get; set; }
 
@@ -166,6 +166,8 @@ internal static class DaemonServiceTestContext
 
         public DaemonEditorMode? LastEnsureRunningEditorMode { get; private set; }
 
+        public DaemonStartupBlockedProcessPolicy LastEnsureRunningOnStartupBlocked { get; private set; }
+
         public CancellationToken LastEnsureRunningCancellationToken { get; private set; }
 
         public ResolvedUnityProjectContext? LastTryStopProjectUnityProject { get; private set; }
@@ -178,17 +180,19 @@ internal static class DaemonServiceTestContext
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             DaemonEditorMode? editorMode,
+            DaemonStartupBlockedProcessPolicy onStartupBlocked,
             CancellationToken cancellationToken = default)
         {
             EnsureRunningCallCount++;
             LastEnsureRunningUnityProject = unityProject;
             LastEnsureRunningTimeout = timeout;
             LastEnsureRunningEditorMode = editorMode;
+            LastEnsureRunningOnStartupBlocked = onStartupBlocked;
             LastEnsureRunningCancellationToken = cancellationToken;
 
             if (EnsureRunningHandler != null)
             {
-                return EnsureRunningHandler(unityProject, timeout, editorMode, cancellationToken);
+                return EnsureRunningHandler(unityProject, timeout, editorMode, onStartupBlocked, cancellationToken);
             }
 
             return ValueTask.FromResult(EnsureRunningResult);

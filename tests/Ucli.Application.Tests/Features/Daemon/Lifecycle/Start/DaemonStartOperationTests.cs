@@ -499,14 +499,19 @@ public sealed class DaemonStartOperationTests
             daemonLaunchService: launchService,
             daemonGuiEditorAttachService: guiAttachService);
 
-        var result = await operation.StartAsync(context, TimeSpan.FromMilliseconds(500), editorMode: DaemonEditorMode.Gui,
-                cancellationToken: CancellationToken.None);
+        var result = await operation.StartAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: DaemonEditorMode.Gui,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Terminate,
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Started, result.Status);
         Assert.Equal(1, guiAttachService.CallCount);
         Assert.Equal(DaemonEditorMode.Gui, guiAttachService.LastEditorMode);
         Assert.Equal(1, launchService.CallCount);
         Assert.Equal(DaemonEditorMode.Gui, launchService.LastEditorMode);
+        Assert.Equal(DaemonStartupBlockedProcessPolicy.Terminate, launchService.LastOnStartupBlocked);
     }
 
     [Fact]
@@ -811,14 +816,18 @@ public sealed class DaemonStartOperationTests
 
         public DaemonEditorMode? LastEditorMode { get; private set; }
 
+        public DaemonStartupBlockedProcessPolicy LastOnStartupBlocked { get; private set; }
+
         public ValueTask<DaemonStartResult> LaunchAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             DaemonEditorMode editorMode,
+            DaemonStartupBlockedProcessPolicy onStartupBlocked,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
             LastEditorMode = editorMode;
+            LastOnStartupBlocked = onStartupBlocked;
             return ValueTask.FromResult(NextResult);
         }
     }
