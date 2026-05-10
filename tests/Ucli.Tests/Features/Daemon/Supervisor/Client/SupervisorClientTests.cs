@@ -106,9 +106,10 @@ public sealed class SupervisorClientTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task EnsureRunning_WhenFailurePayloadContainsDiagnosis_ReturnsFailureWithDiagnosis ()
+    public async Task EnsureRunning_WhenFailurePayloadContainsDiagnosisAndStartup_ReturnsFailureWithMetadata ()
     {
         var diagnosis = CreateDiagnosis();
+        var startup = CreateStartupObservation();
         var transportClient = new MackySoft.Ucli.Tests.Daemon.DaemonServiceTestContext.StubIpcTransportClient
         {
             SendHandler = (endpoint, request, timeout, cancellationToken) => ValueTask.FromResult(new IpcResponse(
@@ -116,7 +117,7 @@ public sealed class SupervisorClientTests
                 RequestId: request.RequestId,
                 Status: IpcProtocol.StatusError,
                 Payload: IpcPayloadCodec.SerializeToElement(
-                    new SupervisorIpcContracts.EnsureRunningFailureResponse(diagnosis)),
+                    new SupervisorIpcContracts.EnsureRunningFailureResponse(diagnosis, startup)),
                 Errors:
                 [
                     new IpcError(ExecutionErrorCodes.IpcTimeout, "endpoint registration timed out", null),
@@ -135,6 +136,7 @@ public sealed class SupervisorClientTests
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error!.Code);
         Assert.Equal(diagnosis, result.Diagnosis);
+        Assert.Equal(startup, result.Startup);
     }
 
     private static SupervisorInstanceManifest CreateManifest ()
@@ -184,5 +186,24 @@ public sealed class SupervisorClientTests
             ProcessId: 1234,
             EditorInstancePath: "/repo/UnityProject/Library/EditorInstance.json",
             SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 2, 0, TimeSpan.Zero));
+    }
+
+    private static DaemonStartupObservation CreateStartupObservation ()
+    {
+        return new DaemonStartupObservation(
+            StartupStatus: DaemonStartupStatusValues.Blocked,
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            LaunchAttemptId: null,
+            EditorMode: DaemonEditorModeValues.Gui,
+            OwnerKind: DaemonSessionOwnerKindValues.Cli,
+            CanShutdownProcess: true,
+            ProcessId: 1234,
+            StartedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 2, 1, TimeSpan.Zero),
+            ElapsedMilliseconds: null,
+            ProcessAction: DaemonStartupProcessActionValues.Kept,
+            ProcessTermination: null,
+            ArtifactPath: null,
+            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            SafeToRetryImmediately: false);
     }
 }

@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Context.Project;
@@ -122,9 +121,11 @@ internal sealed class SupervisorClient
             var response = await SendWithUnboundedResponseWaitAsync(manifest, request, timeout, cancellationToken).ConfigureAwait(false);
             if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
             {
+                var failurePayload = TryReadEnsureRunningFailurePayload(response);
                 return DaemonStartResult.Failure(
                     MapResponseFailure(firstError, status),
-                    TryReadEnsureRunningFailureDiagnosis(response));
+                    failurePayload?.Diagnosis,
+                    failurePayload?.Startup);
             }
 
             if (!IpcPayloadCodec.TryDeserialize(
@@ -307,13 +308,13 @@ internal sealed class SupervisorClient
         return ExecutionError.InternalError(firstError.Message, firstError.Code);
     }
 
-    private static DaemonDiagnosis? TryReadEnsureRunningFailureDiagnosis (IpcResponse response)
+    private static SupervisorIpcContracts.EnsureRunningFailureResponse? TryReadEnsureRunningFailurePayload (IpcResponse response)
     {
         return IpcPayloadCodec.TryDeserialize(
             response.Payload,
             out SupervisorIpcContracts.EnsureRunningFailureResponse payload,
             out _)
-            ? payload.Diagnosis
+            ? payload
             : null;
     }
 }

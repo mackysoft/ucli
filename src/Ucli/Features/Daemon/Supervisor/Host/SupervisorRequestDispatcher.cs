@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
@@ -200,7 +201,7 @@ internal sealed class SupervisorRequestDispatcher
 
         if (!startResult.IsSuccess)
         {
-            return CreateExecutionErrorResponse(request, startResult.Error!, startResult.Diagnosis);
+            return CreateExecutionErrorResponse(request, startResult.Error!, startResult.Diagnosis, startResult.Startup);
         }
 
         if (!DaemonStartStateCodec.TryToValue(startResult.Status, out var startStatus))
@@ -369,13 +370,14 @@ internal sealed class SupervisorRequestDispatcher
     private static IpcResponse CreateExecutionErrorResponse (
         IpcRequest request,
         ExecutionError error,
-        DaemonDiagnosis? diagnosis)
+        DaemonDiagnosis? diagnosis,
+        DaemonStartupObservation? startup)
     {
         return SupervisorIpcResponseFactory.CreateErrorResponse(
             request,
             ExecutionErrorCodeMapper.ToCode(error),
             error.Message,
-            new SupervisorIpcContracts.EnsureRunningFailureResponse(diagnosis));
+            new SupervisorIpcContracts.EnsureRunningFailureResponse(diagnosis, startup));
     }
 
     private sealed record ProjectContextResult (

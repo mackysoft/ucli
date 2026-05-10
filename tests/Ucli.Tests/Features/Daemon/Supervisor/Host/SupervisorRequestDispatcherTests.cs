@@ -227,14 +227,16 @@ public sealed class SupervisorRequestDispatcherTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task HandleConnection_WhenEnsureRunningFailsWithDiagnosis_EmitsDiagnosisPayload ()
+    public async Task HandleConnection_WhenEnsureRunningFailsWithDiagnosisAndStartup_EmitsFailureMetadataPayload ()
     {
         var diagnosis = CreateDiagnosis();
+        var startup = CreateStartupObservation();
         var startOperation = new StubDaemonStartOperation
         {
             StartResult = DaemonStartResult.Failure(
                 ExecutionError.Timeout("endpoint registration timed out", ExecutionErrorCodes.IpcTimeout),
-                diagnosis),
+                diagnosis,
+                startup),
         };
         var dispatcher = CreateDispatcher(startOperation);
         var runtimeContext = CreateRuntimeContext();
@@ -264,6 +266,7 @@ public sealed class SupervisorRequestDispatcherTests
             out SupervisorIpcContracts.EnsureRunningFailureResponse payload,
             out _));
         Assert.Equal(diagnosis, payload.Diagnosis);
+        Assert.Equal(startup, payload.Startup);
     }
 
     [Fact]
@@ -607,5 +610,24 @@ public sealed class SupervisorRequestDispatcherTests
             ProcessId: 1234,
             EditorInstancePath: "/repo/UnityProject/Library/EditorInstance.json",
             SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 2, 0, TimeSpan.Zero));
+    }
+
+    private static DaemonStartupObservation CreateStartupObservation ()
+    {
+        return new DaemonStartupObservation(
+            StartupStatus: DaemonStartupStatusValues.Blocked,
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            LaunchAttemptId: null,
+            EditorMode: DaemonEditorModeValues.Gui,
+            OwnerKind: DaemonSessionOwnerKindValues.Cli,
+            CanShutdownProcess: true,
+            ProcessId: 1234,
+            StartedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 2, 1, TimeSpan.Zero),
+            ElapsedMilliseconds: null,
+            ProcessAction: DaemonStartupProcessActionValues.Kept,
+            ProcessTermination: null,
+            ArtifactPath: null,
+            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            SafeToRetryImmediately: false);
     }
 }
