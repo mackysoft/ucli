@@ -51,7 +51,7 @@ public sealed class DaemonStopOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Stop_WhenShutdownResultIsNotRunning_SkipsProcessTerminationAndReturnsStopped ()
+    public async Task Stop_WhenShutdownResultIsNotRunning_EnsuresProcessStoppedAndReturnsStopped ()
     {
         var sessionStore = new StubDaemonSessionStore
         {
@@ -63,7 +63,7 @@ public sealed class DaemonStopOperationTests
         };
         var processTerminationService = new StubDaemonProcessTerminationService
         {
-            NextResult = DaemonSessionStoreOperationResult.Failure(ExecutionError.InternalError("must not be called")),
+            NextResult = DaemonSessionStoreOperationResult.Success(),
         };
         var artifactCleaner = new StubDaemonArtifactCleaner
         {
@@ -81,7 +81,9 @@ public sealed class DaemonStopOperationTests
         Assert.Equal(DaemonStopStatus.Stopped, result.Status);
         Assert.Null(result.Error);
         Assert.Equal(1, shutdownClient.CallCount);
-        Assert.Equal(0, processTerminationService.CallCount);
+        Assert.Equal(1, processTerminationService.CallCount);
+        Assert.Equal(456, processTerminationService.LastProcessId);
+        Assert.Equal(sessionStore.ReadResult.Session!.ProcessStartedAtUtc, processTerminationService.LastProcessStartedAtUtc);
         Assert.Equal(1, artifactCleaner.CallCount);
     }
 
@@ -150,7 +152,7 @@ public sealed class DaemonStopOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Stop_WhenUserOwnedGuiSessionDoesNotAllowProcessShutdown_InvalidatesEndpointOnly ()
+    public async Task Stop_WhenUserOwnedGuiSessionDoesNotAllowProcessShutdownAndShutdownSucceeds_InvalidatesEndpointOnly ()
     {
         var sessionStore = new StubDaemonSessionStore
         {
@@ -162,7 +164,7 @@ public sealed class DaemonStopOperationTests
         };
         var shutdownClient = new StubDaemonShutdownClient
         {
-            NextResult = DaemonShutdownAttemptResult.Failure(ExecutionError.InternalError("shutdown ignored")),
+            NextResult = DaemonShutdownAttemptResult.Success(),
         };
         var processTerminationService = new StubDaemonProcessTerminationService();
         var artifactCleaner = new StubDaemonArtifactCleaner
@@ -187,7 +189,45 @@ public sealed class DaemonStopOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Stop_WhenCliOwnedGuiSessionDoesNotAllowProcessShutdown_InvalidatesEndpointOnly ()
+    public async Task Stop_WhenEndpointOnlyGuiShutdownTimesOut_ReturnsFailureWithoutCleanup ()
+    {
+        var shutdownError = ExecutionError.Timeout("shutdown timed out");
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Success(CreateSession(
+                processId: 456,
+                ownerKind: DaemonSessionOwnerKindValues.User,
+                canShutdownProcess: false,
+                editorMode: DaemonEditorModeValues.Gui)),
+        };
+        var shutdownClient = new StubDaemonShutdownClient
+        {
+            NextResult = DaemonShutdownAttemptResult.Failure(shutdownError),
+        };
+        var processTerminationService = new StubDaemonProcessTerminationService();
+        var artifactCleaner = new StubDaemonArtifactCleaner
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var operation = new DaemonStopOperation(
+            lifecycleLockProvider: new StubProjectLifecycleLockProvider(),
+            daemonSessionStore: sessionStore,
+            shutdownClient: shutdownClient,
+            processTerminationService: processTerminationService,
+            artifactCleaner: artifactCleaner);
+
+        var result = await operation.StopAsync(CreateContext("fingerprint-stop-endpoint-timeout"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.Equal(DaemonStopStatus.Failed, result.Status);
+        Assert.Equal(shutdownError, result.Error);
+        Assert.Equal(1, shutdownClient.CallCount);
+        Assert.Equal(0, processTerminationService.CallCount);
+        Assert.Equal(0, artifactCleaner.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Stop_WhenCliOwnedGuiSessionDoesNotAllowProcessShutdownAndEndpointIsNotRunning_CleansUpEndpointOnly ()
     {
         var sessionStore = new StubDaemonSessionStore
         {
@@ -199,7 +239,7 @@ public sealed class DaemonStopOperationTests
         };
         var shutdownClient = new StubDaemonShutdownClient
         {
-            NextResult = DaemonShutdownAttemptResult.Failure(ExecutionError.InternalError("shutdown ignored")),
+            NextResult = DaemonShutdownAttemptResult.NotRunning(),
         };
         var processTerminationService = new StubDaemonProcessTerminationService();
         var artifactCleaner = new StubDaemonArtifactCleaner
@@ -313,9 +353,11 @@ public sealed class DaemonStopOperationTests
         Assert.Contains("lifecycle lock", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
+    [Theory]
     [Trait("Size", "Small")]
-    public async Task Stop_WhenProcessTerminationBudgetIsExhausted_StillAttemptsFinalizationWithFallbackTimeout ()
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Stop_WhenProcessTerminationBudgetIsExhausted_StillAttemptsFinalizationWithFallbackTimeout (bool endpointAlreadyNotRunning)
     {
         var timeProvider = new ManualTimeProvider();
         var sessionStore = new StubDaemonSessionStore
@@ -325,7 +367,9 @@ public sealed class DaemonStopOperationTests
         var shutdownClient = new StubDaemonShutdownClient
         {
             Delay = TimeSpan.FromMilliseconds(80),
-            NextResult = DaemonShutdownAttemptResult.Success(),
+            NextResult = endpointAlreadyNotRunning
+                ? DaemonShutdownAttemptResult.NotRunning()
+                : DaemonShutdownAttemptResult.Success(),
             TimeProvider = timeProvider,
         };
         var processTerminationService = new StubDaemonProcessTerminationService

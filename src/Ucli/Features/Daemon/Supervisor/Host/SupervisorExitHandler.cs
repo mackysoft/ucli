@@ -42,6 +42,11 @@ internal sealed class SupervisorExitHandler
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(managedProcess);
 
+        if (!DaemonSessionTerminationPolicy.CanShutdownProcess(managedProcess.Session))
+        {
+            return;
+        }
+
         var currentSessionRead = await daemonSessionStore.ReadAsync(
                 managedProcess.UnityProject.RepositoryRoot,
                 managedProcess.UnityProject.ProjectFingerprint,

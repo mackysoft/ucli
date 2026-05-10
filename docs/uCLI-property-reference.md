@@ -32,7 +32,7 @@
 
 `code` は open code set である。既知コード一覧にない値でも JSON 契約上は有効であり、利用側は未知値を汎用失敗として扱う。C# 契約では機械判定用エラーコードを `UcliErrorCode` で扱い、既知コードは責務別の typed code definition として定義する。JSON wire shape は文字列のままとする。
 
-内部の失敗分類は CLI エンベロープへ投影される診断モデルであり、公開 JSON field は追加しない。利用側は引き続き `status`、`exitCode`、`message`、`errors[].code`、`errors[].message`、`errors[].opId` だけを読めばよい。
+内部の失敗分類は CLI エンベロープへ投影される診断モデルであり、CLI エラーオブジェクトの共通 field は追加しない。利用側は引き続き `status`、`exitCode`、`message`、`errors[].code`、`errors[].message`、`errors[].opId` だけを読めばよい。
 
 ## 内部 IPC 契約
 
@@ -231,6 +231,8 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 
 #### `daemon start`
 
+成功時の payload は endpoint と session 登録が完了した session snapshot を返す。
+
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
 | `startStatus` | `started \| alreadyRunning \| attached` | yes | 起動結果。`attached` は既存 GUI Editor session の endpoint に接続した状態 |
@@ -242,6 +244,53 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 | `session` | object | yes | セッション情報 |
 
 `daemon start` の成功は endpoint と session の登録完了を意味し、`lifecycleState = ready` を保証しない。
+
+失敗時の payload は session 未成立の起動観測結果を返す。`lifecycleState`、`blockingReason`、`canAcceptExecutionRequests` は endpoint 登録済み session の field であり、startup observation 失敗 payload には含めない。
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `startStatus` | `failed` | yes | 起動失敗 |
+| `daemonStatus` | `notRunning \| stale` | yes | session 未成立後の daemon 状態 |
+| `timeoutMilliseconds` | integer | yes | 実効タイムアウト |
+| `session` | `null` | yes | endpoint と session が成立していないため常に `null` |
+| `startup` | `object \| null` | yes | endpoint 登録前の起動観測結果。preflight 失敗など Unity process 起動前の失敗では `null` |
+| `diagnosis` | `object \| null` | yes | startup failure の保存済みまたは推定 diagnosis |
+| `retryDisposition` | `retryImmediately \| waitThenRetry \| retryAfterFix \| manualActionRequired \| doNotRetry \| unknown` | yes | failure payload から判断できる再試行方針 |
+| `safeToRetryImmediately` | boolean | yes | 何も修正せず即時再試行してよい場合だけ `true` |
+
+`daemonStatus=stale` は、既存 session artifact が存在するが endpoint probe 失敗、process 不在、token invalid などで再利用できない状態を表す。今回の launch attempt が endpoint 登録前に `blocked`、`timeout`、`failed` になっただけでは `stale` とせず、既存 stale session がなければ `notRunning` を返す。
+
+`safeToRetryImmediately` は `retryDisposition=retryImmediately` のときだけ `true` とする。`waitThenRetry`、`retryAfterFix`、`manualActionRequired`、`doNotRetry`、`unknown` では `false` とする。
+
+final `daemon start` failure payload では原則として `retryDisposition=waitThenRetry` を返さない。`waitThenRetry` は進行中 observation、将来の watch/diagnose 系 command、または timeout 前に観測途中状態を返す command のために予約する。
+
+#### `daemon start payload.startup`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `startupStatus` | `launching \| waitingForEndpoint \| blocked \| timeout \| failed` | yes | endpoint 登録前の起動観測状態。failure payload では `completed` を返さない |
+| `startupBlockingReason` | `null \| safeMode \| compile \| packageResolution \| ucliPlugin \| precompiledAssemblyConflict \| modalDialog \| endpointNotRegistered \| processExit \| unknown` | yes | startup を止めた理由。endpoint 登録後の `payload.blockingReason` とは別語彙 |
+| `launchAttemptId` | `string \| null` | yes | 起動 attempt の識別子 |
+| `editorMode` | `batchmode \| gui \| null` | yes | 起動または attach 対象の Editor mode |
+| `ownerKind` | `cli \| user \| null` | yes | 起動 attempt の所有者種別 |
+| `canShutdownProcess` | `boolean \| null` | yes | startup policy が process を終了対象にできるか |
+| `processId` | `integer \| null` | yes | 関連 Unity process ID |
+| `startedAtUtc` | `string \| null` | yes | 関連 Unity process の起動時刻 |
+| `elapsedMilliseconds` | `integer \| null` | yes | 起動 attempt 開始から失敗判定までの経過時間 |
+| `processAction` | `none \| kept \| terminated \| unknown` | yes | 起動失敗後に uCLI が process へ行った処理 |
+| `processTermination` | `object \| null` | yes | process 終了を試みた場合の詳細。終了対象でない場合は `null` |
+| `artifactPath` | `string \| null` | yes | 起動 attempt artifact directory または diagnosis artifact path |
+
+#### `daemon start payload.startup.processTermination`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `attemptedGracefulShutdown` | boolean | yes | graceful shutdown を試みたか |
+| `gracefulShutdownTimedOut` | boolean | yes | graceful shutdown が timeout したか |
+| `forceKillAttempted` | boolean | yes | force kill を試みたか |
+| `forceKillSucceeded` | `boolean \| null` | yes | force kill の成否。試みていない場合は `null` |
+| `exitCode` | `integer \| null` | yes | 観測できた process exit code |
+| `elapsedMilliseconds` | integer | yes | 終了処理に要した時間 |
 
 #### `daemon stop`
 
@@ -261,6 +310,7 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 | `cleanupStatus` | `completed \| skipped` | yes | cleanup 結果 |
 | `skipReason` | `null \| running \| unsafeInvalidSession \| uncertainReachability` | yes | cleanup を見送った理由 |
 | `timeoutMilliseconds` | integer | yes | 実効タイムアウト |
+| `deletedLaunchAttemptCount` | integer | yes | cleanup で削除した古い launch attempt artifact 件数。削除していない場合は `0` |
 
 #### `daemon status`
 
@@ -278,6 +328,21 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 | `timeoutMilliseconds` | integer | yes | 実効タイムアウト |
 | `session` | `object \| null` | yes | `running` / `stale` は object、`notRunning` は `null` |
 | `diagnosis` | `object \| null` | yes | 保存済みまたは推定された diagnosis |
+| `lastLaunchAttempt` | `object \| null` | yes | 直近の session 未成立 startup attempt。直近失敗がない場合、または running session の診断と重複する場合は `null` |
+
+#### `daemon status payload.lastLaunchAttempt`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `startupStatus` | `blocked \| timeout \| failed` | yes | 直近の session 未成立 attempt の最終状態。running session と重複する `completed` attempt は返さない |
+| `startupBlockingReason` | `null \| safeMode \| compile \| packageResolution \| ucliPlugin \| precompiledAssemblyConflict \| modalDialog \| endpointNotRegistered \| processExit \| unknown` | yes | startup を止めた理由 |
+| `launchAttemptId` | `string \| null` | yes | 起動 attempt の識別子 |
+| `diagnosisReason` | `string \| null` | yes | 直近 attempt の diagnosis reason |
+| `retryDisposition` | `retryImmediately \| waitThenRetry \| retryAfterFix \| manualActionRequired \| doNotRetry \| unknown` | yes | 直近 attempt の再試行方針 |
+| `processAction` | `none \| kept \| terminated \| unknown` | yes | 起動失敗後に uCLI が process へ行った処理 |
+| `diagnosisPath` | `string \| null` | yes | startup diagnosis artifact path |
+| `artifactPath` | `string \| null` | yes | launch attempt artifact directory |
+| `updatedAtUtc` | string | yes | attempt 診断の更新時刻 |
 
 #### `daemon list`
 
@@ -311,11 +376,65 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 | `message` | string | yes | 人間向け説明 |
 | `reportedBy` | `unity \| cli` | yes | 診断報告元 |
 | `isInferred` | boolean | yes | CLI が後から推定して合成した診断か |
+| `confidence` | `high \| medium \| low \| unknown` | yes | 診断分類の信頼度 |
 | `updatedAtUtc` | string | yes | 更新時刻 |
 | `processId` | `integer \| null` | yes | 関連 process ID |
 | `editorInstancePath` | `string \| null` | yes | 関連する `Library/EditorInstance.json` の path。該当なしは `null` |
+| `processStartedAtUtc` | `string \| null` | yes | 関連 Unity process の起動時刻 |
+| `unityLogPath` | `string \| null` | yes | 関連 Unity Editor log path |
+| `startupPhase` | `string \| null` | yes | startup failure が観測された phase。例: `packageResolution`、`scriptCompilation`、`userAction`、`processExit` |
+| `actionRequired` | `string \| null` | yes | 復旧に必要な行動。例: `fixCompileErrors`、`resolvePackages`、`resolveUnityDialog`、`inspectUnityLog` |
+| `primaryDiagnostic` | `object \| null` | yes | 機械判定に使う代表診断 |
+| `secondaryDiagnostics` | array | yes | 補助診断の配列。要素は `primaryDiagnostic` と同じ shape |
+| `detectedSignals` | array | yes | 分類に使ったログまたは状態 signal |
+| `topErrors` | array | yes | 復旧判断に使う上位 error 抜粋 |
+| `artifactPath` | `string \| null` | yes | launch attempt artifact directory |
+| `nextActions` | array | yes | 推奨される次操作。自動実行を意味しない |
 
-既存 GUI Editor process を検出したが endpoint 登録が timeout まで完了しない場合、`IPC_TIMEOUT` の diagnosis は `reason = guiEndpointNotRegistered`、`reportedBy = cli`、`isInferred = true` とし、`editorInstancePath` と `processId` を返す。
+#### `daemon diagnosis.primaryDiagnostic`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `kind` | string | yes | 診断種別。例: `compiler`、`packageResolution`、`unityDialog`、`processExit` |
+| `category` | string | yes | 復帰カテゴリ。例: `compile`、`packageResolution`、`startup` |
+| `code` | `string \| null` | yes | 種別内の詳細 code。NuGetForUnity 固有ログを検出できた場合の `NUGET_FOR_UNITY_RESTORE_FAILED` はここで表す |
+| `source` | `string \| null` | yes | 診断の情報源。例: `Editor.log`、`upmLog`、`nugetForUnityLog`、`process` |
+| `confidence` | `high \| medium \| low \| unknown` | yes | この診断単体の信頼度 |
+| `file` | `string \| null` | yes | 関連 source file |
+| `line` | `integer \| null` | yes | 関連行番号 |
+| `column` | `integer \| null` | yes | 関連列番号 |
+| `message` | string | yes | 代表診断メッセージ |
+
+`errors[].code` は command failure の代表 code であり、`diagnosis.primaryDiagnostic.code` は診断根拠に近い詳細 code である。`primaryDiagnostic.code` は `errors[].code` と同じ open code set の値を使ってよいが、必ず `errors[]` にも載るとは限らない。agent は command outcome の分類には `errors[].code` と `retryDisposition` を使い、復帰カテゴリの詳細化には `diagnosis.reason` と `diagnosis.primaryDiagnostic` を使う。
+
+#### `daemon diagnosis.detectedSignals[]`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `source` | string | yes | signal の情報源 |
+| `patternId` | string | yes | 検出 pattern の識別子 |
+| `lineExcerpt` | `string \| null` | yes | bounded なログ抜粋 |
+| `confidence` | `high \| medium \| low \| unknown` | yes | signal の信頼度 |
+
+#### `daemon diagnosis.topErrors[]`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `kind` | string | yes | error 種別 |
+| `message` | string | yes | bounded な error message |
+| `source` | string | yes | error の情報源 |
+| `file` | `string \| null` | yes | 関連 source file |
+| `line` | `integer \| null` | yes | 関連行番号 |
+
+#### `daemon diagnosis.nextActions[]`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `kind` | string | yes | action 種別 |
+| `summary` | string | yes | 人間向けの短い説明 |
+| `command` | `string \| null` | yes | 実行候補コマンド。副作用が大きい修復操作は自動実行しない |
+
+既存 GUI Editor process を検出したが endpoint 登録が timeout まで完了しない場合でも、起動ブロックを分類できる場合は `DAEMON_STARTUP_BLOCKED` の diagnosis を返す。分類不能のまま timeout した場合だけ、`IPC_TIMEOUT` の diagnosis は `reason = guiEndpointNotRegistered` または `endpointNotRegistered`、`reportedBy = cli`、`isInferred = true` とし、`editorInstancePath` と `processId` を返す。
 
 #### `daemon list items[]`
 

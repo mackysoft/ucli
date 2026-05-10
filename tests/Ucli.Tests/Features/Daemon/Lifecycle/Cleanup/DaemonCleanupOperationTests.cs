@@ -473,23 +473,19 @@ public sealed class DaemonCleanupOperationTests
         IProjectLifecycleLockProvider? lifecycleLockProvider = null,
         IDaemonSessionStore? daemonSessionStore = null,
         IDaemonPingClient? daemonPingClient = null,
-        IDaemonReachabilityClassifier? reachabilityClassifier = null,
         IDaemonArtifactCleaner? artifactCleaner = null,
         IDaemonInvalidSessionCleanupSafetyEvaluator? invalidSessionCleanupSafetyEvaluator = null,
         IIpcEndpointResolver? endpointResolver = null,
         IDaemonCleanupReachabilityProbe? cleanupReachabilityProbe = null)
     {
         var effectivePingClient = daemonPingClient ?? new StubDaemonPingClient(static () => ValueTask.CompletedTask);
-        var effectiveReachabilityClassifier = reachabilityClassifier ?? new DaemonReachabilityClassifier();
         _ = endpointResolver;
         return new DaemonCleanupOperation(
             lifecycleLockProvider ?? new StubProjectLifecycleLockProvider(),
             daemonSessionStore ?? new StubDaemonSessionStore(),
             artifactCleaner ?? new StubDaemonArtifactCleaner(),
             invalidSessionCleanupSafetyEvaluator ?? new StubDaemonInvalidSessionCleanupSafetyEvaluator(),
-            cleanupReachabilityProbe ?? new DaemonCleanupReachabilityProbe(
-                effectivePingClient,
-                effectiveReachabilityClassifier));
+            cleanupReachabilityProbe ?? new DaemonCleanupReachabilityProbe(effectivePingClient));
     }
 
     private static ResolvedUnityProjectContext CreateContext (string fingerprint)

@@ -109,6 +109,51 @@ public sealed class DaemonListQueryServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task List_WhenGuiSessionIsRunning_ReturnsOwnerShutdownAndLifecycleFields ()
+    {
+        var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
+        var session = CreateSession(
+            "fp-current",
+            "endpoint-gui",
+            3101,
+            editorMode: DaemonEditorModeValues.Gui,
+            ownerKind: DaemonSessionOwnerKindValues.User,
+            canShutdownProcess: false);
+        var pingResponse = new IpcPingResponse(
+            ServerVersion: "0.0.2",
+            EditorMode: DaemonEditorModeValues.Gui,
+            UnityVersion: "6000.1.4f1",
+            ProjectFingerprint: currentProject.ProjectFingerprint,
+            CompileState: IpcCompileStateCodec.Ready,
+            LifecycleState: IpcEditorLifecycleStateCodec.Playmode,
+            BlockingReason: IpcEditorBlockingReasonCodec.PlayMode,
+            CompileGeneration: "3",
+            DomainReloadGeneration: "5",
+            CanAcceptExecutionRequests: true);
+        var service = CreateSingleWorktreeService(
+            currentProject,
+            DaemonSessionReadResult.Success(session),
+            new StubDaemonDiagnosisStore(),
+            new StubDaemonPingClient(static (_, _, _, _) => ValueTask.CompletedTask, pingResponse),
+            new StubDaemonReachabilityClassifier(static _ => false));
+
+        var result = await service.GetListAsync(currentProject, TimeSpan.FromMilliseconds(3000), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
+        var item = Assert.Single(output.Items);
+        Assert.Equal(DaemonListItemState.Running, item.State);
+        Assert.Equal(DaemonEditorModeValues.Gui, item.EditorMode);
+        Assert.Equal(DaemonSessionOwnerKindValues.User, item.OwnerKind);
+        Assert.False(item.CanShutdownProcess);
+        Assert.Equal(IpcEditorLifecycleStateCodec.Playmode, item.LifecycleState);
+        Assert.Equal(IpcEditorBlockingReasonCodec.PlayMode, item.BlockingReason);
+        Assert.False(item.CanAcceptExecutionRequests);
+        Assert.Null(item.Diagnosis);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task List_WhenGitWorktreeQueryFails_ReturnsFailure ()
     {
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
@@ -604,16 +649,19 @@ public sealed class DaemonListQueryServiceTests
     private static DaemonSession CreateSession (
         string projectFingerprint,
         string endpointAddress,
-        int processId)
+        int processId,
+        string editorMode = DaemonEditorModeValues.Batchmode,
+        string ownerKind = DaemonSessionOwnerKindValues.Cli,
+        bool canShutdownProcess = true)
     {
         return new DaemonSession(
             SchemaVersion: DaemonSession.CurrentSchemaVersion,
             SessionToken: "secret-token",
             ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: new DateTimeOffset(2026, 03, 09, 12, 0, 0, TimeSpan.Zero),
-            EditorMode: DaemonEditorModeValues.Batchmode,
-            OwnerKind: DaemonSessionOwnerKindValues.Cli,
-            CanShutdownProcess: true,
+            EditorMode: editorMode,
+            OwnerKind: ownerKind,
+            CanShutdownProcess: canShutdownProcess,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: endpointAddress,
             ProcessId: processId,
@@ -788,9 +836,14 @@ public sealed class DaemonListQueryServiceTests
     {
         private readonly Func<ResolvedUnityProjectContext, TimeSpan, string?, CancellationToken, ValueTask> ping;
 
-        public StubDaemonPingClient (Func<ResolvedUnityProjectContext, TimeSpan, string?, CancellationToken, ValueTask> ping)
+        private readonly IpcPingResponse? response;
+
+        public StubDaemonPingClient (
+            Func<ResolvedUnityProjectContext, TimeSpan, string?, CancellationToken, ValueTask> ping,
+            IpcPingResponse? response = null)
         {
             this.ping = ping;
+            this.response = response;
         }
 
         public ValueTask PingAsync (
@@ -810,7 +863,7 @@ public sealed class DaemonListQueryServiceTests
             CancellationToken cancellationToken = default)
         {
             await ping(unityProject, timeout, sessionToken, cancellationToken).ConfigureAwait(false);
-            return new IpcPingResponse(
+            return response ?? new IpcPingResponse(
                 ServerVersion: "0.0.1",
                 EditorMode: DaemonEditorModeValues.Batchmode,
                 UnityVersion: "6000.1.4f1",

@@ -81,6 +81,35 @@ public sealed class SupervisorExitHandlerTests
         Assert.Contains("session read failed", logText, StringComparison.Ordinal);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleExit_WhenSessionCannotShutdownProcess_SkipsDiagnosisAndCleanup ()
+    {
+        var repositoryRoot = Path.Combine(Path.GetTempPath(), "ucli-exit-handler-tests", Guid.NewGuid().ToString("N"));
+        var unityProject = CreateUnityProject(repositoryRoot);
+        var session = CreateSession(
+            editorMode: DaemonEditorModeValues.Gui,
+            ownerKind: DaemonSessionOwnerKindValues.User,
+            canShutdownProcess: false);
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var artifactCleaner = new StubDaemonArtifactCleaner();
+        var exitHandler = new SupervisorExitHandler(
+            new StubDaemonSessionStore(session),
+            artifactCleaner,
+            new SupervisorDiagnosisWriter(diagnosisStore),
+            new SupervisorRuntimeLogger());
+        var managedProcess = new SupervisorManagedDaemonProcess(
+            unityProject,
+            session,
+            processId: -1,
+            static _ => Task.CompletedTask);
+
+        await exitHandler.HandleExitAsync(managedProcess, CancellationToken.None);
+
+        Assert.Equal(0, diagnosisStore.WriteCallCount);
+        Assert.Equal(0, artifactCleaner.CleanupCallCount);
+    }
+
     private static ResolvedUnityProjectContext CreateUnityProject (string repositoryRoot)
     {
         return new ResolvedUnityProjectContext(
@@ -90,16 +119,19 @@ public sealed class SupervisorExitHandlerTests
             PathSource: UnityProjectPathSource.CommandOption);
     }
 
-    private static DaemonSession CreateSession ()
+    private static DaemonSession CreateSession (
+        string editorMode = DaemonEditorModeValues.Batchmode,
+        string ownerKind = DaemonSessionOwnerKindValues.Cli,
+        bool canShutdownProcess = true)
     {
         return new DaemonSession(
             SchemaVersion: DaemonSession.CurrentSchemaVersion,
             SessionToken: "session-token",
             ProjectFingerprint: "fingerprint",
             IssuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
-            EditorMode: DaemonEditorModeValues.Batchmode,
-            OwnerKind: DaemonSessionOwnerKindValues.Cli,
-            CanShutdownProcess: true,
+            EditorMode: editorMode,
+            OwnerKind: ownerKind,
+            CanShutdownProcess: canShutdownProcess,
             EndpointTransportKind: "unixDomainSocket",
             EndpointAddress: "/tmp/ucli.sock",
             ProcessId: 1234,
@@ -149,6 +181,8 @@ public sealed class SupervisorExitHandlerTests
         public DaemonDiagnosisStoreOperationResult WriteResult { get; set; } =
             DaemonDiagnosisStoreOperationResult.Success();
 
+        public int WriteCallCount { get; private set; }
+
         public ValueTask<DaemonDiagnosisReadResult> ReadAsync (
             string storageRoot,
             string projectFingerprint,
@@ -163,6 +197,7 @@ public sealed class SupervisorExitHandlerTests
             DaemonDiagnosis diagnosis,
             CancellationToken cancellationToken = default)
         {
+            WriteCallCount++;
             return ValueTask.FromResult(WriteResult);
         }
 

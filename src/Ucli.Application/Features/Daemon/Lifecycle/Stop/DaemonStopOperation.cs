@@ -134,10 +134,24 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
 
         if (shutdownResult.IsNotRunning)
         {
-            var notRunningCleanupResult = await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
-            return notRunningCleanupResult.IsSuccess
-                ? DaemonStopResult.Stopped()
-                : DaemonStopResult.Failure(notRunningCleanupResult.Error!);
+            var hasTerminationBudget = deadline.TryGetRemainingTimeout(out var notRunningTerminationTimeout);
+            if (!hasTerminationBudget)
+            {
+                notRunningTerminationTimeout = DaemonTimeouts.StopCompensationTimeout;
+            }
+
+            var notRunningStopAndCleanupResult = await EnsureStoppedAndCleanupAsync(
+                    unityProject,
+                    session,
+                    notRunningTerminationTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return notRunningStopAndCleanupResult.IsSuccess
+                ? hasTerminationBudget
+                    ? DaemonStopResult.Stopped()
+                    : DaemonStopResult.Failure(CreateTimeoutError(
+                        "Timed out before daemon process termination could be completed."))
+                : DaemonStopResult.Failure(notRunningStopAndCleanupResult.Error!);
         }
 
         if (!shutdownResult.IsSuccess
@@ -188,14 +202,21 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
-        if (deadline.TryGetRemainingTimeout(out var shutdownTimeout))
+        if (!deadline.TryGetRemainingTimeout(out var shutdownTimeout))
         {
-            _ = await shutdownClient.SendShutdownAsync(
-                    unityProject,
-                    session,
-                    shutdownTimeout,
-                    cancellationToken)
-                .ConfigureAwait(false);
+            return DaemonStopResult.Failure(CreateTimeoutError(
+                "Timed out before daemon endpoint shutdown request could be sent."));
+        }
+
+        var shutdownResult = await shutdownClient.SendShutdownAsync(
+                unityProject,
+                session,
+                shutdownTimeout,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!shutdownResult.IsSuccess && !shutdownResult.IsNotRunning)
+        {
+            return DaemonStopResult.Failure(shutdownResult.Error!);
         }
 
         var cleanupResult = await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);

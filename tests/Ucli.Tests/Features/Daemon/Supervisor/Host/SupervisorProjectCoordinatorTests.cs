@@ -131,6 +131,47 @@ public sealed class SupervisorProjectCoordinatorTests
     }
 
     [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureRunning_WhenUserOwnedGuiSessionStarts_DoesNotVerifyStabilityOrRegisterManagedProcess ()
+    {
+        var unityProject = CreateUnityProject();
+        var userOwnedSession = CreateSession(
+            processId: 4243,
+            editorMode: DaemonEditorModeValues.Gui,
+            ownerKind: DaemonSessionOwnerKindValues.User,
+            canShutdownProcess: false);
+        var startOperation = new StubDaemonStartOperation
+        {
+            StartResult = DaemonStartResult.Started(userOwnedSession),
+        };
+        var pingClient = new StubDaemonPingClient
+        {
+            PingHandler = static (_, _, _) => ValueTask.FromException(new InvalidOperationException("must not ping")),
+        };
+        var stopOperation = new StubDaemonStopOperation();
+        var coordinator = CreateCoordinator(
+            startOperation,
+            stopOperation,
+            pingClient,
+            new StubDaemonDiagnosisStore(),
+            new StubDaemonSessionStore());
+
+        var result = await coordinator.EnsureRunningAsync(
+                unityProject,
+                TimeSpan.FromMilliseconds(500),
+                editorMode: DaemonEditorMode.Gui,
+                CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(DaemonStartStatus.Started, result.Status);
+        Assert.Same(userOwnedSession, result.Session);
+        Assert.False(coordinator.HasManagedProjects);
+        Assert.False(coordinator.HasActiveProjectWork);
+        Assert.Equal(0, pingClient.PingCallCount);
+        Assert.Equal(0, stopOperation.StopCallCount);
+    }
+
+    [Fact]
     [Trait("Size", "Medium")]
     public async Task EnsureRunning_WhenStabilityVerificationIsCanceled_StopsStartedDaemonAndKeepsItManaged ()
     {

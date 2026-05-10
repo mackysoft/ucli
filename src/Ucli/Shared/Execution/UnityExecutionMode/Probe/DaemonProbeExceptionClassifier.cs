@@ -15,13 +15,16 @@ internal static class DaemonProbeExceptionClassifier
 
         if (exception is DaemonPingResponseException pingResponseException)
         {
-            return IsSessionTokenErrorCode(pingResponseException.ErrorCode);
+            return IsSessionAuthenticationRejected(pingResponseException.ErrorCode);
         }
 
         return exception is SocketException;
     }
 
-    private static bool IsSessionTokenErrorCode (UcliErrorCode? errorCode)
+    /// <summary> Determines whether one daemon error code indicates session authentication rejection. </summary>
+    /// <param name="errorCode"> The daemon error code to classify. </param>
+    /// <returns> <see langword="true" /> when the code rejects daemon session authentication; otherwise <see langword="false" />. </returns>
+    public static bool IsSessionAuthenticationRejected (UcliErrorCode? errorCode)
     {
         return errorCode == IpcSessionErrorCodes.SessionTokenRequired
             || errorCode == IpcSessionErrorCodes.SessionTokenInvalid;

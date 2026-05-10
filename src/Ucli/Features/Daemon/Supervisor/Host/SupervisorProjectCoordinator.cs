@@ -133,14 +133,17 @@ internal sealed class SupervisorProjectCoordinator
 
             if (startResult.Status == DaemonStartStatus.AlreadyRunning)
             {
-                RegisterManagedProcess(slot, unityProject, startResult.Session!);
+                _ = TryRegisterManagedProcess(slot, unityProject, startResult.Session!);
                 return DaemonStartResult.AlreadyRunning(startResult.Session!);
             }
 
             // NOTE:
-            // register the launched daemon before stability verification so cancellation or
-            // verification failure cannot leave a started process outside supervisor ownership.
-            RegisterManagedProcess(slot, unityProject, startResult.Session!);
+            // Register manageable launched daemons before stability verification so cancellation or
+            // verification failure cannot leave a supervisor-owned process outside supervisor ownership.
+            if (!TryRegisterManagedProcess(slot, unityProject, startResult.Session!))
+            {
+                return DaemonStartResult.Started(startResult.Session!);
+            }
 
             if (!deadline.TryGetRemainingTimeout(out var stabilityTimeout))
             {
@@ -292,7 +295,7 @@ internal sealed class SupervisorProjectCoordinator
         return projectSlots.GetOrAdd(projectFingerprint, static _ => new SupervisorProjectSlot());
     }
 
-    private void RegisterManagedProcess (
+    private bool TryRegisterManagedProcess (
         SupervisorProjectSlot slot,
         ResolvedUnityProjectContext unityProject,
         DaemonSession session)
@@ -303,13 +306,13 @@ internal sealed class SupervisorProjectCoordinator
 
         if (!DaemonSessionTerminationPolicy.CanShutdownProcess(session))
         {
-            return;
+            return false;
         }
 
         if (slot.ManagedProcess != null
             && IsSameManagedProcess(slot.ManagedProcess, session))
         {
-            return;
+            return true;
         }
 
         var managedProcess = CreateManagedProcess(unityProject, session);
@@ -323,6 +326,7 @@ internal sealed class SupervisorProjectCoordinator
         }
 
         slot.ManagedProcess = managedProcess;
+        return true;
     }
 
     private async Task HandleManagedProcessExitAsync (SupervisorManagedDaemonProcess managedProcess)
