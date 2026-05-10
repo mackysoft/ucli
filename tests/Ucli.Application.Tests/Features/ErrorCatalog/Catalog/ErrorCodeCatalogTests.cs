@@ -214,6 +214,29 @@ public sealed class ErrorCodeCatalogTests
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.Error.Code);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("DAEMON_STARTUP_BLOCKED")]
+    [InlineData("DAEMON_START_PROCESS_EXITED")]
+    [InlineData("DAEMON_ENDPOINT_NOT_REGISTERED")]
+    [InlineData("EDITOR_SAFE_MODE")]
+    [InlineData("EDITOR_COMPILE_ERRORS")]
+    [InlineData("PACKAGE_RESOLUTION_FAILED")]
+    [InlineData("UCLI_PLUGIN_DEPENDENCY_MISSING")]
+    [InlineData("UCLI_PLUGIN_COMPILE_FAILED")]
+    [InlineData("PRECOMPILED_ASSEMBLY_CONFLICT")]
+    public void Describe_WithStartupCode_ReturnsKnownDescriptor (string code)
+    {
+        var service = new ErrorCodeCatalogService(CreateCatalog());
+
+        var result = service.Describe(new UcliErrorCode(code), requireKnown: true);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Known);
+        Assert.NotNull(result.Descriptor);
+        Assert.Equal(code, result.Descriptor!.Code.Value);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void Describe_WithInvalidCode_ReturnsInvalidArgument ()

@@ -61,6 +61,7 @@ public sealed class SupervisorClientTests
     public async Task EnsureRunning_UsesOriginalOperationTimeoutAndUnboundedResponseWait ()
     {
         var observedOperationTimeoutMilliseconds = 0;
+        var observedOnStartupBlocked = (string?)null;
         var transportClient = new MackySoft.Ucli.Tests.Daemon.DaemonServiceTestContext.StubIpcTransportClient
         {
             SendHandler = (endpoint, request, timeout, cancellationToken) =>
@@ -70,6 +71,7 @@ public sealed class SupervisorClientTests
                     out SupervisorIpcContracts.EnsureRunningRequest payload,
                     out _));
                 observedOperationTimeoutMilliseconds = payload.TimeoutMilliseconds;
+                observedOnStartupBlocked = payload.OnStartupBlocked;
 
                 return ValueTask.FromResult(new IpcResponse(
                     ProtocolVersion: request.ProtocolVersion,
@@ -91,20 +93,23 @@ public sealed class SupervisorClientTests
             CreateUnityProject(),
             requestedTimeout,
             editorMode: DaemonEditorMode.Gui,
-            CancellationToken.None);
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Terminate,
+            cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var call = Assert.Single(transportClient.Calls);
         Assert.True(call.UsesUnboundedResponseWait);
         Assert.Equal(requestedTimeout, call.Timeout);
         Assert.Equal((int)requestedTimeout.TotalMilliseconds, observedOperationTimeoutMilliseconds);
+        Assert.Equal(DaemonStartupBlockedProcessPolicyValues.Terminate, observedOnStartupBlocked);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task EnsureRunning_WhenFailurePayloadContainsDiagnosis_ReturnsFailureWithDiagnosis ()
+    public async Task EnsureRunning_WhenFailurePayloadContainsDiagnosisAndStartup_ReturnsFailureWithMetadata ()
     {
         var diagnosis = CreateDiagnosis();
+        var startup = CreateStartupObservation();
         var transportClient = new MackySoft.Ucli.Tests.Daemon.DaemonServiceTestContext.StubIpcTransportClient
         {
             SendHandler = (endpoint, request, timeout, cancellationToken) => ValueTask.FromResult(new IpcResponse(
@@ -112,7 +117,7 @@ public sealed class SupervisorClientTests
                 RequestId: request.RequestId,
                 Status: IpcProtocol.StatusError,
                 Payload: IpcPayloadCodec.SerializeToElement(
-                    new SupervisorIpcContracts.EnsureRunningFailureResponse(diagnosis)),
+                    new SupervisorIpcContracts.EnsureRunningFailureResponse(diagnosis, startup)),
                 Errors:
                 [
                     new IpcError(ExecutionErrorCodes.IpcTimeout, "endpoint registration timed out", null),
@@ -125,11 +130,13 @@ public sealed class SupervisorClientTests
             CreateUnityProject(),
             TimeSpan.FromMilliseconds(100),
             editorMode: DaemonEditorMode.Gui,
-            CancellationToken.None);
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error!.Code);
         Assert.Equal(diagnosis, result.Diagnosis);
+        Assert.Equal(startup, result.Startup);
     }
 
     private static SupervisorInstanceManifest CreateManifest ()
@@ -179,5 +186,15 @@ public sealed class SupervisorClientTests
             ProcessId: 1234,
             EditorInstancePath: "/repo/UnityProject/Library/EditorInstance.json",
             SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 2, 0, TimeSpan.Zero));
+    }
+
+    private static DaemonStartupObservation CreateStartupObservation ()
+    {
+        return new DaemonStartupObservation(
+            StartupStatus: DaemonStartupStatusValues.Blocked,
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            LaunchAttemptId: null,
+            ProcessAction: DaemonStartupProcessActionValues.Kept,
+            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix);
     }
 }

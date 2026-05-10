@@ -39,10 +39,11 @@ public sealed class SupervisorProjectCoordinatorTests
             new StubDaemonSessionStore());
 
         var result = await coordinator.EnsureRunningAsync(
-                unityProject,
-                TimeSpan.FromMilliseconds(500),
-                editorMode: null,
-                CancellationToken.None);
+            unityProject,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonStartStatus.AlreadyRunning, result.Status);
@@ -53,6 +54,33 @@ public sealed class SupervisorProjectCoordinatorTests
         await TestProcessAwaiter.WaitForExitAsync(process, "Managed daemon helper process", ProcessExitTimeout);
         await coordinator.AwaitManagedProcessesAsync();
         Assert.False(coordinator.HasManagedProjects);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureRunning_WhenOnStartupBlockedIsSpecified_PassesPolicyToStartOperation ()
+    {
+        var unityProject = CreateUnityProject();
+        var startOperation = new StubDaemonStartOperation
+        {
+            StartResult = DaemonStartResult.AlreadyRunning(CreateSession(processId: null)),
+        };
+        var coordinator = CreateCoordinator(
+            startOperation,
+            new StubDaemonStopOperation(),
+            new StubDaemonPingClient(),
+            new StubDaemonDiagnosisStore(),
+            new StubDaemonSessionStore());
+
+        var result = await coordinator.EnsureRunningAsync(
+            unityProject,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Terminate,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(DaemonStartupBlockedProcessPolicy.Terminate, startOperation.LastOnStartupBlocked);
     }
 
     [Fact]
@@ -81,10 +109,11 @@ public sealed class SupervisorProjectCoordinatorTests
             new StubDaemonSessionStore());
 
         var result = await coordinator.EnsureRunningAsync(
-                unityProject,
-                TimeSpan.FromMilliseconds(500),
-                editorMode: null,
-                CancellationToken.None);
+            unityProject,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonStartStatus.AlreadyRunning, result.Status);
@@ -118,10 +147,11 @@ public sealed class SupervisorProjectCoordinatorTests
             new StubDaemonSessionStore());
 
         var result = await coordinator.EnsureRunningAsync(
-                unityProject,
-                TimeSpan.FromMilliseconds(500),
-                editorMode: DaemonEditorMode.Gui,
-                CancellationToken.None);
+            unityProject,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: DaemonEditorMode.Gui,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonStartStatus.AlreadyRunning, result.Status);
@@ -157,10 +187,11 @@ public sealed class SupervisorProjectCoordinatorTests
             new StubDaemonSessionStore());
 
         var result = await coordinator.EnsureRunningAsync(
-                unityProject,
-                TimeSpan.FromMilliseconds(500),
-                editorMode: DaemonEditorMode.Gui,
-                CancellationToken.None);
+            unityProject,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: DaemonEditorMode.Gui,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonStartStatus.Started, result.Status);
@@ -214,7 +245,8 @@ public sealed class SupervisorProjectCoordinatorTests
                 unityProject,
                 TimeSpan.FromMilliseconds(500),
                 editorMode: null,
-                cancellationTokenSource.Token)
+                onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+                cancellationToken: cancellationTokenSource.Token)
             .AsTask();
         try
         {
@@ -289,10 +321,11 @@ public sealed class SupervisorProjectCoordinatorTests
         try
         {
             var result = await coordinator.EnsureRunningAsync(
-                    unityProject,
-                    TimeSpan.FromMilliseconds(70),
-                    editorMode: null,
-                CancellationToken.None);
+                unityProject,
+                TimeSpan.FromMilliseconds(70),
+                editorMode: null,
+                onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+                cancellationToken: CancellationToken.None);
 
             Assert.False(result.IsSuccess);
             Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
@@ -345,10 +378,11 @@ public sealed class SupervisorProjectCoordinatorTests
         try
         {
             var result = await coordinator.EnsureRunningAsync(
-                    unityProject,
-                    TimeSpan.FromMilliseconds(500),
-                    editorMode: null,
-                CancellationToken.None);
+                unityProject,
+                TimeSpan.FromMilliseconds(500),
+                editorMode: null,
+                onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+                cancellationToken: CancellationToken.None);
 
             Assert.False(result.IsSuccess);
             Assert.Equal(ExecutionErrorKind.InternalError, result.Error!.Kind);
@@ -408,10 +442,11 @@ public sealed class SupervisorProjectCoordinatorTests
         try
         {
             var ensureRunningResult = await coordinator.EnsureRunningAsync(
-                    unityProject,
-                    TimeSpan.FromMilliseconds(70),
-                    editorMode: null,
-                CancellationToken.None);
+                unityProject,
+                TimeSpan.FromMilliseconds(70),
+                editorMode: null,
+                onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+                cancellationToken: CancellationToken.None);
             Assert.False(ensureRunningResult.IsSuccess);
             Assert.Equal(ExecutionErrorKind.Timeout, ensureRunningResult.Error!.Kind);
             await TestAwaiter.WaitAsync(stopStarted.Task, "Daemon stop failure compensation start", SignalWaitTimeout);
@@ -471,10 +506,11 @@ public sealed class SupervisorProjectCoordinatorTests
             sessionStore);
 
         var ensureRunningResult = await coordinator.EnsureRunningAsync(
-                unityProject,
-                TimeSpan.FromMilliseconds(500),
-                editorMode: null,
-                CancellationToken.None);
+            unityProject,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
         Assert.True(ensureRunningResult.IsSuccess);
 
         var stopResult = await coordinator.StopProjectAsync(
@@ -528,10 +564,11 @@ public sealed class SupervisorProjectCoordinatorTests
         try
         {
             var ensureRunningResult = await coordinator.EnsureRunningAsync(
-                    unityProject,
-                    TimeSpan.FromMilliseconds(500),
-                    editorMode: null,
-                CancellationToken.None);
+                unityProject,
+                TimeSpan.FromMilliseconds(500),
+                editorMode: null,
+                onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+                cancellationToken: CancellationToken.None);
             Assert.True(ensureRunningResult.IsSuccess);
 
             StopProcess(process);
@@ -572,10 +609,11 @@ public sealed class SupervisorProjectCoordinatorTests
             sessionStore);
 
         var ensureRunningResult = await coordinator.EnsureRunningAsync(
-                unityProject,
-                TimeSpan.FromMilliseconds(500),
-                editorMode: null,
-                CancellationToken.None);
+            unityProject,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
         Assert.True(ensureRunningResult.IsSuccess);
         Assert.True(coordinator.HasManagedProjects);
 
@@ -693,12 +731,16 @@ public sealed class SupervisorProjectCoordinatorTests
     {
         public DaemonStartResult StartResult { get; set; } = DaemonStartResult.Started(CreateSession(1234));
 
+        public DaemonStartupBlockedProcessPolicy LastOnStartupBlocked { get; private set; }
+
         public ValueTask<DaemonStartResult> StartAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             DaemonEditorMode? editorMode,
+            DaemonStartupBlockedProcessPolicy onStartupBlocked,
             CancellationToken cancellationToken = default)
         {
+            LastOnStartupBlocked = onStartupBlocked;
             return ValueTask.FromResult(StartResult);
         }
     }

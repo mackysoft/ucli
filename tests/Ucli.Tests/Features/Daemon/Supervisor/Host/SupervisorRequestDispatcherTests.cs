@@ -79,7 +79,8 @@ public sealed class SupervisorRequestDispatcherTests
                         UnityProjectRoot: "bad\u0000path",
                         ProjectFingerprint: "fingerprint",
                         TimeoutMilliseconds: 1000,
-                        EditorMode: null))));
+                        EditorMode: null,
+                        OnStartupBlocked: DaemonStartupBlockedProcessPolicyValues.Auto))));
 
         Assert.Equal(IpcProtocol.StatusError, invalidResponse.Status);
         var invalidError = Assert.Single(invalidResponse.Errors);
@@ -121,7 +122,8 @@ public sealed class SupervisorRequestDispatcherTests
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: "mismatched-fingerprint",
                         TimeoutMilliseconds: 1000,
-                        EditorMode: null))));
+                        EditorMode: null,
+                        OnStartupBlocked: DaemonStartupBlockedProcessPolicyValues.Auto))));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -152,12 +154,14 @@ public sealed class SupervisorRequestDispatcherTests
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
-                        EditorMode: " gui "))));
+                        EditorMode: " gui ",
+                        OnStartupBlocked: " terminate "))));
 
         Assert.True(
             string.Equals(IpcProtocol.StatusOk, response.Status, StringComparison.Ordinal),
             string.Join(Environment.NewLine, response.Errors.Select(error => $"{error.Code.Value}: {error.Message}")));
         Assert.Equal(DaemonEditorMode.Gui, startOperation.LastEditorMode);
+        Assert.Equal(DaemonStartupBlockedProcessPolicy.Terminate, startOperation.LastOnStartupBlocked);
     }
 
     [Fact]
@@ -183,7 +187,8 @@ public sealed class SupervisorRequestDispatcherTests
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
-                        EditorMode: "unsupported"))));
+                        EditorMode: "unsupported",
+                        OnStartupBlocked: DaemonStartupBlockedProcessPolicyValues.Auto))));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -193,14 +198,48 @@ public sealed class SupervisorRequestDispatcherTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task HandleConnection_WhenEnsureRunningFailsWithDiagnosis_EmitsDiagnosisPayload ()
+    public async Task HandleConnection_WhenOnStartupBlockedIsInvalid_ReturnsInvalidArgumentWithoutStartOperation ()
+    {
+        var startOperation = new StubDaemonStartOperation();
+        var dispatcher = CreateDispatcher(startOperation);
+        var runtimeContext = CreateRuntimeContext();
+        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
+
+        var response = await SendRequestAsync(
+            dispatcher,
+            runtimeContext,
+            new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "request-invalid-startup-policy",
+                SessionToken: runtimeContext.Manifest.SessionToken,
+                Method: SupervisorIpcContracts.EnsureRunningMethod,
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.EnsureRunningRequest(
+                        UnityProjectRoot: unityProjectRoot,
+                        ProjectFingerprint: projectFingerprint,
+                        TimeoutMilliseconds: 1000,
+                        EditorMode: null,
+                        OnStartupBlocked: "unsupported"))));
+
+        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        var error = Assert.Single(response.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
+        Assert.Equal(0, startOperation.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenEnsureRunningFailsWithDiagnosisAndStartup_EmitsFailureMetadataPayload ()
     {
         var diagnosis = CreateDiagnosis();
+        var startup = CreateStartupObservation();
         var startOperation = new StubDaemonStartOperation
         {
             StartResult = DaemonStartResult.Failure(
                 ExecutionError.Timeout("endpoint registration timed out", ExecutionErrorCodes.IpcTimeout),
-                diagnosis),
+                diagnosis,
+                startup),
         };
         var dispatcher = CreateDispatcher(startOperation);
         var runtimeContext = CreateRuntimeContext();
@@ -220,7 +259,8 @@ public sealed class SupervisorRequestDispatcherTests
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
-                        EditorMode: null))));
+                        EditorMode: null,
+                        OnStartupBlocked: DaemonStartupBlockedProcessPolicyValues.Auto))));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -230,6 +270,7 @@ public sealed class SupervisorRequestDispatcherTests
             out SupervisorIpcContracts.EnsureRunningFailureResponse payload,
             out _));
         Assert.Equal(diagnosis, payload.Diagnosis);
+        Assert.Equal(startup, payload.Startup);
     }
 
     [Fact]
@@ -262,7 +303,8 @@ public sealed class SupervisorRequestDispatcherTests
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1,
-                        EditorMode: null))));
+                        EditorMode: null,
+                        OnStartupBlocked: DaemonStartupBlockedProcessPolicyValues.Auto))));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -300,7 +342,8 @@ public sealed class SupervisorRequestDispatcherTests
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
-                        EditorMode: null))));
+                        EditorMode: null,
+                        OnStartupBlocked: DaemonStartupBlockedProcessPolicyValues.Auto))));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -431,14 +474,18 @@ public sealed class SupervisorRequestDispatcherTests
 
         public DaemonEditorMode? LastEditorMode { get; private set; }
 
+        public DaemonStartupBlockedProcessPolicy LastOnStartupBlocked { get; private set; }
+
         public async ValueTask<DaemonStartResult> StartAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             DaemonEditorMode? editorMode,
+            DaemonStartupBlockedProcessPolicy onStartupBlocked,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
             LastEditorMode = editorMode;
+            LastOnStartupBlocked = onStartupBlocked;
             if (WaitUntilCancellation)
             {
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
@@ -569,5 +616,15 @@ public sealed class SupervisorRequestDispatcherTests
             ProcessId: 1234,
             EditorInstancePath: "/repo/UnityProject/Library/EditorInstance.json",
             SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 2, 0, TimeSpan.Zero));
+    }
+
+    private static DaemonStartupObservation CreateStartupObservation ()
+    {
+        return new DaemonStartupObservation(
+            StartupStatus: DaemonStartupStatusValues.Blocked,
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            LaunchAttemptId: null,
+            ProcessAction: DaemonStartupProcessActionValues.Kept,
+            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix);
     }
 }

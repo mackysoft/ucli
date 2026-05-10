@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Context.Project;
@@ -90,6 +89,7 @@ internal sealed class SupervisorClient
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="timeout"> The command timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
+    /// <param name="onStartupBlocked"> The startup-blocked process policy requested by the caller. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The mapped daemon-start result. </returns>
     public async ValueTask<DaemonStartResult> EnsureRunningAsync (
@@ -97,6 +97,7 @@ internal sealed class SupervisorClient
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         DaemonEditorMode? editorMode,
+        DaemonStartupBlockedProcessPolicy onStartupBlocked,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -115,13 +116,16 @@ internal sealed class SupervisorClient
                     TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
                     EditorMode: editorMode.HasValue
                         ? DaemonEditorModeCodec.ToValue(editorMode.Value)
-                        : null));
+                        : null,
+                    OnStartupBlocked: DaemonStartupBlockedProcessPolicyCodec.ToValue(onStartupBlocked)));
             var response = await SendWithUnboundedResponseWaitAsync(manifest, request, timeout, cancellationToken).ConfigureAwait(false);
             if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
             {
+                var failurePayload = TryReadEnsureRunningFailurePayload(response);
                 return DaemonStartResult.Failure(
                     MapResponseFailure(firstError, status),
-                    TryReadEnsureRunningFailureDiagnosis(response));
+                    failurePayload?.Diagnosis,
+                    failurePayload?.Startup);
             }
 
             if (!IpcPayloadCodec.TryDeserialize(
@@ -304,13 +308,13 @@ internal sealed class SupervisorClient
         return ExecutionError.InternalError(firstError.Message, firstError.Code);
     }
 
-    private static DaemonDiagnosis? TryReadEnsureRunningFailureDiagnosis (IpcResponse response)
+    private static SupervisorIpcContracts.EnsureRunningFailureResponse? TryReadEnsureRunningFailurePayload (IpcResponse response)
     {
         return IpcPayloadCodec.TryDeserialize(
             response.Payload,
             out SupervisorIpcContracts.EnsureRunningFailureResponse payload,
             out _)
-            ? payload.Diagnosis
+            ? payload
             : null;
     }
 }

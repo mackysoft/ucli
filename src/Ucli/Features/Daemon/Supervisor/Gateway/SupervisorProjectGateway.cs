@@ -38,6 +38,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         DaemonEditorMode? editorMode,
+        DaemonStartupBlockedProcessPolicy onStartupBlocked,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -72,6 +73,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                 unityProject,
                 ensureRunningTimeout,
                 editorMode,
+                onStartupBlocked,
                 cancellationToken)
             .ConfigureAwait(false);
     }

@@ -5,6 +5,7 @@ global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Identi
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Reachability;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Shutdown;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Timing;
+global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 global using MackySoft.Ucli.Application.Shared.Context.Project;
 global using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 global using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;

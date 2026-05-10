@@ -30,6 +30,7 @@ internal sealed class DaemonStartCommand
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path. When omitted, the current working directory is used.</param>
     /// <param name="timeout"> Optional daemon start timeout in milliseconds. When omitted, timeout is resolved from config defaults. </param>
     /// <param name="editorMode">--editorMode, Optional daemon Editor mode (batchmode|gui).</param>
+    /// <param name="onStartupBlocked">--onStartupBlocked, Optional process policy when startup is blocked before endpoint registration.</param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.StartSubcommand)]
@@ -37,6 +38,7 @@ internal sealed class DaemonStartCommand
         string? projectPath = null,
         string? timeout = null,
         string? editorMode = null,
+        string? onStartupBlocked = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -62,10 +64,21 @@ internal sealed class DaemonStartCommand
             return errorResult.ExitCode;
         }
 
+        var normalizedOnStartupBlockedResult = DaemonStartupBlockedProcessPolicyOptionNormalizer.Normalize(onStartupBlocked);
+        if (!normalizedOnStartupBlockedResult.IsSuccess)
+        {
+            var errorResult = CommandResultFactory.FromExecutionError(
+                UcliCommandNames.DaemonStart,
+                normalizedOnStartupBlockedResult.Error!);
+            commandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
         var executionResult = await daemonStartService.StartAsync(
                 projectPath,
                 normalizedTimeoutResult.TimeoutMilliseconds,
                 normalizedEditorModeResult.EditorMode,
+                normalizedOnStartupBlockedResult.Policy,
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = CreateCommandResult(executionResult);

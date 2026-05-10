@@ -49,12 +49,14 @@ internal sealed class DaemonStartService : IDaemonStartService
     /// <param name="projectPath"> The optional <c>--projectPath</c> option value. </param>
     /// <param name="timeoutMilliseconds"> The optional normalized timeout value in milliseconds. </param>
     /// <param name="editorMode"> The optional normalized <c>--editorMode</c> value. </param>
+    /// <param name="onStartupBlocked"> The normalized <c>--onStartupBlocked</c> value. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-start execution result. </returns>
     public async ValueTask<DaemonStartExecutionResult> StartAsync (
         string? projectPath,
         int? timeoutMilliseconds,
         DaemonEditorMode? editorMode,
+        DaemonStartupBlockedProcessPolicy onStartupBlocked,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -92,6 +94,7 @@ internal sealed class DaemonStartService : IDaemonStartService
                 executionContext.Context.UnityProject,
                 ensureRunningTimeout,
                 editorMode,
+                onStartupBlocked,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!startResult.IsSuccess)
@@ -100,7 +103,7 @@ internal sealed class DaemonStartService : IDaemonStartService
                 ? null
                 : daemonDiagnosisOutputMapper.ToOutput(startResult.Diagnosis);
             return DaemonStartExecutionResult.Failure(startResult.Error ?? ExecutionError.InternalError(
-                "Daemon start operation failed without structured error details."), diagnosis);
+                "Daemon start operation failed without structured error details."), diagnosis, startResult.Startup);
         }
 
         var output = new DaemonStartExecutionOutput(

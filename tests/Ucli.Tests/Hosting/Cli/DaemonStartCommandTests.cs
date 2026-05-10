@@ -37,6 +37,30 @@ public sealed class DaemonStartCommandTests
         Assert.Equal("/repo/UnityProject", service.LastProjectPath);
         Assert.Equal(1234, service.LastTimeoutMilliseconds);
         Assert.Equal(expectedEditorMode, service.LastEditorMode);
+        Assert.Equal(DaemonStartupBlockedProcessPolicy.Auto, service.LastOnStartupBlocked);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(null, DaemonStartupBlockedProcessPolicy.Auto)]
+    [InlineData("auto", DaemonStartupBlockedProcessPolicy.Auto)]
+    [InlineData("keep", DaemonStartupBlockedProcessPolicy.Keep)]
+    [InlineData("terminate", DaemonStartupBlockedProcessPolicy.Terminate)]
+    public async Task Start_WhenOnStartupBlockedIsSpecified_PassesTypedPolicyToService (
+        string? optionValue,
+        DaemonStartupBlockedProcessPolicy expectedPolicy)
+    {
+        var service = new StubDaemonStartService(DaemonStartExecutionResult.Success(CreateSuccessOutput()));
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+
+        CommandExecutionState.Reset();
+        var (exitCode, _) = await StandardOutputCapture.ExecuteAsync(() => command.StartAsync(
+            onStartupBlocked: optionValue,
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        Assert.Equal(1, service.CallCount);
+        Assert.Equal(expectedPolicy, service.LastOnStartupBlocked);
     }
 
     [Fact]
@@ -49,6 +73,30 @@ public sealed class DaemonStartCommandTests
         CommandExecutionState.Reset();
         var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.StartAsync(
             editorMode: "unsupported",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
+        Assert.Equal(0, service.CallCount);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.DaemonStart,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WhenOnStartupBlockedIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
+    {
+        var service = new StubDaemonStartService(DaemonStartExecutionResult.Success(CreateSuccessOutput()));
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+
+        CommandExecutionState.Reset();
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.StartAsync(
+            onStartupBlocked: "unsupported",
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
@@ -158,18 +206,22 @@ public sealed class DaemonStartCommandTests
 
         public DaemonEditorMode? LastEditorMode { get; private set; }
 
+        public DaemonStartupBlockedProcessPolicy LastOnStartupBlocked { get; private set; }
+
         public CancellationToken LastCancellationToken { get; private set; }
 
         public ValueTask<DaemonStartExecutionResult> StartAsync (
             string? projectPath,
             int? timeoutMilliseconds,
             DaemonEditorMode? editorMode,
+            DaemonStartupBlockedProcessPolicy onStartupBlocked,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
             LastProjectPath = projectPath;
             LastTimeoutMilliseconds = timeoutMilliseconds;
             LastEditorMode = editorMode;
+            LastOnStartupBlocked = onStartupBlocked;
             LastCancellationToken = cancellationToken;
             return ValueTask.FromResult(result);
         }

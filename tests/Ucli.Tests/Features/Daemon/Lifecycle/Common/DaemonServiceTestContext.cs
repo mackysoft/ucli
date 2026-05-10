@@ -203,18 +203,22 @@ internal static class DaemonServiceTestContext
 
         public DaemonEditorMode? LastEditorMode { get; private set; }
 
+        public DaemonStartupBlockedProcessPolicy LastOnStartupBlocked { get; private set; }
+
         public CancellationToken LastCancellationToken { get; private set; }
 
         public ValueTask<DaemonStartResult> StartAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             DaemonEditorMode? editorMode,
+            DaemonStartupBlockedProcessPolicy onStartupBlocked,
             CancellationToken cancellationToken = default)
         {
             StartCallCount++;
             LastUnityProject = unityProject;
             LastTimeout = timeout;
             LastEditorMode = editorMode;
+            LastOnStartupBlocked = onStartupBlocked;
             LastCancellationToken = cancellationToken;
             return ValueTask.FromResult(StartResult);
         }

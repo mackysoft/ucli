@@ -87,4 +87,49 @@ public sealed class DaemonContractCodecTests
     {
         Assert.Equal(expectedValue, DaemonSessionOwnerKindCodec.ToValue(ownerKind));
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void DaemonStartupBlockedProcessPolicyValues_HasStableStringValues ()
+    {
+        Assert.Equal("auto", DaemonStartupBlockedProcessPolicyValues.Auto);
+        Assert.Equal("keep", DaemonStartupBlockedProcessPolicyValues.Keep);
+        Assert.Equal("terminate", DaemonStartupBlockedProcessPolicyValues.Terminate);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("auto", true, DaemonStartupBlockedProcessPolicy.Auto)]
+    [InlineData(" keep ", true, DaemonStartupBlockedProcessPolicy.Keep)]
+    [InlineData("terminate", true, DaemonStartupBlockedProcessPolicy.Terminate)]
+    [InlineData("AUTO", false, DaemonStartupBlockedProcessPolicy.Auto)]
+    [InlineData("unsupported", false, DaemonStartupBlockedProcessPolicy.Auto)]
+    [InlineData("", false, DaemonStartupBlockedProcessPolicy.Auto)]
+    [InlineData(" ", false, DaemonStartupBlockedProcessPolicy.Auto)]
+    [InlineData(null, false, DaemonStartupBlockedProcessPolicy.Auto)]
+    public void DaemonStartupBlockedProcessPolicyCodec_TryParse_ReturnsExpectedResult (
+        string? value,
+        bool expectedResult,
+        DaemonStartupBlockedProcessPolicy expectedValue)
+    {
+        var result = DaemonStartupBlockedProcessPolicyCodec.TryParse(value, out var policy);
+
+        Assert.Equal(expectedResult, result);
+        if (expectedResult)
+        {
+            Assert.Equal(expectedValue, policy);
+        }
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(DaemonStartupBlockedProcessPolicy.Auto, DaemonStartupBlockedProcessPolicyValues.Auto)]
+    [InlineData(DaemonStartupBlockedProcessPolicy.Keep, DaemonStartupBlockedProcessPolicyValues.Keep)]
+    [InlineData(DaemonStartupBlockedProcessPolicy.Terminate, DaemonStartupBlockedProcessPolicyValues.Terminate)]
+    public void DaemonStartupBlockedProcessPolicyCodec_ToValue_ReturnsCanonicalLiteral (
+        DaemonStartupBlockedProcessPolicy policy,
+        string expectedValue)
+    {
+        Assert.Equal(expectedValue, DaemonStartupBlockedProcessPolicyCodec.ToValue(policy));
+    }
 }

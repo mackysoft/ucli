@@ -20,6 +20,8 @@ internal static class UcliContractConstants
 
         public const string EditorMode = "--editorMode";
 
+        public const string OnStartupBlocked = "--onStartupBlocked";
+
         public const string ReadIndexMode = "--readIndexMode";
 
         public const string NameRegex = "--nameRegex";
