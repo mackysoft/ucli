@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Shutdown;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;
@@ -62,7 +63,8 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
                 {
                     if (IsSessionTokenErrorCode(firstError.Code))
                     {
-                        return DaemonShutdownAttemptResult.NotRunning();
+                        return DaemonShutdownAttemptResult.Failure(ExecutionError.InternalError(
+                            $"Daemon shutdown request was rejected by session authentication. ErrorCode='{firstError.Code}'."));
                     }
 
                     return DaemonShutdownAttemptResult.Failure(ExecutionError.InternalError(
@@ -119,7 +121,8 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
             return false;
         }
 
-        return DaemonProbeExceptionClassifier.IsNotRunning(exception);
+        return exception is SocketException socketException
+            && DaemonEndpointAbsenceClassifier.IsDirectEndpointAbsence(socketException);
     }
 
     /// <summary> Determines whether timeout exists in exception chain. </summary>

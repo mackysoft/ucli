@@ -91,7 +91,7 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
         {
             return DaemonCleanupReachabilityProbeResult.Uncertain(DaemonCleanupReachabilityUncertainReason.SessionAuthenticationRejected);
         }
-        catch (SocketException exception) when (ShouldTreatSocketExceptionAsNotRunningForCleanup(exception))
+        catch (SocketException exception) when (DaemonEndpointAbsenceClassifier.IsDirectEndpointAbsence(exception))
         {
             return DaemonCleanupReachabilityProbeResult.NotRunning();
         }
@@ -110,13 +110,4 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
         }
     }
 
-    private static bool ShouldTreatSocketExceptionAsNotRunningForCleanup (SocketException exception)
-    {
-        ArgumentNullException.ThrowIfNull(exception);
-
-        // NOTE:
-        // Unix-domain-socket path loss and other transport errors can coexist with a live listener.
-        // Cleanup therefore accepts only ConnectionRefused as direct endpoint absence evidence.
-        return exception.SocketErrorCode == SocketError.ConnectionRefused;
-    }
 }

@@ -134,10 +134,18 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
 
         if (shutdownResult.IsNotRunning)
         {
-            var notRunningCleanupResult = await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
-            return notRunningCleanupResult.IsSuccess
+            var notRunningTerminationTimeout = deadline.TryGetRemainingTimeout(out var remainingTerminationTimeout)
+                ? remainingTerminationTimeout
+                : DaemonTimeouts.StopCompensationTimeout;
+            var notRunningStopAndCleanupResult = await EnsureStoppedAndCleanupAsync(
+                    unityProject,
+                    session,
+                    notRunningTerminationTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return notRunningStopAndCleanupResult.IsSuccess
                 ? DaemonStopResult.Stopped()
-                : DaemonStopResult.Failure(notRunningCleanupResult.Error!);
+                : DaemonStopResult.Failure(notRunningStopAndCleanupResult.Error!);
         }
 
         if (!shutdownResult.IsSuccess
