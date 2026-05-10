@@ -188,14 +188,21 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
-        if (deadline.TryGetRemainingTimeout(out var shutdownTimeout))
+        if (!deadline.TryGetRemainingTimeout(out var shutdownTimeout))
         {
-            _ = await shutdownClient.SendShutdownAsync(
-                    unityProject,
-                    session,
-                    shutdownTimeout,
-                    cancellationToken)
-                .ConfigureAwait(false);
+            return DaemonStopResult.Failure(CreateTimeoutError(
+                "Timed out before daemon endpoint shutdown request could be sent."));
+        }
+
+        var shutdownResult = await shutdownClient.SendShutdownAsync(
+                unityProject,
+                session,
+                shutdownTimeout,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!shutdownResult.IsSuccess && !shutdownResult.IsNotRunning)
+        {
+            return DaemonStopResult.Failure(shutdownResult.Error!);
         }
 
         var cleanupResult = await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);

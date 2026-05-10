@@ -141,6 +141,10 @@ internal sealed class SupervisorProjectCoordinator
             // register the launched daemon before stability verification so cancellation or
             // verification failure cannot leave a started process outside supervisor ownership.
             RegisterManagedProcess(slot, unityProject, startResult.Session!);
+            if (!DaemonSessionTerminationPolicy.CanShutdownProcess(startResult.Session!))
+            {
+                return DaemonStartResult.Started(startResult.Session!);
+            }
 
             if (!deadline.TryGetRemainingTimeout(out var stabilityTimeout))
             {
