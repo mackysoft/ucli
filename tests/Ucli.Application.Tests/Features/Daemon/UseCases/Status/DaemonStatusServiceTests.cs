@@ -327,6 +327,61 @@ public sealed class DaemonStatusServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task GetStatus_WhenRunningGuiSessionIsInPlaymode_ReturnsGuiSessionAndReadinessSnapshot ()
+    {
+        var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 2455);
+        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var session = DaemonServiceTestContext.CreateSession() with
+        {
+            EditorMode = DaemonEditorModeValues.Gui,
+            OwnerKind = DaemonSessionOwnerKindValues.User,
+            CanShutdownProcess = false,
+        };
+        var daemonStatusOperation = new DaemonServiceTestContext.StubDaemonStatusOperation
+        {
+            StatusResult = DaemonStatusResult.Running(session),
+        };
+        var pingInfoClient = new DaemonServiceTestContext.StubDaemonPingInfoClient
+        {
+            Response = new IpcPingResponse(
+                ServerVersion: "9.9.10",
+                EditorMode: DaemonEditorModeValues.Gui,
+                UnityVersion: "6000.1.4f1",
+                ProjectFingerprint: "project-fingerprint",
+                CompileState: IpcCompileStateCodec.Ready,
+                LifecycleState: IpcEditorLifecycleStateCodec.Playmode,
+                BlockingReason: IpcEditorBlockingReasonCodec.PlayMode,
+                CompileGeneration: "8",
+                DomainReloadGeneration: "12",
+                CanAcceptExecutionRequests: true),
+        };
+        var service = CreateService(
+            resolver,
+            daemonStatusOperation,
+            pingInfoClient,
+            new DaemonServiceTestContext.StubDaemonReachabilityClassifier(static _ => false),
+            new DaemonServiceTestContext.StubDaemonSessionDiagnosisResolver(),
+            new DaemonSessionOutputMapper(),
+            new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper());
+
+        var result = await service.GetStatusAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
+        Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
+        Assert.Equal(DaemonEditorModeValues.Gui, output.EditorMode);
+        Assert.Equal(IpcEditorLifecycleStateCodec.Playmode, output.LifecycleState);
+        Assert.Equal(IpcEditorBlockingReasonCodec.PlayMode, output.BlockingReason);
+        Assert.False(output.CanAcceptExecutionRequests);
+        Assert.NotNull(output.Session);
+        Assert.Equal(DaemonEditorModeValues.Gui, output.Session.EditorMode);
+        Assert.Equal(DaemonSessionOwnerKindValues.User, output.Session.OwnerKind);
+        Assert.False(output.Session.CanShutdownProcess);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task GetStatus_WhenProbeConsumesBudget_PropagatesRemainingTimeoutToPingInfoRead ()
     {
         var timeProvider = new ManualTimeProvider();
