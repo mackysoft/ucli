@@ -149,6 +149,8 @@ ucli errors list --command call
 
 既定では未知 code も成功し、`payload.known=false` を返す。これは `errors[].code` が open code set であるためである。
 
+startup 系 code は `errors describe` の対象に含める。`DAEMON_STARTUP_BLOCKED` は静的には `safeToRetry=contextDependent` とし、具体的な復帰判断は command failure payload の `retryDisposition`、`diagnosis.reason`、`diagnosis.primaryDiagnostic` を優先する。代表的な startup 系 code は `DAEMON_STARTUP_BLOCKED`、`DAEMON_START_PROCESS_EXITED`、`DAEMON_ENDPOINT_NOT_REGISTERED`、`EDITOR_SAFE_MODE`、`EDITOR_COMPILE_ERRORS`、`PACKAGE_RESOLUTION_FAILED`、`UCLI_PLUGIN_DEPENDENCY_MISSING`、`UCLI_PLUGIN_COMPILE_FAILED`、`PRECOMPILED_ASSEMBLY_CONFLICT` である。
+
 ```bash
 ucli errors describe IPC_TIMEOUT
 ucli errors describe SOME_FUTURE_CODE
@@ -306,6 +308,9 @@ ucli errors explain < result.json
 | Option | Short | Description |
 | --- | --- | --- |
 | `--editorMode <string?>` | - | `batchmode` or `gui`。未指定時は既存 running session、対象 project の既存 GUI Editor、batchmode 起動の順に選ぶ |
+| `--onStartupBlocked <string?>` | - | `auto`、`keep`、`terminate`。endpoint 登録前に起動ブロックを検出したときの process 扱い。既定は `auto` |
+
+`--onStartupBlocked=auto` は、user-owned GUI と CLI-owned GUI では `keep`、CLI-owned batchmode では `terminate` として扱う。user-owned GUI は `terminate` を明示しても終了対象にしない。
 
 ### `daemon start` Editor mode 契約
 - `--editorMode=batchmode` は Unity を `-batchmode -nographics` で起動する。
@@ -315,6 +320,7 @@ ucli errors explain < result.json
 - 明示した `--editorMode` と既存 running session または検出済み GUI Editor process の editorMode が一致しない場合は `DAEMON_EDITOR_MODE_MISMATCH` を返す。
 - `daemon start` の成功は endpoint と session の登録完了を意味し、`lifecycleState=ready` を保証しない。成功 payload は `lifecycleState`、`canAcceptExecutionRequests`、`blockingReason` の snapshot を返す。
 - `daemon stop` は `session.canShutdownProcess=false` の GUI Editor session では Unity process を終了せず、endpoint / session 登録と session token を無効化する。
+- endpoint 登録前の起動観測、startup blocker、`--onStartupBlocked` の process policy は [daemon-startup-lifecycle.md](daemon-startup-lifecycle.md) を正とする。
 
 ### `daemon start` Unity Editor 解決
 - `daemon start` が Unity process を新規起動する場合、`--editorMode=batchmode` / `--editorMode=gui` のどちらでも同じ Unity Editor path resolver を使う。
@@ -323,13 +329,10 @@ ucli errors explain < result.json
 - 既存 GUI Editor へ attach する場合は Editor path resolver を使わない。対象 process の同一性は session probe、`Library/EditorInstance.json`、`projectFingerprint` で確定する。
 
 ### 既存 GUI Editor 検出
-- まず `<repoRoot>/.ucli/local/fingerprints/<projectFingerprint>/session.json` の valid GUI session を probe し、到達でき、probe 応答の `projectFingerprint` が対象 project と一致すれば既存 GUI Editor session として扱う。
-- valid session が無い、または stale の場合、対象 project の `Library/EditorInstance.json` を読み、記録された process が生存し、同一ユーザーの Unity GUI Editor process であることを確認する。
-- `Library/EditorInstance.json` から契約上必ず読む値は `process_id` のみとする。`version` / `app_path` / `app_contents_path` 等は存在する場合だけ診断と process 検証の補助に使い、project 同一性は marker の path と endpoint probe の `projectFingerprint` で確定する。記録された process の開始時刻が marker 更新時刻より新しい場合は PID reuse の疑いがある stale marker として扱う。
-- `Library/EditorInstance.json` で GUI Editor process を検出したが uCLI endpoint が未登録の場合、同じ process の session 登録完了まで `--timeout` budget 内で待機する。
-- 別 worktree の同じ相対 path にある Unity project は別 `projectFingerprint` になり、既存 GUI 検出では解決済み対象 project root 配下の `Library/EditorInstance.json` だけを読む。
-- process 名、Unity version、最近開いた project 履歴だけを根拠に attach しない。
-- `--editorMode=gui` で既存 GUI Editor process を検出した場合は新しい GUI Editor を起動しない。endpoint 登録が timeout まで完了しなければ `IPC_TIMEOUT` と `reason=guiEndpointNotRegistered` の診断情報を返す。診断情報には `Library/EditorInstance.json` の path と process ID を含める。
+- 既存 GUI Editor 検出は valid GUI session probe と対象 project 配下の `Library/EditorInstance.json` を使う。
+- project 同一性は endpoint probe の `projectFingerprint` と marker path で確定し、process 名、Unity version、最近開いた project 履歴だけを根拠に attach しない。
+- `Library/EditorInstance.json` で GUI Editor process を検出したが uCLI endpoint が未登録の場合、同じ process の session 登録完了まで `--timeout` budget 内で待機しつつ startup blocker を観測する。
+- 分類できる startup blocker は `DAEMON_STARTUP_BLOCKED` と diagnosis を返す。分類不能のまま timeout した場合だけ `IPC_TIMEOUT` と endpoint 未登録 diagnosis を返す。
 - `--editorMode=batchmode` で既存 GUI Editor process を検出した場合は `DAEMON_EDITOR_MODE_MISMATCH` を返す。
 
 ### GUI session 保証境界
@@ -347,6 +350,8 @@ ucli errors explain < result.json
   - `ucli daemon list`：`daemon.list`
 - 成功時 `payload` は `timeoutMilliseconds` を常に含む。
 - `sessionToken` はレスポンスに含めない。
+- `daemon start` の startup failure payload は `payload.blockingReason` を返さず、`payload.startup.startupBlockingReason` と `payload.retryDisposition` を返す。
+- `daemon start` の startup observation と process 起動/終了判断は、対象 physical `UnityProjectRoot` の project lifecycle lock の下で直列化する。
 - `payload` のフィールド定義は [uCLI-property-reference.md](uCLI-property-reference.md) を参照する。
 
 ### `daemon` のエラー契約
@@ -358,8 +363,12 @@ ucli errors explain < result.json
   - `ucli daemon list` の対象 project が Git worktree 配下にない
 - `DAEMON_EDITOR_MODE_MISMATCH`
   - running session または検出済み GUI Editor process の `editorMode` と `daemon start --editorMode` の明示値が一致しない
+- `DAEMON_STARTUP_BLOCKED`
+  - endpoint 登録前に Safe Mode、compile error、package resolution failure、plugin dependency 欠落、precompiled assembly conflict などの起動ブロックを分類できた
+- `DAEMON_START_PROCESS_EXITED`
+  - endpoint 登録前に Unity process が終了し、session が成立しなかった
 - `IPC_TIMEOUT`
-  - `daemon start --editorMode=gui` で検出済み GUI Editor process の endpoint 登録が timeout まで完了しなかった
+  - `daemon start` が endpoint 登録前の状態を分類できないまま timeout budget を使い切った
   - `ucli daemon cleanup` が project lifecycle lock 待機中、または安全判定用 probe 開始前に timeout budget を使い切った
   - `daemon list` 全体の共有 timeout budget が Git worktree 列挙の完了前に尽きた
   - item 単位の probe が共有 budget 消費前に individual timeout として失敗した場合は、コマンド全体は成功のまま `items[*].reason = probeTimeout` を返す
@@ -372,6 +381,7 @@ ucli errors explain < result.json
 ```bash
 ucli daemon start --projectPath ./UnityProject
 ucli daemon start --projectPath ./UnityProject --editorMode gui
+ucli daemon start --projectPath ./UnityProject --editorMode batchmode --onStartupBlocked terminate
 ucli daemon stop --projectPath ./UnityProject --timeout 5000
 ucli daemon cleanup --projectPath ./UnityProject
 ucli daemon status --projectPath ./UnityProject

@@ -149,6 +149,19 @@ find "src/Ucli.Unity/Assets/Packages" -type f -name '*.meta' -delete
 
 また、fresh worktree では `nuget restore` が置いた簡易 `.meta` のままだと shared package DLL の importer 設定が不足し、Unity が `MackySoft.Ucli.Contracts.dll` または `MackySoft.Ucli.Infrastructure.dll` を解決できずコンパイルエラーになることがある。`scripts/update-local-shared-packages.sh` は復元後にその `.meta` を削除し、次回 Unity 起動で Unity 正規の `.meta` を再生成させる。
 
+#### 復元失敗の見分け方
+NuGetForUnity は現在の Unity plugin 配布経路であり、uCLI plugin 起動失敗全体の代表原因ではない。復旧時は Unity Editor log、UPM/package resolution log、`Assets/packages.config`、`Assets/NuGet.config`、`Assets/Packages/` の状態を見て、次のように切り分ける。
+
+| 症状 | 主な確認箇所 | diagnosis の分類 |
+| --- | --- | --- |
+| NuGetForUnity 自体が restore 失敗を出している | Unity log の NuGetForUnity error、package source、credential、network、`NuGet.config` | `primaryDiagnostic.code = NUGET_FOR_UNITY_RESTORE_FAILED` |
+| Unity package resolution が失敗している | UPM log、`Packages/manifest.json`、`packages-lock.json` | `unityPackageResolutionFailed` |
+| `MackySoft.Ucli.Contracts.dll` や `MackySoft.Ucli.Infrastructure.dll` が見つからない | `Assets/Packages/`、`.meta`、local nupkg version | `ucliPluginDependencyMissing` |
+| `Multiple precompiled assemblies with the same name ...` が出る | `Assets/Packages/*/lib/` 配下の複数 TFM DLL | `precompiledAssemblyConflict` |
+| `Scripts have compiler errors.` だけが出る | Unity Console、Editor log の直前の compiler error | `unityScriptCompilationFailed` |
+
+NuGetForUnity 固有ログがない missing DLL や compiler error を、`NUGET_FOR_UNITY_RESTORE_FAILED` として扱わない。NuGet 以外の配布経路が追加された場合も、上位分類は plugin dependency、package resolution、compile failure のような導入経路に依存しない reason を使う。
+
 その場合は生成物を整理してから batchmode を実行する。
 
 ```bash
