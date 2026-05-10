@@ -1,6 +1,5 @@
 using System.Net.Sockets;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Reachability;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
@@ -14,18 +13,12 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
 {
     private readonly IDaemonPingClient daemonPingClient;
 
-    private readonly IDaemonReachabilityClassifier reachabilityClassifier;
-
     /// <summary> Initializes a new instance of the <see cref="DaemonCleanupReachabilityProbe" /> class. </summary>
     /// <param name="daemonPingClient"> The daemon ping-client dependency. </param>
-    /// <param name="reachabilityClassifier"> The daemon reachability-classifier dependency. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
-    public DaemonCleanupReachabilityProbe (
-        IDaemonPingClient daemonPingClient,
-        IDaemonReachabilityClassifier reachabilityClassifier)
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="daemonPingClient" /> is <see langword="null" />. </exception>
+    public DaemonCleanupReachabilityProbe (IDaemonPingClient daemonPingClient)
     {
         this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
-        this.reachabilityClassifier = reachabilityClassifier ?? throw new ArgumentNullException(nameof(reachabilityClassifier));
     }
 
     /// <summary> Probes daemon reachability using cleanup-specific safety semantics. </summary>
@@ -86,8 +79,7 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
             return DaemonCleanupReachabilityProbeResult.Uncertain(DaemonCleanupReachabilityUncertainReason.Timeout);
         }
         catch (DaemonPingResponseException exception) when (
-            exception.ErrorCode == IpcSessionErrorCodes.SessionTokenInvalid
-            || exception.ErrorCode == IpcSessionErrorCodes.SessionTokenRequired)
+            DaemonProbeExceptionClassifier.IsSessionAuthenticationRejected(exception.ErrorCode))
         {
             return DaemonCleanupReachabilityProbeResult.Uncertain(DaemonCleanupReachabilityUncertainReason.SessionAuthenticationRejected);
         }
@@ -98,10 +90,6 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
         catch (SocketException)
         {
             return DaemonCleanupReachabilityProbeResult.Uncertain(DaemonCleanupReachabilityUncertainReason.TransportError);
-        }
-        catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
-        {
-            return DaemonCleanupReachabilityProbeResult.NotRunning();
         }
         catch (Exception exception)
         {

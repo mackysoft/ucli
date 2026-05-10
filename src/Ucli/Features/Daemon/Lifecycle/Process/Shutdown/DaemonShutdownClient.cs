@@ -61,7 +61,7 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
             {
                 if (firstError is not null)
                 {
-                    if (IsSessionTokenErrorCode(firstError.Code))
+                    if (DaemonProbeExceptionClassifier.IsSessionAuthenticationRejected(firstError.Code))
                     {
                         return DaemonShutdownAttemptResult.Failure(ExecutionError.InternalError(
                             $"Daemon shutdown request was rejected by session authentication. ErrorCode='{firstError.Code}'."));
@@ -86,7 +86,7 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
             return DaemonShutdownAttemptResult.Failure(ExecutionError.Timeout(
                 $"Timed out while sending daemon shutdown request. {exception.Message}"));
         }
-        catch (Exception exception) when (IsNotRunningException(exception))
+        catch (SocketException exception) when (DaemonEndpointAbsenceClassifier.IsDirectEndpointAbsence(exception))
         {
             return DaemonShutdownAttemptResult.NotRunning();
         }
@@ -97,47 +97,4 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
         }
     }
 
-    /// <summary> Determines whether one error code indicates session-token contract failures. </summary>
-    /// <param name="errorCode"> The error code to classify. </param>
-    /// <returns> <see langword="true" /> when error code indicates session-token contract failure; otherwise <see langword="false" />. </returns>
-    private static bool IsSessionTokenErrorCode (UcliErrorCode errorCode)
-    {
-        return errorCode == IpcSessionErrorCodes.SessionTokenRequired
-            || errorCode == IpcSessionErrorCodes.SessionTokenInvalid;
-    }
-
-    /// <summary>
-    /// Determines whether exception can be treated as not-running without masking timeout semantics.
-    /// </summary>
-    /// <param name="exception"> The exception to classify. </param>
-    /// <returns>
-    /// <see langword="true" /> when exception indicates not-running and timeout is not involved;
-    /// otherwise <see langword="false" />.
-    /// </returns>
-    private static bool IsNotRunningException (Exception exception)
-    {
-        if (HasTimeoutInExceptionChain(exception))
-        {
-            return false;
-        }
-
-        return exception is SocketException socketException
-            && DaemonEndpointAbsenceClassifier.IsDirectEndpointAbsence(socketException);
-    }
-
-    /// <summary> Determines whether timeout exists in exception chain. </summary>
-    /// <param name="exception"> The exception to inspect. </param>
-    /// <returns> <see langword="true" /> when timeout exists in chain; otherwise <see langword="false" />. </returns>
-    private static bool HasTimeoutInExceptionChain (Exception exception)
-    {
-        for (var current = exception; current is not null; current = current.InnerException)
-        {
-            if (current is TimeoutException)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }

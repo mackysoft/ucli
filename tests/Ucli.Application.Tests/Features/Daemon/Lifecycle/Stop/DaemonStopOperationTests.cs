@@ -353,9 +353,11 @@ public sealed class DaemonStopOperationTests
         Assert.Contains("lifecycle lock", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
+    [Theory]
     [Trait("Size", "Small")]
-    public async Task Stop_WhenProcessTerminationBudgetIsExhausted_StillAttemptsFinalizationWithFallbackTimeout ()
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Stop_WhenProcessTerminationBudgetIsExhausted_StillAttemptsFinalizationWithFallbackTimeout (bool endpointAlreadyNotRunning)
     {
         var timeProvider = new ManualTimeProvider();
         var sessionStore = new StubDaemonSessionStore
@@ -365,7 +367,9 @@ public sealed class DaemonStopOperationTests
         var shutdownClient = new StubDaemonShutdownClient
         {
             Delay = TimeSpan.FromMilliseconds(80),
-            NextResult = DaemonShutdownAttemptResult.Success(),
+            NextResult = endpointAlreadyNotRunning
+                ? DaemonShutdownAttemptResult.NotRunning()
+                : DaemonShutdownAttemptResult.Success(),
             TimeProvider = timeProvider,
         };
         var processTerminationService = new StubDaemonProcessTerminationService

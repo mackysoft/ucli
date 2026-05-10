@@ -2,7 +2,7 @@ using System.Net.Sockets;
 
 namespace MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 
-/// <summary> Classifies direct IPC endpoint absence evidence for destructive cleanup decisions. </summary>
+/// <summary> Classifies direct IPC endpoint absence evidence for lifecycle decisions that may clean local artifacts. </summary>
 internal static class DaemonEndpointAbsenceClassifier
 {
     /// <summary> Determines whether one socket exception is direct evidence that an IPC endpoint is absent. </summary>

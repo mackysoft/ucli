@@ -3,7 +3,6 @@ using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using System.Net.Sockets;
-using System.Text.Json;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -15,7 +14,7 @@ public sealed class DaemonShutdownClientTests
     public async Task SendShutdown_WhenIpcTimesOut_ReturnsTimeoutFailure ()
     {
         var client = new DaemonShutdownClient(new StubUnityIpcTransportClient(
-            static () => throw new TimeoutException("ipc timeout")));
+            static _ => throw new TimeoutException("ipc timeout")));
 
         var result = await client.SendShutdownAsync(
             CreateContext("fingerprint-shutdown-timeout"),
@@ -34,7 +33,7 @@ public sealed class DaemonShutdownClientTests
     public async Task SendShutdown_WhenSocketConnectionIsRefused_ReturnsNotRunning ()
     {
         var client = new DaemonShutdownClient(new StubUnityIpcTransportClient(
-            static () => throw new SocketException((int)SocketError.ConnectionRefused)));
+            static _ => throw new SocketException((int)SocketError.ConnectionRefused)));
 
         var result = await client.SendShutdownAsync(
             CreateContext("fingerprint-shutdown-not-running"),
@@ -52,7 +51,7 @@ public sealed class DaemonShutdownClientTests
     public async Task SendShutdown_WhenSocketConnectionReset_ReturnsFailure ()
     {
         var client = new DaemonShutdownClient(new StubUnityIpcTransportClient(
-            static () => throw new SocketException((int)SocketError.ConnectionReset)));
+            static _ => throw new SocketException((int)SocketError.ConnectionReset)));
 
         var result = await client.SendShutdownAsync(
             CreateContext("fingerprint-shutdown-transport-error"),
@@ -79,7 +78,7 @@ public sealed class DaemonShutdownClientTests
             _ => throw new ArgumentOutOfRangeException(nameof(errorCodeName), errorCodeName, null),
         };
         var client = new DaemonShutdownClient(new StubUnityIpcTransportClient(
-            () => CreateErrorResponse(errorCode)));
+            request => DaemonServiceTestContext.CreateErrorResponse(request, errorCode, "session rejected")));
 
         var result = await client.SendShutdownAsync(
             CreateContext("fingerprint-shutdown-auth-rejected"),
@@ -92,19 +91,6 @@ public sealed class DaemonShutdownClientTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Contains(errorCode.Value, error.Message, StringComparison.Ordinal);
-    }
-
-    private static IpcResponse CreateErrorResponse (UcliErrorCode errorCode)
-    {
-        return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "req-shutdown-error",
-            Status: IpcProtocol.StatusError,
-            Payload: JsonDocument.Parse("{}").RootElement.Clone(),
-            Errors:
-            [
-                new IpcError(errorCode, "session rejected", null),
-            ]);
     }
 
     private static ResolvedUnityProjectContext CreateContext (string fingerprint)
@@ -135,9 +121,9 @@ public sealed class DaemonShutdownClientTests
 
     private sealed class StubUnityIpcTransportClient : IUnityIpcTransportClient
     {
-        private readonly Func<IpcResponse> responseFactory;
+        private readonly Func<IpcRequest, IpcResponse> responseFactory;
 
-        public StubUnityIpcTransportClient (Func<IpcResponse> responseFactory)
+        public StubUnityIpcTransportClient (Func<IpcRequest, IpcResponse> responseFactory)
         {
             this.responseFactory = responseFactory;
         }
@@ -149,7 +135,7 @@ public sealed class DaemonShutdownClientTests
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
-            var response = responseFactory();
+            var response = responseFactory(request);
             return ValueTask.FromResult(response);
         }
     }

@@ -134,9 +134,12 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
 
         if (shutdownResult.IsNotRunning)
         {
-            var notRunningTerminationTimeout = deadline.TryGetRemainingTimeout(out var remainingTerminationTimeout)
-                ? remainingTerminationTimeout
-                : DaemonTimeouts.StopCompensationTimeout;
+            var hasTerminationBudget = deadline.TryGetRemainingTimeout(out var notRunningTerminationTimeout);
+            if (!hasTerminationBudget)
+            {
+                notRunningTerminationTimeout = DaemonTimeouts.StopCompensationTimeout;
+            }
+
             var notRunningStopAndCleanupResult = await EnsureStoppedAndCleanupAsync(
                     unityProject,
                     session,
@@ -144,7 +147,10 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
                     cancellationToken)
                 .ConfigureAwait(false);
             return notRunningStopAndCleanupResult.IsSuccess
-                ? DaemonStopResult.Stopped()
+                ? hasTerminationBudget
+                    ? DaemonStopResult.Stopped()
+                    : DaemonStopResult.Failure(CreateTimeoutError(
+                        "Timed out before daemon process termination could be completed."))
                 : DaemonStopResult.Failure(notRunningStopAndCleanupResult.Error!);
         }
 
