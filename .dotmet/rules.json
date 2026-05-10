@@ -1,0 +1,395 @@
+{
+  "layers": [
+    {
+      "name": "Application",
+      "projectExact": [
+        "src/Ucli.Application/Ucli.Application.csproj"
+      ],
+      "assemblyExact": [
+        "MackySoft.Ucli.Application"
+      ],
+      "namespacePrefix": [
+        "MackySoft.Ucli.Application"
+      ],
+      "pathPrefix": [
+        "src/Ucli.Application"
+      ]
+    },
+    {
+      "name": "ApplicationTests",
+      "projectExact": [
+        "tests/Ucli.Application.Tests/Ucli.Application.Tests.csproj"
+      ],
+      "assemblyExact": [
+        "MackySoft.Ucli.Application.Tests"
+      ],
+      "namespacePrefix": [
+        "MackySoft.Ucli.Application.Tests"
+      ],
+      "pathPrefix": [
+        "tests/Ucli.Application.Tests"
+      ]
+    },
+    {
+      "name": "ArchitectureTests",
+      "projectExact": [
+        "tests/Ucli.Architecture.Tests/Ucli.Architecture.Tests.csproj"
+      ],
+      "assemblyExact": [
+        "MackySoft.Ucli.Architecture.Tests"
+      ],
+      "namespacePrefix": [
+        "MackySoft.Ucli.Architecture.Tests"
+      ],
+      "pathPrefix": [
+        "tests/Ucli.Architecture.Tests"
+      ]
+    },
+    {
+      "name": "CliHost",
+      "projectExact": [
+        "src/Ucli/Ucli.csproj"
+      ],
+      "assemblyExact": [
+        "MackySoft.Ucli"
+      ],
+      "pathPrefix": [
+        "src/Ucli"
+      ]
+    },
+    {
+      "name": "CliHostTests",
+      "projectExact": [
+        "tests/Ucli.Tests/Ucli.Tests.csproj"
+      ],
+      "assemblyExact": [
+        "MackySoft.Ucli.Tests"
+      ],
+      "namespacePrefix": [
+        "MackySoft.Ucli.Tests"
+      ],
+      "pathPrefix": [
+        "tests/Ucli.Tests"
+      ]
+    },
+    {
+      "name": "Contracts",
+      "projectExact": [
+        "src/Ucli.Contracts/Ucli.Contracts.csproj"
+      ],
+      "assemblyExact": [
+        "MackySoft.Ucli.Contracts"
+      ],
+      "namespacePrefix": [
+        "MackySoft.Ucli.Contracts"
+      ],
+      "pathPrefix": [
+        "src/Ucli.Contracts"
+      ]
+    },
+    {
+      "name": "ContractsTests",
+      "projectExact": [
+        "tests/Ucli.Contracts.Tests/Ucli.Contracts.Tests.csproj"
+      ],
+      "assemblyExact": [
+        "MackySoft.Ucli.Contracts.Tests"
+      ],
+      "namespacePrefix": [
+        "MackySoft.Ucli.Contracts.Tests"
+      ],
+      "pathPrefix": [
+        "tests/Ucli.Contracts.Tests"
+      ]
+    },
+    {
+      "name": "External",
+      "namespacePrefix": [
+        "ConsoleAppFramework",
+        "Cysharp.Threading.Tasks",
+        "Microsoft",
+        "Newtonsoft.Json",
+        "NUnit",
+        "System",
+        "UnityEditor",
+        "UnityEditor.TestTools",
+        "UnityEngine",
+        "UnityEngine.TestTools",
+        "Xunit"
+      ]
+    },
+    {
+      "name": "Infrastructure",
+      "projectExact": [
+        "src/Ucli.Infrastructure/Ucli.Infrastructure.csproj"
+      ],
+      "assemblyExact": [
+        "MackySoft.Ucli.Infrastructure"
+      ],
+      "namespacePrefix": [
+        "MackySoft.Ucli.Infrastructure"
+      ],
+      "pathPrefix": [
+        "src/Ucli.Infrastructure"
+      ]
+    },
+    {
+      "name": "InfrastructureTests",
+      "projectExact": [
+        "tests/Ucli.Infrastructure.Tests/Ucli.Infrastructure.Tests.csproj"
+      ],
+      "assemblyExact": [
+        "MackySoft.Ucli.Infrastructure.Tests"
+      ],
+      "namespacePrefix": [
+        "MackySoft.Ucli.Infrastructure.Tests"
+      ],
+      "pathPrefix": [
+        "tests/Ucli.Infrastructure.Tests"
+      ]
+    },
+    {
+      "name": "Skills",
+      "projectExact": [
+        "src/Ucli.Skills/Ucli.Skills.csproj"
+      ],
+      "assemblyExact": [
+        "MackySoft.Ucli.Skills"
+      ],
+      "namespacePrefix": [
+        "MackySoft.Ucli.Skills"
+      ],
+      "pathPrefix": [
+        "src/Ucli.Skills"
+      ]
+    },
+    {
+      "name": "SkillsTests",
+      "projectExact": [
+        "tests/Ucli.Skills.Tests/Ucli.Skills.Tests.csproj"
+      ],
+      "assemblyExact": [
+        "MackySoft.Ucli.Skills.Tests"
+      ],
+      "namespacePrefix": [
+        "MackySoft.Ucli.Skills.Tests"
+      ],
+      "pathPrefix": [
+        "tests/Ucli.Skills.Tests"
+      ]
+    },
+    {
+      "name": "TestsHelper",
+      "projectExact": [
+        "tests/Tests.Helper/Tests.Helper.csproj"
+      ],
+      "assemblyExact": [
+        "MackySoft.Ucli.Tests.Helper"
+      ],
+      "namespacePrefix": [
+        "MackySoft.Ucli.Tests.Helper"
+      ],
+      "pathPrefix": [
+        "tests/Tests.Helper"
+      ]
+    },
+    {
+      "name": "Tools",
+      "projectExact": [
+        "tools/Ucli.SkillGenerator/Ucli.SkillGenerator.csproj"
+      ],
+      "assemblyExact": [
+        "MackySoft.Ucli.SkillGenerator"
+      ],
+      "namespacePrefix": [
+        "MackySoft.Ucli.SkillGenerator"
+      ],
+      "pathPrefix": [
+        "tools/Ucli.SkillGenerator"
+      ]
+    },
+    {
+      "name": "UnityPlugin",
+      "projectExact": [
+        "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/MackySoft.Ucli.Unity.Editor.asmdef"
+      ],
+      "assemblyExact": [
+        "MackySoft.Ucli.Unity.Editor"
+      ],
+      "namespacePrefix": [
+        "MackySoft.Ucli.Unity"
+      ],
+      "pathPrefix": [
+        "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity"
+      ]
+    },
+    {
+      "name": "UnityTests",
+      "projectExact": [
+        "src/Ucli.Unity/Assets/Tests/MackySoft.Ucli.Unity.Sandbox.Tests/Editor/MackySoft.Ucli.Unity.Sandbox.Tests.Editor.asmdef",
+        "src/Ucli.Unity/Assets/Tests/MackySoft.Ucli.Unity.Tests/Editor/MackySoft.Ucli.Unity.Tests.Editor.asmdef",
+        "src/Ucli.Unity/Assets/Tests/MackySoft.Ucli.Unity.Tests/Runtime/MackySoft.Ucli.Unity.Tests.Runtime.asmdef"
+      ],
+      "assemblyExact": [
+        "MackySoft.Ucli.Unity.Sandbox.Tests.Editor",
+        "MackySoft.Ucli.Unity.Tests.Editor",
+        "MackySoft.Ucli.Unity.Tests.Runtime"
+      ],
+      "namespacePrefix": [
+        "MackySoft.Ucli.Unity.Sandbox.Tests",
+        "MackySoft.Ucli.Unity.Tests"
+      ],
+      "pathPrefix": [
+        "src/Ucli.Unity/Assets/Tests"
+      ]
+    }
+  ],
+  "allowDependencies": [
+    {
+      "from": "Application",
+      "to": [
+        "Application",
+        "Contracts",
+        "External"
+      ]
+    },
+    {
+      "from": "ApplicationTests",
+      "to": [
+        "Application",
+        "ApplicationTests",
+        "Contracts",
+        "External",
+        "TestsHelper"
+      ]
+    },
+    {
+      "from": "ArchitectureTests",
+      "to": [
+        "ArchitectureTests",
+        "External"
+      ]
+    },
+    {
+      "from": "CliHost",
+      "to": [
+        "Application",
+        "CliHost",
+        "Contracts",
+        "External",
+        "Infrastructure",
+        "Skills"
+      ]
+    },
+    {
+      "from": "CliHostTests",
+      "to": [
+        "Application",
+        "CliHost",
+        "CliHostTests",
+        "Contracts",
+        "External",
+        "Infrastructure",
+        "TestsHelper"
+      ]
+    },
+    {
+      "from": "Contracts",
+      "to": [
+        "Contracts",
+        "External"
+      ]
+    },
+    {
+      "from": "ContractsTests",
+      "to": [
+        "Contracts",
+        "ContractsTests",
+        "External",
+        "TestsHelper"
+      ]
+    },
+    {
+      "from": "External",
+      "to": [
+        "External"
+      ]
+    },
+    {
+      "from": "Infrastructure",
+      "to": [
+        "Contracts",
+        "External",
+        "Infrastructure"
+      ]
+    },
+    {
+      "from": "InfrastructureTests",
+      "to": [
+        "Contracts",
+        "External",
+        "Infrastructure",
+        "InfrastructureTests",
+        "TestsHelper"
+      ]
+    },
+    {
+      "from": "Skills",
+      "to": [
+        "External",
+        "Skills"
+      ]
+    },
+    {
+      "from": "SkillsTests",
+      "to": [
+        "External",
+        "Skills",
+        "SkillsTests",
+        "TestsHelper"
+      ]
+    },
+    {
+      "from": "TestsHelper",
+      "to": [
+        "External",
+        "TestsHelper"
+      ]
+    },
+    {
+      "from": "Tools",
+      "to": [
+        "External",
+        "Skills",
+        "Tools"
+      ]
+    },
+    {
+      "from": "UnityPlugin",
+      "to": [
+        "Contracts",
+        "External",
+        "Infrastructure",
+        "UnityPlugin"
+      ]
+    },
+    {
+      "from": "UnityTests",
+      "to": [
+        "Contracts",
+        "External",
+        "Infrastructure",
+        "UnityPlugin",
+        "UnityTests"
+      ]
+    }
+  ],
+  "thresholds": {
+    "cyclomaticComplexity": 10,
+    "methodLoc": 20,
+    "parameterCount": 5,
+    "fanOut": 12,
+    "typeLoc": 200,
+    "publicMemberCount": 30
+  }
+}
