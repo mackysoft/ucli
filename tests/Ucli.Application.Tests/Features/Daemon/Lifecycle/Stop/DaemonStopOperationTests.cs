@@ -51,7 +51,7 @@ public sealed class DaemonStopOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Stop_WhenShutdownResultIsNotRunning_SkipsProcessTerminationAndReturnsStopped ()
+    public async Task Stop_WhenShutdownResultIsNotRunning_EnsuresProcessStoppedAndReturnsStopped ()
     {
         var sessionStore = new StubDaemonSessionStore
         {
@@ -63,7 +63,7 @@ public sealed class DaemonStopOperationTests
         };
         var processTerminationService = new StubDaemonProcessTerminationService
         {
-            NextResult = DaemonSessionStoreOperationResult.Failure(ExecutionError.InternalError("must not be called")),
+            NextResult = DaemonSessionStoreOperationResult.Success(),
         };
         var artifactCleaner = new StubDaemonArtifactCleaner
         {
@@ -81,7 +81,9 @@ public sealed class DaemonStopOperationTests
         Assert.Equal(DaemonStopStatus.Stopped, result.Status);
         Assert.Null(result.Error);
         Assert.Equal(1, shutdownClient.CallCount);
-        Assert.Equal(0, processTerminationService.CallCount);
+        Assert.Equal(1, processTerminationService.CallCount);
+        Assert.Equal(456, processTerminationService.LastProcessId);
+        Assert.Equal(sessionStore.ReadResult.Session!.ProcessStartedAtUtc, processTerminationService.LastProcessStartedAtUtc);
         Assert.Equal(1, artifactCleaner.CallCount);
     }
 
