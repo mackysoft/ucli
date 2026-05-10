@@ -39,7 +39,7 @@ internal static class SupervisorIpcContracts
         string ProjectFingerprint,
         int TimeoutMilliseconds,
         string? EditorMode,
-        string? OnStartupBlocked = null);
+        string OnStartupBlocked);
 
     /// <summary> Represents the payload returned after one ensure-running request. </summary>
     /// <param name="StartStatus"> The daemon start-status literal. </param>

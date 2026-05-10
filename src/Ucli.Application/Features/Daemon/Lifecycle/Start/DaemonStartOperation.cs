@@ -56,29 +56,6 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="timeout"> The daemon startup timeout. </param>
     /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> The daemon start result. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    public async ValueTask<DaemonStartResult> StartAsync (
-        ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
-        DaemonEditorMode? editorMode,
-        CancellationToken cancellationToken = default)
-    {
-        return await StartAsync(
-                unityProject,
-                timeout,
-                editorMode,
-                DaemonStartupBlockedProcessPolicy.Auto,
-                cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    /// <summary> Starts daemon lifecycle for the specified Unity project context. </summary>
-    /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="timeout"> The daemon startup timeout. </param>
-    /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
     /// <param name="onStartupBlocked"> The startup-blocked process policy requested by the caller. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon start result. </returns>

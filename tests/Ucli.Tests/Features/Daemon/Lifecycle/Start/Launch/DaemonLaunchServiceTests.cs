@@ -40,7 +40,12 @@ public sealed class DaemonLaunchServiceTests
             compensationService,
             diagnosisStore);
 
-        var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Batchmode, CancellationToken.None);
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Started, result.Status);
         Assert.True(result.IsSuccess);
@@ -131,7 +136,12 @@ public sealed class DaemonLaunchServiceTests
             unityGuiEditorProcessLauncher: guiLauncher,
             guiStartupObserver: guiStartupObserver);
 
-        var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Gui, CancellationToken.None);
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Gui,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -186,7 +196,13 @@ public sealed class DaemonLaunchServiceTests
             guiStartupObserver: guiStartupObserver);
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Gui, cancellationTokenSource.Token).AsTask());
+            () => service.LaunchAsync(
+                    context,
+                    TimeSpan.FromMilliseconds(500),
+                    DaemonEditorMode.Gui,
+                    DaemonStartupBlockedProcessPolicy.Auto,
+                    cancellationTokenSource.Token)
+                .AsTask());
 
         Assert.Equal(1, compensationService.CallCount);
         Assert.Equal(7654, compensationService.LastProcessId);
@@ -218,7 +234,12 @@ public sealed class DaemonLaunchServiceTests
             unityGuiEditorProcessLauncher: guiLauncher,
             guiStartupObserver: guiStartupObserver);
 
-        var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Gui, CancellationToken.None);
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Gui,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(startupError, result.Error);
@@ -392,7 +413,12 @@ public sealed class DaemonLaunchServiceTests
             unityGuiEditorProcessLauncher: guiLauncher,
             guiStartupObserver: guiStartupObserver);
 
-        var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Gui, CancellationToken.None);
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Gui,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -449,7 +475,12 @@ public sealed class DaemonLaunchServiceTests
             unityGuiEditorProcessLauncher: guiLauncher,
             guiStartupObserver: guiStartupObserver);
 
-        var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Gui, CancellationToken.None);
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Gui,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -464,7 +495,6 @@ public sealed class DaemonLaunchServiceTests
         Assert.NotNull(result.Startup);
         Assert.Equal(DaemonStartupProcessActionValues.None, result.Startup!.ProcessAction);
         Assert.Equal(DaemonStartupBlockingReasonValues.ProcessExit, result.Startup.StartupBlockingReason);
-        Assert.False(result.Startup.CanShutdownProcess);
     }
 
     [Fact]
@@ -488,7 +518,12 @@ public sealed class DaemonLaunchServiceTests
             compensationService,
             diagnosisStore);
 
-        var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Batchmode, CancellationToken.None);
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(expectedError, result.Error);
@@ -527,7 +562,12 @@ public sealed class DaemonLaunchServiceTests
             compensationService,
             diagnosisStore);
 
-        var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Batchmode, CancellationToken.None);
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(launchError, result.Error);
@@ -573,7 +613,12 @@ public sealed class DaemonLaunchServiceTests
             compensationService,
             diagnosisStore);
 
-        var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Batchmode, CancellationToken.None);
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(writeError, result.Error);
@@ -619,7 +664,12 @@ public sealed class DaemonLaunchServiceTests
             compensationService,
             diagnosisStore);
 
-        var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Batchmode, CancellationToken.None);
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(probeError, result.Error);
@@ -661,7 +711,12 @@ public sealed class DaemonLaunchServiceTests
             compensationService,
             diagnosisStore);
 
-        var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Batchmode, CancellationToken.None);
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -704,7 +759,12 @@ public sealed class DaemonLaunchServiceTests
             diagnosisStore,
             timeProvider: timeProvider);
 
-        var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(1), DaemonEditorMode.Batchmode, CancellationToken.None);
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(1),
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(launchError, result.Error);
@@ -749,7 +809,12 @@ public sealed class DaemonLaunchServiceTests
             compensationService,
             diagnosisStore);
 
-        var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Batchmode, CancellationToken.None);
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -792,7 +857,12 @@ public sealed class DaemonLaunchServiceTests
             compensationService,
             diagnosisStore);
 
-        var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Batchmode, CancellationToken.None);
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -831,7 +901,12 @@ public sealed class DaemonLaunchServiceTests
             compensationService,
             diagnosisStore);
 
-        var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Batchmode, cancellationSource.Token);
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationSource.Token);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(launchError, result.Error);
@@ -878,7 +953,13 @@ public sealed class DaemonLaunchServiceTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
             await TestAwaiter.WaitAsync(
-                service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Batchmode, cancellationSource.Token).AsTask(),
+                service.LaunchAsync(
+                        context,
+                        TimeSpan.FromMilliseconds(500),
+                        DaemonEditorMode.Batchmode,
+                        DaemonStartupBlockedProcessPolicy.Auto,
+                        cancellationSource.Token)
+                    .AsTask(),
                 "Canceled daemon launch result",
                 AsyncWaitTimeout);
         });
@@ -923,7 +1004,12 @@ public sealed class DaemonLaunchServiceTests
             compensationService,
             diagnosisStore);
 
-        var result = await service.LaunchAsync(context, TimeSpan.FromMilliseconds(500), DaemonEditorMode.Batchmode, CancellationToken.None);
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);

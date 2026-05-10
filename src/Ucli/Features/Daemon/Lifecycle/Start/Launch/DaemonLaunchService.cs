@@ -71,29 +71,6 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="timeout"> The daemon startup timeout. </param>
     /// <param name="editorMode"> The requested daemon Editor mode. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> The daemon start result. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    public async ValueTask<DaemonStartResult> LaunchAsync (
-        ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
-        DaemonEditorMode editorMode,
-        CancellationToken cancellationToken = default)
-    {
-        return await LaunchAsync(
-                unityProject,
-                timeout,
-                editorMode,
-                DaemonStartupBlockedProcessPolicy.Auto,
-                cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    /// <summary> Launches daemon lifecycle for the specified Unity project context. </summary>
-    /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="timeout"> The daemon startup timeout. </param>
-    /// <param name="editorMode"> The requested daemon Editor mode. </param>
     /// <param name="onStartupBlocked"> The startup-blocked process policy requested by the caller. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon start result. </returns>
@@ -621,17 +598,8 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             StartupStatus: DaemonStartupStatusValues.Blocked,
             StartupBlockingReason: ResolveStartupBlockingReason(blocker),
             LaunchAttemptId: null,
-            EditorMode: DaemonEditorModeValues.Gui,
-            OwnerKind: DaemonSessionOwnerKindValues.Cli,
-            CanShutdownProcess: !IsProcessExitBlocker(blocker),
-            ProcessId: blocker.ProcessId,
-            StartedAtUtc: blocker.ProcessStartedAtUtc,
-            ElapsedMilliseconds: null,
             ProcessAction: processAction,
-            ProcessTermination: null,
-            ArtifactPath: null,
-            RetryDisposition: ResolveRetryDisposition(blocker),
-            SafeToRetryImmediately: false);
+            RetryDisposition: ResolveRetryDisposition(blocker));
     }
 
     private static string ResolveStartupBlockingReason (DaemonGuiStartupBlocker blocker)

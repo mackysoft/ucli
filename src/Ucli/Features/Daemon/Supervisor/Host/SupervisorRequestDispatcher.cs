@@ -166,16 +166,12 @@ internal sealed class SupervisorRequestDispatcher
             editorMode = parsedEditorMode;
         }
 
-        var onStartupBlocked = DaemonStartupBlockedProcessPolicy.Auto;
-        if (payload.OnStartupBlocked != null)
+        if (!DaemonStartupBlockedProcessPolicyCodec.TryParse(payload.OnStartupBlocked, out var onStartupBlocked))
         {
-            if (!DaemonStartupBlockedProcessPolicyCodec.TryParse(payload.OnStartupBlocked, out onStartupBlocked))
-            {
-                return SupervisorIpcResponseFactory.CreateErrorResponse(
-                    request,
-                    UcliCoreErrorCodes.InvalidArgument,
-                    $"Supervisor ensureRunning onStartupBlocked is invalid. Actual={payload.OnStartupBlocked}.");
-            }
+            return SupervisorIpcResponseFactory.CreateErrorResponse(
+                request,
+                UcliCoreErrorCodes.InvalidArgument,
+                $"Supervisor ensureRunning onStartupBlocked is invalid. Actual={payload.OnStartupBlocked}.");
         }
 
         await using var requestLifetime = SupervisorRequestLifetime.Start(stream, cancellationToken);

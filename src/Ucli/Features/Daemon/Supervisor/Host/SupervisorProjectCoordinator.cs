@@ -83,27 +83,6 @@ internal sealed class SupervisorProjectCoordinator
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="timeout"> The command timeout. </param>
     /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
-    /// <returns> The daemon-start result. </returns>
-    public async ValueTask<DaemonStartResult> EnsureRunningAsync (
-        ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
-        DaemonEditorMode? editorMode,
-        CancellationToken cancellationToken = default)
-    {
-        return await EnsureRunningAsync(
-                unityProject,
-                timeout,
-                editorMode,
-                DaemonStartupBlockedProcessPolicy.Auto,
-                cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    /// <summary> Ensures one Unity daemon is running for the specified project. </summary>
-    /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="timeout"> The command timeout. </param>
-    /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
     /// <param name="onStartupBlocked"> The startup-blocked process policy requested by the caller. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The daemon-start result. </returns>

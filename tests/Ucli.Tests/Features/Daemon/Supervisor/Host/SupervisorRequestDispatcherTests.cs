@@ -79,7 +79,8 @@ public sealed class SupervisorRequestDispatcherTests
                         UnityProjectRoot: "bad\u0000path",
                         ProjectFingerprint: "fingerprint",
                         TimeoutMilliseconds: 1000,
-                        EditorMode: null))));
+                        EditorMode: null,
+                        OnStartupBlocked: DaemonStartupBlockedProcessPolicyValues.Auto))));
 
         Assert.Equal(IpcProtocol.StatusError, invalidResponse.Status);
         var invalidError = Assert.Single(invalidResponse.Errors);
@@ -121,7 +122,8 @@ public sealed class SupervisorRequestDispatcherTests
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: "mismatched-fingerprint",
                         TimeoutMilliseconds: 1000,
-                        EditorMode: null))));
+                        EditorMode: null,
+                        OnStartupBlocked: DaemonStartupBlockedProcessPolicyValues.Auto))));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -185,7 +187,8 @@ public sealed class SupervisorRequestDispatcherTests
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
-                        EditorMode: "unsupported"))));
+                        EditorMode: "unsupported",
+                        OnStartupBlocked: DaemonStartupBlockedProcessPolicyValues.Auto))));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -256,7 +259,8 @@ public sealed class SupervisorRequestDispatcherTests
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
-                        EditorMode: null))));
+                        EditorMode: null,
+                        OnStartupBlocked: DaemonStartupBlockedProcessPolicyValues.Auto))));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -299,7 +303,8 @@ public sealed class SupervisorRequestDispatcherTests
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1,
-                        EditorMode: null))));
+                        EditorMode: null,
+                        OnStartupBlocked: DaemonStartupBlockedProcessPolicyValues.Auto))));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -337,7 +342,8 @@ public sealed class SupervisorRequestDispatcherTests
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
                         TimeoutMilliseconds: 1000,
-                        EditorMode: null))));
+                        EditorMode: null,
+                        OnStartupBlocked: DaemonStartupBlockedProcessPolicyValues.Auto))));
 
         Assert.Equal(IpcProtocol.StatusError, response.Status);
         var error = Assert.Single(response.Errors);
@@ -618,16 +624,7 @@ public sealed class SupervisorRequestDispatcherTests
             StartupStatus: DaemonStartupStatusValues.Blocked,
             StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
             LaunchAttemptId: null,
-            EditorMode: DaemonEditorModeValues.Gui,
-            OwnerKind: DaemonSessionOwnerKindValues.Cli,
-            CanShutdownProcess: true,
-            ProcessId: 1234,
-            StartedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 2, 1, TimeSpan.Zero),
-            ElapsedMilliseconds: null,
             ProcessAction: DaemonStartupProcessActionValues.Kept,
-            ProcessTermination: null,
-            ArtifactPath: null,
-            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
-            SafeToRetryImmediately: false);
+            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix);
     }
 }

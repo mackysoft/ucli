@@ -30,8 +30,12 @@ public sealed class DaemonStartOperationTests
             },
             daemonDiagnosisStore: diagnosisStore);
 
-        var result = await operation.StartAsync(context, TimeSpan.FromMilliseconds(500), editorMode: null,
-                cancellationToken: CancellationToken.None);
+        var result = await operation.StartAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(1, diagnosisStore.DeleteCallCount);
@@ -63,8 +67,12 @@ public sealed class DaemonStartOperationTests
             daemonLaunchService: launchService,
             daemonDiagnosisStore: diagnosisStore);
 
-        var result = await operation.StartAsync(context, TimeSpan.FromMilliseconds(500), editorMode: null,
-                cancellationToken: CancellationToken.None);
+        var result = await operation.StartAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(1, diagnosisStore.DeleteCallCount);
@@ -97,8 +105,12 @@ public sealed class DaemonStartOperationTests
             daemonLaunchService: launchService,
             daemonDiagnosisStore: diagnosisStore);
 
-        var result = await operation.StartAsync(context, TimeSpan.FromMilliseconds(500), editorMode: null,
-                cancellationToken: CancellationToken.None);
+        var result = await operation.StartAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -137,6 +149,7 @@ public sealed class DaemonStartOperationTests
             context,
             TimeSpan.FromMilliseconds(500),
             editorMode: DaemonEditorMode.Gui,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
@@ -175,8 +188,12 @@ public sealed class DaemonStartOperationTests
             daemonExistingSessionGateService: existingSessionGateService,
             daemonLaunchService: launchService);
 
-        var result = await operation.StartAsync(context, TimeSpan.FromMilliseconds(500), editorMode: null,
-                cancellationToken: CancellationToken.None);
+        var result = await operation.StartAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Started, result.Status);
         Assert.True(result.IsSuccess);
@@ -215,8 +232,12 @@ public sealed class DaemonStartOperationTests
             daemonExistingSessionGateService: existingSessionGateService,
             daemonLaunchService: launchService);
 
-        var result = await operation.StartAsync(context, TimeSpan.FromMilliseconds(500), editorMode: null,
-                cancellationToken: CancellationToken.None);
+        var result = await operation.StartAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(expectedError, result.Error);
@@ -261,8 +282,12 @@ public sealed class DaemonStartOperationTests
             daemonExistingSessionGateService: new StubDaemonExistingSessionGateService(),
             daemonLaunchService: launchService);
 
-        var result = await operation.StartAsync(context, TimeSpan.FromMilliseconds(500), editorMode: null,
-                cancellationToken: CancellationToken.None);
+        var result = await operation.StartAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -294,8 +319,12 @@ public sealed class DaemonStartOperationTests
             daemonExistingSessionGateService: existingSessionGateService,
             daemonLaunchService: launchService);
 
-        var result = await operation.StartAsync(CreateContext("fingerprint-start-path-invalid"), TimeSpan.FromMilliseconds(500), editorMode: null,
-                cancellationToken: CancellationToken.None);
+        var result = await operation.StartAsync(
+            CreateContext("fingerprint-start-path-invalid"),
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(expectedError, result.Error);
@@ -326,8 +355,12 @@ public sealed class DaemonStartOperationTests
             daemonExistingSessionGateService: existingSessionGateService,
             daemonLaunchService: launchService);
 
-        var result = await operation.StartAsync(CreateContext("fingerprint-start-existing"), TimeSpan.FromMilliseconds(500), editorMode: null,
-                cancellationToken: CancellationToken.None);
+        var result = await operation.StartAsync(
+            CreateContext("fingerprint-start-existing"),
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.AlreadyRunning, result.Status);
         Assert.Equal(existingSession, result.Session);
@@ -364,8 +397,12 @@ public sealed class DaemonStartOperationTests
             daemonLaunchService: launchService,
             daemonGuiEditorAttachService: guiAttachService);
 
-        var result = await operation.StartAsync(CreateContext("fingerprint-start-existing-priority"), TimeSpan.FromMilliseconds(500), editorMode: null,
-                cancellationToken: CancellationToken.None);
+        var result = await operation.StartAsync(
+            CreateContext("fingerprint-start-existing-priority"),
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.AlreadyRunning, result.Status);
         Assert.Equal(existingSession, result.Session);
@@ -398,6 +435,7 @@ public sealed class DaemonStartOperationTests
             CreateContext("fingerprint-start-existing-editor-mode"),
             TimeSpan.FromMilliseconds(500),
             editorMode: DaemonEditorMode.Batchmode,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -430,8 +468,12 @@ public sealed class DaemonStartOperationTests
             daemonExistingSessionGateService: existingSessionGateService,
             daemonLaunchService: launchService);
 
-        var result = await operation.StartAsync(context, TimeSpan.FromMilliseconds(500), editorMode: null,
-                cancellationToken: CancellationToken.None);
+        var result = await operation.StartAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Started, result.Status);
         Assert.True(result.IsSuccess);
@@ -469,8 +511,12 @@ public sealed class DaemonStartOperationTests
             daemonLaunchService: launchService,
             daemonGuiEditorAttachService: guiAttachService);
 
-        var result = await operation.StartAsync(context, TimeSpan.FromMilliseconds(500), editorMode: null,
-                cancellationToken: CancellationToken.None);
+        var result = await operation.StartAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.AlreadyRunning, result.Status);
         Assert.Equal(guiSession, result.Session);
@@ -536,8 +582,12 @@ public sealed class DaemonStartOperationTests
             daemonExistingSessionGateService: existingSessionGateService,
             daemonLaunchService: launchService);
 
-        var result = await operation.StartAsync(CreateContext("fingerprint-start-existing-failed"), TimeSpan.FromMilliseconds(500), editorMode: null,
-                cancellationToken: CancellationToken.None);
+        var result = await operation.StartAsync(
+            CreateContext("fingerprint-start-existing-failed"),
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(expectedError, result.Error);
@@ -565,8 +615,12 @@ public sealed class DaemonStartOperationTests
             daemonExistingSessionGateService: existingSessionGateService,
             daemonLaunchService: launchService);
 
-        var result = await operation.StartAsync(CreateContext("fingerprint-start-no-session"), TimeSpan.FromMilliseconds(500), editorMode: null,
-                cancellationToken: CancellationToken.None);
+        var result = await operation.StartAsync(
+            CreateContext("fingerprint-start-no-session"),
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Started, result.Status);
         Assert.Equal(0, existingSessionGateService.CallCount);
@@ -592,6 +646,7 @@ public sealed class DaemonStartOperationTests
             CreateContext("fingerprint-start-gui-launch-mode"),
             TimeSpan.FromMilliseconds(500),
             editorMode: DaemonEditorMode.Gui,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Started, result.Status);
@@ -618,7 +673,8 @@ public sealed class DaemonStartOperationTests
             CreateContext("fingerprint-start-lock-timeout"),
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
-                cancellationToken: CancellationToken.None);
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -645,8 +701,12 @@ public sealed class DaemonStartOperationTests
             },
             lifecycleLockProvider: lockProvider);
 
-        var result = await operation.StartAsync(context, TimeSpan.FromMilliseconds(500), editorMode: null,
-                cancellationToken: CancellationToken.None);
+        var result = await operation.StartAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var lockRequest = Assert.IsType<ProjectLifecycleLockRequest>(lockProvider.LastRequest);
