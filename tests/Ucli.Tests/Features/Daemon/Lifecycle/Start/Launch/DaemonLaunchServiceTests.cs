@@ -376,30 +376,36 @@ public sealed class DaemonLaunchServiceTests
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(
+        DaemonStartupBlockingReasonValues.PackageResolution,
         DaemonDiagnosisReasonValues.UnityPackageResolutionFailed,
+        DaemonStartupRetryDispositionValues.RetryAfterFix,
         DaemonDiagnosisStartupPhaseValues.PackageResolution,
         DaemonDiagnosisActionRequiredValues.ResolvePackages)]
     [InlineData(
+        DaemonStartupBlockingReasonValues.ModalDialog,
         DaemonDiagnosisReasonValues.EditorUserActionRequired,
+        DaemonStartupRetryDispositionValues.ManualActionRequired,
+        DaemonDiagnosisStartupPhaseValues.UserAction,
+        DaemonDiagnosisActionRequiredValues.ResolveUnityDialog)]
+    [InlineData(
+        DaemonStartupBlockingReasonValues.SafeMode,
+        DaemonDiagnosisReasonValues.EditorUserActionRequired,
+        DaemonStartupRetryDispositionValues.ManualActionRequired,
         DaemonDiagnosisStartupPhaseValues.UserAction,
         DaemonDiagnosisActionRequiredValues.ResolveUnityDialog)]
     public async Task Launch_WhenEditorModeGuiStartupObserverFindsActionableBlocker_WritesDiagnosisAndPreservesGuiProcess (
+        string startupBlockingReason,
         string reason,
+        string retryDisposition,
         string startupPhase,
         string actionRequired)
     {
-        var context = CreateContext($"fingerprint-gui-launch-{reason}");
+        var context = CreateContext($"fingerprint-gui-launch-{startupBlockingReason}");
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
         var guiLauncher = new StubUnityGuiEditorProcessLauncher
         {
             NextResult = UnityDaemonLaunchResult.Success(6543, processStartedAtUtc),
         };
-        var startupBlockingReason = string.Equals(reason, DaemonDiagnosisReasonValues.UnityPackageResolutionFailed, StringComparison.Ordinal)
-            ? DaemonStartupBlockingReasonValues.PackageResolution
-            : DaemonStartupBlockingReasonValues.ModalDialog;
-        var retryDisposition = string.Equals(actionRequired, DaemonDiagnosisActionRequiredValues.ResolveUnityDialog, StringComparison.Ordinal)
-            ? DaemonStartupRetryDispositionValues.ManualActionRequired
-            : DaemonStartupRetryDispositionValues.RetryAfterFix;
         var blocker = new DaemonGuiStartupBlocker(
             StartupBlockingReason: startupBlockingReason,
             Reason: reason,
@@ -503,7 +509,7 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
-        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
+        Assert.Equal(DaemonErrorCodes.DaemonStartProcessExited, error.Code);
         Assert.Equal(1, diagnosisStore.WriteCallCount);
         Assert.NotNull(diagnosisStore.LastDiagnosis);
         Assert.Equal(DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap, diagnosisStore.LastDiagnosis!.Reason);

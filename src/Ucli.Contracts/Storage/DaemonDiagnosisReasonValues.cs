@@ -40,7 +40,7 @@ public static class DaemonDiagnosisReasonValues
     public const string PrecompiledAssemblyConflict = "precompiledAssemblyConflict";
 
     /// <summary> Gets the reason value used when Unity Editor requires user action before GUI daemon bootstrap can continue. </summary>
-    public const string EditorUserActionRequired = "unityEditorUserActionRequired";
+    public const string EditorUserActionRequired = "editorUserActionRequired";
 
     /// <summary> Gets the reason value used when Unity Editor exits before GUI daemon bootstrap writes a session. </summary>
     public const string EditorExitedBeforeBootstrap = "unityEditorExitedBeforeBootstrap";

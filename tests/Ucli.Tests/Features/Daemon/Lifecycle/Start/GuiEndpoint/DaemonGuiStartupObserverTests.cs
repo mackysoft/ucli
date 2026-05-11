@@ -4,7 +4,6 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Identity;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Logs;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
@@ -88,19 +87,41 @@ public sealed class DaemonGuiStartupObserverTests
     [Trait("Size", "Small")]
     [InlineData(
         "An error occurred while resolving packages:\nProject has invalid dependencies:\ncom.example.missing: Package cannot be found\n",
+        DaemonStartupBlockingReasonValues.PackageResolution,
         DaemonDiagnosisReasonValues.UnityPackageResolutionFailed,
+        DaemonStartupRetryDispositionValues.RetryAfterFix,
         DaemonDiagnosisStartupPhaseValues.PackageResolution,
         DaemonDiagnosisActionRequiredValues.ResolvePackages,
         DaemonDiagnosisPrimaryDiagnosticKindValues.PackageResolution)]
     [InlineData(
         "Unity Editor entered Safe Mode and is waiting for user action.\n",
+        DaemonStartupBlockingReasonValues.SafeMode,
         DaemonDiagnosisReasonValues.EditorUserActionRequired,
+        DaemonStartupRetryDispositionValues.ManualActionRequired,
         DaemonDiagnosisStartupPhaseValues.UserAction,
         DaemonDiagnosisActionRequiredValues.ResolveUnityDialog,
         DaemonDiagnosisPrimaryDiagnosticKindValues.UnityDialog)]
+    [InlineData(
+        "Could not load file or assembly 'MackySoft.Ucli.Infrastructure'\n",
+        DaemonStartupBlockingReasonValues.UcliPlugin,
+        DaemonDiagnosisReasonValues.UcliPluginDependencyMissing,
+        DaemonStartupRetryDispositionValues.RetryAfterFix,
+        DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+        DaemonDiagnosisActionRequiredValues.ResolvePackages,
+        DaemonDiagnosisPrimaryDiagnosticKindValues.PluginDependency)]
+    [InlineData(
+        "Multiple precompiled assemblies with the same name Newtonsoft.Json.dll included on the current platform.\n",
+        DaemonStartupBlockingReasonValues.PrecompiledAssemblyConflict,
+        DaemonDiagnosisReasonValues.PrecompiledAssemblyConflict,
+        DaemonStartupRetryDispositionValues.RetryAfterFix,
+        DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+        DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+        DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler)]
     public async Task WaitForStartup_WhenClassifiedStartupBlockerAppearsInLog_ReturnsExpectedBlocker (
         string logText,
+        string expectedStartupBlockingReason,
         string expectedReason,
+        string expectedRetryDisposition,
         string expectedStartupPhase,
         string expectedActionRequired,
         string expectedPrimaryDiagnosticKind)
@@ -126,12 +147,12 @@ public sealed class DaemonGuiStartupObserverTests
 
         Assert.True(result.IsBlocked);
         Assert.NotNull(result.Blocker);
+        Assert.Equal(expectedStartupBlockingReason, result.Blocker!.StartupBlockingReason);
         Assert.Equal(expectedReason, result.Blocker!.Reason);
+        Assert.Equal(expectedRetryDisposition, result.Blocker.RetryDisposition);
         Assert.Equal(expectedStartupPhase, result.Blocker.StartupPhase);
         Assert.Equal(expectedActionRequired, result.Blocker.ActionRequired);
         Assert.Equal(expectedPrimaryDiagnosticKind, result.Blocker.PrimaryDiagnostic!.Kind);
-        Assert.NotEqual(DaemonStartupBlockingReasonValues.Unknown, result.Blocker.StartupBlockingReason);
-        Assert.NotEqual(DaemonStartupRetryDispositionValues.Unknown, result.Blocker.RetryDisposition);
     }
 
     [Fact]
@@ -171,6 +192,48 @@ public sealed class DaemonGuiStartupObserverTests
         Assert.Equal(DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap, result.Blocker.Reason);
         Assert.Equal(DaemonDiagnosisActionRequiredValues.InspectUnityLog, result.Blocker.ActionRequired);
         Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.ProcessExit, result.Blocker.PrimaryDiagnostic!.Kind);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WaitForStartup_WhenProcessExitsWithClassifiedLog_ReturnsLogBlocker ()
+    {
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
+        var awaiter = new StubDaemonGuiSessionRegistrationAwaiter
+        {
+            NextResult = DaemonGuiSessionRegistrationWaitResult.Failure(ExecutionError.Timeout("registration timeout")),
+        };
+        var logReader = new StubUnityLogReader
+        {
+            NextResult = UnityLogReadResult.Success(
+                "Assets/Foo.cs(74,17): error CS1739: Missing parameter\n",
+                truncated: false,
+                path: "/tmp/unity.log",
+                sizeBytes: 64),
+        };
+        var processIdentityAssessor = new StubDaemonProcessIdentityAssessor
+        {
+            Assessment = new DaemonProcessIdentityAssessment(
+                DaemonProcessIdentityAssessmentStatus.NotRunning,
+                ObservedStartTimeUtc: null,
+                Error: null),
+        };
+        var observer = new DaemonGuiStartupObserver(awaiter, logReader, processIdentityAssessor);
+
+        var result = await observer.WaitForStartupAsync(
+            CreateContext("fingerprint-gui-observer-exit-with-log"),
+            processId: int.MaxValue,
+            processStartedAtUtc: processStartedAtUtc,
+            unityLogPath: "/tmp/unity.log",
+            timeout: TimeSpan.FromMilliseconds(500),
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsBlocked);
+        Assert.NotNull(result.Blocker);
+        Assert.Equal(DaemonStartupBlockingReasonValues.Compile, result.Blocker!.StartupBlockingReason);
+        Assert.Equal(DaemonStartupRetryDispositionValues.RetryAfterFix, result.Blocker.RetryDisposition);
+        Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, result.Blocker.Reason);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler, result.Blocker.PrimaryDiagnostic!.Kind);
     }
 
     [Fact]

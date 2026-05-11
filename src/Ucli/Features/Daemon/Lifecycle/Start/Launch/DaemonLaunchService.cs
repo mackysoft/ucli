@@ -9,6 +9,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
@@ -472,7 +473,9 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
     {
         ArgumentNullException.ThrowIfNull(blocker);
 
-        var primaryError = ExecutionError.InternalError(blocker.Message, DaemonErrorCodes.DaemonStartupBlocked);
+        var primaryError = ExecutionError.InternalError(
+            blocker.Message,
+            ResolveGuiStartupBlockedErrorCode(blocker));
         var updatedAtUtc = timeProvider.GetUtcNow();
         var diagnosis = new DaemonDiagnosis(
             Reason: blocker.Reason,
@@ -582,9 +585,17 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
     {
         ArgumentNullException.ThrowIfNull(blocker);
         return string.Equals(
-            blocker.Reason,
-            DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap,
+            blocker.StartupBlockingReason,
+            DaemonStartupBlockingReasonValues.ProcessExit,
             StringComparison.Ordinal);
+    }
+
+    private static UcliErrorCode ResolveGuiStartupBlockedErrorCode (DaemonGuiStartupBlocker blocker)
+    {
+        ArgumentNullException.ThrowIfNull(blocker);
+        return IsProcessExitBlocker(blocker)
+            ? DaemonErrorCodes.DaemonStartProcessExited
+            : DaemonErrorCodes.DaemonStartupBlocked;
     }
 
     private static DaemonStartupObservation CreateGuiStartupBlockedObservation (

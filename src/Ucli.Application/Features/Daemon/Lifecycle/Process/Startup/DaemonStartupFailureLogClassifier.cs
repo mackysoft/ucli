@@ -1,6 +1,5 @@
 using System.Globalization;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 
@@ -10,6 +9,12 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 internal static class DaemonStartupFailureLogClassifier
 {
     private const string NuGetForUnityRestoreFailedCode = "NUGET_FOR_UNITY_RESTORE_FAILED";
+    private const int UserActionPriority = 1;
+    private const int PrecompiledAssemblyConflictPriority = 2;
+    private const int UcliPluginDependencyPriority = 3;
+    private const int PackageResolutionPriority = 4;
+    private const int CompilerPriority = 5;
+    private const int BatchmodeSafeModeFallbackPriority = 6;
 
     /// <summary> Extracts the latest startup log segment from one Unity log text. </summary>
     /// <param name="logText"> The complete Unity log text. </param>
@@ -121,11 +126,9 @@ internal static class DaemonStartupFailureLogClassifier
         string logText,
         DaemonStartupFailureClassificationContext context)
     {
-        var lines = logText.Split('\n');
-        foreach (var line in lines)
+        foreach (var trimmedLine in GetNonEmptyTrimmedLines(logText))
         {
-            var trimmedLine = line.Trim();
-            if (trimmedLine.Length == 0 || !IsUserActionRequiredLine(trimmedLine))
+            if (!IsUserActionRequiredLine(trimmedLine))
             {
                 continue;
             }
@@ -134,7 +137,7 @@ internal static class DaemonStartupFailureLogClassifier
             if (safeModeLine && context == DaemonStartupFailureClassificationContext.Batchmode)
             {
                 return new DaemonStartupFailureCandidate(
-                    Priority: 6,
+                    Priority: BatchmodeSafeModeFallbackPriority,
                     Classification: CreateCompileClassification(
                         $"Marker={trimmedLine}",
                         new DaemonPrimaryDiagnostic(
@@ -150,7 +153,7 @@ internal static class DaemonStartupFailureLogClassifier
                 ? DaemonStartupBlockingReasonValues.SafeMode
                 : DaemonStartupBlockingReasonValues.ModalDialog;
             return new DaemonStartupFailureCandidate(
-                Priority: 1,
+                Priority: UserActionPriority,
                 Classification: new DaemonStartupFailureClassification(
                     StartupBlockingReason: startupBlockingReason,
                     Reason: DaemonDiagnosisReasonValues.EditorUserActionRequired,
@@ -172,18 +175,15 @@ internal static class DaemonStartupFailureLogClassifier
 
     private static DaemonStartupFailureCandidate? TryCreatePrecompiledAssemblyConflictCandidate (string logText)
     {
-        var lines = logText.Split('\n');
-        foreach (var line in lines)
+        foreach (var trimmedLine in GetNonEmptyTrimmedLines(logText))
         {
-            var trimmedLine = line.Trim();
-            if (trimmedLine.Length == 0
-                || !trimmedLine.Contains("Multiple precompiled assemblies with the same name", StringComparison.OrdinalIgnoreCase))
+            if (!trimmedLine.Contains("Multiple precompiled assemblies with the same name", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
             return new DaemonStartupFailureCandidate(
-                Priority: 2,
+                Priority: PrecompiledAssemblyConflictPriority,
                 Classification: new DaemonStartupFailureClassification(
                     StartupBlockingReason: DaemonStartupBlockingReasonValues.PrecompiledAssemblyConflict,
                     Reason: DaemonDiagnosisReasonValues.PrecompiledAssemblyConflict,
@@ -205,17 +205,23 @@ internal static class DaemonStartupFailureLogClassifier
 
     private static DaemonStartupFailureCandidate? TryCreateUcliPluginDependencyCandidate (string logText)
     {
-        var lines = logText.Split('\n');
-        foreach (var line in lines)
+        var previousLineWasNuGetForUnityRestoreContext = false;
+        foreach (var trimmedLine in GetNonEmptyTrimmedLines(logText))
         {
-            var trimmedLine = line.Trim();
-            if (trimmedLine.Length == 0 || !IsUcliPluginDependencyMissingLine(trimmedLine))
+            if (IsNuGetForUnityRestoreFailureLine(trimmedLine, previousLineWasNuGetForUnityRestoreContext))
             {
+                previousLineWasNuGetForUnityRestoreContext = IsNuGetForUnityRestoreContextLine(trimmedLine);
+                continue;
+            }
+
+            if (!IsUcliPluginDependencyMissingLine(trimmedLine))
+            {
+                previousLineWasNuGetForUnityRestoreContext = IsNuGetForUnityRestoreContextLine(trimmedLine);
                 continue;
             }
 
             return new DaemonStartupFailureCandidate(
-                Priority: 3,
+                Priority: UcliPluginDependencyPriority,
                 Classification: new DaemonStartupFailureClassification(
                     StartupBlockingReason: DaemonStartupBlockingReasonValues.UcliPlugin,
                     Reason: DaemonDiagnosisReasonValues.UcliPluginDependencyMissing,
@@ -240,7 +246,7 @@ internal static class DaemonStartupFailureLogClassifier
         if (TryGetNuGetForUnityRestoreFailureSummary(logText, out var nugetSummary, out var nugetDiagnostic))
         {
             return new DaemonStartupFailureCandidate(
-                Priority: 4,
+                Priority: PackageResolutionPriority,
                 Classification: CreatePackageResolutionClassification(nugetSummary, nugetDiagnostic));
         }
 
@@ -250,7 +256,7 @@ internal static class DaemonStartupFailureLogClassifier
         }
 
         return new DaemonStartupFailureCandidate(
-            Priority: 4,
+            Priority: PackageResolutionPriority,
             Classification: CreatePackageResolutionClassification(packageErrorSummary, packageDiagnostic));
     }
 
@@ -262,7 +268,7 @@ internal static class DaemonStartupFailureLogClassifier
         }
 
         return new DaemonStartupFailureCandidate(
-            Priority: 5,
+            Priority: CompilerPriority,
             Classification: CreateCompileClassification(compilerErrorSummary, compilerDiagnostic));
     }
 
@@ -303,15 +309,8 @@ internal static class DaemonStartupFailureLogClassifier
         summary = string.Empty;
         primaryDiagnostic = null;
 
-        var lines = logText.Split('\n');
-        foreach (var line in lines)
+        foreach (var trimmedLine in GetNonEmptyTrimmedLines(logText))
         {
-            var trimmedLine = line.Trim();
-            if (trimmedLine.Length == 0)
-            {
-                continue;
-            }
-
             if (trimmedLine.Contains("error CS", StringComparison.OrdinalIgnoreCase))
             {
                 summary = $"FirstError={trimmedLine}";
@@ -353,16 +352,9 @@ internal static class DaemonStartupFailureLogClassifier
         summary = string.Empty;
         primaryDiagnostic = null;
 
-        var lines = logText.Split('\n');
         var markerFound = false;
-        foreach (var line in lines)
+        foreach (var trimmedLine in GetNonEmptyTrimmedLines(logText))
         {
-            var trimmedLine = line.Trim();
-            if (trimmedLine.Length == 0)
-            {
-                continue;
-            }
-
             if (!markerFound)
             {
                 if (trimmedLine.Contains(packageFailureMarker, StringComparison.OrdinalIgnoreCase)
@@ -417,29 +409,19 @@ internal static class DaemonStartupFailureLogClassifier
         summary = string.Empty;
         primaryDiagnostic = null;
 
-        var lines = logText.Split('\n');
-        var mentionsNuGetForUnity = false;
         var restoreFailureLine = (string?)null;
-        foreach (var line in lines)
+        var previousLineWasNuGetForUnityRestoreContext = false;
+        foreach (var trimmedLine in GetNonEmptyTrimmedLines(logText))
         {
-            var trimmedLine = line.Trim();
-            if (trimmedLine.Length == 0)
-            {
-                continue;
-            }
-
-            if (trimmedLine.Contains("NuGetForUnity", StringComparison.OrdinalIgnoreCase))
-            {
-                mentionsNuGetForUnity = true;
-            }
-
-            if (IsRestoreFailureLine(trimmedLine))
+            if (IsNuGetForUnityRestoreFailureLine(trimmedLine, previousLineWasNuGetForUnityRestoreContext))
             {
                 restoreFailureLine ??= trimmedLine;
             }
+
+            previousLineWasNuGetForUnityRestoreContext = IsNuGetForUnityRestoreContextLine(trimmedLine);
         }
 
-        if (!mentionsNuGetForUnity || restoreFailureLine is null)
+        if (restoreFailureLine is null)
         {
             return false;
         }
@@ -454,6 +436,11 @@ internal static class DaemonStartupFailureLogClassifier
             Column: null,
             Message: diagnosticMessage);
         return true;
+    }
+
+    private static string[] GetNonEmptyTrimmedLines (string logText)
+    {
+        return logText.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
     }
 
     private static bool TryParseCompilerDiagnostic (
@@ -589,6 +576,21 @@ internal static class DaemonStartupFailureLogClassifier
             && (line.Contains("failed", StringComparison.OrdinalIgnoreCase)
                 || line.Contains("failure", StringComparison.OrdinalIgnoreCase)
                 || line.Contains("error", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsNuGetForUnityRestoreFailureLine (
+        string line,
+        bool previousLineWasNuGetForUnityRestoreContext)
+    {
+        return IsRestoreFailureLine(line)
+            && (line.Contains("NuGetForUnity", StringComparison.OrdinalIgnoreCase)
+                || previousLineWasNuGetForUnityRestoreContext);
+    }
+
+    private static bool IsNuGetForUnityRestoreContextLine (string line)
+    {
+        return line.Contains("NuGetForUnity", StringComparison.OrdinalIgnoreCase)
+            && line.Contains("Restoring package", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsUcliPluginDependencyMissingLine (string line)
