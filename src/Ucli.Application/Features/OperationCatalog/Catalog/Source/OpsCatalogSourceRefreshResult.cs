@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Application.Shared.Execution;
+
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 
 /// <summary> Represents one ops-catalog source refresh result. </summary>
@@ -5,7 +7,8 @@ internal sealed record OpsCatalogSourceRefreshResult (
     OpsCatalogSnapshot? Snapshot,
     string? FallbackReason,
     string Message,
-    UcliErrorCode? ErrorCode)
+    UcliErrorCode? ErrorCode,
+    StartupFailureDetail? StartupFailure = null)
 {
     /// <summary> Gets a value indicating whether the source refresh succeeded. </summary>
     public bool IsSuccess => Snapshot is not null && ErrorCode is null;
@@ -24,7 +27,8 @@ internal sealed record OpsCatalogSourceRefreshResult (
     /// <summary> Creates a failed source refresh result. </summary>
     public static OpsCatalogSourceRefreshResult Failure (
         string message,
-        UcliErrorCode errorCode)
+        UcliErrorCode errorCode,
+        StartupFailureDetail? startupFailure = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         if (!errorCode.IsValid)
@@ -32,6 +36,6 @@ internal sealed record OpsCatalogSourceRefreshResult (
             throw new ArgumentException("Error code must not be empty.", nameof(errorCode));
         }
 
-        return new OpsCatalogSourceRefreshResult(null, null, message, errorCode);
+        return new OpsCatalogSourceRefreshResult(null, null, message, errorCode, startupFailure);
     }
 }

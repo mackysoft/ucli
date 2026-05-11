@@ -199,7 +199,8 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
         {
             return OpsListReadResult.Failure(
                 refreshResult.Message,
-                refreshResult.ErrorCode!.Value);
+                refreshResult.ErrorCode!.Value,
+                refreshResult.StartupFailure);
         }
 
         return OpsListReadResult.Success(
@@ -234,7 +235,8 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
         {
             return OpsDescribeReadResult.Failure(
                 refreshResult.Message,
-                refreshResult.ErrorCode!.Value);
+                refreshResult.ErrorCode!.Value,
+                refreshResult.StartupFailure);
         }
 
         var operation = refreshResult.Snapshot!.Operations.FirstOrDefault(

@@ -1,10 +1,13 @@
+using MackySoft.Ucli.Application.Shared.Execution;
+
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 
 /// <summary> Represents one normalized internal <c>ops list</c> read result. </summary>
 internal sealed record OpsListReadResult (
     OpsListReadOutput? Output,
     string Message,
-    UcliErrorCode? ErrorCode)
+    UcliErrorCode? ErrorCode,
+    StartupFailureDetail? StartupFailure = null)
 {
     /// <summary> Gets a value indicating whether the list read succeeded. </summary>
     public bool IsSuccess => Output is not null && ErrorCode is null;
@@ -21,8 +24,9 @@ internal sealed record OpsListReadResult (
     /// <summary> Creates a failed list-read result. </summary>
     public static OpsListReadResult Failure (
         string message,
-        UcliErrorCode errorCode)
+        UcliErrorCode errorCode,
+        StartupFailureDetail? startupFailure = null)
     {
-        return new OpsListReadResult(null, message, errorCode);
+        return new OpsListReadResult(null, message, errorCode, startupFailure);
     }
 }

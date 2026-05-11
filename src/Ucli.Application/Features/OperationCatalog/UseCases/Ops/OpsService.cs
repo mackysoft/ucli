@@ -68,7 +68,8 @@ internal sealed class OpsService : IOpsService
         {
             return OpsListServiceResult.Failure(
                 catalogResult.Message,
-                catalogResult.ErrorCode!.Value);
+                catalogResult.ErrorCode!.Value,
+                catalogResult.StartupFailure);
         }
 
         var filterResult = filter!.Apply(catalogResult.Output!.Snapshot.Operations);
@@ -110,7 +111,8 @@ internal sealed class OpsService : IOpsService
         {
             return OpsDescribeServiceResult.Failure(
                 catalogResult.Message,
-                catalogResult.ErrorCode!.Value);
+                catalogResult.ErrorCode!.Value,
+                catalogResult.StartupFailure);
         }
 
         return describeResultMapper.Map(catalogResult.Output!);

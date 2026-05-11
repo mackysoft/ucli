@@ -14,7 +14,12 @@ internal static class CallCommandResultFactory
     {
         ArgumentNullException.ThrowIfNull(serviceResult);
 
-        object payload = CreatePayload(serviceResult.Output);
+        var payload = CreatePayload(serviceResult.Output);
+        if (!serviceResult.IsSuccess)
+        {
+            StartupFailurePayloadProjector.AppendFromFailures(payload, serviceResult.Errors);
+        }
+
         if (serviceResult.IsSuccess)
         {
             return CommandResult.Success(
@@ -30,11 +35,11 @@ internal static class CallCommandResultFactory
             serviceResult.Errors);
     }
 
-    private static object CreatePayload (CallExecutionOutput? output)
+    private static Dictionary<string, object?> CreatePayload (CallExecutionOutput? output)
     {
         if (output == null)
         {
-            return new { };
+            return new Dictionary<string, object?>();
         }
 
         var payload = new Dictionary<string, object?>

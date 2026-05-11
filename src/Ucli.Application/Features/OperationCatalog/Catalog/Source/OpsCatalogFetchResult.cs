@@ -1,13 +1,17 @@
+using MackySoft.Ucli.Application.Shared.Execution;
+
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 
 /// <summary> Represents one operation-catalog fetch result. </summary>
 /// <param name="Snapshot"> The validated catalog snapshot on success; otherwise <see langword="null" />. </param>
 /// <param name="Message"> The user-facing result message. </param>
 /// <param name="ErrorCode"> The machine-readable error code on failure; otherwise <see langword="null" />. </param>
+/// <param name="StartupFailure"> The structured startup failure detail when source fetch failed before Unity accepted the request. </param>
 internal sealed record OpsCatalogFetchResult (
     OpsCatalogSnapshot? Snapshot,
     string Message,
-    UcliErrorCode? ErrorCode)
+    UcliErrorCode? ErrorCode,
+    StartupFailureDetail? StartupFailure = null)
 {
     /// <summary> Gets a value indicating whether fetch succeeded. </summary>
     public bool IsSuccess => Snapshot is not null && ErrorCode is null;
@@ -30,11 +34,13 @@ internal sealed record OpsCatalogFetchResult (
     /// <returns> The failed result. </returns>
     public static OpsCatalogFetchResult Failure (
         string message,
-        UcliErrorCode errorCode)
+        UcliErrorCode errorCode,
+        StartupFailureDetail? startupFailure = null)
     {
         return new OpsCatalogFetchResult(
             Snapshot: null,
             Message: message,
-            ErrorCode: errorCode);
+            ErrorCode: errorCode,
+            StartupFailure: startupFailure);
     }
 }

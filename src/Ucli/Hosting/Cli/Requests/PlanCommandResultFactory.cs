@@ -14,7 +14,11 @@ internal static class PlanCommandResultFactory
     {
         ArgumentNullException.ThrowIfNull(serviceResult);
 
-        object payload = CreatePayload(serviceResult.Output);
+        var payload = CreatePayload(serviceResult.Output);
+        if (!serviceResult.IsSuccess)
+        {
+            StartupFailurePayloadProjector.AppendFromFailures(payload, serviceResult.Errors);
+        }
 
         if (serviceResult.IsSuccess)
         {
@@ -31,29 +35,26 @@ internal static class PlanCommandResultFactory
             serviceResult.Errors);
     }
 
-    private static object CreatePayload (PlanExecutionOutput? output)
+    private static Dictionary<string, object?> CreatePayload (PlanExecutionOutput? output)
     {
         if (output == null)
         {
-            return new { };
+            return new Dictionary<string, object?>();
         }
+
+        var payload = new Dictionary<string, object?>
+        {
+            ["requestId"] = output.RequestId,
+            ["opResults"] = output.OpResults,
+            ["readIndex"] = ReadIndexInfoPayloadProjector.Create(output.ReadIndex),
+        };
 
         if (string.IsNullOrWhiteSpace(output.PlanToken))
         {
-            return new
-            {
-                requestId = output.RequestId,
-                opResults = output.OpResults,
-                readIndex = ReadIndexInfoPayloadProjector.Create(output.ReadIndex),
-            };
+            return payload;
         }
 
-        return new
-        {
-            requestId = output.RequestId,
-            opResults = output.OpResults,
-            readIndex = ReadIndexInfoPayloadProjector.Create(output.ReadIndex),
-            planToken = output.PlanToken,
-        };
+        payload["planToken"] = output.PlanToken;
+        return payload;
     }
 }

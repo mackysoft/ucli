@@ -82,7 +82,8 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
 
                 return OpsCatalogSourceRefreshResult.Failure(
                     attemptResult.FetchResult.Message,
-                    attemptResult.FetchResult.ErrorCode!.Value);
+                    attemptResult.FetchResult.ErrorCode!.Value,
+                    attemptResult.FetchResult.StartupFailure);
             }
 
             snapshot = attemptResult.FetchResult.Snapshot!;

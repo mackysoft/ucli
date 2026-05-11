@@ -13,12 +13,16 @@ internal static class ResolveCommandResultFactory
     {
         ArgumentNullException.ThrowIfNull(serviceResult);
 
-        object payload = new
+        var payload = new Dictionary<string, object?>
         {
-            requestId = serviceResult.RequestId,
-            opResults = serviceResult.OpResults,
-            readIndex = ReadIndexInfoPayloadProjector.Create(serviceResult.ReadIndex),
+            ["requestId"] = serviceResult.RequestId,
+            ["opResults"] = serviceResult.OpResults,
+            ["readIndex"] = ReadIndexInfoPayloadProjector.Create(serviceResult.ReadIndex),
         };
+        if (!serviceResult.IsSuccess)
+        {
+            StartupFailurePayloadProjector.AppendFromFailures(payload, serviceResult.Errors);
+        }
 
         if (serviceResult.IsSuccess)
         {
