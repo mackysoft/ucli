@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Application.Shared.Execution;
+
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
 
 /// <summary> Represents one normalized <c>ops describe</c> service result. </summary>

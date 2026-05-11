@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Application.Shared.Execution;
+
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 
 /// <summary> Represents one operation-catalog fetch result. </summary>

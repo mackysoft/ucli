@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Application.Shared.Execution;
+
 namespace MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 
 /// <summary> Represents one Unity test-execution result. </summary>

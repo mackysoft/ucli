@@ -374,6 +374,52 @@ public sealed class UnityOneshotIpcClientTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task SendAsync_WhenUnityExitsWithPackageResolutionLog_ReturnsClassifiedStartupFailure ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "exit-package-resolution");
+        var unityProject = CreateUnityProject(scope);
+        var unityLogPath = scope.GetPath("UnityProject/Logs/Editor.log");
+        var processHandle = new StubUnityBatchmodeProcessHandle(hasExited: true, exitCode: 1);
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var logReader = new StubUnityLogReader(UnityLogReadResult.Success(
+            """
+            COMMAND LINE ARGUMENTS:
+            An error occurred while resolving packages:
+            Project has invalid dependencies:
+              com.example.missing: No package found for com.example.missing.
+            """,
+            truncated: false,
+            path: unityLogPath,
+            sizeBytes: 224));
+        var client = new UnityOneshotIpcClient(
+            launcher,
+            new StubIpcEndpointResolver(new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock")),
+            new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Transport should not be called.")),
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe(
+                UnityProjectLockFileProbeResult.Unlocked(scope.GetPath("UnityProject/Temp/UnityLockfile"))),
+            logReader);
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, result.ErrorCode);
+        Assert.Equal(1, logReader.CallCount);
+        Assert.NotNull(result.FailureInfo!.StartupFailure);
+        var startupFailure = result.FailureInfo.StartupFailure!;
+        Assert.Equal("blocked", startupFailure.Startup!.StartupStatus);
+        Assert.Equal("packageResolution", startupFailure.Startup.StartupBlockingReason);
+        Assert.Equal(DaemonStartupProcessActionValues.Unknown, startupFailure.Startup.ProcessAction);
+        Assert.Equal("unityPackageResolutionFailed", startupFailure.Diagnosis!.Reason);
+        Assert.Equal("packageResolution", startupFailure.Diagnosis.PrimaryDiagnostic!.Kind);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task SendAsync_WhenClassifiedProcessExitHasStaleLockDiagnostic_PreservesCleanupMessage ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "exit-compile-error-stale-lock");

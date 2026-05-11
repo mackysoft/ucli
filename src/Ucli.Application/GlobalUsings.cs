@@ -7,7 +7,6 @@ global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Shutdo
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Timing;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 global using MackySoft.Ucli.Application.Shared.Context.Project;
-global using MackySoft.Ucli.Application.Shared.Execution;
 global using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 global using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 global using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
