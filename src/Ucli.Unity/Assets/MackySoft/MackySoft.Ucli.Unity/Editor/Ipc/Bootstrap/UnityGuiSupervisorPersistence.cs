@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -57,7 +56,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             FileSystemAccessBoundary.EnsureSecureDirectory(manifestDirectory);
             File.WriteAllText(
                 manifestPath,
-                JsonSerializer.Serialize(manifest, IpcJsonSerializerOptions.Default));
+                GuiSupervisorManifestJsonContractSerializer.Serialize(manifest) + Environment.NewLine);
             FileSystemAccessBoundary.EnsureSecureFile(manifestPath);
             return manifest;
         }

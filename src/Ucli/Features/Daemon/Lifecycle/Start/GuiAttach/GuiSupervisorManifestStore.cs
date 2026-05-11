@@ -1,5 +1,3 @@
-using System.Text.Json;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -26,11 +24,7 @@ internal sealed class GuiSupervisorManifestStore
             return null;
         }
 
-        await using var stream = File.OpenRead(manifestPath);
-        return await JsonSerializer.DeserializeAsync<GuiSupervisorManifestJsonContract>(
-                stream,
-                IpcJsonSerializerOptions.Default,
-                cancellationToken)
-            .ConfigureAwait(false);
+        var json = await File.ReadAllTextAsync(manifestPath, cancellationToken).ConfigureAwait(false);
+        return GuiSupervisorManifestJsonContractSerializer.Deserialize(json);
     }
 }

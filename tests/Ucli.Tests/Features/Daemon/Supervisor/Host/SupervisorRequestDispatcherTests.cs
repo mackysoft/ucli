@@ -181,6 +181,50 @@ public sealed class SupervisorRequestDispatcherTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenStartOperationAttaches_EmitsAttachedStartStatus ()
+    {
+        var session = CreateSession();
+        var lifecycleSnapshot = new DaemonStartLifecycleSnapshot(
+            IpcEditorLifecycleStateCodec.Ready,
+            null,
+            CanAcceptExecutionRequests: true);
+        var startOperation = new StubDaemonStartOperation
+        {
+            StartResult = DaemonStartResult.Attached(session, lifecycleSnapshot),
+        };
+        var dispatcher = CreateDispatcher(startOperation);
+        var runtimeContext = CreateRuntimeContext();
+        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
+
+        var response = await SendRequestAsync(
+            dispatcher,
+            runtimeContext,
+            new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "request-attached",
+                SessionToken: runtimeContext.Manifest.SessionToken,
+                Method: SupervisorIpcContracts.EnsureRunningMethod,
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.EnsureRunningRequest(
+                        UnityProjectRoot: unityProjectRoot,
+                        ProjectFingerprint: projectFingerprint,
+                        TimeoutMilliseconds: 1000,
+                        EditorMode: DaemonEditorModeValues.Gui,
+                        OnStartupBlocked: DaemonStartupBlockedProcessPolicyValues.Auto))));
+
+        Assert.Equal(IpcProtocol.StatusOk, response.Status);
+        Assert.True(IpcPayloadCodec.TryDeserialize(
+            response.Payload,
+            out SupervisorIpcContracts.EnsureRunningResponse payload,
+            out _));
+        Assert.Equal(DaemonStartStateCodec.Attached, payload.StartStatus);
+        Assert.Equal(session, payload.Session);
+        Assert.Equal(lifecycleSnapshot, payload.LifecycleSnapshot);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task HandleConnection_WhenEditorModeIsInvalid_ReturnsInvalidArgumentWithoutStartOperation ()
     {
         var startOperation = new StubDaemonStartOperation();

@@ -31,11 +31,12 @@ public sealed class DaemonGuiRebootstrapClientTests
         };
         var client = CreateClient(transportClient);
 
+        var timeout = TimeSpan.FromMilliseconds(500);
         var result = await client.RequestRebootstrapAsync(
             unityProject,
             manifest.ProcessId,
             ProcessStartedAtUtc,
-            TimeSpan.FromMilliseconds(500),
+            timeout,
             CancellationToken.None);
 
         Assert.True(result.IsAccepted);
@@ -43,6 +44,7 @@ public sealed class DaemonGuiRebootstrapClientTests
         Assert.Equal(manifest.SessionToken, call.Request.SessionToken);
         Assert.Equal(IpcMethodNames.GuiRebootstrap, call.Request.Method);
         Assert.Equal(manifest.EndpointAddress, call.Endpoint.Address);
+        Assert.Equal(timeout, call.Timeout);
     }
 
     [Fact]
