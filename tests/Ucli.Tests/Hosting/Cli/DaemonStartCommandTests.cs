@@ -87,6 +87,11 @@ public sealed class DaemonStartCommandTests
             .HasString("lifecycleState", IpcEditorLifecycleStateCodec.Compiling)
             .HasString("blockingReason", IpcEditorBlockingReasonCodec.Compile)
             .HasBoolean("canAcceptExecutionRequests", false);
+
+        var payload = outputJson.RootElement.GetProperty("payload");
+        Assert.False(payload.TryGetProperty("runtimeKind", out _));
+        Assert.False(payload.GetProperty("session").TryGetProperty("runtimeKind", out _));
+        JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("daemon", "start-compiling-success.json"), standardOutput);
     }
 
     [Fact]
@@ -268,6 +273,9 @@ public sealed class DaemonStartCommandTests
         Assert.False(payload.TryGetProperty("lifecycleState", out _));
         Assert.False(payload.TryGetProperty("blockingReason", out _));
         Assert.False(payload.TryGetProperty("canAcceptExecutionRequests", out _));
+        Assert.False(payload.TryGetProperty("runtimeKind", out _));
+        Assert.False(payload.GetProperty("startup").TryGetProperty("runtimeKind", out _));
+        JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("daemon", "start-startup-blocked.json"), standardOutput);
     }
 
     [Fact]
@@ -297,7 +305,8 @@ public sealed class DaemonStartCommandTests
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
         CommandResultAssert.HasSingleError(outputJson.RootElement, ExecutionErrorCodes.IpcTimeout);
-        JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
+        var payload = outputJson.RootElement.GetProperty("payload");
+        JsonAssert.For(payload)
             .HasString("startStatus", "failed")
             .HasString("daemonStatus", "notRunning")
             .IsNull("session")
@@ -307,6 +316,12 @@ public sealed class DaemonStartCommandTests
                 .HasString("startupStatus", DaemonStartupStatusValues.Timeout)
                 .HasString("startupBlockingReason", DaemonStartupBlockingReasonValues.EndpointNotRegistered)
                 .HasString("retryDisposition", DaemonStartupRetryDispositionValues.Unknown));
+        Assert.False(payload.TryGetProperty("lifecycleState", out _));
+        Assert.False(payload.TryGetProperty("blockingReason", out _));
+        Assert.False(payload.TryGetProperty("canAcceptExecutionRequests", out _));
+        Assert.False(payload.TryGetProperty("runtimeKind", out _));
+        Assert.False(payload.GetProperty("startup").TryGetProperty("runtimeKind", out _));
+        JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("daemon", "start-endpoint-timeout.json"), standardOutput);
     }
 
     [Fact]
@@ -360,7 +375,7 @@ public sealed class DaemonStartCommandTests
                 EndpointTransportKind: "namedPipe",
                 EndpointAddress: "ucli-daemon-endpoint",
                 ProcessId: 1234,
-                ProcessStartedAtUtc: DateTimeOffset.UtcNow,
+                ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 12, 1, 2, 0, TimeSpan.Zero),
                 OwnerProcessId: 5678),
             LifecycleState: lifecycleState,
             BlockingReason: blockingReason,

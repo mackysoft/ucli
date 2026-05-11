@@ -1,0 +1,51 @@
+{
+  "protocolVersion": 1,
+  "command": "daemon.start",
+  "status": "error",
+  "exitCode": 4,
+  "message": "Unity startup is blocked.",
+  "payload": {
+    "startStatus": "failed",
+    "daemonStatus": "notRunning",
+    "timeoutMilliseconds": 1234,
+    "session": null,
+    "startup": {
+      "startupStatus": "blocked",
+      "startupBlockingReason": "compile",
+      "launchAttemptId": "20260312_040500Z_00abcdef",
+      "editorMode": "batchmode",
+      "ownerKind": "cli",
+      "canShutdownProcess": true,
+      "processId": 4321,
+      "startedAtUtc": "2026-03-12T04:05:01+00:00",
+      "elapsedMilliseconds": 2500,
+      "processAction": "kept",
+      "processTermination": null,
+      "artifactPath": "/repo/.ucli/local/fingerprints/fp/launchAttempts/20260312_040500Z_00abcdef/startup-diagnosis.json",
+      "retryDisposition": "retryAfterFix"
+    },
+    "diagnosis": {
+      "reason": "unityScriptCompilationFailed",
+      "message": "startup diagnosis",
+      "reportedBy": "cli",
+      "isInferred": true,
+      "updatedAtUtc": "2026-03-12T04:05:06+00:00",
+      "processId": 1234,
+      "editorInstancePath": "/repo/UnityProject/Library/EditorInstance.json",
+      "processStartedAtUtc": null,
+      "unityLogPath": null,
+      "startupPhase": null,
+      "actionRequired": null,
+      "primaryDiagnostic": null
+    },
+    "retryDisposition": "retryAfterFix",
+    "safeToRetryImmediately": false
+  },
+  "errors": [
+    {
+      "code": "DAEMON_STARTUP_BLOCKED",
+      "message": "Unity startup is blocked.",
+      "opId": null
+    }
+  ]
+}

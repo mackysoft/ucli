@@ -155,6 +155,11 @@ public sealed class DaemonStatusCommandTests
                         .HasString("unityLogPath", "/repo/.ucli/local/fingerprints/fp/unity.log")
                         .HasString("startupPhase", DaemonDiagnosisStartupPhaseValues.EndpointRegistration)
                         .HasString("actionRequired", DaemonDiagnosisActionRequiredValues.InspectUnityLog))));
+
+        var payloadJson = outputJson.RootElement.GetProperty("payload");
+        Assert.False(payloadJson.TryGetProperty("runtimeKind", out _));
+        Assert.False(payloadJson.GetProperty("lastLaunchAttempt").TryGetProperty("runtimeKind", out _));
+        JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("daemon", "status-last-launch-attempt.json"), standardOutput);
     }
 
     private sealed class StubDaemonStatusService : IDaemonStatusService
