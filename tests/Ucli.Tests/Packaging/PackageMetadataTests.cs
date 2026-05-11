@@ -201,8 +201,8 @@ public sealed class PackageMetadataTests
     {
         IReadOnlyDictionary<string, string> outputs = await RunVerifyScopeDetectorForSingleFileChangeAsync(
             "Directory.Build.props",
-            "<Project><PropertyGroup><Version>0.18.0</Version></PropertyGroup></Project>",
-            "<Project><PropertyGroup><Version>0.18.1</Version></PropertyGroup></Project>");
+            "<Project><PropertyGroup><Version>0.0.0</Version></PropertyGroup></Project>",
+            "<Project><PropertyGroup><Version>0.0.1</Version></PropertyGroup></Project>");
 
         Assert.Equal("true", outputs["needs_dotnet"]);
         Assert.Equal("true", outputs["needs_shared_pack"]);

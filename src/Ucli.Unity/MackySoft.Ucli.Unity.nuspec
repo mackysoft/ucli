@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
   <metadata>
     <id>MackySoft.Ucli.Unity</id>
-    <version>0.18.0</version>
+    <version>0.0.0</version>
     <title>uCLI Unity Plugin</title>
     <authors>Hiroya Aramaki</authors>
     <owners>MackySoft</owners>
@@ -14,8 +14,8 @@
     <description>Unity Editor plugin for uCLI IPC and automation.</description>
     <tags>ucli unity editor automation ipc nugetforunity</tags>
     <dependencies>
-      <dependency id="MackySoft.Ucli.Contracts" version="0.18.0" />
-      <dependency id="MackySoft.Ucli.Infrastructure" version="0.18.0" />
+      <dependency id="MackySoft.Ucli.Contracts" version="0.0.0" />
+      <dependency id="MackySoft.Ucli.Infrastructure" version="0.0.0" />
       <dependency id="Microsoft.Bcl.AsyncInterfaces" version="8.0.0" />
       <dependency id="Microsoft.CodeAnalysis.Analyzers" version="5.3.0" />
       <dependency id="Microsoft.CodeAnalysis.Common" version="5.3.0" />
