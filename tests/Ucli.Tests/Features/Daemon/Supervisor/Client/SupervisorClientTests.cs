@@ -79,11 +79,15 @@ public sealed class SupervisorClientTests
                     ProtocolVersion: request.ProtocolVersion,
                     RequestId: request.RequestId,
                     Status: IpcProtocol.StatusOk,
-                    Payload: IpcPayloadCodec.SerializeToElement(
-                        new SupervisorIpcContracts.EnsureRunningResponse(
-                            StartStatus: "started",
-                            DaemonStatus: "running",
-                            Session: CreateSession())),
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.EnsureRunningResponse(
+                        StartStatus: "started",
+                        DaemonStatus: "running",
+                        Session: CreateSession(),
+                        LifecycleSnapshot: new DaemonStartLifecycleSnapshot(
+                            IpcEditorLifecycleStateCodec.Compiling,
+                            IpcEditorBlockingReasonCodec.Compile,
+                            CanAcceptExecutionRequests: false))),
                     Errors: []));
             },
         };
@@ -99,6 +103,9 @@ public sealed class SupervisorClientTests
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
+        Assert.Equal(IpcEditorLifecycleStateCodec.Compiling, result.LifecycleSnapshot!.LifecycleState);
+        Assert.Equal(IpcEditorBlockingReasonCodec.Compile, result.LifecycleSnapshot.BlockingReason);
+        Assert.False(result.LifecycleSnapshot.CanAcceptExecutionRequests);
         var call = Assert.Single(transportClient.Calls);
         Assert.True(call.UsesUnboundedResponseWait);
         Assert.Equal(requestedTimeout, call.Timeout);

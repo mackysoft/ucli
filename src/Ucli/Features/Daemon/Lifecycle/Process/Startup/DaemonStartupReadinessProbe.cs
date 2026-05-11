@@ -66,14 +66,16 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
                         unityProject,
                         cancellationToken)
                     .ConfigureAwait(false);
-                var startupFailureError = await TryClassifyStartupFailureAsync(
+                var startupFailure = await TryClassifyStartupFailureAsync(
                         unityProject,
                         includeProjectLockFile: false,
                         cancellationToken)
                     .ConfigureAwait(false);
-                if (startupFailureError is not null)
+                if (startupFailure.Error is not null)
                 {
-                    return DaemonStartupReadinessProbeResult.Failure(AppendDiagnostic(startupFailureError, postExitLockDiagnostic));
+                    return DaemonStartupReadinessProbeResult.Failure(
+                        AppendDiagnostic(startupFailure.Error, postExitLockDiagnostic),
+                        startupFailure.Classification);
                 }
 
                 return DaemonStartupReadinessProbeResult.Failure(ExecutionError.InternalError(
@@ -124,14 +126,16 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
                 // NOTE:
                 // A Unity process launched by uCLI creates Temp/UnityLockfile before its IPC server
                 // is ready. Treat that lock as external only when no launched process id is known.
-                var startupFailureError = await TryClassifyStartupFailureAsync(
+                var startupFailure = await TryClassifyStartupFailureAsync(
                         unityProject,
                         includeProjectLockFile: daemonProcessId is null,
                         cancellationToken)
                     .ConfigureAwait(false);
-                if (startupFailureError is not null)
+                if (startupFailure.Error is not null)
                 {
-                    return DaemonStartupReadinessProbeResult.Failure(startupFailureError);
+                    return DaemonStartupReadinessProbeResult.Failure(
+                        startupFailure.Error,
+                        startupFailure.Classification);
                 }
 
                 if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
@@ -158,7 +162,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
         return TimeSpan.FromMilliseconds(retryDelayMilliseconds);
     }
 
-    private async ValueTask<ExecutionError?> TryClassifyStartupFailureAsync (
+    private async ValueTask<StartupFailureClassificationResult> TryClassifyStartupFailureAsync (
         ResolvedUnityProjectContext unityProject,
         bool includeProjectLockFile,
         CancellationToken cancellationToken)
@@ -174,7 +178,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
                 projectLockPreflightResult);
             if (projectLockError != null)
             {
-                return projectLockError;
+                return new StartupFailureClassificationResult(projectLockError, null);
             }
         }
 
@@ -185,16 +189,21 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             .ConfigureAwait(false);
         if (!logReadResult.IsSuccess || string.IsNullOrWhiteSpace(logReadResult.Text))
         {
-            return null;
+            return new StartupFailureClassificationResult(null, null);
         }
 
         var latestStartupLogText = DaemonStartupFailureLogClassifier.GetLatestStartupLogText(logReadResult.Text);
-        return DaemonStartupFailureLogClassifier.TryClassify(
+        if (!DaemonStartupFailureLogClassifier.TryClassifyFailure(
                 latestStartupLogText,
                 DaemonStartupFailureClassificationContext.Batchmode,
-                out var error)
-            ? error
-            : null;
+                out var classification))
+        {
+            return new StartupFailureClassificationResult(null, null);
+        }
+
+        return new StartupFailureClassificationResult(
+            ExecutionError.InternalError(classification!.Message, DaemonErrorCodes.DaemonStartupBlocked),
+            classification);
     }
 
     private async ValueTask<string?> CreatePostExitLockDiagnosticAsync (
@@ -226,4 +235,8 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             ? message
             : $"{message} {diagnostic}";
     }
+
+    private readonly record struct StartupFailureClassificationResult (
+        ExecutionError? Error,
+        DaemonStartupFailureClassification? Classification);
 }

@@ -14,7 +14,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 internal sealed record DaemonStartFailureExecutionOutput (
     DaemonStatusKind DaemonStatus,
     int TimeoutMilliseconds,
-    DaemonStartupObservation? Startup,
+    DaemonStartupObservationOutput? Startup,
     DaemonDiagnosisOutput? Diagnosis,
     string RetryDisposition,
     bool SafeToRetryImmediately)
@@ -30,7 +30,7 @@ internal sealed record DaemonStartFailureExecutionOutput (
         return new DaemonStartFailureExecutionOutput(
             daemonStatus,
             timeoutMilliseconds,
-            startup,
+            ToOutput(startup, retryDisposition),
             diagnosis,
             retryDisposition,
             string.Equals(retryDisposition, DaemonStartupRetryDispositionValues.RetryImmediately, StringComparison.Ordinal));
@@ -46,5 +46,30 @@ internal sealed record DaemonStartFailureExecutionOutput (
         return string.Equals(startup.RetryDisposition, DaemonStartupRetryDispositionValues.WaitThenRetry, StringComparison.Ordinal)
             ? DaemonStartupRetryDispositionValues.Unknown
             : startup.RetryDisposition;
+    }
+
+    private static DaemonStartupObservationOutput? ToOutput (
+        DaemonStartupObservation? startup,
+        string retryDisposition)
+    {
+        if (startup is null)
+        {
+            return null;
+        }
+
+        return new DaemonStartupObservationOutput(
+            StartupStatus: startup.StartupStatus,
+            StartupBlockingReason: startup.StartupBlockingReason,
+            LaunchAttemptId: startup.LaunchAttemptId,
+            EditorMode: startup.EditorMode,
+            OwnerKind: startup.OwnerKind,
+            CanShutdownProcess: startup.CanShutdownProcess,
+            ProcessId: startup.ProcessId,
+            StartedAtUtc: startup.StartedAtUtc,
+            ElapsedMilliseconds: startup.ElapsedMilliseconds,
+            ProcessAction: startup.ProcessAction,
+            ProcessTermination: null,
+            ArtifactPath: startup.ArtifactPath,
+            RetryDisposition: retryDisposition);
     }
 }

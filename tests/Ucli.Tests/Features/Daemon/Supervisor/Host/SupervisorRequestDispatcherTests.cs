@@ -2,11 +2,13 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
 
@@ -136,7 +138,14 @@ public sealed class SupervisorRequestDispatcherTests
     [Trait("Size", "Small")]
     public async Task HandleConnection_WhenEditorModeIsSpecified_PassesNormalizedValueToStartOperation ()
     {
-        var startOperation = new StubDaemonStartOperation();
+        var lifecycleSnapshot = new DaemonStartLifecycleSnapshot(
+            IpcEditorLifecycleStateCodec.Compiling,
+            IpcEditorBlockingReasonCodec.Compile,
+            CanAcceptExecutionRequests: false);
+        var startOperation = new StubDaemonStartOperation
+        {
+            StartResult = DaemonStartResult.AlreadyRunning(CreateSession(), lifecycleSnapshot),
+        };
         var dispatcher = CreateDispatcher(startOperation);
         var runtimeContext = CreateRuntimeContext();
         var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
@@ -163,6 +172,11 @@ public sealed class SupervisorRequestDispatcherTests
             string.Join(Environment.NewLine, response.Errors.Select(error => $"{error.Code.Value}: {error.Message}")));
         Assert.Equal(DaemonEditorMode.Gui, startOperation.LastEditorMode);
         Assert.Equal(DaemonStartupBlockedProcessPolicy.Terminate, startOperation.LastOnStartupBlocked);
+        Assert.True(IpcPayloadCodec.TryDeserialize(
+            response.Payload,
+            out SupervisorIpcContracts.EnsureRunningResponse payload,
+            out _));
+        Assert.Equal(lifecycleSnapshot, payload.LifecycleSnapshot);
     }
 
     [Fact]
@@ -240,7 +254,8 @@ public sealed class SupervisorRequestDispatcherTests
             StartResult = DaemonStartResult.Failure(
                 ExecutionError.Timeout("endpoint registration timed out", ExecutionErrorCodes.IpcTimeout),
                 diagnosis,
-                startup),
+                startup,
+                DaemonStatusKind.Stale),
         };
         var dispatcher = CreateDispatcher(startOperation);
         var runtimeContext = CreateRuntimeContext();
@@ -272,6 +287,7 @@ public sealed class SupervisorRequestDispatcherTests
             out _));
         Assert.Equal(diagnosis, payload.Diagnosis);
         Assert.Equal(startup, payload.Startup);
+        Assert.Equal(DaemonStatusStateCodec.Stale, payload.DaemonStatus);
     }
 
     [Fact]

@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
@@ -28,9 +29,13 @@ public sealed class DaemonStartServiceTests
             Output = DaemonServiceTestContext.CreateSessionOutput(),
         };
         var session = DaemonServiceTestContext.CreateSession();
+        var lifecycleSnapshot = new DaemonStartLifecycleSnapshot(
+            IpcEditorLifecycleStateCodec.Compiling,
+            IpcEditorBlockingReasonCodec.Compile,
+            CanAcceptExecutionRequests: false);
         var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway
         {
-            EnsureRunningResult = DaemonStartResult.Started(session),
+            EnsureRunningResult = DaemonStartResult.Started(session, lifecycleSnapshot),
         };
         var service = CreateService(resolver, supervisorProjectGateway, mapper);
 
@@ -42,6 +47,9 @@ public sealed class DaemonStartServiceTests
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
         Assert.Equal(1200, output.TimeoutMilliseconds);
         Assert.Equal(mapper.Output, output.Session);
+        Assert.Equal(IpcEditorLifecycleStateCodec.Compiling, output.LifecycleState);
+        Assert.Equal(IpcEditorBlockingReasonCodec.Compile, output.BlockingReason);
+        Assert.False(output.CanAcceptExecutionRequests);
         Assert.Equal(1, supervisorProjectGateway.EnsureRunningCallCount);
         Assert.Equal(context.Context.UnityProject, supervisorProjectGateway.LastEnsureRunningUnityProject);
         Assert.True(supervisorProjectGateway.LastEnsureRunningTimeout > TimeSpan.Zero);
@@ -266,7 +274,8 @@ public sealed class DaemonStartServiceTests
         var failureOutput = Assert.IsType<DaemonStartFailureExecutionOutput>(result.FailureOutput);
         Assert.Equal(DaemonStatusKind.Stale, failureOutput.DaemonStatus);
         Assert.Equal(1600, failureOutput.TimeoutMilliseconds);
-        Assert.Equal(startup, failureOutput.Startup);
+        Assert.Equal(startup.StartupBlockingReason, failureOutput.Startup!.StartupBlockingReason);
+        Assert.Equal(startup.RetryDisposition, failureOutput.Startup.RetryDisposition);
         Assert.Equal(diagnosisOutputMapper.Output, failureOutput.Diagnosis);
         Assert.Equal(DaemonStartupRetryDispositionValues.RetryAfterFix, failureOutput.RetryDisposition);
         Assert.False(failureOutput.SafeToRetryImmediately);
