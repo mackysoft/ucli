@@ -1,0 +1,51 @@
+{
+  "protocolVersion": 1,
+  "command": "daemon.status",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "uCLI daemon status retrieval completed.",
+  "payload": {
+    "daemonStatus": "notRunning",
+    "serverVersion": null,
+    "editorMode": null,
+    "lifecycleState": null,
+    "blockingReason": null,
+    "compileState": null,
+    "compileGeneration": null,
+    "domainReloadGeneration": null,
+    "canAcceptExecutionRequests": false,
+    "observedAtUtc": "2026-03-12T04:06:00+00:00",
+    "actionRequired": null,
+    "primaryDiagnostic": null,
+    "timeoutMilliseconds": 3000,
+    "session": null,
+    "diagnosis": null,
+    "lastLaunchAttempt": {
+      "launchAttemptId": "20260312_040500Z_00abcdef",
+      "startupStatus": "timeout",
+      "startupBlockingReason": "endpointNotRegistered",
+      "retryDisposition": "retryFreshLaunch",
+      "processAction": "keep",
+      "artifactPath": "/repo/.ucli/local/fingerprints/fp/launch-attempts/20260312_040500Z_00abcdef/startup-diagnosis.json",
+      "unityLogPath": "/repo/.ucli/local/fingerprints/fp/unity.log",
+      "updatedAtUtc": "2026-03-12T04:05:06+00:00",
+      "processId": 1234,
+      "processStartedAtUtc": "2026-03-12T04:05:00+00:00",
+      "diagnosis": {
+        "reason": "guiEndpointNotRegistered",
+        "message": "GUI endpoint was not registered.",
+        "reportedBy": "cli",
+        "isInferred": true,
+        "updatedAtUtc": "2026-03-12T04:05:06+00:00",
+        "processId": 1234,
+        "editorInstancePath": null,
+        "processStartedAtUtc": "2026-03-12T04:05:00+00:00",
+        "unityLogPath": "/repo/.ucli/local/fingerprints/fp/unity.log",
+        "startupPhase": "endpointRegistration",
+        "actionRequired": "inspectUnityLog",
+        "primaryDiagnostic": null
+      }
+    }
+  },
+  "errors": []
+}

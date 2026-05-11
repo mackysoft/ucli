@@ -1,0 +1,38 @@
+{
+  "protocolVersion": 1,
+  "command": "daemon.start",
+  "status": "error",
+  "exitCode": 4,
+  "message": "endpoint registration timeout",
+  "payload": {
+    "startStatus": "failed",
+    "daemonStatus": "notRunning",
+    "timeoutMilliseconds": 1234,
+    "session": null,
+    "startup": {
+      "startupStatus": "timeout",
+      "startupBlockingReason": "endpointNotRegistered",
+      "launchAttemptId": "20260312_040500Z_00abcdef",
+      "editorMode": null,
+      "ownerKind": null,
+      "canShutdownProcess": null,
+      "processId": null,
+      "startedAtUtc": null,
+      "elapsedMilliseconds": null,
+      "processAction": "terminated",
+      "processTermination": null,
+      "artifactPath": null,
+      "retryDisposition": "unknown"
+    },
+    "diagnosis": null,
+    "retryDisposition": "unknown",
+    "safeToRetryImmediately": false
+  },
+  "errors": [
+    {
+      "code": "IPC_TIMEOUT",
+      "message": "endpoint registration timeout",
+      "opId": null
+    }
+  ]
+}
