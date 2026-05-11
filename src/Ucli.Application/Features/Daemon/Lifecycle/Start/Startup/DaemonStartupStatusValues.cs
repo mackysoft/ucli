@@ -12,4 +12,6 @@ internal static class DaemonStartupStatusValues
     public const string Timeout = "timeout";
 
     public const string Failed = "failed";
+
+    public const string Completed = "completed";
 }

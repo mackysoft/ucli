@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
@@ -13,7 +14,8 @@ internal sealed record DaemonStatusResult (
     DaemonStatusKind Status,
     DaemonSession? Session,
     DaemonDiagnosis? Diagnosis,
-    ExecutionError? Error)
+    ExecutionError? Error,
+    DaemonLaunchAttempt? LastLaunchAttempt = null)
 {
     /// <summary> Gets a value indicating whether daemon status query succeeded. </summary>
     public bool IsSuccess => Status != DaemonStatusKind.Failed && Error is null;
@@ -37,6 +39,17 @@ internal sealed record DaemonStatusResult (
     public static DaemonStatusResult NotRunning (DaemonDiagnosis? diagnosis = null)
     {
         return new DaemonStatusResult(DaemonStatusKind.NotRunning, null, diagnosis, null);
+    }
+
+    /// <summary> Creates a not-running result with the most recent launch attempt. </summary>
+    /// <param name="diagnosis"> The persisted daemon diagnosis metadata when available. </param>
+    /// <param name="lastLaunchAttempt"> The most recent session-less launch attempt when available. </param>
+    /// <returns> The not-running result. </returns>
+    public static DaemonStatusResult NotRunning (
+        DaemonDiagnosis? diagnosis,
+        DaemonLaunchAttempt? lastLaunchAttempt)
+    {
+        return new DaemonStatusResult(DaemonStatusKind.NotRunning, null, diagnosis, null, lastLaunchAttempt);
     }
 
     /// <summary> Creates a stale-session result. </summary>

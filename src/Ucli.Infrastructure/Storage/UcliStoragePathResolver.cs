@@ -523,6 +523,49 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.DaemonLifecycleFileName);
     }
 
+    /// <summary> Resolves the absolute path to the daemon launch-attempts directory under one fingerprint directory. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <returns> The absolute daemon launch-attempts directory path. </returns>
+    public static string ResolveLaunchAttemptsDirectory (
+        string storageRoot,
+        string projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.LaunchAttemptsDirectoryName);
+    }
+
+    /// <summary> Resolves the absolute path to one daemon launch-attempt directory. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <param name="launchAttemptId"> The launch-attempt identifier. </param>
+    /// <returns> The absolute daemon launch-attempt directory path. </returns>
+    public static string ResolveLaunchAttemptDirectory (
+        string storageRoot,
+        string projectFingerprint,
+        string launchAttemptId)
+    {
+        return Path.Combine(
+            ResolveLaunchAttemptsDirectory(storageRoot, projectFingerprint),
+            NormalizeLaunchAttemptId(launchAttemptId));
+    }
+
+    /// <summary> Resolves the absolute path to one daemon launch-attempt startup diagnosis file. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <param name="launchAttemptId"> The launch-attempt identifier. </param>
+    /// <returns> The absolute daemon launch-attempt startup diagnosis file path. </returns>
+    public static string ResolveLaunchAttemptStartupDiagnosisPath (
+        string storageRoot,
+        string projectFingerprint,
+        string launchAttemptId)
+    {
+        return Path.Combine(
+            ResolveLaunchAttemptDirectory(storageRoot, projectFingerprint, launchAttemptId),
+            UcliStoragePathNames.StartupDiagnosisFileName);
+    }
+
     /// <summary> Resolves the absolute path to the uCLI Unity plugin marker cache file under one fingerprint directory. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
@@ -621,6 +664,25 @@ public static class UcliStoragePathResolver
         }
 
         return normalizedProjectFingerprint;
+    }
+
+    private static string NormalizeLaunchAttemptId (string launchAttemptId)
+    {
+        if (!TryTrimToNonEmpty(launchAttemptId, out var normalizedLaunchAttemptId))
+        {
+            throw new ArgumentException("Launch attempt identifier must not be empty.", nameof(launchAttemptId));
+        }
+
+        if (normalizedLaunchAttemptId.IndexOfAny(PathSegmentInvalidPathChars) >= 0
+            || string.Equals(normalizedLaunchAttemptId, ".", StringComparison.Ordinal)
+            || string.Equals(normalizedLaunchAttemptId, "..", StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "Launch attempt identifier must be one path segment and must not contain path separator or traversal tokens.",
+                nameof(launchAttemptId));
+        }
+
+        return normalizedLaunchAttemptId;
     }
 
     private static string NormalizeOpsDescribeKey (string opKey)

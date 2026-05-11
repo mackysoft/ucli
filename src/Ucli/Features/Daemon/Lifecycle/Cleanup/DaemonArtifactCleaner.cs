@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;
@@ -17,6 +18,8 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
 
     private readonly IDaemonLifecycleStore daemonLifecycleStore;
 
+    private readonly IDaemonLaunchAttemptStore launchAttemptStore;
+
     private readonly IIpcEndpointResolver endpointResolver;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonArtifactCleaner" /> class. </summary>
@@ -26,10 +29,12 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
     public DaemonArtifactCleaner (
         IDaemonSessionStore daemonSessionStore,
         IDaemonLifecycleStore daemonLifecycleStore,
+        IDaemonLaunchAttemptStore launchAttemptStore,
         IIpcEndpointResolver endpointResolver)
     {
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
         this.daemonLifecycleStore = daemonLifecycleStore ?? throw new ArgumentNullException(nameof(daemonLifecycleStore));
+        this.launchAttemptStore = launchAttemptStore ?? throw new ArgumentNullException(nameof(launchAttemptStore));
         this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
     }
 
@@ -38,7 +43,7 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The cleanup operation result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
-    public async ValueTask<DaemonSessionStoreOperationResult> CleanupAsync (
+    public async ValueTask<DaemonArtifactCleanupResult> CleanupAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
@@ -52,7 +57,7 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
             .ConfigureAwait(false);
         if (!deleteSessionResult.IsSuccess)
         {
-            return deleteSessionResult;
+            return DaemonArtifactCleanupResult.Failure(deleteSessionResult.Error!);
         }
 
         var deleteLifecycleResult = await daemonLifecycleStore.DeleteAsync(
@@ -62,7 +67,18 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
             .ConfigureAwait(false);
         if (!deleteLifecycleResult.IsSuccess)
         {
-            return DaemonSessionStoreOperationResult.Failure(deleteLifecycleResult.Error!);
+            return DaemonArtifactCleanupResult.Failure(deleteLifecycleResult.Error!);
+        }
+
+        var pruneResult = await launchAttemptStore.PruneAsync(
+                unityProject.RepositoryRoot,
+                unityProject.ProjectFingerprint,
+                keepCount: 20,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!pruneResult.IsSuccess)
+        {
+            return DaemonArtifactCleanupResult.Failure(pruneResult.Error!);
         }
 
         try
@@ -79,11 +95,11 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
                     UcliIpcEndpointNames.DaemonAddressPrefix);
             }
 
-            return DaemonSessionStoreOperationResult.Success();
+            return DaemonArtifactCleanupResult.Success(pruneResult.DeletedCount);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            return DaemonSessionStoreOperationResult.Failure(ExecutionError.InternalError(
+            return DaemonArtifactCleanupResult.Failure(ExecutionError.InternalError(
                 $"Failed to cleanup daemon endpoint residue. {exception.Message}"));
         }
     }

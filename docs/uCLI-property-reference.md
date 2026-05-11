@@ -334,15 +334,17 @@ final `daemon start` failure payload では原則として `retryDisposition=wai
 
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
+| `launchAttemptId` | `string` | yes | 起動 attempt の識別子 |
 | `startupStatus` | `blocked \| timeout \| failed` | yes | 直近の session 未成立 attempt の最終状態。running session と重複する `completed` attempt は返さない |
 | `startupBlockingReason` | `null \| safeMode \| compile \| packageResolution \| ucliPlugin \| precompiledAssemblyConflict \| modalDialog \| endpointNotRegistered \| processExit \| unknown` | yes | startup を止めた理由 |
-| `launchAttemptId` | `string \| null` | yes | 起動 attempt の識別子 |
-| `diagnosisReason` | `string \| null` | yes | 直近 attempt の diagnosis reason |
 | `retryDisposition` | `retryImmediately \| waitThenRetry \| retryAfterFix \| manualActionRequired \| doNotRetry \| unknown` | yes | 直近 attempt の再試行方針 |
 | `processAction` | `none \| kept \| terminated \| unknown` | yes | 起動失敗後に uCLI が process へ行った処理 |
-| `diagnosisPath` | `string \| null` | yes | startup diagnosis artifact path |
-| `artifactPath` | `string \| null` | yes | launch attempt artifact directory |
+| `artifactPath` | `string` | yes | `startup-diagnosis.json` の artifact path |
+| `unityLogPath` | `string \| null` | yes | 参照先 Unity log path。log snapshot は複製しない |
 | `updatedAtUtc` | string | yes | attempt 診断の更新時刻 |
+| `processId` | `integer \| null` | yes | 起動 attempt に関連する process id |
+| `processStartedAtUtc` | `string \| null` | yes | 起動 attempt に関連する process start timestamp |
+| `diagnosis` | `object` | yes | attempt 単体で読める startup failure diagnosis |
 
 #### `daemon list`
 

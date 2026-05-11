@@ -249,6 +249,9 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
             }
         }
 
-        return await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
+        var cleanupResult = await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
+        return cleanupResult.IsSuccess
+            ? DaemonSessionStoreOperationResult.Success()
+            : DaemonSessionStoreOperationResult.Failure(cleanupResult.Error!);
     }
 }

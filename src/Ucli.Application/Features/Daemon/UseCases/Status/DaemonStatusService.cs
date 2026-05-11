@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
@@ -286,10 +287,30 @@ internal sealed class DaemonStatusService : IDaemonStatusService
             Diagnosis: diagnosis is null
                 ? null
                 : daemonDiagnosisOutputMapper.ToOutput(diagnosis),
+            LastLaunchAttempt: statusResult.LastLaunchAttempt is null || statusResult.Session is not null
+                ? null
+                : ToLaunchAttemptOutput(statusResult.LastLaunchAttempt),
             ObservedAtUtc: observedAtUtc,
             ActionRequired: actionRequired,
             PrimaryDiagnostic: primaryDiagnostic);
         return DaemonStatusExecutionResult.Success(output);
+    }
+
+    private DaemonLaunchAttemptOutput ToLaunchAttemptOutput (DaemonLaunchAttempt launchAttempt)
+    {
+        ArgumentNullException.ThrowIfNull(launchAttempt);
+        return new DaemonLaunchAttemptOutput(
+            LaunchAttemptId: launchAttempt.LaunchAttemptId,
+            StartupStatus: launchAttempt.StartupStatus,
+            StartupBlockingReason: launchAttempt.StartupBlockingReason,
+            RetryDisposition: launchAttempt.RetryDisposition,
+            ProcessAction: launchAttempt.ProcessAction,
+            ArtifactPath: launchAttempt.ArtifactPath,
+            UnityLogPath: launchAttempt.UnityLogPath,
+            UpdatedAtUtc: launchAttempt.UpdatedAtUtc,
+            ProcessId: launchAttempt.ProcessId,
+            ProcessStartedAtUtc: launchAttempt.ProcessStartedAtUtc,
+            Diagnosis: daemonDiagnosisOutputMapper.ToOutput(launchAttempt.Diagnosis));
     }
 
     private async ValueTask<UnreachableDaemonStatusResolution> ResolveUnreachableRunningSessionAsync (

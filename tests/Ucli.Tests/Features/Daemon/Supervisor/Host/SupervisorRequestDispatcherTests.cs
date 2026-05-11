@@ -581,11 +581,11 @@ public sealed class SupervisorRequestDispatcherTests
 
     private sealed class StubDaemonArtifactCleaner : IDaemonArtifactCleaner
     {
-        public ValueTask<DaemonSessionStoreOperationResult> CleanupAsync (
+        public ValueTask<DaemonArtifactCleanupResult> CleanupAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
-            return ValueTask.FromResult(DaemonSessionStoreOperationResult.Success());
+            return ValueTask.FromResult(DaemonArtifactCleanupResult.Success());
         }
     }
 

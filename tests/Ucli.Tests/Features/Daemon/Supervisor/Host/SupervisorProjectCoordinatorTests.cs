@@ -557,7 +557,7 @@ public sealed class SupervisorProjectCoordinatorTests
                 {
                     cleanupStarted.TrySetResult();
                     await cleanupRelease.Task.ConfigureAwait(false);
-                    return DaemonSessionStoreOperationResult.Success();
+                    return DaemonArtifactCleanupResult.Success();
                 },
             });
 
@@ -862,18 +862,18 @@ public sealed class SupervisorProjectCoordinatorTests
 
     private sealed class StubDaemonArtifactCleaner : IDaemonArtifactCleaner
     {
-        public Func<ResolvedUnityProjectContext, CancellationToken, ValueTask<DaemonSessionStoreOperationResult>>? CleanupHandler { get; set; }
+        public Func<ResolvedUnityProjectContext, CancellationToken, Task<DaemonArtifactCleanupResult>>? CleanupHandler { get; set; }
 
-        public ValueTask<DaemonSessionStoreOperationResult> CleanupAsync (
+        public ValueTask<DaemonArtifactCleanupResult> CleanupAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
             if (CleanupHandler != null)
             {
-                return CleanupHandler(unityProject, cancellationToken);
+                return new ValueTask<DaemonArtifactCleanupResult>(CleanupHandler(unityProject, cancellationToken));
             }
 
-            return ValueTask.FromResult(DaemonSessionStoreOperationResult.Success());
+            return ValueTask.FromResult(DaemonArtifactCleanupResult.Success());
         }
     }
 }

@@ -54,6 +54,9 @@ internal sealed class DaemonLaunchCompensationService : IDaemonLaunchCompensatio
             return stopResult;
         }
 
-        return await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
+        var cleanupResult = await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
+        return cleanupResult.IsSuccess
+            ? DaemonSessionStoreOperationResult.Success()
+            : DaemonSessionStoreOperationResult.Failure(cleanupResult.Error!);
     }
 }

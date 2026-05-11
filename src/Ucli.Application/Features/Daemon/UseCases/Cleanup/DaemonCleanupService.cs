@@ -61,6 +61,7 @@ internal sealed class DaemonCleanupService : IDaemonCleanupService
         var output = new DaemonCleanupExecutionOutput(
             CleanupStatus: cleanupResult.Status,
             SkipReason: cleanupResult.SkipReason,
+            DeletedLaunchAttemptCount: cleanupResult.DeletedLaunchAttemptCount,
             TimeoutMilliseconds: checked((int)executionContext.Timeout.TotalMilliseconds));
         return DaemonCleanupExecutionResult.Success(output);
     }

@@ -22,7 +22,7 @@ public sealed class SupervisorExitHandlerTests
         };
         var artifactCleaner = new StubDaemonArtifactCleaner
         {
-            CleanupResult = DaemonSessionStoreOperationResult.Failure(
+            CleanupResult = DaemonArtifactCleanupResult.Failure(
                 ExecutionError.InternalError("cleanup failed")),
         };
         var exitHandler = new SupervisorExitHandler(
@@ -212,12 +212,12 @@ public sealed class SupervisorExitHandlerTests
 
     private sealed class StubDaemonArtifactCleaner : IDaemonArtifactCleaner
     {
-        public DaemonSessionStoreOperationResult CleanupResult { get; set; } =
-            DaemonSessionStoreOperationResult.Success();
+        public DaemonArtifactCleanupResult CleanupResult { get; set; } =
+            DaemonArtifactCleanupResult.Success();
 
         public int CleanupCallCount { get; private set; }
 
-        public ValueTask<DaemonSessionStoreOperationResult> CleanupAsync (
+        public ValueTask<DaemonArtifactCleanupResult> CleanupAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {

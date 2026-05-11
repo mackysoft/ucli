@@ -81,6 +81,12 @@ public static class UcliStoragePathNames
     /// <summary> Gets the daemon lifecycle observation file name under one fingerprint directory. </summary>
     public const string DaemonLifecycleFileName = "daemon-lifecycle.json";
 
+    /// <summary> Gets the launch-attempts directory name under one fingerprint directory. </summary>
+    public const string LaunchAttemptsDirectoryName = "launch-attempts";
+
+    /// <summary> Gets the launch-attempt startup diagnosis file name under one launch-attempt directory. </summary>
+    public const string StartupDiagnosisFileName = "startup-diagnosis.json";
+
     /// <summary> Gets the uCLI Unity plugin marker cache file name under one fingerprint directory. </summary>
     public const string UnityUcliPluginMarkerCacheFileName = "ucli-plugin-marker-cache.json";
 

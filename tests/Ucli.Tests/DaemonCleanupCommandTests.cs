@@ -18,6 +18,7 @@ public sealed class DaemonCleanupCommandTests
             DaemonCleanupExecutionResult.Success(new DaemonCleanupExecutionOutput(
                 CleanupStatus: DaemonCleanupStatus.Skipped,
                 SkipReason: DaemonCleanupSkipReason.UnsafeInvalidSession,
+                DeletedLaunchAttemptCount: 0,
                 TimeoutMilliseconds: 3000)));
         var command = new DaemonCleanupCommand(service, CommandResultTestWriter.Create());
 
@@ -39,6 +40,35 @@ public sealed class DaemonCleanupCommandTests
             .HasProperty("payload", payload => payload
                 .HasString("cleanupStatus", "skipped")
                 .HasString("skipReason", "unsafeInvalidSession")
+                .HasInt32("deletedLaunchAttemptCount", 0)
+                .HasInt32("timeoutMilliseconds", 3000));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Cleanup_WhenCompleted_WritesDeletedLaunchAttemptCountPayload ()
+    {
+        var service = new StubDaemonCleanupService(
+            DaemonCleanupExecutionResult.Success(new DaemonCleanupExecutionOutput(
+                CleanupStatus: DaemonCleanupStatus.Completed,
+                SkipReason: DaemonCleanupSkipReason.None,
+                DeletedLaunchAttemptCount: 3,
+                TimeoutMilliseconds: 3000)));
+        var command = new DaemonCleanupCommand(service, CommandResultTestWriter.Create());
+
+        CommandExecutionState.Reset();
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.CleanupAsync(
+            projectPath: "/repo/UnityProject",
+            timeout: "3000",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasString("cleanupStatus", "completed")
+                .IsNull("skipReason")
+                .HasInt32("deletedLaunchAttemptCount", 3)
                 .HasInt32("timeoutMilliseconds", 3000));
     }
 

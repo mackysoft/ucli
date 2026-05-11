@@ -20,7 +20,7 @@ public sealed class DaemonCleanupOperationTests
     {
         var artifactCleaner = new StubDaemonArtifactCleaner
         {
-            NextResult = DaemonSessionStoreOperationResult.Success(),
+            NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var operation = CreateOperation(
             daemonSessionStore: new StubDaemonSessionStore
@@ -36,6 +36,29 @@ public sealed class DaemonCleanupOperationTests
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Completed, result.Status);
         Assert.Equal(1, artifactCleaner.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Cleanup_WhenArtifactCleanerDeletesLaunchAttempts_PropagatesDeletedLaunchAttemptCount ()
+    {
+        var operation = CreateOperation(
+            daemonSessionStore: new StubDaemonSessionStore
+            {
+                ReadResult = DaemonSessionReadResult.Success(null),
+            },
+            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
+            artifactCleaner: new StubDaemonArtifactCleaner
+            {
+                NextResult = DaemonArtifactCleanupResult.Success(deletedLaunchAttemptCount: 3),
+            },
+            endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
+
+        var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-deleted-attempts"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(DaemonCleanupStatus.Completed, result.Status);
+        Assert.Equal(3, result.DeletedLaunchAttemptCount);
     }
 
     [Fact]
@@ -136,7 +159,7 @@ public sealed class DaemonCleanupOperationTests
         var session = CreateSession(processId: 2002);
         var artifactCleaner = new StubDaemonArtifactCleaner
         {
-            NextResult = DaemonSessionStoreOperationResult.Success(),
+            NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var operation = CreateOperation(
             daemonSessionStore: new StubDaemonSessionStore
@@ -276,7 +299,7 @@ public sealed class DaemonCleanupOperationTests
         };
         var artifactCleaner = new StubDaemonArtifactCleaner
         {
-            NextResult = DaemonSessionStoreOperationResult.Success(),
+            NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var operation = CreateOperation(
             daemonSessionStore: new StubDaemonSessionStore
@@ -308,7 +331,7 @@ public sealed class DaemonCleanupOperationTests
         var context = CreateContext("fingerprint-cleanup-invalid-null");
         var artifactCleaner = new StubDaemonArtifactCleaner
         {
-            NextResult = DaemonSessionStoreOperationResult.Success(),
+            NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var operation = CreateOperation(
             daemonSessionStore: new StubDaemonSessionStore
@@ -567,11 +590,11 @@ public sealed class DaemonCleanupOperationTests
 
     private sealed class StubDaemonArtifactCleaner : IDaemonArtifactCleaner
     {
-        public DaemonSessionStoreOperationResult NextResult { get; set; } = DaemonSessionStoreOperationResult.Success();
+        public DaemonArtifactCleanupResult NextResult { get; set; } = DaemonArtifactCleanupResult.Success();
 
         public int CallCount { get; private set; }
 
-        public ValueTask<DaemonSessionStoreOperationResult> CleanupAsync (
+        public ValueTask<DaemonArtifactCleanupResult> CleanupAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
