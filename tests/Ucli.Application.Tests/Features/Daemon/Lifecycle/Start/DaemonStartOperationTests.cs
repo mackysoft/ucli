@@ -555,6 +555,7 @@ public sealed class DaemonStartOperationTests
         Assert.Equal(DaemonStartStatus.Started, result.Status);
         Assert.Equal(1, guiAttachService.CallCount);
         Assert.Equal(DaemonEditorMode.Gui, guiAttachService.LastEditorMode);
+        Assert.Equal(DaemonStartupBlockedProcessPolicy.Terminate, guiAttachService.LastOnStartupBlocked);
         Assert.Equal(1, launchService.CallCount);
         Assert.Equal(DaemonEditorMode.Gui, launchService.LastEditorMode);
         Assert.Equal(DaemonStartupBlockedProcessPolicy.Terminate, launchService.LastOnStartupBlocked);
@@ -856,14 +857,18 @@ public sealed class DaemonStartOperationTests
 
         public DaemonEditorMode? LastEditorMode { get; private set; }
 
+        public DaemonStartupBlockedProcessPolicy LastOnStartupBlocked { get; private set; }
+
         public ValueTask<DaemonStartResult?> TryAttachExistingGuiEditorAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             DaemonEditorMode? editorMode,
+            DaemonStartupBlockedProcessPolicy onStartupBlocked,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
             LastEditorMode = editorMode;
+            LastOnStartupBlocked = onStartupBlocked;
             return ValueTask.FromResult(NextResult);
         }
     }

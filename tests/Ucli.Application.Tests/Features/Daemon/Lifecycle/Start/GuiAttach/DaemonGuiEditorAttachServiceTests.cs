@@ -1,6 +1,7 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 
@@ -36,6 +37,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
             context,
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
+            DaemonStartupBlockedProcessPolicy.Auto,
             CancellationToken.None);
 
         Assert.NotNull(result);
@@ -72,6 +74,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
             CreateContext(),
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Auto,
             CancellationToken.None);
 
         Assert.NotNull(result);
@@ -106,6 +109,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
             CreateContext(),
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
+            DaemonStartupBlockedProcessPolicy.Terminate,
             CancellationToken.None);
 
         Assert.NotNull(result);
@@ -120,6 +124,13 @@ public sealed class DaemonGuiEditorAttachServiceTests
         Assert.True(diagnosisStore.LastDiagnosis.IsInferred);
         Assert.Equal(marker.ProcessId, diagnosisStore.LastDiagnosis.ProcessId);
         Assert.Equal(marker.MarkerPath, diagnosisStore.LastDiagnosis.EditorInstancePath);
+        Assert.NotNull(result.Startup);
+        Assert.Equal(DaemonEditorModeValues.Gui, result.Startup!.EditorMode);
+        Assert.Equal(DaemonSessionOwnerKindValues.User, result.Startup.OwnerKind);
+        Assert.False(result.Startup.CanShutdownProcess);
+        Assert.Equal(marker.ProcessId, result.Startup.ProcessId);
+        Assert.Equal(ProbeProcessStartedAtUtc, result.Startup.StartedAtUtc);
+        Assert.Equal(DaemonStartupProcessActionValues.Kept, result.Startup.ProcessAction);
     }
 
     [Fact]
@@ -149,6 +160,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
             CreateContext(),
             TimeSpan.FromMilliseconds(1000),
             editorMode: null,
+            DaemonStartupBlockedProcessPolicy.Auto,
             CancellationToken.None);
 
         Assert.NotNull(result);
@@ -179,6 +191,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
             CreateContext(),
             TimeSpan.FromMilliseconds(500),
             editorMode: null,
+            DaemonStartupBlockedProcessPolicy.Auto,
             CancellationToken.None);
 
         Assert.Null(result);

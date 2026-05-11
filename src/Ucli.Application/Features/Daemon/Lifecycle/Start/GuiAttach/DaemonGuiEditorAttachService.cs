@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiAttach;
@@ -37,6 +38,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         DaemonEditorMode? editorMode,
+        DaemonStartupBlockedProcessPolicy onStartupBlocked,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -74,6 +76,8 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
             return await CreateGuiEndpointNotRegisteredFailureAsync(
                     unityProject,
                     marker,
+                    probeResult.ProcessStartedAtUtc,
+                    onStartupBlocked,
                     CreateTimeoutError($"Timed out before waiting for existing GUI Editor endpoint registration. ProcessId={marker.ProcessId}."))
                 .ConfigureAwait(false);
         }
@@ -95,23 +99,52 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
             return DaemonStartResult.Failure(waitResult.Error);
         }
 
-        return await CreateGuiEndpointNotRegisteredFailureAsync(unityProject, marker, waitResult.Error).ConfigureAwait(false);
+        return await CreateGuiEndpointNotRegisteredFailureAsync(
+                unityProject,
+                marker,
+                probeResult.ProcessStartedAtUtc,
+                onStartupBlocked,
+                waitResult.Error)
+            .ConfigureAwait(false);
     }
 
     private async ValueTask<DaemonStartResult> CreateGuiEndpointNotRegisteredFailureAsync (
         ResolvedUnityProjectContext unityProject,
         UnityEditorInstanceMarker marker,
+        DateTimeOffset? processStartedAtUtc,
+        DaemonStartupBlockedProcessPolicy onStartupBlocked,
         ExecutionError waitError)
     {
-        return await DaemonGuiEndpointNotRegisteredFailureFactory.CreateFailureAsync(
+        var result = await DaemonGuiEndpointNotRegisteredFailureFactory.CreateFailureAsync(
                 unityProject,
                 daemonDiagnosisStore,
                 timeProvider,
                 "existing GUI Editor",
                 marker.MarkerPath,
                 marker.ProcessId,
-                waitError)
+                waitError,
+                processStartedAtUtc)
             .ConfigureAwait(false);
+        var policyResolution = DaemonStartupBlockedProcessPolicyResolver.Resolve(
+            onStartupBlocked,
+            DaemonEditorModeValues.Gui,
+            DaemonSessionOwnerKindValues.User,
+            canShutdownProcess: false,
+            marker.ProcessId);
+        var startup = new DaemonStartupObservation(
+            StartupStatus: DaemonStartupStatusValues.Timeout,
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.EndpointNotRegistered,
+            LaunchAttemptId: null,
+            ProcessAction: policyResolution.ProcessActionWhenNotTerminated,
+            RetryDisposition: DaemonStartupRetryDispositionValues.WaitThenRetry,
+            EditorMode: DaemonEditorModeValues.Gui,
+            OwnerKind: DaemonSessionOwnerKindValues.User,
+            CanShutdownProcess: false,
+            ProcessId: marker.ProcessId,
+            StartedAtUtc: processStartedAtUtc,
+            ElapsedMilliseconds: null,
+            ArtifactPath: null);
+        return DaemonStartResult.Failure(result.Error!, result.Diagnosis, startup);
     }
 
     private static ExecutionError CreateTimeoutError (string message)
