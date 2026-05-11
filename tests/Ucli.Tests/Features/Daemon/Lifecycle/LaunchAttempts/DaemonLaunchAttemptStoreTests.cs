@@ -62,6 +62,48 @@ public sealed class DaemonLaunchAttemptStoreTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task ReadLastFailure_WhenDirectoryTimestampIsNewer_UsesLaunchAttemptIdOrder ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "stable-order");
+        var store = new DaemonLaunchAttemptStore();
+        var older = CreateAttempt("20260312_000000Z_00000001", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed);
+        var newer = CreateAttempt("20260312_000001Z_00000002", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed, minuteOffset: 1);
+
+        Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", newer, CancellationToken.None)).IsSuccess);
+        Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", older, CancellationToken.None)).IsSuccess);
+        Directory.SetLastWriteTimeUtc(
+            UcliStoragePathResolver.ResolveLaunchAttemptDirectory(scope.FullPath, "fingerprint", older.LaunchAttemptId),
+            newer.UpdatedAtUtc.AddMinutes(10).UtcDateTime);
+        Directory.SetLastWriteTimeUtc(
+            UcliStoragePathResolver.ResolveLaunchAttemptDirectory(scope.FullPath, "fingerprint", newer.LaunchAttemptId),
+            older.UpdatedAtUtc.UtcDateTime);
+
+        var readResult = await store.ReadLastFailureAsync(scope.FullPath, "fingerprint", CancellationToken.None);
+
+        Assert.True(readResult.IsSuccess);
+        Assert.Equal(newer.LaunchAttemptId, readResult.LaunchAttempt!.LaunchAttemptId);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadLastFailure_WhenAttemptsShareSameSecond_UsesUpdatedAtOrder ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "same-second-order");
+        var store = new DaemonLaunchAttemptStore();
+        var older = CreateAttempt("20260312_000000Z_ffffffff", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed);
+        var newer = CreateAttempt("20260312_000000Z_00000000", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed, minuteOffset: 1);
+
+        Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", older, CancellationToken.None)).IsSuccess);
+        Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", newer, CancellationToken.None)).IsSuccess);
+
+        var readResult = await store.ReadLastFailureAsync(scope.FullPath, "fingerprint", CancellationToken.None);
+
+        Assert.True(readResult.IsSuccess);
+        Assert.Equal(newer.LaunchAttemptId, readResult.LaunchAttempt!.LaunchAttemptId);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task ReadLastFailure_WhenStartupDiagnosisJsonIsInvalid_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "invalid-json");
@@ -79,6 +121,64 @@ public sealed class DaemonLaunchAttemptStoreTests
         Assert.False(readResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(readResult.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadLastFailure_WhenStartupDiagnosisJsonIsSymbolicLink_ReturnsFailureWithoutReadingTarget ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "read-file-symlink");
+        using var targetScope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "read-file-symlink-target");
+        var store = new DaemonLaunchAttemptStore();
+        var attemptId = "20260312_000000Z_00000001";
+        var diagnosisPath = UcliStoragePathResolver.ResolveLaunchAttemptStartupDiagnosisPath(
+            scope.FullPath,
+            "fingerprint",
+            attemptId);
+        Directory.CreateDirectory(Path.GetDirectoryName(diagnosisPath)!);
+        var targetPath = Path.Combine(targetScope.FullPath, "target.json");
+        await File.WriteAllTextAsync(targetPath, "{}", CancellationToken.None);
+        File.CreateSymbolicLink(diagnosisPath, targetPath);
+
+        var readResult = await store.ReadLastFailureAsync(scope.FullPath, "fingerprint", CancellationToken.None);
+
+        Assert.False(readResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(readResult.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.True(File.Exists(targetPath));
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("\"startupBlockingReason\": \"unknown\"", "\"startupBlockingReason\": \"notSupported\"", "startupBlockingReason")]
+    [InlineData("\"reportedBy\": \"cli\"", "\"reportedBy\": \"notSupported\"", "diagnosis.reportedBy")]
+    [InlineData("\"startupPhase\": \"endpointRegistration\"", "\"startupPhase\": \"notSupported\"", "diagnosis.startupPhase")]
+    [InlineData("\"actionRequired\": \"inspectUnityLog\"", "\"actionRequired\": \"notSupported\"", "diagnosis.actionRequired")]
+    [InlineData("\"kind\": \"compiler\"", "\"kind\": \"notSupported\"", "diagnosis.primaryDiagnostic.kind")]
+    public async Task ReadLastFailure_WhenContractVocabularyIsInvalid_ReturnsInvalidArgument (
+        string oldValue,
+        string newValue,
+        string expectedMessage)
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "invalid-vocabulary");
+        var store = new DaemonLaunchAttemptStore();
+        var attempt = CreateAttempt("20260312_000000Z_00000001", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed);
+        Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", attempt, CancellationToken.None)).IsSuccess);
+        var json = await File.ReadAllTextAsync(attempt.ArtifactPath, CancellationToken.None);
+        Assert.Contains(oldValue, json, StringComparison.Ordinal);
+        await File.WriteAllTextAsync(attempt.ArtifactPath, json.Replace(oldValue, newValue, StringComparison.Ordinal), CancellationToken.None);
+
+        var readResult = await store.ReadLastFailureAsync(scope.FullPath, "fingerprint", CancellationToken.None);
+
+        Assert.False(readResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(readResult.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains(expectedMessage, error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -124,6 +224,153 @@ public sealed class DaemonLaunchAttemptStoreTests
         Assert.False(Directory.Exists(UcliStoragePathResolver.ResolveLaunchAttemptDirectory(scope.FullPath, "fingerprint", "20260312_000000Z_00000000")));
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task PruneAsync_WhenOldAttemptDirectoryTimestampIsNewer_DeletesOldAttemptByLaunchAttemptIdOrder ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "retention-stable-order");
+        var store = new DaemonLaunchAttemptStore();
+        var older = CreateAttempt("20260312_000000Z_00000001", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed);
+        var newer = CreateAttempt("20260312_000001Z_00000002", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed, minuteOffset: 1);
+        Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", newer, CancellationToken.None)).IsSuccess);
+        Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", older, CancellationToken.None)).IsSuccess);
+        Directory.SetLastWriteTimeUtc(
+            UcliStoragePathResolver.ResolveLaunchAttemptDirectory(scope.FullPath, "fingerprint", older.LaunchAttemptId),
+            newer.UpdatedAtUtc.AddMinutes(10).UtcDateTime);
+
+        var pruneResult = await store.PruneAsync(scope.FullPath, "fingerprint", keepCount: 1, CancellationToken.None);
+
+        Assert.True(pruneResult.IsSuccess);
+        Assert.Equal(1, pruneResult.DeletedCount);
+        Assert.False(Directory.Exists(UcliStoragePathResolver.ResolveLaunchAttemptDirectory(scope.FullPath, "fingerprint", older.LaunchAttemptId)));
+        Assert.True(Directory.Exists(UcliStoragePathResolver.ResolveLaunchAttemptDirectory(scope.FullPath, "fingerprint", newer.LaunchAttemptId)));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task PruneAsync_WhenAttemptsShareSameSecond_DeletesOldAttemptByUpdatedAtOrder ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "retention-same-second-order");
+        var store = new DaemonLaunchAttemptStore();
+        var older = CreateAttempt("20260312_000000Z_ffffffff", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed);
+        var newer = CreateAttempt("20260312_000000Z_00000000", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed, minuteOffset: 1);
+        Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", older, CancellationToken.None)).IsSuccess);
+        Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", newer, CancellationToken.None)).IsSuccess);
+
+        var pruneResult = await store.PruneAsync(scope.FullPath, "fingerprint", keepCount: 1, CancellationToken.None);
+
+        Assert.True(pruneResult.IsSuccess);
+        Assert.Equal(1, pruneResult.DeletedCount);
+        Assert.False(Directory.Exists(UcliStoragePathResolver.ResolveLaunchAttemptDirectory(scope.FullPath, "fingerprint", older.LaunchAttemptId)));
+        Assert.True(Directory.Exists(UcliStoragePathResolver.ResolveLaunchAttemptDirectory(scope.FullPath, "fingerprint", newer.LaunchAttemptId)));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task PruneAsync_WhenOldStartupDiagnosisJsonIsInvalid_DeletesOldAttemptWithoutFailingRetention ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "retention-invalid-json");
+        var store = new DaemonLaunchAttemptStore();
+        var older = CreateAttempt("20260312_000000Z_00000001", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed);
+        var newer = CreateAttempt("20260312_000001Z_00000002", scope.FullPath, startupStatus: DaemonStartupStatusValues.Failed, minuteOffset: 1);
+        Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", older, CancellationToken.None)).IsSuccess);
+        Assert.True((await store.WriteFailureAsync(scope.FullPath, "fingerprint", newer, CancellationToken.None)).IsSuccess);
+        await File.WriteAllTextAsync(older.ArtifactPath, "{ invalid json", CancellationToken.None);
+        Directory.SetLastWriteTimeUtc(
+            UcliStoragePathResolver.ResolveLaunchAttemptDirectory(scope.FullPath, "fingerprint", older.LaunchAttemptId),
+            older.UpdatedAtUtc.UtcDateTime);
+        Directory.SetLastWriteTimeUtc(
+            UcliStoragePathResolver.ResolveLaunchAttemptDirectory(scope.FullPath, "fingerprint", newer.LaunchAttemptId),
+            newer.UpdatedAtUtc.UtcDateTime);
+
+        var pruneResult = await store.PruneAsync(scope.FullPath, "fingerprint", keepCount: 1, CancellationToken.None);
+
+        Assert.True(pruneResult.IsSuccess);
+        Assert.Equal(1, pruneResult.DeletedCount);
+        Assert.False(Directory.Exists(UcliStoragePathResolver.ResolveLaunchAttemptDirectory(scope.FullPath, "fingerprint", older.LaunchAttemptId)));
+        Assert.True(Directory.Exists(UcliStoragePathResolver.ResolveLaunchAttemptDirectory(scope.FullPath, "fingerprint", newer.LaunchAttemptId)));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task PruneAsync_WhenLaunchAttemptsDirectoryIsSymbolicLink_ReturnsFailureWithoutDeletingTarget ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "retention-symlink");
+        using var targetScope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "retention-symlink-target");
+        var store = new DaemonLaunchAttemptStore();
+        var attemptsDirectory = UcliStoragePathResolver.ResolveLaunchAttemptsDirectory(scope.FullPath, "fingerprint");
+        Directory.CreateDirectory(Path.GetDirectoryName(attemptsDirectory)!);
+        var targetAttemptDirectory = Path.Combine(targetScope.FullPath, "20260312_000000Z_00000001");
+        Directory.CreateDirectory(targetAttemptDirectory);
+        Directory.CreateSymbolicLink(attemptsDirectory, targetScope.FullPath);
+
+        var pruneResult = await store.PruneAsync(scope.FullPath, "fingerprint", keepCount: 0, CancellationToken.None);
+
+        Assert.False(pruneResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(pruneResult.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.True(Directory.Exists(targetAttemptDirectory));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadLastFailure_WhenAttemptDirectoryIsSymbolicLink_ReturnsFailureWithoutReadingTarget ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "read-attempt-symlink");
+        using var targetScope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "read-attempt-symlink-target");
+        var store = new DaemonLaunchAttemptStore();
+        var attemptsDirectory = UcliStoragePathResolver.ResolveLaunchAttemptsDirectory(scope.FullPath, "fingerprint");
+        Directory.CreateDirectory(attemptsDirectory);
+        var targetAttemptDirectory = Path.Combine(targetScope.FullPath, "target-attempt");
+        Directory.CreateDirectory(targetAttemptDirectory);
+        var attemptDirectory = Path.Combine(attemptsDirectory, "20260312_000000Z_00000001");
+        Directory.CreateSymbolicLink(attemptDirectory, targetAttemptDirectory);
+
+        var readResult = await store.ReadLastFailureAsync(scope.FullPath, "fingerprint", CancellationToken.None);
+
+        Assert.False(readResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(readResult.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.True(Directory.Exists(targetAttemptDirectory));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task PruneAsync_WhenAttemptDirectoryIsSymbolicLink_ReturnsFailureWithoutDeletingTarget ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "prune-attempt-symlink");
+        using var targetScope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "prune-attempt-symlink-target");
+        var store = new DaemonLaunchAttemptStore();
+        var attemptsDirectory = UcliStoragePathResolver.ResolveLaunchAttemptsDirectory(scope.FullPath, "fingerprint");
+        Directory.CreateDirectory(attemptsDirectory);
+        var targetAttemptDirectory = Path.Combine(targetScope.FullPath, "target-attempt");
+        Directory.CreateDirectory(targetAttemptDirectory);
+        var attemptDirectory = Path.Combine(attemptsDirectory, "20260312_000000Z_00000001");
+        Directory.CreateSymbolicLink(attemptDirectory, targetAttemptDirectory);
+
+        var pruneResult = await store.PruneAsync(scope.FullPath, "fingerprint", keepCount: 0, CancellationToken.None);
+
+        Assert.False(pruneResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(pruneResult.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.True(Directory.Exists(targetAttemptDirectory));
+    }
+
     private static DaemonLaunchAttempt CreateAttempt (
         string launchAttemptId,
         string storageRoot,
@@ -144,7 +391,14 @@ public sealed class DaemonLaunchAttemptStoreTests
             ProcessStartedAtUtc: updatedAtUtc,
             UnityLogPath: unityLogPath,
             StartupPhase: DaemonDiagnosisStartupPhaseValues.EndpointRegistration,
-            ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog);
+            ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
+            PrimaryDiagnostic: new DaemonPrimaryDiagnostic(
+                Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
+                Code: "CS0103",
+                File: "Assets/Foo.cs",
+                Line: 12,
+                Column: 34,
+                Message: "Missing type"));
         return new DaemonLaunchAttempt(
             LaunchAttemptId: launchAttemptId,
             StartedAtUtc: updatedAtUtc,

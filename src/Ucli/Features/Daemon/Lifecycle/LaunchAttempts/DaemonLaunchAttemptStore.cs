@@ -105,45 +105,29 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             return DaemonLaunchAttemptReadResult.Success(null);
         }
 
-        var candidates = Directory.EnumerateDirectories(attemptsDirectory)
-            .OrderByDescending(static path => Directory.GetLastWriteTimeUtc(path))
-            .ThenByDescending(static path => Path.GetFileName(path), StringComparer.Ordinal)
-            .ToArray();
-        foreach (var attemptDirectory in candidates)
+        var entriesResult = await ReadDirectoryEntriesAsync(
+                storageRoot,
+                projectFingerprint,
+                attemptsDirectory,
+                failOnInvalidPayload: true,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!entriesResult.IsSuccess)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var launchAttemptId = Path.GetFileName(attemptDirectory);
-            string diagnosisPath;
-            try
-            {
-                diagnosisPath = UcliStoragePathResolver.ResolveLaunchAttemptStartupDiagnosisPath(
-                    storageRoot,
-                    projectFingerprint,
-                    launchAttemptId);
-            }
-            catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-            {
-                return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InvalidArgument(
-                    $"Daemon launch-attempt path is invalid. {exception.Message}"));
-            }
-
-            var readResult = await ReadOneAsync(diagnosisPath, cancellationToken).ConfigureAwait(false);
-            if (!readResult.IsSuccess)
-            {
-                return readResult;
-            }
-
-            if (readResult.Exists && IsPublicFailureStatus(readResult.LaunchAttempt!.StartupStatus))
-            {
-                return readResult;
-            }
+            return DaemonLaunchAttemptReadResult.Failure(entriesResult.Error!);
         }
 
-        return DaemonLaunchAttemptReadResult.Success(null);
+        var latestFailure = entriesResult.Entries
+            .Where(static entry => entry.LaunchAttempt is not null
+                && IsPublicFailureStatus(entry.LaunchAttempt.StartupStatus))
+            .OrderByDescending(static entry => entry.LaunchAttempt!.UpdatedAtUtc)
+            .ThenByDescending(static entry => entry.LaunchAttemptId, StringComparer.Ordinal)
+            .FirstOrDefault();
+        return DaemonLaunchAttemptReadResult.Success(latestFailure?.LaunchAttempt);
     }
 
     /// <inheritdoc />
-    public ValueTask<DaemonLaunchAttemptStoreOperationResult> PruneAsync (
+    public async ValueTask<DaemonLaunchAttemptStoreOperationResult> PruneAsync (
         string storageRoot,
         string projectFingerprint,
         int keepCount,
@@ -159,48 +143,165 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
-            return ValueTask.FromResult(DaemonLaunchAttemptStoreOperationResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon launch-attempt path is invalid. {exception.Message}")));
+            return DaemonLaunchAttemptStoreOperationResult.Failure(ExecutionError.InvalidArgument(
+                $"Daemon launch-attempt path is invalid. {exception.Message}"));
         }
 
         if (!Directory.Exists(attemptsDirectory))
         {
-            return ValueTask.FromResult(DaemonLaunchAttemptStoreOperationResult.Success());
+            return DaemonLaunchAttemptStoreOperationResult.Success();
+        }
+
+        var entriesResult = await ReadDirectoryEntriesAsync(
+                storageRoot,
+                projectFingerprint,
+                attemptsDirectory,
+                failOnInvalidPayload: false,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!entriesResult.IsSuccess)
+        {
+            return DaemonLaunchAttemptStoreOperationResult.Failure(entriesResult.Error!);
         }
 
         try
         {
-            var attemptsToDelete = Directory.EnumerateDirectories(attemptsDirectory)
-                .OrderByDescending(static path => Directory.GetLastWriteTimeUtc(path))
-                .ThenByDescending(static path => Path.GetFileName(path), StringComparer.Ordinal)
+            var attemptsToDelete = entriesResult.Entries
+                .OrderByDescending(static entry => entry.UpdatedAtUtc)
+                .ThenByDescending(static entry => entry.LaunchAttemptId, StringComparer.Ordinal)
                 .Skip(keepCount)
                 .ToArray();
             var deletedCount = 0;
-            foreach (var attemptDirectory in attemptsToDelete)
+            foreach (var entry in attemptsToDelete)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                Directory.Delete(attemptDirectory, recursive: true);
+                Directory.Delete(entry.DirectoryPath, recursive: true);
                 deletedCount++;
             }
 
-            return ValueTask.FromResult(DaemonLaunchAttemptStoreOperationResult.Success(deletedCount));
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return ValueTask.FromResult(DaemonLaunchAttemptStoreOperationResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon launch-attempt path is invalid: {attemptsDirectory}. {exception.Message}")));
+            return DaemonLaunchAttemptStoreOperationResult.Success(deletedCount);
         }
         catch (Exception exception) when (IsIoFailure(exception))
         {
-            return ValueTask.FromResult(DaemonLaunchAttemptStoreOperationResult.Failure(ExecutionError.InternalError(
-                $"Failed to prune daemon launch-attempt artifacts: {attemptsDirectory}. {exception.Message}")));
+            return DaemonLaunchAttemptStoreOperationResult.Failure(ExecutionError.InternalError(
+                $"Failed to prune daemon launch-attempt artifacts: {attemptsDirectory}. {exception.Message}"));
         }
     }
 
+    private static async ValueTask<LaunchAttemptDirectoryEntriesReadResult> ReadDirectoryEntriesAsync (
+        string storageRoot,
+        string projectFingerprint,
+        string attemptsDirectory,
+        bool failOnInvalidPayload,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            FileSystemAccessBoundary.EnsureSecureDirectory(attemptsDirectory);
+        }
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        {
+            return LaunchAttemptDirectoryEntriesReadResult.Failure(ExecutionError.InvalidArgument(
+                $"Daemon launch-attempt path is invalid: {attemptsDirectory}. {exception.Message}"));
+        }
+        catch (Exception exception) when (IsIoFailure(exception))
+        {
+            return LaunchAttemptDirectoryEntriesReadResult.Failure(ExecutionError.InternalError(
+                $"Daemon launch-attempt directory is unsafe: {attemptsDirectory}. {exception.Message}"));
+        }
+
+        string[] attemptDirectories;
+        try
+        {
+            attemptDirectories = Directory.EnumerateDirectories(attemptsDirectory).ToArray();
+        }
+        catch (Exception exception) when (IsIoFailure(exception))
+        {
+            return LaunchAttemptDirectoryEntriesReadResult.Failure(ExecutionError.InternalError(
+                $"Failed to enumerate daemon launch-attempt directories: {attemptsDirectory}. {exception.Message}"));
+        }
+
+        var entries = new List<LaunchAttemptDirectoryEntry>();
+        foreach (var attemptDirectory in attemptDirectories)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                EnsureSafeLaunchAttemptDirectory(attemptsDirectory, attemptDirectory);
+            }
+            catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+            {
+                return LaunchAttemptDirectoryEntriesReadResult.Failure(ExecutionError.InvalidArgument(
+                    $"Daemon launch-attempt path is invalid: {attemptDirectory}. {exception.Message}"));
+            }
+            catch (Exception exception) when (IsIoFailure(exception))
+            {
+                return LaunchAttemptDirectoryEntriesReadResult.Failure(ExecutionError.InternalError(
+                    $"Daemon launch-attempt directory is unsafe: {attemptDirectory}. {exception.Message}"));
+            }
+
+            var launchAttemptId = Path.GetFileName(attemptDirectory);
+            string diagnosisPath;
+            try
+            {
+                diagnosisPath = UcliStoragePathResolver.ResolveLaunchAttemptStartupDiagnosisPath(
+                    storageRoot,
+                    projectFingerprint,
+                    launchAttemptId);
+            }
+            catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+            {
+                return LaunchAttemptDirectoryEntriesReadResult.Failure(ExecutionError.InvalidArgument(
+                    $"Daemon launch-attempt path is invalid. {exception.Message}"));
+            }
+
+            var readResult = await ReadOneAsync(attemptDirectory, diagnosisPath, cancellationToken).ConfigureAwait(false);
+            if (!readResult.IsSuccess)
+            {
+                if (failOnInvalidPayload)
+                {
+                    return LaunchAttemptDirectoryEntriesReadResult.Failure(readResult.Error!);
+                }
+
+                entries.Add(new LaunchAttemptDirectoryEntry(
+                    attemptDirectory,
+                    launchAttemptId,
+                    GetLastWriteTimeUtc(attemptDirectory),
+                    LaunchAttempt: null));
+                continue;
+            }
+
+            var updatedAtUtc = readResult.LaunchAttempt?.UpdatedAtUtc ?? GetLastWriteTimeUtc(attemptDirectory);
+            entries.Add(new LaunchAttemptDirectoryEntry(
+                attemptDirectory,
+                launchAttemptId,
+                updatedAtUtc,
+                readResult.LaunchAttempt));
+        }
+
+        return LaunchAttemptDirectoryEntriesReadResult.Success(entries);
+    }
+
     private static async ValueTask<DaemonLaunchAttemptReadResult> ReadOneAsync (
+        string attemptDirectory,
         string diagnosisPath,
         CancellationToken cancellationToken)
     {
+        try
+        {
+            EnsureSafeStartupDiagnosisFile(attemptDirectory, diagnosisPath);
+        }
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        {
+            return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InvalidArgument(
+                $"Daemon launch-attempt path is invalid: {diagnosisPath}. {exception.Message}"));
+        }
+        catch (Exception exception) when (IsIoFailure(exception))
+        {
+            return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InternalError(
+                $"Daemon launch-attempt file is unsafe: {diagnosisPath}. {exception.Message}"));
+        }
+
         string? json;
         try
         {
@@ -348,6 +449,7 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             launchAttempt.StartedAtUtc,
             launchAttempt.UpdatedAtUtc,
             launchAttempt.StartupStatus,
+            launchAttempt.StartupBlockingReason,
             launchAttempt.RetryDisposition,
             launchAttempt.ProcessAction,
             launchAttempt.Diagnosis,
@@ -382,6 +484,7 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             contract.StartedAtUtc,
             contract.UpdatedAtUtc,
             contract.StartupStatus,
+            contract.StartupBlockingReason,
             contract.RetryDisposition,
             contract.ProcessAction,
             ToDiagnosisForValidation(contract.Diagnosis),
@@ -393,6 +496,7 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
         DateTimeOffset startedAtUtc,
         DateTimeOffset updatedAtUtc,
         string? startupStatus,
+        string? startupBlockingReason,
         string? retryDisposition,
         string? processAction,
         DaemonDiagnosis? diagnosis,
@@ -414,6 +518,13 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
         if (!IsSupportedStartupStatus(startupStatus))
         {
             error = ExecutionError.InvalidArgument($"Daemon launch-attempt startupStatus is invalid: {diagnosisPath}");
+            return false;
+        }
+
+        if (StringValueNormalizer.TrimToNull(startupBlockingReason) is not string normalizedStartupBlockingReason
+            || !IsSupportedStartupBlockingReason(normalizedStartupBlockingReason))
+        {
+            error = ExecutionError.InvalidArgument($"Daemon launch-attempt startupBlockingReason is invalid: {diagnosisPath}");
             return false;
         }
 
@@ -492,7 +603,8 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             return false;
         }
 
-        if (!StringValueNormalizer.TryTrimToNonEmpty(diagnosis.ReportedBy, out _))
+        if (!StringValueNormalizer.TryTrimToNonEmpty(diagnosis.ReportedBy, out var reportedBy)
+            || !DaemonDiagnosisReportedByValues.IsSupported(reportedBy))
         {
             error = ExecutionError.InvalidArgument($"Daemon launch-attempt diagnosis.reportedBy is invalid: {diagnosisPath}");
             return false;
@@ -510,6 +622,97 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             return false;
         }
 
+        if (!TryValidateOptionalStartupPhase(diagnosis.StartupPhase, diagnosisPath, out error))
+        {
+            return false;
+        }
+
+        if (!TryValidateOptionalActionRequired(diagnosis.ActionRequired, diagnosisPath, out error))
+        {
+            return false;
+        }
+
+        if (!TryValidatePrimaryDiagnostic(diagnosis.PrimaryDiagnostic, diagnosisPath, out error))
+        {
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    private static bool TryValidateOptionalStartupPhase (
+        string? startupPhase,
+        string diagnosisPath,
+        out ExecutionError? error)
+    {
+        if (StringValueNormalizer.TrimToNull(startupPhase) is not string normalizedStartupPhase)
+        {
+            error = null;
+            return true;
+        }
+
+        if (!DaemonDiagnosisStartupPhaseValues.IsSupported(normalizedStartupPhase))
+        {
+            error = ExecutionError.InvalidArgument($"Daemon launch-attempt diagnosis.startupPhase is invalid: {diagnosisPath}");
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    private static bool TryValidateOptionalActionRequired (
+        string? actionRequired,
+        string diagnosisPath,
+        out ExecutionError? error)
+    {
+        if (StringValueNormalizer.TrimToNull(actionRequired) is not string normalizedActionRequired)
+        {
+            error = null;
+            return true;
+        }
+
+        if (!DaemonDiagnosisActionRequiredValues.IsSupported(normalizedActionRequired))
+        {
+            error = ExecutionError.InvalidArgument($"Daemon launch-attempt diagnosis.actionRequired is invalid: {diagnosisPath}");
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    private static bool TryValidatePrimaryDiagnostic (
+        DaemonPrimaryDiagnostic? primaryDiagnostic,
+        string diagnosisPath,
+        out ExecutionError? error)
+    {
+        if (primaryDiagnostic is null)
+        {
+            error = null;
+            return true;
+        }
+
+        if (!StringValueNormalizer.TryTrimToNonEmpty(primaryDiagnostic.Kind, out var normalizedKind)
+            || !DaemonDiagnosisPrimaryDiagnosticKindValues.IsSupported(normalizedKind))
+        {
+            error = ExecutionError.InvalidArgument($"Daemon launch-attempt diagnosis.primaryDiagnostic.kind is invalid: {diagnosisPath}");
+            return false;
+        }
+
+        if (primaryDiagnostic.Line is <= 0)
+        {
+            error = ExecutionError.InvalidArgument($"Daemon launch-attempt diagnosis.primaryDiagnostic.line is invalid: {diagnosisPath}");
+            return false;
+        }
+
+        if (primaryDiagnostic.Column is <= 0)
+        {
+            error = ExecutionError.InvalidArgument($"Daemon launch-attempt diagnosis.primaryDiagnostic.column is invalid: {diagnosisPath}");
+            return false;
+        }
+
         error = null;
         return true;
     }
@@ -522,11 +725,79 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             or DaemonStartupStatusValues.Completed;
     }
 
+    private static bool IsSupportedStartupBlockingReason (string startupBlockingReason)
+    {
+        return startupBlockingReason is DaemonStartupBlockingReasonValues.SafeMode
+            or DaemonStartupBlockingReasonValues.Compile
+            or DaemonStartupBlockingReasonValues.PackageResolution
+            or DaemonStartupBlockingReasonValues.UcliPlugin
+            or DaemonStartupBlockingReasonValues.PrecompiledAssemblyConflict
+            or DaemonStartupBlockingReasonValues.ModalDialog
+            or DaemonStartupBlockingReasonValues.EndpointNotRegistered
+            or DaemonStartupBlockingReasonValues.ProcessExit
+            or DaemonStartupBlockingReasonValues.Unknown;
+    }
+
     private static bool IsPublicFailureStatus (string startupStatus)
     {
         return startupStatus is DaemonStartupStatusValues.Blocked
             or DaemonStartupStatusValues.Timeout
             or DaemonStartupStatusValues.Failed;
+    }
+
+    private static void EnsureSafeLaunchAttemptDirectory (
+        string attemptsDirectory,
+        string attemptDirectory)
+    {
+        if (!IsPathUnderDirectory(attemptDirectory, attemptsDirectory))
+        {
+            throw new IOException($"Launch-attempt deletion target must remain under launch-attempts directory: {attemptDirectory}");
+        }
+
+        if ((File.GetAttributes(attemptDirectory) & FileAttributes.ReparsePoint) != 0)
+        {
+            throw new IOException($"Launch-attempt deletion target must not be a reparse point: {attemptDirectory}");
+        }
+    }
+
+    private static void EnsureSafeStartupDiagnosisFile (
+        string attemptDirectory,
+        string diagnosisPath)
+    {
+        if (!IsPathUnderDirectory(diagnosisPath, attemptDirectory))
+        {
+            throw new IOException($"Launch-attempt diagnosis file must remain under attempt directory: {diagnosisPath}");
+        }
+
+        if (!File.Exists(diagnosisPath))
+        {
+            return;
+        }
+
+        if ((File.GetAttributes(diagnosisPath) & FileAttributes.ReparsePoint) != 0)
+        {
+            throw new IOException($"Launch-attempt diagnosis file must not be a reparse point: {diagnosisPath}");
+        }
+    }
+
+    private static DateTimeOffset GetLastWriteTimeUtc (string path)
+    {
+        return new DateTimeOffset(Directory.GetLastWriteTimeUtc(path), TimeSpan.Zero);
+    }
+
+    private static bool IsPathUnderDirectory (
+        string childPath,
+        string parentDirectoryPath)
+    {
+        var childFullPath = Path.GetFullPath(childPath);
+        var parentFullPath = Path.GetFullPath(parentDirectoryPath);
+        var relativePath = Path.GetRelativePath(parentFullPath, childFullPath);
+        return !string.IsNullOrWhiteSpace(relativePath)
+            && !string.Equals(relativePath, ".", StringComparison.Ordinal)
+            && !Path.IsPathRooted(relativePath)
+            && !relativePath.Equals("..", StringComparison.Ordinal)
+            && !relativePath.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+            && !relativePath.StartsWith($"..{Path.AltDirectorySeparatorChar}", StringComparison.Ordinal);
     }
 
     private static bool IsSupportedRetryDisposition (string? retryDisposition)
@@ -551,5 +822,30 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
     {
         return exception is IOException
             or UnauthorizedAccessException;
+    }
+
+    private sealed record LaunchAttemptDirectoryEntry (
+        string DirectoryPath,
+        string LaunchAttemptId,
+        DateTimeOffset UpdatedAtUtc,
+        DaemonLaunchAttempt? LaunchAttempt);
+
+    private sealed record LaunchAttemptDirectoryEntriesReadResult (
+        IReadOnlyList<LaunchAttemptDirectoryEntry> Entries,
+        ExecutionError? Error)
+    {
+        public bool IsSuccess => Error is null;
+
+        public static LaunchAttemptDirectoryEntriesReadResult Success (IReadOnlyList<LaunchAttemptDirectoryEntry> entries)
+        {
+            ArgumentNullException.ThrowIfNull(entries);
+            return new LaunchAttemptDirectoryEntriesReadResult(entries, null);
+        }
+
+        public static LaunchAttemptDirectoryEntriesReadResult Failure (ExecutionError error)
+        {
+            ArgumentNullException.ThrowIfNull(error);
+            return new LaunchAttemptDirectoryEntriesReadResult(Array.Empty<LaunchAttemptDirectoryEntry>(), error);
+        }
     }
 }

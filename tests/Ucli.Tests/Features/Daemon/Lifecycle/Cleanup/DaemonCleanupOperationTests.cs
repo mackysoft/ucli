@@ -40,6 +40,29 @@ public sealed class DaemonCleanupOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Cleanup_WhenArtifactCleanerDeletesLaunchAttempts_PropagatesDeletedLaunchAttemptCount ()
+    {
+        var operation = CreateOperation(
+            daemonSessionStore: new StubDaemonSessionStore
+            {
+                ReadResult = DaemonSessionReadResult.Success(null),
+            },
+            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
+            artifactCleaner: new StubDaemonArtifactCleaner
+            {
+                NextResult = DaemonArtifactCleanupResult.Success(deletedLaunchAttemptCount: 3),
+            },
+            endpointResolver: new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")));
+
+        var result = await operation.CleanupAsync(CreateContext("fingerprint-cleanup-deleted-attempts"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(DaemonCleanupStatus.Completed, result.Status);
+        Assert.Equal(3, result.DeletedLaunchAttemptCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Cleanup_WhenSessionDoesNotExistAndProbeFindsLiveDaemon_ReturnsSkippedUncertainReachabilityWithoutCleanup ()
     {
         var artifactCleaner = new StubDaemonArtifactCleaner();

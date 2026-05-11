@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
@@ -66,6 +67,32 @@ public sealed class DaemonArtifactCleanerTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(3, result.DeletedLaunchAttemptCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Cleanup_WhenLaunchAttemptPruneFails_ReturnsFailure ()
+    {
+        var pruneError = ExecutionError.InternalError("prune failed");
+        var cleaner = new DaemonArtifactCleaner(
+            new StubDaemonSessionStore(),
+            new StubDaemonLifecycleStore(),
+            new StubDaemonLaunchAttemptStore
+            {
+                PruneResult = DaemonLaunchAttemptStoreOperationResult.Failure(pruneError),
+            },
+            new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-test-pipe")));
+
+        var result = await cleaner.CleanupAsync(
+            new ResolvedUnityProjectContext(
+                UnityProjectRoot: "/tmp/unity-project",
+                RepositoryRoot: "/tmp/repo-root",
+                ProjectFingerprint: "fingerprint-cleanup",
+                PathSource: UnityProjectPathSource.CommandOption),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(pruneError, result.Error);
     }
 
     private sealed class StubDaemonSessionStore : IDaemonSessionStore
