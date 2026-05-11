@@ -5,10 +5,12 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 /// <summary> Represents the result of daemon cleanup operation. </summary>
 /// <param name="Status"> The daemon cleanup outcome. </param>
 /// <param name="SkipReason"> The cleanup skip reason when cleanup was skipped; otherwise <see cref="DaemonCleanupSkipReason.None" />. </param>
+/// <param name="DeletedLaunchAttemptCount"> The number of deleted launch-attempt directories. </param>
 /// <param name="Error"> The structured error when cleanup fails; otherwise <see langword="null" />. </param>
 internal sealed record DaemonCleanupResult (
     DaemonCleanupStatus Status,
     DaemonCleanupSkipReason SkipReason,
+    int DeletedLaunchAttemptCount,
     ExecutionError? Error)
 {
     /// <summary> Gets a value indicating whether daemon cleanup succeeded. </summary>
@@ -18,7 +20,16 @@ internal sealed record DaemonCleanupResult (
     /// <returns> The successful completed result. </returns>
     public static DaemonCleanupResult Completed ()
     {
-        return new DaemonCleanupResult(DaemonCleanupStatus.Completed, DaemonCleanupSkipReason.None, null);
+        return Completed(deletedLaunchAttemptCount: 0);
+    }
+
+    /// <summary> Creates a successful completed result. </summary>
+    /// <param name="deletedLaunchAttemptCount"> The number of deleted launch-attempt directories. </param>
+    /// <returns> The successful completed result. </returns>
+    public static DaemonCleanupResult Completed (int deletedLaunchAttemptCount)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(deletedLaunchAttemptCount);
+        return new DaemonCleanupResult(DaemonCleanupStatus.Completed, DaemonCleanupSkipReason.None, deletedLaunchAttemptCount, null);
     }
 
     /// <summary> Creates a successful skipped result. </summary>
@@ -32,7 +43,7 @@ internal sealed record DaemonCleanupResult (
             throw new ArgumentOutOfRangeException(nameof(skipReason), skipReason, "Cleanup skip reason must not be None.");
         }
 
-        return new DaemonCleanupResult(DaemonCleanupStatus.Skipped, skipReason, null);
+        return new DaemonCleanupResult(DaemonCleanupStatus.Skipped, skipReason, 0, null);
     }
 
     /// <summary> Creates a failed cleanup result. </summary>
@@ -42,6 +53,6 @@ internal sealed record DaemonCleanupResult (
     public static DaemonCleanupResult Failure (ExecutionError error)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return new DaemonCleanupResult(DaemonCleanupStatus.Failed, DaemonCleanupSkipReason.None, error);
+        return new DaemonCleanupResult(DaemonCleanupStatus.Failed, DaemonCleanupSkipReason.None, 0, error);
     }
 }

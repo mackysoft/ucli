@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
@@ -10,6 +11,8 @@ internal sealed class DaemonStatusOperation : IDaemonStatusOperation
     private readonly IDaemonSessionStore daemonSessionStore;
 
     private readonly IDaemonDiagnosisStore daemonDiagnosisStore;
+
+    private readonly IDaemonLaunchAttemptStore launchAttemptStore;
 
     private readonly IDaemonPingClient daemonPingClient;
 
@@ -27,12 +30,14 @@ internal sealed class DaemonStatusOperation : IDaemonStatusOperation
     public DaemonStatusOperation (
         IDaemonSessionStore daemonSessionStore,
         IDaemonDiagnosisStore daemonDiagnosisStore,
+        IDaemonLaunchAttemptStore launchAttemptStore,
         IDaemonPingClient daemonPingClient,
         IDaemonReachabilityClassifier reachabilityClassifier,
         IDaemonSessionDiagnosisResolver daemonSessionDiagnosisResolver)
     {
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
         this.daemonDiagnosisStore = daemonDiagnosisStore ?? throw new ArgumentNullException(nameof(daemonDiagnosisStore));
+        this.launchAttemptStore = launchAttemptStore ?? throw new ArgumentNullException(nameof(launchAttemptStore));
         this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
         this.reachabilityClassifier = reachabilityClassifier ?? throw new ArgumentNullException(nameof(reachabilityClassifier));
         this.daemonSessionDiagnosisResolver = daemonSessionDiagnosisResolver ?? throw new ArgumentNullException(nameof(daemonSessionDiagnosisResolver));
@@ -75,7 +80,17 @@ internal sealed class DaemonStatusOperation : IDaemonStatusOperation
 
         if (!readResult.Exists)
         {
-            return DaemonStatusResult.NotRunning(persistedDiagnosis);
+            var launchAttemptReadResult = await launchAttemptStore.ReadLastFailureAsync(
+                    unityProject.RepositoryRoot,
+                    unityProject.ProjectFingerprint,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!launchAttemptReadResult.IsSuccess)
+            {
+                return DaemonStatusResult.Failure(launchAttemptReadResult.Error!);
+            }
+
+            return DaemonStatusResult.NotRunning(persistedDiagnosis, launchAttemptReadResult.LaunchAttempt);
         }
 
         try

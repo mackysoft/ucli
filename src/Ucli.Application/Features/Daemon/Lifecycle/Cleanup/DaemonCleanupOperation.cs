@@ -205,7 +205,7 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
 
         var cleanupResult = await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
         return cleanupResult.IsSuccess
-            ? DaemonCleanupResult.Completed()
+            ? DaemonCleanupResult.Completed(cleanupResult.DeletedLaunchAttemptCount)
             : DaemonCleanupResult.Failure(cleanupResult.Error!);
     }
 }

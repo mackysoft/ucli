@@ -90,6 +90,7 @@ internal sealed class DaemonStatusCommand
                     timeoutMilliseconds = output.TimeoutMilliseconds,
                     session = output.Session,
                     diagnosis = output.Diagnosis,
+                    lastLaunchAttempt = output.LastLaunchAttempt,
                 });
         }
 

@@ -77,6 +77,7 @@ internal sealed class DaemonCleanupCommand
                 {
                     cleanupStatus = DaemonCommandOutputProjector.ToCleanupStatus(output.CleanupStatus),
                     skipReason = DaemonCommandOutputProjector.ToCleanupSkipReason(output.SkipReason),
+                    deletedLaunchAttemptCount = output.DeletedLaunchAttemptCount,
                     timeoutMilliseconds = output.TimeoutMilliseconds,
                 });
         }

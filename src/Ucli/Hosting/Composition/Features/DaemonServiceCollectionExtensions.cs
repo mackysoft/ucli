@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Inventory;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.EditorInstance;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Gateway;
@@ -18,6 +19,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Inventory;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
@@ -46,6 +48,8 @@ internal static class DaemonServiceCollectionExtensions
     {
         services.AddSingleton<IDaemonSessionStore, DaemonSessionStore>();
         services.AddSingleton<IDaemonDiagnosisStore, DaemonDiagnosisStore>();
+        services.AddSingleton<IDaemonLaunchAttemptIdGenerator, DaemonLaunchAttemptIdGenerator>();
+        services.AddSingleton<IDaemonLaunchAttemptStore, DaemonLaunchAttemptStore>();
         services.AddSingleton<IDaemonLifecycleStore, DaemonLifecycleStore>();
         services.AddSingleton<IDaemonSessionDiagnosisResolver, DaemonSessionDiagnosisResolver>();
         services.AddSingleton<DaemonProcessIdentityAssessor>();

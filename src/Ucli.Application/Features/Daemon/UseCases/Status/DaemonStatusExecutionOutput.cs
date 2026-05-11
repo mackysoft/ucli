@@ -18,6 +18,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 /// <param name="TimeoutMilliseconds"> The effective timeout in milliseconds used for daemon status workflow. </param>
 /// <param name="Session"> The daemon session values when available; otherwise <see langword="null" />. </param>
 /// <param name="Diagnosis"> The daemon diagnosis values when available; otherwise <see langword="null" />. </param>
+/// <param name="LastLaunchAttempt"> The last session-less launch-attempt failure when available; otherwise <see langword="null" />. </param>
 internal sealed record DaemonStatusExecutionOutput (
     DaemonStatusKind DaemonStatus,
     string? ServerVersion,
@@ -31,6 +32,7 @@ internal sealed record DaemonStatusExecutionOutput (
     int TimeoutMilliseconds,
     DaemonSessionOutput? Session,
     DaemonDiagnosisOutput? Diagnosis,
+    DaemonLaunchAttemptOutput? LastLaunchAttempt,
     DateTimeOffset? ObservedAtUtc = null,
     string? ActionRequired = null,
     DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic = null);

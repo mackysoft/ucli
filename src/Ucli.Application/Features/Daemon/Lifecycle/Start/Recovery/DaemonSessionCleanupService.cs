@@ -60,7 +60,10 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
             }
         }
 
-        return await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
+        var cleanupResult = await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
+        return cleanupResult.IsSuccess
+            ? DaemonSessionStoreOperationResult.Success()
+            : DaemonSessionStoreOperationResult.Failure(cleanupResult.Error!);
     }
 
     /// <summary> Cleans stale-session artifacts from existing daemon session metadata. </summary>
@@ -95,7 +98,10 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
             }
         }
 
-        return await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
+        var cleanupResult = await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
+        return cleanupResult.IsSuccess
+            ? DaemonSessionStoreOperationResult.Success()
+            : DaemonSessionStoreOperationResult.Failure(cleanupResult.Error!);
     }
 
     private static bool TryCreateUnsafeInvalidSessionRelaunchError (
