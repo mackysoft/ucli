@@ -26,6 +26,7 @@ public sealed class DaemonCleanupServiceTests
         var output = Assert.IsType<DaemonCleanupExecutionOutput>(result.Output);
         Assert.Equal(DaemonCleanupStatus.Completed, output.CleanupStatus);
         Assert.Equal(DaemonCleanupSkipReason.None, output.SkipReason);
+        Assert.Equal(0, output.DeletedLaunchAttemptCount);
         Assert.Equal(3400, output.TimeoutMilliseconds);
         Assert.Equal(1, operation.CleanupCallCount);
     }
@@ -49,6 +50,7 @@ public sealed class DaemonCleanupServiceTests
         var output = Assert.IsType<DaemonCleanupExecutionOutput>(result.Output);
         Assert.Equal(DaemonCleanupStatus.Skipped, output.CleanupStatus);
         Assert.Equal(DaemonCleanupSkipReason.UnsafeInvalidSession, output.SkipReason);
+        Assert.Equal(0, output.DeletedLaunchAttemptCount);
         Assert.Equal(UcliCommandIds.DaemonCleanup, resolver.LastTimeoutCommand);
         Assert.Equal("/tmp/unity-project", resolver.LastProjectPath);
         Assert.Equal(3100, resolver.LastTimeoutMilliseconds);

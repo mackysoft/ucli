@@ -20,7 +20,7 @@ public sealed class DaemonCleanupOperationTests
     {
         var artifactCleaner = new StubDaemonArtifactCleaner
         {
-            NextResult = DaemonSessionStoreOperationResult.Success(),
+            NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var operation = CreateOperation(
             daemonSessionStore: new StubDaemonSessionStore
@@ -136,7 +136,7 @@ public sealed class DaemonCleanupOperationTests
         var session = CreateSession(processId: 2002);
         var artifactCleaner = new StubDaemonArtifactCleaner
         {
-            NextResult = DaemonSessionStoreOperationResult.Success(),
+            NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var operation = CreateOperation(
             daemonSessionStore: new StubDaemonSessionStore
@@ -276,7 +276,7 @@ public sealed class DaemonCleanupOperationTests
         };
         var artifactCleaner = new StubDaemonArtifactCleaner
         {
-            NextResult = DaemonSessionStoreOperationResult.Success(),
+            NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var operation = CreateOperation(
             daemonSessionStore: new StubDaemonSessionStore
@@ -308,7 +308,7 @@ public sealed class DaemonCleanupOperationTests
         var context = CreateContext("fingerprint-cleanup-invalid-null");
         var artifactCleaner = new StubDaemonArtifactCleaner
         {
-            NextResult = DaemonSessionStoreOperationResult.Success(),
+            NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var operation = CreateOperation(
             daemonSessionStore: new StubDaemonSessionStore
@@ -567,11 +567,11 @@ public sealed class DaemonCleanupOperationTests
 
     private sealed class StubDaemonArtifactCleaner : IDaemonArtifactCleaner
     {
-        public DaemonSessionStoreOperationResult NextResult { get; set; } = DaemonSessionStoreOperationResult.Success();
+        public DaemonArtifactCleanupResult NextResult { get; set; } = DaemonArtifactCleanupResult.Success();
 
         public int CallCount { get; private set; }
 
-        public ValueTask<DaemonSessionStoreOperationResult> CleanupAsync (
+        public ValueTask<DaemonArtifactCleanupResult> CleanupAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {

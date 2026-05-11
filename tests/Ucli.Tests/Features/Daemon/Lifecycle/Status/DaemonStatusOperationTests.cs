@@ -1,5 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 namespace MackySoft.Ucli.Tests.Daemon;
 
@@ -29,6 +31,7 @@ public sealed class DaemonStatusOperationTests
         var operation = new DaemonStatusOperation(
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
+            launchAttemptStore: new StubDaemonLaunchAttemptStore(),
             daemonPingClient: new StubDaemonPingClient(static () => ValueTask.CompletedTask),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
@@ -56,6 +59,7 @@ public sealed class DaemonStatusOperationTests
         var operation = new DaemonStatusOperation(
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
+            launchAttemptStore: new StubDaemonLaunchAttemptStore(),
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new TimeoutException("probe timeout"))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
@@ -91,6 +95,7 @@ public sealed class DaemonStatusOperationTests
         var operation = new DaemonStatusOperation(
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
+            launchAttemptStore: new StubDaemonLaunchAttemptStore(),
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new TimeoutException("probe timeout"))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
@@ -122,6 +127,7 @@ public sealed class DaemonStatusOperationTests
         var operation = new DaemonStatusOperation(
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
+            launchAttemptStore: new StubDaemonLaunchAttemptStore(),
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
@@ -152,6 +158,7 @@ public sealed class DaemonStatusOperationTests
         var operation = new DaemonStatusOperation(
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
+            launchAttemptStore: new StubDaemonLaunchAttemptStore(),
             daemonPingClient: new StubDaemonPingClient(static () => ValueTask.CompletedTask),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
@@ -162,6 +169,37 @@ public sealed class DaemonStatusOperationTests
         Assert.Equal(DaemonStatusKind.NotRunning, result.Status);
         Assert.Null(result.Session);
         Assert.Equal(diagnosis, result.Diagnosis);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task GetStatus_WhenSessionDoesNotExist_ReturnsLastLaunchAttempt ()
+    {
+        var context = CreateContext("fingerprint-status-last-attempt");
+        var lastLaunchAttempt = CreateLaunchAttempt(context.ProjectFingerprint);
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Success(null),
+        };
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var launchAttemptStore = new StubDaemonLaunchAttemptStore
+        {
+            ReadResult = DaemonLaunchAttemptReadResult.Success(lastLaunchAttempt),
+        };
+        var operation = new DaemonStatusOperation(
+            daemonSessionStore: sessionStore,
+            daemonDiagnosisStore: diagnosisStore,
+            launchAttemptStore: launchAttemptStore,
+            daemonPingClient: new StubDaemonPingClient(static () => ValueTask.CompletedTask),
+            reachabilityClassifier: new DaemonReachabilityClassifier(),
+            daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
+
+        var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(DaemonStatusKind.NotRunning, result.Status);
+        Assert.Null(result.Session);
+        Assert.Equal(lastLaunchAttempt, result.LastLaunchAttempt);
     }
 
     [Fact]
@@ -181,6 +219,7 @@ public sealed class DaemonStatusOperationTests
         var operation = new DaemonStatusOperation(
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
+            launchAttemptStore: new StubDaemonLaunchAttemptStore(),
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
@@ -217,6 +256,7 @@ public sealed class DaemonStatusOperationTests
         var operation = new DaemonStatusOperation(
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
+            launchAttemptStore: new StubDaemonLaunchAttemptStore(),
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
@@ -249,6 +289,7 @@ public sealed class DaemonStatusOperationTests
         var operation = new DaemonStatusOperation(
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
+            launchAttemptStore: new StubDaemonLaunchAttemptStore(),
             daemonPingClient: new StubDaemonPingClient(static () => ValueTask.CompletedTask),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
@@ -302,6 +343,25 @@ public sealed class DaemonStatusOperationTests
             ProcessId: session.ProcessId,
             EditorInstancePath: null,
             SessionIssuedAtUtc: session.IssuedAtUtc);
+    }
+
+    private static DaemonLaunchAttempt CreateLaunchAttempt (string projectFingerprint)
+    {
+        var diagnosis = CreateDiagnosis(CreateSession(processId: null, projectFingerprint: projectFingerprint), DaemonDiagnosisReasonValues.StartupFailed);
+        return new DaemonLaunchAttempt(
+            LaunchAttemptId: "20260312_000000Z_00000001",
+            StartedAtUtc: diagnosis.UpdatedAtUtc,
+            UpdatedAtUtc: diagnosis.UpdatedAtUtc,
+            StartupStatus: DaemonStartupStatusValues.Failed,
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.Unknown,
+            RetryDisposition: DaemonStartupRetryDispositionValues.Unknown,
+            ProcessAction: DaemonStartupProcessActionValues.None,
+            EditorMode: DaemonEditorModeValues.Gui,
+            ProcessId: null,
+            ProcessStartedAtUtc: null,
+            UnityLogPath: "/tmp/unity.log",
+            ArtifactPath: "/tmp/startup-diagnosis.json",
+            Diagnosis: diagnosis);
     }
 
     private sealed class StubDaemonSessionStore : IDaemonSessionStore
@@ -387,6 +447,37 @@ public sealed class DaemonStatusOperationTests
             CancellationToken cancellationToken = default)
         {
             return ValueTask.FromResult(DaemonDiagnosisStoreOperationResult.Success());
+        }
+    }
+
+    private sealed class StubDaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
+    {
+        public DaemonLaunchAttemptReadResult ReadResult { get; set; } = DaemonLaunchAttemptReadResult.Success(null);
+
+        public ValueTask<DaemonLaunchAttemptStoreOperationResult> WriteFailureAsync (
+            string storageRoot,
+            string projectFingerprint,
+            DaemonLaunchAttempt launchAttempt,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
+        public ValueTask<DaemonLaunchAttemptReadResult> ReadLastFailureAsync (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(ReadResult);
+        }
+
+        public ValueTask<DaemonLaunchAttemptStoreOperationResult> PruneAsync (
+            string storageRoot,
+            string projectFingerprint,
+            int keepCount,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
         }
     }
 }

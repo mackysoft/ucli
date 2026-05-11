@@ -249,16 +249,28 @@ public sealed class DaemonSessionCleanupServiceTests
 
     private sealed class StubDaemonArtifactCleaner : IDaemonArtifactCleaner
     {
-        public DaemonSessionStoreOperationResult NextResult { get; set; } = DaemonSessionStoreOperationResult.Success();
+        public object NextResult { get; set; } = DaemonArtifactCleanupResult.Success();
 
         public int CallCount { get; private set; }
 
-        public ValueTask<DaemonSessionStoreOperationResult> CleanupAsync (
+        public ValueTask<DaemonArtifactCleanupResult> CleanupAsync (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
-            return ValueTask.FromResult(NextResult);
+            return ValueTask.FromResult(ToArtifactCleanupResult(NextResult));
+        }
+
+        private static DaemonArtifactCleanupResult ToArtifactCleanupResult (object result)
+        {
+            return result switch
+            {
+                DaemonArtifactCleanupResult artifactResult => artifactResult,
+                DaemonSessionStoreOperationResult sessionResult => sessionResult.IsSuccess
+                    ? DaemonArtifactCleanupResult.Success()
+                    : DaemonArtifactCleanupResult.Failure(sessionResult.Error!),
+                _ => throw new ArgumentOutOfRangeException(nameof(result), result, "Unsupported artifact cleanup result."),
+            };
         }
     }
 }

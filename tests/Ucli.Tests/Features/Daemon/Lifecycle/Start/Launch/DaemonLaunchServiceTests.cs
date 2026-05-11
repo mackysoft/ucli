@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 namespace MackySoft.Ucli.Tests.Daemon;
@@ -7,6 +8,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Infrastructure.Storage;
 
 public sealed class DaemonLaunchServiceTests
 {
@@ -286,6 +288,7 @@ public sealed class DaemonLaunchServiceTests
         };
         var compensationService = new StubDaemonLaunchCompensationService();
         var diagnosisStore = new StubDaemonDiagnosisStore();
+        var launchAttemptStore = new StubDaemonLaunchAttemptStore();
         var service = CreateService(
             new StubDaemonLaunchSessionService(),
             new StubUnityDaemonProcessLauncher(),
@@ -293,7 +296,8 @@ public sealed class DaemonLaunchServiceTests
             compensationService,
             diagnosisStore,
             unityGuiEditorProcessLauncher: guiLauncher,
-            guiStartupObserver: guiStartupObserver);
+            guiStartupObserver: guiStartupObserver,
+            launchAttemptStore: launchAttemptStore);
 
         var result = await service.LaunchAsync(
             context,
@@ -320,6 +324,70 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(DaemonStartupProcessActionValues.Kept, result.Startup!.ProcessAction);
         Assert.Equal(DaemonStartupBlockingReasonValues.Compile, result.Startup.StartupBlockingReason);
         Assert.Equal(DaemonStartupRetryDispositionValues.RetryAfterFix, result.Startup.RetryDisposition);
+        Assert.Equal(1, launchAttemptStore.WriteCallCount);
+        Assert.Equal(1, launchAttemptStore.PruneCallCount);
+        Assert.Equal(result.Startup.LaunchAttemptId, launchAttemptStore.LastLaunchAttempt!.LaunchAttemptId);
+        Assert.Equal(DaemonStartupStatusValues.Blocked, launchAttemptStore.LastLaunchAttempt.StartupStatus);
+        Assert.Equal(blocker.UnityLogPath, launchAttemptStore.LastLaunchAttempt.UnityLogPath);
+        Assert.Equal(diagnosisStore.LastDiagnosis, launchAttemptStore.LastLaunchAttempt.Diagnosis);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenLaunchAttemptIdDirectoryAlreadyExists_RegeneratesLaunchAttemptId ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-launch-service", "launch-attempt-id-collision");
+        var context = new ResolvedUnityProjectContext(
+            UnityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
+            RepositoryRoot: scope.FullPath,
+            ProjectFingerprint: "fingerprint-id-collision",
+            PathSource: UnityProjectPathSource.CommandOption);
+        Directory.CreateDirectory(UcliStoragePathResolver.ResolveLaunchAttemptDirectory(
+            context.RepositoryRoot,
+            context.ProjectFingerprint,
+            "20260312_000000Z_00000001"));
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
+        var guiLauncher = new StubUnityGuiEditorProcessLauncher
+        {
+            NextResult = UnityDaemonLaunchResult.Success(6543, processStartedAtUtc),
+        };
+        var blocker = new DaemonGuiStartupBlocker(
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.ProcessExit,
+            Reason: DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap,
+            RetryDisposition: DaemonStartupRetryDispositionValues.Unknown,
+            Message: "Unity Editor exited before bootstrap completed.",
+            StartupPhase: DaemonDiagnosisStartupPhaseValues.ProcessExit,
+            ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
+            ProcessId: 6543,
+            ProcessStartedAtUtc: processStartedAtUtc,
+            UnityLogPath: "/tmp/repo-root/.ucli/local/fingerprints/fingerprint-id-collision/unity.log",
+            PrimaryDiagnostic: null);
+        var guiStartupObserver = new StubDaemonGuiStartupObserver
+        {
+            NextResult = DaemonGuiStartupObservationResult.Blocked(blocker),
+        };
+        var launchAttemptStore = new StubDaemonLaunchAttemptStore();
+        var service = CreateService(
+            new StubDaemonLaunchSessionService(),
+            new StubUnityDaemonProcessLauncher(),
+            new StubDaemonStartupReadinessProbe(),
+            new StubDaemonLaunchCompensationService(),
+            new StubDaemonDiagnosisStore(),
+            unityGuiEditorProcessLauncher: guiLauncher,
+            guiStartupObserver: guiStartupObserver,
+            launchAttemptStore: launchAttemptStore);
+
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Gui,
+            DaemonStartupBlockedProcessPolicy.Keep,
+            CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        Assert.NotNull(result.Startup);
+        Assert.Equal("20260312_000000Z_00000002", result.Startup!.LaunchAttemptId);
+        Assert.Equal("20260312_000000Z_00000002", launchAttemptStore.LastLaunchAttempt!.LaunchAttemptId);
     }
 
     [Fact]
@@ -1038,6 +1106,8 @@ public sealed class DaemonLaunchServiceTests
         IDaemonDiagnosisStore? daemonDiagnosisStore = null,
         IUnityGuiEditorProcessLauncher? unityGuiEditorProcessLauncher = null,
         IDaemonGuiStartupObserver? guiStartupObserver = null,
+        IDaemonLaunchAttemptIdGenerator? launchAttemptIdGenerator = null,
+        IDaemonLaunchAttemptStore? launchAttemptStore = null,
         TimeProvider? timeProvider = null)
     {
         return new DaemonLaunchService(
@@ -1048,6 +1118,8 @@ public sealed class DaemonLaunchServiceTests
             guiStartupObserver: guiStartupObserver ?? new StubDaemonGuiStartupObserver(),
             daemonLaunchCompensationService: launchCompensationService,
             daemonDiagnosisStore: daemonDiagnosisStore ?? new StubDaemonDiagnosisStore(),
+            launchAttemptIdGenerator: launchAttemptIdGenerator ?? new StubDaemonLaunchAttemptIdGenerator(),
+            launchAttemptStore: launchAttemptStore ?? new StubDaemonLaunchAttemptStore(),
             timeProvider: timeProvider);
     }
 
@@ -1260,6 +1332,59 @@ public sealed class DaemonLaunchServiceTests
             CancellationToken cancellationToken = default)
         {
             return ValueTask.FromResult(DaemonDiagnosisStoreOperationResult.Success());
+        }
+    }
+
+    private sealed class StubDaemonLaunchAttemptIdGenerator : IDaemonLaunchAttemptIdGenerator
+    {
+        private int sequence;
+
+        public string Create (DateTimeOffset startedAtUtc)
+        {
+            sequence++;
+            return $"20260312_000000Z_{sequence:00000000}";
+        }
+    }
+
+    private sealed class StubDaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
+    {
+        public DaemonLaunchAttemptStoreOperationResult WriteResult { get; set; } = DaemonLaunchAttemptStoreOperationResult.Success();
+
+        public DaemonLaunchAttemptStoreOperationResult PruneResult { get; set; } = DaemonLaunchAttemptStoreOperationResult.Success();
+
+        public int WriteCallCount { get; private set; }
+
+        public int PruneCallCount { get; private set; }
+
+        public DaemonLaunchAttempt? LastLaunchAttempt { get; private set; }
+
+        public ValueTask<DaemonLaunchAttemptStoreOperationResult> WriteFailureAsync (
+            string storageRoot,
+            string projectFingerprint,
+            DaemonLaunchAttempt launchAttempt,
+            CancellationToken cancellationToken = default)
+        {
+            WriteCallCount++;
+            LastLaunchAttempt = launchAttempt;
+            return ValueTask.FromResult(WriteResult);
+        }
+
+        public ValueTask<DaemonLaunchAttemptReadResult> ReadLastFailureAsync (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
+        public ValueTask<DaemonLaunchAttemptStoreOperationResult> PruneAsync (
+            string storageRoot,
+            string projectFingerprint,
+            int keepCount,
+            CancellationToken cancellationToken = default)
+        {
+            PruneCallCount++;
+            return ValueTask.FromResult(PruneResult);
         }
     }
 

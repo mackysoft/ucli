@@ -52,7 +52,8 @@ public sealed class DaemonCliOutputContractTests
                 .HasBoolean("canAcceptExecutionRequests", false)
                 .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcTimeoutDefaultDaemonStatusMilliseconds)
                 .IsNull("session")
-                .IsNull("diagnosis"));
+                .IsNull("diagnosis")
+                .IsNull("lastLaunchAttempt"));
         Assert.False(outputJson.RootElement.GetProperty("payload").TryGetProperty("runtime", out _));
     }
 
@@ -112,6 +113,7 @@ public sealed class DaemonCliOutputContractTests
             .HasProperty("payload", payload => payload
                 .HasString("cleanupStatus", "skipped")
                 .HasString("skipReason", "uncertainReachability")
+                .HasInt32("deletedLaunchAttemptCount", 0)
                 .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcTimeoutDefaultDaemonCleanupMilliseconds));
     }
 
@@ -142,6 +144,7 @@ public sealed class DaemonCliOutputContractTests
             .HasProperty("payload", payload => payload
                 .HasString("cleanupStatus", "skipped")
                 .HasString("skipReason", "unsafeInvalidSession")
+                .HasInt32("deletedLaunchAttemptCount", 0)
                 .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcTimeoutDefaultDaemonCleanupMilliseconds));
     }
 
