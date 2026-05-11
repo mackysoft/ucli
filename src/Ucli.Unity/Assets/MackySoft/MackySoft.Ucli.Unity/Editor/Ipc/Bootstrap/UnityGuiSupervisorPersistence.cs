@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -10,7 +11,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Persists GUI supervisor metadata for CLI-side rebootstrap attach. </summary>
     internal static class UnityGuiSupervisorPersistence
     {
-        public static UnityGuiSupervisorManifest Write (
+        public static GuiSupervisorManifestJsonContract Write (
             string storageRoot,
             string projectFingerprint,
             IpcEndpoint endpoint,
@@ -37,8 +38,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("Session token must not be empty.", nameof(sessionToken));
             }
 
-            var manifest = new UnityGuiSupervisorManifest(
-                SchemaVersion: UnityGuiSupervisorManifest.CurrentSchemaVersion,
+            var manifest = new GuiSupervisorManifestJsonContract(
+                SchemaVersion: GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
                 SessionToken: sessionToken,
                 ProjectFingerprint: projectFingerprint,
                 EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
@@ -53,10 +54,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new InvalidOperationException($"GUI supervisor manifest directory could not be resolved. Path={manifestPath}");
             }
 
-            Directory.CreateDirectory(manifestDirectory);
+            FileSystemAccessBoundary.EnsureSecureDirectory(manifestDirectory);
             File.WriteAllText(
                 manifestPath,
                 JsonSerializer.Serialize(manifest, IpcJsonSerializerOptions.Default));
+            FileSystemAccessBoundary.EnsureSecureFile(manifestPath);
             return manifest;
         }
 

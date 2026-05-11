@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -290,7 +291,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             private int stopStarted;
 
             public ActiveGuiSupervisorState (
-                UnityGuiSupervisorManifest manifest,
+                GuiSupervisorManifestJsonContract manifest,
                 IUnityIpcServer server,
                 IServiceProvider serviceProvider,
                 IDaemonLogger daemonLogger,
@@ -305,7 +306,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ProjectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
             }
 
-            public UnityGuiSupervisorManifest Manifest { get; }
+            public GuiSupervisorManifestJsonContract Manifest { get; }
 
             public IUnityIpcServer Server { get; }
 

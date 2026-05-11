@@ -64,7 +64,19 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             try
             {
-                await UnityGuiBootstrap.StartAsync(null);
+                var startResult = await UnityGuiBootstrap.StartAsync(null);
+                if (!startResult.IsSuccess)
+                {
+                    daemonLogger.Warning(
+                        DaemonLogCategories.Lifecycle,
+                        $"GUI daemon rebootstrap request rejected. {startResult.ErrorMessage}");
+                    return UnityIpcResponseFactory.CreateErrorResponse(
+                        request,
+                        UcliCoreErrorCodes.InternalError,
+                        $"GUI rebootstrap failed. {startResult.ErrorMessage}",
+                        null);
+                }
+
                 daemonLogger.Info(
                     DaemonLogCategories.Lifecycle,
                     "GUI daemon rebootstrap request accepted.");

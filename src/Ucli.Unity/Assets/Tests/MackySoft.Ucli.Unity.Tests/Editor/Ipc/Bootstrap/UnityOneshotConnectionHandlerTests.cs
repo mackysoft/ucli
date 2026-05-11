@@ -202,6 +202,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class StubDaemonShutdownSignal : IDaemonShutdownSignal
         {
+            public bool IsSignaled => false;
+
             public void Signal ()
             {
             }

@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiAttach;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiAttach;
@@ -36,7 +37,7 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(expectedProcessId, 0);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        GuiSupervisorManifest? manifest;
+        GuiSupervisorManifestJsonContract? manifest;
         try
         {
             manifest = await manifestStore.ReadOrNullAsync(
@@ -71,7 +72,7 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
                 Method: IpcMethodNames.GuiRebootstrap,
                 Payload: IpcPayloadCodec.SerializeToElement(new IpcGuiRebootstrapRequest(unityProject.ProjectFingerprint)));
             var response = await transportClient.SendAsync(
-                    manifest.ResolveEndpoint(),
+                    ResolveEndpoint(manifest),
                     request,
                     timeout,
                     cancellationToken)
@@ -108,7 +109,7 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
     }
 
     private static ExecutionError? ValidateManifest (
-        GuiSupervisorManifest? manifest,
+        GuiSupervisorManifestJsonContract? manifest,
         ResolvedUnityProjectContext unityProject,
         int expectedProcessId,
         DateTimeOffset? expectedProcessStartedAtUtc)
@@ -120,7 +121,7 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
                 DaemonErrorCodes.DaemonEndpointNotRegistered);
         }
 
-        if (manifest.SchemaVersion != GuiSupervisorManifest.CurrentSchemaVersion)
+        if (manifest.SchemaVersion != GuiSupervisorManifestJsonContract.CurrentSchemaVersion)
         {
             return ExecutionError.InternalError(
                 $"GUI supervisor manifest schema version is unsupported. Actual={manifest.SchemaVersion}.",
@@ -159,5 +160,15 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
         }
 
         return null;
+    }
+
+    private static IpcEndpoint ResolveEndpoint (GuiSupervisorManifestJsonContract manifest)
+    {
+        if (!IpcTransportKindCodec.TryParse(manifest.EndpointTransportKind, out var transportKind))
+        {
+            throw new InvalidDataException($"GUI supervisor endpointTransportKind is invalid: {manifest.EndpointTransportKind}.");
+        }
+
+        return new IpcEndpoint(transportKind, manifest.EndpointAddress);
     }
 }
