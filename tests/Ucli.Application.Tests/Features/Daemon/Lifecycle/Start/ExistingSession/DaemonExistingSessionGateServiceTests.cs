@@ -17,7 +17,7 @@ public sealed class DaemonExistingSessionGateServiceTests
     {
         var session = CreateSession(processId: 4001);
         var service = new DaemonExistingSessionGateService(
-            daemonPingClient: new StubDaemonPingClient(static _ => ValueTask.CompletedTask),
+            daemonPingInfoClient: new StubDaemonPingClient(static _ => ValueTask.CompletedTask),
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => false),
             daemonSessionCleanupService: new StubDaemonSessionCleanupService(),
             daemonLifecycleStore: new StubDaemonLifecycleStore(),
@@ -33,6 +33,38 @@ public sealed class DaemonExistingSessionGateServiceTests
         Assert.NotNull(result);
         Assert.Equal(DaemonStartStatus.AlreadyRunning, result!.Status);
         Assert.Equal(session, result.Session);
+        Assert.Equal(IpcEditorLifecycleStateCodec.Ready, result.LifecycleSnapshot!.LifecycleState);
+        Assert.True(result.LifecycleSnapshot.CanAcceptExecutionRequests);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task TryHandleExistingSession_WhenPingReportsCompiling_ReturnsAlreadyRunningWithLifecycleSnapshot ()
+    {
+        var session = CreateSession(processId: 4010);
+        var service = new DaemonExistingSessionGateService(
+            daemonPingInfoClient: new StubDaemonPingClient(static _ => ValueTask.CompletedTask)
+            {
+                Response = CreatePingResponse(IpcEditorLifecycleStateCodec.Compiling, IpcEditorBlockingReasonCodec.Compile, false),
+            },
+            reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => false),
+            daemonSessionCleanupService: new StubDaemonSessionCleanupService(),
+            daemonLifecycleStore: new StubDaemonLifecycleStore(),
+            processIdentityAssessor: new StubDaemonProcessIdentityAssessor());
+
+        var result = await service.TryHandleExistingSessionAsync(
+            CreateContext("fingerprint-existing-running-compiling"),
+            session,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            cancellationToken: CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(DaemonStartStatus.AlreadyRunning, result!.Status);
+        Assert.Equal(session, result.Session);
+        Assert.Equal(IpcEditorLifecycleStateCodec.Compiling, result.LifecycleSnapshot!.LifecycleState);
+        Assert.Equal(IpcEditorBlockingReasonCodec.Compile, result.LifecycleSnapshot.BlockingReason);
+        Assert.False(result.LifecycleSnapshot.CanAcceptExecutionRequests);
     }
 
     [Fact]
@@ -41,7 +73,7 @@ public sealed class DaemonExistingSessionGateServiceTests
     {
         var session = CreateSession(processId: 4008);
         var service = new DaemonExistingSessionGateService(
-            daemonPingClient: new StubDaemonPingClient(static _ => ValueTask.CompletedTask),
+            daemonPingInfoClient: new StubDaemonPingClient(static _ => ValueTask.CompletedTask),
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => false),
             daemonSessionCleanupService: new StubDaemonSessionCleanupService(),
             daemonLifecycleStore: new StubDaemonLifecycleStore(),
@@ -66,7 +98,7 @@ public sealed class DaemonExistingSessionGateServiceTests
     public async Task TryHandleExistingSession_WhenPingTimesOut_ReturnsTimeoutFailure ()
     {
         var service = new DaemonExistingSessionGateService(
-            daemonPingClient: new StubDaemonPingClient(static _ => ValueTask.FromException(new TimeoutException("timeout"))),
+            daemonPingInfoClient: new StubDaemonPingClient(static _ => ValueTask.FromException(new TimeoutException("timeout"))),
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => false),
             daemonSessionCleanupService: new StubDaemonSessionCleanupService(),
             daemonLifecycleStore: new StubDaemonLifecycleStore(),
@@ -113,7 +145,7 @@ public sealed class DaemonExistingSessionGateServiceTests
                 Error: null),
         };
         var service = new DaemonExistingSessionGateService(
-            daemonPingClient: pingClient,
+            daemonPingInfoClient: pingClient,
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => false),
             daemonSessionCleanupService: cleanupService,
             daemonLifecycleStore: lifecycleStore,
@@ -143,7 +175,7 @@ public sealed class DaemonExistingSessionGateServiceTests
         };
         var session = CreateSession(processId: 4003);
         var service = new DaemonExistingSessionGateService(
-            daemonPingClient: new StubDaemonPingClient(static _ => ValueTask.FromException(new InvalidOperationException("stale"))),
+            daemonPingInfoClient: new StubDaemonPingClient(static _ => ValueTask.FromException(new InvalidOperationException("stale"))),
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => true),
             daemonSessionCleanupService: cleanupService,
             daemonLifecycleStore: new StubDaemonLifecycleStore(),
@@ -171,7 +203,7 @@ public sealed class DaemonExistingSessionGateServiceTests
             CleanupStaleSessionArtifactsResult = DaemonSessionStoreOperationResult.Success(),
         };
         var service = new DaemonExistingSessionGateService(
-            daemonPingClient: new StubDaemonPingClient(timeout =>
+            daemonPingInfoClient: new StubDaemonPingClient(timeout =>
             {
                 timeProvider.Advance(TimeSpan.FromMilliseconds(120));
                 return ValueTask.FromException(new InvalidOperationException("stale"));
@@ -201,7 +233,7 @@ public sealed class DaemonExistingSessionGateServiceTests
         var timeProvider = new ManualTimeProvider();
         var cleanupService = new StubDaemonSessionCleanupService();
         var service = new DaemonExistingSessionGateService(
-            daemonPingClient: new StubDaemonPingClient(timeout =>
+            daemonPingInfoClient: new StubDaemonPingClient(timeout =>
             {
                 timeProvider.Advance(TimeSpan.FromMilliseconds(80));
                 return ValueTask.FromException(new InvalidOperationException("stale"));
@@ -236,7 +268,7 @@ public sealed class DaemonExistingSessionGateServiceTests
             CleanupStaleSessionArtifactsResult = DaemonSessionStoreOperationResult.Failure(expectedError),
         };
         var service = new DaemonExistingSessionGateService(
-            daemonPingClient: new StubDaemonPingClient(static _ => ValueTask.FromException(new InvalidOperationException("stale"))),
+            daemonPingInfoClient: new StubDaemonPingClient(static _ => ValueTask.FromException(new InvalidOperationException("stale"))),
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => true),
             daemonSessionCleanupService: cleanupService,
             daemonLifecycleStore: new StubDaemonLifecycleStore(),
@@ -259,7 +291,7 @@ public sealed class DaemonExistingSessionGateServiceTests
     public async Task TryHandleExistingSession_WhenPingThrowsUnexpectedError_ReturnsInternalFailure ()
     {
         var service = new DaemonExistingSessionGateService(
-            daemonPingClient: new StubDaemonPingClient(static _ => ValueTask.FromException(new InvalidOperationException("unexpected"))),
+            daemonPingInfoClient: new StubDaemonPingClient(static _ => ValueTask.FromException(new InvalidOperationException("unexpected"))),
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => false),
             daemonSessionCleanupService: new StubDaemonSessionCleanupService(),
             daemonLifecycleStore: new StubDaemonLifecycleStore(),
@@ -322,7 +354,25 @@ public sealed class DaemonExistingSessionGateServiceTests
             PrimaryDiagnostic: null);
     }
 
-    private sealed class StubDaemonPingClient : IDaemonPingClient
+    private static IpcPingResponse CreatePingResponse (
+        string lifecycleState,
+        string? blockingReason,
+        bool canAcceptExecutionRequests)
+    {
+        return new IpcPingResponse(
+            ServerVersion: "1.0.0",
+            EditorMode: DaemonEditorModeValues.Batchmode,
+            UnityVersion: "2022.3.0f1",
+            ProjectFingerprint: "fingerprint",
+            CompileState: IpcCompileStateCodec.Ready,
+            LifecycleState: lifecycleState,
+            BlockingReason: blockingReason,
+            CompileGeneration: "1",
+            DomainReloadGeneration: "2",
+            CanAcceptExecutionRequests: canAcceptExecutionRequests);
+    }
+
+    private sealed class StubDaemonPingClient : IDaemonPingInfoClient
     {
         private readonly Func<TimeSpan, ValueTask> handler;
 
@@ -333,21 +383,29 @@ public sealed class DaemonExistingSessionGateServiceTests
 
         public Func<int, ValueTask>? Handler { get; set; }
 
+        public IpcPingResponse Response { get; set; } = CreatePingResponse(
+            IpcEditorLifecycleStateCodec.Ready,
+            null,
+            true);
+
         public int CallCount { get; private set; }
 
-        public ValueTask PingAsync (
+        public async ValueTask<IpcPingResponse> PingAndReadAsync (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             string? sessionToken = null,
+            bool validateProjectFingerprint = true,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
             if (Handler is not null)
             {
-                return Handler(CallCount);
+                await Handler(CallCount).ConfigureAwait(false);
+                return Response;
             }
 
-            return handler(timeout);
+            await handler(timeout).ConfigureAwait(false);
+            return Response;
         }
     }
 

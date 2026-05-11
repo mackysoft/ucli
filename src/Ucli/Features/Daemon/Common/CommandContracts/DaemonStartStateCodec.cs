@@ -10,6 +10,8 @@ internal static class DaemonStartStateCodec
 
     public const string AlreadyRunning = "alreadyRunning";
 
+    public const string Failed = "failed";
+
     public static bool TryToValue (
         DaemonStartStatus status,
         [NotNullWhen(true)]
@@ -19,6 +21,7 @@ internal static class DaemonStartStateCodec
         {
             DaemonStartStatus.Started => Started,
             DaemonStartStatus.AlreadyRunning => AlreadyRunning,
+            DaemonStartStatus.Failed => Failed,
             _ => null,
         };
         return value is not null;

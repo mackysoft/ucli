@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.ExistingSession;
@@ -8,7 +9,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.ExistingSes
 /// <summary> Implements existing-session probe flow for daemon start orchestration. </summary>
 internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionGateService
 {
-    private readonly IDaemonPingClient daemonPingClient;
+    private readonly IDaemonPingInfoClient daemonPingInfoClient;
 
     private readonly IDaemonReachabilityClassifier reachabilityClassifier;
 
@@ -21,7 +22,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
     private readonly TimeProvider timeProvider;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonExistingSessionGateService" /> class. </summary>
-    /// <param name="daemonPingClient"> The daemon ping-client dependency. </param>
+    /// <param name="daemonPingInfoClient"> The daemon ping-info client dependency. </param>
     /// <param name="reachabilityClassifier"> The daemon reachability-classifier dependency. </param>
     /// <param name="daemonSessionCleanupService"> The daemon session-cleanup service dependency. </param>
     /// <param name="daemonLifecycleStore"> The daemon lifecycle observation store dependency. </param>
@@ -29,14 +30,14 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
     /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonExistingSessionGateService (
-        IDaemonPingClient daemonPingClient,
+        IDaemonPingInfoClient daemonPingInfoClient,
         IDaemonReachabilityClassifier reachabilityClassifier,
         IDaemonSessionCleanupService daemonSessionCleanupService,
         IDaemonLifecycleStore daemonLifecycleStore,
         IDaemonProcessIdentityAssessor processIdentityAssessor,
         TimeProvider? timeProvider = null)
     {
-        this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
+        this.daemonPingInfoClient = daemonPingInfoClient ?? throw new ArgumentNullException(nameof(daemonPingInfoClient));
         this.reachabilityClassifier = reachabilityClassifier ?? throw new ArgumentNullException(nameof(reachabilityClassifier));
         this.daemonSessionCleanupService = daemonSessionCleanupService ?? throw new ArgumentNullException(nameof(daemonSessionCleanupService));
         this.daemonLifecycleStore = daemonLifecycleStore ?? throw new ArgumentNullException(nameof(daemonLifecycleStore));
@@ -80,12 +81,17 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
 
         try
         {
-            await daemonPingClient.PingAsync(
+            var pingResponse = await daemonPingInfoClient.PingAndReadAsync(
                     unityProject,
                     pingTimeout,
                     session.SessionToken,
-                    cancellationToken)
+                    cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
+            if (!DaemonStartLifecycleSnapshot.TryCreate(pingResponse, out var lifecycleSnapshot, out var lifecycleError))
+            {
+                return DaemonStartResult.Failure(lifecycleError!);
+            }
+
             if (editorMode.HasValue)
             {
                 var requestedEditorMode = DaemonEditorModeCodec.ToValue(editorMode.Value);
@@ -97,7 +103,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
                 }
             }
 
-            return DaemonStartResult.AlreadyRunning(session);
+            return DaemonStartResult.AlreadyRunning(session, lifecycleSnapshot);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -118,7 +124,8 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
             }
 
             return DaemonStartResult.Failure(ExecutionError.Timeout(
-                $"Timed out while probing existing daemon session. {exception.Message}"));
+                $"Timed out while probing existing daemon session. {exception.Message}"),
+                daemonStatus: DaemonStatusKind.Stale);
         }
         catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
         {
@@ -148,7 +155,9 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
                 .ConfigureAwait(false);
             if (!cleanupResult.IsSuccess)
             {
-                return DaemonStartResult.Failure(cleanupResult.Error!);
+                return DaemonStartResult.Failure(
+                    cleanupResult.Error!,
+                    daemonStatus: DaemonStatusKind.Stale);
             }
 
             return null;
@@ -156,7 +165,8 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
         catch (Exception exception)
         {
             return DaemonStartResult.Failure(ExecutionError.InternalError(
-                $"Failed to probe existing daemon session. {exception.Message}"));
+                $"Failed to probe existing daemon session. {exception.Message}"),
+                daemonStatus: DaemonStatusKind.Stale);
         }
     }
 
@@ -188,7 +198,8 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
             {
                 return DaemonStartResult.Failure(ExecutionError.Timeout(
                     $"Timed out while waiting for recovering daemon session. ProcessId={session.ProcessId}.",
-                    ExecutionErrorCodes.IpcTimeout));
+                    ExecutionErrorCodes.IpcTimeout),
+                    daemonStatus: DaemonStatusKind.Stale);
             }
 
             var attemptTimeout = remainingTimeout < DaemonTimeouts.ProbeAttemptTimeoutCap
@@ -196,12 +207,17 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
                 : DaemonTimeouts.ProbeAttemptTimeoutCap;
             try
             {
-                await daemonPingClient.PingAsync(
+                var pingResponse = await daemonPingInfoClient.PingAndReadAsync(
                         unityProject,
                         attemptTimeout,
                         session.SessionToken,
-                        cancellationToken)
+                        cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
+                if (!DaemonStartLifecycleSnapshot.TryCreate(pingResponse, out var lifecycleSnapshot, out var lifecycleError))
+                {
+                    return DaemonStartResult.Failure(lifecycleError!);
+                }
+
                 if (editorMode.HasValue)
                 {
                     var requestedEditorMode = DaemonEditorModeCodec.ToValue(editorMode.Value);
@@ -213,7 +229,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
                     }
                 }
 
-                return DaemonStartResult.AlreadyRunning(session);
+                return DaemonStartResult.AlreadyRunning(session, lifecycleSnapshot);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -228,14 +244,16 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
             catch (Exception exception)
             {
                 return DaemonStartResult.Failure(ExecutionError.InternalError(
-                    $"Failed to probe recovering daemon session. {exception.Message}"));
+                    $"Failed to probe recovering daemon session. {exception.Message}"),
+                    daemonStatus: DaemonStatusKind.Stale);
             }
 
             if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
             {
                 return DaemonStartResult.Failure(ExecutionError.Timeout(
                     $"Timed out while waiting for recovering daemon session. ProcessId={session.ProcessId}.",
-                    ExecutionErrorCodes.IpcTimeout));
+                    ExecutionErrorCodes.IpcTimeout),
+                    daemonStatus: DaemonStatusKind.Stale);
             }
 
             await TimeProviderDelay.DelayAsync(GetRetryDelay(remainingTimeout), timeProvider, cancellationToken)

@@ -1,5 +1,6 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -61,6 +62,31 @@ public sealed class DaemonStartCommandTests
         Assert.Equal((int)CliExitCode.Success, exitCode);
         Assert.Equal(1, service.CallCount);
         Assert.Equal(expectedPolicy, service.LastOnStartupBlocked);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WhenServiceSucceedsWithCompilingLifecycle_EmitsLifecycleSnapshotPayload ()
+    {
+        var service = new StubDaemonStartService(DaemonStartExecutionResult.Success(CreateSuccessOutput(
+            lifecycleState: IpcEditorLifecycleStateCodec.Compiling,
+            blockingReason: IpcEditorBlockingReasonCodec.Compile,
+            canAcceptExecutionRequests: false)));
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+
+        CommandExecutionState.Reset();
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.StartAsync(
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
+            .HasString("startStatus", "started")
+            .HasString("daemonStatus", "running")
+            .HasString("lifecycleState", IpcEditorLifecycleStateCodec.Compiling)
+            .HasString("blockingReason", IpcEditorBlockingReasonCodec.Compile)
+            .HasBoolean("canAcceptExecutionRequests", false);
     }
 
     [Fact]
@@ -136,7 +162,11 @@ public sealed class DaemonStartCommandTests
                 Message: "The name 'MissingType' does not exist in the current context"));
         var service = new StubDaemonStartService(DaemonStartExecutionResult.Failure(
             ExecutionError.Timeout("registration timeout", ExecutionErrorCodes.IpcTimeout),
-            diagnosis));
+            DaemonStartFailureExecutionOutput.Create(
+                DaemonStatusKind.NotRunning,
+                1234,
+                startup: null,
+                diagnosis)));
         var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
 
         CommandExecutionState.Reset();
@@ -170,7 +200,152 @@ public sealed class DaemonStartCommandTests
         Assert.Equal("The name 'MissingType' does not exist in the current context", primaryDiagnosticJson.GetProperty("message").GetString());
     }
 
-    private static DaemonStartExecutionOutput CreateSuccessOutput ()
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WhenServiceFailureHasStartupBlocker_EmitsStartupFailurePayload ()
+    {
+        var diagnosis = CreateDiagnosis(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed);
+        var startup = new DaemonStartupObservation(
+            StartupStatus: DaemonStartupStatusValues.Blocked,
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            LaunchAttemptId: "20260312_040500Z_00abcdef",
+            ProcessAction: DaemonStartupProcessActionValues.Kept,
+            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            EditorMode: DaemonEditorModeValues.Batchmode,
+            OwnerKind: DaemonSessionOwnerKindValues.Cli,
+            CanShutdownProcess: true,
+            ProcessId: 4321,
+            StartedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 1, TimeSpan.Zero),
+            ElapsedMilliseconds: 2500,
+            ArtifactPath: "/repo/.ucli/local/fingerprints/fp/launchAttempts/20260312_040500Z_00abcdef/startup-diagnosis.json");
+        var service = new StubDaemonStartService(DaemonStartExecutionResult.Failure(
+            ExecutionError.InternalError("Unity startup is blocked.", DaemonErrorCodes.DaemonStartupBlocked),
+            DaemonStartFailureExecutionOutput.Create(
+                DaemonStatusKind.NotRunning,
+                1234,
+                startup,
+                diagnosis)));
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+
+        CommandExecutionState.Reset();
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.StartAsync(
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.ToolError, exitCode);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.DaemonStart,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.ToolError);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, DaemonErrorCodes.DaemonStartupBlocked);
+
+        var payload = outputJson.RootElement.GetProperty("payload");
+        JsonAssert.For(payload)
+            .HasString("startStatus", "failed")
+            .HasString("daemonStatus", "notRunning")
+            .HasInt32("timeoutMilliseconds", 1234)
+            .IsNull("session")
+            .HasString("retryDisposition", DaemonStartupRetryDispositionValues.RetryAfterFix)
+            .HasBoolean("safeToRetryImmediately", false)
+            .HasProperty("startup", startupJson => startupJson
+                .HasString("startupStatus", DaemonStartupStatusValues.Blocked)
+                .HasString("startupBlockingReason", DaemonStartupBlockingReasonValues.Compile)
+                .HasString("launchAttemptId", "20260312_040500Z_00abcdef")
+                .HasString("editorMode", DaemonEditorModeValues.Batchmode)
+                .HasString("ownerKind", DaemonSessionOwnerKindValues.Cli)
+                .HasBoolean("canShutdownProcess", true)
+                .HasInt32("processId", 4321)
+                .HasString("startedAtUtc", "2026-03-12T04:05:01+00:00")
+                .HasInt32("elapsedMilliseconds", 2500)
+                .HasString("processAction", DaemonStartupProcessActionValues.Kept)
+                .IsNull("processTermination")
+                .HasString("artifactPath", "/repo/.ucli/local/fingerprints/fp/launchAttempts/20260312_040500Z_00abcdef/startup-diagnosis.json")
+                .HasString("retryDisposition", DaemonStartupRetryDispositionValues.RetryAfterFix))
+            .HasProperty("diagnosis", diagnosisJson => diagnosisJson
+                .HasString("reason", DaemonDiagnosisReasonValues.UnityScriptCompilationFailed));
+        Assert.False(payload.TryGetProperty("lifecycleState", out _));
+        Assert.False(payload.TryGetProperty("blockingReason", out _));
+        Assert.False(payload.TryGetProperty("canAcceptExecutionRequests", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WhenEndpointRegistrationTimesOut_NormalizesFinalWaitThenRetryToUnknown ()
+    {
+        var startup = new DaemonStartupObservation(
+            StartupStatus: DaemonStartupStatusValues.Timeout,
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.EndpointNotRegistered,
+            LaunchAttemptId: "20260312_040500Z_00abcdef",
+            ProcessAction: DaemonStartupProcessActionValues.Terminated,
+            RetryDisposition: DaemonStartupRetryDispositionValues.WaitThenRetry);
+        var service = new StubDaemonStartService(DaemonStartExecutionResult.Failure(
+            ExecutionError.Timeout("endpoint registration timeout", ExecutionErrorCodes.IpcTimeout),
+            DaemonStartFailureExecutionOutput.Create(
+                DaemonStatusKind.NotRunning,
+                1234,
+                startup,
+                diagnosis: null)));
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+
+        CommandExecutionState.Reset();
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.StartAsync(
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.ToolError, exitCode);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, ExecutionErrorCodes.IpcTimeout);
+        JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
+            .HasString("startStatus", "failed")
+            .HasString("daemonStatus", "notRunning")
+            .IsNull("session")
+            .HasString("retryDisposition", DaemonStartupRetryDispositionValues.Unknown)
+            .HasBoolean("safeToRetryImmediately", false)
+            .HasProperty("startup", startupJson => startupJson
+                .HasString("startupStatus", DaemonStartupStatusValues.Timeout)
+                .HasString("startupBlockingReason", DaemonStartupBlockingReasonValues.EndpointNotRegistered)
+                .HasString("retryDisposition", DaemonStartupRetryDispositionValues.Unknown));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WhenFailureCanRetryImmediately_EmitsSafeToRetryImmediately ()
+    {
+        var startup = new DaemonStartupObservation(
+            StartupStatus: DaemonStartupStatusValues.Failed,
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.Unknown,
+            LaunchAttemptId: "20260312_040500Z_00abcdef",
+            ProcessAction: DaemonStartupProcessActionValues.None,
+            RetryDisposition: DaemonStartupRetryDispositionValues.RetryImmediately);
+        var service = new StubDaemonStartService(DaemonStartExecutionResult.Failure(
+            ExecutionError.InternalError("transient startup failure", DaemonErrorCodes.DaemonStartupBlocked),
+            DaemonStartFailureExecutionOutput.Create(
+                DaemonStatusKind.NotRunning,
+                1234,
+                startup,
+                diagnosis: null)));
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+
+        CommandExecutionState.Reset();
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.StartAsync(
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.ToolError, exitCode);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
+            .HasString("retryDisposition", DaemonStartupRetryDispositionValues.RetryImmediately)
+            .HasBoolean("safeToRetryImmediately", true)
+            .HasProperty("startup", startupJson => startupJson
+                .HasString("retryDisposition", DaemonStartupRetryDispositionValues.RetryImmediately));
+    }
+
+    private static DaemonStartExecutionOutput CreateSuccessOutput (
+        string lifecycleState = IpcEditorLifecycleStateCodec.Ready,
+        string? blockingReason = null,
+        bool canAcceptExecutionRequests = true)
     {
         return new DaemonStartExecutionOutput(
             StartStatus: DaemonStartStatus.Started,
@@ -186,7 +361,22 @@ public sealed class DaemonStartCommandTests
                 EndpointAddress: "ucli-daemon-endpoint",
                 ProcessId: 1234,
                 ProcessStartedAtUtc: DateTimeOffset.UtcNow,
-                OwnerProcessId: 5678));
+                OwnerProcessId: 5678),
+            LifecycleState: lifecycleState,
+            BlockingReason: blockingReason,
+            CanAcceptExecutionRequests: canAcceptExecutionRequests);
+    }
+
+    private static DaemonDiagnosisOutput CreateDiagnosis (string reason)
+    {
+        return new DaemonDiagnosisOutput(
+            Reason: reason,
+            Message: "startup diagnosis",
+            ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+            IsInferred: true,
+            UpdatedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 6, TimeSpan.Zero),
+            ProcessId: 1234,
+            EditorInstancePath: "/repo/UnityProject/Library/EditorInstance.json");
     }
 
     private sealed class StubDaemonStartService : IDaemonStartService

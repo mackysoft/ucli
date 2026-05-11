@@ -1,28 +1,38 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 
-/// <summary> Represents daemon startup readiness probing result. </summary>
-/// <param name="IsReady"> Whether daemon startup probe succeeded. </param>
+/// <summary> Represents daemon startup endpoint-registration probing result. </summary>
+/// <param name="IsReady"> Whether daemon endpoint registration probe succeeded. </param>
 /// <param name="Error"> The structured error when probe failed. </param>
+/// <param name="LifecycleSnapshot"> The endpoint-registered lifecycle snapshot when probing succeeded. </param>
+/// <param name="FailureClassification"> The classified startup blocker when probing failed with a known blocker. </param>
 internal sealed record DaemonStartupReadinessProbeResult (
     bool IsReady,
-    ExecutionError? Error)
+    ExecutionError? Error,
+    DaemonStartLifecycleSnapshot? LifecycleSnapshot,
+    DaemonStartupFailureClassification? FailureClassification)
 {
-    /// <summary> Creates a successful readiness-probe result. </summary>
-    /// <returns> The successful readiness-probe result. </returns>
-    public static DaemonStartupReadinessProbeResult Ready ()
+    /// <summary> Creates a successful endpoint-registration probe result. </summary>
+    /// <param name="lifecycleSnapshot"> The endpoint-registered lifecycle snapshot. </param>
+    /// <returns> The successful endpoint-registration probe result. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="lifecycleSnapshot" /> is <see langword="null" />. </exception>
+    public static DaemonStartupReadinessProbeResult Ready (DaemonStartLifecycleSnapshot lifecycleSnapshot)
     {
-        return new DaemonStartupReadinessProbeResult(true, null);
+        ArgumentNullException.ThrowIfNull(lifecycleSnapshot);
+        return new DaemonStartupReadinessProbeResult(true, null, lifecycleSnapshot, null);
     }
 
-    /// <summary> Creates a failed readiness-probe result. </summary>
+    /// <summary> Creates a failed endpoint-registration probe result. </summary>
     /// <param name="error"> The structured error. </param>
     /// <returns> The failed readiness-probe result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="error" /> is <see langword="null" />. </exception>
-    public static DaemonStartupReadinessProbeResult Failure (ExecutionError error)
+    public static DaemonStartupReadinessProbeResult Failure (
+        ExecutionError error,
+        DaemonStartupFailureClassification? failureClassification = null)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return new DaemonStartupReadinessProbeResult(false, error);
+        return new DaemonStartupReadinessProbeResult(false, error, null, failureClassification);
     }
 }

@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Preflight;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -81,13 +82,24 @@ internal sealed class DaemonStartService : IDaemonStartService
             .ConfigureAwait(false);
         if (pluginLocateError != null)
         {
-            return DaemonStartExecutionResult.Failure(pluginLocateError);
+            return DaemonStartExecutionResult.Failure(
+                pluginLocateError,
+                DaemonStartFailureExecutionOutput.Create(
+                    DaemonStatusKind.NotRunning,
+                    checked((int)executionContext.Timeout.TotalMilliseconds),
+                    startup: null,
+                    diagnosis: null));
         }
 
         if (!deadline.TryGetRemainingTimeout(out var ensureRunningTimeout))
         {
             return DaemonStartExecutionResult.Failure(ExecutionError.Timeout(
-                "Timed out before daemon lifecycle orchestration could begin."));
+                "Timed out before daemon lifecycle orchestration could begin."),
+                DaemonStartFailureExecutionOutput.Create(
+                    DaemonStatusKind.NotRunning,
+                    checked((int)executionContext.Timeout.TotalMilliseconds),
+                    startup: null,
+                    diagnosis: null));
         }
 
         var startResult = await daemonProjectLifecycleGateway.EnsureRunningAsync(
@@ -103,14 +115,23 @@ internal sealed class DaemonStartService : IDaemonStartService
                 ? null
                 : daemonDiagnosisOutputMapper.ToOutput(startResult.Diagnosis);
             return DaemonStartExecutionResult.Failure(startResult.Error ?? ExecutionError.InternalError(
-                "Daemon start operation failed without structured error details."), diagnosis, startResult.Startup);
+                "Daemon start operation failed without structured error details."),
+                DaemonStartFailureExecutionOutput.Create(
+                    startResult.DaemonStatus,
+                    checked((int)executionContext.Timeout.TotalMilliseconds),
+                    startResult.Startup,
+                    diagnosis));
         }
 
+        var lifecycleSnapshot = startResult.LifecycleSnapshot ?? DaemonStartLifecycleSnapshot.Ready();
         var output = new DaemonStartExecutionOutput(
             StartStatus: startResult.Status,
             DaemonStatus: DaemonStatusKind.Running,
             TimeoutMilliseconds: checked((int)executionContext.Timeout.TotalMilliseconds),
-            Session: daemonSessionOutputMapper.ToOutput(startResult.Session!));
+            Session: daemonSessionOutputMapper.ToOutput(startResult.Session!),
+            LifecycleState: lifecycleSnapshot.LifecycleState,
+            BlockingReason: lifecycleSnapshot.BlockingReason,
+            CanAcceptExecutionRequests: lifecycleSnapshot.CanAcceptExecutionRequests);
         return DaemonStartExecutionResult.Success(output);
     }
 

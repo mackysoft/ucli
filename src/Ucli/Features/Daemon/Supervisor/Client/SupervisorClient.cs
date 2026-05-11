@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
@@ -125,7 +126,8 @@ internal sealed class SupervisorClient
                 return DaemonStartResult.Failure(
                     MapResponseFailure(firstError, status),
                     failurePayload?.Diagnosis,
-                    failurePayload?.Startup);
+                    failurePayload?.Startup,
+                    ResolveDaemonStatus(failurePayload?.DaemonStatus));
             }
 
             if (!IpcPayloadCodec.TryDeserialize(
@@ -139,12 +141,12 @@ internal sealed class SupervisorClient
 
             if (string.Equals(payload.StartStatus, DaemonStartStateCodec.Started, StringComparison.Ordinal))
             {
-                return DaemonStartResult.Started(payload.Session);
+                return DaemonStartResult.Started(payload.Session, payload.LifecycleSnapshot);
             }
 
             if (string.Equals(payload.StartStatus, DaemonStartStateCodec.AlreadyRunning, StringComparison.Ordinal))
             {
-                return DaemonStartResult.AlreadyRunning(payload.Session);
+                return DaemonStartResult.AlreadyRunning(payload.Session, payload.LifecycleSnapshot);
             }
 
             return DaemonStartResult.Failure(ExecutionError.InternalError(
@@ -316,5 +318,12 @@ internal sealed class SupervisorClient
             out _)
             ? payload
             : null;
+    }
+
+    private static DaemonStatusKind ResolveDaemonStatus (string? daemonStatus)
+    {
+        return string.Equals(daemonStatus, DaemonStatusStateCodec.Stale, StringComparison.Ordinal)
+            ? DaemonStatusKind.Stale
+            : DaemonStatusKind.NotRunning;
     }
 }

@@ -7,6 +7,7 @@ namespace MackySoft.Ucli.Tests.Daemon;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -32,7 +33,7 @@ public sealed class DaemonLaunchServiceTests
         };
         var readinessProbe = new StubDaemonStartupReadinessProbe
         {
-            NextResult = DaemonStartupReadinessProbeResult.Ready(),
+            NextResult = DaemonStartupReadinessProbeResult.Ready(DaemonStartLifecycleSnapshot.Ready()),
         };
         var compensationService = new StubDaemonLaunchCompensationService();
         var diagnosisStore = new StubDaemonDiagnosisStore();
@@ -849,6 +850,130 @@ public sealed class DaemonLaunchServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Launch_WhenReadinessProbeReturnsClassifiedBlocker_PreservesStartupClassification ()
+    {
+        var context = CreateContext("fingerprint-probe-classified-blocker");
+        var initialSession = CreateSession(processId: null, projectFingerprint: context.ProjectFingerprint);
+        var updatedSession = initialSession with { ProcessId = 7778 };
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
+        var classification = new DaemonStartupFailureClassification(
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
+            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            Message: "Unity scripts have compiler errors.",
+            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+            PrimaryDiagnostic: null);
+        var launchSessionService = new StubDaemonLaunchSessionService
+        {
+            InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),
+            UpdateProcessIdResult = DaemonLaunchSessionWriteResult.Success(updatedSession),
+        };
+        var launcher = new StubUnityDaemonProcessLauncher
+        {
+            NextResult = UnityDaemonLaunchResult.Success(7778, processStartedAtUtc),
+        };
+        var readinessProbe = new StubDaemonStartupReadinessProbe
+        {
+            NextResult = DaemonStartupReadinessProbeResult.Failure(
+                ExecutionError.InternalError(classification.Message, DaemonErrorCodes.DaemonStartupBlocked),
+                classification),
+        };
+        var compensationService = new StubDaemonLaunchCompensationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var launchAttemptStore = new StubDaemonLaunchAttemptStore();
+        var service = CreateService(
+            launchSessionService,
+            launcher,
+            readinessProbe,
+            compensationService,
+            diagnosisStore,
+            launchAttemptStore: launchAttemptStore);
+
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, result.Error!.Code);
+        Assert.Equal(DaemonStartupStatusValues.Blocked, result.Startup!.StartupStatus);
+        Assert.Equal(DaemonStartupBlockingReasonValues.Compile, result.Startup.StartupBlockingReason);
+        Assert.Equal(DaemonStartupRetryDispositionValues.RetryAfterFix, result.Startup.RetryDisposition);
+        Assert.Equal(DaemonEditorModeValues.Batchmode, result.Startup.EditorMode);
+        Assert.Equal(DaemonSessionOwnerKindValues.Cli, result.Startup.OwnerKind);
+        Assert.Equal(7778, result.Startup.ProcessId);
+        Assert.Equal(processStartedAtUtc, result.Startup.StartedAtUtc);
+        Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup.ProcessAction);
+        Assert.NotNull(result.Startup.ArtifactPath);
+        Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, result.Diagnosis!.Reason);
+        Assert.Equal(1, compensationService.CallCount);
+        Assert.Equal(DaemonStartupStatusValues.Blocked, launchAttemptStore.LastLaunchAttempt!.StartupStatus);
+        Assert.Equal(DaemonStartupBlockingReasonValues.Compile, launchAttemptStore.LastLaunchAttempt.StartupBlockingReason);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenReadinessProbeReturnsClassifiedBlockerAndKeepPolicy_PreservesProcess ()
+    {
+        var context = CreateContext("fingerprint-probe-classified-blocker-keep");
+        var initialSession = CreateSession(processId: null, projectFingerprint: context.ProjectFingerprint);
+        var updatedSession = initialSession with { ProcessId = 7779 };
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
+        var classification = new DaemonStartupFailureClassification(
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
+            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            Message: "Unity scripts have compiler errors.",
+            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+            PrimaryDiagnostic: null);
+        var launchSessionService = new StubDaemonLaunchSessionService
+        {
+            InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),
+            UpdateProcessIdResult = DaemonLaunchSessionWriteResult.Success(updatedSession),
+        };
+        var launcher = new StubUnityDaemonProcessLauncher
+        {
+            NextResult = UnityDaemonLaunchResult.Success(7779, processStartedAtUtc),
+        };
+        var readinessProbe = new StubDaemonStartupReadinessProbe
+        {
+            NextResult = DaemonStartupReadinessProbeResult.Failure(
+                ExecutionError.InternalError(classification.Message, DaemonErrorCodes.DaemonStartupBlocked),
+                classification),
+        };
+        var compensationService = new StubDaemonLaunchCompensationService();
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var launchAttemptStore = new StubDaemonLaunchAttemptStore();
+        var service = CreateService(
+            launchSessionService,
+            launcher,
+            readinessProbe,
+            compensationService,
+            diagnosisStore,
+            launchAttemptStore: launchAttemptStore);
+
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Keep,
+            CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        Assert.Equal(DaemonStartupProcessActionValues.Kept, result.Startup!.ProcessAction);
+        Assert.Equal(0, compensationService.CallCount);
+        Assert.Equal(DaemonStartupProcessActionValues.Kept, launchAttemptStore.LastLaunchAttempt!.ProcessAction);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Launch_WhenLaunchAttemptWriteFails_PreservesPrimaryTimeoutFailureAndStartupObservation ()
     {
         var context = CreateContext("fingerprint-launch-attempt-write-fail");
@@ -1473,7 +1598,7 @@ public sealed class DaemonLaunchServiceTests
 
     private sealed class StubDaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
     {
-        public DaemonStartupReadinessProbeResult NextResult { get; set; } = DaemonStartupReadinessProbeResult.Ready();
+        public DaemonStartupReadinessProbeResult NextResult { get; set; } = DaemonStartupReadinessProbeResult.Ready(DaemonStartLifecycleSnapshot.Ready());
 
         public Action? OnWaitUntilReady { get; set; }
 

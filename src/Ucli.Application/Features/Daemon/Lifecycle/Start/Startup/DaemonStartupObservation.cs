@@ -6,4 +6,11 @@ internal sealed record DaemonStartupObservation (
     string? StartupBlockingReason,
     string? LaunchAttemptId,
     string ProcessAction,
-    string RetryDisposition);
+    string RetryDisposition,
+    string? EditorMode = null,
+    string? OwnerKind = null,
+    bool? CanShutdownProcess = null,
+    int? ProcessId = null,
+    DateTimeOffset? StartedAtUtc = null,
+    int? ElapsedMilliseconds = null,
+    string? ArtifactPath = null);

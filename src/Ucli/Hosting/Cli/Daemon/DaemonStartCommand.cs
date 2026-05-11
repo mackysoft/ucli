@@ -104,22 +104,33 @@ internal sealed class DaemonStartCommand
                 {
                     startStatus = DaemonCommandOutputProjector.ToStartStatus(output.StartStatus),
                     daemonStatus = DaemonCommandOutputProjector.ToStatus(output.DaemonStatus),
+                    lifecycleState = output.LifecycleState,
+                    blockingReason = output.BlockingReason,
+                    canAcceptExecutionRequests = output.CanAcceptExecutionRequests,
                     timeoutMilliseconds = output.TimeoutMilliseconds,
                     session = output.Session,
                 });
         }
 
-        if (executionResult.Diagnosis is null)
+        if (executionResult.FailureOutput is null)
         {
             return CommandResultFactory.FromExecutionError(UcliCommandNames.DaemonStart, executionResult.Error!);
         }
 
+        var failureOutput = executionResult.FailureOutput;
         return CommandFailureProjector.Create(
             UcliCommandNames.DaemonStart,
             ApplicationFailure.FromExecutionError(executionResult.Error!),
             payload: new
             {
-                diagnosis = executionResult.Diagnosis,
+                startStatus = DaemonStartStateCodec.Failed,
+                daemonStatus = DaemonCommandOutputProjector.ToStatus(failureOutput.DaemonStatus),
+                timeoutMilliseconds = failureOutput.TimeoutMilliseconds,
+                session = (object?)null,
+                startup = failureOutput.Startup,
+                diagnosis = failureOutput.Diagnosis,
+                retryDisposition = failureOutput.RetryDisposition,
+                safeToRetryImmediately = failureOutput.SafeToRetryImmediately,
             });
     }
 }

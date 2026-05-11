@@ -87,7 +87,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
             .ConfigureAwait(false);
         if (waitResult.IsSuccess)
         {
-            return DaemonStartResult.AlreadyRunning(waitResult.Session!);
+            return DaemonStartResult.AlreadyRunning(waitResult.Session!, waitResult.LifecycleSnapshot);
         }
 
         if (waitResult.Error!.Kind != ExecutionErrorKind.Timeout)

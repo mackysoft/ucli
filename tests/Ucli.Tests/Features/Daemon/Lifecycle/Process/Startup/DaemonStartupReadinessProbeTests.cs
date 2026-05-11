@@ -1,9 +1,11 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using System.Net.Sockets;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
@@ -28,6 +30,8 @@ public sealed class DaemonStartupReadinessProbeTests
 
         Assert.True(result.IsReady);
         Assert.Null(result.Error);
+        Assert.Equal(IpcEditorLifecycleStateCodec.Ready, result.LifecycleSnapshot!.LifecycleState);
+        Assert.True(result.LifecycleSnapshot.CanAcceptExecutionRequests);
         Assert.Equal(1, pingClient.CallCount);
         Assert.Equal(0, logReader.CallCount);
     }
@@ -57,7 +61,9 @@ public sealed class DaemonStartupReadinessProbeTests
 
         Assert.True(result.IsReady);
         Assert.Null(result.Error);
-        Assert.Equal(2, pingClient.CallCount);
+        Assert.Equal(IpcEditorLifecycleStateCodec.Starting, result.LifecycleSnapshot!.LifecycleState);
+        Assert.False(result.LifecycleSnapshot.CanAcceptExecutionRequests);
+        Assert.Equal(1, pingClient.CallCount);
         Assert.Equal(0, logReader.CallCount);
     }
 
@@ -86,20 +92,47 @@ public sealed class DaemonStartupReadinessProbeTests
 
         Assert.True(result.IsReady);
         Assert.Null(result.Error);
-        Assert.Equal(2, pingClient.CallCount);
+        Assert.Equal(IpcEditorLifecycleStateCodec.DomainReloading, result.LifecycleSnapshot!.LifecycleState);
+        Assert.False(result.LifecycleSnapshot.CanAcceptExecutionRequests);
+        Assert.Equal(1, pingClient.CallCount);
+        Assert.Equal(0, logReader.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WaitUntilReady_WhenPingReportsCompiling_ReturnsReadyWithLifecycleSnapshot ()
+    {
+        var pingClient = new StubDaemonPingInfoClient(static () => ValueTask.FromResult(CreatePingPayload(
+            lifecycleState: IpcEditorLifecycleStateCodec.Compiling,
+            canAcceptExecutionRequests: false)));
+        var logReader = new StubUnityLogReader
+        {
+            NextResult = UnityLogReadResult.Success(string.Empty, false, "/tmp/unity.log", 0),
+        };
+        var probe = CreateProbe(pingClient, logReader);
+
+        var result = await probe.WaitUntilReadyAsync(
+            CreateContext("fingerprint-readiness-compiling"),
+            TimeSpan.FromMilliseconds(500),
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsReady);
+        Assert.Null(result.Error);
+        Assert.Equal(IpcEditorLifecycleStateCodec.Compiling, result.LifecycleSnapshot!.LifecycleState);
+        Assert.False(result.LifecycleSnapshot.CanAcceptExecutionRequests);
+        Assert.Equal(1, pingClient.CallCount);
         Assert.Equal(0, logReader.CallCount);
     }
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, "Exit Play Mode and retry after lifecycleState=ready.")]
-    [InlineData(IpcEditorLifecycleStateCodec.ModalBlocked, IpcEditorBlockingReasonCodec.ModalDialog, "Resolve the modal dialog and retry after lifecycleState=ready.")]
-    [InlineData(IpcEditorLifecycleStateCodec.SafeMode, IpcEditorBlockingReasonCodec.SafeMode, "Resolve compiler errors and retry after lifecycleState=ready.")]
-    [InlineData(IpcEditorLifecycleStateCodec.ShuttingDown, IpcEditorBlockingReasonCodec.Shutdown, "Start a new daemon after shutdown finishes.")]
-    public async Task WaitUntilReady_WhenPingReportsNonWaitableLifecycleState_ReturnsInternalErrorImmediately (
+    [InlineData(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode)]
+    [InlineData(IpcEditorLifecycleStateCodec.ModalBlocked, IpcEditorBlockingReasonCodec.ModalDialog)]
+    [InlineData(IpcEditorLifecycleStateCodec.SafeMode, IpcEditorBlockingReasonCodec.SafeMode)]
+    [InlineData(IpcEditorLifecycleStateCodec.ShuttingDown, IpcEditorBlockingReasonCodec.Shutdown)]
+    public async Task WaitUntilReady_WhenPingReportsNonReadyLifecycleState_ReturnsReadyWithLifecycleSnapshot (
         string lifecycleState,
-        string blockingReason,
-        string expectedMessageSuffix)
+        string blockingReason)
     {
         var pingClient = new StubDaemonPingInfoClient(staticLifecycleState: lifecycleState, staticBlockingReason: blockingReason);
         var logReader = new StubUnityLogReader
@@ -113,11 +146,11 @@ public sealed class DaemonStartupReadinessProbeTests
             TimeSpan.FromSeconds(5),
             cancellationToken: CancellationToken.None);
 
-        Assert.False(result.IsReady);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
-        Assert.Contains($"lifecycleState={lifecycleState}", error.Message, StringComparison.Ordinal);
-        Assert.Contains(expectedMessageSuffix, error.Message, StringComparison.Ordinal);
+        Assert.True(result.IsReady);
+        Assert.Null(result.Error);
+        Assert.Equal(lifecycleState, result.LifecycleSnapshot!.LifecycleState);
+        Assert.Equal(blockingReason, result.LifecycleSnapshot.BlockingReason);
+        Assert.False(result.LifecycleSnapshot.CanAcceptExecutionRequests);
         Assert.Equal(1, pingClient.CallCount);
         Assert.Equal(0, logReader.CallCount);
     }
@@ -145,8 +178,11 @@ public sealed class DaemonStartupReadinessProbeTests
         Assert.False(result.IsReady);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
         Assert.Contains("scripts have compiler errors", error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Marker=Scripts have compiler errors.", error.Message, StringComparison.Ordinal);
+        Assert.Equal(DaemonStartupBlockingReasonValues.Compile, result.FailureClassification!.StartupBlockingReason);
+        Assert.Equal(DaemonStartupRetryDispositionValues.RetryAfterFix, result.FailureClassification.RetryDisposition);
         Assert.Equal(1, pingClient.CallCount);
         Assert.Equal(1, logReader.CallCount);
     }
@@ -204,8 +240,11 @@ public sealed class DaemonStartupReadinessProbeTests
         Assert.False(result.IsReady);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
         Assert.Contains("package resolution failed", error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("FirstError=com.unity.test-framework: Package [com.unity.test-framework@1.6.0] cannot be found", error.Message, StringComparison.Ordinal);
+        Assert.Equal(DaemonStartupBlockingReasonValues.PackageResolution, result.FailureClassification!.StartupBlockingReason);
+        Assert.Equal(DaemonStartupRetryDispositionValues.RetryAfterFix, result.FailureClassification.RetryDisposition);
         Assert.Equal(1, pingClient.CallCount);
         Assert.Equal(1, logReader.CallCount);
     }

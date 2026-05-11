@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
@@ -197,7 +198,12 @@ internal sealed class SupervisorRequestDispatcher
 
         if (!startResult.IsSuccess)
         {
-            return CreateExecutionErrorResponse(request, startResult.Error!, startResult.Diagnosis, startResult.Startup);
+            return CreateExecutionErrorResponse(
+                request,
+                startResult.Error!,
+                startResult.DaemonStatus,
+                startResult.Diagnosis,
+                startResult.Startup);
         }
 
         if (!DaemonStartStateCodec.TryToValue(startResult.Status, out var startStatus))
@@ -213,7 +219,8 @@ internal sealed class SupervisorRequestDispatcher
             new SupervisorIpcContracts.EnsureRunningResponse(
                 StartStatus: startStatus!,
                 DaemonStatus: DaemonStatusStateCodec.Running,
-                Session: startResult.Session!));
+                Session: startResult.Session!,
+                LifecycleSnapshot: startResult.LifecycleSnapshot));
     }
 
     private async ValueTask<IpcResponse> HandleStopProjectAsync (
@@ -366,14 +373,18 @@ internal sealed class SupervisorRequestDispatcher
     private static IpcResponse CreateExecutionErrorResponse (
         IpcRequest request,
         ExecutionError error,
+        DaemonStatusKind daemonStatus,
         DaemonDiagnosis? diagnosis,
         DaemonStartupObservation? startup)
     {
+        var daemonStatusValue = DaemonStatusStateCodec.TryToValue(daemonStatus, out var value)
+            ? value
+            : DaemonStatusStateCodec.NotRunning;
         return SupervisorIpcResponseFactory.CreateErrorResponse(
             request,
             ExecutionErrorCodeMapper.ToCode(error),
             error.Message,
-            new SupervisorIpcContracts.EnsureRunningFailureResponse(diagnosis, startup));
+            new SupervisorIpcContracts.EnsureRunningFailureResponse(daemonStatusValue, diagnosis, startup));
     }
 
     private sealed record ProjectContextResult (

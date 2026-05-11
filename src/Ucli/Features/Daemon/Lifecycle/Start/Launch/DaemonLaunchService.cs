@@ -106,6 +106,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                     unityProject,
                     editorMode,
                     deadline,
+                    onStartupBlocked,
                     launchAttemptId,
                     launchStartedAtUtc,
                     cancellationToken)
@@ -127,6 +128,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         ResolvedUnityProjectContext unityProject,
         DaemonEditorMode editorMode,
         ExecutionDeadline deadline,
+        DaemonStartupBlockedProcessPolicy onStartupBlocked,
         string launchAttemptId,
         DateTimeOffset launchStartedAtUtc,
         CancellationToken cancellationToken)
@@ -244,7 +246,23 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 .ConfigureAwait(false);
             if (probeResult.IsReady)
             {
-                return DaemonStartResult.Started(session);
+                return DaemonStartResult.Started(session, probeResult.LifecycleSnapshot);
+            }
+
+            if (probeResult.FailureClassification is not null)
+            {
+                return await CreateClassifiedBatchmodeStartupBlockedFailureAsync(
+                        unityProject,
+                        probeResult.FailureClassification,
+                        probeResult.Error!,
+                        onStartupBlocked,
+                        launchedProcessId,
+                        launchedProcessStartedAtUtc,
+                        expectedIssuedAtUtc,
+                        launchAttemptId,
+                        launchStartedAtUtc,
+                        unityLogPath)
+                    .ConfigureAwait(false);
             }
 
             return await CreateFailureWithCompensationAsync(
@@ -352,7 +370,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         }
         if (waitResult.IsSuccess)
         {
-            return DaemonStartResult.Started(waitResult.Session!);
+            return DaemonStartResult.Started(waitResult.Session!, waitResult.LifecycleSnapshot);
         }
 
         if (waitResult.IsBlocked)
@@ -428,12 +446,20 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 CancellationToken.None)
             .ConfigureAwait(false);
         var processAction = ResolveCompensatedProcessAction(processId, compensationResult);
-        var startup = new DaemonStartupObservation(
-            StartupStatus: startupStatus,
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.Unknown,
-            LaunchAttemptId: launchAttemptId,
-            ProcessAction: processAction,
-            RetryDisposition: DaemonStartupRetryDispositionValues.Unknown);
+        var startup = CreateStartupObservation(
+            startupStatus,
+            DaemonStartupBlockingReasonValues.Unknown,
+            launchAttemptId,
+            processAction,
+            DaemonStartupRetryDispositionValues.Unknown,
+            editorMode,
+            DaemonSessionOwnerKindValues.Cli,
+            processId is not null,
+            processId,
+            processStartedAtUtc,
+            launchStartedAtUtc,
+            diagnosis.UpdatedAtUtc,
+            CreateLaunchAttemptArtifactPath(unityProject, launchAttemptId));
         var launchAttemptWriteResult = await WriteLaunchAttemptAsync(
                 unityProject,
                 launchAttemptId,
@@ -531,12 +557,20 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 unityLogPath,
                 diagnosis)
             .ConfigureAwait(false);
-        var startup = new DaemonStartupObservation(
-            StartupStatus: startupStatus,
-            StartupBlockingReason: startupBlockingReason,
-            LaunchAttemptId: launchAttemptId,
-            ProcessAction: processAction,
-            RetryDisposition: retryDisposition);
+        var startup = CreateStartupObservation(
+            startupStatus,
+            startupBlockingReason,
+            launchAttemptId,
+            processAction,
+            retryDisposition,
+            editorMode,
+            DaemonSessionOwnerKindValues.Cli,
+            processId is not null,
+            processId,
+            processStartedAtUtc,
+            launchStartedAtUtc,
+            updatedAtUtc,
+            CreateLaunchAttemptArtifactPath(unityProject, launchAttemptId));
         if (!launchAttemptWriteResult.IsSuccess)
         {
             return DaemonStartResult.Failure(
@@ -618,6 +652,175 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             ProcessStartedAtUtc: processStartedAtUtc);
     }
 
+    private static string CreateLaunchAttemptArtifactPath (
+        ResolvedUnityProjectContext unityProject,
+        string launchAttemptId)
+    {
+        return UcliStoragePathResolver.ResolveLaunchAttemptStartupDiagnosisPath(
+            unityProject.RepositoryRoot,
+            unityProject.ProjectFingerprint,
+            launchAttemptId);
+    }
+
+    private static DaemonStartupObservation CreateStartupObservation (
+        string startupStatus,
+        string startupBlockingReason,
+        string launchAttemptId,
+        string processAction,
+        string retryDisposition,
+        string? editorMode,
+        string? ownerKind,
+        bool? canShutdownProcess,
+        int? processId,
+        DateTimeOffset? processStartedAtUtc,
+        DateTimeOffset launchStartedAtUtc,
+        DateTimeOffset updatedAtUtc,
+        string? artifactPath)
+    {
+        return new DaemonStartupObservation(
+            StartupStatus: startupStatus,
+            StartupBlockingReason: startupBlockingReason,
+            LaunchAttemptId: launchAttemptId,
+            ProcessAction: processAction,
+            RetryDisposition: retryDisposition,
+            EditorMode: editorMode,
+            OwnerKind: ownerKind,
+            CanShutdownProcess: canShutdownProcess,
+            ProcessId: processId,
+            StartedAtUtc: processStartedAtUtc,
+            ElapsedMilliseconds: checked((int)Math.Max(0, (updatedAtUtc - launchStartedAtUtc).TotalMilliseconds)),
+            ArtifactPath: artifactPath);
+    }
+
+    private async ValueTask<DaemonStartResult> CreateClassifiedBatchmodeStartupBlockedFailureAsync (
+        ResolvedUnityProjectContext unityProject,
+        DaemonStartupFailureClassification classification,
+        ExecutionError primaryError,
+        DaemonStartupBlockedProcessPolicy onStartupBlocked,
+        int? processId,
+        DateTimeOffset? processStartedAtUtc,
+        DateTimeOffset sessionIssuedAtUtc,
+        string launchAttemptId,
+        DateTimeOffset launchStartedAtUtc,
+        string? unityLogPath)
+    {
+        var updatedAtUtc = timeProvider.GetUtcNow();
+        var diagnosis = new DaemonDiagnosis(
+            Reason: classification.Reason,
+            Message: primaryError.Message,
+            ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+            IsInferred: true,
+            UpdatedAtUtc: updatedAtUtc,
+            ProcessId: processId,
+            EditorInstancePath: null,
+            SessionIssuedAtUtc: sessionIssuedAtUtc,
+            ProcessStartedAtUtc: processStartedAtUtc,
+            UnityLogPath: unityLogPath,
+            StartupPhase: classification.StartupPhase,
+            ActionRequired: classification.ActionRequired,
+            PrimaryDiagnostic: classification.PrimaryDiagnostic);
+        var diagnosisWriteResult = await daemonDiagnosisStore.WriteAsync(
+                unityProject.RepositoryRoot,
+                unityProject.ProjectFingerprint,
+                diagnosis,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        var policyResult = await ApplyBatchmodeStartupBlockedProcessPolicyAsync(
+                unityProject,
+                onStartupBlocked,
+                processId,
+                processStartedAtUtc,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        var startup = CreateStartupObservation(
+            DaemonStartupStatusValues.Blocked,
+            classification.StartupBlockingReason,
+            launchAttemptId,
+            policyResult.ProcessAction,
+            classification.RetryDisposition,
+            DaemonEditorModeValues.Batchmode,
+            DaemonSessionOwnerKindValues.Cli,
+            processId is not null,
+            processId,
+            processStartedAtUtc,
+            launchStartedAtUtc,
+            updatedAtUtc,
+            CreateLaunchAttemptArtifactPath(unityProject, launchAttemptId));
+        var launchAttemptWriteResult = await WriteLaunchAttemptAsync(
+                unityProject,
+                launchAttemptId,
+                launchStartedAtUtc,
+                updatedAtUtc,
+                startup.StartupStatus,
+                startup.StartupBlockingReason!,
+                startup.RetryDisposition,
+                policyResult.ProcessAction,
+                DaemonEditorModeValues.Batchmode,
+                processId,
+                processStartedAtUtc,
+                unityLogPath,
+                diagnosis)
+            .ConfigureAwait(false);
+        if (!diagnosisWriteResult.IsSuccess)
+        {
+            return DaemonStartResult.Failure(CreateAugmentedPrimaryError(
+                primaryError,
+                "Batchmode startup is blocked and diagnosis persistence failed. " +
+                $"StartupError={primaryError.Message} " +
+                $"DiagnosisError={diagnosisWriteResult.Error!.Message}"), diagnosis, startup);
+        }
+
+        if (!launchAttemptWriteResult.IsSuccess)
+        {
+            return DaemonStartResult.Failure(CreateAugmentedPrimaryError(
+                primaryError,
+                "Batchmode startup is blocked and launch-attempt artifact persistence failed. " +
+                $"StartupError={primaryError.Message} " +
+                $"ArtifactError={launchAttemptWriteResult.Error!.Message}"), diagnosis, startup);
+        }
+
+        if (policyResult.CleanupResult is { IsSuccess: false })
+        {
+            return DaemonStartResult.Failure(CreateAugmentedPrimaryError(
+                primaryError,
+                "Batchmode startup is blocked and cleanup failed. " +
+                $"StartupError={primaryError.Message} " +
+                $"CleanupError={policyResult.CleanupResult.Error!.Message}"), diagnosis, startup);
+        }
+
+        return DaemonStartResult.Failure(primaryError, diagnosis, startup);
+    }
+
+    private async ValueTask<StartupBlockedProcessPolicyResult> ApplyBatchmodeStartupBlockedProcessPolicyAsync (
+        ResolvedUnityProjectContext unityProject,
+        DaemonStartupBlockedProcessPolicy onStartupBlocked,
+        int? processId,
+        DateTimeOffset? processStartedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (onStartupBlocked == DaemonStartupBlockedProcessPolicy.Keep)
+        {
+            return new StartupBlockedProcessPolicyResult(
+                CleanupResult: null,
+                ProcessAction: processId is null
+                    ? DaemonStartupProcessActionValues.None
+                    : DaemonStartupProcessActionValues.Kept);
+        }
+
+        var cleanupResult = await daemonLaunchCompensationService.CleanupFailedLaunchAsync(
+                unityProject,
+                CreateTerminationTarget(processId, processStartedAtUtc),
+                DaemonTimeouts.LaunchCompensationTimeout,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return new StartupBlockedProcessPolicyResult(
+            cleanupResult,
+            ResolveCompensatedProcessAction(processId, cleanupResult));
+    }
+
     private static string ResolveCompensatedProcessAction (
         int? processId,
         DaemonSessionStoreOperationResult compensationResult)
@@ -676,17 +879,26 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 CancellationToken.None)
             .ConfigureAwait(false);
         var processAction = ResolveCompensatedProcessAction(processId, compensationResult);
-        var startup = new DaemonStartupObservation(
-            StartupStatus: DaemonStartupStatusValues.Timeout,
-            StartupBlockingReason: DaemonStartupBlockingReasonValues.EndpointNotRegistered,
-            LaunchAttemptId: launchAttemptId,
-            ProcessAction: processAction,
-            RetryDisposition: DaemonStartupRetryDispositionValues.WaitThenRetry);
+        var updatedAtUtc = timeProvider.GetUtcNow();
+        var startup = CreateStartupObservation(
+            DaemonStartupStatusValues.Timeout,
+            DaemonStartupBlockingReasonValues.EndpointNotRegistered,
+            launchAttemptId,
+            processAction,
+            DaemonStartupRetryDispositionValues.WaitThenRetry,
+            DaemonEditorModeValues.Gui,
+            DaemonSessionOwnerKindValues.Cli,
+            true,
+            processId,
+            processStartedAtUtc,
+            launchStartedAtUtc,
+            updatedAtUtc,
+            CreateLaunchAttemptArtifactPath(unityProject, launchAttemptId));
         var launchAttemptWriteResult = await WriteLaunchAttemptAsync(
                 unityProject,
                 launchAttemptId,
                 launchStartedAtUtc,
-                timeProvider.GetUtcNow(),
+                updatedAtUtc,
                 startup.StartupStatus,
                 startup.StartupBlockingReason!,
                 startup.RetryDisposition,
@@ -812,7 +1024,10 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         var startup = CreateGuiStartupBlockedObservation(
             blocker,
             launchAttemptId,
-            processPolicyResult.ProcessAction);
+            processPolicyResult.ProcessAction,
+            launchStartedAtUtc,
+            updatedAtUtc,
+            CreateLaunchAttemptArtifactPath(unityProject, launchAttemptId));
         var launchAttemptWriteResult = await WriteLaunchAttemptAsync(
                 unityProject,
                 launchAttemptId,
@@ -869,7 +1084,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         return DaemonStartResult.Failure(primaryError, diagnosis, startup);
     }
 
-    private async ValueTask<GuiStartupBlockedProcessPolicyResult> ApplyGuiStartupBlockedProcessPolicyAsync (
+    private async ValueTask<StartupBlockedProcessPolicyResult> ApplyGuiStartupBlockedProcessPolicyAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonGuiStartupBlocker blocker,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
@@ -885,7 +1100,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                     DaemonTimeouts.LaunchCompensationTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);
-            return new GuiStartupBlockedProcessPolicyResult(
+            return new StartupBlockedProcessPolicyResult(
                 cleanupResult,
                 DaemonStartupProcessActionValues.None);
         }
@@ -893,7 +1108,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         if (onStartupBlocked != DaemonStartupBlockedProcessPolicy.Terminate)
         {
             // NOTE: GUI blockers are kept by default so users can resolve Safe Mode, modal, or project errors in Unity.
-            return new GuiStartupBlockedProcessPolicyResult(
+            return new StartupBlockedProcessPolicyResult(
                 CleanupResult: null,
                 ProcessAction: DaemonStartupProcessActionValues.Kept);
         }
@@ -905,7 +1120,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 cancellationToken)
             .ConfigureAwait(false);
 
-        return new GuiStartupBlockedProcessPolicyResult(
+        return new StartupBlockedProcessPolicyResult(
             terminationResult,
             terminationResult.IsSuccess
                 ? DaemonStartupProcessActionValues.Terminated
@@ -932,18 +1147,29 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
     private static DaemonStartupObservation CreateGuiStartupBlockedObservation (
         DaemonGuiStartupBlocker blocker,
         string launchAttemptId,
-        string processAction)
+        string processAction,
+        DateTimeOffset launchStartedAtUtc,
+        DateTimeOffset updatedAtUtc,
+        string artifactPath)
     {
         ArgumentNullException.ThrowIfNull(blocker);
         ArgumentException.ThrowIfNullOrWhiteSpace(launchAttemptId);
         ArgumentException.ThrowIfNullOrWhiteSpace(processAction);
 
-        return new DaemonStartupObservation(
-            StartupStatus: DaemonStartupStatusValues.Blocked,
-            StartupBlockingReason: blocker.StartupBlockingReason,
-            LaunchAttemptId: launchAttemptId,
-            ProcessAction: processAction,
-            RetryDisposition: blocker.RetryDisposition);
+        return CreateStartupObservation(
+            DaemonStartupStatusValues.Blocked,
+            blocker.StartupBlockingReason,
+            launchAttemptId,
+            processAction,
+            blocker.RetryDisposition,
+            DaemonEditorModeValues.Gui,
+            DaemonSessionOwnerKindValues.Cli,
+            true,
+            blocker.ProcessId,
+            blocker.ProcessStartedAtUtc,
+            launchStartedAtUtc,
+            updatedAtUtc,
+            artifactPath);
     }
 
     private string CreateUniqueLaunchAttemptId (
@@ -967,7 +1193,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         return launchAttemptIdGenerator.Create(launchStartedAtUtc);
     }
 
-    private sealed record GuiStartupBlockedProcessPolicyResult (
+    private sealed record StartupBlockedProcessPolicyResult (
         DaemonSessionStoreOperationResult? CleanupResult,
         string ProcessAction);
 

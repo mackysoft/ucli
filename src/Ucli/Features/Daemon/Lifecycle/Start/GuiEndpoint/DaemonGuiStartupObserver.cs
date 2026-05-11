@@ -76,7 +76,9 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
                 .ConfigureAwait(false);
             if (sessionResult.IsSuccess)
             {
-                return DaemonGuiStartupObservationResult.Success(sessionResult.Session!);
+                return DaemonGuiStartupObservationResult.Success(
+                    sessionResult.Session!,
+                    sessionResult.LifecycleSnapshot);
             }
 
             if (sessionResult.Error!.Kind != ExecutionErrorKind.Timeout)
