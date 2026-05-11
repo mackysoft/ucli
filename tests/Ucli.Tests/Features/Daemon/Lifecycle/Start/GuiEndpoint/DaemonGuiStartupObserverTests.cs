@@ -4,6 +4,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Identity;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Logs;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;

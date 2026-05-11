@@ -12,7 +12,6 @@ global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpo
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
-global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 global using MackySoft.Ucli.Application.Shared.Context.Project;
 global using MackySoft.Ucli.Application.Shared.Execution;
 global using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;

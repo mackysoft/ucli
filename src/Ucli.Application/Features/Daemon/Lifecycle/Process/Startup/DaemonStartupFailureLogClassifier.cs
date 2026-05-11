@@ -1,5 +1,6 @@
 using System.Globalization;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 
@@ -32,21 +33,6 @@ internal static class DaemonStartupFailureLogClassifier
 
     /// <summary> Tries to classify one daemon startup failure from one startup log segment. </summary>
     /// <param name="startupLogText"> The latest Unity startup log segment. </param>
-    /// <param name="error"> The structured startup failure when classification succeeds. </param>
-    /// <returns> <see langword="true" /> when one known startup failure was classified; otherwise, <see langword="false" />. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="startupLogText" /> is <see langword="null" />. </exception>
-    public static bool TryClassify (
-        string startupLogText,
-        out ExecutionError? error)
-    {
-        return TryClassify(
-            startupLogText,
-            DaemonStartupFailureClassificationContext.Batchmode,
-            out error);
-    }
-
-    /// <summary> Tries to classify one daemon startup failure from one startup log segment. </summary>
-    /// <param name="startupLogText"> The latest Unity startup log segment. </param>
     /// <param name="context"> The Unity startup observation context. </param>
     /// <param name="error"> The structured startup failure when classification succeeds. </param>
     /// <returns> <see langword="true" /> when one known startup failure was classified; otherwise, <see langword="false" />. </returns>
@@ -66,21 +52,6 @@ internal static class DaemonStartupFailureLogClassifier
 
         error = null;
         return false;
-    }
-
-    /// <summary> Tries to classify one daemon startup failure from one startup log segment. </summary>
-    /// <param name="startupLogText"> The latest Unity startup log segment. </param>
-    /// <param name="classification"> The structured startup failure when classification succeeds. </param>
-    /// <returns> <see langword="true" /> when one known startup failure was classified; otherwise, <see langword="false" />. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="startupLogText" /> is <see langword="null" />. </exception>
-    public static bool TryClassifyFailure (
-        string startupLogText,
-        out DaemonStartupFailureClassification? classification)
-    {
-        return TryClassifyFailure(
-            startupLogText,
-            DaemonStartupFailureClassificationContext.Batchmode,
-            out classification);
     }
 
     /// <summary> Tries to classify one daemon startup failure from one startup log segment. </summary>
@@ -208,15 +179,16 @@ internal static class DaemonStartupFailureLogClassifier
         var previousLineWasNuGetForUnityRestoreContext = false;
         foreach (var trimmedLine in GetNonEmptyTrimmedLines(logText))
         {
+            var lineIsNuGetForUnityRestoreContext = IsNuGetForUnityRestoreContextLine(trimmedLine);
             if (IsNuGetForUnityRestoreFailureLine(trimmedLine, previousLineWasNuGetForUnityRestoreContext))
             {
-                previousLineWasNuGetForUnityRestoreContext = IsNuGetForUnityRestoreContextLine(trimmedLine);
+                previousLineWasNuGetForUnityRestoreContext = lineIsNuGetForUnityRestoreContext;
                 continue;
             }
 
             if (!IsUcliPluginDependencyMissingLine(trimmedLine))
             {
-                previousLineWasNuGetForUnityRestoreContext = IsNuGetForUnityRestoreContextLine(trimmedLine);
+                previousLineWasNuGetForUnityRestoreContext = lineIsNuGetForUnityRestoreContext;
                 continue;
             }
 
@@ -413,12 +385,13 @@ internal static class DaemonStartupFailureLogClassifier
         var previousLineWasNuGetForUnityRestoreContext = false;
         foreach (var trimmedLine in GetNonEmptyTrimmedLines(logText))
         {
+            var lineIsNuGetForUnityRestoreContext = IsNuGetForUnityRestoreContextLine(trimmedLine);
             if (IsNuGetForUnityRestoreFailureLine(trimmedLine, previousLineWasNuGetForUnityRestoreContext))
             {
                 restoreFailureLine ??= trimmedLine;
             }
 
-            previousLineWasNuGetForUnityRestoreContext = IsNuGetForUnityRestoreContextLine(trimmedLine);
+            previousLineWasNuGetForUnityRestoreContext = lineIsNuGetForUnityRestoreContext;
         }
 
         if (restoreFailureLine is null)
@@ -565,9 +538,7 @@ internal static class DaemonStartupFailureLogClassifier
 
     private static bool IsSafeModeLine (string line)
     {
-        return line.Contains("Safe Mode", StringComparison.OrdinalIgnoreCase)
-            || line.Contains("Entering Safe Mode", StringComparison.OrdinalIgnoreCase)
-            || line.Contains("entered Safe Mode", StringComparison.OrdinalIgnoreCase);
+        return line.Contains("Safe Mode", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsRestoreFailureLine (string line)

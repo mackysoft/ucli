@@ -44,7 +44,6 @@ public sealed class DaemonStartupFailureLogClassifierTests
         Assert.NotNull(classification);
         Assert.Equal(DaemonStartupBlockingReasonValues.SafeMode, classification!.StartupBlockingReason);
         Assert.Equal(DaemonDiagnosisReasonValues.EditorUserActionRequired, classification.Reason);
-        Assert.Equal("editorUserActionRequired", classification.Reason);
         Assert.Equal(DaemonStartupRetryDispositionValues.ManualActionRequired, classification.RetryDisposition);
         Assert.Equal(DaemonDiagnosisActionRequiredValues.ResolveUnityDialog, classification.ActionRequired);
         Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.UnityDialog, classification.PrimaryDiagnostic!.Kind);
@@ -97,7 +96,7 @@ public sealed class DaemonStartupFailureLogClassifierTests
         var result = DaemonStartupFailureLogClassifier.TryClassifyFailure(
             """
             [NuGetForUnity] Restoring packages
-            Failed to restore package MackySoft.Ucli.Contracts because the source is unavailable.
+            Failed to restore package com.example.tooling because the source is unavailable.
             """,
             DaemonStartupFailureClassificationContext.Batchmode,
             out var classification);

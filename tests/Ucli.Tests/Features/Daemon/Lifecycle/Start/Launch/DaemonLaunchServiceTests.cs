@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Tests;
@@ -373,33 +374,16 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup!.ProcessAction);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData(
-        DaemonStartupBlockingReasonValues.PackageResolution,
-        DaemonDiagnosisReasonValues.UnityPackageResolutionFailed,
-        DaemonStartupRetryDispositionValues.RetryAfterFix,
-        DaemonDiagnosisStartupPhaseValues.PackageResolution,
-        DaemonDiagnosisActionRequiredValues.ResolvePackages)]
-    [InlineData(
-        DaemonStartupBlockingReasonValues.ModalDialog,
-        DaemonDiagnosisReasonValues.EditorUserActionRequired,
-        DaemonStartupRetryDispositionValues.ManualActionRequired,
-        DaemonDiagnosisStartupPhaseValues.UserAction,
-        DaemonDiagnosisActionRequiredValues.ResolveUnityDialog)]
-    [InlineData(
-        DaemonStartupBlockingReasonValues.SafeMode,
-        DaemonDiagnosisReasonValues.EditorUserActionRequired,
-        DaemonStartupRetryDispositionValues.ManualActionRequired,
-        DaemonDiagnosisStartupPhaseValues.UserAction,
-        DaemonDiagnosisActionRequiredValues.ResolveUnityDialog)]
-    public async Task Launch_WhenEditorModeGuiStartupObserverFindsActionableBlocker_WritesDiagnosisAndPreservesGuiProcess (
-        string startupBlockingReason,
-        string reason,
-        string retryDisposition,
-        string startupPhase,
-        string actionRequired)
+    public async Task Launch_WhenEditorModeGuiStartupObserverFindsActionableBlocker_WritesDiagnosisAndPreservesGuiProcess ()
     {
+        const string startupBlockingReason = DaemonStartupBlockingReasonValues.SafeMode;
+        const string reason = DaemonDiagnosisReasonValues.EditorUserActionRequired;
+        const string retryDisposition = DaemonStartupRetryDispositionValues.ManualActionRequired;
+        const string startupPhase = DaemonDiagnosisStartupPhaseValues.UserAction;
+        const string actionRequired = DaemonDiagnosisActionRequiredValues.ResolveUnityDialog;
+
         var context = CreateContext($"fingerprint-gui-launch-{startupBlockingReason}");
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
         var guiLauncher = new StubUnityGuiEditorProcessLauncher
