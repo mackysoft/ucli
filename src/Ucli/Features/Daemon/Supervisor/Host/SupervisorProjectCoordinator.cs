@@ -140,6 +140,11 @@ internal sealed class SupervisorProjectCoordinator
                 return DaemonStartResult.AlreadyRunning(startResult.Session!, startResult.LifecycleSnapshot);
             }
 
+            if (startResult.Status == DaemonStartStatus.Attached)
+            {
+                return DaemonStartResult.Attached(startResult.Session!, startResult.LifecycleSnapshot);
+            }
+
             // NOTE:
             // Register manageable launched daemons before stability verification so cancellation or
             // verification failure cannot leave a supervisor-owned process outside supervisor ownership.

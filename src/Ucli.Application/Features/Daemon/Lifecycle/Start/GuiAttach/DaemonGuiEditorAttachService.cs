@@ -14,6 +14,8 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
 
     private readonly IDaemonGuiSessionRegistrationAwaiter sessionRegistrationAwaiter;
 
+    private readonly IDaemonGuiRebootstrapClient rebootstrapClient;
+
     private readonly IDaemonDiagnosisStore daemonDiagnosisStore;
 
     private readonly TimeProvider timeProvider;
@@ -23,12 +25,14 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
         IUnityEditorInstanceMarkerReader markerReader,
         IUnityGuiEditorProcessProbe processProbe,
         IDaemonGuiSessionRegistrationAwaiter sessionRegistrationAwaiter,
+        IDaemonGuiRebootstrapClient rebootstrapClient,
         IDaemonDiagnosisStore daemonDiagnosisStore,
         TimeProvider? timeProvider = null)
     {
         this.markerReader = markerReader ?? throw new ArgumentNullException(nameof(markerReader));
         this.processProbe = processProbe ?? throw new ArgumentNullException(nameof(processProbe));
         this.sessionRegistrationAwaiter = sessionRegistrationAwaiter ?? throw new ArgumentNullException(nameof(sessionRegistrationAwaiter));
+        this.rebootstrapClient = rebootstrapClient ?? throw new ArgumentNullException(nameof(rebootstrapClient));
         this.daemonDiagnosisStore = daemonDiagnosisStore ?? throw new ArgumentNullException(nameof(daemonDiagnosisStore));
         this.timeProvider = timeProvider ?? TimeProvider.System;
     }
@@ -82,6 +86,64 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
                 .ConfigureAwait(false);
         }
 
+        var initialWaitResult = await sessionRegistrationAwaiter.WaitForSessionAsync(
+                unityProject,
+                marker.ProcessId,
+                GetInitialSessionProbeTimeout(waitTimeout),
+                expectedProcessStartedAtUtc: probeResult.ProcessStartedAtUtc,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (initialWaitResult.IsSuccess)
+        {
+            return DaemonStartResult.Attached(initialWaitResult.Session!, initialWaitResult.LifecycleSnapshot);
+        }
+
+        if (initialWaitResult.Error!.Kind != ExecutionErrorKind.Timeout)
+        {
+            return DaemonStartResult.Failure(initialWaitResult.Error);
+        }
+
+        if (!deadline.TryGetRemainingTimeout(out var rebootstrapTimeout))
+        {
+            return await CreateGuiEndpointNotRegisteredFailureAsync(
+                    unityProject,
+                    marker,
+                    probeResult.ProcessStartedAtUtc,
+                    onStartupBlocked,
+                    initialWaitResult.Error)
+                .ConfigureAwait(false);
+        }
+
+        var rebootstrapResult = await rebootstrapClient.RequestRebootstrapAsync(
+                unityProject,
+                marker.ProcessId,
+                probeResult.ProcessStartedAtUtc,
+                rebootstrapTimeout,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!rebootstrapResult.IsAccepted)
+        {
+            return await CreateGuiRebootstrapUnavailableFailureAsync(
+                    unityProject,
+                    marker,
+                    probeResult.ProcessStartedAtUtc,
+                    onStartupBlocked,
+                    rebootstrapResult.Error!,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        if (!deadline.TryGetRemainingTimeout(out waitTimeout))
+        {
+            return await CreateGuiEndpointNotRegisteredFailureAsync(
+                    unityProject,
+                    marker,
+                    probeResult.ProcessStartedAtUtc,
+                    onStartupBlocked,
+                    initialWaitResult.Error)
+                .ConfigureAwait(false);
+        }
+
         var waitResult = await sessionRegistrationAwaiter.WaitForSessionAsync(
                 unityProject,
                 marker.ProcessId,
@@ -91,7 +153,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
             .ConfigureAwait(false);
         if (waitResult.IsSuccess)
         {
-            return DaemonStartResult.AlreadyRunning(waitResult.Session!, waitResult.LifecycleSnapshot);
+            return DaemonStartResult.Attached(waitResult.Session!, waitResult.LifecycleSnapshot);
         }
 
         if (waitResult.Error!.Kind != ExecutionErrorKind.Timeout)
@@ -106,6 +168,36 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
                 onStartupBlocked,
                 waitResult.Error)
             .ConfigureAwait(false);
+    }
+
+    private async ValueTask<DaemonStartResult> CreateGuiRebootstrapUnavailableFailureAsync (
+        ResolvedUnityProjectContext unityProject,
+        UnityEditorInstanceMarker marker,
+        DateTimeOffset? processStartedAtUtc,
+        DaemonStartupBlockedProcessPolicy onStartupBlocked,
+        ExecutionError rebootstrapError,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return await DaemonGuiRebootstrapUnavailableFailureFactory.CreateFailureAsync(
+                unityProject,
+                daemonDiagnosisStore,
+                timeProvider,
+                marker.MarkerPath,
+                marker.ProcessId,
+                processStartedAtUtc,
+                onStartupBlocked,
+                rebootstrapError,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static TimeSpan GetInitialSessionProbeTimeout (TimeSpan remainingTimeout)
+    {
+        var probeMilliseconds = Math.Min(
+            DaemonTimeouts.ProbeAttemptTimeoutCap.TotalMilliseconds,
+            Math.Max(1, Math.Ceiling(remainingTimeout.TotalMilliseconds / 4)));
+        return TimeSpan.FromMilliseconds(probeMilliseconds);
     }
 
     private async ValueTask<DaemonStartResult> CreateGuiEndpointNotRegisteredFailureAsync (

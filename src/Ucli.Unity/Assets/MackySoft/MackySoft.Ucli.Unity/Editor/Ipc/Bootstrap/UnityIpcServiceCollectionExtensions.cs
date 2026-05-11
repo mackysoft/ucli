@@ -169,5 +169,63 @@ namespace MackySoft.Ucli.Unity.Ipc
             });
             return services;
         }
+
+        /// <summary> Registers GUI-supervisor transport and rebootstrap services. </summary>
+        /// <param name="services"> The target service collection. </param>
+        /// <param name="sessionTokenValidator"> The supervisor-token validator used by the host. </param>
+        /// <param name="projectFingerprint"> The project fingerprint served by this GUI supervisor. </param>
+        /// <param name="daemonLogger"> The daemon logger used by the host. </param>
+        /// <returns> The updated service collection. </returns>
+        public static IServiceCollection AddUnityGuiSupervisorHostServices (
+            this IServiceCollection services,
+            ISessionTokenValidator sessionTokenValidator,
+            string projectFingerprint,
+            IDaemonLogger daemonLogger)
+        {
+            if (services == null)
+            {
+                throw new ArgumentNullException(nameof(services));
+            }
+
+            if (sessionTokenValidator == null)
+            {
+                throw new ArgumentNullException(nameof(sessionTokenValidator));
+            }
+
+            if (daemonLogger == null)
+            {
+                throw new ArgumentNullException(nameof(daemonLogger));
+            }
+
+            if (string.IsNullOrWhiteSpace(projectFingerprint))
+            {
+                throw new ArgumentException("projectFingerprint must not be empty.", nameof(projectFingerprint));
+            }
+
+            services.AddUnityRuntimeServices(DaemonEditorMode.Gui);
+            services.AddSingleton<ISessionTokenValidator>(sessionTokenValidator);
+            services.AddSingleton<IDaemonLogger>(daemonLogger);
+            services.AddSingleton<IUnityIpcMethodHandler>(_ => new GuiRebootstrapUnityIpcMethodHandler(projectFingerprint, daemonLogger));
+            services.AddSingleton<IUnityIpcMethodDispatcher, UnityIpcMethodDispatcher>();
+            services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
+            services.AddSingleton<IUnityIpcRequestProcessor, UnityIpcRequestProcessor>();
+            services.AddSingleton<IDaemonShutdownSignal, DaemonShutdownSignal>();
+            services.AddSingleton<IUnityIpcConnectionHandler, UnityIpcConnectionHandler>();
+            services.AddSingleton<NamedPipeUnityIpcTransportListener>();
+            services.AddSingleton<UnixDomainSocketUnityIpcTransportListener>();
+            services.AddSingleton<IUnityIpcServer>(serviceProvider =>
+            {
+                return new UnityIpcServer(
+                    serviceProvider.GetRequiredService<IUnityIpcRequestProcessor>(),
+                    serviceProvider.GetRequiredService<IUnityIpcConnectionHandler>(),
+                    new IUnityIpcTransportListener[]
+                    {
+                        serviceProvider.GetRequiredService<NamedPipeUnityIpcTransportListener>(),
+                        serviceProvider.GetRequiredService<UnixDomainSocketUnityIpcTransportListener>(),
+                    },
+                    serviceProvider.GetRequiredService<IDaemonLogger>());
+            });
+            return services;
+        }
     }
 }

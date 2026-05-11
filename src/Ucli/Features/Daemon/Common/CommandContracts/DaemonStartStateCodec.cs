@@ -10,6 +10,8 @@ internal static class DaemonStartStateCodec
 
     public const string AlreadyRunning = "alreadyRunning";
 
+    public const string Attached = "attached";
+
     public const string Failed = "failed";
 
     public static bool TryToValue (
@@ -21,6 +23,7 @@ internal static class DaemonStartStateCodec
         {
             DaemonStartStatus.Started => Started,
             DaemonStartStatus.AlreadyRunning => AlreadyRunning,
+            DaemonStartStatus.Attached => Attached,
             DaemonStartStatus.Failed => Failed,
             _ => null,
         };

@@ -11,6 +11,7 @@ global using MackySoft.Ucli.Features.Daemon.Lifecycle.Process.Reachability;
 global using MackySoft.Ucli.Features.Daemon.Lifecycle.Process.Shutdown;
 global using MackySoft.Ucli.Features.Daemon.Lifecycle.Process.Startup;
 global using MackySoft.Ucli.Features.Daemon.Lifecycle.Session;
+global using MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiAttach;
 global using MackySoft.Ucli.Features.Daemon.Lifecycle.Start.Launch;
 global using MackySoft.Ucli.Features.Daemon.Observability.Logs.Ipc;
 global using MackySoft.Ucli.Features.Daemon.Supervisor.Bootstrap;

@@ -19,14 +19,49 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private static readonly object SyncRoot = new object();
 
+        private static readonly SemaphoreSlim LifecycleGate = new SemaphoreSlim(1, 1);
+
         private static ActiveGuiBootstrapState activeState;
 
         /// <summary> Starts or replaces the active GUI daemon session registration. </summary>
         /// <param name="bootstrapArguments"> Optional CLI GUI bootstrap arguments. </param>
-        /// <returns> A task that completes when the GUI endpoint has been registered. </returns>
-        public static async Task StartAsync (IpcGuiBootstrapArguments bootstrapArguments)
+        /// <returns> A task that produces the GUI endpoint registration result. </returns>
+        public static async Task<UnityGuiBootstrapStartResult> StartAsync (IpcGuiBootstrapArguments bootstrapArguments)
         {
-            await StopAsync(CancellationToken.None);
+            await LifecycleGate.WaitAsync(CancellationToken.None);
+            try
+            {
+                ActiveGuiBootstrapState capturedState;
+                lock (SyncRoot)
+                {
+                    capturedState = activeState;
+                }
+
+                if (capturedState != null)
+                {
+                    if (!capturedState.ShutdownSignal.IsSignaled)
+                    {
+                        return UnityGuiBootstrapStartResult.AlreadyRunning();
+                    }
+
+                    // NOTE:
+                    // daemon stop writes the shutdown response before the monitor clears activeState.
+                    // A supervisor rebootstrap can arrive in that small window, so StartAsync owns the
+                    // pending stop before creating a replacement daemon endpoint.
+                    ClearActiveState(capturedState);
+                    await StopStateAsync(capturedState, requestProcessExit: false);
+                }
+
+                return await StartUnlockedAsync(bootstrapArguments);
+            }
+            finally
+            {
+                LifecycleGate.Release();
+            }
+        }
+
+        private static async Task<UnityGuiBootstrapStartResult> StartUnlockedAsync (IpcGuiBootstrapArguments bootstrapArguments)
+        {
             var daemonLogStream = new DaemonLogRingBuffer();
             var daemonLogger = new DaemonLogger(daemonLogStream);
             ActiveGuiBootstrapState nextState = null;
@@ -98,6 +133,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 daemonLogger.Info(
                     DaemonLogCategories.Lifecycle,
                     $"uCLI GUI daemon registered. storageRoot={storageRoot}, fingerprint={projectFingerprint}, endpoint={endpoint.Address}");
+                return UnityGuiBootstrapStartResult.Started();
             }
             catch (Exception exception)
             {
@@ -110,7 +146,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 {
                     ClearActiveState(nextState);
                     await StopStateAsync(nextState, requestProcessExit: false);
-                    return;
+                    return UnityGuiBootstrapStartResult.Failure(exception.Message);
                 }
 
                 await CleanupFailedStartAsync(
@@ -119,6 +155,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     unityLogCaptureService,
                     serviceProvider,
                     daemonLogger);
+                return UnityGuiBootstrapStartResult.Failure(exception.Message);
             }
         }
 
@@ -128,19 +165,27 @@ namespace MackySoft.Ucli.Unity.Ipc
         public static async Task StopAsync (CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            ActiveGuiBootstrapState capturedState;
-            lock (SyncRoot)
+            await LifecycleGate.WaitAsync(cancellationToken);
+            try
             {
-                capturedState = activeState;
-                activeState = null;
-            }
+                ActiveGuiBootstrapState capturedState;
+                lock (SyncRoot)
+                {
+                    capturedState = activeState;
+                    activeState = null;
+                }
 
-            if (capturedState == null)
+                if (capturedState == null)
+                {
+                    return;
+                }
+
+                await StopStateAsync(capturedState, requestProcessExit: false);
+            }
+            finally
             {
-                return;
+                LifecycleGate.Release();
             }
-
-            await StopStateAsync(capturedState, requestProcessExit: false);
         }
 
         private static async Task MonitorAsync (ActiveGuiBootstrapState state)
@@ -156,8 +201,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     state.DaemonLogger.Warning(
                         DaemonLogCategories.Lifecycle,
                         "GUI IPC server loop terminated before shutdown signal.");
-                    ClearActiveState(state);
-                    await StopStateAsync(state, requestProcessExit: false);
+                    await StopFromMonitorAsync(state, requestProcessExit: false);
                     return;
                 }
 
@@ -165,8 +209,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 state.DaemonLogger.Info(
                     DaemonLogCategories.Lifecycle,
                     "GUI daemon shutdown signal received. Stopping IPC server and invalidating session.");
-                ClearActiveState(state);
-                await StopStateAsync(state, requestProcessExit: state.Registration.CanShutdownProcess);
+                await StopFromMonitorAsync(state, requestProcessExit: state.Registration.CanShutdownProcess);
             }
             catch (Exception exception)
             {
@@ -175,6 +218,22 @@ namespace MackySoft.Ucli.Unity.Ipc
                     "GUI daemon monitor failed.",
                     exception);
                 Debug.LogException(exception);
+            }
+        }
+
+        private static async Task StopFromMonitorAsync (
+            ActiveGuiBootstrapState state,
+            bool requestProcessExit)
+        {
+            await LifecycleGate.WaitAsync(CancellationToken.None);
+            try
+            {
+                ClearActiveState(state);
+                await StopStateAsync(state, requestProcessExit);
+            }
+            finally
+            {
+                LifecycleGate.Release();
             }
         }
 

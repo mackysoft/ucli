@@ -158,6 +158,30 @@ public sealed class DaemonStartServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Start_WhenSupervisorReturnsAttached_PreservesAttachedStatus ()
+    {
+        var context = DaemonServiceTestContext.CreateExecutionContext(
+            timeoutMilliseconds: 1200,
+            repositoryRoot: "/tmp/repo-root");
+        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var mapper = new DaemonServiceTestContext.StubDaemonSessionOutputMapper();
+        var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway
+        {
+            EnsureRunningResult = DaemonStartResult.Attached(DaemonServiceTestContext.CreateSession()),
+        };
+        var service = CreateService(resolver, supervisorProjectGateway, mapper);
+
+        var result = await service.StartAsync(projectPath: null, timeoutMilliseconds: null, editorMode: null, onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto, cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var output = Assert.IsType<DaemonStartExecutionOutput>(result.Output);
+        Assert.Equal(DaemonStartStatus.Attached, output.StartStatus);
+        Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Start_WhenSupervisorReturnsFailure_ReturnsFailure ()
     {
         var context = DaemonServiceTestContext.CreateExecutionContext(

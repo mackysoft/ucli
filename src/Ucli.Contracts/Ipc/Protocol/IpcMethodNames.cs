@@ -32,4 +32,7 @@ public static class IpcMethodNames
 
     /// <summary> Gets the method name used for Unity Editor Console clear requests. </summary>
     public const string UnityConsoleClear = "unity.console.clear";
+
+    /// <summary> Gets the method name used to rebootstrap a stopped GUI daemon endpoint. </summary>
+    public const string GuiRebootstrap = "gui.rebootstrap";
 }
