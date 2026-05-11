@@ -9,6 +9,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
@@ -472,7 +473,9 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
     {
         ArgumentNullException.ThrowIfNull(blocker);
 
-        var primaryError = ExecutionError.InternalError(blocker.Message, DaemonErrorCodes.DaemonStartupBlocked);
+        var primaryError = ExecutionError.InternalError(
+            blocker.Message,
+            ResolveGuiStartupBlockedErrorCode(blocker));
         var updatedAtUtc = timeProvider.GetUtcNow();
         var diagnosis = new DaemonDiagnosis(
             Reason: blocker.Reason,
@@ -582,9 +585,17 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
     {
         ArgumentNullException.ThrowIfNull(blocker);
         return string.Equals(
-            blocker.Reason,
-            DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap,
+            blocker.StartupBlockingReason,
+            DaemonStartupBlockingReasonValues.ProcessExit,
             StringComparison.Ordinal);
+    }
+
+    private static UcliErrorCode ResolveGuiStartupBlockedErrorCode (DaemonGuiStartupBlocker blocker)
+    {
+        ArgumentNullException.ThrowIfNull(blocker);
+        return IsProcessExitBlocker(blocker)
+            ? DaemonErrorCodes.DaemonStartProcessExited
+            : DaemonErrorCodes.DaemonStartupBlocked;
     }
 
     private static DaemonStartupObservation CreateGuiStartupBlockedObservation (
@@ -596,53 +607,10 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
 
         return new DaemonStartupObservation(
             StartupStatus: DaemonStartupStatusValues.Blocked,
-            StartupBlockingReason: ResolveStartupBlockingReason(blocker),
+            StartupBlockingReason: blocker.StartupBlockingReason,
             LaunchAttemptId: null,
             ProcessAction: processAction,
-            RetryDisposition: ResolveRetryDisposition(blocker));
-    }
-
-    private static string ResolveStartupBlockingReason (DaemonGuiStartupBlocker blocker)
-    {
-        if (string.Equals(blocker.Reason, DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, StringComparison.Ordinal))
-        {
-            return DaemonStartupBlockingReasonValues.Compile;
-        }
-
-        if (string.Equals(blocker.Reason, DaemonDiagnosisReasonValues.UnityPackageResolutionFailed, StringComparison.Ordinal))
-        {
-            return DaemonStartupBlockingReasonValues.PackageResolution;
-        }
-
-        if (string.Equals(blocker.Reason, DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap, StringComparison.Ordinal))
-        {
-            return DaemonStartupBlockingReasonValues.ProcessExit;
-        }
-
-        if (string.Equals(blocker.Reason, DaemonDiagnosisReasonValues.EditorUserActionRequired, StringComparison.Ordinal))
-        {
-            return blocker.PrimaryDiagnostic?.Message?.Contains("Safe Mode", StringComparison.OrdinalIgnoreCase) == true
-                ? DaemonStartupBlockingReasonValues.SafeMode
-                : DaemonStartupBlockingReasonValues.ModalDialog;
-        }
-
-        return DaemonStartupBlockingReasonValues.Unknown;
-    }
-
-    private static string ResolveRetryDisposition (DaemonGuiStartupBlocker blocker)
-    {
-        if (string.Equals(blocker.ActionRequired, DaemonDiagnosisActionRequiredValues.ResolveUnityDialog, StringComparison.Ordinal))
-        {
-            return DaemonStartupRetryDispositionValues.ManualActionRequired;
-        }
-
-        if (string.Equals(blocker.ActionRequired, DaemonDiagnosisActionRequiredValues.FixCompileErrors, StringComparison.Ordinal)
-            || string.Equals(blocker.ActionRequired, DaemonDiagnosisActionRequiredValues.ResolvePackages, StringComparison.Ordinal))
-        {
-            return DaemonStartupRetryDispositionValues.RetryAfterFix;
-        }
-
-        return DaemonStartupRetryDispositionValues.Unknown;
+            RetryDisposition: blocker.RetryDisposition);
     }
 
     private sealed record GuiStartupBlockedProcessPolicyResult (

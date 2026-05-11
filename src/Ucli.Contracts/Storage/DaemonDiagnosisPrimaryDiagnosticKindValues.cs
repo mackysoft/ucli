@@ -9,6 +9,9 @@ public static class DaemonDiagnosisPrimaryDiagnosticKindValues
     /// <summary> Gets the kind value used for Unity package resolution diagnostics. </summary>
     public const string PackageResolution = "packageResolution";
 
+    /// <summary> Gets the kind value used for uCLI plugin dependency diagnostics. </summary>
+    public const string PluginDependency = "pluginDependency";
+
     /// <summary> Gets the kind value used for Unity GUI user-action diagnostics. </summary>
     public const string UnityDialog = "unityDialog";
 
@@ -20,6 +23,7 @@ public static class DaemonDiagnosisPrimaryDiagnosticKindValues
     {
         return string.Equals(value, Compiler, StringComparison.Ordinal)
             || string.Equals(value, PackageResolution, StringComparison.Ordinal)
+            || string.Equals(value, PluginDependency, StringComparison.Ordinal)
             || string.Equals(value, UnityDialog, StringComparison.Ordinal)
             || string.Equals(value, ProcessExit, StringComparison.Ordinal);
     }

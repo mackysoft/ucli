@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Logs;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Timing;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
@@ -165,13 +166,18 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
         }
 
         var latestStartupLogText = DaemonStartupFailureLogClassifier.GetLatestStartupLogText(logReadResult.Text);
-        if (!DaemonStartupFailureLogClassifier.TryClassifyFailure(latestStartupLogText, out var classification))
+        if (!DaemonStartupFailureLogClassifier.TryClassifyFailure(
+                latestStartupLogText,
+                DaemonStartupFailureClassificationContext.Gui,
+                out var classification))
         {
             return null;
         }
 
         return new DaemonGuiStartupBlocker(
+            StartupBlockingReason: classification!.StartupBlockingReason,
             Reason: classification!.Reason,
+            RetryDisposition: classification.RetryDisposition,
             Message: classification.Message,
             StartupPhase: classification.StartupPhase,
             ActionRequired: classification.ActionRequired,
@@ -196,7 +202,9 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
     {
         var message = $"Unity Editor process exited before GUI daemon session registration. ProcessId={processId}.";
         return new DaemonGuiStartupBlocker(
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.ProcessExit,
             Reason: DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap,
+            RetryDisposition: DaemonStartupRetryDispositionValues.Unknown,
             Message: message,
             StartupPhase: DaemonDiagnosisStartupPhaseValues.ProcessExit,
             ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,

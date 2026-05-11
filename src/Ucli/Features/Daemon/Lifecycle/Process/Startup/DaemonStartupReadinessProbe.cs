@@ -269,7 +269,10 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
         }
 
         var latestStartupLogText = DaemonStartupFailureLogClassifier.GetLatestStartupLogText(logReadResult.Text);
-        return DaemonStartupFailureLogClassifier.TryClassify(latestStartupLogText, out var error)
+        return DaemonStartupFailureLogClassifier.TryClassify(
+                latestStartupLogText,
+                DaemonStartupFailureClassificationContext.Batchmode,
+                out var error)
             ? error
             : null;
     }

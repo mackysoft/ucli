@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 
 /// <summary> Defines daemon startup-blocking reason values used before endpoint registration. </summary>
 internal static class DaemonStartupBlockingReasonValues

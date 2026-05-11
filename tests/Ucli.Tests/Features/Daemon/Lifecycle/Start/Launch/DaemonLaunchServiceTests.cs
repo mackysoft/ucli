@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Tests;
@@ -269,7 +270,9 @@ public sealed class DaemonLaunchServiceTests
             Column: 17,
             Message: "Missing parameter");
         var blocker = new DaemonGuiStartupBlocker(
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
             Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
+            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
             Message: "Unity Editor startup is blocked because scripts have compiler errors. FirstError=Assets/Foo.cs(74,17): error CS1739: Missing parameter",
             StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
             ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
@@ -316,6 +319,7 @@ public sealed class DaemonLaunchServiceTests
         Assert.NotNull(result.Startup);
         Assert.Equal(DaemonStartupProcessActionValues.Kept, result.Startup!.ProcessAction);
         Assert.Equal(DaemonStartupBlockingReasonValues.Compile, result.Startup.StartupBlockingReason);
+        Assert.Equal(DaemonStartupRetryDispositionValues.RetryAfterFix, result.Startup.RetryDisposition);
     }
 
     [Fact]
@@ -329,7 +333,9 @@ public sealed class DaemonLaunchServiceTests
             NextResult = UnityDaemonLaunchResult.Success(6544, processStartedAtUtc),
         };
         var blocker = new DaemonGuiStartupBlocker(
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
             Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
+            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
             Message: "Unity Editor startup is blocked because scripts have compiler errors.",
             StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
             ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
@@ -368,29 +374,26 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup!.ProcessAction);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData(
-        DaemonDiagnosisReasonValues.UnityPackageResolutionFailed,
-        DaemonDiagnosisStartupPhaseValues.PackageResolution,
-        DaemonDiagnosisActionRequiredValues.ResolvePackages)]
-    [InlineData(
-        DaemonDiagnosisReasonValues.EditorUserActionRequired,
-        DaemonDiagnosisStartupPhaseValues.UserAction,
-        DaemonDiagnosisActionRequiredValues.ResolveUnityDialog)]
-    public async Task Launch_WhenEditorModeGuiStartupObserverFindsActionableBlocker_WritesDiagnosisAndPreservesGuiProcess (
-        string reason,
-        string startupPhase,
-        string actionRequired)
+    public async Task Launch_WhenEditorModeGuiStartupObserverFindsActionableBlocker_WritesDiagnosisAndPreservesGuiProcess ()
     {
-        var context = CreateContext($"fingerprint-gui-launch-{reason}");
+        const string startupBlockingReason = DaemonStartupBlockingReasonValues.SafeMode;
+        const string reason = DaemonDiagnosisReasonValues.EditorUserActionRequired;
+        const string retryDisposition = DaemonStartupRetryDispositionValues.ManualActionRequired;
+        const string startupPhase = DaemonDiagnosisStartupPhaseValues.UserAction;
+        const string actionRequired = DaemonDiagnosisActionRequiredValues.ResolveUnityDialog;
+
+        var context = CreateContext($"fingerprint-gui-launch-{startupBlockingReason}");
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
         var guiLauncher = new StubUnityGuiEditorProcessLauncher
         {
             NextResult = UnityDaemonLaunchResult.Success(6543, processStartedAtUtc),
         };
         var blocker = new DaemonGuiStartupBlocker(
+            StartupBlockingReason: startupBlockingReason,
             Reason: reason,
+            RetryDisposition: retryDisposition,
             Message: "Unity Editor startup is blocked by an actionable GUI state.",
             StartupPhase: startupPhase,
             ActionRequired: actionRequired,
@@ -433,6 +436,9 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(blocker.UnityLogPath, diagnosisStore.LastDiagnosis.UnityLogPath);
         Assert.Equal(diagnosisStore.LastDiagnosis, result.Diagnosis);
         Assert.Equal(0, compensationService.CallCount);
+        Assert.NotNull(result.Startup);
+        Assert.Equal(startupBlockingReason, result.Startup!.StartupBlockingReason);
+        Assert.Equal(retryDisposition, result.Startup.RetryDisposition);
     }
 
     [Fact]
@@ -446,7 +452,9 @@ public sealed class DaemonLaunchServiceTests
             NextResult = UnityDaemonLaunchResult.Success(6543, processStartedAtUtc),
         };
         var blocker = new DaemonGuiStartupBlocker(
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.ProcessExit,
             Reason: DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap,
+            RetryDisposition: DaemonStartupRetryDispositionValues.Unknown,
             Message: "Unity Editor process exited before GUI daemon session registration. ProcessId=6543.",
             StartupPhase: DaemonDiagnosisStartupPhaseValues.ProcessExit,
             ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
@@ -485,7 +493,7 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
-        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
+        Assert.Equal(DaemonErrorCodes.DaemonStartProcessExited, error.Code);
         Assert.Equal(1, diagnosisStore.WriteCallCount);
         Assert.NotNull(diagnosisStore.LastDiagnosis);
         Assert.Equal(DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap, diagnosisStore.LastDiagnosis!.Reason);
@@ -495,6 +503,7 @@ public sealed class DaemonLaunchServiceTests
         Assert.NotNull(result.Startup);
         Assert.Equal(DaemonStartupProcessActionValues.None, result.Startup!.ProcessAction);
         Assert.Equal(DaemonStartupBlockingReasonValues.ProcessExit, result.Startup.StartupBlockingReason);
+        Assert.Equal(DaemonStartupRetryDispositionValues.Unknown, result.Startup.RetryDisposition);
     }
 
     [Fact]

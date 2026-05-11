@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 
 /// <summary> Defines daemon startup retry-disposition values. </summary>
 internal static class DaemonStartupRetryDispositionValues
