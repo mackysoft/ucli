@@ -111,9 +111,14 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
                     validateProjectFingerprint: false,
                     cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
+            if (!DaemonStartLifecycleSnapshot.TryCreate(pingResponse, out var lifecycleSnapshot, out var lifecycleError))
+            {
+                return DaemonGuiSessionRegistrationWaitResult.Failure(lifecycleError!);
+            }
+
             return string.Equals(pingResponse.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal)
                    && string.Equals(pingResponse.EditorMode, DaemonEditorModeValues.Gui, StringComparison.Ordinal)
-                ? DaemonGuiSessionRegistrationWaitResult.Success(session)
+                ? DaemonGuiSessionRegistrationWaitResult.Success(session, lifecycleSnapshot)
                 : null;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

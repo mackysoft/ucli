@@ -1,6 +1,8 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -214,7 +216,60 @@ public sealed class DaemonStartServiceTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error!.Code);
-        Assert.Equal(diagnosisOutputMapper.Output, result.Diagnosis);
+        var failureOutput = Assert.IsType<DaemonStartFailureExecutionOutput>(result.FailureOutput);
+        Assert.Equal(DaemonStatusKind.NotRunning, failureOutput.DaemonStatus);
+        Assert.Equal(1600, failureOutput.TimeoutMilliseconds);
+        Assert.Equal(diagnosisOutputMapper.Output, failureOutput.Diagnosis);
+        Assert.Equal(1, diagnosisOutputMapper.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WhenSupervisorReturnsFailureWithStartup_PreservesFailurePayloadFields ()
+    {
+        var context = DaemonServiceTestContext.CreateExecutionContext(
+            timeoutMilliseconds: 1600,
+            repositoryRoot: "/tmp/repo-root");
+        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var mapper = new DaemonServiceTestContext.StubDaemonSessionOutputMapper();
+        var startup = new DaemonStartupObservation(
+            StartupStatus: DaemonStartupStatusValues.Blocked,
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            LaunchAttemptId: "20260312_040500Z_00abcdef",
+            ProcessAction: DaemonStartupProcessActionValues.Kept,
+            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix);
+        var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway
+        {
+            EnsureRunningResult = DaemonStartResult.Failure(
+                ExecutionError.InternalError("startup blocked", DaemonErrorCodes.DaemonStartupBlocked),
+                DaemonServiceTestContext.CreateDiagnosis(),
+                startup,
+                DaemonStatusKind.Stale),
+        };
+        var diagnosisOutputMapper = new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper();
+        var service = CreateService(
+            resolver,
+            supervisorProjectGateway,
+            mapper,
+            daemonDiagnosisOutputMapper: diagnosisOutputMapper);
+
+        var result = await service.StartAsync(
+            projectPath: null,
+            timeoutMilliseconds: null,
+            editorMode: null,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, result.Error!.Code);
+        var failureOutput = Assert.IsType<DaemonStartFailureExecutionOutput>(result.FailureOutput);
+        Assert.Equal(DaemonStatusKind.Stale, failureOutput.DaemonStatus);
+        Assert.Equal(1600, failureOutput.TimeoutMilliseconds);
+        Assert.Equal(startup, failureOutput.Startup);
+        Assert.Equal(diagnosisOutputMapper.Output, failureOutput.Diagnosis);
+        Assert.Equal(DaemonStartupRetryDispositionValues.RetryAfterFix, failureOutput.RetryDisposition);
+        Assert.False(failureOutput.SafeToRetryImmediately);
         Assert.Equal(1, diagnosisOutputMapper.CallCount);
     }
 

@@ -244,7 +244,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 .ConfigureAwait(false);
             if (probeResult.IsReady)
             {
-                return DaemonStartResult.Started(session);
+                return DaemonStartResult.Started(session, probeResult.LifecycleSnapshot);
             }
 
             return await CreateFailureWithCompensationAsync(
@@ -352,7 +352,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         }
         if (waitResult.IsSuccess)
         {
-            return DaemonStartResult.Started(waitResult.Session!);
+            return DaemonStartResult.Started(waitResult.Session!, waitResult.LifecycleSnapshot);
         }
 
         if (waitResult.IsBlocked)

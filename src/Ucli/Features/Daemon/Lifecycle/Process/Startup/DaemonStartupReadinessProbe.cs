@@ -1,17 +1,17 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Logs;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Timing;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Execution;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Process.Startup;
 
-/// <summary> Implements daemon startup readiness probing via repeated ping attempts. </summary>
+/// <summary> Implements daemon startup endpoint probing via repeated ping attempts. </summary>
 internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
 {
     private readonly IDaemonPingInfoClient daemonPingInfoClient;
@@ -98,24 +98,12 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
                         attemptTimeout,
                         cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
-                if (pingResponse.CanAcceptExecutionRequests
-                    && string.Equals(pingResponse.LifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal))
+                if (!DaemonStartLifecycleSnapshot.TryCreate(pingResponse, out var lifecycleSnapshot, out var lifecycleError))
                 {
-                    return DaemonStartupReadinessProbeResult.Ready();
+                    return DaemonStartupReadinessProbeResult.Failure(lifecycleError!);
                 }
 
-                if (TryResolveNonRetryableLifecycleFailure(pingResponse, out var startupLifecycleError))
-                {
-                    return DaemonStartupReadinessProbeResult.Failure(startupLifecycleError!);
-                }
-
-                if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
-                {
-                    return DaemonStartupReadinessProbeResult.Failure(ExecutionError.Timeout(
-                        $"Timed out while waiting for daemon startup. Timeout={timeout.TotalMilliseconds:0}ms."));
-                }
-
-                await Task.Delay(GetRetryDelay(remainingTimeout), cancellationToken).ConfigureAwait(false);
+                return DaemonStartupReadinessProbeResult.Ready(lifecycleSnapshot!);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -168,74 +156,6 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             DaemonTimeouts.StartupProbeRetryDelayMilliseconds,
             Math.Max(1, (int)Math.Ceiling(remainingTimeout.TotalMilliseconds)));
         return TimeSpan.FromMilliseconds(retryDelayMilliseconds);
-    }
-
-    private static bool TryResolveNonRetryableLifecycleFailure (
-        IpcPingResponse pingResponse,
-        out ExecutionError? error)
-    {
-        ArgumentNullException.ThrowIfNull(pingResponse);
-
-        if (!IpcEditorLifecycleStateCodec.TryParse(pingResponse.LifecycleState, out var lifecycleState))
-        {
-            error = ExecutionError.InternalError(
-                $"Unity daemon startup probe returned unsupported lifecycleState '{pingResponse.LifecycleState}'.");
-            return true;
-        }
-
-        if (string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal))
-        {
-            error = ExecutionError.InternalError(
-                "Unity daemon startup probe returned lifecycleState=ready while canAcceptExecutionRequests=false.");
-            return true;
-        }
-
-        if (IsWaitableLifecycleState(lifecycleState!))
-        {
-            error = null;
-            return false;
-        }
-
-        var blockingReason = IpcEditorBlockingReasonCodec.TryParse(pingResponse.BlockingReason, out var normalizedBlockingReason)
-            ? normalizedBlockingReason
-            : null;
-        error = ExecutionError.InternalError(CreateNonWaitableLifecycleMessage(lifecycleState!, blockingReason));
-        return true;
-    }
-
-    private static string CreateNonWaitableLifecycleMessage (
-        string lifecycleState,
-        string? blockingReason)
-    {
-        var lifecycleDetails = blockingReason is null
-            ? $"lifecycleState={lifecycleState}"
-            : $"lifecycleState={lifecycleState}, blockingReason={blockingReason}";
-
-        return lifecycleState switch
-        {
-            IpcEditorLifecycleStateCodec.DomainReloading =>
-                $"Unity daemon startup cannot continue while {lifecycleDetails}. Retry after lifecycleState=ready.",
-            IpcEditorLifecycleStateCodec.Playmode =>
-                $"Unity daemon startup cannot continue while {lifecycleDetails}. Exit Play Mode and retry after lifecycleState=ready.",
-            IpcEditorLifecycleStateCodec.ModalBlocked =>
-                $"Unity daemon startup cannot continue while {lifecycleDetails}. Resolve the modal dialog and retry after lifecycleState=ready.",
-            IpcEditorLifecycleStateCodec.SafeMode =>
-                $"Unity daemon startup cannot continue while {lifecycleDetails}. Resolve compiler errors and retry after lifecycleState=ready.",
-            IpcEditorLifecycleStateCodec.ShuttingDown =>
-                $"Unity daemon startup cannot continue while {lifecycleDetails}. Start a new daemon after shutdown finishes.",
-            _ =>
-                $"Unity daemon startup cannot continue while {lifecycleDetails}.",
-        };
-    }
-
-    private static bool IsWaitableLifecycleState (string lifecycleState)
-    {
-        return string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Starting, StringComparison.Ordinal)
-            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Recovering, StringComparison.Ordinal)
-            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Busy, StringComparison.Ordinal)
-            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Compiling, StringComparison.Ordinal)
-            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.DomainReloading, StringComparison.Ordinal)
-            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Reimporting, StringComparison.Ordinal);
     }
 
     private async ValueTask<ExecutionError?> TryClassifyStartupFailureAsync (

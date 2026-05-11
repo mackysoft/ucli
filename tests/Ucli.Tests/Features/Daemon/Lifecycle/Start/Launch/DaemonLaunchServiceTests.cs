@@ -32,7 +32,7 @@ public sealed class DaemonLaunchServiceTests
         };
         var readinessProbe = new StubDaemonStartupReadinessProbe
         {
-            NextResult = DaemonStartupReadinessProbeResult.Ready(),
+            NextResult = DaemonStartupReadinessProbeResult.Ready(DaemonStartLifecycleSnapshot.Ready()),
         };
         var compensationService = new StubDaemonLaunchCompensationService();
         var diagnosisStore = new StubDaemonDiagnosisStore();
@@ -1473,7 +1473,7 @@ public sealed class DaemonLaunchServiceTests
 
     private sealed class StubDaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
     {
-        public DaemonStartupReadinessProbeResult NextResult { get; set; } = DaemonStartupReadinessProbeResult.Ready();
+        public DaemonStartupReadinessProbeResult NextResult { get; set; } = DaemonStartupReadinessProbeResult.Ready(DaemonStartLifecycleSnapshot.Ready());
 
         public Action? OnWaitUntilReady { get; set; }
 

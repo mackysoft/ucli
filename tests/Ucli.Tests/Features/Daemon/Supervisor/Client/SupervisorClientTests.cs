@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
@@ -118,7 +119,7 @@ public sealed class SupervisorClientTests
                 RequestId: request.RequestId,
                 Status: IpcProtocol.StatusError,
                 Payload: IpcPayloadCodec.SerializeToElement(
-                    new SupervisorIpcContracts.EnsureRunningFailureResponse(diagnosis, startup)),
+                    new SupervisorIpcContracts.EnsureRunningFailureResponse("stale", diagnosis, startup)),
                 Errors:
                 [
                     new IpcError(ExecutionErrorCodes.IpcTimeout, "endpoint registration timed out", null),
@@ -138,6 +139,7 @@ public sealed class SupervisorClientTests
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error!.Code);
         Assert.Equal(diagnosis, result.Diagnosis);
         Assert.Equal(startup, result.Startup);
+        Assert.Equal(DaemonStatusKind.Stale, result.DaemonStatus);
     }
 
     private static SupervisorInstanceManifest CreateManifest ()

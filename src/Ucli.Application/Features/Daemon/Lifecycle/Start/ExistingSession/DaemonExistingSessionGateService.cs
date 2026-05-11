@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.ExistingSession;
@@ -118,7 +119,8 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
             }
 
             return DaemonStartResult.Failure(ExecutionError.Timeout(
-                $"Timed out while probing existing daemon session. {exception.Message}"));
+                $"Timed out while probing existing daemon session. {exception.Message}"),
+                daemonStatus: DaemonStatusKind.Stale);
         }
         catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
         {
@@ -148,7 +150,9 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
                 .ConfigureAwait(false);
             if (!cleanupResult.IsSuccess)
             {
-                return DaemonStartResult.Failure(cleanupResult.Error!);
+                return DaemonStartResult.Failure(
+                    cleanupResult.Error!,
+                    daemonStatus: DaemonStatusKind.Stale);
             }
 
             return null;
@@ -156,7 +160,8 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
         catch (Exception exception)
         {
             return DaemonStartResult.Failure(ExecutionError.InternalError(
-                $"Failed to probe existing daemon session. {exception.Message}"));
+                $"Failed to probe existing daemon session. {exception.Message}"),
+                daemonStatus: DaemonStatusKind.Stale);
         }
     }
 
@@ -188,7 +193,8 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
             {
                 return DaemonStartResult.Failure(ExecutionError.Timeout(
                     $"Timed out while waiting for recovering daemon session. ProcessId={session.ProcessId}.",
-                    ExecutionErrorCodes.IpcTimeout));
+                    ExecutionErrorCodes.IpcTimeout),
+                    daemonStatus: DaemonStatusKind.Stale);
             }
 
             var attemptTimeout = remainingTimeout < DaemonTimeouts.ProbeAttemptTimeoutCap
@@ -228,14 +234,16 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
             catch (Exception exception)
             {
                 return DaemonStartResult.Failure(ExecutionError.InternalError(
-                    $"Failed to probe recovering daemon session. {exception.Message}"));
+                    $"Failed to probe recovering daemon session. {exception.Message}"),
+                    daemonStatus: DaemonStatusKind.Stale);
             }
 
             if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
             {
                 return DaemonStartResult.Failure(ExecutionError.Timeout(
                     $"Timed out while waiting for recovering daemon session. ProcessId={session.ProcessId}.",
-                    ExecutionErrorCodes.IpcTimeout));
+                    ExecutionErrorCodes.IpcTimeout),
+                    daemonStatus: DaemonStatusKind.Stale);
             }
 
             await TimeProviderDelay.DelayAsync(GetRetryDelay(remainingTimeout), timeProvider, cancellationToken)
