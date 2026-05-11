@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
-using MackySoft.Ucli.Application.Shared.Execution;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 
@@ -54,15 +53,15 @@ internal static class RequestFailureNormalizer
 
         if (failure.Code == ExecutionErrorCodes.IpcTimeout)
         {
-            return ApplicationFailure.Timeout(failure.Message, failure.Code);
+            return ApplicationFailure.Timeout(failure.Message, failure.Code, startupFailure: failure.StartupFailure);
         }
 
         if (ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(failure.Code))
         {
-            return ApplicationFailure.InvalidInput(failure.Message, failure.Code);
+            return ApplicationFailure.InvalidInput(failure.Message, failure.Code, startupFailure: failure.StartupFailure);
         }
 
-        return ApplicationFailure.UnityIpcFailure(failure.Message, failure.Code);
+        return ApplicationFailure.UnityIpcFailure(failure.Message, failure.Code, startupFailure: failure.StartupFailure);
     }
 
     /// <summary> Normalizes one operation execution error from an external result boundary. </summary>

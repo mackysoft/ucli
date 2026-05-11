@@ -5,11 +5,13 @@ namespace MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 /// <param name="FailureKind"> The execution failure kind on failure; otherwise <see langword="null" />. </param>
 /// <param name="ErrorMessage"> The user-facing execution error message on failure; otherwise <see langword="null" />. </param>
 /// <param name="ErrorCode"> The machine-readable execution error code on failure; otherwise <see langword="null" />. </param>
+/// <param name="StartupFailure"> The structured startup failure detail when Unity did not reach test execution. </param>
 internal sealed record UnityTestExecutionResult (
     int? ProcessExitCode,
     UnityTestExecutionFailureKind? FailureKind,
     string? ErrorMessage,
-    UcliErrorCode? ErrorCode)
+    UcliErrorCode? ErrorCode,
+    StartupFailureDetail? StartupFailure = null)
 {
     /// <summary> Gets a value indicating whether execution succeeded. </summary>
     public bool IsSuccess => ProcessExitCode.HasValue && FailureKind is null;
@@ -30,7 +32,8 @@ internal sealed record UnityTestExecutionResult (
     public static UnityTestExecutionResult Failure (
         UnityTestExecutionFailureKind failureKind,
         string errorMessage,
-        UcliErrorCode? errorCode = null)
+        UcliErrorCode? errorCode = null,
+        StartupFailureDetail? startupFailure = null)
     {
         return new UnityTestExecutionResult(
             null,
@@ -38,6 +41,7 @@ internal sealed record UnityTestExecutionResult (
             errorMessage,
             errorCode.HasValue && errorCode.Value.IsValid
                 ? errorCode.Value
-                : (UcliErrorCode?)null);
+                : (UcliErrorCode?)null,
+            startupFailure);
     }
 }

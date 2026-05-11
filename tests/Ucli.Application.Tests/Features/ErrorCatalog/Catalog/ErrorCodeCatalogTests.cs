@@ -239,6 +239,28 @@ public sealed class ErrorCodeCatalogTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Describe_WithDaemonStartupBlocked_IncludesStartupObservationCommands ()
+    {
+        var service = new ErrorCodeCatalogService(CreateCatalog());
+
+        var result = service.Describe(DaemonErrorCodes.DaemonStartupBlocked, requireKnown: true);
+
+        Assert.True(result.IsSuccess);
+        var appliesTo = result.Descriptor!.AppliesTo
+            .Select(static command => command.Name)
+            .ToArray();
+        Assert.Contains(UcliCommandIds.DaemonStart.Name, appliesTo);
+        Assert.Contains(UcliCommandIds.Plan.Name, appliesTo);
+        Assert.Contains(UcliCommandIds.Call.Name, appliesTo);
+        Assert.Contains(UcliCommandIds.Refresh.Name, appliesTo);
+        Assert.Contains(UcliCommandIds.Resolve.Name, appliesTo);
+        Assert.Contains(UcliCommandIds.Query.Name, appliesTo);
+        Assert.Contains(UcliCommandIds.Ops.Name, appliesTo);
+        Assert.Contains(UcliCommandIds.TestRun.Name, appliesTo);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Describe_WithInvalidCode_ReturnsInvalidArgument ()
     {
         var service = new ErrorCodeCatalogService(CreateCatalog());

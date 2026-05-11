@@ -2,6 +2,18 @@ namespace MackySoft.Ucli.Contracts;
 
 internal static class DaemonErrorCodeDescriptors
 {
+    private static IReadOnlyList<UcliCommand> StartupObservationCommands { get; } =
+    [
+        UcliCommandIds.DaemonStart,
+        UcliCommandIds.Plan,
+        UcliCommandIds.Call,
+        UcliCommandIds.Resolve,
+        UcliCommandIds.Query,
+        UcliCommandIds.Refresh,
+        UcliCommandIds.Ops,
+        UcliCommandIds.TestRun,
+    ];
+
     public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
     [
         UcliErrorCodeDescriptorFactory.Create(
@@ -37,7 +49,7 @@ internal static class DaemonErrorCodeDescriptors
             category: "daemon",
             summary: "Unity daemon startup was blocked by a known Unity startup condition.",
             meaning: "The daemon start operation could not complete because Unity reported, or the launcher observed, a terminal startup blocker before the daemon endpoint became available.",
-            appliesTo: [UcliCommandIds.DaemonStart],
+            appliesTo: StartupObservationCommands,
             possiblePhases: ["daemonStartup", "guiBootstrap", "scriptCompilation", "packageResolution", "userAction"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
@@ -65,7 +77,7 @@ internal static class DaemonErrorCodeDescriptors
             category: "daemon",
             summary: "Unity exited before daemon startup completed.",
             meaning: "The Unity process ended before the daemon endpoint and session registration were established.",
-            appliesTo: [UcliCommandIds.DaemonStart],
+            appliesTo: StartupObservationCommands,
             possiblePhases: ["daemonStartup", "processLaunch", "endpointRegistration"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
@@ -84,7 +96,7 @@ internal static class DaemonErrorCodeDescriptors
             category: "daemon",
             summary: "Daemon endpoint was not registered before the startup timeout.",
             meaning: "uCLI observed a Unity process but did not receive a daemon endpoint registration before the start budget expired.",
-            appliesTo: [UcliCommandIds.DaemonStart],
+            appliesTo: StartupObservationCommands,
             possiblePhases: ["endpointRegistration", "daemonStartup"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,

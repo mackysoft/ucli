@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Shared.Execution;
-
 namespace MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 
 /// <summary> Represents normalized output returned from test-run core service. </summary>
@@ -12,7 +10,8 @@ internal sealed record TestRunServiceResult
         string message,
         string? runId,
         string? artifactsDir,
-        string? summaryJsonPath)
+        string? summaryJsonPath,
+        StartupFailureDetail? startupFailure = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
 
@@ -45,6 +44,7 @@ internal sealed record TestRunServiceResult
         RunId = runId;
         ArtifactsDir = artifactsDir;
         SummaryJsonPath = summaryJsonPath;
+        StartupFailure = startupFailure;
     }
 
     /// <summary> Gets the pass/fail result when execution reaches test result evaluation. </summary>
@@ -75,6 +75,9 @@ internal sealed record TestRunServiceResult
 
     /// <summary> Gets the summary JSON path when available. </summary>
     public string? SummaryJsonPath { get; }
+
+    /// <summary> Gets the structured startup failure detail when Unity did not reach test execution. </summary>
+    public StartupFailureDetail? StartupFailure { get; }
 
     /// <summary> Gets the machine-readable error code when execution fails. </summary>
     public UcliErrorCode? ErrorCode => Failure?.Code;
@@ -154,7 +157,8 @@ internal sealed record TestRunServiceResult
         UcliErrorCode errorCode,
         string? runId = null,
         string? artifactsDir = null,
-        string? summaryJsonPath = null)
+        string? summaryJsonPath = null,
+        StartupFailureDetail? startupFailure = null)
     {
         return new TestRunServiceResult(
             result: null,
@@ -163,7 +167,8 @@ internal sealed record TestRunServiceResult
             message: message,
             runId: runId,
             artifactsDir: artifactsDir,
-            summaryJsonPath: summaryJsonPath);
+            summaryJsonPath: summaryJsonPath,
+            startupFailure);
     }
 
     /// <summary> Creates an infrastructure error result. </summary>
@@ -178,7 +183,8 @@ internal sealed record TestRunServiceResult
         UcliErrorCode errorCode,
         string? runId = null,
         string? artifactsDir = null,
-        string? summaryJsonPath = null)
+        string? summaryJsonPath = null,
+        StartupFailureDetail? startupFailure = null)
     {
         return new TestRunServiceResult(
             result: null,
@@ -190,7 +196,8 @@ internal sealed record TestRunServiceResult
             message: message,
             runId: runId,
             artifactsDir: artifactsDir,
-            summaryJsonPath: summaryJsonPath);
+            summaryJsonPath: summaryJsonPath,
+            startupFailure);
     }
 
     /// <summary> Creates a tool-error result. </summary>
@@ -205,7 +212,8 @@ internal sealed record TestRunServiceResult
         UcliErrorCode errorCode,
         string? runId = null,
         string? artifactsDir = null,
-        string? summaryJsonPath = null)
+        string? summaryJsonPath = null,
+        StartupFailureDetail? startupFailure = null)
     {
         return new TestRunServiceResult(
             result: null,
@@ -214,7 +222,8 @@ internal sealed record TestRunServiceResult
             message: message,
             runId: runId,
             artifactsDir: artifactsDir,
-            summaryJsonPath: summaryJsonPath);
+            summaryJsonPath: summaryJsonPath,
+            startupFailure);
     }
 
     private static ApplicationFailure CreateToolFailure (

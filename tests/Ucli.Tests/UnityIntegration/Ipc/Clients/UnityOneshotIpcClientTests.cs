@@ -288,9 +288,11 @@ public sealed class UnityOneshotIpcClientTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(DaemonErrorCodes.DaemonStartProcessExited, result.ErrorCode);
         Assert.Contains("exited before startup readiness", result.Message, StringComparison.Ordinal);
         Assert.Contains("Stale Unity project lock file was removed", result.Message, StringComparison.Ordinal);
+        Assert.NotNull(result.FailureInfo!.StartupFailure);
+        Assert.Equal("failed", result.FailureInfo.StartupFailure!.Startup!.StartupStatus);
         Assert.Equal(0, processHandle.TerminateCallCount);
     }
 
@@ -317,8 +319,54 @@ public sealed class UnityOneshotIpcClientTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(DaemonErrorCodes.DaemonStartProcessExited, result.ErrorCode);
         Assert.Contains("exited before startup readiness", result.Message, StringComparison.Ordinal);
+        Assert.NotNull(result.FailureInfo!.StartupFailure);
+        Assert.Equal("failed", result.FailureInfo.StartupFailure!.Startup!.StartupStatus);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenUnityExitsWithCompileErrorLog_ReturnsClassifiedStartupFailure ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "exit-compile-error");
+        var unityProject = CreateUnityProject(scope);
+        var unityLogPath = scope.GetPath("UnityProject/Logs/Editor.log");
+        var processHandle = new StubUnityBatchmodeProcessHandle(hasExited: true, exitCode: 1);
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var logReader = new StubUnityLogReader(UnityLogReadResult.Success(
+            """
+            COMMAND LINE ARGUMENTS:
+            Assets/Scripts/Broken.cs(10,5): error CS0246: The type or namespace name 'MissingType' could not be found
+            Scripts have compiler errors.
+            """,
+            truncated: false,
+            path: unityLogPath,
+            sizeBytes: 192));
+        var client = new UnityOneshotIpcClient(
+            launcher,
+            new StubIpcEndpointResolver(new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock")),
+            new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Transport should not be called.")),
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe(
+                UnityProjectLockFileProbeResult.Unlocked(scope.GetPath("UnityProject/Temp/UnityLockfile"))),
+            logReader);
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, result.ErrorCode);
+        Assert.Equal(1, logReader.CallCount);
+        Assert.NotNull(result.FailureInfo!.StartupFailure);
+        var startupFailure = result.FailureInfo.StartupFailure!;
+        Assert.Equal("blocked", startupFailure.Startup!.StartupStatus);
+        Assert.Equal("compile", startupFailure.Startup.StartupBlockingReason);
+        Assert.Equal("unityScriptCompilationFailed", startupFailure.Diagnosis!.Reason);
+        Assert.Equal("CS0246", startupFailure.Diagnosis.PrimaryDiagnostic!.Code);
     }
 
     [Fact]
@@ -398,6 +446,11 @@ public sealed class UnityOneshotIpcClientTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.NotNull(result.FailureInfo!.StartupFailure);
+        var startupFailure = result.FailureInfo.StartupFailure!;
+        Assert.Equal("timeout", startupFailure.Startup!.StartupStatus);
+        Assert.Equal("endpointNotRegistered", startupFailure.Startup.StartupBlockingReason);
+        Assert.Equal("startupFailed", startupFailure.Diagnosis!.Reason);
         Assert.Contains(transportClient.Requests, request => string.Equals(request.Method, IpcMethodNames.Shutdown, StringComparison.Ordinal));
         var bootstrapArguments = Assert.IsType<IpcOneshotBootstrapArguments>(launcher.LastBootstrapArguments);
         Assert.All(
@@ -766,6 +819,29 @@ public sealed class UnityOneshotIpcClientTests
             string projectFingerprint)
         {
             return endpoint;
+        }
+    }
+
+    private sealed class StubUnityLogReader : IUnityLogReader
+    {
+        private readonly UnityLogReadResult result;
+
+        public StubUnityLogReader (UnityLogReadResult result)
+        {
+            this.result = result;
+        }
+
+        public int CallCount { get; private set; }
+
+        public ValueTask<UnityLogReadResult> ReadTailAsync (
+            string storageRoot,
+            string projectFingerprint,
+            int maxBytes = IUnityLogReader.DefaultMaxBytes,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            CallCount++;
+            return ValueTask.FromResult(result);
         }
     }
 

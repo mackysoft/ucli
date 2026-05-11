@@ -11,12 +11,14 @@ internal sealed record ApplicationFailure
     /// <param name="code"> The machine-readable failure code. </param>
     /// <param name="message"> The user-facing failure message. </param>
     /// <param name="opId"> The operation identifier associated with the failure, or <see langword="null" /> when not applicable. </param>
+    /// <param name="startupFailure"> The structured startup failure detail when this failure occurred before a Unity process accepted the request. </param>
     public ApplicationFailure (
         ApplicationFailureKind kind,
         ApplicationOutcome outcome,
         UcliErrorCode code,
         string message,
-        string? opId = null)
+        string? opId = null,
+        StartupFailureDetail? startupFailure = null)
     {
         if (!IsDefinedKind(kind))
         {
@@ -36,6 +38,7 @@ internal sealed record ApplicationFailure
         Code = code;
         Message = message;
         OpId = opId;
+        StartupFailure = startupFailure;
     }
 
     /// <summary> Gets the application failure classification. </summary>
@@ -53,13 +56,17 @@ internal sealed record ApplicationFailure
     /// <summary> Gets the operation identifier associated with the failure, or <see langword="null" /> when not applicable. </summary>
     public string? OpId { get; }
 
+    /// <summary> Gets the structured startup failure detail when this failure occurred before a Unity process accepted the request. </summary>
+    public StartupFailureDetail? StartupFailure { get; }
+
     /// <summary> Creates a classified failure using the default outcome and fallback error code for the specified kind. </summary>
     public static ApplicationFailure Create (
         ApplicationFailureKind kind,
         string message,
         UcliErrorCode? code = null,
         string? opId = null,
-        ApplicationOutcome? outcome = null)
+        ApplicationOutcome? outcome = null,
+        StartupFailureDetail? startupFailure = null)
     {
         var resolvedCode = ResolveCode(kind, code);
         return new ApplicationFailure(
@@ -67,16 +74,18 @@ internal sealed record ApplicationFailure
             outcome ?? ResolveOutcome(kind),
             resolvedCode,
             message,
-            opId);
+            opId,
+            startupFailure);
     }
 
     /// <summary> Creates an invalid-input failure. </summary>
     public static ApplicationFailure InvalidInput (
         string message,
         UcliErrorCode? code = null,
-        string? opId = null)
+        string? opId = null,
+        StartupFailureDetail? startupFailure = null)
     {
-        return Create(ApplicationFailureKind.InvalidInput, message, code, opId);
+        return Create(ApplicationFailureKind.InvalidInput, message, code, opId, startupFailure: startupFailure);
     }
 
     /// <summary> Creates a configuration failure. </summary>
@@ -101,9 +110,10 @@ internal sealed record ApplicationFailure
     public static ApplicationFailure UnityIpcFailure (
         string message,
         UcliErrorCode? code = null,
-        string? opId = null)
+        string? opId = null,
+        StartupFailureDetail? startupFailure = null)
     {
-        return Create(ApplicationFailureKind.UnityIpcFailure, message, code, opId);
+        return Create(ApplicationFailureKind.UnityIpcFailure, message, code, opId, startupFailure: startupFailure);
     }
 
     /// <summary> Creates an external-process failure. </summary>
@@ -111,27 +121,30 @@ internal sealed record ApplicationFailure
         string message,
         UcliErrorCode? code = null,
         string? opId = null,
-        ApplicationOutcome? outcome = null)
+        ApplicationOutcome? outcome = null,
+        StartupFailureDetail? startupFailure = null)
     {
-        return Create(ApplicationFailureKind.ExternalProcessFailure, message, code, opId, outcome);
+        return Create(ApplicationFailureKind.ExternalProcessFailure, message, code, opId, outcome, startupFailure);
     }
 
     /// <summary> Creates a contract-violation failure. </summary>
     public static ApplicationFailure ContractViolation (
         string message,
         UcliErrorCode? code = null,
-        string? opId = null)
+        string? opId = null,
+        StartupFailureDetail? startupFailure = null)
     {
-        return Create(ApplicationFailureKind.ContractViolation, message, code, opId);
+        return Create(ApplicationFailureKind.ContractViolation, message, code, opId, startupFailure: startupFailure);
     }
 
     /// <summary> Creates a timeout failure. </summary>
     public static ApplicationFailure Timeout (
         string message,
         UcliErrorCode? code = null,
-        string? opId = null)
+        string? opId = null,
+        StartupFailureDetail? startupFailure = null)
     {
-        return Create(ApplicationFailureKind.Timeout, message, code, opId);
+        return Create(ApplicationFailureKind.Timeout, message, code, opId, startupFailure: startupFailure);
     }
 
     /// <summary> Creates a canceled failure. </summary>
@@ -147,16 +160,18 @@ internal sealed record ApplicationFailure
     public static ApplicationFailure InternalError (
         string message,
         UcliErrorCode? code = null,
-        string? opId = null)
+        string? opId = null,
+        StartupFailureDetail? startupFailure = null)
     {
-        return Create(ApplicationFailureKind.InternalError, message, code, opId);
+        return Create(ApplicationFailureKind.InternalError, message, code, opId, startupFailure: startupFailure);
     }
 
     /// <summary> Creates a failure from a structured execution error. </summary>
     public static ApplicationFailure FromExecutionError (
         ExecutionError error,
         UcliErrorCode? code = null,
-        string? opId = null)
+        string? opId = null,
+        StartupFailureDetail? startupFailure = null)
     {
         ArgumentNullException.ThrowIfNull(error);
         var resolvedCode = code.HasValue && code.Value.IsValid
@@ -165,11 +180,11 @@ internal sealed record ApplicationFailure
 
         return error.Kind switch
         {
-            ExecutionErrorKind.InvalidArgument => InvalidInput(error.Message, resolvedCode, opId),
-            ExecutionErrorKind.Timeout when ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(resolvedCode) => InvalidInput(error.Message, resolvedCode, opId),
-            ExecutionErrorKind.Timeout => Timeout(error.Message, resolvedCode, opId),
-            ExecutionErrorKind.InternalError when ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(resolvedCode) => InvalidInput(error.Message, resolvedCode, opId),
-            ExecutionErrorKind.InternalError => InternalError(error.Message, resolvedCode, opId),
+            ExecutionErrorKind.InvalidArgument => InvalidInput(error.Message, resolvedCode, opId, startupFailure),
+            ExecutionErrorKind.Timeout when ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(resolvedCode) => InvalidInput(error.Message, resolvedCode, opId, startupFailure),
+            ExecutionErrorKind.Timeout => Timeout(error.Message, resolvedCode, opId, startupFailure),
+            ExecutionErrorKind.InternalError when ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(resolvedCode) => InvalidInput(error.Message, resolvedCode, opId, startupFailure),
+            ExecutionErrorKind.InternalError => InternalError(error.Message, resolvedCode, opId, startupFailure),
             _ => throw new ArgumentOutOfRangeException(nameof(error), error.Kind, "Execution error kind is not defined."),
         };
     }
@@ -178,7 +193,8 @@ internal sealed record ApplicationFailure
     public static ApplicationFailure FromCode (
         UcliErrorCode? code,
         string message,
-        string? opId = null)
+        string? opId = null,
+        StartupFailureDetail? startupFailure = null)
     {
         var resolvedCode = code.HasValue && code.Value.IsValid
             ? code.Value
@@ -186,7 +202,7 @@ internal sealed record ApplicationFailure
 
         if (resolvedCode == ExecutionErrorCodes.IpcTimeout)
         {
-            return Timeout(message, resolvedCode, opId);
+            return Timeout(message, resolvedCode, opId, startupFailure);
         }
 
         if (resolvedCode == ExecutionErrorCodes.Canceled)
@@ -196,15 +212,15 @@ internal sealed record ApplicationFailure
 
         if (ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(resolvedCode))
         {
-            return InvalidInput(message, resolvedCode, opId);
+            return InvalidInput(message, resolvedCode, opId, startupFailure);
         }
 
         if (resolvedCode == UcliCoreErrorCodes.InternalError)
         {
-            return InternalError(message, resolvedCode, opId);
+            return InternalError(message, resolvedCode, opId, startupFailure);
         }
 
-        return ContractViolation(message, resolvedCode, opId);
+        return ContractViolation(message, resolvedCode, opId, startupFailure);
     }
 
     private static UcliErrorCode ResolveCode (

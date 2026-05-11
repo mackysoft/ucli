@@ -154,6 +154,44 @@ public sealed class UnityTestExecutorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenArtifactsAreMissingAndEditorLogHasCompileError_ReturnsStructuredStartupFailure ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-test-executor", "missing-results-compile-error");
+        var configuration = CreateConfiguration(scope);
+        var artifactPaths = CreateArtifactPaths(scope);
+        scope.WriteFile(
+            "run/editor.log",
+            """
+            COMMAND LINE ARGUMENTS:
+            Assets/Scripts/Broken.cs(10,5): error CS0246: The type or namespace name 'MissingType' could not be found
+            Scripts have compiler errors.
+            """);
+
+        var executor = new UnityTestExecutor(
+            new StubUnityCommandBuilder(["-batchmode"]),
+            new StubProcessRunner(ProcessRunResult.Exited(0)),
+            new StubProjectLifecycleLockProvider(),
+            new StubUnityProjectLockFileProbe());
+
+        var result = await executor.ExecuteAsync(
+            configuration,
+            artifactPaths,
+            TimeSpan.FromMilliseconds(3000),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityTestExecutionFailureKind.ArtifactMissing, result.FailureKind);
+        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, result.ErrorCode);
+        Assert.NotNull(result.StartupFailure);
+        var startupFailure = result.StartupFailure!;
+        Assert.Equal("blocked", startupFailure.Startup!.StartupStatus);
+        Assert.Equal("compile", startupFailure.Startup.StartupBlockingReason);
+        Assert.Equal("unityScriptCompilationFailed", startupFailure.Diagnosis!.Reason);
+        Assert.Equal("CS0246", startupFailure.Diagnosis.PrimaryDiagnostic!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WithSubSecondTimeout_PreservesExactTimeout ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-test-executor", "timeout-round-up");

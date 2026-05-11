@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
@@ -123,10 +124,12 @@ internal static class UnityIpcFailureClassifier
     /// <returns> The classified Unity request failure. </returns>
     public static UnityRequestFailure FromCodeAndMessage (
         UcliErrorCode code,
-        string message)
+        string message,
+        StartupFailureDetail? startupFailure = null)
     {
         return new UnityRequestFailure(
             code,
-            message);
+            message,
+            startupFailure);
     }
 }

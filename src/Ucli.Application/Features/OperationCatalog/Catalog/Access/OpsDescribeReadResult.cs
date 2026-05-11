@@ -4,7 +4,8 @@ namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 internal sealed record OpsDescribeReadResult (
     OpsDescribeReadOutput? Output,
     string Message,
-    UcliErrorCode? ErrorCode)
+    UcliErrorCode? ErrorCode,
+    StartupFailureDetail? StartupFailure = null)
 {
     /// <summary> Gets a value indicating whether the describe read succeeded. </summary>
     public bool IsSuccess => Output is not null && ErrorCode is null;
@@ -21,8 +22,9 @@ internal sealed record OpsDescribeReadResult (
     /// <summary> Creates a failed describe-read result. </summary>
     public static OpsDescribeReadResult Failure (
         string message,
-        UcliErrorCode errorCode)
+        UcliErrorCode errorCode,
+        StartupFailureDetail? startupFailure = null)
     {
-        return new OpsDescribeReadResult(null, message, errorCode);
+        return new OpsDescribeReadResult(null, message, errorCode, startupFailure);
     }
 }
