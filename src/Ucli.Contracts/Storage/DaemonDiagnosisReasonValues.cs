@@ -33,6 +33,12 @@ public static class DaemonDiagnosisReasonValues
     /// <summary> Gets the reason value used when Unity package resolution blocks GUI daemon bootstrap. </summary>
     public const string UnityPackageResolutionFailed = "unityPackageResolutionFailed";
 
+    /// <summary> Gets the reason value used when uCLI plugin dependencies are missing during daemon bootstrap. </summary>
+    public const string UcliPluginDependencyMissing = "ucliPluginDependencyMissing";
+
+    /// <summary> Gets the reason value used when Unity startup is blocked by a precompiled assembly conflict. </summary>
+    public const string PrecompiledAssemblyConflict = "precompiledAssemblyConflict";
+
     /// <summary> Gets the reason value used when Unity Editor requires user action before GUI daemon bootstrap can continue. </summary>
     public const string EditorUserActionRequired = "unityEditorUserActionRequired";
 

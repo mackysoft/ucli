@@ -596,53 +596,10 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
 
         return new DaemonStartupObservation(
             StartupStatus: DaemonStartupStatusValues.Blocked,
-            StartupBlockingReason: ResolveStartupBlockingReason(blocker),
+            StartupBlockingReason: blocker.StartupBlockingReason,
             LaunchAttemptId: null,
             ProcessAction: processAction,
-            RetryDisposition: ResolveRetryDisposition(blocker));
-    }
-
-    private static string ResolveStartupBlockingReason (DaemonGuiStartupBlocker blocker)
-    {
-        if (string.Equals(blocker.Reason, DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, StringComparison.Ordinal))
-        {
-            return DaemonStartupBlockingReasonValues.Compile;
-        }
-
-        if (string.Equals(blocker.Reason, DaemonDiagnosisReasonValues.UnityPackageResolutionFailed, StringComparison.Ordinal))
-        {
-            return DaemonStartupBlockingReasonValues.PackageResolution;
-        }
-
-        if (string.Equals(blocker.Reason, DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap, StringComparison.Ordinal))
-        {
-            return DaemonStartupBlockingReasonValues.ProcessExit;
-        }
-
-        if (string.Equals(blocker.Reason, DaemonDiagnosisReasonValues.EditorUserActionRequired, StringComparison.Ordinal))
-        {
-            return blocker.PrimaryDiagnostic?.Message?.Contains("Safe Mode", StringComparison.OrdinalIgnoreCase) == true
-                ? DaemonStartupBlockingReasonValues.SafeMode
-                : DaemonStartupBlockingReasonValues.ModalDialog;
-        }
-
-        return DaemonStartupBlockingReasonValues.Unknown;
-    }
-
-    private static string ResolveRetryDisposition (DaemonGuiStartupBlocker blocker)
-    {
-        if (string.Equals(blocker.ActionRequired, DaemonDiagnosisActionRequiredValues.ResolveUnityDialog, StringComparison.Ordinal))
-        {
-            return DaemonStartupRetryDispositionValues.ManualActionRequired;
-        }
-
-        if (string.Equals(blocker.ActionRequired, DaemonDiagnosisActionRequiredValues.FixCompileErrors, StringComparison.Ordinal)
-            || string.Equals(blocker.ActionRequired, DaemonDiagnosisActionRequiredValues.ResolvePackages, StringComparison.Ordinal))
-        {
-            return DaemonStartupRetryDispositionValues.RetryAfterFix;
-        }
-
-        return DaemonStartupRetryDispositionValues.Unknown;
+            RetryDisposition: blocker.RetryDisposition);
     }
 
     private sealed record GuiStartupBlockedProcessPolicyResult (

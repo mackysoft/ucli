@@ -4,6 +4,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Identity;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Logs;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
@@ -68,7 +69,9 @@ public sealed class DaemonGuiStartupObserverTests
 
         Assert.True(result.IsBlocked);
         Assert.NotNull(result.Blocker);
-        Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, result.Blocker!.Reason);
+        Assert.Equal(DaemonStartupBlockingReasonValues.Compile, result.Blocker!.StartupBlockingReason);
+        Assert.Equal(DaemonStartupRetryDispositionValues.RetryAfterFix, result.Blocker.RetryDisposition);
+        Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, result.Blocker.Reason);
         Assert.Equal(DaemonDiagnosisActionRequiredValues.FixCompileErrors, result.Blocker.ActionRequired);
         Assert.Equal(processStartedAtUtc, result.Blocker.ProcessStartedAtUtc);
         Assert.NotNull(result.Blocker.PrimaryDiagnostic);
@@ -127,6 +130,8 @@ public sealed class DaemonGuiStartupObserverTests
         Assert.Equal(expectedStartupPhase, result.Blocker.StartupPhase);
         Assert.Equal(expectedActionRequired, result.Blocker.ActionRequired);
         Assert.Equal(expectedPrimaryDiagnosticKind, result.Blocker.PrimaryDiagnostic!.Kind);
+        Assert.NotEqual(DaemonStartupBlockingReasonValues.Unknown, result.Blocker.StartupBlockingReason);
+        Assert.NotEqual(DaemonStartupRetryDispositionValues.Unknown, result.Blocker.RetryDisposition);
     }
 
     [Fact]
@@ -161,7 +166,9 @@ public sealed class DaemonGuiStartupObserverTests
 
         Assert.True(result.IsBlocked);
         Assert.NotNull(result.Blocker);
-        Assert.Equal(DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap, result.Blocker!.Reason);
+        Assert.Equal(DaemonStartupBlockingReasonValues.ProcessExit, result.Blocker!.StartupBlockingReason);
+        Assert.Equal(DaemonStartupRetryDispositionValues.Unknown, result.Blocker.RetryDisposition);
+        Assert.Equal(DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap, result.Blocker.Reason);
         Assert.Equal(DaemonDiagnosisActionRequiredValues.InspectUnityLog, result.Blocker.ActionRequired);
         Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.ProcessExit, result.Blocker.PrimaryDiagnostic!.Kind);
     }
