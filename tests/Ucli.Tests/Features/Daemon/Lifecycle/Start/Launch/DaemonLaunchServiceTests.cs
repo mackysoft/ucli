@@ -179,6 +179,51 @@ public sealed class DaemonLaunchServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Launch_WhenEditorModeGuiRegistrationTimesOutAndTerminatePolicy_CleansFailedProcess ()
+    {
+        var context = CreateContext("fingerprint-gui-launch-timeout-cleanup-success");
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
+        var guiLauncher = new StubUnityGuiEditorProcessLauncher
+        {
+            NextResult = UnityDaemonLaunchResult.Success(5434, processStartedAtUtc),
+        };
+        var timeoutError = ExecutionError.Timeout("registration timeout", ExecutionErrorCodes.IpcTimeout);
+        var guiStartupObserver = new StubDaemonGuiStartupObserver
+        {
+            NextResult = DaemonGuiStartupObservationResult.Failure(timeoutError),
+        };
+        var compensationService = new StubDaemonLaunchCompensationService();
+        var launchAttemptStore = new StubDaemonLaunchAttemptStore();
+        var service = CreateService(
+            new StubDaemonLaunchSessionService(),
+            new StubUnityDaemonProcessLauncher(),
+            new StubDaemonStartupReadinessProbe(),
+            compensationService,
+            new StubDaemonDiagnosisStore(),
+            unityGuiEditorProcessLauncher: guiLauncher,
+            guiStartupObserver: guiStartupObserver,
+            launchAttemptStore: launchAttemptStore);
+
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Gui,
+            DaemonStartupBlockedProcessPolicy.Terminate,
+            CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        Assert.NotNull(result.Startup);
+        Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup!.ProcessAction);
+        Assert.Equal(1, compensationService.CallCount);
+        Assert.Equal(5434, compensationService.LastProcessId);
+        Assert.Equal(processStartedAtUtc, compensationService.LastProcessStartedAtUtc);
+        Assert.Equal(1, launchAttemptStore.WriteCallCount);
+        Assert.Equal(DaemonStartupStatusValues.Timeout, launchAttemptStore.LastLaunchAttempt!.StartupStatus);
+        Assert.Equal(DaemonStartupProcessActionValues.Terminated, launchAttemptStore.LastLaunchAttempt.ProcessAction);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Launch_WhenEditorModeGuiRegistrationTimesOutAndCompensationFails_RecordsUnknownProcessAction ()
     {
         var context = CreateContext("fingerprint-gui-launch-timeout-cleanup-fail");
@@ -502,6 +547,81 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(processStartedAtUtc, compensationService.LastProcessStartedAtUtc);
         Assert.NotNull(result.Startup);
         Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup!.ProcessAction);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenEditorModeGuiStartupBlockedAndCleanupFails_PreservesPrimaryBlockerAndRecordsUnknownProcessAction ()
+    {
+        var context = CreateContext("fingerprint-gui-launch-terminate-cleanup-fail");
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
+        var primaryDiagnostic = new DaemonPrimaryDiagnostic(
+            Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
+            Code: "CS0103",
+            File: "Assets/Foo.cs",
+            Line: 12,
+            Column: 9,
+            Message: "The name does not exist");
+        var guiLauncher = new StubUnityGuiEditorProcessLauncher
+        {
+            NextResult = UnityDaemonLaunchResult.Success(6545, processStartedAtUtc),
+        };
+        var blocker = new DaemonGuiStartupBlocker(
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
+            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            Message: "Unity Editor startup is blocked because scripts have compiler errors.",
+            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+            ProcessId: 6545,
+            ProcessStartedAtUtc: processStartedAtUtc,
+            UnityLogPath: $"/tmp/repo-root/.ucli/local/fingerprints/{context.ProjectFingerprint}/unity.log",
+            PrimaryDiagnostic: primaryDiagnostic);
+        var guiStartupObserver = new StubDaemonGuiStartupObserver
+        {
+            NextResult = DaemonGuiStartupObservationResult.Blocked(blocker),
+        };
+        var compensationService = new StubDaemonLaunchCompensationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Failure(ExecutionError.InternalError("cleanup failed")),
+        };
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var launchAttemptStore = new StubDaemonLaunchAttemptStore();
+        var service = CreateService(
+            new StubDaemonLaunchSessionService(),
+            new StubUnityDaemonProcessLauncher(),
+            new StubDaemonStartupReadinessProbe(),
+            compensationService,
+            diagnosisStore,
+            unityGuiEditorProcessLauncher: guiLauncher,
+            guiStartupObserver: guiStartupObserver,
+            launchAttemptStore: launchAttemptStore);
+
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Gui,
+            DaemonStartupBlockedProcessPolicy.Terminate,
+            CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
+        Assert.Contains("StartupError=Unity Editor startup is blocked because scripts have compiler errors.", error.Message, StringComparison.Ordinal);
+        Assert.Contains("CleanupError=cleanup failed", error.Message, StringComparison.Ordinal);
+        Assert.Equal(1, diagnosisStore.WriteCallCount);
+        Assert.NotNull(result.Diagnosis);
+        Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, result.Diagnosis!.Reason);
+        Assert.Equal(DaemonDiagnosisStartupPhaseValues.ScriptCompilation, result.Diagnosis.StartupPhase);
+        Assert.Equal(DaemonDiagnosisActionRequiredValues.FixCompileErrors, result.Diagnosis.ActionRequired);
+        Assert.Equal(primaryDiagnostic, result.Diagnosis.PrimaryDiagnostic);
+        Assert.Equal(1, compensationService.CallCount);
+        Assert.NotNull(result.Startup);
+        Assert.Equal(DaemonStartupProcessActionValues.Unknown, result.Startup!.ProcessAction);
+        Assert.Equal(DaemonStartupBlockingReasonValues.Compile, result.Startup.StartupBlockingReason);
+        Assert.Equal(1, launchAttemptStore.WriteCallCount);
+        Assert.Equal(DaemonStartupProcessActionValues.Unknown, launchAttemptStore.LastLaunchAttempt!.ProcessAction);
+        Assert.Equal(result.Diagnosis, launchAttemptStore.LastLaunchAttempt.Diagnosis);
     }
 
     [Fact]
@@ -977,17 +1097,345 @@ public sealed class DaemonLaunchServiceTests
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup!.ProcessAction);
-        Assert.Equal(
-            [
-                "diagnosis",
-                $"launchAttempt:{DaemonStartupProcessActionValues.Unknown}",
-                "cleanup",
+        var cleanupIndex = sequence.IndexOf("cleanup");
+        Assert.True(cleanupIndex > sequence.IndexOf("diagnosis"));
+        Assert.Contains(
+            sequence.Take(cleanupIndex),
+            value => value.StartsWith("launchAttempt:", StringComparison.Ordinal));
+        Assert.Contains(
+            sequence.Skip(cleanupIndex + 1),
+            value => string.Equals(
+                value,
                 $"launchAttempt:{DaemonStartupProcessActionValues.Terminated}",
-            ],
-            sequence);
-        Assert.Equal(2, launchAttemptStore.WriteCallCount);
-        Assert.Equal(1, launchAttemptStore.PruneCallCount);
+                StringComparison.Ordinal));
         Assert.Equal(DaemonStartupProcessActionValues.Terminated, launchAttemptStore.LastLaunchAttempt!.ProcessAction);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenBatchmodeClassifiedBlockerDiagnosisWriteFails_PreservesPrimaryBlockerAndStillCompensates ()
+    {
+        var context = CreateContext("fingerprint-probe-classified-blocker-diagnosis-fail");
+        var initialSession = CreateSession(processId: null, projectFingerprint: context.ProjectFingerprint);
+        var updatedSession = initialSession with { ProcessId = 7781 };
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
+        var classification = new DaemonStartupFailureClassification(
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
+            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            Message: "Unity scripts have compiler errors.",
+            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+            PrimaryDiagnostic: null);
+        var launchSessionService = new StubDaemonLaunchSessionService
+        {
+            InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),
+            UpdateProcessIdResult = DaemonLaunchSessionWriteResult.Success(updatedSession),
+        };
+        var readinessProbe = new StubDaemonStartupReadinessProbe
+        {
+            NextResult = DaemonStartupReadinessProbeResult.Failure(
+                ExecutionError.InternalError(classification.Message, DaemonErrorCodes.DaemonStartupBlocked),
+                classification),
+        };
+        var diagnosisStore = new StubDaemonDiagnosisStore
+        {
+            WriteResult = DaemonDiagnosisStoreOperationResult.Failure(ExecutionError.InternalError("diagnosis failed")),
+        };
+        var launchAttemptStore = new StubDaemonLaunchAttemptStore();
+        var compensationService = new StubDaemonLaunchCompensationService();
+        var service = CreateService(
+            launchSessionService,
+            new StubUnityDaemonProcessLauncher
+            {
+                NextResult = UnityDaemonLaunchResult.Success(7781, processStartedAtUtc),
+            },
+            readinessProbe,
+            compensationService,
+            diagnosisStore,
+            launchAttemptStore: launchAttemptStore);
+
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
+        Assert.Contains("StartupError=Unity scripts have compiler errors.", error.Message, StringComparison.Ordinal);
+        Assert.Contains("DiagnosisError=diagnosis failed", error.Message, StringComparison.Ordinal);
+        Assert.Equal(1, compensationService.CallCount);
+        Assert.NotNull(result.Startup);
+        Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup!.ProcessAction);
+        Assert.Equal(2, launchAttemptStore.WriteCallCount);
+        Assert.Equal(DaemonStartupProcessActionValues.Terminated, launchAttemptStore.LastLaunchAttempt!.ProcessAction);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenBatchmodeClassifiedBlockerLaunchAttemptWriteFails_PreservesPrimaryBlockerAndStillCompensates ()
+    {
+        var context = CreateContext("fingerprint-probe-classified-blocker-artifact-fail");
+        var initialSession = CreateSession(processId: null, projectFingerprint: context.ProjectFingerprint);
+        var updatedSession = initialSession with { ProcessId = 7782 };
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
+        var classification = new DaemonStartupFailureClassification(
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
+            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            Message: "Unity scripts have compiler errors.",
+            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+            PrimaryDiagnostic: null);
+        var launchSessionService = new StubDaemonLaunchSessionService
+        {
+            InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),
+            UpdateProcessIdResult = DaemonLaunchSessionWriteResult.Success(updatedSession),
+        };
+        var readinessProbe = new StubDaemonStartupReadinessProbe
+        {
+            NextResult = DaemonStartupReadinessProbeResult.Failure(
+                ExecutionError.InternalError(classification.Message, DaemonErrorCodes.DaemonStartupBlocked),
+                classification),
+        };
+        var launchAttemptStore = new StubDaemonLaunchAttemptStore
+        {
+            WriteResult = DaemonLaunchAttemptStoreOperationResult.Failure(ExecutionError.InternalError("artifact failed")),
+        };
+        var compensationService = new StubDaemonLaunchCompensationService();
+        var service = CreateService(
+            launchSessionService,
+            new StubUnityDaemonProcessLauncher
+            {
+                NextResult = UnityDaemonLaunchResult.Success(7782, processStartedAtUtc),
+            },
+            readinessProbe,
+            compensationService,
+            new StubDaemonDiagnosisStore(),
+            launchAttemptStore: launchAttemptStore);
+
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
+        Assert.Contains("StartupError=Unity scripts have compiler errors.", error.Message, StringComparison.Ordinal);
+        Assert.Contains("ArtifactError=artifact failed", error.Message, StringComparison.Ordinal);
+        Assert.Equal(1, compensationService.CallCount);
+        Assert.NotNull(result.Startup);
+        Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup!.ProcessAction);
+        Assert.Equal(2, launchAttemptStore.WriteCallCount);
+        Assert.Equal(0, launchAttemptStore.PruneCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenBatchmodeClassifiedBlockerFinalLaunchAttemptWriteFails_PreservesPrimaryBlockerAndReportsArtifactError ()
+    {
+        var context = CreateContext("fingerprint-probe-classified-blocker-final-artifact-fail");
+        var initialSession = CreateSession(processId: null, projectFingerprint: context.ProjectFingerprint);
+        var updatedSession = initialSession with { ProcessId = 7784 };
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
+        var classification = new DaemonStartupFailureClassification(
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
+            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            Message: "Unity scripts have compiler errors.",
+            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+            PrimaryDiagnostic: null);
+        var launchSessionService = new StubDaemonLaunchSessionService
+        {
+            InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),
+            UpdateProcessIdResult = DaemonLaunchSessionWriteResult.Success(updatedSession),
+        };
+        var readinessProbe = new StubDaemonStartupReadinessProbe
+        {
+            NextResult = DaemonStartupReadinessProbeResult.Failure(
+                ExecutionError.InternalError(classification.Message, DaemonErrorCodes.DaemonStartupBlocked),
+                classification),
+        };
+        var launchAttemptStore = new StubDaemonLaunchAttemptStore();
+        launchAttemptStore.WriteResults.Enqueue(DaemonLaunchAttemptStoreOperationResult.Success());
+        launchAttemptStore.WriteResults.Enqueue(
+            DaemonLaunchAttemptStoreOperationResult.Failure(ExecutionError.InternalError("final artifact failed")));
+        var compensationService = new StubDaemonLaunchCompensationService();
+        var service = CreateService(
+            launchSessionService,
+            new StubUnityDaemonProcessLauncher
+            {
+                NextResult = UnityDaemonLaunchResult.Success(7784, processStartedAtUtc),
+            },
+            readinessProbe,
+            compensationService,
+            new StubDaemonDiagnosisStore(),
+            launchAttemptStore: launchAttemptStore);
+
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
+        Assert.Contains("StartupError=Unity scripts have compiler errors.", error.Message, StringComparison.Ordinal);
+        Assert.Contains("ArtifactError=final artifact failed", error.Message, StringComparison.Ordinal);
+        Assert.Equal(1, compensationService.CallCount);
+        Assert.NotNull(result.Startup);
+        Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup!.ProcessAction);
+        Assert.Equal(2, launchAttemptStore.WriteCallCount);
+        Assert.Equal(DaemonStartupProcessActionValues.Terminated, launchAttemptStore.LastLaunchAttempt!.ProcessAction);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenBatchmodeClassifiedBlockerFinalLaunchAttemptWriteAndCleanupFail_ReportsBothSecondaryErrors ()
+    {
+        var context = CreateContext("fingerprint-probe-classified-blocker-final-artifact-cleanup-fail");
+        var initialSession = CreateSession(processId: null, projectFingerprint: context.ProjectFingerprint);
+        var updatedSession = initialSession with { ProcessId = 7785 };
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
+        var classification = new DaemonStartupFailureClassification(
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
+            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            Message: "Unity scripts have compiler errors.",
+            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+            PrimaryDiagnostic: null);
+        var launchSessionService = new StubDaemonLaunchSessionService
+        {
+            InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),
+            UpdateProcessIdResult = DaemonLaunchSessionWriteResult.Success(updatedSession),
+        };
+        var readinessProbe = new StubDaemonStartupReadinessProbe
+        {
+            NextResult = DaemonStartupReadinessProbeResult.Failure(
+                ExecutionError.InternalError(classification.Message, DaemonErrorCodes.DaemonStartupBlocked),
+                classification),
+        };
+        var launchAttemptStore = new StubDaemonLaunchAttemptStore();
+        launchAttemptStore.WriteResults.Enqueue(DaemonLaunchAttemptStoreOperationResult.Success());
+        launchAttemptStore.WriteResults.Enqueue(
+            DaemonLaunchAttemptStoreOperationResult.Failure(ExecutionError.InternalError("final artifact failed")));
+        var compensationService = new StubDaemonLaunchCompensationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Failure(ExecutionError.InternalError("cleanup failed")),
+        };
+        var service = CreateService(
+            launchSessionService,
+            new StubUnityDaemonProcessLauncher
+            {
+                NextResult = UnityDaemonLaunchResult.Success(7785, processStartedAtUtc),
+            },
+            readinessProbe,
+            compensationService,
+            new StubDaemonDiagnosisStore(),
+            launchAttemptStore: launchAttemptStore);
+
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
+        Assert.Contains("StartupError=Unity scripts have compiler errors.", error.Message, StringComparison.Ordinal);
+        Assert.Contains("ArtifactError=final artifact failed", error.Message, StringComparison.Ordinal);
+        Assert.Contains("CleanupError=cleanup failed", error.Message, StringComparison.Ordinal);
+        Assert.NotNull(result.Startup);
+        Assert.Equal(DaemonStartupProcessActionValues.Unknown, result.Startup!.ProcessAction);
+        Assert.Equal(2, launchAttemptStore.WriteCallCount);
+        Assert.Equal(DaemonStartupProcessActionValues.Unknown, launchAttemptStore.LastLaunchAttempt!.ProcessAction);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenBatchmodeClassifiedBlockerCleanupFails_RecordsUnknownProcessAction ()
+    {
+        var context = CreateContext("fingerprint-probe-classified-blocker-cleanup-fail");
+        var initialSession = CreateSession(processId: null, projectFingerprint: context.ProjectFingerprint);
+        var updatedSession = initialSession with { ProcessId = 7783 };
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
+        var primaryDiagnostic = new DaemonPrimaryDiagnostic(
+            Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
+            Code: "CS1002",
+            File: "Assets/Foo.cs",
+            Line: 42,
+            Column: 13,
+            Message: "Semicolon expected");
+        var classification = new DaemonStartupFailureClassification(
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
+            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            Message: "Unity scripts have compiler errors.",
+            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+            PrimaryDiagnostic: primaryDiagnostic);
+        var launchSessionService = new StubDaemonLaunchSessionService
+        {
+            InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),
+            UpdateProcessIdResult = DaemonLaunchSessionWriteResult.Success(updatedSession),
+        };
+        var readinessProbe = new StubDaemonStartupReadinessProbe
+        {
+            NextResult = DaemonStartupReadinessProbeResult.Failure(
+                ExecutionError.InternalError(classification.Message, DaemonErrorCodes.DaemonStartupBlocked),
+                classification),
+        };
+        var compensationService = new StubDaemonLaunchCompensationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Failure(ExecutionError.InternalError("cleanup failed")),
+        };
+        var launchAttemptStore = new StubDaemonLaunchAttemptStore();
+        var service = CreateService(
+            launchSessionService,
+            new StubUnityDaemonProcessLauncher
+            {
+                NextResult = UnityDaemonLaunchResult.Success(7783, processStartedAtUtc),
+            },
+            readinessProbe,
+            compensationService,
+            new StubDaemonDiagnosisStore(),
+            launchAttemptStore: launchAttemptStore);
+
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
+        Assert.Contains("StartupError=Unity scripts have compiler errors.", error.Message, StringComparison.Ordinal);
+        Assert.Contains("CleanupError=cleanup failed", error.Message, StringComparison.Ordinal);
+        Assert.Equal(1, compensationService.CallCount);
+        Assert.NotNull(result.Diagnosis);
+        Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, result.Diagnosis!.Reason);
+        Assert.Equal(DaemonDiagnosisStartupPhaseValues.ScriptCompilation, result.Diagnosis.StartupPhase);
+        Assert.Equal(DaemonDiagnosisActionRequiredValues.FixCompileErrors, result.Diagnosis.ActionRequired);
+        Assert.Equal(primaryDiagnostic, result.Diagnosis.PrimaryDiagnostic);
+        Assert.NotNull(result.Startup);
+        Assert.Equal(DaemonStartupProcessActionValues.Unknown, result.Startup!.ProcessAction);
+        Assert.Equal(2, launchAttemptStore.WriteCallCount);
+        Assert.Equal(DaemonStartupProcessActionValues.Unknown, launchAttemptStore.LastLaunchAttempt!.ProcessAction);
+        Assert.Equal(result.Diagnosis, launchAttemptStore.LastLaunchAttempt.Diagnosis);
     }
 
     [Fact]
@@ -1751,6 +2199,8 @@ public sealed class DaemonLaunchServiceTests
 
         public DaemonLaunchAttemptStoreOperationResult PruneResult { get; set; } = DaemonLaunchAttemptStoreOperationResult.Success();
 
+        public Queue<DaemonLaunchAttemptStoreOperationResult> WriteResults { get; } = new();
+
         public Action<DaemonLaunchAttempt>? OnWrite { get; set; }
 
         public int WriteCallCount { get; private set; }
@@ -1771,7 +2221,7 @@ public sealed class DaemonLaunchServiceTests
             LastLaunchAttempt = launchAttempt;
             launchAttempts.Add(launchAttempt);
             OnWrite?.Invoke(launchAttempt);
-            return ValueTask.FromResult(WriteResult);
+            return ValueTask.FromResult(WriteResults.Count > 0 ? WriteResults.Dequeue() : WriteResult);
         }
 
         public ValueTask<DaemonLaunchAttemptReadResult> ReadLastFailureAsync (

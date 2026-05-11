@@ -758,9 +758,11 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 diagnosis,
                 pruneAfterWrite: !policyResolution.ShouldTerminateProcess)
             .ConfigureAwait(false);
+        // NOTE: Classified batchmode blockers are hard blockers. Persistence failures are reported as secondary
+        // errors, but they do not disable termination after both persistence operations have been attempted.
         var policyResult = await ApplyBatchmodeStartupBlockedProcessPolicyAsync(
                 unityProject,
-                onStartupBlocked,
+                policyResolution,
                 processId,
                 processStartedAtUtc,
                 CancellationToken.None)
@@ -802,13 +804,35 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             launchStartedAtUtc,
             updatedAtUtc,
             CreateLaunchAttemptArtifactPath(unityProject, launchAttemptId));
-        if (!diagnosisWriteResult.IsSuccess)
+        if (!diagnosisWriteResult.IsSuccess && !launchAttemptWriteResult.IsSuccess && policyResult.CleanupResult is { IsSuccess: false })
         {
             return DaemonStartResult.Failure(CreateAugmentedPrimaryError(
                 primaryError,
-                "Batchmode startup is blocked and diagnosis persistence failed. " +
+                "Batchmode startup is blocked, diagnosis persistence failed, launch-attempt artifact persistence failed, and cleanup failed. " +
                 $"StartupError={primaryError.Message} " +
-                $"DiagnosisError={diagnosisWriteResult.Error!.Message}"), diagnosis, startup);
+                $"DiagnosisError={diagnosisWriteResult.Error!.Message} " +
+                $"ArtifactError={launchAttemptWriteResult.Error!.Message} " +
+                $"CleanupError={policyResult.CleanupResult.Error!.Message}"), diagnosis, startup);
+        }
+
+        if (!diagnosisWriteResult.IsSuccess && policyResult.CleanupResult is { IsSuccess: false })
+        {
+            return DaemonStartResult.Failure(CreateAugmentedPrimaryError(
+                primaryError,
+                "Batchmode startup is blocked, diagnosis persistence failed, and cleanup failed. " +
+                $"StartupError={primaryError.Message} " +
+                $"DiagnosisError={diagnosisWriteResult.Error!.Message} " +
+                $"CleanupError={policyResult.CleanupResult.Error!.Message}"), diagnosis, startup);
+        }
+
+        if (!launchAttemptWriteResult.IsSuccess && policyResult.CleanupResult is { IsSuccess: false })
+        {
+            return DaemonStartResult.Failure(CreateAugmentedPrimaryError(
+                primaryError,
+                "Batchmode startup is blocked, launch-attempt artifact persistence failed, and cleanup failed. " +
+                $"StartupError={primaryError.Message} " +
+                $"ArtifactError={launchAttemptWriteResult.Error!.Message} " +
+                $"CleanupError={policyResult.CleanupResult.Error!.Message}"), diagnosis, startup);
         }
 
         if (!launchAttemptWriteResult.IsSuccess)
@@ -818,6 +842,15 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 "Batchmode startup is blocked and launch-attempt artifact persistence failed. " +
                 $"StartupError={primaryError.Message} " +
                 $"ArtifactError={launchAttemptWriteResult.Error!.Message}"), diagnosis, startup);
+        }
+
+        if (!diagnosisWriteResult.IsSuccess)
+        {
+            return DaemonStartResult.Failure(CreateAugmentedPrimaryError(
+                primaryError,
+                "Batchmode startup is blocked and diagnosis persistence failed. " +
+                $"StartupError={primaryError.Message} " +
+                $"DiagnosisError={diagnosisWriteResult.Error!.Message}"), diagnosis, startup);
         }
 
         if (policyResult.CleanupResult is { IsSuccess: false })
@@ -834,19 +867,13 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
 
     private async ValueTask<StartupBlockedProcessPolicyResult> ApplyBatchmodeStartupBlockedProcessPolicyAsync (
         ResolvedUnityProjectContext unityProject,
-        DaemonStartupBlockedProcessPolicy onStartupBlocked,
+        DaemonStartupBlockedProcessPolicyResolution policyResolution,
         int? processId,
         DateTimeOffset? processStartedAtUtc,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var policyResolution = DaemonStartupBlockedProcessPolicyResolver.Resolve(
-            onStartupBlocked,
-            DaemonEditorModeValues.Batchmode,
-            DaemonSessionOwnerKindValues.Cli,
-            canShutdownProcess: true,
-            processId);
         if (!policyResolution.ShouldTerminateProcess)
         {
             return new StartupBlockedProcessPolicyResult(
