@@ -149,6 +149,11 @@ internal sealed class SupervisorClient
                 return DaemonStartResult.AlreadyRunning(payload.Session, payload.LifecycleSnapshot);
             }
 
+            if (string.Equals(payload.StartStatus, DaemonStartStateCodec.Attached, StringComparison.Ordinal))
+            {
+                return DaemonStartResult.Attached(payload.Session, payload.LifecycleSnapshot);
+            }
+
             return DaemonStartResult.Failure(ExecutionError.InternalError(
                 $"Supervisor ensureRunning returned unsupported startStatus: {payload.StartStatus}."));
         }

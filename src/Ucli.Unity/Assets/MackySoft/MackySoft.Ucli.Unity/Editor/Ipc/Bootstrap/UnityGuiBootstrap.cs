@@ -26,7 +26,14 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> A task that completes when the GUI endpoint has been registered. </returns>
         public static async Task StartAsync (IpcGuiBootstrapArguments bootstrapArguments)
         {
-            await StopAsync(CancellationToken.None);
+            lock (SyncRoot)
+            {
+                if (activeState != null)
+                {
+                    return;
+                }
+            }
+
             var daemonLogStream = new DaemonLogRingBuffer();
             var daemonLogger = new DaemonLogger(daemonLogStream);
             ActiveGuiBootstrapState nextState = null;

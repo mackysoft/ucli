@@ -13,7 +13,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task TryAttachExistingGuiEditor_WhenMatchingGuiSessionRegisters_ReturnsAlreadyRunning ()
+    public async Task TryAttachExistingGuiEditor_WhenMatchingGuiSessionRegisters_ReturnsAttached ()
     {
         var marker = CreateMarker();
         var context = CreateContext();
@@ -31,7 +31,8 @@ public sealed class DaemonGuiEditorAttachServiceTests
             Result = DaemonGuiSessionRegistrationWaitResult.Success(session),
         };
         var diagnosisStore = new StubDaemonDiagnosisStore();
-        var service = new DaemonGuiEditorAttachService(markerReader, processProbe, awaiter, diagnosisStore);
+        var rebootstrapClient = new StubDaemonGuiRebootstrapClient();
+        var service = new DaemonGuiEditorAttachService(markerReader, processProbe, awaiter, rebootstrapClient, diagnosisStore);
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             context,
@@ -42,15 +43,15 @@ public sealed class DaemonGuiEditorAttachServiceTests
 
         Assert.NotNull(result);
         Assert.True(result!.IsSuccess);
-        Assert.Equal(DaemonStartStatus.AlreadyRunning, result.Status);
+        Assert.Equal(DaemonStartStatus.Attached, result.Status);
         Assert.Equal(session, result.Session);
         Assert.Equal(1, awaiter.CallCount);
         Assert.Equal(context, awaiter.LastUnityProject);
         Assert.Equal(marker.ProcessId, awaiter.LastExpectedProcessId);
         Assert.Equal(ProbeProcessStartedAtUtc, awaiter.LastExpectedProcessStartedAtUtc);
-        Assert.True(awaiter.LastTimeout > TimeSpan.FromMilliseconds(450));
-        Assert.True(awaiter.LastTimeout <= TimeSpan.FromMilliseconds(500));
+        Assert.Equal(TimeSpan.FromMilliseconds(125), awaiter.LastTimeout);
         Assert.Equal(0, diagnosisStore.WriteCallCount);
+        Assert.Equal(0, rebootstrapClient.CallCount);
     }
 
     [Fact]
@@ -68,7 +69,12 @@ public sealed class DaemonGuiEditorAttachServiceTests
         };
         var awaiter = new StubDaemonGuiSessionRegistrationAwaiter();
         var diagnosisStore = new StubDaemonDiagnosisStore();
-        var service = new DaemonGuiEditorAttachService(markerReader, processProbe, awaiter, diagnosisStore);
+        var service = new DaemonGuiEditorAttachService(
+            markerReader,
+            processProbe,
+            awaiter,
+            new StubDaemonGuiRebootstrapClient(),
+            diagnosisStore);
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             CreateContext(),
@@ -103,7 +109,8 @@ public sealed class DaemonGuiEditorAttachServiceTests
             Result = DaemonGuiSessionRegistrationWaitResult.Failure(timeoutError),
         };
         var diagnosisStore = new StubDaemonDiagnosisStore();
-        var service = new DaemonGuiEditorAttachService(markerReader, processProbe, awaiter, diagnosisStore);
+        var rebootstrapClient = new StubDaemonGuiRebootstrapClient();
+        var service = new DaemonGuiEditorAttachService(markerReader, processProbe, awaiter, rebootstrapClient, diagnosisStore);
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             CreateContext(),
@@ -116,7 +123,8 @@ public sealed class DaemonGuiEditorAttachServiceTests
         Assert.False(result!.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error.Code);
-        Assert.Equal(1, awaiter.CallCount);
+        Assert.Equal(2, awaiter.CallCount);
+        Assert.Equal(1, rebootstrapClient.CallCount);
         Assert.Equal(1, diagnosisStore.WriteCallCount);
         Assert.NotNull(diagnosisStore.LastDiagnosis);
         Assert.Equal(DaemonDiagnosisReasonValues.GuiEndpointNotRegistered, diagnosisStore.LastDiagnosis!.Reason);
@@ -153,6 +161,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
             markerReader,
             processProbe,
             awaiter,
+            new StubDaemonGuiRebootstrapClient(),
             new StubDaemonDiagnosisStore(),
             timeProvider);
 
@@ -165,7 +174,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
 
         Assert.NotNull(result);
         Assert.True(result!.IsSuccess);
-        Assert.Equal(TimeSpan.FromMilliseconds(700), awaiter.LastTimeout);
+        Assert.Equal(TimeSpan.FromMilliseconds(175), awaiter.LastTimeout);
     }
 
     [Fact]
@@ -185,6 +194,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
             markerReader,
             processProbe,
             awaiter,
+            new StubDaemonGuiRebootstrapClient(),
             new StubDaemonDiagnosisStore());
 
         var result = await service.TryAttachExistingGuiEditorAsync(
@@ -196,6 +206,55 @@ public sealed class DaemonGuiEditorAttachServiceTests
 
         Assert.Null(result);
         Assert.Equal(0, awaiter.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task TryAttachExistingGuiEditor_WhenRebootstrapUnavailable_WritesGuiRebootstrapDiagnosis ()
+    {
+        var marker = CreateMarker();
+        var markerReader = new StubUnityEditorInstanceMarkerReader
+        {
+            ReadResult = UnityEditorInstanceMarkerReadResult.Success(marker),
+        };
+        var processProbe = new StubUnityGuiEditorProcessProbe
+        {
+            Result = UnityGuiEditorProcessProbeResult.Matching(ProbeProcessStartedAtUtc),
+        };
+        var awaiter = new StubDaemonGuiSessionRegistrationAwaiter
+        {
+            Result = DaemonGuiSessionRegistrationWaitResult.Failure(ExecutionError.Timeout("session missing")),
+        };
+        var rebootstrapClient = new StubDaemonGuiRebootstrapClient
+        {
+            Result = DaemonGuiRebootstrapRequestResult.Unavailable(ExecutionError.InternalError(
+                "manifest missing",
+                DaemonErrorCodes.DaemonEndpointNotRegistered)),
+        };
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var service = new DaemonGuiEditorAttachService(
+            markerReader,
+            processProbe,
+            awaiter,
+            rebootstrapClient,
+            diagnosisStore);
+
+        var result = await service.TryAttachExistingGuiEditorAsync(
+            CreateContext(),
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            DaemonStartupBlockedProcessPolicy.Terminate,
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.False(result!.IsSuccess);
+        Assert.Equal(DaemonErrorCodes.DaemonEndpointNotRegistered, result.Error!.Code);
+        Assert.Equal(1, awaiter.CallCount);
+        Assert.Equal(1, rebootstrapClient.CallCount);
+        Assert.Equal(1, diagnosisStore.WriteCallCount);
+        Assert.NotNull(diagnosisStore.LastDiagnosis);
+        Assert.Equal(DaemonDiagnosisReasonValues.GuiRebootstrapUnavailable, diagnosisStore.LastDiagnosis!.Reason);
+        Assert.Equal(DaemonStartupProcessActionValues.Kept, result.Startup!.ProcessAction);
     }
 
     private static UnityEditorInstanceMarker CreateMarker ()
@@ -293,6 +352,25 @@ public sealed class DaemonGuiEditorAttachServiceTests
             LastExpectedProcessId = expectedProcessId;
             LastExpectedProcessStartedAtUtc = expectedProcessStartedAtUtc;
             LastTimeout = timeout;
+            return ValueTask.FromResult(Result);
+        }
+    }
+
+    private sealed class StubDaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
+    {
+        public DaemonGuiRebootstrapRequestResult Result { get; set; } =
+            DaemonGuiRebootstrapRequestResult.Accepted();
+
+        public int CallCount { get; private set; }
+
+        public ValueTask<DaemonGuiRebootstrapRequestResult> RequestRebootstrapAsync (
+            ResolvedUnityProjectContext unityProject,
+            int expectedProcessId,
+            DateTimeOffset? expectedProcessStartedAtUtc,
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
             return ValueTask.FromResult(Result);
         }
     }

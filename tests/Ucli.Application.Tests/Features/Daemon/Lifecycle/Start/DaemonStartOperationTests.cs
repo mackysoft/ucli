@@ -484,7 +484,7 @@ public sealed class DaemonStartOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Start_WhenNoRunningSessionAndGuiAttachSucceeds_ReturnsAlreadyRunningWithoutFreshLaunch ()
+    public async Task Start_WhenNoRunningSessionAndGuiAttachSucceeds_ReturnsAttachedWithoutFreshLaunch ()
     {
         var context = CreateContext("fingerprint-start-gui-attach");
         var guiSession = CreateSession(
@@ -495,7 +495,7 @@ public sealed class DaemonStartOperationTests
         };
         var guiAttachService = new StubDaemonGuiEditorAttachService
         {
-            NextResult = DaemonStartResult.AlreadyRunning(guiSession),
+            NextResult = DaemonStartResult.Attached(guiSession),
         };
         var launchService = new StubDaemonLaunchService
         {
@@ -518,7 +518,7 @@ public sealed class DaemonStartOperationTests
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 
-        Assert.Equal(DaemonStartStatus.AlreadyRunning, result.Status);
+        Assert.Equal(DaemonStartStatus.Attached, result.Status);
         Assert.Equal(guiSession, result.Session);
         Assert.Equal(1, guiAttachService.CallCount);
         Assert.Null(guiAttachService.LastEditorMode);
