@@ -237,13 +237,16 @@ public sealed class ErrorCodeCatalogTests
         Assert.Equal(code, result.Descriptor!.Code.Value);
     }
 
-    [Fact]
+    [Theory]
+    [InlineData("DAEMON_STARTUP_BLOCKED")]
+    [InlineData("DAEMON_START_PROCESS_EXITED")]
+    [InlineData("DAEMON_ENDPOINT_NOT_REGISTERED")]
     [Trait("Size", "Small")]
-    public void Describe_WithDaemonStartupBlocked_IncludesStartupObservationCommands ()
+    public void Describe_WithStartupObservationCode_IncludesStartupObservationCommands (string code)
     {
         var service = new ErrorCodeCatalogService(CreateCatalog());
 
-        var result = service.Describe(DaemonErrorCodes.DaemonStartupBlocked, requireKnown: true);
+        var result = service.Describe(new UcliErrorCode(code), requireKnown: true);
 
         Assert.True(result.IsSuccess);
         var appliesTo = result.Descriptor!.AppliesTo

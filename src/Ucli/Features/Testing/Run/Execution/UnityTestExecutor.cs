@@ -15,6 +15,8 @@ namespace MackySoft.Ucli.Features.Testing.Run.Execution;
 /// <summary> Implements Unity test execution through external process invocation and artifact verification. </summary>
 internal sealed class UnityTestExecutor : IUnityTestExecutor
 {
+    private const int MaxStartupLogTailBytes = 65536;
+
     private static readonly TimeSpan ProjectExecutionLockAcquireTimeout = TimeSpan.FromMilliseconds(100);
 
     private readonly IUnityCommandBuilder unityCommandBuilder;
@@ -279,7 +281,7 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
         string logText;
         try
         {
-            logText = await File.ReadAllTextAsync(editorLogPath, cancellationToken).ConfigureAwait(false);
+            logText = await ReadStartupLogTailAsync(editorLogPath, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -311,6 +313,26 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
             processId: null,
             processStartedAtUtc: null,
             DateTimeOffset.UtcNow);
+    }
+
+    private static async ValueTask<string> ReadStartupLogTailAsync (
+        string editorLogPath,
+        CancellationToken cancellationToken)
+    {
+        await using var stream = new FileStream(
+            editorLogPath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete,
+            bufferSize: 4096,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+        if (stream.Length > MaxStartupLogTailBytes)
+        {
+            stream.Seek(-MaxStartupLogTailBytes, SeekOrigin.End);
+        }
+
+        using var reader = new StreamReader(stream);
+        return await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private static UnityTestExecutionFailureKind ResolveProjectLockFailureKind (UnityProjectLockPreflightResult preflightResult)

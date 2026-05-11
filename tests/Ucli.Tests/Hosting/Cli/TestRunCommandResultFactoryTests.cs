@@ -93,6 +93,7 @@ public sealed class TestRunCommandResultFactoryTests
         Assert.Equal("error", result.Status);
         Assert.Single(result.Errors);
         Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, result.Errors[0].Code);
+        Assert.NotNull(serviceResult.Failure!.StartupFailure);
 
         var payload = JsonSerializer.SerializeToElement(result.Payload, SerializerOptions);
         JsonAssert.For(payload)

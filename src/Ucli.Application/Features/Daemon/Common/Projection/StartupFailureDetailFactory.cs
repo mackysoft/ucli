@@ -44,7 +44,7 @@ internal static class StartupFailureDetailFactory
             ProcessId: processId,
             StartedAtUtc: processStartedAtUtc,
             ElapsedMilliseconds: null,
-            ProcessAction: DaemonStartupProcessActionValues.Terminated,
+            ProcessAction: DaemonStartupProcessActionValues.Unknown,
             ProcessTermination: null,
             ArtifactPath: null,
             RetryDisposition: classification.RetryDisposition);
@@ -89,7 +89,7 @@ internal static class StartupFailureDetailFactory
             ProcessId: processId,
             StartedAtUtc: processStartedAtUtc,
             ElapsedMilliseconds: null,
-            ProcessAction: DaemonStartupProcessActionValues.Terminated,
+            ProcessAction: DaemonStartupProcessActionValues.Unknown,
             ProcessTermination: null,
             ArtifactPath: null,
             RetryDisposition: DaemonStartupRetryDispositionValues.Unknown);
@@ -134,7 +134,7 @@ internal static class StartupFailureDetailFactory
             ProcessId: processId,
             StartedAtUtc: processStartedAtUtc,
             ElapsedMilliseconds: null,
-            ProcessAction: DaemonStartupProcessActionValues.Terminated,
+            ProcessAction: DaemonStartupProcessActionValues.Unknown,
             ProcessTermination: null,
             ArtifactPath: null,
             RetryDisposition: DaemonStartupRetryDispositionValues.Unknown);

@@ -36,6 +36,32 @@ public sealed class TestRunResultMapperTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Map_WithStartupFailureExecutionFailure_PropagatesStartupDetailToServiceAndApplicationFailure ()
+    {
+        var session = CreateSession();
+        var startupFailure = new StartupFailureDetail(
+            Startup: null,
+            Diagnosis: null,
+            RetryDisposition: "unknown",
+            SafeToRetryImmediately: false);
+        var mapper = new TestRunResultMapper();
+
+        var result = mapper.Map(TestRunExecutionPipelineResult.Success(
+            session,
+            UnityTestExecutionResult.Failure(
+                UnityTestExecutionFailureKind.ArtifactMissing,
+                "Unity startup is blocked.",
+                DaemonErrorCodes.DaemonStartupBlocked,
+                startupFailure),
+            UnityResultsConversionResult.Success(false)));
+
+        Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
+        Assert.Same(startupFailure, result.StartupFailure);
+        Assert.Same(startupFailure, result.Failure!.StartupFailure);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Map_WithCompletionErrorAfterFailedTests_PrefersFailedTestsOutcome ()
     {
         var session = CreateSession();

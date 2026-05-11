@@ -163,7 +163,7 @@ internal sealed record TestRunServiceResult
         return new TestRunServiceResult(
             result: null,
             errorKind: TestRunErrorKind.InvalidInput,
-            failure: ApplicationFailure.InvalidInput(message, errorCode),
+            failure: ApplicationFailure.InvalidInput(message, errorCode, startupFailure: startupFailure),
             message: message,
             runId: runId,
             artifactsDir: artifactsDir,
@@ -192,7 +192,8 @@ internal sealed record TestRunServiceResult
             failure: ApplicationFailure.ExternalProcessFailure(
                 message,
                 errorCode,
-                outcome: ApplicationOutcome.InfrastructureError),
+                outcome: ApplicationOutcome.InfrastructureError,
+                startupFailure: startupFailure),
             message: message,
             runId: runId,
             artifactsDir: artifactsDir,
@@ -218,7 +219,7 @@ internal sealed record TestRunServiceResult
         return new TestRunServiceResult(
             result: null,
             errorKind: TestRunErrorKind.ToolError,
-            failure: CreateToolFailure(message, errorCode),
+            failure: CreateToolFailure(message, errorCode, startupFailure),
             message: message,
             runId: runId,
             artifactsDir: artifactsDir,
@@ -228,11 +229,12 @@ internal sealed record TestRunServiceResult
 
     private static ApplicationFailure CreateToolFailure (
         string message,
-        UcliErrorCode errorCode)
+        UcliErrorCode errorCode,
+        StartupFailureDetail? startupFailure)
     {
         if (errorCode == ExecutionErrorCodes.IpcTimeout || errorCode == TestRunErrorCodes.UnityTestExecutionTimeout)
         {
-            return ApplicationFailure.Timeout(message, errorCode);
+            return ApplicationFailure.Timeout(message, errorCode, startupFailure: startupFailure);
         }
 
         if (errorCode == ExecutionErrorCodes.Canceled)
@@ -240,6 +242,6 @@ internal sealed record TestRunServiceResult
             return ApplicationFailure.Canceled(message, errorCode);
         }
 
-        return ApplicationFailure.ExternalProcessFailure(message, errorCode);
+        return ApplicationFailure.ExternalProcessFailure(message, errorCode, startupFailure: startupFailure);
     }
 }

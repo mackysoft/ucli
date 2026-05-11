@@ -562,8 +562,26 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             DateTimeOffset.UtcNow);
         return UnityIpcFailureClassifier.FromCodeAndMessage(
             DaemonErrorCodes.DaemonStartupBlocked,
-            startupFailure.Diagnosis?.Message ?? fallbackMessage,
+            CombineStartupFailureMessages(startupFailure.Diagnosis?.Message, fallbackMessage),
             startupFailure);
+    }
+
+    private static string CombineStartupFailureMessages (
+        string? primaryMessage,
+        string fallbackMessage)
+    {
+        if (string.IsNullOrWhiteSpace(primaryMessage))
+        {
+            return fallbackMessage;
+        }
+
+        if (string.IsNullOrWhiteSpace(fallbackMessage)
+            || string.Equals(primaryMessage, fallbackMessage, StringComparison.Ordinal))
+        {
+            return primaryMessage;
+        }
+
+        return $"{primaryMessage}{Environment.NewLine}{fallbackMessage}";
     }
 
     /// <summary> Appends a post-exit Unity lock-file cleanup diagnostic after uCLI has terminated a oneshot Unity process. </summary>
