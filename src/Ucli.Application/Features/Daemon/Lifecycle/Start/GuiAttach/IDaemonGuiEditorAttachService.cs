@@ -11,5 +11,6 @@ internal interface IDaemonGuiEditorAttachService
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         DaemonEditorMode? editorMode,
+        DaemonStartupBlockedProcessPolicy onStartupBlocked,
         CancellationToken cancellationToken = default);
 }

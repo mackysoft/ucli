@@ -228,6 +228,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 unityProject,
                 attachTimeout,
                 editorMode,
+                onStartupBlocked,
                 cancellationToken)
             .ConfigureAwait(false);
         if (attachResult is not null)

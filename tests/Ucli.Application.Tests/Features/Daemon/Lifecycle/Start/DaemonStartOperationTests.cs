@@ -860,6 +860,7 @@ public sealed class DaemonStartOperationTests
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             DaemonEditorMode? editorMode,
+            DaemonStartupBlockedProcessPolicy onStartupBlocked,
             CancellationToken cancellationToken = default)
         {
             CallCount++;

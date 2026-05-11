@@ -167,14 +167,14 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(
             Path.Combine("/tmp/unity-project", "Library", "EditorInstance.json"),
             diagnosisStore.LastDiagnosis.EditorInstancePath);
-        Assert.Equal(1, compensationService.CallCount);
-        Assert.Equal(5432, compensationService.LastProcessId);
-        Assert.Equal(processStartedAtUtc, compensationService.LastProcessStartedAtUtc);
+        Assert.Equal(0, compensationService.CallCount);
+        Assert.Null(compensationService.LastProcessId);
+        Assert.Null(compensationService.LastProcessStartedAtUtc);
         Assert.NotNull(result.Startup);
-        Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup!.ProcessAction);
+        Assert.Equal(DaemonStartupProcessActionValues.Kept, result.Startup!.ProcessAction);
         Assert.Equal(1, launchAttemptStore.WriteCallCount);
         Assert.Equal(DaemonStartupStatusValues.Timeout, launchAttemptStore.LastLaunchAttempt!.StartupStatus);
-        Assert.Equal(DaemonStartupProcessActionValues.Terminated, launchAttemptStore.LastLaunchAttempt.ProcessAction);
+        Assert.Equal(DaemonStartupProcessActionValues.Kept, launchAttemptStore.LastLaunchAttempt.ProcessAction);
     }
 
     [Fact]
@@ -211,7 +211,7 @@ public sealed class DaemonLaunchServiceTests
             context,
             TimeSpan.FromMilliseconds(500),
             DaemonEditorMode.Gui,
-            DaemonStartupBlockedProcessPolicy.Auto,
+            DaemonStartupBlockedProcessPolicy.Terminate,
             CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
@@ -915,6 +915,79 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(1, compensationService.CallCount);
         Assert.Equal(DaemonStartupStatusValues.Blocked, launchAttemptStore.LastLaunchAttempt!.StartupStatus);
         Assert.Equal(DaemonStartupBlockingReasonValues.Compile, launchAttemptStore.LastLaunchAttempt.StartupBlockingReason);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenBatchmodeClassifiedBlockerTerminates_SavesEvidenceBeforeCompensationAndStoresFinalProcessAction ()
+    {
+        var context = CreateContext("fingerprint-probe-classified-blocker-order");
+        var initialSession = CreateSession(processId: null, projectFingerprint: context.ProjectFingerprint);
+        var updatedSession = initialSession with { ProcessId = 7780 };
+        var processStartedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
+        var classification = new DaemonStartupFailureClassification(
+            StartupBlockingReason: DaemonStartupBlockingReasonValues.Compile,
+            Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
+            RetryDisposition: DaemonStartupRetryDispositionValues.RetryAfterFix,
+            Message: "Unity scripts have compiler errors.",
+            StartupPhase: DaemonDiagnosisStartupPhaseValues.ScriptCompilation,
+            ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+            PrimaryDiagnostic: null);
+        var launchSessionService = new StubDaemonLaunchSessionService
+        {
+            InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),
+            UpdateProcessIdResult = DaemonLaunchSessionWriteResult.Success(updatedSession),
+        };
+        var readinessProbe = new StubDaemonStartupReadinessProbe
+        {
+            NextResult = DaemonStartupReadinessProbeResult.Failure(
+                ExecutionError.InternalError(classification.Message, DaemonErrorCodes.DaemonStartupBlocked),
+                classification),
+        };
+        var sequence = new List<string>();
+        var diagnosisStore = new StubDaemonDiagnosisStore
+        {
+            OnWrite = _ => sequence.Add("diagnosis"),
+        };
+        var launchAttemptStore = new StubDaemonLaunchAttemptStore
+        {
+            OnWrite = attempt => sequence.Add($"launchAttempt:{attempt.ProcessAction}"),
+        };
+        var compensationService = new StubDaemonLaunchCompensationService
+        {
+            OnCleanup = () => sequence.Add("cleanup"),
+        };
+        var service = CreateService(
+            launchSessionService,
+            new StubUnityDaemonProcessLauncher
+            {
+                NextResult = UnityDaemonLaunchResult.Success(7780, processStartedAtUtc),
+            },
+            readinessProbe,
+            compensationService,
+            diagnosisStore,
+            launchAttemptStore: launchAttemptStore);
+
+        var result = await service.LaunchAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        Assert.Equal(DaemonStartupProcessActionValues.Terminated, result.Startup!.ProcessAction);
+        Assert.Equal(
+            [
+                "diagnosis",
+                $"launchAttempt:{DaemonStartupProcessActionValues.Unknown}",
+                "cleanup",
+                $"launchAttempt:{DaemonStartupProcessActionValues.Terminated}",
+            ],
+            sequence);
+        Assert.Equal(2, launchAttemptStore.WriteCallCount);
+        Assert.Equal(1, launchAttemptStore.PruneCallCount);
+        Assert.Equal(DaemonStartupProcessActionValues.Terminated, launchAttemptStore.LastLaunchAttempt!.ProcessAction);
     }
 
     [Fact]
@@ -1624,6 +1697,8 @@ public sealed class DaemonLaunchServiceTests
     {
         public DaemonDiagnosisStoreOperationResult WriteResult { get; set; } = DaemonDiagnosisStoreOperationResult.Success();
 
+        public Action<DaemonDiagnosis>? OnWrite { get; set; }
+
         public int WriteCallCount { get; private set; }
 
         public DaemonDiagnosis? LastDiagnosis { get; private set; }
@@ -1644,6 +1719,7 @@ public sealed class DaemonLaunchServiceTests
         {
             WriteCallCount++;
             LastDiagnosis = diagnosis;
+            OnWrite?.Invoke(diagnosis);
             return ValueTask.FromResult(WriteResult);
         }
 
@@ -1669,15 +1745,21 @@ public sealed class DaemonLaunchServiceTests
 
     private sealed class StubDaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
     {
+        private readonly List<DaemonLaunchAttempt> launchAttempts = [];
+
         public DaemonLaunchAttemptStoreOperationResult WriteResult { get; set; } = DaemonLaunchAttemptStoreOperationResult.Success();
 
         public DaemonLaunchAttemptStoreOperationResult PruneResult { get; set; } = DaemonLaunchAttemptStoreOperationResult.Success();
+
+        public Action<DaemonLaunchAttempt>? OnWrite { get; set; }
 
         public int WriteCallCount { get; private set; }
 
         public int PruneCallCount { get; private set; }
 
         public DaemonLaunchAttempt? LastLaunchAttempt { get; private set; }
+
+        public IReadOnlyList<DaemonLaunchAttempt> LaunchAttempts => launchAttempts;
 
         public ValueTask<DaemonLaunchAttemptStoreOperationResult> WriteFailureAsync (
             string storageRoot,
@@ -1687,6 +1769,8 @@ public sealed class DaemonLaunchServiceTests
         {
             WriteCallCount++;
             LastLaunchAttempt = launchAttempt;
+            launchAttempts.Add(launchAttempt);
+            OnWrite?.Invoke(launchAttempt);
             return ValueTask.FromResult(WriteResult);
         }
 
@@ -1713,6 +1797,8 @@ public sealed class DaemonLaunchServiceTests
     {
         public DaemonSessionStoreOperationResult NextResult { get; set; } = DaemonSessionStoreOperationResult.Success();
 
+        public Action? OnCleanup { get; set; }
+
         public int CallCount { get; private set; }
 
         public int? LastProcessId { get; private set; }
@@ -1731,6 +1817,7 @@ public sealed class DaemonLaunchServiceTests
             LastProcessId = target?.ProcessId;
             LastProcessStartedAtUtc = target?.ProcessStartedAtUtc;
             LastTimeout = timeout;
+            OnCleanup?.Invoke();
             return ValueTask.FromResult(NextResult);
         }
     }
