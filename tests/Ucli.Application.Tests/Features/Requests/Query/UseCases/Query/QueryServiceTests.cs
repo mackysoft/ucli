@@ -171,6 +171,11 @@ public sealed class QueryServiceTests
         Assert.Equal(UcliCommandIds.Query, unityRequestExecutor.CapturedCommand);
         Assert.Equal(UnityExecutionMode.Oneshot, unityRequestExecutor.CapturedMode);
         Assert.True(result.ReadIndex.FallbackReason == "query operation is not backed by readIndex.");
+        Assert.NotNull(result.Project);
+        var project = result.Project!;
+        Assert.Equal("/unity/ResponseProject", project.ProjectPath);
+        Assert.Equal("unity-response-fingerprint", project.ProjectFingerprint);
+        Assert.Equal("7000.0.1f1", project.UnityVersion);
 
         var executeRequest = Assert.IsType<UnityRequestPayload.ExecuteOperation>(unityRequestExecutor.CapturedPayload);
         Assert.Equal(UcliCommandIds.Query, executeRequest.Command);
@@ -217,23 +222,35 @@ public sealed class QueryServiceTests
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: "unity-response-request-id",
             Status: IpcProtocol.StatusOk,
-            Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse(
-            [
-                new IpcExecuteOperationResult(
-                    OpId: "comp.schema",
-                    Op: UcliPrimitiveOperationNames.CompSchema,
-                    Phase: IpcExecuteOperationPhaseNames.Plan,
-                    Applied: false,
-                    Changed: false,
-                    Touched: [])
-                {
-                    Result = JsonSerializer.SerializeToElement(new
+            Payload: IpcPayloadCodec.SerializeToElement(
+                new IpcExecuteResponse(
+                [
+                    new IpcExecuteOperationResult(
+                        OpId: "comp.schema",
+                        Op: UcliPrimitiveOperationNames.CompSchema,
+                        Phase: IpcExecuteOperationPhaseNames.Plan,
+                        Applied: false,
+                        Changed: false,
+                        Touched: [])
                     {
-                        type = "UnityEngine.Transform, UnityEngine.CoreModule",
-                    }),
-                },
-            ])),
+                        Result = JsonSerializer.SerializeToElement(new
+                        {
+                            type = "UnityEngine.Transform, UnityEngine.CoreModule",
+                        }),
+                    },
+                ])
+                {
+                    Project = CreateUnityResponseProjectIdentity(),
+                }),
             Errors: []));
+    }
+
+    private static IpcProjectIdentity CreateUnityResponseProjectIdentity ()
+    {
+        return new IpcProjectIdentity(
+            ProjectPath: "/unity/ResponseProject",
+            ProjectFingerprint: "unity-response-fingerprint",
+            UnityVersion: "7000.0.1f1");
     }
 
     private sealed class StubProjectContextResolver : IProjectContextResolver

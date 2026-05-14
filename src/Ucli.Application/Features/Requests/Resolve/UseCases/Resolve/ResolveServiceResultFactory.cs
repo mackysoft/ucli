@@ -16,9 +16,9 @@ internal static class ResolveServiceResultFactory
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         ReadIndexInfo readIndex,
-        ProjectIdentityInfo? project = null)
+        ProjectIdentityInfo project)
     {
-        return ResolveServiceResult.Success(requestId, opResults, SuccessMessage, readIndex, project ?? ProjectIdentityInfo.Unknown);
+        return ResolveServiceResult.Success(requestId, opResults, SuccessMessage, readIndex, project);
     }
 
     /// <summary> Creates one failure result from a structured execution error. </summary>

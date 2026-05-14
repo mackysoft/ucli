@@ -25,7 +25,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         internal IReadOnlyList<OperationReadInvalidation> ReadInvalidations { get; init; } = Array.Empty<OperationReadInvalidation>();
 
         /// <summary> Gets non-fatal diagnostics emitted by this step. </summary>
-        public IReadOnlyList<IpcExecuteDiagnostic> Diagnostics { get; init; } = Array.Empty<IpcExecuteDiagnostic>();
+        public IReadOnlyList<OperationDiagnostic> Diagnostics { get; init; } = Array.Empty<OperationDiagnostic>();
 
         /// <summary> Gets a value indicating whether this step succeeded. </summary>
         public bool IsSuccess => Failure is null;
@@ -126,11 +126,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <summary> Returns a copy with the supplied diagnostics. </summary>
         /// <param name="diagnostics"> The diagnostics to attach to the step result. </param>
         /// <returns> One copied step result carrying the supplied diagnostics. </returns>
-        public OperationPhaseStepResult WithDiagnostics (IReadOnlyList<IpcExecuteDiagnostic>? diagnostics)
+        public OperationPhaseStepResult WithDiagnostics (IReadOnlyList<OperationDiagnostic>? diagnostics)
         {
             return this with
             {
-                Diagnostics = diagnostics ?? Array.Empty<IpcExecuteDiagnostic>(),
+                Diagnostics = diagnostics ?? Array.Empty<OperationDiagnostic>(),
             };
         }
 

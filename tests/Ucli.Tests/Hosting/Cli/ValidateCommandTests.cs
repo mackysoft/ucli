@@ -19,13 +19,15 @@ public sealed class ValidateCommandTests
     public async Task Validate_UsesValidateServiceAndWritesCommandResult ()
     {
         var service = new StubValidateService((input, _) => ValueTask.FromResult(ValidateServiceResult.Success(
-            new ValidateExecutionOutput(new ReadIndexInfo(
-                Used: false,
-                Hit: false,
-                Source: ReadIndexInfoSource.Index,
-                Freshness: IndexFreshness.Probable,
-                GeneratedAtUtc: null,
-                FallbackReason: "readIndex disabled by mode.")),
+            new ValidateExecutionOutput(
+                CreateProjectIdentity(),
+                new ReadIndexInfo(
+                    Used: false,
+                    Hit: false,
+                    Source: ReadIndexInfoSource.Index,
+                    Freshness: IndexFreshness.Probable,
+                    GeneratedAtUtc: null,
+                    FallbackReason: "readIndex disabled by mode.")),
             "Static validation passed.")));
         var command = new ValidateCommand(service, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
 
@@ -68,6 +70,14 @@ public sealed class ValidateCommandTests
             UcliCommandNames.Validate,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
+    }
+
+    private static ProjectIdentityInfo CreateProjectIdentity ()
+    {
+        return new ProjectIdentityInfo(
+            ProjectPath: "/repo/UnityProject",
+            ProjectFingerprint: "project-fingerprint",
+            UnityVersion: "6000.1.4f1");
     }
 
     private sealed class StubValidateService : IValidateService

@@ -439,11 +439,11 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             IpcEditStepContract step,
             OperationExecutionContext executionContext,
             out List<SelectionTarget> selectedTargets,
-            out IReadOnlyList<IpcExecuteDiagnostic> diagnostics,
+            out IReadOnlyList<OperationDiagnostic> diagnostics,
             out ExecuteRequestNormalizationError error)
         {
             selectedTargets = new List<SelectionTarget>();
-            diagnostics = Array.Empty<IpcExecuteDiagnostic>();
+            diagnostics = Array.Empty<OperationDiagnostic>();
             if (step.Selection.Kind == IpcEditStepContract.SelectionKind.Direct)
             {
                 if (!TryResolveDirectSelectionTargets(step, executionContext, selectedTargets, out error))

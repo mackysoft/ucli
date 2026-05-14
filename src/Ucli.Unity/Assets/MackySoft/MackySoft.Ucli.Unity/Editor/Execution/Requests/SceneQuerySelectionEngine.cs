@@ -27,11 +27,11 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             IpcEditStepContract step,
             OperationExecutionContext executionContext,
             out List<QueryMatch> matches,
-            out IReadOnlyList<IpcExecuteDiagnostic> diagnostics,
+            out IReadOnlyList<OperationDiagnostic> diagnostics,
             out string errorMessage)
         {
             matches = new List<QueryMatch>();
-            diagnostics = Array.Empty<IpcExecuteDiagnostic>();
+            diagnostics = Array.Empty<OperationDiagnostic>();
             errorMessage = string.Empty;
             if (step.Context.Kind != IpcEditStepContract.ContextKind.Scene)
             {
@@ -147,11 +147,11 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             string scenePath,
             QueryArguments queryArguments,
             out List<QueryMatch> matches,
-            out IReadOnlyList<IpcExecuteDiagnostic> diagnostics,
+            out IReadOnlyList<OperationDiagnostic> diagnostics,
             out string errorMessage)
         {
             matches = new List<QueryMatch>();
-            diagnostics = Array.Empty<IpcExecuteDiagnostic>();
+            diagnostics = Array.Empty<OperationDiagnostic>();
             errorMessage = string.Empty;
             if (!SceneSourceResolver.TryAcquire(
                     scenePath,
@@ -219,11 +219,11 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out List<QueryMatch> matches,
-            out IReadOnlyList<IpcExecuteDiagnostic> diagnostics,
+            out IReadOnlyList<OperationDiagnostic> diagnostics,
             out string errorMessage)
         {
             matches = new List<QueryMatch>();
-            diagnostics = Array.Empty<IpcExecuteDiagnostic>();
+            diagnostics = Array.Empty<OperationDiagnostic>();
             errorMessage = string.Empty;
             if (executionContext == null)
             {
@@ -261,10 +261,10 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             OperationExecutionContext? executionContext,
             bool allowTemporaryState,
             out List<QueryMatch> matches,
-            out IReadOnlyList<IpcExecuteDiagnostic> diagnostics,
+            out IReadOnlyList<OperationDiagnostic> diagnostics,
             out string errorMessage)
         {
-            var collectedDiagnostics = new List<IpcExecuteDiagnostic>();
+            var collectedDiagnostics = new List<OperationDiagnostic>();
             var orderedMatches = new SortedDictionary<string, QueryMatch>(StringComparer.Ordinal);
             var roots = scene.GetRootGameObjects();
             for (var i = 0; i < roots.Length; i++)
@@ -290,7 +290,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             OperationExecutionContext? executionContext,
             bool allowTemporaryState,
             SortedDictionary<string, QueryMatch> orderedMatches,
-            List<IpcExecuteDiagnostic> diagnostics,
+            List<OperationDiagnostic> diagnostics,
             out string errorMessage)
         {
             if (transform.name.Contains("/", StringComparison.Ordinal))
@@ -363,12 +363,12 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             return true;
         }
 
-        private static IpcExecuteDiagnostic CreateHierarchyPathUnrepresentableObjectsDiagnostic ()
+        private static OperationDiagnostic CreateHierarchyPathUnrepresentableObjectsDiagnostic ()
         {
-            return new IpcExecuteDiagnostic(
+            return new OperationDiagnostic(
                 Code: ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects,
-                Severity: IpcExecuteDiagnosticSeverityNames.Warning,
-                CoverageImpact: IpcExecuteDiagnosticCoverageImpactNames.Partial,
+                Severity: OperationDiagnostic.WarningSeverity,
+                CoverageImpact: OperationDiagnostic.PartialCoverageImpact,
                 Message: "Scene query skipped GameObjects whose names contain '/' because hierarchyPath cannot represent them.");
         }
 

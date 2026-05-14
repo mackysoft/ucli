@@ -12,15 +12,4 @@ internal sealed record CallExecutionOutput (
     ProjectIdentityInfo Project,
     IReadOnlyList<OperationExecutionOperationResult> OpResults,
     CallPlanOutput? Plan,
-    OperationExecutionReadPostcondition? ReadPostcondition)
-{
-    /// <summary> Initializes a new instance of the <see cref="CallExecutionOutput" /> record. </summary>
-    public CallExecutionOutput (
-        string RequestId,
-        IReadOnlyList<OperationExecutionOperationResult> OpResults,
-        CallPlanOutput? Plan,
-        OperationExecutionReadPostcondition? ReadPostcondition)
-        : this(RequestId, ProjectIdentityInfo.Unknown, OpResults, Plan, ReadPostcondition)
-    {
-    }
-}
+    OperationExecutionReadPostcondition? ReadPostcondition);

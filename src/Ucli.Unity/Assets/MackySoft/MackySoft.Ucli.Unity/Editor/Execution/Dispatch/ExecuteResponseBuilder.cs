@@ -127,7 +127,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                         applied: false,
                         changed: false,
                         touched: Array.Empty<IpcExecuteTouchedResource>(),
-                        diagnostics: step.Diagnostics);
+                        diagnostics: MapDiagnostics(step.Diagnostics));
                     continue;
                 }
 
@@ -217,7 +217,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         }
 
         private static IpcExecuteDiagnostic[] AggregateDiagnostics (
-            IReadOnlyList<IpcExecuteDiagnostic> stepDiagnostics,
+            IReadOnlyList<OperationDiagnostic> stepDiagnostics,
             int primitiveCount,
             IReadOnlyList<OperationPhaseTrace> operationTraces,
             int startIndex)
@@ -234,7 +234,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         }
 
         private static void AddDiagnostics (
-            IReadOnlyList<IpcExecuteDiagnostic> source,
+            IReadOnlyList<OperationDiagnostic> source,
             List<IpcExecuteDiagnostic> diagnostics,
             HashSet<string> seen)
         {
@@ -247,8 +247,28 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     continue;
                 }
 
-                diagnostics.Add(diagnostic);
+                diagnostics.Add(MapDiagnostic(diagnostic));
             }
+        }
+
+        private static IpcExecuteDiagnostic[] MapDiagnostics (IReadOnlyList<OperationDiagnostic> source)
+        {
+            var diagnostics = new IpcExecuteDiagnostic[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                diagnostics[i] = MapDiagnostic(source[i]);
+            }
+
+            return diagnostics;
+        }
+
+        private static IpcExecuteDiagnostic MapDiagnostic (OperationDiagnostic diagnostic)
+        {
+            return new IpcExecuteDiagnostic(
+                Code: diagnostic.Code,
+                Severity: diagnostic.Severity,
+                CoverageImpact: diagnostic.CoverageImpact,
+                Message: diagnostic.Message);
         }
 
         /// <summary> Creates one empty execute payload. </summary>

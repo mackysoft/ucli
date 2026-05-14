@@ -205,13 +205,14 @@ internal sealed class ResolveService : IResolveService
         }
 
         var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
+        var responseProject = convertedResponse.Project ?? project;
         if (convertedResponse.IsSuccess)
         {
             return ResolveServiceResultFactory.Success(
                 requestId,
                 convertedResponse.OpResults,
                 readIndex,
-                project);
+                responseProject);
         }
 
         return ResolveServiceResultFactory.Failure(
@@ -219,7 +220,7 @@ internal sealed class ResolveService : IResolveService
             convertedResponse.OpResults,
             RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, "uCLI resolve failed."),
             readIndex,
-            project);
+            responseProject);
     }
 
     private static UnityRequestPayload CreateExecuteRequestPayload (

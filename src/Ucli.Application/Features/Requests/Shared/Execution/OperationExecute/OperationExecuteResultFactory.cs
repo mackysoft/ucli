@@ -76,10 +76,10 @@ internal static class OperationExecuteResultFactory
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         string message,
-        OperationExecutionReadPostcondition? readPostcondition = null,
-        ProjectIdentityInfo? project = null)
+        OperationExecutionReadPostcondition? readPostcondition,
+        ProjectIdentityInfo project)
     {
-        return OperationExecuteResult.Success(requestId, opResults, message, readPostcondition, project ?? ProjectIdentityInfo.Unknown);
+        return OperationExecuteResult.Success(requestId, opResults, message, readPostcondition, project);
     }
 
     /// <summary> Creates one failed operation execution result. </summary>

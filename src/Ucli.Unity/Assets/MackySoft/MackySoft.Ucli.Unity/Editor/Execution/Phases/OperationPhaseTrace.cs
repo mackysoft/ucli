@@ -30,6 +30,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public IReadOnlyList<OperationReadInvalidation> ReadInvalidations { get; init; } = System.Array.Empty<OperationReadInvalidation>();
 
         /// <summary> Gets non-fatal diagnostics emitted by this primitive trace. </summary>
-        public IReadOnlyList<IpcExecuteDiagnostic> Diagnostics { get; init; } = System.Array.Empty<IpcExecuteDiagnostic>();
+        public IReadOnlyList<OperationDiagnostic> Diagnostics { get; init; } = System.Array.Empty<OperationDiagnostic>();
     }
 }

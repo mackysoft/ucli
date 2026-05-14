@@ -14,7 +14,7 @@ public sealed class ValidateCommandResultFactoryTests
     public void Create_WhenSuccess_ReturnsOkEnvelopeWithReadIndexPayload ()
     {
         var result = ValidateCommandResultFactory.Create(ValidateServiceResult.Success(
-            new ValidateExecutionOutput(CreateReadIndexInfo()),
+            new ValidateExecutionOutput(CreateProjectIdentity(), CreateReadIndexInfo()),
             "Static validation passed."));
 
         Assert.Equal(UcliCommandNames.Validate, result.Command);
@@ -36,7 +36,7 @@ public sealed class ValidateCommandResultFactoryTests
     public void Create_WhenValidationFails_ReturnsInvalidArgumentEnvelope ()
     {
         var result = ValidateCommandResultFactory.Create(ValidateServiceResult.ValidationFailure(
-            new ValidateExecutionOutput(CreateReadIndexInfo()),
+            new ValidateExecutionOutput(CreateProjectIdentity(), CreateReadIndexInfo()),
             "Static validation failed.",
             [
                 new ValidationError(
@@ -60,7 +60,7 @@ public sealed class ValidateCommandResultFactoryTests
         var result = ValidateCommandResultFactory.Create(ValidateServiceResult.Failure(
             "Index contract file 'ops.catalog.json' is malformed.",
             ReadIndexErrorCodes.ReadIndexFormatInvalid,
-            new ValidateExecutionOutput(CreateReadIndexInfo())));
+            new ValidateExecutionOutput(CreateProjectIdentity(), CreateReadIndexInfo())));
 
         Assert.Equal(UcliCommandNames.Validate, result.Command);
         Assert.Equal("error", result.Status);
@@ -84,5 +84,13 @@ public sealed class ValidateCommandResultFactoryTests
             Freshness: IndexFreshness.Probable,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
             FallbackReason: null);
+    }
+
+    private static ProjectIdentityInfo CreateProjectIdentity ()
+    {
+        return new ProjectIdentityInfo(
+            ProjectPath: "/repo/UnityProject",
+            ProjectFingerprint: "project-fingerprint",
+            UnityVersion: "6000.1.4f1");
     }
 }

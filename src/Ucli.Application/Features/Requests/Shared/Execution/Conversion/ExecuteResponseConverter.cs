@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -24,6 +25,11 @@ internal static class ExecuteResponseConverter
                 ]);
         }
 
+        if (!TryValidateRequiredPayloadProperties(response.Payload, out var requiredPayloadPropertyError))
+        {
+            return CreateInvalidPayloadFailure(requiredPayloadPropertyError);
+        }
+
         if (!TryValidatePayload(payload, out var payloadValidationError))
         {
             return CreateInvalidPayloadFailure(payloadValidationError);
@@ -40,7 +46,65 @@ internal static class ExecuteResponseConverter
             OpResults: OperationExecutionModelMapper.MapOpResults(validatedPayload.OpResults),
             Errors: normalizedErrors,
             PlanToken: validatedPayload.PlanToken,
-            ReadPostcondition: OperationExecutionModelMapper.MapReadPostcondition(validatedPayload.ReadPostcondition));
+            ReadPostcondition: OperationExecutionModelMapper.MapReadPostcondition(validatedPayload.ReadPostcondition),
+            Project: MapProject(validatedPayload.Project));
+    }
+
+    private static bool TryValidateRequiredPayloadProperties (
+        JsonElement payload,
+        out string errorMessage)
+    {
+        errorMessage = string.Empty;
+        if (payload.ValueKind != JsonValueKind.Object)
+        {
+            errorMessage = "Execute response payload is invalid. The payload must be a JSON object.";
+            return false;
+        }
+
+        if (!TryGetProperty(payload, "project", out _))
+        {
+            errorMessage = "Execute response payload is invalid. The 'project' field is missing.";
+            return false;
+        }
+
+        if (!TryGetProperty(payload, "opResults", out var opResults)
+            || opResults.ValueKind != JsonValueKind.Array)
+        {
+            return true;
+        }
+
+        var opResultIndex = 0;
+        foreach (var opResult in opResults.EnumerateArray())
+        {
+            if (opResult.ValueKind == JsonValueKind.Object
+                && !TryGetProperty(opResult, "diagnostics", out _))
+            {
+                errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].diagnostics' field is missing.";
+                return false;
+            }
+
+            opResultIndex++;
+        }
+
+        return true;
+    }
+
+    private static bool TryGetProperty (
+        JsonElement element,
+        string propertyName,
+        out JsonElement propertyValue)
+    {
+        foreach (var property in element.EnumerateObject())
+        {
+            if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                propertyValue = property.Value;
+                return true;
+            }
+        }
+
+        propertyValue = default;
+        return false;
     }
 
     private static IReadOnlyList<OperationExecutionError> NormalizeErrors (
@@ -337,6 +401,16 @@ internal static class ExecuteResponseConverter
             or IpcExecuteDiagnosticCoverageImpactNames.Indeterminate;
     }
 
+    private static ProjectIdentityInfo MapProject (IpcProjectIdentity project)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+
+        return new ProjectIdentityInfo(
+            ProjectPath: project.ProjectPath,
+            ProjectFingerprint: project.ProjectFingerprint,
+            UnityVersion: project.UnityVersion);
+    }
+
     private static ExecuteResponseConversionResult CreateInvalidPayloadFailure (string message)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
@@ -358,6 +432,7 @@ internal static class ExecuteResponseConverter
             OpResults: [],
             Errors: errors,
             PlanToken: null,
-            ReadPostcondition: null);
+            ReadPostcondition: null,
+            Project: null);
     }
 }

@@ -267,6 +267,7 @@ internal sealed class QueryService : IQueryService
         }
 
         var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
+        var responseProject = convertedResponse.Project ?? project;
         if (convertedResponse.IsSuccess)
         {
             return QueryServiceResultFactory.Success(
@@ -274,7 +275,7 @@ internal sealed class QueryService : IQueryService
                 requestId,
                 convertedResponse.OpResults,
                 readIndex,
-                project);
+                responseProject);
         }
 
         var failures = RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, "uCLI query failed.");
@@ -285,7 +286,7 @@ internal sealed class QueryService : IQueryService
             failures,
             RequestFailureNormalizer.ResolveMessage(failures, "uCLI query failed."),
             readIndex,
-            project);
+            responseProject);
     }
 
     private static OperationExecutionOperationResult CreatePlanOperationResult (

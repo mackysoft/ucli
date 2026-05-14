@@ -171,6 +171,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 cancellationToken)
             .ConfigureAwait(false);
         var convertedResponse = postprocessedResponse.Response;
+        var responseProject = convertedResponse.Project ?? project;
 
         if (convertedResponse.IsSuccess)
         {
@@ -179,7 +180,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 convertedResponse.OpResults,
                 definition.SuccessMessage,
                 convertedResponse.ReadPostcondition,
-                project);
+                responseProject);
         }
 
         return OperationExecuteResultFactory.Failure(
@@ -188,7 +189,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, definition.FailureMessage),
             definition.FailureMessage,
             convertedResponse.ReadPostcondition,
-            project);
+            responseProject);
     }
 
     /// <summary> Executes one internal <c>plan</c> pass and returns the issued plan token. </summary>

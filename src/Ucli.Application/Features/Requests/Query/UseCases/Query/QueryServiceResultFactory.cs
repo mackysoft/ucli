@@ -17,7 +17,7 @@ internal static class QueryServiceResultFactory
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         ReadIndexInfo readIndex,
-        ProjectIdentityInfo? project = null)
+        ProjectIdentityInfo project)
     {
         return QueryServiceResult.Success(
             commandName,
@@ -25,7 +25,7 @@ internal static class QueryServiceResultFactory
             opResults,
             SuccessMessage,
             readIndex,
-            project ?? ProjectIdentityInfo.Unknown);
+            project);
     }
 
     /// <summary> Creates one failure result from a structured execution error. </summary>

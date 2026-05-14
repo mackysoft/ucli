@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
+using MackySoft.Ucli.Unity.Execution.Phases;
 
 namespace MackySoft.Ucli.Unity.Execution.Requests
 {
@@ -16,6 +17,6 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         int PrimitiveCount)
     {
         /// <summary> Gets diagnostics emitted while compiling this public step. </summary>
-        public IReadOnlyList<IpcExecuteDiagnostic> Diagnostics { get; init; } = System.Array.Empty<IpcExecuteDiagnostic>();
+        public IReadOnlyList<OperationDiagnostic> Diagnostics { get; init; } = System.Array.Empty<OperationDiagnostic>();
     }
 }

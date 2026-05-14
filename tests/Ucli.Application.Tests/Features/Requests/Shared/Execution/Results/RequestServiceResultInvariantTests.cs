@@ -48,8 +48,10 @@ public sealed class RequestServiceResultInvariantTests
         Assert.Throws<ArgumentNullException>(() => PlanServiceResult.Success(null!, "uCLI plan completed."));
         Assert.Throws<ArgumentNullException>(() => CallServiceResult.Success(null!, "uCLI call completed."));
         Assert.Throws<ArgumentNullException>(() => ValidateServiceResult.Success(null!, "Static validation passed."));
-        Assert.Throws<ArgumentNullException>(() => QueryServiceResultFactory.Success("query assets find", RequestId, [], null!));
-        Assert.Throws<ArgumentNullException>(() => ResolveServiceResultFactory.Success(RequestId, [], null!));
+        Assert.Throws<ArgumentNullException>(() => QueryServiceResultFactory.Success("query assets find", RequestId, [], null!, CreateProjectIdentity()));
+        Assert.Throws<ArgumentNullException>(() => QueryServiceResultFactory.Success("query assets find", RequestId, [], CreateReadIndexInfo(), null!));
+        Assert.Throws<ArgumentNullException>(() => ResolveServiceResultFactory.Success(RequestId, [], null!, CreateProjectIdentity()));
+        Assert.Throws<ArgumentNullException>(() => ResolveServiceResultFactory.Success(RequestId, [], CreateReadIndexInfo(), null!));
     }
 
     [Fact]
@@ -57,7 +59,7 @@ public sealed class RequestServiceResultInvariantTests
     public void Failure_WhenErrorsAreEmpty_Throws ()
     {
         var readIndex = CreateReadIndexInfo();
-        var validateOutput = new ValidateExecutionOutput(readIndex);
+        var validateOutput = new ValidateExecutionOutput(CreateProjectIdentity(), readIndex);
 
         Assert.ThrowsAny<ArgumentException>(() => PlanServiceResult.Failure("Plan failed.", []));
         Assert.ThrowsAny<ArgumentException>(() => CallServiceResult.Failure("Call failed.", []));
@@ -144,7 +146,7 @@ public sealed class RequestServiceResultInvariantTests
         Assert.ThrowsAny<ArgumentException>(() => RequestFailureNormalizer.FromValidationErrors(validationErrors));
         Assert.ThrowsAny<ArgumentException>(() => OperationExecuteResultFactory.FromValidationErrors(RequestId, validationErrors));
         Assert.ThrowsAny<ArgumentException>(() => ValidateServiceResult.ValidationFailure(
-            new ValidateExecutionOutput(CreateReadIndexInfo()),
+            new ValidateExecutionOutput(CreateProjectIdentity(), CreateReadIndexInfo()),
             "Static validation failed.",
             validationErrors));
     }
@@ -155,7 +157,7 @@ public sealed class RequestServiceResultInvariantTests
     {
         var readIndex = CreateReadIndexInfo();
         var errors = CreateErrors();
-        var validateOutput = new ValidateExecutionOutput(readIndex);
+        var validateOutput = new ValidateExecutionOutput(CreateProjectIdentity(), readIndex);
 
         Assert.ThrowsAny<ArgumentException>(() => PlanServiceResult.Failure("", errors));
         Assert.ThrowsAny<ArgumentException>(() => CallServiceResult.Failure("", errors));
@@ -226,7 +228,7 @@ public sealed class RequestServiceResultInvariantTests
         Assert.Equal(errorCode, Assert.Single(operationResult.Errors).Code);
 
         var validateResult = ValidateServiceResult.ValidationFailure(
-            new ValidateExecutionOutput(CreateReadIndexInfo()),
+            new ValidateExecutionOutput(CreateProjectIdentity(), CreateReadIndexInfo()),
             "Static validation failed.",
             [
                 validationError,
@@ -351,5 +353,13 @@ public sealed class RequestServiceResultInvariantTests
             Freshness: IndexFreshness.Fresh,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-04-25T00:00:00+00:00"),
             FallbackReason: null);
+    }
+
+    private static ProjectIdentityInfo CreateProjectIdentity ()
+    {
+        return new ProjectIdentityInfo(
+            ProjectPath: "/repo/UnityProject",
+            ProjectFingerprint: "project-fingerprint",
+            UnityVersion: "6000.1.4f1");
     }
 }

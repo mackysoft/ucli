@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -14,6 +16,24 @@ public sealed class ExecuteResponseConverterTests
         {
             Project = null!,
         });
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("'project' field", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Convert_WhenProjectPropertyIsMissing_ReturnsInternalError ()
+    {
+        var response = CreateResponse("""
+            {
+              "opResults": []
+            }
+            """);
 
         var result = ExecuteResponseConverter.Convert(response);
 
@@ -68,6 +88,38 @@ public sealed class ExecuteResponseConverterTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Convert_WhenDiagnosticsPropertyIsMissing_ReturnsInternalError ()
+    {
+        var response = CreateResponse("""
+            {
+              "project": {
+                "projectPath": "/repo/UnityProject",
+                "projectFingerprint": "project-fingerprint",
+                "unityVersion": "6000.1.4f1"
+              },
+              "opResults": [
+                {
+                  "opId": "refresh",
+                  "op": "ucli.project.refresh",
+                  "phase": "call",
+                  "applied": true,
+                  "changed": true,
+                  "touched": []
+                }
+              ]
+            }
+            """);
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("opResults[0].diagnostics", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Convert_WhenDiagnosticSeverityIsUnsupported_ReturnsInternalError ()
     {
         var response = CreateResponse(new IpcExecuteResponse(
@@ -89,7 +141,10 @@ public sealed class ExecuteResponseConverterTests
                         "coverage is partial."),
                 ],
             },
-        ]));
+        ])
+        {
+            Project = CreateProjectIdentity(),
+        });
 
         var result = ExecuteResponseConverter.Convert(response);
 
@@ -128,6 +183,10 @@ public sealed class ExecuteResponseConverterTests
         var result = ExecuteResponseConverter.Convert(response);
 
         Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Project);
+        Assert.Equal("/repo/UnityProject", result.Project.ProjectPath);
+        Assert.Equal("project-fingerprint", result.Project.ProjectFingerprint);
+        Assert.Equal("6000.1.4f1", result.Project.UnityVersion);
         var opResult = Assert.Single(result.OpResults);
         var diagnostic = Assert.Single(opResult.Diagnostics);
         Assert.Equal(ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects, diagnostic.Code);
@@ -402,8 +461,33 @@ public sealed class ExecuteResponseConverterTests
 
     private static UnityRequestResponse CreateResponse (IpcExecuteResponse payload)
     {
+        if (payload.Project == IpcProjectIdentity.Unknown)
+        {
+            payload = payload with
+            {
+                Project = CreateProjectIdentity(),
+            };
+        }
+
         return new UnityRequestResponse(
             Payload: IpcPayloadCodec.SerializeToElement(payload),
+            Errors: [],
+            HasFailureStatus: false);
+    }
+
+    private static IpcProjectIdentity CreateProjectIdentity ()
+    {
+        return new IpcProjectIdentity(
+            ProjectPath: "/repo/UnityProject",
+            ProjectFingerprint: "project-fingerprint",
+            UnityVersion: "6000.1.4f1");
+    }
+
+    private static UnityRequestResponse CreateResponse (string payloadJson)
+    {
+        using var document = JsonDocument.Parse(payloadJson);
+        return new UnityRequestResponse(
+            Payload: document.RootElement.Clone(),
             Errors: [],
             HasFailureStatus: false);
     }

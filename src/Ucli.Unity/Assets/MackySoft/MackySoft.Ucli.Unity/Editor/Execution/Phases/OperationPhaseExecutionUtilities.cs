@@ -84,8 +84,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="target"> The target diagnostic-entry list. </param>
         /// <param name="source"> The source diagnostic-entry collection. </param>
         public static void MergeDiagnostics (
-            List<IpcExecuteDiagnostic> target,
-            IReadOnlyList<IpcExecuteDiagnostic> source)
+            List<OperationDiagnostic> target,
+            IReadOnlyList<OperationDiagnostic> source)
         {
             for (var i = 0; i < source.Count; i++)
             {

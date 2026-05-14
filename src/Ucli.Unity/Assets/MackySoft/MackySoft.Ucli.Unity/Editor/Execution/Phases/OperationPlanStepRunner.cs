@@ -77,7 +77,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             var touched = new List<OperationTouch>();
-            var diagnostics = new List<IpcExecuteDiagnostic>();
+            var diagnostics = new List<OperationDiagnostic>();
             var validateStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStepAsync(
                 operation,
                 OperationPhase.Validate,

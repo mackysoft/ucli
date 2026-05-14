@@ -11,14 +11,4 @@ internal sealed record CallPlanOutput (
     string RequestId,
     ProjectIdentityInfo Project,
     IReadOnlyList<OperationExecutionOperationResult> OpResults,
-    string? PlanToken)
-{
-    /// <summary> Initializes a new instance of the <see cref="CallPlanOutput" /> record. </summary>
-    public CallPlanOutput (
-        string RequestId,
-        IReadOnlyList<OperationExecutionOperationResult> OpResults,
-        string? PlanToken)
-        : this(RequestId, ProjectIdentityInfo.Unknown, OpResults, PlanToken)
-    {
-    }
-}
+    string? PlanToken);
