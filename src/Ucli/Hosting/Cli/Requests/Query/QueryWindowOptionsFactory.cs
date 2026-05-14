@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -7,10 +8,10 @@ namespace MackySoft.Ucli.Hosting.Cli.Requests;
 internal static class QueryWindowOptionsFactory
 {
     /// <summary> Gets the default bounded query result limit. </summary>
-    public const int DefaultLimit = 100;
+    public const int DefaultLimit = BoundedWindowConstants.DefaultLimit;
 
     /// <summary> Gets the maximum bounded query result limit. </summary>
-    public const int MaxLimit = 10000;
+    public const int MaxLimit = BoundedWindowConstants.MaxLimit;
 
     /// <summary> Attempts to create normalized window options. </summary>
     public static QueryWindowOptionsCreationResult Create (

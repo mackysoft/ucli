@@ -38,4 +38,7 @@ public static class UcliOperationInputConstraintKindValues
 
     /// <summary> Gets the Unity asset GUID constraint. </summary>
     public const string AssetGuid = "assetGuid";
+
+    /// <summary> Gets the bounded query window cursor constraint. </summary>
+    public const string Cursor = "cursor";
 }

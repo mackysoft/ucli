@@ -108,6 +108,7 @@ public sealed class UcliOperationJsonSchemaGeneratorTests
         var nodeRef = "#/$defs/" + nameof(IndexSceneTreeLiteNodeJsonContract);
         Assert.Equal(nodeRef, rootsItems.GetProperty("$ref").GetString());
         Assert.Contains("sourceState", required);
+        Assert.Contains("window", required);
 
         var nodeSchema = root
             .GetProperty("$defs")
@@ -121,6 +122,37 @@ public sealed class UcliOperationJsonSchemaGeneratorTests
             .GetProperty("items")
             .GetProperty("$ref")
             .GetString());
+        Assert.Contains(
+            nodeSchema.GetProperty("required").EnumerateArray(),
+            item => item.GetString() == "childrenState");
+        Assert.Equal("string", nodeSchema
+            .GetProperty("properties")
+            .GetProperty("childrenState")
+            .GetProperty("type")
+            .GetString());
+        var windowProperties = root
+            .GetProperty("properties")
+            .GetProperty("window")
+            .GetProperty("properties");
+        Assert.True(windowProperties.TryGetProperty("cursor", out _));
+        Assert.True(windowProperties.TryGetProperty("nextCursor", out _));
+        Assert.False(windowProperties.TryGetProperty("after", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CreateArgsSchemaJson_WhenBoundedRawQueryArgsContainWindowInputs_EmitsLimitAndCursor ()
+    {
+        var schemaJson = UcliOperationJsonSchemaGenerator.CreateArgsSchemaJson(typeof(AssetsFindArgs));
+
+        using var document = JsonDocument.Parse(schemaJson);
+        var properties = document.RootElement.GetProperty("properties");
+
+        Assert.True(properties.TryGetProperty("limit", out var limitProperty));
+        Assert.Equal("integer", limitProperty.GetProperty("type")[0].GetString());
+        Assert.Equal("null", limitProperty.GetProperty("type")[1].GetString());
+        Assert.True(properties.TryGetProperty("cursor", out var cursorProperty));
+        Assert.Equal("string", cursorProperty.GetProperty("type").GetString());
     }
 
     [Fact]

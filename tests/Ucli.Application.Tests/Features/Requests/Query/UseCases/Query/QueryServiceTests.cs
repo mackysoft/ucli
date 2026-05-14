@@ -81,6 +81,7 @@ public sealed class QueryServiceTests
         Assert.False(payload.GetProperty("window").GetProperty("isComplete").GetBoolean());
         Assert.True(payload.GetProperty("window").TryGetProperty("nextCursor", out var nextCursor));
         Assert.False(string.IsNullOrWhiteSpace(nextCursor.GetString()));
+        Assert.False(payload.GetProperty("window").TryGetProperty("after", out _));
     }
 
     [Fact]
@@ -94,7 +95,13 @@ public sealed class QueryServiceTests
                 ScenePath: "Assets/Scenes/Main.unity",
                 Roots:
                 [
-                    new IndexSceneTreeLiteNodeJsonContract("Root", "GlobalObjectId_V1-1-2-3-4-5-6", []),
+                    new IndexSceneTreeLiteNodeJsonContract(
+                        "Root",
+                        "GlobalObjectId_V1-1-2-3-4-5-6",
+                        [
+                            new IndexSceneTreeLiteNodeJsonContract("First", "GlobalObjectId_V1-1-2-3-4-5-7", []),
+                            new IndexSceneTreeLiteNodeJsonContract("Second", "GlobalObjectId_V1-1-2-3-4-5-8", []),
+                        ]),
                 ],
                 SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.ReadIndex, isDirty: false),
                 AccessInfo: new SceneTreeLiteAccessInfo(
@@ -118,7 +125,7 @@ public sealed class QueryServiceTests
                     Depth: 1,
                     WindowOptions: new QueryWindowOptions(
                         All: false,
-                        Limit: 100,
+                        Limit: 2,
                         After: null,
                         Offset: 0)),
                 failFast: true),
@@ -135,8 +142,12 @@ public sealed class QueryServiceTests
         var payload = opResult.Result!.Value;
         Assert.Equal("Assets/Scenes/Main.unity", payload.GetProperty("path").GetString());
         Assert.Equal(1, payload.GetProperty("roots").GetArrayLength());
+        Assert.Equal(1, payload.GetProperty("roots")[0].GetProperty("children").GetArrayLength());
+        Assert.Equal("truncatedByWindow", payload.GetProperty("roots")[0].GetProperty("childrenState").GetString());
         Assert.Equal("readIndex", payload.GetProperty("sourceState").GetProperty("kind").GetString());
-        Assert.True(payload.GetProperty("window").GetProperty("isComplete").GetBoolean());
+        Assert.False(payload.GetProperty("window").GetProperty("isComplete").GetBoolean());
+        Assert.Equal(3, payload.GetProperty("window").GetProperty("totalCount").GetInt32());
+        Assert.False(payload.GetProperty("window").TryGetProperty("after", out _));
     }
 
     [Fact]

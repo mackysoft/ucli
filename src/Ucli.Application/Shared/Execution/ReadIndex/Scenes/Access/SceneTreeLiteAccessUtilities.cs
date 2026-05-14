@@ -72,10 +72,16 @@ internal static class SceneTreeLiteAccessUtilities
         int currentDepth,
         int maxDepth)
     {
+        var sourceChildren = node.Children ?? Array.Empty<IndexSceneTreeLiteNodeJsonContract>();
         var children = currentDepth >= maxDepth
             ? Array.Empty<IndexSceneTreeLiteNodeJsonContract>()
-            : TrimChildren(node.Children!, currentDepth + 1, maxDepth);
-        return new IndexSceneTreeLiteNodeJsonContract(node.Name, node.GlobalObjectId, children);
+            : TrimChildren(sourceChildren, currentDepth + 1, maxDepth);
+        var childrenState = ResolveChildrenState(node.ChildrenState, sourceChildren.Count, currentDepth, maxDepth);
+        return new IndexSceneTreeLiteNodeJsonContract(
+            name: node.Name,
+            globalObjectId: node.GlobalObjectId,
+            children: children,
+            childrenState: childrenState);
     }
 
     private static IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> TrimChildren (
@@ -95,6 +101,35 @@ internal static class SceneTreeLiteAccessUtilities
         }
 
         return trimmedChildren;
+    }
+
+    private static string ResolveChildrenState (
+        string? sourceChildrenState,
+        int sourceChildCount,
+        int currentDepth,
+        int maxDepth)
+    {
+        if (currentDepth >= maxDepth && sourceChildCount > 0)
+        {
+            return IndexSceneTreeLiteNodeChildrenStateValues.NotExpandedByDepth;
+        }
+
+        if (string.Equals(sourceChildrenState, IndexSceneTreeLiteNodeChildrenStateValues.Unknown, StringComparison.Ordinal))
+        {
+            return IndexSceneTreeLiteNodeChildrenStateValues.Unknown;
+        }
+
+        if (string.Equals(sourceChildrenState, IndexSceneTreeLiteNodeChildrenStateValues.NotExpandedByDepth, StringComparison.Ordinal))
+        {
+            return IndexSceneTreeLiteNodeChildrenStateValues.NotExpandedByDepth;
+        }
+
+        if (string.Equals(sourceChildrenState, IndexSceneTreeLiteNodeChildrenStateValues.TruncatedByWindow, StringComparison.Ordinal))
+        {
+            return IndexSceneTreeLiteNodeChildrenStateValues.TruncatedByWindow;
+        }
+
+        return IndexSceneTreeLiteNodeChildrenStateValues.Complete;
     }
 
     private static bool HasUnsafePathSegments (string scenePath)

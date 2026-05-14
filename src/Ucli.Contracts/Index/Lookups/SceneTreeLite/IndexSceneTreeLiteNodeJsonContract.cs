@@ -9,13 +9,27 @@ public sealed record IndexSceneTreeLiteNodeJsonContract
 {
     [JsonConstructor]
     public IndexSceneTreeLiteNodeJsonContract (
+        string? name,
+        string? globalObjectId,
+        IReadOnlyList<IndexSceneTreeLiteNodeJsonContract>? children,
+        string? childrenState)
+    {
+        Name = name;
+        GlobalObjectId = globalObjectId;
+        Children = children;
+        ChildrenState = childrenState ?? IndexSceneTreeLiteNodeChildrenStateValues.Unknown;
+    }
+
+    public IndexSceneTreeLiteNodeJsonContract (
         string? Name,
         string? GlobalObjectId,
         IReadOnlyList<IndexSceneTreeLiteNodeJsonContract>? Children)
+        : this(
+            Name,
+            GlobalObjectId,
+            Children,
+            IndexSceneTreeLiteNodeChildrenStateValues.Complete)
     {
-        this.Name = Name;
-        this.GlobalObjectId = GlobalObjectId;
-        this.Children = Children;
     }
 
     /// <summary> Gets the GameObject name. </summary>
@@ -32,4 +46,9 @@ public sealed record IndexSceneTreeLiteNodeJsonContract
     [UcliRequired]
     [UcliDescription("Child nodes in hierarchy order.")]
     public IReadOnlyList<IndexSceneTreeLiteNodeJsonContract>? Children { get; init; }
+
+    /// <summary> Gets whether the child nodes are complete or truncated. </summary>
+    [UcliRequired]
+    [UcliDescription("Child node completeness state. Values are complete, notExpandedByDepth, truncatedByWindow, and unknown.")]
+    public string? ChildrenState { get; init; }
 }

@@ -96,10 +96,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             using (validationState.SceneLease)
             {
+                var roots = SceneTreeNodeSnapshotBuilder.BuildRoots(validationState.SceneLease.Scene, validationState.Depth, executionContext);
+                var windowedRoots = SceneTreeWindowProjector.Apply(roots, validationState.WindowOptions);
                 var tree = new SceneTreeResult(
                     validationState.ScenePath,
-                    SceneTreeNodeSnapshotBuilder.BuildRoots(validationState.SceneLease.Scene, validationState.Depth, executionContext),
-                    validationState.SceneLease.CreateSourceState());
+                    windowedRoots.Items,
+                    validationState.SceneLease.CreateSourceState(),
+                    windowedRoots.Window);
                 return Task.FromResult(OperationPhaseStepResult.Success(
                     applied: applied,
                     changed: false,
@@ -135,6 +138,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
+            if (!BoundedWindowOptionsNormalizer.TryNormalize(args.Limit, args.Cursor, out var windowOptions, out var windowErrorMessage))
+            {
+                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    "Operation 'args." + (args.Cursor == null ? "limit" : "cursor") + "' is invalid. " + windowErrorMessage);
+                return false;
+            }
+
             var scenePath = args.Path;
             var policy = allowTemporaryState
                 ? SceneSourceResolver.Policy.TrackedTemporaryOrLoadedOrPersistedPreview
@@ -146,7 +157,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            validationState = new ValidationState(scenePath, sceneLease, args.Depth);
+            validationState = new ValidationState(scenePath, sceneLease, args.Depth, windowOptions);
             return true;
         }
 
@@ -155,11 +166,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             public ValidationState (
                 string scenePath,
                 SceneSourceResolver.Lease sceneLease,
-                int? depth)
+                int? depth,
+                BoundedWindowOptions windowOptions)
             {
                 ScenePath = scenePath;
                 SceneLease = sceneLease;
                 Depth = depth;
+                WindowOptions = windowOptions;
             }
 
             public string ScenePath { get; }
@@ -167,6 +180,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             public SceneSourceResolver.Lease SceneLease { get; }
 
             public int? Depth { get; }
+
+            public BoundedWindowOptions WindowOptions { get; }
         }
     }
 }

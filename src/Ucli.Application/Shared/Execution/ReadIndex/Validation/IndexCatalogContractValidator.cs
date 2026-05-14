@@ -521,7 +521,8 @@ internal static class IndexCatalogContractValidator
             || node.Name == null
             || node.GlobalObjectId == null
             || (node.GlobalObjectId.Length > 0 && string.IsNullOrWhiteSpace(node.GlobalObjectId))
-            || node.Children == null)
+            || node.Children == null
+            || !IsValidSceneTreeLiteChildrenState(node.ChildrenState))
         {
             error = $"Scene-tree-lite node '{propertyName}' is invalid.";
             return false;
@@ -537,6 +538,14 @@ internal static class IndexCatalogContractValidator
 
         error = null;
         return true;
+    }
+
+    private static bool IsValidSceneTreeLiteChildrenState (string? childrenState)
+    {
+        return string.Equals(childrenState, IndexSceneTreeLiteNodeChildrenStateValues.Complete, StringComparison.Ordinal)
+            || string.Equals(childrenState, IndexSceneTreeLiteNodeChildrenStateValues.NotExpandedByDepth, StringComparison.Ordinal)
+            || string.Equals(childrenState, IndexSceneTreeLiteNodeChildrenStateValues.TruncatedByWindow, StringComparison.Ordinal)
+            || string.Equals(childrenState, IndexSceneTreeLiteNodeChildrenStateValues.Unknown, StringComparison.Ordinal);
     }
 
     private static bool IsValidSchemaObject (string? json)

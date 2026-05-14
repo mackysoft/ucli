@@ -1,6 +1,4 @@
-using System.Globalization;
-using System.Text;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -10,9 +8,7 @@ internal static class QueryWindowCursorCodec
     /// <summary> Encodes one result offset as a base64url cursor for host-side tests and projections. </summary>
     public static string Encode (int offset)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(offset);
-        var bytes = Encoding.UTF8.GetBytes(offset.ToString(CultureInfo.InvariantCulture));
-        return Base64UrlCodec.Encode(bytes);
+        return BoundedWindowCursorCodec.Encode(offset);
     }
 
     /// <summary> Attempts to decode one base64url cursor into a result offset. </summary>
@@ -20,14 +16,6 @@ internal static class QueryWindowCursorCodec
         string? cursor,
         out int offset)
     {
-        offset = 0;
-        if (!Base64UrlCodec.TryDecode(cursor, out var bytes))
-        {
-            return false;
-        }
-
-        var text = Encoding.UTF8.GetString(bytes);
-        return int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out offset)
-            && offset >= 0;
+        return BoundedWindowCursorCodec.TryDecode(cursor, out offset);
     }
 }

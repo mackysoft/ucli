@@ -392,6 +392,10 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(pathPrefixProperty.GetProperty("type").GetString(), Is.EqualTo("string"));
             Assert.That(properties.TryGetProperty("nameContains", out var nameContainsProperty), Is.True);
             Assert.That(nameContainsProperty.GetProperty("type").GetString(), Is.EqualTo("string"));
+            Assert.That(properties.TryGetProperty("limit", out var limitProperty), Is.True);
+            Assert.That(limitProperty.GetProperty("type")[0].GetString(), Is.EqualTo("integer"));
+            Assert.That(properties.TryGetProperty("cursor", out var cursorProperty), Is.True);
+            Assert.That(cursorProperty.GetProperty("type").GetString(), Is.EqualTo("string"));
         }
 
         [Test]

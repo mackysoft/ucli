@@ -1031,12 +1031,14 @@ public sealed class IndexJsonContractTests
                     {
                       "name": "RootZ",
                       "globalObjectId": "z",
-                      "children": []
+                      "children": [],
+                      "childrenState": "complete"
                     },
                     {
                       "name": "RootA",
                       "globalObjectId": "a",
-                      "children": []
+                      "children": [],
+                      "childrenState": "complete"
                     }
                   ]
                 }

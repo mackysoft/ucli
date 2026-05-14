@@ -40,13 +40,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var children = currentDepth >= maxDepth
                 ? System.Array.Empty<IndexSceneTreeLiteNodeJsonContract>()
                 : BuildChildren(gameObject.transform, currentDepth + 1, maxDepth, executionContext);
+            var childrenState = currentDepth >= maxDepth && gameObject.transform.childCount > 0
+                ? IndexSceneTreeLiteNodeChildrenStateValues.NotExpandedByDepth
+                : IndexSceneTreeLiteNodeChildrenStateValues.Complete;
             var globalObjectId = ResolveReferenceResolver.TryCreateGameObjectResolvedReference(gameObject, executionContext, out var resolvedReference)
                 ? resolvedReference!.GlobalObjectId
                 : string.Empty;
             return new IndexSceneTreeLiteNodeJsonContract(
-                Name: gameObject.name,
-                GlobalObjectId: globalObjectId,
-                Children: children);
+                name: gameObject.name,
+                globalObjectId: globalObjectId,
+                children: children,
+                childrenState: childrenState);
         }
 
         private static IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> BuildChildren (

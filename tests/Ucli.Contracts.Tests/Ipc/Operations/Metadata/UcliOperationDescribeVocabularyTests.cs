@@ -20,6 +20,7 @@ public sealed class UcliOperationDescribeVocabularyTests
         Assert.Equal(9, (int)UcliOperationInputConstraintKind.TypeAssignableTo);
         Assert.Equal(10, (int)UcliOperationInputConstraintKind.SerializedProperty);
         Assert.Equal(11, (int)UcliOperationInputConstraintKind.AssetGuid);
+        Assert.Equal(12, (int)UcliOperationInputConstraintKind.Cursor);
     }
 
     [Fact]
@@ -38,6 +39,7 @@ public sealed class UcliOperationDescribeVocabularyTests
         Assert.Equal(UcliOperationInputConstraintKindValues.TypeAssignableTo, UcliOperationInputConstraintKindCodec.ToValue(UcliOperationInputConstraintKind.TypeAssignableTo));
         Assert.Equal(UcliOperationInputConstraintKindValues.SerializedProperty, UcliOperationInputConstraintKindCodec.ToValue(UcliOperationInputConstraintKind.SerializedProperty));
         Assert.Equal(UcliOperationInputConstraintKindValues.AssetGuid, UcliOperationInputConstraintKindCodec.ToValue(UcliOperationInputConstraintKind.AssetGuid));
+        Assert.Equal(UcliOperationInputConstraintKindValues.Cursor, UcliOperationInputConstraintKindCodec.ToValue(UcliOperationInputConstraintKind.Cursor));
     }
 
     [Fact]
@@ -56,6 +58,7 @@ public sealed class UcliOperationDescribeVocabularyTests
         Assert.Equal("typeAssignableTo", UcliOperationInputConstraintKindValues.TypeAssignableTo);
         Assert.Equal("serializedProperty", UcliOperationInputConstraintKindValues.SerializedProperty);
         Assert.Equal("assetGuid", UcliOperationInputConstraintKindValues.AssetGuid);
+        Assert.Equal("cursor", UcliOperationInputConstraintKindValues.Cursor);
     }
 
     [Fact]

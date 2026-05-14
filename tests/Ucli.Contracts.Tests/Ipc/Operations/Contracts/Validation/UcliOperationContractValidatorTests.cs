@@ -107,6 +107,18 @@ public sealed class UcliOperationContractValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void TryValidate_WhenCursorIsInvalid_ReturnsFalse ()
+    {
+        var args = new CursorArgs("not-a-cursor");
+
+        var isValid = UcliOperationContractValidator.TryValidate(args, typeof(CursorArgs), out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Operation 'args.cursor' must be a valid cursor.", errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void TryValidate_WhenExactlyOneExclusiveRequiredPropertySetMatches_ReturnsTrue ()
     {
         var args = new RequiredPropertySetArgs("Assets/Scenes/Main.unity", null);
@@ -395,6 +407,11 @@ public sealed class UcliOperationContractValidatorTests
         [property: UcliDescription("Depth.")]
         [property: UcliInputConstraint(UcliOperationInputConstraintKind.Range, Min = 0)]
         int Depth);
+
+    private sealed record CursorArgs (
+        [property: UcliDescription("Cursor.")]
+        [property: UcliInputConstraint(UcliOperationInputConstraintKind.Cursor)]
+        string? Cursor);
 
     [UcliExclusiveRequiredPropertySet("scene")]
     [UcliExclusiveRequiredPropertySet("parent")]
