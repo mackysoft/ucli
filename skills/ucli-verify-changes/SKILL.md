@@ -6,10 +6,11 @@ Use this skill to verify whether a uCLI-backed Unity change actually reached the
 1. Start from the command result, not from the exit code alone.
 2. Inspect `payload.opResults[].applied`, `changed`, and `touched` for each public step.
 3. If the task involves primitive operations, use `ucli ops describe <opName>` to interpret the operation's assurance and result contract.
-4. Run `ucli verify --profile built-in:mutation --from <result.json>` when only post-mutation Unity-local evidence is needed, and read `payload.verdict`, `claims[]`, `reports`, and `residualRisks[]`.
-5. Use `ucli verify --profile built-in:script --from <result.json>` for C# script changes, or omit `--profile` only when the default project-level verification and its compile side effects are intended.
-6. Use targeted `ucli query`, `ucli resolve`, `ucli test run`, or `ucli logs` evidence only when the claim packet or task scope requires it.
-7. Preserve the overall safe path: `read -> describe -> build request -> validate -> plan -> call -> verify`.
+4. If the command result includes `readPostcondition`, satisfy those requirements before trusting affected read surfaces.
+5. Run `ucli verify --profile built-in:mutation --from <result.json>` when only post-mutation Unity-local evidence is needed, and read `payload.verdict`, `claims[]`, `reports`, and `residualRisks[]`.
+6. Use `ucli verify --profile built-in:script --from <result.json>` for C# script changes, or omit `--profile` only when the default project-level verification and its compile side effects are intended.
+7. Use targeted `ucli query`, `ucli resolve`, `ucli test run`, or `ucli logs` evidence only when the claim packet or task scope requires it.
+8. Preserve the overall safe path: `read -> describe -> build request -> validate -> plan -> call -> verify`.
 
 ## Guardrails
 - Do not copy operation catalogs, argument schemas, result schemas, or long command reference text into verification output.
