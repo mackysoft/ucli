@@ -96,11 +96,11 @@ internal sealed class CodeCatalogService : ICodeCatalogService
                     UcliCoreErrorCodes.InvalidArgument));
         }
 
-        if (reference.ExpectedKind is not null && !CodeCatalogKindValues.IsSupported(reference.ExpectedKind))
+        if (reference.ExpectedKind is not null && string.IsNullOrWhiteSpace(reference.ExpectedKind))
         {
             return CodeCatalogDescribeResult.Failure(
                 ExecutionError.InvalidArgument(
-                    $"Code kind '{reference.ExpectedKind}' is not supported.",
+                    "Code kind must not be empty.",
                     UcliCoreErrorCodes.InvalidArgument));
         }
 

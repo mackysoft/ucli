@@ -45,10 +45,10 @@ internal static class CodeCliArgumentParser
                 return false;
             }
 
-            if (!CodeCatalogKindValues.IsSupported(expectedKind))
+            if (!IsKindToken(expectedKind))
             {
                 reference = null!;
-                errorMessage = $"Code kind must be one of: {string.Join(", ", CodeCatalogKindValues.KnownKinds)}.";
+                errorMessage = "Code kind must be a lowercase machine token using letters, digits, hyphens, underscores, and optional dot-separated segments.";
                 return false;
             }
         }
@@ -109,6 +109,46 @@ internal static class CodeCliArgumentParser
         }
 
         return !segmentStart;
+    }
+
+    private static bool IsKindToken (string value)
+    {
+        var segmentStart = true;
+        for (var i = 0; i < value.Length; i++)
+        {
+            var character = value[i];
+            if (segmentStart)
+            {
+                if (!IsLowercaseAsciiLetter(character))
+                {
+                    return false;
+                }
+
+                segmentStart = false;
+                continue;
+            }
+
+            if (character == '.')
+            {
+                segmentStart = true;
+                continue;
+            }
+
+            if (!IsLowercaseAsciiLetter(character)
+                && !IsAsciiDigit(character)
+                && character != '-'
+                && character != '_')
+            {
+                return false;
+            }
+        }
+
+        return !segmentStart;
+    }
+
+    private static bool IsLowercaseAsciiLetter (char character)
+    {
+        return character >= 'a' && character <= 'z';
     }
 
     private static bool IsUppercaseAsciiLetter (char character)
