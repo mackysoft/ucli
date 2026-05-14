@@ -83,7 +83,8 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
                     setupErrorCode,
                     runId: session.RunId,
                     artifactsDir: session.Paths.ArtifactsDir,
-                    summaryJsonPath: session.Paths.SummaryJsonPath);
+                    summaryJsonPath: session.Paths.SummaryJsonPath,
+                    startupFailure: unityExecutionResult.StartupFailure);
             }
 
             UcliErrorCode errorCode = unityExecutionResult.FailureKind switch
@@ -100,7 +101,8 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
                 errorCode,
                 runId: session.RunId,
                 artifactsDir: session.Paths.ArtifactsDir,
-                summaryJsonPath: session.Paths.SummaryJsonPath);
+                summaryJsonPath: session.Paths.SummaryJsonPath,
+                startupFailure: unityExecutionResult.StartupFailure);
         }
 
         if (!conversionResult.IsSuccess)

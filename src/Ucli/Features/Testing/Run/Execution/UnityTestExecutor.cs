@@ -1,7 +1,10 @@
+using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Unity.Process;
@@ -12,6 +15,8 @@ namespace MackySoft.Ucli.Features.Testing.Run.Execution;
 /// <summary> Implements Unity test execution through external process invocation and artifact verification. </summary>
 internal sealed class UnityTestExecutor : IUnityTestExecutor
 {
+    private const int MaxStartupLogTailBytes = 65536;
+
     private static readonly TimeSpan ProjectExecutionLockAcquireTimeout = TimeSpan.FromMilliseconds(100);
 
     private readonly IUnityCommandBuilder unityCommandBuilder;
@@ -168,9 +173,16 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
                             processRunResult.ErrorMessage ?? $"Unity process exited with code {processRunResult.ExitCode.Value}.",
                             configuration.UnityProject)
                         .ConfigureAwait(false);
+                    var startupFailure = await TryCreateStartupFailureFromEditorLogAsync(
+                            artifactPaths.EditorLogPath,
+                            abnormalExitMessage,
+                            cancellationToken)
+                        .ConfigureAwait(false);
                     return UnityTestExecutionResult.Failure(
                         UnityTestExecutionFailureKind.AbnormalExit,
-                        abnormalExitMessage);
+                        abnormalExitMessage,
+                        startupFailure is null ? null : DaemonErrorCodes.DaemonStartupBlocked,
+                        startupFailure);
                 }
 
                 break;
@@ -187,9 +199,16 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
                     artifactValidationError!,
                     configuration.UnityProject)
                 .ConfigureAwait(false);
+            var startupFailure = await TryCreateStartupFailureFromEditorLogAsync(
+                    artifactPaths.EditorLogPath,
+                    artifactFailureMessage,
+                    cancellationToken)
+                .ConfigureAwait(false);
             return UnityTestExecutionResult.Failure(
                 UnityTestExecutionFailureKind.ArtifactMissing,
-                artifactFailureMessage);
+                artifactFailureMessage,
+                startupFailure is null ? null : DaemonErrorCodes.DaemonStartupBlocked,
+                startupFailure);
         }
 
         return UnityTestExecutionResult.Success(processRunResult.ExitCode!.Value);
@@ -247,6 +266,73 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
                 CancellationToken.None)
             .ConfigureAwait(false);
         return UnityProjectLockPreflightErrorFactory.AppendPostExitDiagnostic(message, preflightResult);
+    }
+
+    private static async ValueTask<StartupFailureDetail?> TryCreateStartupFailureFromEditorLogAsync (
+        string editorLogPath,
+        string fallbackMessage,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(editorLogPath) || !File.Exists(editorLogPath))
+        {
+            return null;
+        }
+
+        string logText;
+        try
+        {
+            logText = await ReadStartupLogTailAsync(editorLogPath, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(logText))
+        {
+            return null;
+        }
+
+        var latestStartupLogText = DaemonStartupFailureLogClassifier.GetLatestStartupLogText(logText);
+        if (!DaemonStartupFailureLogClassifier.TryClassifyFailure(
+                latestStartupLogText,
+                DaemonStartupFailureClassificationContext.Batchmode,
+                out var classification))
+        {
+            return null;
+        }
+
+        return StartupFailureDetailFactory.CreateClassifiedBatchmodeFailure(
+            classification!,
+            classification!.Message ?? fallbackMessage,
+            editorLogPath,
+            processId: null,
+            processStartedAtUtc: null,
+            DateTimeOffset.UtcNow);
+    }
+
+    private static async ValueTask<string> ReadStartupLogTailAsync (
+        string editorLogPath,
+        CancellationToken cancellationToken)
+    {
+        await using var stream = new FileStream(
+            editorLogPath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete,
+            bufferSize: 4096,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+        if (stream.Length > MaxStartupLogTailBytes)
+        {
+            stream.Seek(-MaxStartupLogTailBytes, SeekOrigin.End);
+        }
+
+        using var reader = new StreamReader(stream);
+        return await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private static UnityTestExecutionFailureKind ResolveProjectLockFailureKind (UnityProjectLockPreflightResult preflightResult)

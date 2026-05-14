@@ -94,6 +94,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     break;
 
                 case BootstrapStartupKind.Gui:
+                    _ = UnityGuiSupervisorBootstrap.StartAsync();
                     _ = UnityGuiBootstrap.StartAsync(guiBootstrapArguments);
                     break;
 

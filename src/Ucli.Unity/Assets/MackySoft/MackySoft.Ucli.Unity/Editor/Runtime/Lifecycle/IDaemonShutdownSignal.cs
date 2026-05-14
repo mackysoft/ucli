@@ -6,6 +6,9 @@ namespace MackySoft.Ucli.Unity.Runtime
     /// <summary> Represents shutdown signal coordination for daemon bootstrap lifecycle. </summary>
     internal interface IDaemonShutdownSignal
     {
+        /// <summary> Gets whether daemon shutdown has been requested. </summary>
+        bool IsSignaled { get; }
+
         /// <summary> Signals that daemon shutdown has been requested. </summary>
         void Signal ();
 

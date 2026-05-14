@@ -13,7 +13,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task TryAttachExistingGuiEditor_WhenMatchingGuiSessionRegisters_ReturnsAlreadyRunning ()
+    public async Task TryAttachExistingGuiEditor_WhenMatchingGuiSessionRegisters_ReturnsAttached ()
     {
         var marker = CreateMarker();
         var context = CreateContext();
@@ -31,7 +31,8 @@ public sealed class DaemonGuiEditorAttachServiceTests
             Result = DaemonGuiSessionRegistrationWaitResult.Success(session),
         };
         var diagnosisStore = new StubDaemonDiagnosisStore();
-        var service = new DaemonGuiEditorAttachService(markerReader, processProbe, awaiter, diagnosisStore);
+        var rebootstrapClient = new StubDaemonGuiRebootstrapClient();
+        var service = new DaemonGuiEditorAttachService(markerReader, processProbe, awaiter, rebootstrapClient, diagnosisStore);
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             context,
@@ -42,15 +43,15 @@ public sealed class DaemonGuiEditorAttachServiceTests
 
         Assert.NotNull(result);
         Assert.True(result!.IsSuccess);
-        Assert.Equal(DaemonStartStatus.AlreadyRunning, result.Status);
+        Assert.Equal(DaemonStartStatus.Attached, result.Status);
         Assert.Equal(session, result.Session);
         Assert.Equal(1, awaiter.CallCount);
         Assert.Equal(context, awaiter.LastUnityProject);
         Assert.Equal(marker.ProcessId, awaiter.LastExpectedProcessId);
         Assert.Equal(ProbeProcessStartedAtUtc, awaiter.LastExpectedProcessStartedAtUtc);
-        Assert.True(awaiter.LastTimeout > TimeSpan.FromMilliseconds(450));
-        Assert.True(awaiter.LastTimeout <= TimeSpan.FromMilliseconds(500));
+        Assert.Equal(TimeSpan.FromMilliseconds(125), awaiter.LastTimeout);
         Assert.Equal(0, diagnosisStore.WriteCallCount);
+        Assert.Equal(0, rebootstrapClient.CallCount);
     }
 
     [Fact]
@@ -68,7 +69,12 @@ public sealed class DaemonGuiEditorAttachServiceTests
         };
         var awaiter = new StubDaemonGuiSessionRegistrationAwaiter();
         var diagnosisStore = new StubDaemonDiagnosisStore();
-        var service = new DaemonGuiEditorAttachService(markerReader, processProbe, awaiter, diagnosisStore);
+        var service = new DaemonGuiEditorAttachService(
+            markerReader,
+            processProbe,
+            awaiter,
+            new StubDaemonGuiRebootstrapClient(),
+            diagnosisStore);
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             CreateContext(),
@@ -103,7 +109,8 @@ public sealed class DaemonGuiEditorAttachServiceTests
             Result = DaemonGuiSessionRegistrationWaitResult.Failure(timeoutError),
         };
         var diagnosisStore = new StubDaemonDiagnosisStore();
-        var service = new DaemonGuiEditorAttachService(markerReader, processProbe, awaiter, diagnosisStore);
+        var rebootstrapClient = new StubDaemonGuiRebootstrapClient();
+        var service = new DaemonGuiEditorAttachService(markerReader, processProbe, awaiter, rebootstrapClient, diagnosisStore);
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             CreateContext(),
@@ -116,7 +123,8 @@ public sealed class DaemonGuiEditorAttachServiceTests
         Assert.False(result!.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error.Code);
-        Assert.Equal(1, awaiter.CallCount);
+        Assert.Equal(2, awaiter.CallCount);
+        Assert.Equal(1, rebootstrapClient.CallCount);
         Assert.Equal(1, diagnosisStore.WriteCallCount);
         Assert.NotNull(diagnosisStore.LastDiagnosis);
         Assert.Equal(DaemonDiagnosisReasonValues.GuiEndpointNotRegistered, diagnosisStore.LastDiagnosis!.Reason);
@@ -131,6 +139,51 @@ public sealed class DaemonGuiEditorAttachServiceTests
         Assert.Equal(marker.ProcessId, result.Startup.ProcessId);
         Assert.Equal(ProbeProcessStartedAtUtc, result.Startup.StartedAtUtc);
         Assert.Equal(DaemonStartupProcessActionValues.Kept, result.Startup.ProcessAction);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task TryAttachExistingGuiEditor_WhenRebootstrapAcceptedAndSessionRegisters_ReturnsAttached ()
+    {
+        var marker = CreateMarker();
+        var context = CreateContext();
+        var markerReader = new StubUnityEditorInstanceMarkerReader
+        {
+            ReadResult = UnityEditorInstanceMarkerReadResult.Success(marker),
+        };
+        var processProbe = new StubUnityGuiEditorProcessProbe
+        {
+            Result = UnityGuiEditorProcessProbeResult.Matching(ProbeProcessStartedAtUtc),
+        };
+        var session = CreateGuiSession();
+        var awaiter = new StubDaemonGuiSessionRegistrationAwaiter();
+        awaiter.Results.Enqueue(DaemonGuiSessionRegistrationWaitResult.Failure(ExecutionError.Timeout("session missing")));
+        awaiter.Results.Enqueue(DaemonGuiSessionRegistrationWaitResult.Success(session));
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var rebootstrapClient = new StubDaemonGuiRebootstrapClient();
+        var service = new DaemonGuiEditorAttachService(markerReader, processProbe, awaiter, rebootstrapClient, diagnosisStore);
+
+        var result = await service.TryAttachExistingGuiEditorAsync(
+            context,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            DaemonStartupBlockedProcessPolicy.Terminate,
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.True(result!.IsSuccess);
+        Assert.Equal(DaemonStartStatus.Attached, result.Status);
+        Assert.Equal(session, result.Session);
+        Assert.Equal(DaemonEditorModeValues.Gui, result.Session!.EditorMode);
+        Assert.Equal(DaemonSessionOwnerKindValues.User, result.Session.OwnerKind);
+        Assert.False(result.Session.CanShutdownProcess);
+        Assert.Equal(marker.ProcessId, result.Session.ProcessId);
+        Assert.Equal(2, awaiter.CallCount);
+        Assert.Equal(1, rebootstrapClient.CallCount);
+        Assert.Equal(context, rebootstrapClient.LastUnityProject);
+        Assert.Equal(marker.ProcessId, rebootstrapClient.LastExpectedProcessId);
+        Assert.Equal(ProbeProcessStartedAtUtc, rebootstrapClient.LastExpectedProcessStartedAtUtc);
+        Assert.Equal(0, diagnosisStore.WriteCallCount);
     }
 
     [Fact]
@@ -153,6 +206,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
             markerReader,
             processProbe,
             awaiter,
+            new StubDaemonGuiRebootstrapClient(),
             new StubDaemonDiagnosisStore(),
             timeProvider);
 
@@ -165,7 +219,60 @@ public sealed class DaemonGuiEditorAttachServiceTests
 
         Assert.NotNull(result);
         Assert.True(result!.IsSuccess);
-        Assert.Equal(TimeSpan.FromMilliseconds(700), awaiter.LastTimeout);
+        Assert.Equal(TimeSpan.FromMilliseconds(175), awaiter.LastTimeout);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task TryAttachExistingGuiEditor_WhenRebootstrapPathConsumesTime_PassesRemainingTimeouts ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var markerReader = new StubUnityEditorInstanceMarkerReader
+        {
+            ReadResult = UnityEditorInstanceMarkerReadResult.Success(CreateMarker()),
+            OnRead = () => timeProvider.Advance(TimeSpan.FromMilliseconds(100)),
+        };
+        var processProbe = new StubUnityGuiEditorProcessProbe
+        {
+            Result = UnityGuiEditorProcessProbeResult.Matching(ProbeProcessStartedAtUtc),
+            OnProbe = () => timeProvider.Advance(TimeSpan.FromMilliseconds(100)),
+        };
+        var awaiter = new StubDaemonGuiSessionRegistrationAwaiter
+        {
+            OnWait = callCount =>
+            {
+                if (callCount == 1)
+                {
+                    timeProvider.Advance(TimeSpan.FromMilliseconds(200));
+                }
+            },
+        };
+        awaiter.Results.Enqueue(DaemonGuiSessionRegistrationWaitResult.Failure(ExecutionError.Timeout("session missing")));
+        awaiter.Results.Enqueue(DaemonGuiSessionRegistrationWaitResult.Success(CreateGuiSession()));
+        var rebootstrapClient = new StubDaemonGuiRebootstrapClient
+        {
+            OnRequest = () => timeProvider.Advance(TimeSpan.FromMilliseconds(150)),
+        };
+        var service = new DaemonGuiEditorAttachService(
+            markerReader,
+            processProbe,
+            awaiter,
+            rebootstrapClient,
+            new StubDaemonDiagnosisStore(),
+            timeProvider);
+
+        var result = await service.TryAttachExistingGuiEditorAsync(
+            CreateContext(),
+            TimeSpan.FromMilliseconds(1000),
+            editorMode: null,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.True(result!.IsSuccess);
+        Assert.Equal(TimeSpan.FromMilliseconds(200), awaiter.Timeouts[0]);
+        Assert.Equal(TimeSpan.FromMilliseconds(600), rebootstrapClient.LastTimeout);
+        Assert.Equal(TimeSpan.FromMilliseconds(450), awaiter.Timeouts[1]);
     }
 
     [Fact]
@@ -185,6 +292,7 @@ public sealed class DaemonGuiEditorAttachServiceTests
             markerReader,
             processProbe,
             awaiter,
+            new StubDaemonGuiRebootstrapClient(),
             new StubDaemonDiagnosisStore());
 
         var result = await service.TryAttachExistingGuiEditorAsync(
@@ -196,6 +304,55 @@ public sealed class DaemonGuiEditorAttachServiceTests
 
         Assert.Null(result);
         Assert.Equal(0, awaiter.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task TryAttachExistingGuiEditor_WhenRebootstrapUnavailable_WritesGuiRebootstrapDiagnosis ()
+    {
+        var marker = CreateMarker();
+        var markerReader = new StubUnityEditorInstanceMarkerReader
+        {
+            ReadResult = UnityEditorInstanceMarkerReadResult.Success(marker),
+        };
+        var processProbe = new StubUnityGuiEditorProcessProbe
+        {
+            Result = UnityGuiEditorProcessProbeResult.Matching(ProbeProcessStartedAtUtc),
+        };
+        var awaiter = new StubDaemonGuiSessionRegistrationAwaiter
+        {
+            Result = DaemonGuiSessionRegistrationWaitResult.Failure(ExecutionError.Timeout("session missing")),
+        };
+        var rebootstrapClient = new StubDaemonGuiRebootstrapClient
+        {
+            Result = DaemonGuiRebootstrapRequestResult.Unavailable(ExecutionError.InternalError(
+                "manifest missing",
+                DaemonErrorCodes.DaemonEndpointNotRegistered)),
+        };
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var service = new DaemonGuiEditorAttachService(
+            markerReader,
+            processProbe,
+            awaiter,
+            rebootstrapClient,
+            diagnosisStore);
+
+        var result = await service.TryAttachExistingGuiEditorAsync(
+            CreateContext(),
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            DaemonStartupBlockedProcessPolicy.Terminate,
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.False(result!.IsSuccess);
+        Assert.Equal(DaemonErrorCodes.DaemonEndpointNotRegistered, result.Error!.Code);
+        Assert.Equal(1, awaiter.CallCount);
+        Assert.Equal(1, rebootstrapClient.CallCount);
+        Assert.Equal(1, diagnosisStore.WriteCallCount);
+        Assert.NotNull(diagnosisStore.LastDiagnosis);
+        Assert.Equal(DaemonDiagnosisReasonValues.GuiRebootstrapUnavailable, diagnosisStore.LastDiagnosis!.Reason);
+        Assert.Equal(DaemonStartupProcessActionValues.Kept, result.Startup!.ProcessAction);
     }
 
     private static UnityEditorInstanceMarker CreateMarker ()
@@ -271,6 +428,12 @@ public sealed class DaemonGuiEditorAttachServiceTests
         public DaemonGuiSessionRegistrationWaitResult Result { get; set; } =
             DaemonGuiSessionRegistrationWaitResult.Success(CreateGuiSession());
 
+        public Queue<DaemonGuiSessionRegistrationWaitResult> Results { get; } = [];
+
+        public List<TimeSpan> Timeouts { get; } = [];
+
+        public Action<int>? OnWait { get; set; }
+
         public int CallCount { get; private set; }
 
         public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
@@ -289,6 +452,42 @@ public sealed class DaemonGuiEditorAttachServiceTests
             CancellationToken cancellationToken = default)
         {
             CallCount++;
+            OnWait?.Invoke(CallCount);
+            LastUnityProject = unityProject;
+            LastExpectedProcessId = expectedProcessId;
+            LastExpectedProcessStartedAtUtc = expectedProcessStartedAtUtc;
+            LastTimeout = timeout;
+            Timeouts.Add(timeout);
+            return ValueTask.FromResult(Results.Count > 0 ? Results.Dequeue() : Result);
+        }
+    }
+
+    private sealed class StubDaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
+    {
+        public DaemonGuiRebootstrapRequestResult Result { get; set; } =
+            DaemonGuiRebootstrapRequestResult.Accepted();
+
+        public int CallCount { get; private set; }
+
+        public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
+
+        public int LastExpectedProcessId { get; private set; }
+
+        public DateTimeOffset? LastExpectedProcessStartedAtUtc { get; private set; }
+
+        public TimeSpan LastTimeout { get; private set; }
+
+        public Action? OnRequest { get; set; }
+
+        public ValueTask<DaemonGuiRebootstrapRequestResult> RequestRebootstrapAsync (
+            ResolvedUnityProjectContext unityProject,
+            int expectedProcessId,
+            DateTimeOffset? expectedProcessStartedAtUtc,
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            OnRequest?.Invoke();
             LastUnityProject = unityProject;
             LastExpectedProcessId = expectedProcessId;
             LastExpectedProcessStartedAtUtc = expectedProcessStartedAtUtc;

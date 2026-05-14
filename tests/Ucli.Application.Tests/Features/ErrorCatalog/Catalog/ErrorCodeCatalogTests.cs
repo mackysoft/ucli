@@ -237,6 +237,31 @@ public sealed class ErrorCodeCatalogTests
         Assert.Equal(code, result.Descriptor!.Code.Value);
     }
 
+    [Theory]
+    [InlineData("DAEMON_STARTUP_BLOCKED")]
+    [InlineData("DAEMON_START_PROCESS_EXITED")]
+    [InlineData("DAEMON_ENDPOINT_NOT_REGISTERED")]
+    [Trait("Size", "Small")]
+    public void Describe_WithStartupObservationCode_IncludesStartupObservationCommands (string code)
+    {
+        var service = new ErrorCodeCatalogService(CreateCatalog());
+
+        var result = service.Describe(new UcliErrorCode(code), requireKnown: true);
+
+        Assert.True(result.IsSuccess);
+        var appliesTo = result.Descriptor!.AppliesTo
+            .Select(static command => command.Name)
+            .ToArray();
+        Assert.Contains(UcliCommandIds.DaemonStart.Name, appliesTo);
+        Assert.Contains(UcliCommandIds.Plan.Name, appliesTo);
+        Assert.Contains(UcliCommandIds.Call.Name, appliesTo);
+        Assert.Contains(UcliCommandIds.Refresh.Name, appliesTo);
+        Assert.Contains(UcliCommandIds.Resolve.Name, appliesTo);
+        Assert.Contains(UcliCommandIds.Query.Name, appliesTo);
+        Assert.Contains(UcliCommandIds.Ops.Name, appliesTo);
+        Assert.Contains(UcliCommandIds.TestRun.Name, appliesTo);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void Describe_WithInvalidCode_ReturnsInvalidArgument ()

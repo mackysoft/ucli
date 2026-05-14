@@ -12,7 +12,8 @@ internal sealed record TestRunServiceResult
         string message,
         string? runId,
         string? artifactsDir,
-        string? summaryJsonPath)
+        string? summaryJsonPath,
+        StartupFailureDetail? startupFailure = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
 
@@ -45,6 +46,7 @@ internal sealed record TestRunServiceResult
         RunId = runId;
         ArtifactsDir = artifactsDir;
         SummaryJsonPath = summaryJsonPath;
+        StartupFailure = startupFailure;
     }
 
     /// <summary> Gets the pass/fail result when execution reaches test result evaluation. </summary>
@@ -75,6 +77,9 @@ internal sealed record TestRunServiceResult
 
     /// <summary> Gets the summary JSON path when available. </summary>
     public string? SummaryJsonPath { get; }
+
+    /// <summary> Gets the structured startup failure detail when Unity did not reach test execution. </summary>
+    public StartupFailureDetail? StartupFailure { get; }
 
     /// <summary> Gets the machine-readable error code when execution fails. </summary>
     public UcliErrorCode? ErrorCode => Failure?.Code;
@@ -154,16 +159,18 @@ internal sealed record TestRunServiceResult
         UcliErrorCode errorCode,
         string? runId = null,
         string? artifactsDir = null,
-        string? summaryJsonPath = null)
+        string? summaryJsonPath = null,
+        StartupFailureDetail? startupFailure = null)
     {
         return new TestRunServiceResult(
             result: null,
             errorKind: TestRunErrorKind.InvalidInput,
-            failure: ApplicationFailure.InvalidInput(message, errorCode),
+            failure: ApplicationFailure.InvalidInput(message, errorCode, startupFailure: startupFailure),
             message: message,
             runId: runId,
             artifactsDir: artifactsDir,
-            summaryJsonPath: summaryJsonPath);
+            summaryJsonPath: summaryJsonPath,
+            startupFailure);
     }
 
     /// <summary> Creates an infrastructure error result. </summary>
@@ -178,7 +185,8 @@ internal sealed record TestRunServiceResult
         UcliErrorCode errorCode,
         string? runId = null,
         string? artifactsDir = null,
-        string? summaryJsonPath = null)
+        string? summaryJsonPath = null,
+        StartupFailureDetail? startupFailure = null)
     {
         return new TestRunServiceResult(
             result: null,
@@ -186,11 +194,13 @@ internal sealed record TestRunServiceResult
             failure: ApplicationFailure.ExternalProcessFailure(
                 message,
                 errorCode,
-                outcome: ApplicationOutcome.InfrastructureError),
+                outcome: ApplicationOutcome.InfrastructureError,
+                startupFailure: startupFailure),
             message: message,
             runId: runId,
             artifactsDir: artifactsDir,
-            summaryJsonPath: summaryJsonPath);
+            summaryJsonPath: summaryJsonPath,
+            startupFailure);
     }
 
     /// <summary> Creates a tool-error result. </summary>
@@ -205,25 +215,28 @@ internal sealed record TestRunServiceResult
         UcliErrorCode errorCode,
         string? runId = null,
         string? artifactsDir = null,
-        string? summaryJsonPath = null)
+        string? summaryJsonPath = null,
+        StartupFailureDetail? startupFailure = null)
     {
         return new TestRunServiceResult(
             result: null,
             errorKind: TestRunErrorKind.ToolError,
-            failure: CreateToolFailure(message, errorCode),
+            failure: CreateToolFailure(message, errorCode, startupFailure),
             message: message,
             runId: runId,
             artifactsDir: artifactsDir,
-            summaryJsonPath: summaryJsonPath);
+            summaryJsonPath: summaryJsonPath,
+            startupFailure);
     }
 
     private static ApplicationFailure CreateToolFailure (
         string message,
-        UcliErrorCode errorCode)
+        UcliErrorCode errorCode,
+        StartupFailureDetail? startupFailure)
     {
         if (errorCode == ExecutionErrorCodes.IpcTimeout || errorCode == TestRunErrorCodes.UnityTestExecutionTimeout)
         {
-            return ApplicationFailure.Timeout(message, errorCode);
+            return ApplicationFailure.Timeout(message, errorCode, startupFailure: startupFailure);
         }
 
         if (errorCode == ExecutionErrorCodes.Canceled)
@@ -231,6 +244,6 @@ internal sealed record TestRunServiceResult
             return ApplicationFailure.Canceled(message, errorCode);
         }
 
-        return ApplicationFailure.ExternalProcessFailure(message, errorCode);
+        return ApplicationFailure.ExternalProcessFailure(message, errorCode, startupFailure: startupFailure);
     }
 }

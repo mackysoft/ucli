@@ -81,6 +81,9 @@ public static class UcliStoragePathNames
     /// <summary> Gets the daemon lifecycle observation file name under one fingerprint directory. </summary>
     public const string DaemonLifecycleFileName = "daemon-lifecycle.json";
 
+    /// <summary> Gets the GUI supervisor manifest file name under one fingerprint directory. </summary>
+    public const string GuiSupervisorManifestFileName = "gui-supervisor.json";
+
     /// <summary> Gets the launch-attempts directory name under one fingerprint directory. </summary>
     public const string LaunchAttemptsDirectoryName = "launch-attempts";
 

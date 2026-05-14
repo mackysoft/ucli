@@ -69,13 +69,14 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             var request = readResult.Value;
             var response = await requestProcessor.ProcessAsync(request, cancellationToken);
+            var shouldSignalShutdown = ShouldSignalShutdown(request, response);
             await IpcFrameCodec.WriteModelAsync(
                 stream,
                 response,
                 IpcJsonSerializerOptions.Default,
                 cancellationToken: cancellationToken);
 
-            if (ShouldSignalShutdown(request, response))
+            if (shouldSignalShutdown)
             {
                 daemonShutdownSignal.Signal();
             }

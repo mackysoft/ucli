@@ -16,14 +16,18 @@ internal static class TestRunCommandResultFactory
     {
         ArgumentNullException.ThrowIfNull(serviceResult);
 
-        var payload = new
+        var payload = new Dictionary<string, object?>
         {
-            result = serviceResult.ResultValue,
-            errorKind = serviceResult.ErrorKindValue,
-            runId = serviceResult.RunId,
-            artifactsDir = serviceResult.ArtifactsDir,
-            summaryJsonPath = serviceResult.SummaryJsonPath,
+            ["result"] = serviceResult.ResultValue,
+            ["errorKind"] = serviceResult.ErrorKindValue,
+            ["runId"] = serviceResult.RunId,
+            ["artifactsDir"] = serviceResult.ArtifactsDir,
+            ["summaryJsonPath"] = serviceResult.SummaryJsonPath,
         };
+        if (serviceResult.ErrorKind is not null)
+        {
+            StartupFailurePayloadProjector.Append(payload, serviceResult.StartupFailure);
+        }
 
         if (serviceResult.ErrorKind is null)
         {

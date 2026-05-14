@@ -22,8 +22,8 @@ internal sealed record DaemonStartResult (
     DaemonStatusKind DaemonStatus,
     DaemonStartLifecycleSnapshot? LifecycleSnapshot)
 {
-    /// <summary> Gets a value indicating whether daemon start succeeded or detected an already-running daemon. </summary>
-    public bool IsSuccess => (Status == DaemonStartStatus.Started || Status == DaemonStartStatus.AlreadyRunning)
+    /// <summary> Gets a value indicating whether daemon start succeeded, detected an already-running daemon, or attached to an existing GUI daemon. </summary>
+    public bool IsSuccess => (Status == DaemonStartStatus.Started || Status == DaemonStartStatus.AlreadyRunning || Status == DaemonStartStatus.Attached)
         && Session is not null
         && Error is null
         && Diagnosis is null;
@@ -60,6 +60,26 @@ internal sealed record DaemonStartResult (
         ArgumentNullException.ThrowIfNull(session);
         return new DaemonStartResult(
             DaemonStartStatus.AlreadyRunning,
+            session,
+            null,
+            null,
+            null,
+            DaemonStatusKind.Running,
+            lifecycleSnapshot);
+    }
+
+    /// <summary> Creates an attached result for a daemon session registered by an existing GUI Editor process. </summary>
+    /// <param name="session"> The attached daemon session metadata. </param>
+    /// <param name="lifecycleSnapshot"> The endpoint-registered lifecycle snapshot when available. </param>
+    /// <returns> The attached result. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="session" /> is <see langword="null" />. </exception>
+    public static DaemonStartResult Attached (
+        DaemonSession session,
+        DaemonStartLifecycleSnapshot? lifecycleSnapshot = null)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        return new DaemonStartResult(
+            DaemonStartStatus.Attached,
             session,
             null,
             null,

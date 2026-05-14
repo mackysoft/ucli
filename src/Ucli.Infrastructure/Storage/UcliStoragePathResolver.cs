@@ -523,6 +523,19 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.DaemonLifecycleFileName);
     }
 
+    /// <summary> Resolves the absolute path to GUI supervisor <c>gui-supervisor.json</c>. </summary>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <returns> The absolute GUI supervisor manifest path. </returns>
+    public static string ResolveGuiSupervisorManifestPath (
+        string storageRoot,
+        string projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.GuiSupervisorManifestFileName);
+    }
+
     /// <summary> Resolves the absolute path to the daemon launch-attempts directory under one fingerprint directory. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>

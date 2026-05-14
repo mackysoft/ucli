@@ -115,6 +115,45 @@ public sealed class SupervisorClientTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task EnsureRunning_WhenSupervisorReturnsAttached_ReturnsAttachedResult ()
+    {
+        var session = CreateSession();
+        var lifecycleSnapshot = new DaemonStartLifecycleSnapshot(
+            IpcEditorLifecycleStateCodec.Ready,
+            null,
+            CanAcceptExecutionRequests: true);
+        var transportClient = new MackySoft.Ucli.Tests.Daemon.DaemonServiceTestContext.StubIpcTransportClient
+        {
+            SendHandler = (endpoint, request, timeout, cancellationToken) => ValueTask.FromResult(new IpcResponse(
+                ProtocolVersion: request.ProtocolVersion,
+                RequestId: request.RequestId,
+                Status: IpcProtocol.StatusOk,
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.EnsureRunningResponse(
+                        StartStatus: "attached",
+                        DaemonStatus: "running",
+                        Session: session,
+                        LifecycleSnapshot: lifecycleSnapshot)),
+                Errors: [])),
+        };
+        var client = new SupervisorClient(transportClient);
+
+        var result = await client.EnsureRunningAsync(
+            CreateManifest(),
+            CreateUnityProject(),
+            TimeSpan.FromMilliseconds(100),
+            editorMode: DaemonEditorMode.Gui,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(DaemonStartStatus.Attached, result.Status);
+        Assert.Equal(session, result.Session);
+        Assert.Equal(lifecycleSnapshot, result.LifecycleSnapshot);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task EnsureRunning_WhenFailurePayloadContainsDiagnosisAndStartup_ReturnsFailureWithMetadata ()
     {
         var diagnosis = CreateDiagnosis();

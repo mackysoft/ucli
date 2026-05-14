@@ -82,6 +82,8 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             public int SignalCount { get; private set; }
 
+            public bool IsSignaled => SignalCount > 0;
+
             public void Signal ()
             {
                 SignalCount++;

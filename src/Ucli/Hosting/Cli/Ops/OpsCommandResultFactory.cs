@@ -28,7 +28,11 @@ internal static class OpsCommandResultFactory
                 });
         }
 
-        return CreateFailure(UcliCommandNames.OpsList, serviceResult.Message, serviceResult.ErrorCode);
+        return CreateFailure(
+            UcliCommandNames.OpsList,
+            serviceResult.Message,
+            serviceResult.ErrorCode,
+            serviceResult.StartupFailure);
     }
 
     /// <summary> Creates one command result for <c>ops describe</c>. </summary>
@@ -50,14 +54,24 @@ internal static class OpsCommandResultFactory
                 });
         }
 
-        return CreateFailure(UcliCommandNames.OpsDescribe, serviceResult.Message, serviceResult.ErrorCode);
+        return CreateFailure(
+            UcliCommandNames.OpsDescribe,
+            serviceResult.Message,
+            serviceResult.ErrorCode,
+            serviceResult.StartupFailure);
     }
 
     private static CommandResult CreateFailure (
         string command,
         string message,
-        UcliErrorCode? errorCode)
+        UcliErrorCode? errorCode,
+        StartupFailureDetail? startupFailure)
     {
-        return CommandFailureProjector.Create(command, ApplicationFailure.FromCode(errorCode, message), new { });
+        var payload = new Dictionary<string, object?>();
+        StartupFailurePayloadProjector.Append(payload, startupFailure);
+        return CommandFailureProjector.Create(
+            command,
+            ApplicationFailure.FromCode(errorCode, message, startupFailure: startupFailure),
+            payload);
     }
 }

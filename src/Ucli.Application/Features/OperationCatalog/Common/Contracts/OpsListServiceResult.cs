@@ -1,13 +1,17 @@
+using MackySoft.Ucli.Application.Shared.Execution;
+
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
 
 /// <summary> Represents one normalized <c>ops list</c> service result. </summary>
 /// <param name="Output"> The successful output; otherwise <see langword="null" />. </param>
 /// <param name="Message"> The user-facing result message. </param>
 /// <param name="ErrorCode"> The machine-readable error code on failure; otherwise <see langword="null" />. </param>
+/// <param name="StartupFailure"> The structured startup failure detail when source fallback failed before Unity accepted the request. </param>
 internal sealed record OpsListServiceResult (
     OpsListExecutionOutput? Output,
     string Message,
-    UcliErrorCode? ErrorCode)
+    UcliErrorCode? ErrorCode,
+    StartupFailureDetail? StartupFailure = null)
 {
     /// <summary> Gets a value indicating whether the service execution succeeded. </summary>
     public bool IsSuccess => Output is not null && ErrorCode is null;
@@ -30,8 +34,9 @@ internal sealed record OpsListServiceResult (
     /// <returns> The failed result. </returns>
     public static OpsListServiceResult Failure (
         string message,
-        UcliErrorCode errorCode)
+        UcliErrorCode errorCode,
+        StartupFailureDetail? startupFailure = null)
     {
-        return new OpsListServiceResult(null, message, errorCode);
+        return new OpsListServiceResult(null, message, errorCode, startupFailure);
     }
 }

@@ -11,6 +11,9 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         private readonly TaskCompletionSource<bool> signalSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
+        /// <inheritdoc />
+        public bool IsSignaled => signalSource.Task.IsCompleted;
+
         /// <summary> Signals that daemon shutdown has been requested. </summary>
         public void Signal ()
         {

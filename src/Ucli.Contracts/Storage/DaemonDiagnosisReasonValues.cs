@@ -27,6 +27,9 @@ public static class DaemonDiagnosisReasonValues
     /// <summary> Gets the reason value used when a detected GUI Editor process does not register an endpoint before timeout. </summary>
     public const string GuiEndpointNotRegistered = "guiEndpointNotRegistered";
 
+    /// <summary> Gets the reason value used when a detected GUI Editor process cannot accept daemon rebootstrap requests. </summary>
+    public const string GuiRebootstrapUnavailable = "guiRebootstrapUnavailable";
+
     /// <summary> Gets the reason value used when Unity script compilation blocks GUI daemon bootstrap. </summary>
     public const string UnityScriptCompilationFailed = "unityScriptCompilationFailed";
 
