@@ -72,8 +72,8 @@ internal static class UcliCommandNames
     /// <summary> Gets the top-level command name for ops. </summary>
     public const string Ops = "ops";
 
-    /// <summary> Gets the top-level command name for errors. </summary>
-    public const string Errors = "errors";
+    /// <summary> Gets the top-level command name for codes. </summary>
+    public const string Codes = "codes";
 
     /// <summary> Gets the top-level command name for skills. </summary>
     public const string Skills = "skills";
@@ -93,11 +93,11 @@ internal static class UcliCommandNames
     /// <summary> Gets the command name for <c>ops describe</c> result payloads. </summary>
     public const string OpsDescribe = "ops.describe";
 
-    /// <summary> Gets the command name for <c>errors list</c> result payloads. </summary>
-    public const string ErrorsList = "errors.list";
+    /// <summary> Gets the command name for <c>codes list</c> result payloads. </summary>
+    public const string CodesList = "codes.list";
 
-    /// <summary> Gets the command name for <c>errors describe</c> result payloads. </summary>
-    public const string ErrorsDescribe = "errors.describe";
+    /// <summary> Gets the command name for <c>codes describe</c> result payloads. </summary>
+    public const string CodesDescribe = "codes.describe";
 
     /// <summary> Gets the command name for <c>skills list</c> result payloads. </summary>
     public const string SkillsList = "skills.list";

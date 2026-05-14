@@ -2,32 +2,7 @@ namespace MackySoft.Ucli.Contracts;
 
 internal static class UcliCoreErrorCodeDescriptors
 {
-    private static readonly UcliCommand[] AllCommands =
-    [
-        UcliCommandIds.Init,
-        UcliCommandIds.Status,
-        UcliCommandIds.Daemon,
-        UcliCommandIds.DaemonStart,
-        UcliCommandIds.DaemonStop,
-        UcliCommandIds.DaemonCleanup,
-        UcliCommandIds.DaemonStatus,
-        UcliCommandIds.DaemonList,
-        UcliCommandIds.Logs,
-        UcliCommandIds.LogsDaemonRead,
-        UcliCommandIds.LogsUnityRead,
-        UcliCommandIds.LogsUnityClear,
-        UcliCommandIds.Errors,
-        UcliCommandIds.Test,
-        UcliCommandIds.TestRun,
-        UcliCommandIds.TestProfileInit,
-        UcliCommandIds.Validate,
-        UcliCommandIds.Plan,
-        UcliCommandIds.Call,
-        UcliCommandIds.Resolve,
-        UcliCommandIds.Query,
-        UcliCommandIds.Refresh,
-        UcliCommandIds.Ops,
-    ];
+    private static readonly UcliCommand[] AllCommands = UcliPublicCommandCatalog.KnownCommands.ToArray();
 
     public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
     [
