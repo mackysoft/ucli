@@ -26,18 +26,4 @@ public sealed class BoundedWindowApplicatorTests
             typeof(BoundedWindow).GetProperties(),
             property => string.Equals(property.Name, "After", StringComparison.Ordinal));
     }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void TryNormalize_WhenCursorIsInvalid_ReturnsFalse ()
-    {
-        var isValid = BoundedWindowOptionsNormalizer.TryNormalize(
-            limit: null,
-            cursor: "not-a-cursor",
-            out _,
-            out var errorMessage);
-
-        Assert.False(isValid);
-        Assert.Equal("cursor is invalid.", errorMessage);
-    }
 }

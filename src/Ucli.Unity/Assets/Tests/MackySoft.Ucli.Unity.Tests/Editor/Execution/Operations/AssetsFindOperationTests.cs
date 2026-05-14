@@ -109,6 +109,32 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-find");
+            Assert.That(result.Failure!.Message, Does.Contain("args.cursor"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Validate_WhenLimitIsOutOfRange_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new AssetsFindOperation();
+            var invalidLimits = new[] { 0, BoundedWindowConstants.MaxLimit + 1 };
+
+            for (var i = 0; i < invalidLimits.Length; i++)
+            {
+                var requestOperation = CreateOperation(
+                    opId: "op-find",
+                    args: new
+                    {
+                        nameContains = "asset",
+                        limit = invalidLimits[i],
+                    });
+
+                using var executionContext = new OperationExecutionContext();
+                var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
+
+                AssertInvalidArgument(result, "op-find");
+                Assert.That(result.Failure!.Message, Does.Contain("args.limit"));
+            }
         });
 
         [UnityTest]

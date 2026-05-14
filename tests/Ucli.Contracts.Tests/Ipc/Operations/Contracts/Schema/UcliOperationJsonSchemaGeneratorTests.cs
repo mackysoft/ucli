@@ -141,9 +141,52 @@ public sealed class UcliOperationJsonSchemaGeneratorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void CreateResultSchemaJson_WhenAssetsFindResultContainsWindow_EmitsNullableCursorWindowWithoutAfter ()
+    {
+        var schemaJson = UcliOperationJsonSchemaGenerator.CreateResultSchemaJson(typeof(AssetsFindResult));
+
+        using var document = JsonDocument.Parse(schemaJson!);
+        var root = document.RootElement;
+        var required = root.GetProperty("required").EnumerateArray().Select(static item => item.GetString()).ToArray();
+        Assert.Contains("window", required);
+
+        var windowProperties = root
+            .GetProperty("properties")
+            .GetProperty("window")
+            .GetProperty("properties");
+        Assert.Equal("integer", windowProperties.GetProperty("limit").GetProperty("type")[0].GetString());
+        Assert.Equal("null", windowProperties.GetProperty("limit").GetProperty("type")[1].GetString());
+        Assert.Equal("string", windowProperties.GetProperty("cursor").GetProperty("type")[0].GetString());
+        Assert.Equal("null", windowProperties.GetProperty("cursor").GetProperty("type")[1].GetString());
+        Assert.Equal("string", windowProperties.GetProperty("nextCursor").GetProperty("type")[0].GetString());
+        Assert.Equal("null", windowProperties.GetProperty("nextCursor").GetProperty("type")[1].GetString());
+        Assert.Equal("boolean", windowProperties.GetProperty("isComplete").GetProperty("type").GetString());
+        Assert.Equal("integer", windowProperties.GetProperty("totalCount").GetProperty("type")[0].GetString());
+        Assert.Equal("null", windowProperties.GetProperty("totalCount").GetProperty("type")[1].GetString());
+        Assert.False(windowProperties.TryGetProperty("after", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void CreateArgsSchemaJson_WhenBoundedRawQueryArgsContainWindowInputs_EmitsLimitAndCursor ()
     {
         var schemaJson = UcliOperationJsonSchemaGenerator.CreateArgsSchemaJson(typeof(AssetsFindArgs));
+
+        using var document = JsonDocument.Parse(schemaJson);
+        var properties = document.RootElement.GetProperty("properties");
+
+        Assert.True(properties.TryGetProperty("limit", out var limitProperty));
+        Assert.Equal("integer", limitProperty.GetProperty("type")[0].GetString());
+        Assert.Equal("null", limitProperty.GetProperty("type")[1].GetString());
+        Assert.True(properties.TryGetProperty("cursor", out var cursorProperty));
+        Assert.Equal("string", cursorProperty.GetProperty("type").GetString());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CreateArgsSchemaJson_WhenSceneTreeArgsContainWindowInputs_EmitsLimitAndCursor ()
+    {
+        var schemaJson = UcliOperationJsonSchemaGenerator.CreateArgsSchemaJson(typeof(SceneTreeArgs));
 
         using var document = JsonDocument.Parse(schemaJson);
         var properties = document.RootElement.GetProperty("properties");

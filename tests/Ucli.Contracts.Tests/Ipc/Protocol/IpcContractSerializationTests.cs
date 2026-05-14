@@ -483,6 +483,22 @@ public sealed class IpcContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void SceneTreeNodeContract_SerializesUnknownChildrenState ()
+    {
+        var node = new IndexSceneTreeLiteNodeJsonContract(
+            name: "Root",
+            globalObjectId: "GlobalObjectId_V1-1-2-3-4-5",
+            children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
+            childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Unknown);
+
+        var element = IpcPayloadCodec.SerializeToElement(node);
+
+        JsonAssert.For(element)
+            .HasString("childrenState", IndexSceneTreeLiteNodeChildrenStateValues.Unknown);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcShutdownContracts_SerializeWithCamelCaseFields ()
     {
         var requestPayload = new IpcShutdownRequest(RequestedBy: "ucli-daemon-stop");

@@ -109,7 +109,7 @@ public sealed class UcliOperationContractValidatorTests
     [Trait("Size", "Small")]
     public void TryValidate_WhenCursorIsInvalid_ReturnsFalse ()
     {
-        var args = new CursorArgs("not-a-cursor");
+        var args = new CursorArgs(" " + BoundedWindowCursorCodec.Encode(1));
 
         var isValid = UcliOperationContractValidator.TryValidate(args, typeof(CursorArgs), out var errorMessage);
 

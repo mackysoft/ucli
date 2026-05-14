@@ -400,6 +400,51 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void Discover_WhenAssetsFindOperationIsRead_ReturnsWindowResultSchema ()
+        {
+            var operations = UcliOperationDiscoverer.Discover();
+
+            var metadata = FindMetadata(operations, UcliPrimitiveOperationNames.AssetsFind);
+            using var schemaDocument = JsonDocument.Parse(metadata.ResultSchemaJson!);
+            var windowProperties = schemaDocument.RootElement
+                .GetProperty("properties")
+                .GetProperty("window")
+                .GetProperty("properties");
+
+            Assert.That(windowProperties.TryGetProperty("limit", out _), Is.True);
+            Assert.That(windowProperties.GetProperty("cursor").GetProperty("type")[0].GetString(), Is.EqualTo("string"));
+            Assert.That(windowProperties.GetProperty("cursor").GetProperty("type")[1].GetString(), Is.EqualTo("null"));
+            Assert.That(windowProperties.GetProperty("nextCursor").GetProperty("type")[0].GetString(), Is.EqualTo("string"));
+            Assert.That(windowProperties.GetProperty("nextCursor").GetProperty("type")[1].GetString(), Is.EqualTo("null"));
+            Assert.That(windowProperties.TryGetProperty("isComplete", out _), Is.True);
+            Assert.That(windowProperties.TryGetProperty("totalCount", out _), Is.True);
+            Assert.That(windowProperties.TryGetProperty("after", out _), Is.False);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Discover_WhenSceneTreeOperationIsRead_ReturnsWindowArgsSchema ()
+        {
+            var operations = UcliOperationDiscoverer.Discover();
+
+            var metadata = FindMetadata(operations, UcliPrimitiveOperationNames.SceneTree);
+            using var schemaDocument = JsonDocument.Parse(metadata.ArgsSchemaJson);
+            var root = schemaDocument.RootElement;
+            Assert.That(root.GetProperty("additionalProperties").GetBoolean(), Is.False);
+            AssertContainsNoUnsupportedSchemaKeyword(root);
+            var properties = root.GetProperty("properties");
+            Assert.That(properties.TryGetProperty("path", out var pathProperty), Is.True);
+            Assert.That(pathProperty.GetProperty("type").GetString(), Is.EqualTo("string"));
+            Assert.That(properties.TryGetProperty("depth", out var depthProperty), Is.True);
+            Assert.That(depthProperty.GetProperty("type")[0].GetString(), Is.EqualTo("integer"));
+            Assert.That(properties.TryGetProperty("limit", out var limitProperty), Is.True);
+            Assert.That(limitProperty.GetProperty("type")[0].GetString(), Is.EqualTo("integer"));
+            Assert.That(properties.TryGetProperty("cursor", out var cursorProperty), Is.True);
+            Assert.That(cursorProperty.GetProperty("type").GetString(), Is.EqualTo("string"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void BuildCatalog_WhenCsEvalOperationIsExported_IncludesDangerousCodeContract ()
         {
             var operations = UcliOperationDiscoverer.Discover();

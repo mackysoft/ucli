@@ -495,6 +495,37 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.ValidateAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-tree");
+            Assert.That(result.Failure!.Message, Does.Contain("args.cursor"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Tree_Validate_WhenLimitIsOutOfRange_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new SceneTreeOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var invalidLimits = new[] { 0, BoundedWindowConstants.MaxLimit + 1 };
+
+            for (var i = 0; i < invalidLimits.Length; i++)
+            {
+                var requestOperation = CreateOperation(
+                    opId: "op-tree",
+                    opName: UcliPrimitiveOperationNames.SceneTree,
+                    args: new
+                    {
+                        path = scenePath,
+                        limit = invalidLimits[i],
+                    });
+
+                var result = await operation.ValidateAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+                AssertInvalidArgument(result, "op-tree");
+                Assert.That(result.Failure!.Message, Does.Contain("args.limit"));
+            }
         });
 
         [UnityTest]

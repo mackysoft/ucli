@@ -88,6 +88,32 @@ public sealed class SceneTreeWindowProjectorTests
         Assert.True(result.Window.IsComplete);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Apply_WhenNodeStateIsUnknown_PreservesUnknownState ()
+    {
+        var roots = new[]
+        {
+            new IndexSceneTreeLiteNodeJsonContract(
+                name: "Root",
+                globalObjectId: "root",
+                children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
+                childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Unknown),
+        };
+
+        var result = SceneTreeWindowProjector.Apply(
+            roots,
+            new BoundedWindowOptions(
+                All: false,
+                Limit: 1,
+                Cursor: null,
+                Offset: 0));
+
+        var root = Assert.Single(result.Items);
+        Assert.Equal(IndexSceneTreeLiteNodeChildrenStateValues.Unknown, root.ChildrenState);
+        Assert.True(result.Window.IsComplete);
+    }
+
     private static IndexSceneTreeLiteNodeJsonContract Node (
         string name,
         params IndexSceneTreeLiteNodeJsonContract[] children)

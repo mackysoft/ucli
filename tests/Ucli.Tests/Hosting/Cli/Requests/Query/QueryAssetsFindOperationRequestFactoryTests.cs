@@ -196,10 +196,16 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
         Assert.Contains("limit must be between", result.Error.Message, StringComparison.Ordinal);
     }
 
-    [Fact]
+    [Theory]
     [Trait("Size", "Small")]
-    public void Create_WhenAfterCursorIsInvalid_ReturnsWindowingError ()
+    [InlineData("not-a-cursor")]
+    [InlineData("outer-whitespace")]
+    public void Create_WhenAfterCursorIsInvalid_ReturnsWindowingError (string cursorCase)
     {
+        var after = cursorCase == "outer-whitespace"
+            ? " " + QueryWindowCursorCodec.Encode(1)
+            : cursorCase;
+
         var result = QueryAssetsFindOperationRequestFactory.Create(
             commandName: "query assets find",
             operationId: "query.assets.find",
@@ -209,7 +215,7 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
             nameContains: null,
             all: false,
             limit: null,
-            after: "not-a-cursor");
+            after: after);
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
