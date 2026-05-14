@@ -13,7 +13,9 @@ Use this skill to inspect a Unity project with uCLI before deciding what to edit
 - Do not copy operation catalogs, argument schemas, result schemas, or command reference text into the answer.
 - Do not use fixed sleep as a readiness strategy. Use uCLI lifecycle, status, logs, and command results.
 - Do not treat `IPC_TIMEOUT` as proof that no operation ran. Inspect any returned `payload.opResults[].applied`, `changed`, and `touched` evidence before retrying.
+- Use `ucli codes describe <CODE>` for machine-readable code meaning; do not branch on free-form messages.
 - If a response includes `readPostcondition`, perform the required follow-up read before trusting stale read surfaces.
+- Do not use `--all` in normal reasoning loops. Page with `--limit` and `--after`.
 - Do not include `--allowDangerous` in normal workflows. Only discuss dangerous opt-in when the user explicitly asks for that path.
 - Keep output bounded: summarize the relevant state, selectors, operation names to describe next, and unresolved risks.
 

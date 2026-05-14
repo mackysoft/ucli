@@ -2,22 +2,22 @@
   "schemaVersion": 1,
   "skillName": "ucli-verify-changes",
   "displayName": "uCLI Verify Changes",
-  "description": "Use when verifying uCLI-driven Unity changes with follow-up reads, ucli test, logs, artifacts, and opResults evidence after validation, plan, or call execution.",
-  "contentDigest": "sha256:9d947b869f6104bd8cb4ed1fd75263de9e85c283c28cc307796f358ab14fcfb0",
+  "description": "Use when verifying uCLI-driven Unity changes with ucli verify profiles, claim packets, follow-up reads, ucli test, logs, artifacts, and opResults evidence after validation, plan, or call execution.",
+  "contentDigest": "sha256:c21a45a616a432c7ea3b47cc639064748d1cf70ec44662e97f6f1ccfd449c3ba",
   "hostArtifacts": [
     {
       "host": "claude",
-      "materializedFrontmatterDigest": "sha256:e7d73a37c92c486102ab5fb8c1522a4dd00eedc349a247904419455028663ef3"
+      "materializedFrontmatterDigest": "sha256:f7d201b6d88405ea061c1a86ad6f001a42ada002ec42acd785b3381ad7730c90"
     },
     {
       "host": "copilot",
-      "materializedFrontmatterDigest": "sha256:d75b2c3b40aeef154219eb8c3397af5cbfd1a1643c006d3decd2ff438a3070ad"
+      "materializedFrontmatterDigest": "sha256:533d6d357930364d168515c76af7f369f59ea842a42e36465e5487577883e19b"
     },
     {
       "host": "openai",
       "path": "agents/openai.yaml",
-      "digest": "sha256:c71c5447e8e4ed302ee4a8568ba7bd578eaed53f07dd22291940140ed32b387e",
-      "materializedFrontmatterDigest": "sha256:4125b0cc29f085c1da95135c5ebfd1398a6c8de6b0549e46840dc4bf949eb41d"
+      "digest": "sha256:a227d9b0a5c58e3c882756fcc175836971d94926db8b2b332d8c3cf3b8cdb80e",
+      "materializedFrontmatterDigest": "sha256:9a51be1758e2de7fc4120b3aea3d4bffc08d270f19f98bc28f952adb6b5585bf"
     }
   ]
 }
