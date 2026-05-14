@@ -93,7 +93,7 @@ public sealed class ValidateCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Validate_WithExplicitDisabledModeOutsideUnityProject_ReturnsSyntaxOnlySuccess ()
+    public async Task Validate_WithExplicitDisabledModeOutsideUnityProject_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("validate-cli-output-contract", "disabled-syntax-only");
         var requestJson = """
@@ -110,6 +110,39 @@ public sealed class ValidateCliOutputContractTests
             UcliContractConstants.Config.ReadIndexModeDisabled);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.Validate,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(
+            outputJson.RootElement,
+            expectedCode: "UNITY_PROJECT_MARKER_MISSING");
+        Assert.False(outputJson.RootElement.GetProperty("payload").TryGetProperty("project", out _));
+        Assert.False(outputJson.RootElement.GetProperty("payload").TryGetProperty("readIndex", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Validate_WithExplicitDisabledModeInsideUnityProject_ReturnsProjectAndDisabledReadIndex ()
+    {
+        using var scope = TestDirectories.CreateTempScope("validate-cli-output-contract", "disabled-project");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var requestJson = """
+            {
+              "steps": []
+            }
+            """;
+
+        var result = await CliProcessRunner.RunCommandWithWorkingDirectoryAndStandardInputAsync(
+            unityProjectPath,
+            requestJson,
+            UcliCommandNames.Validate,
+            UcliContractConstants.CliOption.ReadIndexMode,
+            UcliContractConstants.Config.ReadIndexModeDisabled);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
@@ -117,8 +150,18 @@ public sealed class ValidateCliOutputContractTests
             status: "ok",
             exitCode: (int)CliExitCode.Success);
         CommandResultAssert.HasNoErrors(outputJson.RootElement);
+        var projectPath = outputJson.RootElement
+            .GetProperty("payload")
+            .GetProperty("project")
+            .GetProperty("projectPath")
+            .GetString();
+        Assert.False(string.IsNullOrWhiteSpace(projectPath));
+        Assert.True(Path.IsPathFullyQualified(projectPath));
+        Assert.EndsWith("/UnityProject", projectPath, StringComparison.Ordinal);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
+                .HasProperty("project", project => project
+                    .HasString("unityVersion", "6000.1.4f1"))
                 .HasProperty("readIndex", readIndex => readIndex
                     .HasBoolean("used", false)
                     .HasBoolean("hit", false)

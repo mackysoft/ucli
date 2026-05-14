@@ -12,6 +12,7 @@ public static class IpcExecuteOperationResultFactory
     /// <param name="changed"> Whether the step produced persistent changes. </param>
     /// <param name="touched"> The touched persistence-unit resources. </param>
     /// <param name="result"> The optional query result payload produced by the step. </param>
+    /// <param name="diagnostics"> The diagnostics emitted for the step. </param>
     /// <returns> The created operation result envelope. </returns>
     public static IpcExecuteOperationResult CreatePlanResult (
         string opId,
@@ -19,7 +20,8 @@ public static class IpcExecuteOperationResultFactory
         bool applied,
         bool changed,
         IReadOnlyList<IpcExecuteTouchedResource> touched,
-        JsonElement? result = null)
+        JsonElement? result = null,
+        IReadOnlyList<IpcExecuteDiagnostic>? diagnostics = null)
     {
         return Create(
             opId,
@@ -28,7 +30,8 @@ public static class IpcExecuteOperationResultFactory
             applied,
             changed,
             touched,
-            result);
+            result,
+            diagnostics);
     }
 
     /// <summary> Creates one operation result envelope. </summary>
@@ -39,6 +42,7 @@ public static class IpcExecuteOperationResultFactory
     /// <param name="changed"> Whether the step produced persistent changes. </param>
     /// <param name="touched"> The touched persistence-unit resources. </param>
     /// <param name="result"> The optional query result payload produced by the step. </param>
+    /// <param name="diagnostics"> The diagnostics emitted for the step. </param>
     /// <returns> The created operation result envelope. </returns>
     /// <exception cref="ArgumentException"> <paramref name="opId" />, <paramref name="op" />, or <paramref name="phase" /> is empty or whitespace. </exception>
     /// <exception cref="ArgumentNullException"> <paramref name="opId" />, <paramref name="op" />, <paramref name="phase" />, or <paramref name="touched" /> is <see langword="null" />. </exception>
@@ -49,7 +53,8 @@ public static class IpcExecuteOperationResultFactory
         bool applied,
         bool changed,
         IReadOnlyList<IpcExecuteTouchedResource> touched,
-        JsonElement? result = null)
+        JsonElement? result = null,
+        IReadOnlyList<IpcExecuteDiagnostic>? diagnostics = null)
     {
         ThrowIfNullOrWhiteSpace(opId, nameof(opId));
         ThrowIfNullOrWhiteSpace(op, nameof(op));
@@ -68,6 +73,7 @@ public static class IpcExecuteOperationResultFactory
             Touched: touched)
         {
             Result = result,
+            Diagnostics = diagnostics ?? Array.Empty<IpcExecuteDiagnostic>(),
         };
     }
 

@@ -8,6 +8,23 @@ public sealed class ExecuteResponseConverterTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public void Convert_WhenProjectIsMissing_ReturnsInternalError ()
+    {
+        var response = CreateResponse(new IpcExecuteResponse([])
+        {
+            Project = null!,
+        });
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("'project' field", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Convert_WhenOpResultIsMissing_ReturnsInternalError ()
     {
         var response = CreateResponse(new IpcExecuteResponse(
@@ -21,6 +38,102 @@ public sealed class ExecuteResponseConverterTests
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("opResults[0]", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Convert_WhenDiagnosticsAreMissing_ReturnsInternalError ()
+    {
+        var response = CreateResponse(new IpcExecuteResponse(
+        [
+            new IpcExecuteOperationResult(
+                OpId: "refresh",
+                Op: UcliPrimitiveOperationNames.ProjectRefresh,
+                Phase: IpcExecuteOperationPhaseNames.Call,
+                Applied: true,
+                Changed: true,
+                Touched: [])
+            {
+                Diagnostics = null!,
+            },
+        ]));
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("opResults[0].diagnostics", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Convert_WhenDiagnosticSeverityIsUnsupported_ReturnsInternalError ()
+    {
+        var response = CreateResponse(new IpcExecuteResponse(
+        [
+            new IpcExecuteOperationResult(
+                OpId: "refresh",
+                Op: UcliPrimitiveOperationNames.ProjectRefresh,
+                Phase: IpcExecuteOperationPhaseNames.Call,
+                Applied: true,
+                Changed: true,
+                Touched: [])
+            {
+                Diagnostics =
+                [
+                    new IpcExecuteDiagnostic(
+                        ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects,
+                        "unsupported",
+                        IpcExecuteDiagnosticCoverageImpactNames.Partial,
+                        "coverage is partial."),
+                ],
+            },
+        ]));
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("opResults[0].diagnostics[0].severity", error.Message, StringComparison.Ordinal);
+        Assert.Contains("unsupported", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Convert_WhenDiagnosticIsPresent_PropagatesDiagnostic ()
+    {
+        var response = CreateResponse(new IpcExecuteResponse(
+        [
+            new IpcExecuteOperationResult(
+                OpId: "query",
+                Op: UcliPrimitiveOperationNames.SceneQuery,
+                Phase: IpcExecuteOperationPhaseNames.Plan,
+                Applied: false,
+                Changed: false,
+                Touched: [])
+            {
+                Diagnostics =
+                [
+                    new IpcExecuteDiagnostic(
+                        ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects,
+                        IpcExecuteDiagnosticSeverityNames.Warning,
+                        IpcExecuteDiagnosticCoverageImpactNames.Partial,
+                        "Scene query skipped GameObjects whose names contain '/'."),
+                ],
+            },
+        ]));
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.True(result.IsSuccess);
+        var opResult = Assert.Single(result.OpResults);
+        var diagnostic = Assert.Single(opResult.Diagnostics);
+        Assert.Equal(ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects, diagnostic.Code);
+        Assert.Equal(IpcExecuteDiagnosticSeverityNames.Warning, diagnostic.Severity);
+        Assert.Equal(IpcExecuteDiagnosticCoverageImpactNames.Partial, diagnostic.CoverageImpact);
+        Assert.Equal("Scene query skipped GameObjects whose names contain '/'.", diagnostic.Message);
     }
 
     [Fact]

@@ -23,6 +23,7 @@ public sealed class CallCommandTests
         var service = new StubCallService((input, _) => ValueTask.FromResult(CallServiceResult.Success(
             new CallExecutionOutput(
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                Project: CreateProjectIdentity(),
                 OpResults:
                 [
                     new OperationExecutionOperationResult(
@@ -35,6 +36,7 @@ public sealed class CallCommandTests
                 ],
                 Plan: new CallPlanOutput(
                     RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                    Project: CreateProjectIdentity(),
                     OpResults:
                     [
                         new OperationExecutionOperationResult(
@@ -181,5 +183,13 @@ public sealed class CallCommandTests
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(result);
         }
+    }
+
+    private static ProjectIdentityInfo CreateProjectIdentity ()
+    {
+        return new ProjectIdentityInfo(
+            ProjectPath: "/repo/UnityProject",
+            ProjectFingerprint: "project-fingerprint",
+            UnityVersion: "6000.1.4f1");
     }
 }

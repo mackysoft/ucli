@@ -27,7 +27,7 @@ internal sealed class CallCommandPreflightService : ICallCommandPreflightService
                 requestJson,
                 cancellationToken)
             .ConfigureAwait(false);
-        var output = CallExecutionOutputFactory.TryCreateBase(requestPreparationResult.PreparedRequest?.Request.RequestId);
+        var output = CallExecutionOutputFactory.TryCreateBase(requestPreparationResult.PreparedRequest);
         if (requestPreparationResult.Error != null)
         {
             return CallCommandPreflightResult.Failure(
@@ -35,6 +35,6 @@ internal sealed class CallCommandPreflightService : ICallCommandPreflightService
         }
 
         return CallCommandPreflightResult.Success(
-            CallExecutionOutputFactory.CreateBase(requestPreparationResult.PreparedRequest!.Request.RequestId!));
+            CallExecutionOutputFactory.CreateBase(requestPreparationResult.PreparedRequest!));
     }
 }

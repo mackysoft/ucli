@@ -18,8 +18,13 @@ internal static class RefreshCommandResultFactory
         var payload = new Dictionary<string, object?>
         {
             ["requestId"] = executionResult.RequestId,
-            ["opResults"] = executionResult.OpResults,
         };
+        if (executionResult.Project != null)
+        {
+            payload["project"] = ProjectIdentityPayloadProjector.Create(executionResult.Project);
+        }
+
+        payload["opResults"] = executionResult.OpResults;
         if (executionResult.ReadPostcondition != null)
         {
             payload["readPostcondition"] = executionResult.ReadPostcondition;

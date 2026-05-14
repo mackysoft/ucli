@@ -79,6 +79,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 executionContext,
                 allowTemporaryState: !applied,
                 out var matches,
+                out var diagnostics,
                 out var errorMessage))
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage));
@@ -94,7 +95,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 {
                     OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Scene, scenePath)),
                 },
-                result: IpcPayloadCodec.SerializeToElement(payload)));
+                result: IpcPayloadCodec.SerializeToElement(payload)).WithDiagnostics(diagnostics));
         }
 
         private static bool TryValidate (

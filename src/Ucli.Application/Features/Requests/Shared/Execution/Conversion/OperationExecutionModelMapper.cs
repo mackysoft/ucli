@@ -35,6 +35,7 @@ internal static class OperationExecutionModelMapper
             Touched: MapTouchedResources(opResult.Touched))
         {
             Result = opResult.Result,
+            Diagnostics = MapDiagnostics(opResult.Diagnostics),
         };
     }
 
@@ -110,6 +111,24 @@ internal static class OperationExecutionModelMapper
         {
             Result = result,
         };
+    }
+
+    private static IReadOnlyList<OperationExecutionDiagnostic> MapDiagnostics (IReadOnlyList<IpcExecuteDiagnostic> diagnostics)
+    {
+        ArgumentNullException.ThrowIfNull(diagnostics);
+
+        var mappedDiagnostics = new OperationExecutionDiagnostic[diagnostics.Count];
+        for (var i = 0; i < diagnostics.Count; i++)
+        {
+            var diagnostic = diagnostics[i];
+            mappedDiagnostics[i] = new OperationExecutionDiagnostic(
+                Code: diagnostic.Code,
+                Severity: diagnostic.Severity,
+                CoverageImpact: diagnostic.CoverageImpact,
+                Message: diagnostic.Message);
+        }
+
+        return mappedDiagnostics;
     }
 
     private static IReadOnlyList<OperationExecutionTouchedResource> MapTouchedResources (IReadOnlyList<IpcExecuteTouchedResource> touchedResources)

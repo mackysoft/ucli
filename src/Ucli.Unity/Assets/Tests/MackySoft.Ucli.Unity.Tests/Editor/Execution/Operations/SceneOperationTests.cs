@@ -1,11 +1,12 @@
 using System;
-using MackySoft.Ucli.Contracts;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -877,6 +878,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var matches = queryResult.Result!.Value.GetProperty("matches");
             Assert.That(matches.GetArrayLength(), Is.EqualTo(1));
             Assert.That(matches[0].GetProperty("hierarchyPath").GetString(), Is.EqualTo("GoodRoot"));
+            var diagnostic = AssertSingleHierarchyPathDiagnostic(queryResult.Diagnostics);
+            Assert.That(diagnostic.Severity, Is.EqualTo(IpcExecuteDiagnosticSeverityNames.Warning));
+            Assert.That(diagnostic.CoverageImpact, Is.EqualTo(IpcExecuteDiagnosticCoverageImpactNames.Partial));
         });
 
         private static NormalizedOperation CreateOperation (
@@ -913,6 +917,15 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Touched.Count, Is.EqualTo(1));
             Assert.That(result.Touched[0].Kind, Is.EqualTo(OperationTouchKind.Scene));
             Assert.That(result.Failure, Is.Null);
+        }
+
+        private static IpcExecuteDiagnostic AssertSingleHierarchyPathDiagnostic (IReadOnlyList<IpcExecuteDiagnostic> diagnostics)
+        {
+            Assert.That(diagnostics.Count, Is.EqualTo(1));
+            var diagnostic = diagnostics[0];
+            Assert.That(diagnostic.Code, Is.EqualTo(ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects));
+            Assert.That(diagnostic.Message, Does.Contain("hierarchyPath cannot represent"));
+            return diagnostic;
         }
 
         private static GameObject FindRootGameObject (

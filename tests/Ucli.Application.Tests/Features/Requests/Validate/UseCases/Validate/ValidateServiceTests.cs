@@ -126,12 +126,10 @@ public sealed class ValidateServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenExplicitReadIndexModeIsDisabled_SkipsProjectPreparationAndSharedPreflight ()
+    public async Task Execute_WhenExplicitReadIndexModeIsDisabled_RequiresProjectPreparationAndSkipsSharedPreflight ()
     {
-        var parsedRequest = CreateParsedRequestContext();
         var requestPreparationService = new StubRequestPreparationService(
-            RequestPreparationResult.Failure(ExecutionError.InvalidArgument("project is invalid.")),
-            ParsedRequestResult.Success(parsedRequest));
+            RequestPreparationResult.Success(CreatePreparedRequestContext()));
         var validator = new SpyRequestStaticValidator(ValidationResult.Success());
         var preflightService = new StubRequestStaticValidationPreflightService(RequestStaticValidationPreflightResult.Success(
             CreatePreparedRequestContext(),
@@ -154,8 +152,9 @@ public sealed class ValidateServiceTests
         Assert.False(result.Output.ReadIndex.Hit);
         Assert.Equal("readIndex disabled by mode.", result.Output.ReadIndex.FallbackReason);
         Assert.False(validator.LastCatalog!.IsAvailable);
-        Assert.Equal(1, requestPreparationService.ParseCallCount);
-        Assert.Equal(0, requestPreparationService.PrepareCallCount);
+        Assert.Equal("/tmp/project", result.Output.Project.ProjectPath);
+        Assert.Equal(0, requestPreparationService.ParseCallCount);
+        Assert.Equal(1, requestPreparationService.PrepareCallCount);
         Assert.Equal(0, preflightService.CallCount);
     }
 

@@ -11,6 +11,8 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
 {
     private const string ProjectSettingsDirectoryName = "ProjectSettings";
     private const string ProjectVersionFileName = "ProjectVersion.txt";
+    private const string EditorVersionPrefix = "m_EditorVersion:";
+    private const string UnknownUnityVersion = "unknown";
 
     /// <summary> Initializes a new instance of the <see cref="UnityProjectResolver" /> class. </summary>
     public UnityProjectResolver ()
@@ -53,11 +55,40 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
 
         var repositoryRoot = UcliStoragePathResolver.ResolveStorageRoot(unityProjectRoot);
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(repositoryRoot, unityProjectRoot);
+        var unityVersion = TryReadUnityVersion(projectVersionPath);
         return UnityProjectResolutionResult.Success(new ResolvedUnityProjectContext(
             UnityProjectRoot: unityProjectRoot,
             RepositoryRoot: repositoryRoot,
             ProjectFingerprint: projectFingerprint,
             PathSource: projectPathCandidate.Source,
-            PathSourceLabel: projectPathCandidate.SourceLabel));
+            PathSourceLabel: projectPathCandidate.SourceLabel,
+            UnityVersion: unityVersion));
+    }
+
+    private static string TryReadUnityVersion (string projectVersionPath)
+    {
+        try
+        {
+            foreach (var line in File.ReadLines(projectVersionPath))
+            {
+                if (!line.StartsWith(EditorVersionPrefix, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var unityVersion = line[EditorVersionPrefix.Length..].Trim();
+                return string.IsNullOrWhiteSpace(unityVersion) ? UnknownUnityVersion : unityVersion;
+            }
+        }
+        catch (IOException)
+        {
+            return UnknownUnityVersion;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return UnknownUnityVersion;
+        }
+
+        return UnknownUnityVersion;
     }
 }

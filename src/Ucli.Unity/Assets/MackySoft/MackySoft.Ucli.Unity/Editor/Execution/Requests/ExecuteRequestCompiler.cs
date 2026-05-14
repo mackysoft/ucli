@@ -227,7 +227,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 return false;
             }
 
-            if (!TryResolveSelection(editStep, executionContext, out var selectedTargets, out error))
+            if (!TryResolveSelection(editStep, executionContext, out var selectedTargets, out var diagnostics, out error))
             {
                 return false;
             }
@@ -272,7 +272,10 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 Id: editStep.Id,
                 Kind: IpcRequestStepKind.Edit,
                 OperationName: EditOperationName,
-                PrimitiveCount: stepOperations.Count);
+                PrimitiveCount: stepOperations.Count)
+            {
+                Diagnostics = diagnostics,
+            };
             operations = stepOperations;
             error = default!;
             return true;
@@ -436,9 +439,11 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             IpcEditStepContract step,
             OperationExecutionContext executionContext,
             out List<SelectionTarget> selectedTargets,
+            out IReadOnlyList<IpcExecuteDiagnostic> diagnostics,
             out ExecuteRequestNormalizationError error)
         {
             selectedTargets = new List<SelectionTarget>();
+            diagnostics = Array.Empty<IpcExecuteDiagnostic>();
             if (step.Selection.Kind == IpcEditStepContract.SelectionKind.Direct)
             {
                 if (!TryResolveDirectSelectionTargets(step, executionContext, selectedTargets, out error))
@@ -452,6 +457,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                     step,
                     executionContext,
                     out var matches,
+                    out diagnostics,
                     out var errorMessage))
                 {
                     error = ExecuteRequestNormalizationError.InvalidArgument(errorMessage, step.Id);

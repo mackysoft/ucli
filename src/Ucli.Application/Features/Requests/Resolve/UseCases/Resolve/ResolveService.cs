@@ -47,19 +47,20 @@ internal sealed class ResolveService : IResolveService
         }
 
         var projectContext = projectContextResult.Context!;
+        var project = ProjectIdentityInfo.From(projectContext.UnityProject);
         var timeoutResolutionResult = IpcCommandTimeoutResolver.ResolveNormalized(
             input.TimeoutMilliseconds,
             UcliCommandIds.Resolve,
             projectContext.Config);
         if (!timeoutResolutionResult.IsSuccess)
         {
-            return ResolveServiceResultFactory.FromExecutionError(requestId, timeoutResolutionResult.Error!);
+            return ResolveServiceResultFactory.FromExecutionError(requestId, timeoutResolutionResult.Error!, project: project);
         }
 
         var readIndexModeResult = ReadIndexModeResolver.Resolve(input.ReadIndexMode, projectContext.Config);
         if (!readIndexModeResult.IsSuccess)
         {
-            return ResolveServiceResultFactory.FromExecutionError(requestId, readIndexModeResult.Error!);
+            return ResolveServiceResultFactory.FromExecutionError(requestId, readIndexModeResult.Error!, project: project);
         }
 
         var executionMode = input.Mode ?? UnityExecutionMode.Auto;
@@ -72,6 +73,7 @@ internal sealed class ResolveService : IResolveService
                     input,
                     sceneHierarchySelector,
                     projectContext,
+                    project,
                     executionMode,
                     timeout,
                     readIndexMode,
@@ -86,6 +88,7 @@ internal sealed class ResolveService : IResolveService
                     requestId,
                     input,
                     projectContext,
+                    project,
                     executionMode,
                     timeout,
                     indexResult.FallbackReason,
@@ -98,6 +101,7 @@ internal sealed class ResolveService : IResolveService
                 requestId,
                 input,
                 projectContext,
+                project,
                 executionMode,
                 timeout,
                 fallbackReason,
@@ -110,6 +114,7 @@ internal sealed class ResolveService : IResolveService
         ResolveCommandInput input,
         ResolveSceneHierarchySelectorInput selector,
         ProjectContext projectContext,
+        ProjectIdentityInfo project,
         UnityExecutionMode executionMode,
         TimeSpan timeout,
         ReadIndexMode readIndexMode,
@@ -135,7 +140,8 @@ internal sealed class ResolveService : IResolveService
                     ResolveServiceResultFactory.FromIpcError(
                         requestId,
                         new OperationExecutionError(readResult.ErrorCode!.Value, readResult.Message, null),
-                        ReadIndexInfoFactory.Unity(readResult.Message)),
+                        ReadIndexInfoFactory.Unity(readResult.Message),
+                        project),
                     readResult.Message);
             }
 
@@ -160,7 +166,8 @@ internal sealed class ResolveService : IResolveService
                 [
                     CreateResolveOperationResult(resolveResult.GlobalObjectId!),
                 ],
-                ReadIndexInfoFactory.FromSceneTreeLiteAccess(output.AccessInfo)),
+                ReadIndexInfoFactory.FromSceneTreeLiteAccess(output.AccessInfo),
+                project),
             string.Empty);
     }
 
@@ -168,6 +175,7 @@ internal sealed class ResolveService : IResolveService
         string requestId,
         ResolveCommandInput input,
         ProjectContext projectContext,
+        ProjectIdentityInfo project,
         UnityExecutionMode executionMode,
         TimeSpan timeout,
         string fallbackReason,
@@ -192,7 +200,8 @@ internal sealed class ResolveService : IResolveService
                 [
                     failure,
                 ],
-                readIndex);
+                readIndex,
+                project);
         }
 
         var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
@@ -201,14 +210,16 @@ internal sealed class ResolveService : IResolveService
             return ResolveServiceResultFactory.Success(
                 requestId,
                 convertedResponse.OpResults,
-                readIndex);
+                readIndex,
+                project);
         }
 
         return ResolveServiceResultFactory.Failure(
             requestId,
             convertedResponse.OpResults,
             RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, "uCLI resolve failed."),
-            readIndex);
+            readIndex,
+            project);
     }
 
     private static UnityRequestPayload CreateExecuteRequestPayload (

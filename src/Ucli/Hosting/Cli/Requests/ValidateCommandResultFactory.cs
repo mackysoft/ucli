@@ -15,12 +15,12 @@ internal static class ValidateCommandResultFactory
     {
         ArgumentNullException.ThrowIfNull(serviceResult);
 
-        object payload = serviceResult.Output == null
-            ? new { }
-            : new
-            {
-                readIndex = ReadIndexInfoPayloadProjector.Create(serviceResult.Output.ReadIndex),
-            };
+        var payload = new Dictionary<string, object?>();
+        if (serviceResult.Output != null)
+        {
+            payload["project"] = ProjectIdentityPayloadProjector.Create(serviceResult.Output.Project);
+            payload["readIndex"] = ReadIndexInfoPayloadProjector.Create(serviceResult.Output.ReadIndex);
+        }
 
         if (serviceResult.IsSuccess)
         {

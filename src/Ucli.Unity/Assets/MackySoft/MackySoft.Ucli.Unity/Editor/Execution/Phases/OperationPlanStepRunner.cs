@@ -77,12 +77,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             var touched = new List<OperationTouch>();
+            var diagnostics = new List<IpcExecuteDiagnostic>();
             var validateStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStepAsync(
                 operation,
                 OperationPhase.Validate,
                 ct => phaseOperation.ValidateAsync(operation, executionContext, ct),
                 cancellationToken).ConfigureAwait(false);
             OperationPhaseExecutionUtilities.MergeTouched(touched, validateStepResult.Touched);
+            OperationPhaseExecutionUtilities.MergeDiagnostics(diagnostics, validateStepResult.Diagnostics);
             if (!validateStepResult.IsSuccess)
             {
                 return new OperationPlanStepOutcome(
@@ -96,6 +98,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         Failure: validateStepResult.Failure)
                     {
                         Result = validateStepResult.Result,
+                        Diagnostics = diagnostics.ToArray(),
                     },
                     Error: validateStepResult.Failure,
                     PreparedOperation: null);
@@ -107,6 +110,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 ct => phaseOperation.PlanAsync(operation, executionContext, ct),
                 cancellationToken).ConfigureAwait(false);
             OperationPhaseExecutionUtilities.MergeTouched(touched, planStepResult.Touched);
+            OperationPhaseExecutionUtilities.MergeDiagnostics(diagnostics, planStepResult.Diagnostics);
             if (!planStepResult.IsSuccess)
             {
                 return new OperationPlanStepOutcome(
@@ -120,12 +124,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         Failure: planStepResult.Failure)
                     {
                         Result = planStepResult.Result,
+                        Diagnostics = diagnostics.ToArray(),
                     },
                     Error: planStepResult.Failure,
                     PreparedOperation: null);
             }
 
             var successfulTouched = touched.ToArray();
+            var successfulDiagnostics = diagnostics.ToArray();
             return new OperationPlanStepOutcome(
                 OperationTrace: new OperationPhaseTrace(
                     OpId: operation.Id,
@@ -137,6 +143,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     Failure: null)
                 {
                     Result = planStepResult.Result,
+                    Diagnostics = successfulDiagnostics,
                 },
                 Error: null,
                 PreparedOperation: new PreparedOperation(

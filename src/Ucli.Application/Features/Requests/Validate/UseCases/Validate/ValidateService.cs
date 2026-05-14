@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Features.Requests.Validate.Common.Contracts;
-using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Contracts.Configuration;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Validate.UseCases.Validate;
@@ -37,23 +36,30 @@ internal sealed class ValidateService : IValidateService
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(input);
 
+        var requestPreparationResult = await requestPreparationService.PrepareAsync(
+                input.ProjectPath,
+                input.RequestJson,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!requestPreparationResult.IsSuccess)
+        {
+            var error = requestPreparationResult.Error!;
+            return ValidateServiceResult.Failure(
+                error.Message,
+                ExecutionErrorCodeMapper.ToCode(error),
+                output: null);
+        }
+
         if (input.ReadIndexMode == ReadIndexMode.Disabled)
         {
-            var parsedRequestResult = requestPreparationService.Parse(input.RequestJson);
-            if (!parsedRequestResult.IsSuccess)
-            {
-                var error = parsedRequestResult.Error!;
-                return ValidateServiceResult.Failure(
-                    error.Message,
-                    ExecutionErrorCodeMapper.ToCode(error),
-                    output: null);
-            }
-
-            var disabledOutput = new ValidateExecutionOutput(CreateReadIndexDisabledOutput());
+            var preparedRequest = requestPreparationResult.PreparedRequest!;
+            var disabledOutput = new ValidateExecutionOutput(
+                Project: ProjectIdentityInfo.From(preparedRequest.ProjectContext.UnityProject),
+                ReadIndex: CreateReadIndexDisabledOutput());
             var disabledValidationResult = await requestStaticValidator.ValidateAsync(
-                    parsedRequestResult.ParsedRequest!.Request,
+                    preparedRequest.Request,
                     RequestStaticValidationCatalog.Unavailable,
-                    UcliConfig.CreateDefault(),
+                    preparedRequest.ProjectContext.Config,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (disabledValidationResult.Error != null)
@@ -75,27 +81,15 @@ internal sealed class ValidateService : IValidateService
             return ValidateServiceResult.Success(disabledOutput, "Static validation passed.");
         }
 
-        var requestPreparationResult = await requestPreparationService.PrepareAsync(
-                input.ProjectPath,
-                input.RequestJson,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!requestPreparationResult.IsSuccess)
-        {
-            var error = requestPreparationResult.Error!;
-            return ValidateServiceResult.Failure(
-                error.Message,
-                ExecutionErrorCodeMapper.ToCode(error),
-                output: null);
-        }
-
         var requestStaticValidationPreflightResult = await requestStaticValidationPreflightService.PrepareAsync(
                 requestPreparationResult.PreparedRequest!,
                 input.ReadIndexMode,
                 cancellationToken)
             .ConfigureAwait(false);
         var output = requestStaticValidationPreflightResult.ReadIndex != null
-            ? new ValidateExecutionOutput(requestStaticValidationPreflightResult.ReadIndex)
+            ? new ValidateExecutionOutput(
+                Project: ProjectIdentityInfo.From(requestPreparationResult.PreparedRequest!.ProjectContext.UnityProject),
+                ReadIndex: requestStaticValidationPreflightResult.ReadIndex)
             : null;
         if (requestStaticValidationPreflightResult.Error != null)
         {

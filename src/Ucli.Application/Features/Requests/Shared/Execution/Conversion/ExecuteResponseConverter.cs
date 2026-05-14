@@ -82,6 +82,30 @@ internal static class ExecuteResponseConverter
             return false;
         }
 
+        if (payload.Project == null)
+        {
+            errorMessage = "Execute response payload is invalid. The 'project' field is missing.";
+            return false;
+        }
+
+        if (IsMissingRequiredString(payload.Project.ProjectPath))
+        {
+            errorMessage = "Execute response payload is invalid. The 'project.projectPath' field is missing.";
+            return false;
+        }
+
+        if (IsMissingRequiredString(payload.Project.ProjectFingerprint))
+        {
+            errorMessage = "Execute response payload is invalid. The 'project.projectFingerprint' field is missing.";
+            return false;
+        }
+
+        if (IsMissingRequiredString(payload.Project.UnityVersion))
+        {
+            errorMessage = "Execute response payload is invalid. The 'project.unityVersion' field is missing.";
+            return false;
+        }
+
         for (var opResultIndex = 0; opResultIndex < payload.OpResults.Count; opResultIndex++)
         {
             var opResult = payload.OpResults[opResultIndex];
@@ -121,6 +145,12 @@ internal static class ExecuteResponseConverter
                 return false;
             }
 
+            if (opResult.Diagnostics is null)
+            {
+                errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].diagnostics' field is missing.";
+                return false;
+            }
+
             for (var touchedIndex = 0; touchedIndex < opResult.Touched.Count; touchedIndex++)
             {
                 if (opResult.Touched[touchedIndex] == null)
@@ -144,6 +174,52 @@ internal static class ExecuteResponseConverter
                 if (IsMissingRequiredString(opResult.Touched[touchedIndex].Path))
                 {
                     errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].touched[{touchedIndex}].path' field is missing.";
+                    return false;
+                }
+            }
+
+            for (var diagnosticIndex = 0; diagnosticIndex < opResult.Diagnostics.Count; diagnosticIndex++)
+            {
+                var diagnostic = opResult.Diagnostics[diagnosticIndex];
+                if (diagnostic == null)
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].diagnostics[{diagnosticIndex}]' item is missing.";
+                    return false;
+                }
+
+                if (!diagnostic.Code.IsValid)
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].diagnostics[{diagnosticIndex}].code' field is missing.";
+                    return false;
+                }
+
+                if (IsMissingRequiredString(diagnostic.Severity))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].diagnostics[{diagnosticIndex}].severity' field is missing.";
+                    return false;
+                }
+
+                if (!IsKnownDiagnosticSeverity(diagnostic.Severity))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].diagnostics[{diagnosticIndex}].severity' value is unsupported. Actual: {diagnostic.Severity}";
+                    return false;
+                }
+
+                if (IsMissingRequiredString(diagnostic.CoverageImpact))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].diagnostics[{diagnosticIndex}].coverageImpact' field is missing.";
+                    return false;
+                }
+
+                if (!IsKnownDiagnosticCoverageImpact(diagnostic.CoverageImpact))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].diagnostics[{diagnosticIndex}].coverageImpact' value is unsupported. Actual: {diagnostic.CoverageImpact}";
+                    return false;
+                }
+
+                if (IsMissingRequiredString(diagnostic.Message))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].diagnostics[{diagnosticIndex}].message' field is missing.";
                     return false;
                 }
             }
@@ -245,6 +321,20 @@ internal static class ExecuteResponseConverter
         return surface is IpcExecuteReadPostconditionSurfaceNames.AssetSearch
             or IpcExecuteReadPostconditionSurfaceNames.GuidPath
             or IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite;
+    }
+
+    private static bool IsKnownDiagnosticSeverity (string severity)
+    {
+        return severity is IpcExecuteDiagnosticSeverityNames.Info
+            or IpcExecuteDiagnosticSeverityNames.Warning
+            or IpcExecuteDiagnosticSeverityNames.Error;
+    }
+
+    private static bool IsKnownDiagnosticCoverageImpact (string coverageImpact)
+    {
+        return coverageImpact is IpcExecuteDiagnosticCoverageImpactNames.None
+            or IpcExecuteDiagnosticCoverageImpactNames.Partial
+            or IpcExecuteDiagnosticCoverageImpactNames.Indeterminate;
     }
 
     private static ExecuteResponseConversionResult CreateInvalidPayloadFailure (string message)

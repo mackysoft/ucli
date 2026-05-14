@@ -1,10 +1,13 @@
 using System;
+using System.IO;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution;
 using MackySoft.Ucli.Unity.Index;
+using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.Runtime;
 using Microsoft.Extensions.DependencyInjection;
+using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -50,6 +53,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddUnityRuntimeServices(editorMode);
             services.AddUnityIndexServices();
             services.AddUnityExecutionServices();
+            services.AddSingleton(CreateProjectIdentity(projectFingerprint));
             services.AddSingleton<ISessionTokenValidator>(sessionTokenValidator);
             services.AddSingleton<IDaemonLogger>(daemonLogger);
             services.AddSingleton<IEditorLogRangeExporter, EditorLogRangeExporter>();
@@ -75,6 +79,18 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
             services.AddSingleton<IUnityIpcRequestProcessor, UnityIpcRequestProcessor>();
             return services;
+        }
+
+        private static IpcProjectIdentity CreateProjectIdentity (string projectFingerprint)
+        {
+            var projectPath = Path.GetFullPath(UnityProjectPathResolver.ResolveProjectRootPath());
+            var unityVersion = string.IsNullOrWhiteSpace(Application.unityVersion)
+                ? "unknown"
+                : Application.unityVersion;
+            return new IpcProjectIdentity(
+                ProjectPath: projectPath,
+                ProjectFingerprint: projectFingerprint,
+                UnityVersion: unityVersion);
         }
 
         /// <summary> Registers daemon-only transport, logging, and lifetime services. </summary>

@@ -25,6 +25,7 @@ public sealed class PlanCommandTests
         var service = new StubPlanService((input, _) => ValueTask.FromResult(PlanServiceResult.Success(
             new PlanExecutionOutput(
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                Project: CreateProjectIdentity(),
                 OpResults:
                 [
                     new OperationExecutionOperationResult(
@@ -186,6 +187,14 @@ public sealed class PlanCommandTests
                 ? DateTimeOffset.Parse("2026-03-06T00:00:00+00:00")
                 : null,
             FallbackReason: fallbackReason);
+    }
+
+    private static ProjectIdentityInfo CreateProjectIdentity ()
+    {
+        return new ProjectIdentityInfo(
+            ProjectPath: "/repo/UnityProject",
+            ProjectFingerprint: "project-fingerprint",
+            UnityVersion: "6000.1.4f1");
     }
 
     private sealed class StubPlanService : IPlanService

@@ -61,6 +61,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         }
 
         var projectContext = projectContextResult.Context!;
+        var project = ProjectIdentityInfo.From(projectContext.UnityProject);
         var config = projectContext.Config;
         var timeoutResolutionResult = IpcCommandTimeoutResolver.ResolveNormalized(
             input.TimeoutMilliseconds,
@@ -68,7 +69,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             config);
         if (!timeoutResolutionResult.IsSuccess)
         {
-            return OperationExecuteResultFactory.FromExecutionError(requestId, timeoutResolutionResult.Error!, definition.FailureMessage);
+            return OperationExecuteResultFactory.FromExecutionError(requestId, timeoutResolutionResult.Error!, definition.FailureMessage, project);
         }
 
         var deadline = ExecutionDeadline.Start(timeoutResolutionResult.Timeout!.Value, timeProvider);
@@ -89,7 +90,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                         authorizationResult.Message,
                         definition.OperationId),
                 ],
-                definition.FailureMessage);
+                definition.FailureMessage,
+                project);
         }
 
         string? planToken = null;
@@ -100,7 +102,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 return OperationExecuteResultFactory.FromExecutionError(
                     requestId,
                     ExecutionError.Timeout("Timed out before Unity IPC plan request could begin."),
-                    definition.FailureMessage);
+                    definition.FailureMessage,
+                    project);
             }
 
             var planTokenResult = await IssuePlanTokenAsync(
@@ -111,6 +114,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                     input.FailFast,
                     config,
                     projectContext.UnityProject,
+                    project,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (planTokenResult.FailureResult != null)
@@ -126,7 +130,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             return OperationExecuteResultFactory.FromExecutionError(
                 requestId,
                 ExecutionError.Timeout("Timed out before Unity IPC execute request could begin."),
-                definition.FailureMessage);
+                definition.FailureMessage,
+                project);
         }
 
         var executionResult = await unityIpcRequestExecutor.ExecuteAsync(
@@ -154,7 +159,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 [
                     failure,
                 ],
-                definition.FailureMessage);
+                definition.FailureMessage,
+                project: project);
         }
 
         var postprocessedResponse = await ExecuteResponseReadPostconditionProcessor.PersistAsync(
@@ -172,7 +178,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 requestId,
                 convertedResponse.OpResults,
                 definition.SuccessMessage,
-                convertedResponse.ReadPostcondition);
+                convertedResponse.ReadPostcondition,
+                project);
         }
 
         return OperationExecuteResultFactory.Failure(
@@ -180,7 +187,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             convertedResponse.OpResults,
             RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, definition.FailureMessage),
             definition.FailureMessage,
-            convertedResponse.ReadPostcondition);
+            convertedResponse.ReadPostcondition,
+            project);
     }
 
     /// <summary> Executes one internal <c>plan</c> pass and returns the issued plan token. </summary>
@@ -201,6 +209,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         bool failFast,
         UcliConfig config,
         ResolvedUnityProjectContext unityProject,
+        ProjectIdentityInfo project,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -235,7 +244,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                     [
                         failure,
                     ],
-                    definition.FailureMessage));
+                    definition.FailureMessage,
+                    project: project));
         }
 
         var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
@@ -247,7 +257,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                     requestId,
                     convertedResponse.OpResults,
                     RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, definition.FailureMessage),
-                    definition.FailureMessage));
+                    definition.FailureMessage,
+                    project: project));
         }
 
         if (string.IsNullOrWhiteSpace(convertedResponse.PlanToken))
@@ -262,7 +273,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                             UcliCoreErrorCodes.InternalError,
                             "Execute response payload is invalid. The 'planToken' field is missing."),
                     ],
-                    definition.FailureMessage));
+                    definition.FailureMessage,
+                    project: project));
         }
 
         return (convertedResponse.PlanToken, null);

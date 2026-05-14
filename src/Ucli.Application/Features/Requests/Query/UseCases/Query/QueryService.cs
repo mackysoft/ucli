@@ -53,6 +53,7 @@ internal sealed class QueryService : IQueryService
         }
 
         var projectContext = projectContextResult.Context!;
+        var project = ProjectIdentityInfo.From(projectContext.UnityProject);
         var timeoutResolutionResult = IpcCommandTimeoutResolver.ResolveNormalized(
             input.TimeoutMilliseconds,
             UcliCommandIds.Query,
@@ -62,7 +63,8 @@ internal sealed class QueryService : IQueryService
             return QueryServiceResultFactory.FromExecutionError(
                 input.Operation.CommandName,
                 requestId,
-                timeoutResolutionResult.Error!);
+                timeoutResolutionResult.Error!,
+                project: project);
         }
 
         var readIndexModeResult = ReadIndexModeResolver.Resolve(input.ReadIndexMode, projectContext.Config);
@@ -71,7 +73,8 @@ internal sealed class QueryService : IQueryService
             return QueryServiceResultFactory.FromExecutionError(
                 input.Operation.CommandName,
                 requestId,
-                readIndexModeResult.Error!);
+                readIndexModeResult.Error!,
+                project: project);
         }
 
         var executionMode = input.Mode ?? UnityExecutionMode.Auto;
@@ -84,6 +87,7 @@ internal sealed class QueryService : IQueryService
                     requestId,
                     assetsFind,
                     projectContext,
+                    project,
                     executionMode,
                     timeout,
                     readIndexMode,
@@ -96,6 +100,7 @@ internal sealed class QueryService : IQueryService
                     input,
                     sceneTree,
                     projectContext,
+                    project,
                     executionMode,
                     timeout,
                     readIndexMode,
@@ -107,6 +112,7 @@ internal sealed class QueryService : IQueryService
                     input,
                     unityOperation,
                     projectContext,
+                    project,
                     executionMode,
                     timeout,
                     readIndexMode,
@@ -117,7 +123,8 @@ internal sealed class QueryService : IQueryService
                 input.Operation.CommandName,
                 requestId,
                 ExecutionError.InvalidArgument(
-                    $"Query operation '{input.Operation.OperationName}' is not supported.")),
+                    $"Query operation '{input.Operation.OperationName}' is not supported."),
+                project: project),
         };
     }
 
@@ -125,6 +132,7 @@ internal sealed class QueryService : IQueryService
         string requestId,
         QueryAssetsFindOperationRequest operation,
         ProjectContext projectContext,
+        ProjectIdentityInfo project,
         UnityExecutionMode executionMode,
         TimeSpan timeout,
         ReadIndexMode readIndexMode,
@@ -151,7 +159,8 @@ internal sealed class QueryService : IQueryService
                 operation.CommandName,
                 requestId,
                 new OperationExecutionError(readResult.ErrorCode!.Value, readResult.Message, null),
-                ReadIndexInfoFactory.Unity(readResult.Message));
+                ReadIndexInfoFactory.Unity(readResult.Message),
+                project);
         }
 
         var output = readResult.Output!;
@@ -164,7 +173,8 @@ internal sealed class QueryService : IQueryService
                     operation,
                     JsonSerializer.SerializeToElement(CreateAssetsFindResult(windowedEntries), IpcJsonSerializerOptions.Default)),
             ],
-            ReadIndexInfoFactory.FromAssetLookupAccess(output.AccessInfo));
+            ReadIndexInfoFactory.FromAssetLookupAccess(output.AccessInfo),
+            project);
     }
 
     private async ValueTask<QueryServiceResult> ExecuteSceneTreeAsync (
@@ -172,6 +182,7 @@ internal sealed class QueryService : IQueryService
         QueryCommandInput input,
         QuerySceneTreeOperationRequest operation,
         ProjectContext projectContext,
+        ProjectIdentityInfo project,
         UnityExecutionMode executionMode,
         TimeSpan timeout,
         ReadIndexMode readIndexMode,
@@ -195,7 +206,8 @@ internal sealed class QueryService : IQueryService
                 operation.CommandName,
                 requestId,
                 new OperationExecutionError(readResult.ErrorCode!.Value, readResult.Message, null),
-                ReadIndexInfoFactory.Unity(readResult.Message));
+                ReadIndexInfoFactory.Unity(readResult.Message),
+                project);
         }
 
         var output = readResult.Output!;
@@ -208,7 +220,8 @@ internal sealed class QueryService : IQueryService
                     operation,
                     JsonSerializer.SerializeToElement(CreateSceneTreeResult(output.ScenePath, windowedRoots, output.SourceState), IpcJsonSerializerOptions.Default)),
             ],
-            ReadIndexInfoFactory.FromSceneTreeLiteAccess(output.AccessInfo));
+            ReadIndexInfoFactory.FromSceneTreeLiteAccess(output.AccessInfo),
+            project);
     }
 
     private async ValueTask<QueryServiceResult> ExecuteInUnityAsync (
@@ -216,6 +229,7 @@ internal sealed class QueryService : IQueryService
         QueryCommandInput input,
         QueryUnityOperationRequest operation,
         ProjectContext projectContext,
+        ProjectIdentityInfo project,
         UnityExecutionMode executionMode,
         TimeSpan timeout,
         ReadIndexMode readIndexMode,
@@ -248,7 +262,8 @@ internal sealed class QueryService : IQueryService
                     failure,
                 ],
                 failure.Message,
-                readIndex);
+                readIndex,
+                project);
         }
 
         var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
@@ -258,7 +273,8 @@ internal sealed class QueryService : IQueryService
                 operation.CommandName,
                 requestId,
                 convertedResponse.OpResults,
-                readIndex);
+                readIndex,
+                project);
         }
 
         var failures = RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, "uCLI query failed.");
@@ -268,7 +284,8 @@ internal sealed class QueryService : IQueryService
             convertedResponse.OpResults,
             failures,
             RequestFailureNormalizer.ResolveMessage(failures, "uCLI query failed."),
-            readIndex);
+            readIndex,
+            project);
     }
 
     private static OperationExecutionOperationResult CreatePlanOperationResult (

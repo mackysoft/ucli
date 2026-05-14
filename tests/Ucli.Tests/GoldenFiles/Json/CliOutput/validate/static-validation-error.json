@@ -5,6 +5,11 @@
   "exitCode": 3,
   "message": "Static validation failed.",
   "payload": {
+    "project": {
+      "projectPath": "<projectPath>",
+      "projectFingerprint": "<projectFingerprint>",
+      "unityVersion": "<unityVersion>"
+    },
     "readIndex": {
       "used": true,
       "hit": true,

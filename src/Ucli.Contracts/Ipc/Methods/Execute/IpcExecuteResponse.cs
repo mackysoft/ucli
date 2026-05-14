@@ -7,13 +7,14 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 public sealed record IpcExecuteResponse (
     IReadOnlyList<IpcExecuteOperationResult> OpResults)
 {
-    /// <summary> Gets the optional plan token issued by the <c>plan</c> command. </summary>
+    /// <summary> Gets the resolved Unity project identity for the request. </summary>
+    public IpcProjectIdentity Project { get; init; } = IpcProjectIdentity.Unknown;
 
+    /// <summary> Gets the optional plan token issued by the <c>plan</c> command. </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? PlanToken { get; init; }
 
     /// <summary> Gets the optional mutation-to-read postcondition contract emitted after call execution. </summary>
-
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IpcExecuteReadPostcondition? ReadPostcondition { get; init; }
 }

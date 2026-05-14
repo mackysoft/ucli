@@ -20,6 +20,7 @@ internal static class PlanExecutionOutputFactory
 
         return new PlanExecutionOutput(
             RequestId: preparedRequest.Request.RequestId,
+            Project: ProjectIdentityInfo.From(preparedRequest.ProjectContext.UnityProject),
             OpResults: [],
             ReadIndex: readIndex,
             PlanToken: null);

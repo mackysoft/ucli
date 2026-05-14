@@ -41,7 +41,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             }
 
             var issuedAtUtc = DateTimeOffset.UtcNow;
-            var payloadModel = CreateExecutePayload(trace.Steps, trace.OperationTraces, trace.PlanToken, issuedAtUtc);
+            var payloadModel = CreateExecutePayload(context.Project, trace.Steps, trace.OperationTraces, trace.PlanToken, issuedAtUtc);
             var errors = CreateErrors(trace.Errors);
             return new IpcResponse(
                 ProtocolVersion: context.ProtocolVersion,
@@ -80,7 +80,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 ProtocolVersion: context.ProtocolVersion,
                 RequestId: context.RequestId,
                 Status: IpcProtocol.StatusError,
-                Payload: JsonSerializer.SerializeToElement(CreateEmptyExecutePayload(), serializerOptions),
+                Payload: JsonSerializer.SerializeToElement(CreateEmptyExecutePayload(context.Project), serializerOptions),
                 Errors: new[]
                 {
                     new IpcError(code, message, opId),
@@ -90,12 +90,15 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         /// <summary>
         /// Creates one execute payload from compiled step metadata and primitive traces.
         /// </summary>
+        /// <param name="project"> The resolved project identity. </param>
         /// <param name="steps"> The normalized public steps in source order. Must not be <see langword="null" />. </param>
         /// <param name="operationTraces"> The primitive traces in compiled execution order. Must not be <see langword="null" />. </param>
         /// <param name="planToken"> The optional plan token issued for the response. </param>
+        /// <param name="issuedAtUtc"> The timestamp used for mutation read-postcondition generation. </param>
         /// <returns> The execute payload whose <c>opResults</c> are aggregated back to public step granularity. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="steps" /> or <paramref name="operationTraces" /> is <see langword="null" />. </exception>
         private static IpcExecuteResponse CreateExecutePayload (
+            IpcProjectIdentity project,
             IReadOnlyList<Execution.Requests.NormalizedRequestStep> steps,
             IReadOnlyList<OperationPhaseTrace> operationTraces,
             string? planToken,
@@ -123,7 +126,8 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                         op: step.OperationName,
                         applied: false,
                         changed: false,
-                        touched: Array.Empty<IpcExecuteTouchedResource>());
+                        touched: Array.Empty<IpcExecuteTouchedResource>(),
+                        diagnostics: step.Diagnostics);
                     continue;
                 }
 
@@ -137,6 +141,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 var changed = false;
                 JsonElement? result = null;
                 var touchedResources = AggregateTouched(step.PrimitiveCount, operationTraces, operationTraceIndex, ref lastPhase, ref applied, ref changed, ref result);
+                var diagnostics = AggregateDiagnostics(step.Diagnostics, step.PrimitiveCount, operationTraces, operationTraceIndex);
 
                 opResults[stepIndex] = IpcExecuteOperationResultFactory.Create(
                     opId: step.Id,
@@ -145,12 +150,14 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     applied: applied,
                     changed: changed,
                     touched: touchedResources,
-                    result: step.Kind == IpcRequestStepKind.Op ? result : null);
+                    result: step.Kind == IpcRequestStepKind.Op ? result : null,
+                    diagnostics: diagnostics);
                 operationTraceIndex += step.PrimitiveCount;
             }
 
             return new IpcExecuteResponse(opResults)
             {
+                Project = project,
                 PlanToken = planToken,
                 ReadPostcondition = CreateReadPostcondition(operationTraces, issuedAtUtc),
             };
@@ -209,11 +216,49 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             return touchedResources.ToArray();
         }
 
+        private static IpcExecuteDiagnostic[] AggregateDiagnostics (
+            IReadOnlyList<IpcExecuteDiagnostic> stepDiagnostics,
+            int primitiveCount,
+            IReadOnlyList<OperationPhaseTrace> operationTraces,
+            int startIndex)
+        {
+            var diagnostics = new List<IpcExecuteDiagnostic>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            AddDiagnostics(stepDiagnostics, diagnostics, seen);
+            for (var i = 0; i < primitiveCount; i++)
+            {
+                AddDiagnostics(operationTraces[startIndex + i].Diagnostics, diagnostics, seen);
+            }
+
+            return diagnostics.ToArray();
+        }
+
+        private static void AddDiagnostics (
+            IReadOnlyList<IpcExecuteDiagnostic> source,
+            List<IpcExecuteDiagnostic> diagnostics,
+            HashSet<string> seen)
+        {
+            for (var i = 0; i < source.Count; i++)
+            {
+                var diagnostic = source[i];
+                var key = diagnostic.Code.Value + "\u001f" + diagnostic.Severity + "\u001f" + diagnostic.CoverageImpact + "\u001f" + diagnostic.Message;
+                if (!seen.Add(key))
+                {
+                    continue;
+                }
+
+                diagnostics.Add(diagnostic);
+            }
+        }
+
         /// <summary> Creates one empty execute payload. </summary>
         /// <returns> The empty execute payload contract model. </returns>
-        private static IpcExecuteResponse CreateEmptyExecutePayload ()
+        private static IpcExecuteResponse CreateEmptyExecutePayload (IpcProjectIdentity project)
         {
-            return new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>());
+            return new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>())
+            {
+                Project = project,
+            };
         }
 
         private static IpcExecuteReadPostcondition? CreateReadPostcondition (
