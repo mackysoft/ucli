@@ -18,7 +18,7 @@ In short:
 
 - Unity is callable.
 - Unity changes should be reviewable.
-- The normal workflow is `read -> call --withPlan -> verify`.
+- The normal workflow is `status -> ready -> read -> call --withPlan -> verify`.
 
 uCLI focuses on those guarantees:
 
@@ -71,9 +71,13 @@ Agents should not hard-code operation arguments or guess Unity state from memory
 
 - Discover available operations with `ucli ops list` and `ucli ops describe`.
 - Treat `ucli ops describe <operation>` as the runtime contract for that operation's kind, policy, argument schema, and static constraints.
+- Use `ucli ready --for execution` instead of fixed sleeps before read-only or generic Unity-backed work.
+- Use `ucli ready --for mutation` before normal write workflows.
 - Inspect assets, scene trees, components, and serialized schemas before editing.
+- Do not use `--all` in normal reasoning loops. Use `--limit` and `--after` to page deterministically.
 - Build JSON requests with primitive `op` steps and higher-level `edit` steps.
 - Use `ucli call --withPlan` for normal writes; reserve `ucli validate` and `ucli plan` for diagnostics or separated review gates.
+- Use `ucli verify --profile built-in:mutation --from result.json` after mutation to read post-mutation claims, coverage, and residual risks.
 
 ### 🧪 For CI
 
@@ -231,7 +235,16 @@ The request protocol does not change between these modes. Runtime choice is oper
 The common JSON envelope contains `protocolVersion`, `command`, `status`, `exitCode`, `message`, `payload`, and `errors`.
 Use `status` and `errors[]` for command-level success or failure.
 For request commands, inspect `payload.opResults` to determine which steps applied, changed, or returned operation-specific result data.
-Use other command-specific `payload` fields for results such as `planToken`, `readIndex`, and test artifact paths.
+For assurance commands, inspect `payload.verdict`, `payload.verifiers[]`, `payload.claims[]`, `payload.reports`, and `payload.residualRisks[]`.
+Use `ucli codes describe IPC_TIMEOUT` or another code value to read the static meaning of machine-readable codes.
+uCLI code values are bare tool-local identities. When a supervisor combines uCLI output with another tool's report, use a cross-tool identity such as `ucli:IPC_TIMEOUT` at the aggregation layer; the uCLI JSON itself keeps `code` values unprefixed.
+
+uCLI emits Unity-local assurance. Static code review tools should run separately and be combined by an external supervisor; `ucli verify` does not execute, ingest, or reinterpret external tool reports.
+`payload.verdict = "pass"` means the Unity-local required claims passed. It is not, by itself, a reviewless green decision for an external supervisor.
+A supervisor that requires reviewless green should treat every residual risk, including `blocking=false` risks, as review policy input. uCLI pass only says those risks did not block the Unity-local verifier.
+
+Published schema artifacts validate the JSON envelope and command-specific payload structure. The top-level `command` selects the payload schema. Operation-specific `opResults[].result` bodies are validated by the operation `resultSchema` exposed through `ucli ops describe`; cross-field assurance rules such as verdict recalculation and evidence reference resolution are checked by contract validators and golden output tests, not by JSON Schema alone.
+Schema artifacts are distributed under `schemas/v1/` in the CLI package and GitHub Releases for `protocolVersion: 1`.
 
 ## 🔍 Reading Project State
 
@@ -240,6 +253,8 @@ Use other command-specific `payload` fields for results such as `planToken`, `re
 Use `ucli refresh` when Unity project state may be stale. It may trigger refresh or import work; query commands remain the read-only inspection path.
 
 ```bash
+ucli status
+ucli ready --for execution
 ucli refresh
 
 ucli query assets find \
@@ -257,6 +272,39 @@ ucli resolve \
   --scene Assets/Scenes/Main.unity \
   --hierarchyPath Root/Enemies/Spawner \
   --componentType "Game.EnemySpawner, Assembly-CSharp"
+```
+
+## ✅ Applying And Verifying Changes
+
+Use the assurance path for normal automated writes:
+
+```bash
+ucli status
+ucli ready --for mutation
+ucli ops describe ucli.scene.open
+ucli query scene tree --path Assets/Scenes/Main.unity --depth 2
+ucli call --withPlan < request.json > result.json
+ucli verify --profile built-in:mutation --from result.json
+```
+
+After C# script changes, `compile` is also available as a standalone gate before a broader verification profile:
+
+```bash
+ucli compile
+ucli verify --profile built-in:script --from result.json
+```
+
+The `built-in:default` verify profile includes `compile`, so `ucli verify --from result.json` may trigger AssetDatabase refresh, script compilation, and domain reload. Use `--profile built-in:mutation` when a runner only needs Unity-local post-mutation evidence, and use `--profile built-in:script` for C# script changes. Inspect `payload.verifiers[].effects[]` when a runner needs the effective side-effect boundary.
+`payload.profile` records the selected profile source, name, path, and digest. The digest includes profile identity as well as effective steps.
+
+If `ucli ready --mode auto` resolves to a transient oneshot probe, the ready claim is diagnostic evidence only for that probe session. It does not guarantee that a later mutation command will reuse the same Unity process.
+
+When a command fails, read code semantics and bounded logs instead of scraping free-form messages:
+
+```bash
+ucli codes describe IPC_TIMEOUT
+ucli logs daemon read --tail 200 --level error
+ucli logs unity read --tail 200 --level error
 ```
 
 ### 🗃️ Read Index for Agent Loops
@@ -282,7 +330,9 @@ ucli ops describe ucli.scene.open
 
 `ops describe` returns the agent-facing operation contract for one primitive operation. Agents should use `description`, `inputs[].constraints`, `inputs[].variants[].fields[].constraints`, `resultContract`, and `assurance` to choose the operation, build `steps[].args`, and interpret results. Reusable operation values such as scene asset paths, prefab asset paths, hierarchy paths, GlobalObjectId strings, asset GUIDs, and Unity type identifiers are modeled as semantic Args/Result value types in C#, while the IPC JSON remains primitive strings. Input descriptions and semantic constraints are generated from Args property attributes and those semantic value-type attributes. The generated `argsSchema` and `resultSchema` validate only JSON structure; descriptions and semantic constraints live in the describe contract, not in JSON Schema constraint keywords.
 
-## Authoring Custom Operations
+## Custom Operation Authoring Overview
+
+This section is a guide, not the source of truth. The source of truth is `Ucli.Contracts`, operation metadata, and `ucli ops describe`.
 
 Custom operations are Unity Editor code. Put the implementation in an Editor assembly that references `MackySoft.Ucli.Unity`, and put reusable Args/Result contracts in a shared assembly when another tool should compile against them. If only the Unity-side implementation needs the CLR types, the public wire contract is still available through `ucli ops describe`.
 
@@ -882,13 +932,17 @@ ucli daemon stop
 | --- | --- |
 | `ucli init` | Create optional project-local uCLI configuration. |
 | `ucli status` | Check Unity project resolution and daemon lifecycle state. |
+| `ucli ready` | Wait for a bounded Unity readiness gate and receive readiness claims. |
 | `ucli refresh` | Refresh Unity project state. |
+| `ucli compile` | Verify Unity script compilation and domain reload readiness. |
 | `ucli query` | Read project data without writing changes. |
 | `ucli resolve` | Resolve a selector to a Unity object identifier. |
 | `ucli ops` | List and inspect available primitive operations. |
+| `ucli codes` | List and describe machine-readable code values used in JSON contracts. |
 | `ucli call` | Apply a request; use `--withPlan` for the normal planned write path. |
 | `ucli plan` | Prepare a separated review gate and receive a `planToken`. |
 | `ucli validate` | Diagnose static request validation without running `plan` or `call`. |
+| `ucli verify` | Aggregate Unity-side verifier results into a claim packet. |
 | `ucli logs` | Read Unity or daemon logs. |
 | `ucli daemon` | Manage daemon sessions. |
 | `ucli test` | Run Unity Test Framework tests. |

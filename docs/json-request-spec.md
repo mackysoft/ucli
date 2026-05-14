@@ -62,9 +62,9 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 - `op`: 実行する op 名
 - `args`: op 固有引数
 
-JSON リクエスト入力の機械構造は `RequestEnvelopeSchema + operation ごとの argsSchema + edit DSL` で定義する。`RequestEnvelopeSchema` は `protocolVersion` / `requestId` / `steps[]` / step 共通 field を定義し、`kind:"op"` の `args` だけを operation ごとの `argsSchema` に委譲する。
+JSON リクエスト入力の機械構造は `RequestEnvelopeSchema + operation ごとの argsSchema + edit DSL` で定義する。`RequestEnvelopeSchema` は `steps[]` / step 共通 field を定義し、`protocolVersion` と `requestId` をユーザー入力に含めてはならない reserved field として拒否する。`kind:"op"` の `args` だけを operation ごとの `argsSchema` に委譲する。
 
-現行 contract では `RequestEnvelopeSchema` を取得する個別コマンドまたは standalone schema file は定義しない。この文書の `protocolVersion` / `requestId` / `steps[]` / step 共通 field の定義を request envelope の正本とする。
+`RequestEnvelopeSchema` と edit DSL schema は公開 schema artifact として `schemas/v1/request/request-envelope.schema.json` と `schemas/v1/request/edit-dsl.schema.json` に生成する。v1 では schema discovery command は定義しない。schema artifact の配置、versioning、配布単位は [uCLI.md](uCLI.md) の公開 CLI payload schema 節を参照する。
 
 `argsSchema` は `steps[].args` の JSON 構造検証だけを担う。利用者やエージェントは `ucli ops describe <opName>` の `operation.description` / `inputs[]` / `inputs[].constraints` / `inputs[].variants[].fields[].constraints` を先に読み、operation 選択と `args` の組み立てを行う。最後に `operation.argsSchema` で `args` の構造を検証する。
 
@@ -79,6 +79,8 @@ public raw `op` の `args` では request-local alias selector branch の `var` 
 - `call`：成功し、`opResults: []` を返す。永続化、副作用、`touched` は発生しない。
 
 現行 contract では no-op 専用の warning field や message field は定義しない。
+
+no-op request は envelope、pipeline、smoke check のために有効な request である。ただし task intent が mutation を要求する場合、no-op request の成功は task completion や reviewless green の証拠にならない。外部 supervisor は mutation 必須の intent に対して `opResults.length > 0`、required mutation claim、期待 post-state の観測を別途要求する。
 
 ### 用途
 `op` は少なくとも次を表現する。
@@ -105,7 +107,8 @@ public raw `op` の `args` では request-local alias selector branch の `var` 
   "args": {
     "type": "Game.GameBalanceAsset, Assembly-CSharp",
     "pathPrefix": "Assets/Data",
-    "nameContains": "Balance"
+    "nameContains": "Balance",
+    "limit": 100
   }
 }
 ```
@@ -114,7 +117,9 @@ public raw `op` の `args` では request-local alias selector branch の `var` 
 - `type` は stable `typeId` を受け取り、runtime type が指定型へ assignable な main asset を一致とみなす
 - `pathPrefix` は `Assets` またはその配下を受け取り、ordinal prefix で比較する
 - `nameContains` は main asset 名に対する大小文字無視の部分一致で評価する
-- primitive `ucli.assets.find` 自体は limit / cursor を持たず、deterministic order の全件結果を返す
+- primitive `ucli.assets.find` は `limit` と `cursor` を持つ。raw `kind:"op"` でも bounded-by-default とし、既定 `limit=100`、最大 `10000` とする。明示 opt-in なしに全件を stdout payload へ返してはならない
+- primitive `ucli.scene.tree` も `limit` と `cursor` を持つ。raw `kind:"op"` でも bounded-by-default とし、既定 `limit=100`、最大 `10000` とする。hierarchy traversal order は deterministic とし、cursor はその順序に対する opaque token とする
+- result は deterministic order の bounded window を返し、続きがある場合は cursor を返す
 
 ### 代表例: `ucli.cs.eval`
 
@@ -253,9 +258,10 @@ public raw `op` の `args` では request-local alias selector branch の `var` 
 - query 起点でも selection set に正規化する
 - raw JSON を直接 mutation target にしない
 - 件数制約は `select.cardinality` に集約する
+- `cardinality: "first"` は deterministic order が定義された candidate set にだけ許可する。scene hierarchy は hierarchy traversal order、asset search は `assetPath` ordinal 昇順など、candidate source ごとの順序契約を正本にする
 - `select.from` の公開対応は #141 では scene context のみ
 - `gameObject` と `hierarchyPath` は `/` 区切りの hierarchy path として解釈するため、各 segment の GameObject 名に `/` は含めない
-- `/` を含む GameObject 名は hierarchyPath で表現できないため、`scene.query` と `select.from` の candidate にも含めない
+- `/` を含む GameObject 名は hierarchyPath で表現できないため、`scene.query` と `select.from` の candidate にも含めない。この除外が発生した場合は silently clean pass にせず、request response の `opResults[].diagnostics[]` に `HIERARCHY_PATH_UNREPRESENTABLE_OBJECTS`、`severity=warning`、`coverageImpact=partial` を返す。assurance command で同じ不足を扱う場合は、該当 claim の `coverage=partial` または residual risk にも反映する
 ## `actions` の仕様
 
 `actions` は編集内容の配列であり、`do` ではなく **`actions`** を正式採用する。  
