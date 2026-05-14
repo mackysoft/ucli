@@ -19,40 +19,22 @@ internal static class QueryWindowOptionsFactory
         int? limit,
         string? after)
     {
-        if (all && (limit.HasValue || after is not null))
+        if (!BoundedWindowOptionsNormalizer.TryNormalize(
+            all,
+            limit,
+            after,
+            allConflictMessage: "'--all' cannot be combined with '--limit' or '--after'.",
+            cursorErrorMessage: "after cursor is invalid.",
+            out var options,
+            out var errorMessage))
         {
-            return QueryWindowOptionsCreationResult.Failure(ExecutionError.InvalidArgument(
-                "'--all' cannot be combined with '--limit' or '--after'."));
-        }
-
-        if (all)
-        {
-            return QueryWindowOptionsCreationResult.Success(new QueryWindowOptions(
-                All: true,
-                Limit: 0,
-                After: null,
-                Offset: 0));
-        }
-
-        var normalizedLimit = limit ?? DefaultLimit;
-        if (normalizedLimit < 1 || normalizedLimit > MaxLimit)
-        {
-            return QueryWindowOptionsCreationResult.Failure(ExecutionError.InvalidArgument(
-                $"limit must be between 1 and {MaxLimit}. Actual: {normalizedLimit}."));
-        }
-
-        var offset = 0;
-        if (after is not null
-            && !QueryWindowCursorCodec.TryDecode(after, out offset))
-        {
-            return QueryWindowOptionsCreationResult.Failure(ExecutionError.InvalidArgument(
-                "after cursor is invalid."));
+            return QueryWindowOptionsCreationResult.Failure(ExecutionError.InvalidArgument(errorMessage));
         }
 
         return QueryWindowOptionsCreationResult.Success(new QueryWindowOptions(
-            All: false,
-            Limit: normalizedLimit,
-            After: after,
-            Offset: offset));
+            All: options.All,
+            Limit: options.Limit,
+            After: options.Cursor,
+            Offset: options.Offset));
     }
 }

@@ -124,11 +124,6 @@ internal static class SceneTreeLiteAccessUtilities
             return IndexSceneTreeLiteNodeChildrenStateValues.NotExpandedByDepth;
         }
 
-        if (string.Equals(sourceChildrenState, IndexSceneTreeLiteNodeChildrenStateValues.TruncatedByWindow, StringComparison.Ordinal))
-        {
-            return IndexSceneTreeLiteNodeChildrenStateValues.TruncatedByWindow;
-        }
-
         return IndexSceneTreeLiteNodeChildrenStateValues.Complete;
     }
 

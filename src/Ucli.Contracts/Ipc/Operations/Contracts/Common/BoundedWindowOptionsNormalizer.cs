@@ -19,6 +19,7 @@ public static class BoundedWindowOptionsNormalizer
             allConflictMessage: string.Empty,
             cursorErrorMessage: "cursor is invalid.",
             out options,
+            out _,
             out errorMessage);
     }
 
@@ -32,11 +33,35 @@ public static class BoundedWindowOptionsNormalizer
         out BoundedWindowOptions options,
         out string errorMessage)
     {
+        return TryNormalize(
+            all,
+            limit,
+            cursor,
+            allConflictMessage,
+            cursorErrorMessage,
+            out options,
+            out _,
+            out errorMessage);
+    }
+
+    /// <summary> Attempts to create normalized bounded window options with failure field reporting. </summary>
+    public static bool TryNormalize (
+        bool all,
+        int? limit,
+        string? cursor,
+        string allConflictMessage,
+        string cursorErrorMessage,
+        out BoundedWindowOptions options,
+        out BoundedWindowInvalidField invalidField,
+        out string errorMessage)
+    {
         options = new BoundedWindowOptions(All: false, Limit: BoundedWindowConstants.DefaultLimit, Cursor: null, Offset: 0);
+        invalidField = BoundedWindowInvalidField.None;
         errorMessage = string.Empty;
 
         if (all && (limit.HasValue || cursor is not null))
         {
+            invalidField = BoundedWindowInvalidField.All;
             errorMessage = allConflictMessage;
             return false;
         }
@@ -54,6 +79,7 @@ public static class BoundedWindowOptionsNormalizer
         var normalizedLimit = limit ?? BoundedWindowConstants.DefaultLimit;
         if (normalizedLimit < 1 || normalizedLimit > BoundedWindowConstants.MaxLimit)
         {
+            invalidField = BoundedWindowInvalidField.Limit;
             errorMessage = string.Format(
                 CultureInfo.InvariantCulture,
                 "limit must be between 1 and {0}. Actual: {1}.",
@@ -66,6 +92,7 @@ public static class BoundedWindowOptionsNormalizer
         if (cursor is not null
             && !BoundedWindowCursorCodec.TryDecode(cursor, out offset))
         {
+            invalidField = BoundedWindowInvalidField.Cursor;
             errorMessage = cursorErrorMessage;
             return false;
         }

@@ -25,10 +25,12 @@ public sealed record BoundedWindow
     public int? Limit { get; init; }
 
     [UcliRequired]
+    [UcliJsonAllowNull]
     [UcliDescription("Opaque cursor used to start this response window, or null for the first window.")]
     public string? Cursor { get; init; }
 
     [UcliRequired]
+    [UcliJsonAllowNull]
     [UcliDescription("Opaque cursor for the next response window, or null when the result is complete.")]
     public string? NextCursor { get; init; }
 

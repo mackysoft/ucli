@@ -544,7 +544,6 @@ internal static class IndexCatalogContractValidator
     {
         return string.Equals(childrenState, IndexSceneTreeLiteNodeChildrenStateValues.Complete, StringComparison.Ordinal)
             || string.Equals(childrenState, IndexSceneTreeLiteNodeChildrenStateValues.NotExpandedByDepth, StringComparison.Ordinal)
-            || string.Equals(childrenState, IndexSceneTreeLiteNodeChildrenStateValues.TruncatedByWindow, StringComparison.Ordinal)
             || string.Equals(childrenState, IndexSceneTreeLiteNodeChildrenStateValues.Unknown, StringComparison.Ordinal);
     }
 
