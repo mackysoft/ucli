@@ -71,6 +71,11 @@ SKILL の詳細な仕様、生成方針、責務境界は [uCLI-skills.md](uCLI-
 
 `MackySoft.Ucli` CLI package は `skills/**` を同梱する。`ucli skills list/export/install/update/uninstall/doctor` は canonical `ucli-skill.json` を使って SKILL 配布物を扱う。公式 SKILL は選択した host 向けに一括で install / export し、SKILL ごとの host allowlist や個別導入 metadata は持たない。`ucli skills export --format zip` は GitHub Releases へ添付できる deterministic な release zip を生成する。
 
+## Schema Artifact Distribution
+公開 schema artifact は repository root の `schemas/**` を canonical generated output とし、`MackySoft.Ucli` CLI package と GitHub Releases に同じ相対 path で含める。package / release 内の配置は repo と同じ `schemas/v1/cli-output/**`、`schemas/v1/request/**` とする。
+
+schema artifact は hand-written docs ではなく、command output DTO、専用 JSON writer、Golden files から生成される。schema set major version は directory 名 `schemas/v{major}/` で表し、`protocolVersion` major と一致させる。schema file name には major version を含めない。package version は `schemas/v{major}/schema-manifest.json` に記録し、schema path には入れない。`schemas/**` を変更する PR では `.NET` 検証、schema generation、Golden validation、semantic invariant validator tests を実行する。
+
 ## CLI Global Tool Distribution
 `MackySoft.Ucli` は nuget.org へ .NET global tool として公開する。利用者は追加 NuGet source を設定せず、次のコマンドで導入する。
 
@@ -199,6 +204,7 @@ done
 
 ## CI / Release Workflow
 - `verify`: PR、`master` push、`workflow_dispatch` で起動する統一検証 workflow。変更差分に応じて `.NET`、Unity、shared pack、CLI pack を job 単位で分岐し、最終的な必須判定は `required` job で集約する。
+- `verify` の `.NET` 検証には、公開 CLI schema generation、schema artifact diff check、Golden output validation、semantic invariant validator tests を含める。
 - `shared-package-publish` の workflow 自体を変更した PR でも `verify` は `.NET` と shared pack を起動し、公開フロー変更を無検証のまま通さない。
 - `cli-package-publish` の workflow 自体を変更した PR では `verify` は `.NET` と CLI pack を起動し、global tool packaging の回帰を検出する。
 - `unity-package-publish` の workflow、Unity package nuspec、pack/verify script、Unityプラグイン本体、`packages.config` を変更した PR では `verify` は Unity package pack を起動し、NuGetForUnity配布物の回帰を検出する。

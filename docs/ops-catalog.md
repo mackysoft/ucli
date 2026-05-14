@@ -54,12 +54,13 @@ Unity 生成 -> 契約検証 -> source snapshot -> best-effort 永続化 -> pers
 
 | op | kind | policy | status | 概要 | Args | Result | result 概要 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `ucli.assets.find` | query | safe | mvp-support | `Assets/` 配下の persistent main asset を検索する。`Plan` は request-local planned asset と asset shadow を観測し、`Call` は live Unity state のみを観測する。primitive op 自体は limit / cursor を持たない。 | `AssetsFindArgs` | `AssetsFindResult` | `matches[]` に `assetPath`, `assetGuid`, `name`, `typeId` を返す |
+| `ucli.assets.find` | query | safe | mvp-support | `Assets/` 配下の persistent main asset を検索する。`Plan` は request-local planned asset と asset shadow を観測し、`Call` は live Unity state のみを観測する。primitive op 自体も `limit` / `cursor` を持ち、bounded-by-default とする。 | `AssetsFindArgs` | `AssetsFindResult` | `matches[]` に `assetPath`, `assetGuid`, `name`, `typeId` を返す |
 
 - `type` は stable `typeId` を受け取り、runtime type が指定型へ assignable な main asset を一致とみなす
 - `pathPrefix` は `Assets` またはその配下を受け取り、ordinal prefix で比較する
 - `nameContains` は main asset 名に対する大小文字無視の部分一致で評価する
 - `result.matches[]` は `assetPath`, `assetGuid`, `name`, `typeId` を返し、`assetPath` の ordinal 昇順で並ぶ
+- `limit` は既定 `100`、最大 `10000` とする。続きがある場合は `cursor` を返し、明示 opt-in なしに全件を stdout payload へ返さない
 - `touched` は常に空配列で、結果フィールド定義は [uCLI-property-reference.md](uCLI-property-reference.md) を参照する
 
 ## comp
@@ -134,4 +135,4 @@ Unity 生成 -> 契約検証 -> source snapshot -> best-effort 永続化 -> pers
 | `ucli.scene.open` | command | safe | mvp-core | 指定 Scene が loaded であることを保証する。既に loaded なら再オープンしない。閉じている Scene を live で開くときは `OpenSceneMode.Single` を使う。 | `ScenePathArgs` | `UcliNoResult` | result は返さない |
 | `ucli.scene.query` | query | safe | mvp-core | scene context 内で selection candidate を列挙する。`/` を含む GameObject 名は `hierarchyPath` で表現できないため candidate に含めない。 | `SceneQueryArgs` | `SceneQueryResult` | `scene` と `matches[]` を返し、match は `kind`, `hierarchyPath`, `componentType` を持つ |
 | `ucli.scene.save` | mutation | advanced | mvp-core | loaded Scene に dirty または request-attributed change があるとき保存する。loaded scene 必須。`Plan` は request-local plan state と計画時に観測できる dirty を基に評価し、`Call` は保存時点の live dirty も保存し得る。 | `ScenePathArgs` | `UcliNoResult` | result は返さない |
-| `ucli.scene.tree` | query | safe | mvp-support | Sceneの階層構造を取得する。loaded dirty scene があれば作業途中の階層を読み、未ロードなら保存済み asset を preview scene として読む。 | `SceneTreeArgs` | `SceneTreeResult` | `path`、root GameObject tree の `roots[]`、読み取り元の `sourceState` を返す |
+| `ucli.scene.tree` | query | safe | mvp-support | Sceneの階層構造を取得する。loaded dirty scene があれば作業途中の階層を読み、未ロードなら保存済み asset を preview scene として読む。raw op でも `limit` / `cursor` を受け付け、既定 `limit=100`、最大 `10000` とする。 | `SceneTreeArgs` | `SceneTreeResult` | `path`、`childrenState` 付き root GameObject tree の `roots[]`、読み取り元の `sourceState`、bounded window の `window` を返す |

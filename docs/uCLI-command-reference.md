@@ -1,25 +1,26 @@
 > [!IMPORTANT]
 > この文書は、uCLI のコマンド一覧、option table、サブコマンド規則、終了コード、実行例のリファレンスである。
 > 全体契約は [uCLI.md](uCLI.md)、JSON プロパティ定義は [uCLI-property-reference.md](uCLI-property-reference.md)、JSON リクエスト入力契約は [json-request-spec.md](json-request-spec.md) を参照する。
-> 実装登録の正本は `UcliCommandCatalog` と help output であり、この文書は利用者向けの一覧、option、エラー契約、実行例を説明する。
->
-> 現在の公開 CLI host が登録している top-level command は `init`、`status`、`refresh`、`resolve`、`query`、`validate`、`plan`、`call`、`daemon`、`logs`、`ops`、`errors`、`skills`、`test` である。
+> この文書は公開 CLI surface の仕様を定義する。
 
 ## コマンド概要
 
 | Command | 概要 | 備考 |
 | --- | --- | --- |
 | `ucli init` | `.ucli` の設定雛形を生成する | Git repository root を優先する |
+| `ucli status` | daemon と lifecycle の状態を返す | `ProjectVersion.txt` 由来の `unityVersion` を返す |
+| `ucli ready` | 次の操作へ進める readiness claim を返す | 状態観測と bounded wait だけを行い、暗黙修復は行わない |
 | `ucli refresh` | プロジェクト更新を独立コマンドとして実行する | 固定の `ucli.project.refresh` を実行する |
+| `ucli compile` | script compilation と domain reload の保証 claim を返す | 専用 top-level command とし、`refresh` の拡張や primitive operation wrapper にはしない |
 | `ucli resolve` | selector 1 件を GlobalObjectId へ解決する | scene-tree-lite index を優先し、必要時だけ Unity IPC へ fallback する |
 | `ucli query` | 型付きサブコマンドで検索・構造取得・スキーマ取得を行う | `assets find` / `scene tree` / `go describe` / `comp schema` / `asset schema` を持つ |
 | `ucli validate` | JSON リクエストを静的に lint する | Unity へ接続せず readIndex snapshot を参照する |
 | `ucli plan` | JSON リクエストの plan フェーズを実行する | static preflight 後に Unity IPC `plan` を実行する |
 | `ucli call` | JSON リクエストの call フェーズを実行する | static preflight 後に Unity IPC `call` を実行する |
+| `ucli verify` | 明示 profile に従い Unity 側 verifier の claim packet を返す | v1 は外部 tool を含めない |
 | `ucli ops` | primitive operation の一覧・詳細を返す | `list` / `describe` を持つ |
-| `ucli errors` | 既知 error code の静的な意味と再試行分類を返す | `list` / `describe` を持つ |
+| `ucli codes` | 公開 JSON 契約に現れる code value の台帳を返す | `list` / `describe` を持つ |
 | `ucli skills` | 公式 SKILL の一覧、配布、導入、更新、削除、診断を行う | `list` / `export` / `install` / `update` / `uninstall` / `doctor` |
-| `ucli status` | daemon と lifecycle の状態を返す | `ProjectVersion.txt` 由来の `unityVersion` を返す |
 | `ucli logs` | Unity / daemon のログ取得、GUI Editor の Unity Console 表示クリアを行う | 取得系の成功時はイベントストリームを返す |
 | `ucli daemon` | daemon の起動・停止・掃除・状態取得を行う | `start` / `stop` / `cleanup` / `status` / `list` |
 | `ucli test` | Unity Test Framework 実行と結果正規化を扱う | `run` / `profile init` |
@@ -42,15 +43,6 @@
   - `--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--readIndexMode <disabled|allowStale|requireFresh>`、`--failFast` を受け付ける。
   - `--failFast` は live source fallback に対してのみ適用し、readIndex hit では Unity 接続も readiness wait も行わない。
   - `mode` / `timeout` は readIndex hit 時も妥当性を検証し、不正値は `INVALID_ARGUMENT` を返す。
-- `ucli errors`
-  - `list` は既知 error code の一覧を返す。
-  - `list` は `--category <string?>` と `--command <string?>` を受け付ける。
-  - `--category` は category の exact match とする。
-  - `--command` は command identifier の exact match と dot segment family match とする。たとえば `query.assets.find` は `query` に適用される code に一致し、`daemon` は `daemon.start` / `daemon.status` などに適用される code に一致する。
-  - 未知 category / command は成功とし、`payload.codes: []` を返す。空 category、空 command、不正な command identifier は `INVALID_ARGUMENT` を返す。
-  - 成功時 payload は `catalogVersion`、`source`、`codes[]` を返す。`codes[]` の各要素は `code`、`category`、`summary` を持つ。意味、再試行分類、適用 command、次行動は `describe` で取得する。
-  - `describe <CODE>` は指定 error code の静的な意味、確認対象、次行動、実行意味論を返す。
-  - 未知 code は既定で成功し、`known=false` と unknown fallback descriptor を返す。`--requireKnown` 指定時の未知 code は `INVALID_ARGUMENT` を返す。
 - `ucli skills`
   - `list` は bundled official SKILL と supported host を返す。
   - `list` の `supportedHosts[]` は `host`、`projectTargetDirectory`、`userTargetDirectory`、`reloadGuidance` を返す。
@@ -66,174 +58,254 @@
 - `ucli status`
   - daemon と lifecycle の状態を JSON で返す。
   - `--timeout <int>` で daemon 状態確認タイムアウトを上書きする。
+- `ucli ready`
+  - Unity Editor が指定用途に対して次の要求を受け付けられるかを bounded wait 付きで判定し、readiness claim を返す。
+  - `--for <execution|mutation|test|readIndex>`、`--projectPath <string?>`、`--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--readIndexMode <disabled|allowStale|requireFresh>`、`--failFast` を受け付ける。
+  - 状態観測、wait、blocker 分類、retry disposition の返却だけを行い、暗黙の `refresh`、`compile`、`test`、保存、修復は行わない。
+- `ucli compile`
+  - Unity の script compilation、domain reload、compile diagnostics、最終 lifecycle を compile claim に変換する。
+  - `--projectPath <string?>`、`--mode <auto|daemon|oneshot>`、`--timeout <int>` を受け付ける。
+  - 専用 top-level command とし、`refresh` の拡張や primitive operation wrapper にはしない。
+- `ucli verify`
+  - 明示 profile に従って Unity 側 verifier を実行し、結果を claim packet に束ねる。
+  - `--profile <name?>`、`--profilePath <path?>`、`--from <path?>`、`--projectPath <string?>`、`--mode <auto|daemon|oneshot>`、`--timeout <int>` を受け付ける。
+  - v1 は外部 tool の実行、外部 report ingest、外部 finding の再解釈を行わない。
+- `ucli codes`
+  - 公開 JSON 契約に現れる open code set の静的意味を返す。
+  - `list` と `describe` を持つ。
+  - error code、diagnostic code、reasonCode、claim code、risk code を扱う。
+  - code value は種別を問わず uCLI 全体で一意とする。`kind` は分類と list filter のための metadata であり、code identity ではない。
 - `ucli validate`
   - redirected `stdin` から JSON リクエストを読み、snapshot lint を返す。
   - `--projectPath <string?>` と `--readIndexMode <disabled|allowStale|requireFresh>` を受け付ける。
   - `--mode` / `--timeout` は受け付けず、Unity IPC に接続しない。
   - Play Mode 変更の runtime 条件、対象 live object、Prefab instance lineage、request-attributed property path は保証しない。これらは `plan --allowPlayMode` で検証する。
-  - 成功時 payload は `readIndex` のみを返す。
+  - 成功時 payload は `project` と `readIndex` を返す。
   - `allowStale` では snapshot 欠落時に syntax-only へ縮退し、`requireFresh` では `READ_INDEX_BOOTSTRAP_FAILED` / `READ_INDEX_FORMAT_INVALID` / `READ_INDEX_FRESH_REQUIRED` を返す。
 - `ucli resolve`
   - selector flags から 1 件だけ解決し、JSON request と `stdin` は受け付けない。
   - `--projectPath <string?>`、`--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--readIndexMode <disabled|allowStale|requireFresh>`、`--failFast` を受け付ける。
   - selector は `--globalObjectId` / `--assetGuid` / `--assetPath` / `--projectAssetPath` / `--scene --hierarchyPath [--componentType]` / `--prefab --hierarchyPath` の exactly one とする。
-  - 成功時 payload は `requestId`、`opResults`、`readIndex` を返す。
+  - 成功時 payload は `project`、`requestId`、`opResults`、`readIndex` を返す。
 - `ucli query`
   - JSON request と `stdin` は受け付けず、型付きサブコマンドから固定 primitive operation 1 件を組み立てる。
   - サブコマンドの flags は operation Args contract 型に写像してから IPC payload へシリアライズする。
   - 全サブコマンドで `--projectPath <string?>`、`--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--readIndexMode <disabled|allowStale|requireFresh>`、`--failFast` を受け付ける。
   - 一覧系の `assets find` と `scene tree` は `--limit`、`--after`、`--all` を受け付け、既定 `limit=100`、最大 `10000` とする。
-  - 成功時 payload は `requestId`、`opResults`、`readIndex` を返す。
+  - 成功時 payload は `project`、`requestId`、`opResults`、`readIndex` を返す。
 - `ucli plan`
   - redirected `stdin` から JSON リクエストを読み、static preflight 後に Unity IPC `plan` を実行する。
   - `--projectPath <string?>`、`--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--readIndexMode <disabled|allowStale|requireFresh>`、`--allowPlayMode`、`--failFast` を受け付ける。
-  - 成功時 payload は `requestId`、`opResults`、`readIndex`、`planToken` を返す。
+  - 成功時 payload は `project`、`requestId`、`opResults`、`readIndex`、`planToken` を返す。
   - `allowStale` では snapshot 欠落時に syntax-only へ縮退して継続し、`requireFresh` では snapshot 欠落・破損・非 fresh で失敗する。
   - `--allowPlayMode` と明示 `--readIndexMode` の併用は `INVALID_ARGUMENT` とし、`--readIndexMode` 未指定時だけ実効 readIndex mode を `disabled` とする。
 - `ucli call`
   - redirected `stdin` から JSON リクエストを読み、static preflight 後に Unity IPC `call` を実行する。
   - `--projectPath <string?>`、`--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--planToken <string?>`、`--withPlan`、`--allowDangerous`、`--allowPlayMode`、`--failFast` を受け付ける。
   - `--readIndexMode` は受け付けない。
-  - 成功時 payload は `requestId`、`opResults`、必要時のみ `plan` を返す。
+  - 成功時 payload は `project`、`requestId`、`opResults`、必要時のみ `readPostcondition`、必要時のみ `plan` を返す。
 
-## エラーコード台帳: `ucli errors`
-`ucli errors` は、`errors[].code` を agent が安全な次行動へ接続するための機械可読な error code 台帳を返す。これはエラー文のヘルプ表示ではなく、`errors[].message` に分岐ロジックを埋め込まないための制御契約である。
+## Assurance command contracts
 
-`ucli errors` は P0 では error code だけを扱う。将来、Assurance report の `reasonCodes`、`riskCodes`、`claimCodes` を同じ枠で扱う段階では、`ucli codes` への一般化を検討する。
+### `ucli ready`
 
-### `errors list`
-既知 error code の一覧を返す。
-
-| Option | Short | Description |
-| --- | --- | --- |
-| `--category <string?>` | - | category の exact match filter |
-| `--command <string?>` | - | 関連 command の exact / dot segment family match filter |
-
-成功時 payload は `catalogVersion`、`source`、`codes[]` を返す。`codes[]` の各要素は `code`、`category`、`summary` を持つ。出力順は `code` の ordinal 昇順とする。該当 code がない場合も成功し、`payload.codes: []` を返す。意味、再試行分類、適用 command、次行動は `errors describe <CODE>` で取得する。
-
-```bash
-ucli errors list
-ucli errors list --category lifecycle
-ucli errors list --command call
-```
-
-```json
-{
-  "protocolVersion": 1,
-  "command": "errors.list",
-  "status": "ok",
-  "exitCode": 0,
-  "message": "Error code catalog returned.",
-  "payload": {
-    "catalogVersion": 1,
-    "source": "bundled",
-    "codes": [
-      {
-        "code": "EDITOR_COMPILING",
-        "category": "lifecycle",
-        "summary": "Unity Editor is compiling scripts."
-      }
-    ]
-  },
-  "errors": []
-}
-```
-
-### `errors describe`
-指定した error code の静的な意味と確認対象を返す。
+`ucli ready` は、Unity Editor が指定用途に対して次の要求を受け付けられるかを bounded wait 付きで判定し、readiness claim を返す。`status` は現在状態の snapshot であり、`ready` は次へ進めるかを判定する gate である。
 
 | Argument / Option | Short | Description |
 | --- | --- | --- |
-| `<CODE>` | - | 説明対象の error code。最大 128 文字の大文字 machine token とし、各 dot segment は英大文字で始まり、以降は英大文字、数字、underscore を受け付ける |
+| `--for <execution\|mutation\|test\|readIndex>` | - | readiness target。未指定時は `execution` |
+| `--projectPath <string?>` | `-p` | 対象 Unity project path |
+| `--mode <auto\|daemon\|oneshot>` | - | Unity execution mode |
+| `--timeout <int>` | - | bounded wait の timeout milliseconds |
+| `--readIndexMode <disabled\|allowStale\|requireFresh>` | - | `--for readIndex` の freshness 判定に使う readIndex mode |
+| `--failFast` | - | waitable lifecycle state でも待たずに blocker として返す |
+
+`ready` は次を行ってよい。
+
+- Unity project identity の解決
+- daemon / session 到達性の確認
+- lifecycle / compile / domain reload / playmode / modal / safe mode / shutdown 状態の観測
+- timeout budget 内の waitable state 待機
+- blocker reason、retry disposition、readiness claim の返却
+
+`ready` は次を行ってはならない。
+
+- 暗黙の `refresh`
+- 暗黙の `compile`
+- 暗黙の `test`
+- 暗黙の保存
+- Unity project の修復
+
+成功時 payload は `verdict`、`project`、`verifiers[]`、`claims[]`、`reports`、`residualRisks[]` に加えて、`target`、`resolvedMode`、`sessionKind`、`lifecycle` を返す。`verifiers[]` には少なくとも `id=ready` の verifier を含め、`primaryClaims[]` は target に応じた ready claim code を含める。`claims[].verifierRef` はその `id` を参照する。`reports` は artifact が無い場合も空 object として返す。`claims[]` には target に応じて `UNITY_READY_EXECUTION`、`UNITY_READY_MUTATION`、`UNITY_READY_TEST`、`UNITY_READY_READ_INDEX` のいずれかを含める。ready claim は常に `validity` を持つ。readiness が成立しない場合でも、blocker を判定できた command は `status=ok` として `payload.verdict=fail` または `incomplete`、`claim.status=failed` または `indeterminate` を返してよい。transport failure、project resolution failure、payload validation failure は command failure として `status=error` を返す。
+
+`--for readIndex` では `--readIndexMode allowStale` または `requireFresh` だけを受け付け、`disabled` は `INVALID_ARGUMENT` とする。`--for execution`、`mutation`、`test` で `--readIndexMode` を指定した場合も `INVALID_ARGUMENT` とする。
+
+`--mode daemon` は既存 daemon session の readiness だけを確認し、daemon が無ければ command failure とする。`--mode oneshot` は transient Unity session で readiness を確認し、persistent session を残さない。`--mode auto` は daemon があれば daemon readiness を確認し、daemon が無ければ oneshot readiness probe を実行する。payload は実効 runtime として `resolvedMode` と `sessionKind` を返す。
+
+`sessionKind=transientProbe` の ready claim は、その probe session が指定 target に対して ready だったことだけを保証する。次の `call --mode auto` が同じ Unity process を再利用することは保証しない。この場合、claim の `subject` は `resolvedMode` と `sessionKind` を含む `unitySession` とし、`validity.kind=probeOnly`、`validity.guaranteesReusableSession=false` を返す。daemon session に対する ready claim は `validity.kind=sessionBound`、`validity.guaranteesReusableSession=true` を返す。
+
+### `ucli compile`
+
+`ucli compile` は、Unity の script compilation、domain reload、compile diagnostics、最終 lifecycle を、次へ進んでよいか判断できる compile claim に変換する専用 top-level command である。`compile` は `refresh` の拡張ではなく、`ucli.project.compile` の primitive operation wrapper でもない。
+
+`compile` の標準意味は、AssetDatabase refresh を起点に必要な script compilation を観測し、domain reload が発生する場合は reload 完了後の安定状態まで確認することである。`--waitForDomainReload false` のように保証強度を下げる option は標準経路に置かない。
+
+| Argument / Option | Short | Description |
+| --- | --- | --- |
+| `--projectPath <string?>` | `-p` | 対象 Unity project path |
+| `--mode <auto\|daemon\|oneshot>` | - | Unity execution mode |
+| `--timeout <int>` | - | refresh、compile、domain reload、最終 readiness の timeout milliseconds |
+
+compile error が検出された場合、command 自体は compile verifier を実行できたため `status=ok` とし、`payload.verdict=fail`、`exitCode=1` を返す。IPC timeout、startup blocker、domain reload 追跡不能、diagnostics artifact 破損など、検証が成立しない場合は `status=error` を返す。
+
+成功時 payload は `verdict`、`project`、`verifiers[]`、`claims[]`、`reports`、`residualRisks[]` に加えて、`compile` を返す。`verifiers[]` には少なくとも `id=compile` の verifier を含め、`primaryClaims[]` は `UNITY_COMPILE_NO_ERRORS`、`UNITY_DOMAIN_RELOAD_SETTLED`、`UNITY_LIFECYCLE_READY_AFTER_COMPILE` を含める。`claims[].verifierRef` はその `id` を参照する。`compile` は少なくとも `refresh`、`scriptCompilation`、`domainReload` を含める。`refresh` は AssetDatabase refresh の実施有無と開始・完了時刻、`scriptCompilation` は開始・完了状態と diagnostic counts、`domainReload` は `reloadRequired`、`reloadObserved`、generation before / after を返す。`claims[]` には少なくとも次を含める。
+
+- `UNITY_COMPILE_NO_ERRORS`
+- `UNITY_DOMAIN_RELOAD_SETTLED`
+- `UNITY_LIFECYCLE_READY_AFTER_COMPILE`
+
+### `ucli verify`
+
+`ucli verify` は、明示 profile に従って Unity 側 verifier を実行し、結果を `claim`、`evidence`、`coverage`、`residualRisk` に束ねる command である。便利な全部入り CI wrapper ではなく、閉じた verifier set から claim packet を生成する。
+
+v1 の `verify` は外部 tool を含めない。外部 tool の実行、外部 report ingest、外部 finding の再解釈はいずれも行わない。
+`ucli verify` v1 は Unity-local verifier である。cross-tool assurance aggregation は外部 supervisor の責務であり、uCLI は外部 tool の finding、verdict、coverage を再解釈しない。将来 profile extension を追加する場合も、外部 tool の report を uCLI の clean pass へ格上げする経路にしてはならない。
+
+| Argument / Option | Short | Description |
+| --- | --- | --- |
+| `--profile <built-in:default\|built-in:mutation\|built-in:project\|built-in:script>` | - | built-in verify profile name。未指定時は `built-in:default` |
+| `--profilePath <path?>` | - | verify profile file path |
+| `--from <path?>` | - | 直前の uCLI mutation result JSON。`touched` と `readPostcondition` から post-read claim を生成する |
+| `--projectPath <string?>` | `-p` | 対象 Unity project path |
+| `--mode <auto\|daemon\|oneshot>` | - | Unity execution mode |
+| `--timeout <int>` | - | profile 全体の timeout milliseconds |
+
+verify flow の決定源は `verify profile` と `--from` だけである。自然言語の作業説明、エージェント判断、ログ文言 scraping で step を増減してはならない。
+
+`--profile` は built-in profile だけを選ぶ。`--profilePath` は user-authored profile file だけを選ぶ。`--profile` と `--profilePath` の同時指定は `INVALID_ARGUMENT` とする。
+
+profile 未指定時は `built-in:default` を使う。`built-in:default` は次の verifier を使う。
+
+- `ready`
+- `compile`
+- `postRead`: `--from` があり、`readPostcondition` または `opResults[].applied` / `changed` / `touched` から post-read claim が必要な場合だけ実行する
+- `test`: 既定では実行しない
+- `logs`: failed または indeterminate claim がある場合だけ evidence として読む
+
+`built-in:default` は `compile` を含むため、AssetDatabase refresh、script compilation、domain reload を起こし得る。これらの実効副作用は `payload.verifiers[].effects[]` に machine-readable に返す。
+
+v1 の built-in profile 名は次の通り固定する。
+
+| Profile | Verifiers | Meaning |
+| --- | --- | --- |
+| `built-in:default` | `ready`、`compile`、必要時 `postRead`、失敗時 `logs` | profile 未指定時の標準 project-level verification |
+| `built-in:mutation` | `ready`、必要時 `postRead`、失敗時 `logs` | Scene / Prefab / Asset mutation 後の軽量 verification。`compile` は含めない |
+| `built-in:project` | `ready`、`compile`、必要時 `postRead`、失敗時 `logs` | project-level verification。`built-in:default` と同じ verifier set |
+| `built-in:script` | `ready`、`compile`、失敗時 `logs` | C# script 変更後の compile-focused verification |
+
+profile 名は verify surface の一部であり、挙動変更は profile identity、profile digest、review surface の変更として扱う。`payload.profile.digest` は profile source、profile name、profile path、effective steps、verifier-specific args を含む canonical digest とする。
+
+profile の step kind は closed enum とし、v1 は `ready`、`compile`、`test`、`postRead`、`logs` だけを許可する。uCLI は profile の宣言順ではなく、次の canonical order に正規化して実行する。
+
+1. `ready`
+2. `compile`
+3. `postRead`
+4. `test`
+5. `logs`
+
+profile は次を許可しない。
+
+- 任意 shell
+- 未知 step
+- failed claim の pass 格上げ
+- partial / indeterminate の full coverage 格上げ
+- 外部 tool の実行
+- 外部 report ingest
+- 外部 finding / verdict / coverage の再解釈
+
+profile step の入力は `kind`、`required`、verifier-specific args だけを正本とする。`effects[]` は profile author の申告値ではなく、uCLI が verifier kind と args から計算する effective value である。profile が `effects[]` を書く場合、uCLI はそれを信用せず、計算した effective effects と完全一致しなければ `INVALID_ARGUMENT` とする。
+
+成功時 payload は `verdict`、`project`、`verifiers[]`、`claims[]`、`reports`、`residualRisks[]` に加えて、`profile` と `profileDigest` を返す。`profile` は `source`、`name`、`path`、`digest` を持ち、`profileDigest` は `profile.digest` と同じ値の短縮 projection とする。`verifiers[]` は実行された verifier ごとに `id`、`kind`、`deterministic`、`required`、`primaryClaims[]`、uCLI が計算した `effects[]`、`reportRef` を返す。各 claim は `required` と `verifierRef` を持ち、`verifierRef` は `verifiers[].id` を参照する。
+
+`verify --from` は、`--from` の `payload.project.projectFingerprint` と現在解決した project fingerprint を照合する。一致しない場合は `PROJECT_FINGERPRINT_MISMATCH` の command failure とし、postRead claim を生成しない。
+`--from` input を読めない、または v1 の verify input として扱えない場合は command failure とする。標準 code は次のとおりである。
+
+- `VERIFY_INPUT_SCHEMA_UNSUPPORTED`
+- `VERIFY_INPUT_PROTOCOL_VERSION_MISMATCH`
+- `VERIFY_INPUT_COMMAND_UNSUPPORTED`
+- `VERIFY_INPUT_PAYLOAD_INVALID`
+- `VERIFY_INPUT_PROJECT_MISSING`
+- `PROJECT_FINGERPRINT_MISMATCH`
+
+`postRead` verifier は `--from` の `readPostcondition` だけでなく、`opResults[].applied`、`changed`、`touched`、Play Mode 変更かどうか、commit 種別を読んで必要な claim を組み立てる。`postRead` claim は少なくとも `PERSISTENCE_UNIT_TOUCHED`、`READ_SURFACE_SAFE`、`POST_MUTATION_OBSERVED` の3種へ分ける。
+
+`PERSISTENCE_UNIT_TOUCHED` は `changed=true` かつ永続化単位が期待される mutation で required claim とする。`READ_SURFACE_SAFE` は `readPostcondition.requirements[]` が存在する場合に required claim とする。`POST_MUTATION_OBSERVED` は edit DSL など、request から期待 post-state を決定論的に導ける場合だけ required claim とする。raw op や broad mutation など期待 post-state が定義されない場合は `outOfScope` または `required=false` とし、推測で required claim にしてはならない。
+
+verify pass は、必須 claim がすべて `passed`、coverage が `full`、claim-local と payload-global のどちらにも `blocking=true` の residual risk が残らない場合だけ成立する。verifier が正常に実行されて fail を確認した場合は command failure ではなく verifier failure であり、`status=ok`、`payload.verdict=fail`、非 0 `exitCode` として返す。
+`payload.verdict=pass` は Unity-local assurance の pass であり、外部 supervisor の reviewless green 十分条件ではない。外部 supervisor は intent scope、外部静的解析、scenario profile、dangerous / probeOnly / outOfScope / unverified の有無、non-blocking residual risk の扱いを別に判定する。
+
+### Assurance verdict
+
+`ready`、`compile`、`verify` は command-specific payload に `verdict` を必ず返す。
+
+| `payload.verdict` | Meaning | Exit code |
+| --- | --- | --- |
+| `pass` | 必須 claim がすべて `passed`、coverage が `full`、claim-local と payload-global のどちらにも `blocking=true` の residual risk がない | `0` |
+| `fail` | verifier が正常実行され、必須 claim の不成立を確認した | `1` |
+| `incomplete` | 必須 claim に `partial`、`indeterminate`、`unverified`、`outOfScope`、または `coverage=none` が残る | `1` |
+
+`status=error` は command 自体が成立しなかった状態であり、既存 failure kind の終了コードに従う。
+
+### `ucli codes`
+
+`ucli codes` は、公開 JSON 契約に現れる open code set の静的意味を返す語彙台帳である。code value は error、diagnostic、reasonCode、claim、risk の種別を問わず uCLI 全体で一意でなければならない。`kind` は分類と list filter のための metadata であり、code identity ではない。
+
+対象 kind は次のとおりである。
+
+| Kind | 対象 |
+| --- | --- |
+| `error` | `errors[].code` |
+| `diagnostic` | `diagnosis.primaryDiagnostic.code` など診断根拠に近い code |
+| `reason` | 予約済み。v1 標準 payload は `reasonCode` field を emit しない |
+| `claim` | `claims[].id` |
+| `risk` | `residualRisks[].code` |
+
+`codes` は operation name、closed enum、JSON Schema field、Unity compiler diagnostics の正本にはならない。`lifecycleState`、`blockingReason`、`startupBlockingReason`、`retryDisposition`、`diagnosis.reason`、`fallbackReason` のような lowerCamel の分類値は codes 対象外である。v1 では `reason` kind は予約済みであり、標準 payload は `reasonCode` field を emit しない。将来、機械判定用の reason を codes 対象にする場合は、field 名を `reasonCode` とし、value は global unique な uppercase snake case code にし、その field path を `codes describe` の `appearsIn[]` に固定する。operation の正本は `ops describe`、compiler diagnostics の正本は Unity / compiler の diagnostic artifact である。
+
+Code catalog は次の不変条件を持つ。
+
+- `code` は catalog 内で global unique とする。
+- code value は検索用の安定 machine token とし、uCLI 定義の code は uppercase snake case を基本形とする。claim の読みやすい主張は `claims[].statement` に置く。
+- 同じ `code` を複数 field に出してよいのは、どの field でも静的意味が完全に同じ場合だけである。
+- 意味が異なる場合は `kind` で分けず、code value 自体を分ける。
+- code rename は breaking change として扱う。
+- uCLI の JSON は bare `code` を返す。tool 横断の canonical identity は上位 supervisor が `ucli:<CODE>` のような `tool:code` として扱う。
+
+#### `codes list`
+
+| Option | Short | Description |
+| --- | --- | --- |
+| `--kind <string?>` | - | kind exact match filter |
+| `--command <string?>` | - | 関連 command の exact / dot segment family match filter |
+
+成功時 payload は `catalogVersion`、`source`、`kinds[]`、`codes[]` を返す。`codes[]` の各要素は `code`、`kind`、`category`、`summary` を持つ。
+
+#### `codes describe`
+
+| Argument / Option | Short | Description |
+| --- | --- | --- |
+| `<CODE>` | - | 説明対象の code。種別を問わず uCLI 全体で一意 |
+| `<KIND:CODE>` | - | 期待 kind の検証付き alias。code が存在しても kind が一致しない場合は `INVALID_ARGUMENT` |
 | `--requireKnown` | - | 未知 code を `INVALID_ARGUMENT` として失敗させる |
 
-既定では未知 code も成功し、`payload.known=false` を返す。これは `errors[].code` が open code set であるためである。
-
-startup 系 code は `errors describe` の対象に含める。`DAEMON_STARTUP_BLOCKED` は静的には `safeToRetry=contextDependent` とし、具体的な復帰判断は command failure payload の `retryDisposition`、`diagnosis.reason`、`diagnosis.primaryDiagnostic` を優先する。代表的な startup 系 code は `DAEMON_STARTUP_BLOCKED`、`DAEMON_START_PROCESS_EXITED`、`DAEMON_ENDPOINT_NOT_REGISTERED`、`EDITOR_SAFE_MODE`、`EDITOR_COMPILE_ERRORS`、`PACKAGE_RESOLUTION_FAILED`、`UCLI_PLUGIN_DEPENDENCY_MISSING`、`UCLI_PLUGIN_COMPILE_FAILED`、`PRECOMPILED_ASSEMBLY_CONFLICT` である。
-
-```bash
-ucli errors describe IPC_TIMEOUT
-ucli errors describe SOME_FUTURE_CODE
-ucli errors describe SOME_FUTURE_CODE --requireKnown
-```
-
-```json
-{
-  "protocolVersion": 1,
-  "command": "errors.describe",
-  "status": "ok",
-  "exitCode": 0,
-  "message": "Error code description returned.",
-  "payload": {
-    "code": "IPC_TIMEOUT",
-    "known": true,
-    "category": "transport",
-    "summary": "The command timeout budget was exhausted.",
-    "meaning": "The CLI did not receive a completed response before the timeout budget expired.",
-    "appliesTo": ["daemon.start", "plan", "call", "resolve", "query", "refresh", "test.run"],
-    "possiblePhases": ["readinessWait", "ipcDispatch", "unityExecution"],
-    "executionSemantics": {
-      "impliesNotApplied": false,
-      "mayBeIndeterminate": true,
-      "safeToRetry": "contextDependent"
-    },
-    "inspect": [
-      "status",
-      "payload.opResults",
-      "payload.opResults[].applied",
-      "payload.opResults[].changed",
-      "payload.opResults[].touched",
-      "payload.readPostcondition",
-      "ucli logs daemon read --level error",
-      "ucli logs unity read --level error"
-    ],
-    "nextActions": [
-      {
-        "when": "executionState is indeterminate or payload evidence is incomplete",
-        "action": "Do not blindly retry. Inspect returned operation evidence and logs first."
-      }
-    ],
-    "relatedCodes": ["EDITOR_COMPILING", "EDITOR_DOMAIN_RELOADING", "EDITOR_BUSY"]
-  },
-  "errors": []
-}
-```
-
-未知 code の成功レスポンスは次の意味を持つ。
-
-```json
-{
-  "code": "SOME_FUTURE_CODE",
-  "known": false,
-  "category": "unknown",
-  "summary": "This code is not known to this uCLI client.",
-  "executionSemantics": {
-    "impliesNotApplied": null,
-    "mayBeIndeterminate": true,
-    "safeToRetry": "unknown"
-  },
-  "nextActions": [
-    {
-      "action": "Treat as generic failure. Inspect the full result and update uCLI if this code came from a newer server."
-    }
-  ]
-}
-```
-
-### P1: `errors explain`
-`ucli errors explain --from <file>` は後続仕様とする。これは台帳の静的説明ではなく、実際の失敗 JSON を読んで `errors[].code`、`payload.opResults`、`payload.readPostcondition`、診断情報から次に確認すべき対象を返す。
-
-```bash
-ucli call < request.json > result.json
-ucli errors explain --from result.json
-ucli errors explain < result.json
-```
+`describe` は静的な code 意味論だけを返す。run 固有の結論、実際のログ抜粋、source code の中身、pass へ格上げする条件は返さない。未知 code は既定で成功し、`known=false` と generic fallback descriptor を返す。
 
 ## 実行系コマンド共通規則
 
 ### 出力契約の参照先
 - 公開 CLI 出力の種別、`CommandResult`、内部 IPC との関係は [uCLI.md](uCLI.md) を正本とする。
 - 共通フィールドの shape は [uCLI-property-reference.md](uCLI-property-reference.md) を参照する。
+- command-specific payload schema は top-level `command` で決まる。JSON Schema は構造検証だけを担い、`payload.verdict` の再計算、`claims[].verifierRef`、`primaryClaims[]`、`evidenceRef` / `reportRef` の解決などの保証整合性は semantic invariant validator と Golden tests で検証する。
 
 ### `--failFast`
 - `--failFast` は CLI option のみであり、JSON request や `.ucli/config.json` には入れない。
@@ -511,7 +583,7 @@ CLI は JSON request を読まず、selector flags から固定の `ucli.resolve
 - `--failFast` は Unity fallback 時だけ適用する。readIndex hit では Unity readiness wait を行わない。
 
 ### `resolve` のレスポンス契約
-- 成功時 payload は `requestId`、`opResults`、`readIndex` を返す。
+- 成功時 payload は `project`、`requestId`、`opResults`、`readIndex` を返す。
 - `opResults[0].opId` は `resolve`、`op` は `ucli.resolve`、`phase` は `plan`、`applied=false`、`changed=false` とする。
 - 解決結果は `opResults[0].result.globalObjectId` に置く。
 - readIndex 完結時は `payload.readIndex.source=index`、`used=true` を返す。
@@ -553,14 +625,14 @@ ucli resolve --projectPath ./UnityProject --prefab Assets/Prefabs/Card.prefab --
 - `scene tree` の source 優先順位は request-local temporary scene、loaded scene、persisted preview scene、readIndex の順とする。asset path を持たない完全未保存 scene は `--path` 契約の対象外とする。
 - `--fullDepth` と `--depth` は同時指定できない。`--depth` は `0` 以上とする。
 - `--all` は `--limit` / `--after` と同時指定できない。
-- bounded window は command/query layer で適用し、primitive operation 自体は limit / cursor を持たない。
+- bounded window は command/query layer と primitive operation の両方で適用する。raw `kind:"op"` の `ucli.assets.find` と `ucli.scene.tree` も `limit` と `cursor` を受け付け、既定 `limit=100`、最大 `10000` とする。明示 opt-in なしに全件を stdout payload へ返してはならない。
 
 ### `query` のレスポンス契約
-- 成功時 payload は `requestId`、`opResults`、`readIndex` を返す。
+- 成功時 payload は `project`、`requestId`、`opResults`、`readIndex` を返す。
 - `command` はサブコマンドごとに `query.assets.find`、`query.scene.tree`、`query.go.describe`、`query.comp.schema`、`query.asset.schema` のいずれかを返す。
 - `assets find` の結果は `opResults[0].result.matches[]` と `opResults[0].result.window` に置く。
 - `scene tree` の結果は `opResults[0].result.path`、`opResults[0].result.roots[]`、`opResults[0].result.sourceState`、`opResults[0].result.window` に置く。`sourceState.kind` は `temporaryScene`、`loadedScene`、`persistedPreview`、`readIndex` のいずれかで、`sourceState.isDirty` は読み取り時点の dirty state を示す。
-- `window` は `limit`、`after`、`nextCursor`、`isComplete`、`totalCount` を返す。
+- `window` は `limit`、`cursor`、`nextCursor`、`isComplete`、`totalCount` を返す。`after` は CLI option 名だけで使い、JSON result field には出さない。
 - readIndex 完結時は `payload.readIndex.source=index`、`used=true` を返す。Unity fallback または Unity 専用 query では `source=unity`、`used=false` を返す。
 
 ### `query` 実行例
@@ -611,7 +683,7 @@ CLI は JSON リクエストを redirected `stdin` から読み、static preflig
 
 ### `plan` のレスポンス契約
 - 出力は共通の `CommandResult` エンベロープを返す。
-- 成功時 payload は `requestId`、`opResults`、`readIndex`、`planToken` を返す。
+- 成功時 payload は `project`、`requestId`、`opResults`、`readIndex`、`planToken` を返す。
 - request parse / project 解決より前で失敗した場合は空 payload を返す。
 - preflight 以降で失敗した場合は `payload.requestId` と `payload.readIndex` を返し、`payload.opResults` は `[]` または Unity 応答の部分結果を返す。
 - 失敗時は `planToken` field 自体を省略する。
@@ -676,8 +748,8 @@ ucli plan --projectPath ./UnityProject --mode daemon --allowPlayMode < playmode-
 
 ### `call` のレスポンス契約
 - 出力は共通の `CommandResult` エンベロープを返す。
-- 成功時 payload は `requestId`、`opResults`、必要時のみ `plan` を返す。
-- `payload.plan` は `requestId`、`opResults`、必要時のみ `planToken` を返す。
+- 成功時 payload は `project`、`requestId`、`opResults`、必要時のみ `readPostcondition`、必要時のみ `plan` を返す。
+- `payload.plan` は `project`、`requestId`、`opResults`、必要時のみ `planToken` を返す。
 - `payload.readIndex` は返さない。
 - Scene context の Play Mode 変更成功時、Prefab apply / revert を含まない場合の `opResults[].touched` は空配列になり、`readPostcondition` は返さない。`applyPrefabOverrides` で Prefab asset へ反映した場合は、その Prefab asset を `touched` に返し、必要な `readPostcondition` を返す。`revertPrefabOverrides` は Scene live object だけを戻すため、`touched` は空配列、`readPostcondition` は返さない。Prefab / asset / project context の保存を伴う Play Mode 変更は、通常の永続化変更と同じく保存した永続化単位を `touched` に返し、必要な `readPostcondition` を返す。
 - request parse / project 解決より前で失敗した場合は空 payload を返す。
@@ -741,6 +813,7 @@ CLI は内部で固定の標準 `execute` リクエストを組み立て、Unity
 
 ### `refresh` のレスポンス契約
 - 出力は共通の `CommandResult` エンベロープを返す。
+- 成功時 payload は `project`、`requestId`、`opResults`、必要時のみ `readPostcondition` を返す。
 - `planToken` は返さない。
 - `payload` のフィールド定義は [uCLI-property-reference.md](uCLI-property-reference.md) を参照する。
 
