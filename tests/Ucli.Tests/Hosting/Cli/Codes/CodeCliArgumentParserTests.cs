@@ -10,6 +10,8 @@ public sealed class CodeCliArgumentParserTests
     [InlineData("SOME.FUTURE_CODE", null, "SOME.FUTURE_CODE")]
     [InlineData("A1_B2", null, "A1_B2")]
     [InlineData("error:IPC_TIMEOUT", CodeCatalogKindValues.Error, "IPC_TIMEOUT")]
+    [InlineData("future-kind:SOME_FUTURE_CODE", "future-kind", "SOME_FUTURE_CODE")]
+    [InlineData("unknown:IPC_TIMEOUT", CodeCatalogKindValues.Unknown, "IPC_TIMEOUT")]
     [Trait("Size", "Small")]
     public void TryParse_WithValidReference_ReturnsParsedReference (
         string value,
@@ -44,7 +46,8 @@ public sealed class CodeCliArgumentParserTests
         "not a code",
         "lowercase_code",
         "Code:IPC_TIMEOUT",
-        "unknown:IPC_TIMEOUT",
+        "kind with space:IPC_TIMEOUT",
+        "-kind:IPC_TIMEOUT",
         "error:",
         ":IPC_TIMEOUT",
         "error:IPC:TIMEOUT",

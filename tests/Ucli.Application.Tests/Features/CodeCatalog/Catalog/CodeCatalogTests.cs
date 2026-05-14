@@ -227,6 +227,24 @@ public sealed class CodeCatalogTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Describe_WithKnownCodeAndFutureExpectedKind_ReturnsInvalidArgument ()
+    {
+        var service = new CodeCatalogService(CreateCatalog());
+
+        var result = service.Describe(
+            new CodeCatalogCodeReference(IpcTransportErrorCodes.IpcTimeout.Value, "future-kind"),
+            requireKnown: false);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.Known);
+        Assert.Null(result.Descriptor);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.Error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Describe_WithUnknownCodeAndExpectedKind_ReturnsUnknownFallback ()
     {
         var service = new CodeCatalogService(CreateCatalog());
@@ -243,6 +261,24 @@ public sealed class CodeCatalogTests
         Assert.Equal(CodeCatalogKindValues.Unknown, result.Descriptor.Kind);
         Assert.Equal(CodeCatalogKindValues.Unknown, result.Descriptor.Category);
         Assert.Empty(result.Descriptor.AppearsIn);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Describe_WithUnknownCodeAndFutureExpectedKind_ReturnsUnknownFallback ()
+    {
+        var service = new CodeCatalogService(CreateCatalog());
+        var futureCode = "SOME_FUTURE_CODE";
+
+        var result = service.Describe(
+            new CodeCatalogCodeReference(futureCode, "future-kind"),
+            requireKnown: false);
+
+        Assert.True(result.IsSuccess);
+        Assert.False(result.Known);
+        Assert.NotNull(result.Descriptor);
+        Assert.Equal(futureCode, result.Descriptor!.Code);
+        Assert.Equal(CodeCatalogKindValues.Unknown, result.Descriptor.Kind);
     }
 
     [Fact]

@@ -376,6 +376,29 @@ public sealed class CodesCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task CodesDescribe_WithUnknownFutureKindQualifiedCode_ReturnsFallbackSuccess ()
+    {
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Codes,
+            UcliCommandNames.DescribeSubcommand,
+            "future-kind:SOME_FUTURE_CODE");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.CodesDescribe,
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", static payload => payload
+                .HasString("code", "SOME_FUTURE_CODE")
+                .HasBoolean("known", false)
+                .HasString("kind", CodeCatalogKindValues.Unknown));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task CodesDescribe_WithUnknownDotSegmentCode_ReturnsFallbackSuccess ()
     {
         var result = await CliProcessRunner.RunCommandAsync(
@@ -405,6 +428,30 @@ public sealed class CodesCliOutputContractTests
             UcliCommandNames.Codes,
             UcliCommandNames.DescribeSubcommand,
             "SOME_FUTURE_CODE",
+            "--requireKnown");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.CodesDescribe,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        Assert.Contains(
+            "not known",
+            outputJson.RootElement.GetProperty("message").GetString(),
+            StringComparison.Ordinal);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task CodesDescribe_WithUnknownFutureKindQualifiedCodeAndRequireKnown_ReturnsInvalidArgument ()
+    {
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Codes,
+            UcliCommandNames.DescribeSubcommand,
+            "future-kind:SOME_FUTURE_CODE",
             "--requireKnown");
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
