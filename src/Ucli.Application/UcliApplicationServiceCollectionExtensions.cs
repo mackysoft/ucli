@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
@@ -18,7 +19,6 @@ using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Stop;
-using MackySoft.Ucli.Application.Features.ErrorCatalog.Catalog;
 using MackySoft.Ucli.Application.Features.Init.UseCases.Init;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
@@ -63,7 +63,7 @@ public static class UcliApplicationServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddUcliApplicationSharedServices();
-        services.AddUcliApplicationErrorCatalogServices();
+        services.AddUcliApplicationCodeCatalogServices();
         services.AddUcliApplicationRequestServices();
         services.AddUcliApplicationOperationCatalogServices();
         services.AddUcliApplicationDaemonServices();
@@ -85,12 +85,12 @@ public static class UcliApplicationServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection AddUcliApplicationErrorCatalogServices (this IServiceCollection services)
+    private static IServiceCollection AddUcliApplicationCodeCatalogServices (this IServiceCollection services)
     {
-        services.AddSingleton<IErrorCodeCatalogContributor, ContractsErrorCodeCatalogContributor>();
-        services.AddSingleton<IErrorCodeCatalogContributor, ApplicationErrorCodeCatalogContributor>();
-        services.AddSingleton<IErrorCodeCatalog, ErrorCodeCatalog>();
-        services.AddSingleton<IErrorCodeCatalogService, ErrorCodeCatalogService>();
+        services.AddSingleton<ICodeCatalogContributor, ContractsCodeCatalogContributor>();
+        services.AddSingleton<ICodeCatalogContributor, ApplicationCodeCatalogContributor>();
+        services.AddSingleton<ICodeCatalog, CodeCatalog>();
+        services.AddSingleton<ICodeCatalogService, CodeCatalogService>();
         return services;
     }
 
