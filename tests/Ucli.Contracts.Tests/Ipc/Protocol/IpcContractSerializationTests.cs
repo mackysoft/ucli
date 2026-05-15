@@ -766,9 +766,11 @@ public sealed class IpcContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void UcliCommandIds_ExposeErrorsCommandLiteral ()
+    public void UcliCommandIds_ExposeCodesCommandLiterals ()
     {
-        Assert.Equal("errors", UcliCommandIds.Errors.Name);
+        Assert.Equal("codes", UcliCommandIds.Codes.Name);
+        Assert.Equal("codes.list", UcliCommandIds.CodesList.Name);
+        Assert.Equal("codes.describe", UcliCommandIds.CodesDescribe.Name);
     }
 
     [Fact]

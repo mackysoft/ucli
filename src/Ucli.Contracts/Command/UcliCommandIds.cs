@@ -45,14 +45,14 @@ public static class UcliCommandIds
     /// <summary> Gets command identifier for <c>logs.unity.clear</c>. </summary>
     public static UcliCommand LogsUnityClear { get; } = new("logs.unity.clear");
 
-    /// <summary> Gets command identifier for <c>errors</c>. </summary>
-    public static UcliCommand Errors { get; } = new("errors");
+    /// <summary> Gets command identifier for <c>codes</c>. </summary>
+    public static UcliCommand Codes { get; } = new("codes");
 
-    /// <summary> Gets command identifier for <c>errors.list</c>. </summary>
-    public static UcliCommand ErrorsList { get; } = new("errors.list");
+    /// <summary> Gets command identifier for <c>codes.list</c>. </summary>
+    public static UcliCommand CodesList { get; } = new("codes.list");
 
-    /// <summary> Gets command identifier for <c>errors.describe</c>. </summary>
-    public static UcliCommand ErrorsDescribe { get; } = new("errors.describe");
+    /// <summary> Gets command identifier for <c>codes.describe</c>. </summary>
+    public static UcliCommand CodesDescribe { get; } = new("codes.describe");
 
     /// <summary> Gets command identifier for <c>test</c>. </summary>
     public static UcliCommand Test { get; } = new("test");

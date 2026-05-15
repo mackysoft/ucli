@@ -1,0 +1,315 @@
+{
+  "protocolVersion": 1,
+  "command": "codes.list",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "Code catalog returned.",
+  "payload": {
+    "catalogVersion": 1,
+    "source": "bundled",
+    "kinds": [
+      "error",
+      "diagnostic",
+      "reason",
+      "claim",
+      "risk"
+    ],
+    "codes": [
+      {
+        "code": "CANCELED",
+        "kind": "error",
+        "category": "execution",
+        "summary": "Command execution was canceled."
+      },
+      {
+        "code": "COMMAND_NOT_IMPLEMENTED",
+        "kind": "error",
+        "category": "command",
+        "summary": "The selected command is recognized but not implemented."
+      },
+      {
+        "code": "DAEMON_EDITOR_MODE_MISMATCH",
+        "kind": "error",
+        "category": "daemon",
+        "summary": "The requested Editor mode conflicts with an existing daemon session."
+      },
+      {
+        "code": "DAEMON_ENDPOINT_NOT_REGISTERED",
+        "kind": "error",
+        "category": "daemon",
+        "summary": "Daemon endpoint was not registered before the startup timeout."
+      },
+      {
+        "code": "DAEMON_NOT_RUNNING",
+        "kind": "error",
+        "category": "daemon",
+        "summary": "Daemon mode was requested but no reachable daemon is running."
+      },
+      {
+        "code": "DAEMON_RUNNING_ONESHOT_FORBIDDEN",
+        "kind": "error",
+        "category": "daemon",
+        "summary": "Oneshot mode was requested while a daemon is reachable."
+      },
+      {
+        "code": "DAEMON_STARTUP_BLOCKED",
+        "kind": "error",
+        "category": "daemon",
+        "summary": "Unity daemon startup was blocked by a known Unity startup condition."
+      },
+      {
+        "code": "DAEMON_START_PROCESS_EXITED",
+        "kind": "error",
+        "category": "daemon",
+        "summary": "Unity exited before daemon startup completed."
+      },
+      {
+        "code": "EDITOR_BUSY",
+        "kind": "error",
+        "category": "lifecycle",
+        "summary": "Unity Editor is busy with internal work."
+      },
+      {
+        "code": "EDITOR_COMPILE_FAILED",
+        "kind": "error",
+        "category": "lifecycle",
+        "summary": "Unity script compilation failed."
+      },
+      {
+        "code": "EDITOR_COMPILING",
+        "kind": "error",
+        "category": "lifecycle",
+        "summary": "Unity Editor is compiling scripts."
+      },
+      {
+        "code": "EDITOR_DOMAIN_RELOADING",
+        "kind": "error",
+        "category": "lifecycle",
+        "summary": "Unity Editor is reloading the AppDomain."
+      },
+      {
+        "code": "EDITOR_MODAL_BLOCKED",
+        "kind": "error",
+        "category": "lifecycle",
+        "summary": "A modal dialog blocks Unity Editor execution."
+      },
+      {
+        "code": "EDITOR_PLAYMODE",
+        "kind": "error",
+        "category": "lifecycle",
+        "summary": "Unity Editor is in Play Mode."
+      },
+      {
+        "code": "EDITOR_RECOVERING",
+        "kind": "error",
+        "category": "lifecycle",
+        "summary": "Unity Editor is recovering its IPC session."
+      },
+      {
+        "code": "EDITOR_REIMPORTING",
+        "kind": "error",
+        "category": "lifecycle",
+        "summary": "Unity Editor is refreshing or reimporting assets."
+      },
+      {
+        "code": "EDITOR_SAFE_MODE",
+        "kind": "error",
+        "category": "lifecycle",
+        "summary": "Unity Editor is in Safe Mode."
+      },
+      {
+        "code": "EDITOR_SHUTTING_DOWN",
+        "kind": "error",
+        "category": "lifecycle",
+        "summary": "Unity Editor shutdown is in progress."
+      },
+      {
+        "code": "EDITOR_STARTING",
+        "kind": "error",
+        "category": "lifecycle",
+        "summary": "Unity Editor startup is still in progress."
+      },
+      {
+        "code": "EDITOR_UNAVAILABLE",
+        "kind": "error",
+        "category": "lifecycle",
+        "summary": "Unity Editor lifecycle state is unavailable."
+      },
+      {
+        "code": "EDIT_STEP_INVALID",
+        "kind": "error",
+        "category": "requestValidation",
+        "summary": "An edit step violates request DSL constraints."
+      },
+      {
+        "code": "INTERNAL_ERROR",
+        "kind": "error",
+        "category": "internal",
+        "summary": "An unexpected internal failure occurred."
+      },
+      {
+        "code": "INVALID_ARGUMENT",
+        "kind": "error",
+        "category": "input",
+        "summary": "The command or request arguments are invalid."
+      },
+      {
+        "code": "IPC_FRAME_TOO_LARGE",
+        "kind": "error",
+        "category": "ipc",
+        "summary": "The IPC frame exceeds the configured size limit."
+      },
+      {
+        "code": "IPC_METHOD_NOT_SUPPORTED",
+        "kind": "error",
+        "category": "ipc",
+        "summary": "The requested IPC method is not supported."
+      },
+      {
+        "code": "IPC_TIMEOUT",
+        "kind": "error",
+        "category": "transport",
+        "summary": "The command timeout budget was exhausted."
+      },
+      {
+        "code": "NOT_INITIALIZED",
+        "kind": "error",
+        "category": "workspace",
+        "summary": "Required uCLI workspace initialization has not been completed."
+      },
+      {
+        "code": "OPERATION_ARGS_INVALID",
+        "kind": "error",
+        "category": "requestValidation",
+        "summary": "Operation arguments violate the registered schema."
+      },
+      {
+        "code": "OPERATION_NAME_REQUIRED",
+        "kind": "error",
+        "category": "requestValidation",
+        "summary": "Operation name is missing."
+      },
+      {
+        "code": "OPERATION_NOT_FOUND",
+        "kind": "error",
+        "category": "requestValidation",
+        "summary": "Operation name is not registered."
+      },
+      {
+        "code": "PROJECT_PATH_INVALID_FORMAT",
+        "kind": "error",
+        "category": "projectContext",
+        "summary": "The project path cannot be normalized."
+      },
+      {
+        "code": "PROJECT_PATH_NOT_FOUND",
+        "kind": "error",
+        "category": "projectContext",
+        "summary": "The project path does not exist."
+      },
+      {
+        "code": "PROTOCOL_VERSION_MISMATCH",
+        "kind": "error",
+        "category": "ipc",
+        "summary": "The IPC protocol versions are incompatible."
+      },
+      {
+        "code": "READ_INDEX_BOOTSTRAP_FAILED",
+        "kind": "error",
+        "category": "readIndex",
+        "summary": "Read-index bootstrap cannot be completed."
+      },
+      {
+        "code": "READ_INDEX_FORMAT_INVALID",
+        "kind": "error",
+        "category": "readIndex",
+        "summary": "Read-index files are malformed."
+      },
+      {
+        "code": "READ_INDEX_FRESH_REQUIRED",
+        "kind": "error",
+        "category": "readIndex",
+        "summary": "The request requires a fresh read-index."
+      },
+      {
+        "code": "REQUEST_ID_CONFLICT",
+        "kind": "error",
+        "category": "request",
+        "summary": "A request-id was reused with different request content."
+      },
+      {
+        "code": "REQUEST_ID_INVALID",
+        "kind": "error",
+        "category": "requestValidation",
+        "summary": "requestId is not a valid UUID."
+      },
+      {
+        "code": "SESSION_TOKEN_INVALID",
+        "kind": "error",
+        "category": "session",
+        "summary": "The IPC request contained an invalid session token."
+      },
+      {
+        "code": "SESSION_TOKEN_REQUIRED",
+        "kind": "error",
+        "category": "session",
+        "summary": "The IPC request omitted the required session token."
+      },
+      {
+        "code": "STEPS_REQUIRED",
+        "kind": "error",
+        "category": "requestValidation",
+        "summary": "steps is missing or empty."
+      },
+      {
+        "code": "STEP_ID_DUPLICATED",
+        "kind": "error",
+        "category": "requestValidation",
+        "summary": "stepId appears multiple times."
+      },
+      {
+        "code": "STEP_ID_REQUIRED",
+        "kind": "error",
+        "category": "requestValidation",
+        "summary": "stepId is missing."
+      },
+      {
+        "code": "STEP_KIND_INVALID",
+        "kind": "error",
+        "category": "requestValidation",
+        "summary": "step kind is unsupported."
+      },
+      {
+        "code": "STEP_KIND_REQUIRED",
+        "kind": "error",
+        "category": "requestValidation",
+        "summary": "step kind is missing."
+      },
+      {
+        "code": "UNITY_PROJECT_ALREADY_OPEN",
+        "kind": "error",
+        "category": "unityProcess",
+        "summary": "The Unity project is already open or locked by another process."
+      },
+      {
+        "code": "UNITY_PROJECT_LOCK_AMBIGUOUS",
+        "kind": "error",
+        "category": "unityProcess",
+        "summary": "Unity project lock-file ownership could not be determined safely."
+      },
+      {
+        "code": "UNITY_PROJECT_LOCK_CLEANUP_FAILED",
+        "kind": "error",
+        "category": "unityProcess",
+        "summary": "Stale Unity project lock-file cleanup failed."
+      },
+      {
+        "code": "UNITY_PROJECT_MARKER_MISSING",
+        "kind": "error",
+        "category": "projectContext",
+        "summary": "The directory is not recognized as a Unity project."
+      }
+    ]
+  },
+  "errors": []
+}

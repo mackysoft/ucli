@@ -141,9 +141,9 @@ Project context resolution 由来の入力不正は、公開 CLI JSON の envelo
 
 `ucli codes` は、公開 JSON 契約に現れる open code set の静的な意味を機械可読に返す正本台帳である。code value は error、diagnostic、reasonCode、claim、risk の種別を問わず uCLI 全体で一意とする。`kind` は分類と一覧 filter のための metadata であり、code identity ではない。`lifecycleState`、`blockingReason`、`startupBlockingReason`、`retryDisposition`、`diagnosis.reason`、`fallbackReason` のような lowerCamel の分類値は code ではない。v1 では `reason` kind は予約済みであり、標準 payload は `reasonCode` field を emit しない。
 
-- `ucli codes list` は既知 code 一覧を返す
+- `ucli codes list` は現在の client に登録されている既知 code 一覧を返す
 - `ucli codes describe IPC_TIMEOUT` は1つの code の意味、確認対象、既定の再試行分類を返す
-- `ucli codes describe UNITY_COMPILE_NO_ERRORS` は claim code の静的意味と verdict / coverage への影響を返す
+- `claim`、`diagnostic`、`risk` の code は catalog の対象だが、各 code は descriptor が登録された client でだけ既知 code として解決される
 - `ucli codes describe error:IPC_TIMEOUT` は期待 kind の検証付き alias として扱い、code が存在しても kind が一致しない場合は `INVALID_ARGUMENT` を返す
 
 `ucli codes describe <CODE>` は、未知 code を既定では失敗にしない。未知 code は open code set の通常ケースとして `known=false` を返し、呼び出し側は汎用失敗または汎用保証不足として扱う。既知 code だけを許容したい検証用途では `--requireKnown` を指定し、その場合だけ未知 code を `INVALID_ARGUMENT` とする。
@@ -246,7 +246,7 @@ semantic invariant validator tests は少なくとも次を固定する。
 - `evidence[].evidenceRef` と `payload.verifiers[].reportRef` は `payload.reports` の key に解決できる。
 - `payload.reports[ref]` は `kind` と locator（`path` または `uri`）を持ち、digest-only entry を拒否する。
 - `ucli codes list` 内の code value は kind を問わず global unique である。
-- `errors[].code`、`diagnosis.primaryDiagnostic.code`、`opResults[].diagnostics[].code`、`claims[].id`、`residualRisks[].code`、明示的な `reasonCode` field の既知 code は `ucli codes` catalog に解決できる。
+- `ucli codes` catalog は `errors[].code`、`diagnosis.primaryDiagnostic.code`、`opResults[].diagnostics[].code`、`claims[].id`、`residualRisks[].code`、明示的な `reasonCode` field の descriptor を登録できる。client が descriptor を持つ code だけが既知 code として解決される。
 - `ucli codes describe <UNKNOWN_CODE>` は `known=false` として成功し、`--requireKnown` 指定時の unknown code だけを `INVALID_ARGUMENT` とする。
 
 ### 内部 IPC 応答
