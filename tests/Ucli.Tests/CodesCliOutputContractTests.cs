@@ -232,40 +232,6 @@ public sealed class CodesCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task CodesDescribe_WithKnownCode_ReturnsJsonEnvelopeSuccess ()
-    {
-        var result = await CliProcessRunner.RunCommandAsync(
-            UcliCommandNames.Codes,
-            UcliCommandNames.DescribeSubcommand,
-            IpcTransportErrorCodes.IpcTimeout.Value);
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            command: UcliCommandNames.CodesDescribe,
-            status: "ok",
-            exitCode: (int)CliExitCode.Success);
-        CommandResultAssert.HasNoErrors(outputJson.RootElement);
-        var payload = outputJson.RootElement.GetProperty("payload");
-        JsonAssert.For(payload)
-            .HasString("code", IpcTransportErrorCodes.IpcTimeout.Value)
-            .HasBoolean("known", true)
-            .HasString("kind", CodeCatalogKindValues.Error)
-            .HasString("category", "transport")
-            .HasString("summary", "The command timeout budget was exhausted.")
-            .HasProperty("meaning")
-            .HasProperty("appearsIn", static appearsIn => appearsIn
-                .HasArrayLength(1))
-            .HasProperty("appliesTo")
-            .HasProperty("executionSemantics", static semantics => semantics
-                .HasString("safeToRetry", UcliErrorRetryClassValues.ContextDependent))
-            .HasProperty("inspect")
-            .HasProperty("relatedCodes");
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
     public async Task CodesDescribe_WithKnownCode_MatchesGolden ()
     {
         var result = await CliProcessRunner.RunCommandAsync(
