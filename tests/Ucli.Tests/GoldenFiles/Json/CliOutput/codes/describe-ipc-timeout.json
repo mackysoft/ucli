@@ -1,0 +1,60 @@
+{
+  "protocolVersion": 1,
+  "command": "codes.describe",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "Code description returned.",
+  "payload": {
+    "code": "IPC_TIMEOUT",
+    "known": true,
+    "kind": "error",
+    "category": "transport",
+    "summary": "The command timeout budget was exhausted.",
+    "meaning": "The command did not complete before its timeout budget expired. For IPC-backed commands, the CLI may not have received a completed IPC response.",
+    "appearsIn": [
+      "errors[].code"
+    ],
+    "appliesTo": [
+      "status",
+      "validate",
+      "daemon.start",
+      "daemon.stop",
+      "daemon.cleanup",
+      "daemon.status",
+      "daemon.list",
+      "logs.daemon.read",
+      "logs.unity.read",
+      "logs.unity.clear",
+      "test",
+      "test.run",
+      "plan",
+      "call",
+      "resolve",
+      "query",
+      "refresh",
+      "ops"
+    ],
+    "executionSemantics": {
+      "impliesNotApplied": false,
+      "mayBeIndeterminate": true,
+      "safeToRetry": "contextDependent"
+    },
+    "inspect": [
+      "status",
+      "payload.opResults",
+      "payload.opResults[].applied",
+      "payload.opResults[].changed",
+      "payload.opResults[].touched",
+      "payload.readPostcondition",
+      "payload.diagnosis",
+      "ucli logs daemon read --level error",
+      "ucli logs unity read --level error"
+    ],
+    "relatedCodes": [
+      "EDITOR_COMPILING",
+      "EDITOR_DOMAIN_RELOADING",
+      "EDITOR_BUSY"
+    ]
+  },
+  "errors": []
+}

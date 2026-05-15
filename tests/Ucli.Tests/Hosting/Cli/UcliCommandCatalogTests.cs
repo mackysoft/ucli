@@ -32,8 +32,8 @@ public sealed class UcliCommandCatalogTests
     [InlineData(UcliCommandNames.Logs, UcliCommandNames.UnitySubcommand, UcliCommandNames.ClearSubcommand, UcliCommandNames.LogsUnityClear)]
     [InlineData(UcliCommandNames.Ops, UcliCommandNames.ListSubcommand, null, UcliCommandNames.OpsList)]
     [InlineData(UcliCommandNames.Ops, UcliCommandNames.DescribeSubcommand, null, UcliCommandNames.OpsDescribe)]
-    [InlineData(UcliCommandNames.Errors, UcliCommandNames.ListSubcommand, null, UcliCommandNames.ErrorsList)]
-    [InlineData(UcliCommandNames.Errors, UcliCommandNames.DescribeSubcommand, null, UcliCommandNames.ErrorsDescribe)]
+    [InlineData(UcliCommandNames.Codes, UcliCommandNames.ListSubcommand, null, UcliCommandNames.CodesList)]
+    [InlineData(UcliCommandNames.Codes, UcliCommandNames.DescribeSubcommand, null, UcliCommandNames.CodesDescribe)]
     [InlineData(UcliCommandNames.Skills, UcliCommandNames.ListSubcommand, null, UcliCommandNames.SkillsList)]
     [InlineData(UcliCommandNames.Skills, UcliCommandNames.ExportSubcommand, null, UcliCommandNames.SkillsExport)]
     [InlineData(UcliCommandNames.Skills, UcliCommandNames.InstallSubcommand, null, UcliCommandNames.SkillsInstall)]
@@ -75,7 +75,7 @@ public sealed class UcliCommandCatalogTests
     [InlineData(UcliCommandNames.Daemon)]
     [InlineData(UcliCommandNames.Logs)]
     [InlineData(UcliCommandNames.Ops)]
-    [InlineData(UcliCommandNames.Errors)]
+    [InlineData(UcliCommandNames.Codes)]
     [InlineData(UcliCommandNames.Skills)]
     [InlineData(UcliCommandNames.Test)]
     public void IsRegisteredRootCommand_WhenKnownCommandSpecified_ReturnsTrue (string commandName)
@@ -88,6 +88,7 @@ public sealed class UcliCommandCatalogTests
     [Theory]
     [Trait("Size", "Small")]
     [InlineData("unknown")]
+    [InlineData("errors")]
     [InlineData("")]
     [InlineData(" ")]
     public void IsRegisteredRootCommand_WhenUnknownCommandSpecified_ReturnsFalse (string? commandName)
