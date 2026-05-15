@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 
 namespace MackySoft.Ucli.Tests.Hosting.Cli.Requests.Query;
@@ -80,7 +81,7 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
         Assert.Equal("Assets/UI", operation.Filter.PathPrefix);
         Assert.Equal("Button", operation.Filter.NameContains);
         Assert.False(operation.WindowOptions.All);
-        Assert.Equal(QueryWindowOptionsFactory.DefaultLimit, operation.WindowOptions.Limit);
+        Assert.Equal(BoundedWindowConstants.DefaultLimit, operation.WindowOptions.Limit);
         Assert.Null(operation.WindowOptions.After);
         Assert.Equal(0, operation.WindowOptions.Offset);
     }
@@ -154,7 +155,7 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
     [Trait("Size", "Small")]
     public void Create_WhenAfterCursorIsValid_ReturnsDecodedOffset ()
     {
-        var cursor = QueryWindowCursorCodec.Encode(123);
+        var cursor = BoundedWindowCursorCodec.Encode(123);
 
         var result = QueryAssetsFindOperationRequestFactory.Create(
             commandName: "query assets find",
@@ -176,7 +177,7 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(0)]
-    [InlineData(QueryWindowOptionsFactory.MaxLimit + 1)]
+    [InlineData(BoundedWindowConstants.MaxLimit + 1)]
     public void Create_WhenLimitIsOutOfRange_ReturnsWindowingError (int limit)
     {
         var result = QueryAssetsFindOperationRequestFactory.Create(
@@ -203,7 +204,7 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
     public void Create_WhenAfterCursorIsInvalid_ReturnsWindowingError (string cursorCase)
     {
         var after = cursorCase == "outer-whitespace"
-            ? " " + QueryWindowCursorCodec.Encode(1)
+            ? " " + BoundedWindowCursorCodec.Encode(1)
             : cursorCase;
 
         var result = QueryAssetsFindOperationRequestFactory.Create(
@@ -236,7 +237,7 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
             nameContains: null,
             all: true,
             limit: null,
-            after: QueryWindowCursorCodec.Encode(1));
+            after: BoundedWindowCursorCodec.Encode(1));
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);

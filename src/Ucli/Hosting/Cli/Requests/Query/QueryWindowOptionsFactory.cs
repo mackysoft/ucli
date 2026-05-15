@@ -7,12 +7,6 @@ namespace MackySoft.Ucli.Hosting.Cli.Requests;
 /// <summary> Creates normalized query result windowing options from CLI values. </summary>
 internal static class QueryWindowOptionsFactory
 {
-    /// <summary> Gets the default bounded query result limit. </summary>
-    public const int DefaultLimit = BoundedWindowConstants.DefaultLimit;
-
-    /// <summary> Gets the maximum bounded query result limit. </summary>
-    public const int MaxLimit = BoundedWindowConstants.MaxLimit;
-
     /// <summary> Attempts to create normalized window options. </summary>
     public static QueryWindowOptionsCreationResult Create (
         bool all,
