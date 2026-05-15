@@ -154,7 +154,7 @@ internal sealed class QueryService : IQueryService
         }
 
         var output = readResult.Output!;
-        var windowedEntries = BoundedWindowApplicator.Apply(output.Entries, CreateBoundedWindowOptions(operation.WindowOptions));
+        var windowedEntries = BoundedWindowApplicator.Apply(output.Entries, operation.WindowOptions);
         return QueryServiceResultFactory.Success(
             operation.CommandName,
             requestId,
@@ -198,7 +198,7 @@ internal sealed class QueryService : IQueryService
         }
 
         var output = readResult.Output!;
-        var windowedRoots = SceneTreeWindowProjector.Apply(output.Roots, CreateBoundedWindowOptions(operation.WindowOptions));
+        var windowedRoots = SceneTreeWindowProjector.Apply(output.Roots, operation.WindowOptions);
         return QueryServiceResultFactory.Success(
             operation.CommandName,
             requestId,
@@ -281,15 +281,6 @@ internal sealed class QueryService : IQueryService
             changed: false,
             touched: [],
             result: result);
-    }
-
-    private static BoundedWindowOptions CreateBoundedWindowOptions (QueryWindowOptions options)
-    {
-        return new BoundedWindowOptions(
-            All: options.All,
-            Limit: options.Limit,
-            Cursor: options.After,
-            Offset: options.Offset);
     }
 
     private static AssetsFindResult CreateAssetsFindResult (BoundedWindowResult<IndexAssetSearchEntryJsonContract> windowedEntries)

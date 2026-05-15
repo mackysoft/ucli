@@ -19,23 +19,6 @@ public sealed record SceneTreeResult
         Window = window;
     }
 
-    public SceneTreeResult (
-        SceneAssetPath path,
-        IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> roots,
-        SceneTreeSourceState sourceState)
-        : this(
-            path,
-            roots,
-            sourceState,
-            new BoundedWindow(
-                limit: null,
-                cursor: null,
-                nextCursor: null,
-                isComplete: true,
-                totalCount: null))
-    {
-    }
-
     [UcliRequired]
     [UcliDescription("Scene asset path that was described.")]
     public SceneAssetPath Path { get; init; }

@@ -149,21 +149,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!BoundedWindowOptionsNormalizer.TryNormalize(
-                all: false,
-                args.Limit,
-                args.Cursor,
-                allConflictMessage: string.Empty,
-                cursorErrorMessage: "cursor is invalid.",
-                out var windowOptions,
-                out var invalidWindowField,
-                out var windowErrorMessage))
-            {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
-                    operation.Id,
-                    "Operation 'args." + ResolveWindowFailureFieldName(invalidWindowField) + "' is invalid. " + windowErrorMessage);
-                return false;
-            }
+            var windowOptions = BoundedWindowOptionsNormalizer.NormalizeValidated(args.Limit, args.Cursor);
 
             validationState = new ValidationState(
                 new AssetsFindSearchEngine.SearchCriteria(
@@ -172,11 +158,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     args.NameContains),
                 windowOptions);
             return true;
-        }
-
-        private static string ResolveWindowFailureFieldName (BoundedWindowInvalidField field)
-        {
-            return field == BoundedWindowInvalidField.Cursor ? "cursor" : "limit";
         }
 
         private readonly struct ValidationState

@@ -51,6 +51,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         Assert.Single(result.Output.Roots);
         Assert.Single(result.Output.Roots[0].Children!);
         Assert.Empty(result.Output.Roots[0].Children![0].Children!);
+        Assert.Equal(IndexSceneTreeLiteNodeChildrenStateValues.NotExpandedByDepth, result.Output.Roots[0].Children![0].ChildrenState);
         Assert.Equal(0, refreshService.CallCount);
         Assert.Equal(1, freshnessEvaluator.ObserveSceneTreeLiteCallCount);
         Assert.Same(project, freshnessEvaluator.LastUnityProject);
@@ -80,7 +81,7 @@ public sealed class SceneTreeLiteAccessServiceTests
             ScenePath: "Assets/Scenes/Main.unity",
             Roots:
             [
-                new IndexSceneTreeLiteNodeJsonContract("DirtyRoot", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+                new IndexSceneTreeLiteNodeJsonContract("DirtyRoot", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>(), IndexSceneTreeLiteNodeChildrenStateValues.Complete),
             ],
             SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.LoadedScene, isDirty: true));
         var dirtyProbeService = new StubSceneTreeLiteDirtySourceProbeService
@@ -275,7 +276,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                     ScenePath: "Assets/Scenes/Main.unity",
                     Roots:
                     [
-                        new IndexSceneTreeLiteNodeJsonContract("FreshRoot", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+                        new IndexSceneTreeLiteNodeJsonContract("FreshRoot", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>(), IndexSceneTreeLiteNodeChildrenStateValues.Complete),
                     ]),
                 "Existing scene-tree-lite index freshness is 'stale'."),
         };
@@ -341,7 +342,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                     ScenePath: "Assets/Scenes/Main.unity",
                     Roots:
                     [
-                        new IndexSceneTreeLiteNodeJsonContract("FreshRoot", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+                        new IndexSceneTreeLiteNodeJsonContract("FreshRoot", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>(), IndexSceneTreeLiteNodeChildrenStateValues.Complete),
                     ]),
                 "Existing scene-tree-lite index generatedAtUtc is older than mutation read postcondition."),
         };
@@ -402,7 +403,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                     ScenePath: "Assets/Scenes/Main.unity",
                     Roots:
                     [
-                        new IndexSceneTreeLiteNodeJsonContract("FreshRoot", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+                        new IndexSceneTreeLiteNodeJsonContract("FreshRoot", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>(), IndexSceneTreeLiteNodeChildrenStateValues.Complete),
                     ]),
                 "Existing scene-tree-lite index generatedAtUtc is older than mutation read postcondition."),
         };
@@ -765,9 +766,12 @@ public sealed class SceneTreeLiteAccessServiceTests
                             new IndexSceneTreeLiteNodeJsonContract(
                                 "Grandchild",
                                 "GlobalObjectId_V1-1-1-3",
-                                Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
-                        ]),
-                ]),
+                                Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
+                                IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                        ],
+                        IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                ],
+                IndexSceneTreeLiteNodeChildrenStateValues.Complete),
         ];
     }
 

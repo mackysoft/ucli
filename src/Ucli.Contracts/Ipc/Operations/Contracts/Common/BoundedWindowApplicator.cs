@@ -1,7 +1,7 @@
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Applies normalized bounded window options to flat result lists. </summary>
-public static class BoundedWindowApplicator
+internal static class BoundedWindowApplicator
 {
     /// <summary> Applies one window to an item list. </summary>
     public static BoundedWindowResult<T> Apply<T> (

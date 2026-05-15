@@ -3,7 +3,7 @@ using MackySoft.Ucli.Contracts.Index;
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Applies bounded preorder traversal windows to scene-tree results. </summary>
-public static class SceneTreeWindowProjector
+internal static class SceneTreeWindowProjector
 {
     /// <summary> Applies a bounded preorder traversal window to scene roots. </summary>
     public static BoundedWindowResult<IndexSceneTreeLiteNodeJsonContract> Apply (

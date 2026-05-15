@@ -17,19 +17,7 @@ public sealed record IndexSceneTreeLiteNodeJsonContract
         Name = name;
         GlobalObjectId = globalObjectId;
         Children = children;
-        ChildrenState = childrenState ?? IndexSceneTreeLiteNodeChildrenStateValues.Unknown;
-    }
-
-    public IndexSceneTreeLiteNodeJsonContract (
-        string? Name,
-        string? GlobalObjectId,
-        IReadOnlyList<IndexSceneTreeLiteNodeJsonContract>? Children)
-        : this(
-            Name,
-            GlobalObjectId,
-            Children,
-            IndexSceneTreeLiteNodeChildrenStateValues.Complete)
-    {
+        ChildrenState = childrenState;
     }
 
     /// <summary> Gets the GameObject name. </summary>

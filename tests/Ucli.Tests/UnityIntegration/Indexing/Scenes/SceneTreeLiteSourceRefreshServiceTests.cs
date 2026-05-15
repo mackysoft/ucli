@@ -162,7 +162,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             ScenePath: scenePath,
             Roots:
             [
-                new IndexSceneTreeLiteNodeJsonContract(rootName, "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+                new IndexSceneTreeLiteNodeJsonContract(rootName, "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>(), IndexSceneTreeLiteNodeChildrenStateValues.Complete),
             ],
             SourceState: sourceState ?? new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false));
     }

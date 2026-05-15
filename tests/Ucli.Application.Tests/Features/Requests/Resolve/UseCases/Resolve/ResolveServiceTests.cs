@@ -21,15 +21,17 @@ public sealed class ResolveServiceTests
                 Roots:
                 [
                     new IndexSceneTreeLiteNodeJsonContract(
-                        Name: "Root",
-                        GlobalObjectId: "GlobalObjectId_V1-1-2-3-4-5-6",
-                        Children:
+                        name: "Root",
+                        globalObjectId: "GlobalObjectId_V1-1-2-3-4-5-6",
+                        children:
                         [
                             new IndexSceneTreeLiteNodeJsonContract(
-                                Name: "Child",
-                                GlobalObjectId: "GlobalObjectId_V1-7-8-9-10-11-12",
-                                Children: []),
-                        ]),
+                                name: "Child",
+                                globalObjectId: "GlobalObjectId_V1-7-8-9-10-11-12",
+                                children: [],
+                                childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                        ],
+                        childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
                 ],
                 SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.ReadIndex, isDirty: false),
                 AccessInfo: new SceneTreeLiteAccessInfo(
@@ -83,25 +85,29 @@ public sealed class ResolveServiceTests
                 Roots:
                 [
                     new IndexSceneTreeLiteNodeJsonContract(
-                        Name: "Root",
-                        GlobalObjectId: "GlobalObjectId_V1-1-2-3-4-5-6",
-                        Children:
+                        name: "Root",
+                        globalObjectId: "GlobalObjectId_V1-1-2-3-4-5-6",
+                        children:
                         [
                             new IndexSceneTreeLiteNodeJsonContract(
-                                Name: "Child",
-                                GlobalObjectId: "GlobalObjectId_V1-7-8-9-10-11-12",
-                                Children: []),
-                        ]),
+                                name: "Child",
+                                globalObjectId: "GlobalObjectId_V1-7-8-9-10-11-12",
+                                children: [],
+                                childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                        ],
+                        childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
                     new IndexSceneTreeLiteNodeJsonContract(
-                        Name: "Root",
-                        GlobalObjectId: "GlobalObjectId_V1-13-14-15-16-17-18",
-                        Children:
+                        name: "Root",
+                        globalObjectId: "GlobalObjectId_V1-13-14-15-16-17-18",
+                        children:
                         [
                             new IndexSceneTreeLiteNodeJsonContract(
-                                Name: "Other",
-                                GlobalObjectId: "GlobalObjectId_V1-19-20-21-22-23-24",
-                                Children: []),
-                        ]),
+                                name: "Other",
+                                globalObjectId: "GlobalObjectId_V1-19-20-21-22-23-24",
+                                children: [],
+                                childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                        ],
+                        childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
                 ],
                 SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.ReadIndex, isDirty: false),
                 AccessInfo: new SceneTreeLiteAccessInfo(
@@ -178,7 +184,7 @@ public sealed class ResolveServiceTests
                 ScenePath: "Assets/Scenes/Main.unity",
                 Roots:
                 [
-                    new IndexSceneTreeLiteNodeJsonContract("Root", "GlobalObjectId_V1-1-2-3-4-5-6", []),
+                    new IndexSceneTreeLiteNodeJsonContract("Root", "GlobalObjectId_V1-1-2-3-4-5-6", [], IndexSceneTreeLiteNodeChildrenStateValues.Complete),
                 ],
                 SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.ReadIndex, isDirty: false),
                 AccessInfo: new SceneTreeLiteAccessInfo(

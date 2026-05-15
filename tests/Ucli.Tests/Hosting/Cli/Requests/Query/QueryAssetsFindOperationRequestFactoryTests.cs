@@ -82,7 +82,7 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
         Assert.Equal("Button", operation.Filter.NameContains);
         Assert.False(operation.WindowOptions.All);
         Assert.Equal(BoundedWindowConstants.DefaultLimit, operation.WindowOptions.Limit);
-        Assert.Null(operation.WindowOptions.After);
+        Assert.Null(operation.WindowOptions.Cursor);
         Assert.Equal(0, operation.WindowOptions.Offset);
     }
 
@@ -126,7 +126,7 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
         var operation = Assert.IsType<QueryAssetsFindOperationRequest>(result.Operation);
         Assert.True(operation.WindowOptions.All);
         Assert.Equal(0, operation.WindowOptions.Limit);
-        Assert.Null(operation.WindowOptions.After);
+        Assert.Null(operation.WindowOptions.Cursor);
         Assert.Equal(0, operation.WindowOptions.Offset);
     }
 
@@ -170,7 +170,7 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
 
         Assert.True(result.IsSuccess);
         var operation = Assert.IsType<QueryAssetsFindOperationRequest>(result.Operation);
-        Assert.Equal(cursor, operation.WindowOptions.After);
+        Assert.Equal(cursor, operation.WindowOptions.Cursor);
         Assert.Equal(123, operation.WindowOptions.Offset);
     }
 

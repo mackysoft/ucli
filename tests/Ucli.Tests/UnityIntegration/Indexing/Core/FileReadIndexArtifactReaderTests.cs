@@ -297,9 +297,10 @@ public sealed class FileReadIndexArtifactReaderTests
             Roots:
             [
                 new IndexSceneTreeLiteNodeJsonContract(
-                    Name: "Root",
-                    GlobalObjectId: "GlobalObjectId_V1-2-3-4-5-6",
-                    Children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+                    name: "Root",
+                    globalObjectId: "GlobalObjectId_V1-2-3-4-5-6",
+                    children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
+                    childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
             ]);
         WriteText(UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(scope.FullPath, fingerprint, scenePath), Write(contract));
 
@@ -330,9 +331,10 @@ public sealed class FileReadIndexArtifactReaderTests
             Roots:
             [
                 new IndexSceneTreeLiteNodeJsonContract(
-                    Name: "Root",
-                    GlobalObjectId: "GlobalObjectId_V1-2-3-4-5-6",
-                    Children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+                    name: "Root",
+                    globalObjectId: "GlobalObjectId_V1-2-3-4-5-6",
+                    children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
+                    childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
             ]);
         WriteText(UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(scope.FullPath, fingerprint, requestedScenePath), Write(contract));
 

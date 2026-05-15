@@ -25,11 +25,9 @@ public sealed class BoundedWindowOptionsNormalizerTests
                 allConflictMessage: "conflict",
                 cursorErrorMessage: "cursor is invalid.",
                 out _,
-                out var invalidField,
                 out var errorMessage);
 
             Assert.False(isValid);
-            Assert.Equal(BoundedWindowInvalidField.Cursor, invalidField);
             Assert.Equal("cursor is invalid.", errorMessage);
         }
     }
@@ -45,11 +43,9 @@ public sealed class BoundedWindowOptionsNormalizerTests
             allConflictMessage: "conflict",
             cursorErrorMessage: "cursor is invalid.",
             out _,
-            out var invalidField,
             out var errorMessage);
 
         Assert.False(isValid);
-        Assert.Equal(BoundedWindowInvalidField.Limit, invalidField);
         Assert.Contains("limit must be between", errorMessage, StringComparison.Ordinal);
     }
 
@@ -64,11 +60,25 @@ public sealed class BoundedWindowOptionsNormalizerTests
             allConflictMessage: "conflict",
             cursorErrorMessage: "cursor is invalid.",
             out _,
-            out var invalidField,
             out var errorMessage);
 
         Assert.False(isValid);
-        Assert.Equal(BoundedWindowInvalidField.All, invalidField);
         Assert.Equal("conflict", errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void NormalizeValidated_WhenInputsAreValid_ReturnsBoundedWindowOptions ()
+    {
+        var cursor = BoundedWindowCursorCodec.Encode(3);
+
+        var options = BoundedWindowOptionsNormalizer.NormalizeValidated(
+            limit: 7,
+            cursor);
+
+        Assert.False(options.All);
+        Assert.Equal(7, options.Limit);
+        Assert.Equal(cursor, options.Cursor);
+        Assert.Equal(3, options.Offset);
     }
 }

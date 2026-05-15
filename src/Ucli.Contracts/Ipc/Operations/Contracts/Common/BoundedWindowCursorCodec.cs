@@ -5,7 +5,7 @@ using MackySoft.Ucli.Contracts.Text;
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Encodes and decodes bounded query window cursors. </summary>
-public static class BoundedWindowCursorCodec
+internal static class BoundedWindowCursorCodec
 {
     private const int MaxEncodedOffsetCursorLength = 14;
 

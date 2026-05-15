@@ -184,7 +184,8 @@ public sealed class FileReadIndexArtifactWriterTests
             new IndexSceneTreeLiteNodeJsonContract(
                 "Root",
                 "GlobalObjectId_V1-2-3-4",
-                Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+                Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
+                IndexSceneTreeLiteNodeChildrenStateValues.Complete),
         ];
 
         await writer.WriteSceneTreeLiteAsync(
@@ -319,7 +320,8 @@ public sealed class FileReadIndexArtifactWriterTests
         return new IndexSceneTreeLiteNodeJsonContract(
             name,
             $"GlobalObjectId_V1-{name}",
-            Array.Empty<IndexSceneTreeLiteNodeJsonContract>());
+            Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
+            IndexSceneTreeLiteNodeChildrenStateValues.Complete);
     }
 
     private static ReadIndexInputHashSnapshot CreateSnapshot ()

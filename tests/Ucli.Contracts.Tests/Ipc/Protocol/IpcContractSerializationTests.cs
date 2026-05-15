@@ -387,15 +387,17 @@ public sealed class IpcContractSerializationTests
             Roots:
             [
                 new IndexSceneTreeLiteNodeJsonContract(
-                    Name: "Root",
-                    GlobalObjectId: "GlobalObjectId_V1-2-3-4-5-6",
-                    Children:
+                    name: "Root",
+                    globalObjectId: "GlobalObjectId_V1-2-3-4-5-6",
+                    children:
                     [
                         new IndexSceneTreeLiteNodeJsonContract(
-                            Name: "Child",
-                            GlobalObjectId: string.Empty,
-                            Children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
-                    ]),
+                            name: "Child",
+                            globalObjectId: string.Empty,
+                            children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
+                            childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                    ],
+                    childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
             ],
             SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.LoadedScene, isDirty: true));
 

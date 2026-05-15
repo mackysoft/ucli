@@ -51,10 +51,10 @@ public sealed class QueryServiceTests
                     OperationId: "assets.find",
                     OperationName: UcliPrimitiveOperationNames.AssetsFind,
                     Filter: new QueryAssetsFindFilter("UnityEngine.Material, UnityEngine.CoreModule", null, null),
-                    WindowOptions: new QueryWindowOptions(
+                    WindowOptions: new BoundedWindowOptions(
                         All: false,
                         Limit: 1,
-                        After: null,
+                        Cursor: null,
                         Offset: 0)),
                 failFast: true),
             CancellationToken.None);
@@ -134,10 +134,10 @@ public sealed class QueryServiceTests
                     OperationId: "assets.find",
                     OperationName: UcliPrimitiveOperationNames.AssetsFind,
                     Filter: new QueryAssetsFindFilter("UnityEngine.Material, UnityEngine.CoreModule", null, null),
-                    WindowOptions: new QueryWindowOptions(
+                    WindowOptions: new BoundedWindowOptions(
                         All: false,
                         Limit: 1,
-                        After: cursor,
+                        Cursor: cursor,
                         Offset: 1)),
                 failFast: true),
             CancellationToken.None);
@@ -165,9 +165,10 @@ public sealed class QueryServiceTests
                         "Root",
                         "GlobalObjectId_V1-1-2-3-4-5-6",
                         [
-                            new IndexSceneTreeLiteNodeJsonContract("First", "GlobalObjectId_V1-1-2-3-4-5-7", []),
-                            new IndexSceneTreeLiteNodeJsonContract("Second", "GlobalObjectId_V1-1-2-3-4-5-8", []),
-                        ]),
+                            new IndexSceneTreeLiteNodeJsonContract("First", "GlobalObjectId_V1-1-2-3-4-5-7", [], IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                            new IndexSceneTreeLiteNodeJsonContract("Second", "GlobalObjectId_V1-1-2-3-4-5-8", [], IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                        ],
+                        IndexSceneTreeLiteNodeChildrenStateValues.Complete),
                 ],
                 SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.ReadIndex, isDirty: false),
                 AccessInfo: new SceneTreeLiteAccessInfo(
@@ -189,10 +190,10 @@ public sealed class QueryServiceTests
                     OperationName: UcliPrimitiveOperationNames.SceneTree,
                     ScenePath: "Assets/Scenes/Main.unity",
                     Depth: 1,
-                    WindowOptions: new QueryWindowOptions(
+                    WindowOptions: new BoundedWindowOptions(
                         All: false,
                         Limit: 2,
-                        After: null,
+                        Cursor: null,
                         Offset: 0)),
                 failFast: true),
             CancellationToken.None);
@@ -231,9 +232,10 @@ public sealed class QueryServiceTests
                         "Root",
                         "GlobalObjectId_V1-1-2-3-4-5-6",
                         [
-                            new IndexSceneTreeLiteNodeJsonContract("First", "GlobalObjectId_V1-1-2-3-4-5-7", []),
-                            new IndexSceneTreeLiteNodeJsonContract("Second", "GlobalObjectId_V1-1-2-3-4-5-8", []),
-                        ]),
+                            new IndexSceneTreeLiteNodeJsonContract("First", "GlobalObjectId_V1-1-2-3-4-5-7", [], IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                            new IndexSceneTreeLiteNodeJsonContract("Second", "GlobalObjectId_V1-1-2-3-4-5-8", [], IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                        ],
+                        IndexSceneTreeLiteNodeChildrenStateValues.Complete),
                 ],
                 SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.ReadIndex, isDirty: false),
                 AccessInfo: new SceneTreeLiteAccessInfo(
@@ -258,10 +260,10 @@ public sealed class QueryServiceTests
                     OperationName: UcliPrimitiveOperationNames.SceneTree,
                     ScenePath: "Assets/Scenes/Main.unity",
                     Depth: 1,
-                    WindowOptions: new QueryWindowOptions(
+                    WindowOptions: new BoundedWindowOptions(
                         All: false,
                         Limit: 1,
-                        After: cursor,
+                        Cursor: cursor,
                         Offset: 1)),
                 failFast: true),
             CancellationToken.None);

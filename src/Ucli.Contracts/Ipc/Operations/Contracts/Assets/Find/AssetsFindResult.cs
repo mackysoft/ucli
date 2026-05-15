@@ -14,18 +14,6 @@ public sealed record AssetsFindResult
         Window = window;
     }
 
-    public AssetsFindResult (IReadOnlyList<AssetsFindMatch> matches)
-        : this(
-            matches,
-            new BoundedWindow(
-                limit: null,
-                cursor: null,
-                nextCursor: null,
-                isComplete: true,
-                totalCount: matches?.Count))
-    {
-    }
-
     [UcliRequired]
     [UcliDescription("Matched assets in ordinal asset path order.")]
     public IReadOnlyList<AssetsFindMatch> Matches { get; init; }

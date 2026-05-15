@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -25,10 +24,6 @@ internal static class QueryWindowOptionsFactory
             return QueryWindowOptionsCreationResult.Failure(ExecutionError.InvalidArgument(errorMessage));
         }
 
-        return QueryWindowOptionsCreationResult.Success(new QueryWindowOptions(
-            All: options.All,
-            Limit: options.Limit,
-            After: options.Cursor,
-            Offset: options.Offset));
+        return QueryWindowOptionsCreationResult.Success(options);
     }
 }

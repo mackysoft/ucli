@@ -193,15 +193,17 @@ public sealed class IndexJsonContractTests
             Roots:
             [
                 new IndexSceneTreeLiteNodeJsonContract(
-                    Name: "Root",
-                    GlobalObjectId: "GlobalObjectId_V1-2-3-4-5-6",
-                    Children:
+                    name: "Root",
+                    globalObjectId: "GlobalObjectId_V1-2-3-4-5-6",
+                    children:
                     [
                         new IndexSceneTreeLiteNodeJsonContract(
-                            Name: "Child",
-                            GlobalObjectId: string.Empty,
-                            Children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
-                    ]),
+                            name: "Child",
+                            globalObjectId: string.Empty,
+                            children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
+                            childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                    ],
+                    childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
             ]);
 
         var json = Write(contract);
@@ -214,7 +216,9 @@ public sealed class IndexJsonContractTests
         Assert.NotNull(deserialized.Roots);
         Assert.Single(deserialized.Roots);
         Assert.Equal("Root", deserialized.Roots[0].Name);
+        Assert.Equal(IndexSceneTreeLiteNodeChildrenStateValues.Complete, deserialized.Roots[0].ChildrenState);
         Assert.Single(deserialized.Roots[0].Children!);
+        Assert.Equal(IndexSceneTreeLiteNodeChildrenStateValues.Complete, deserialized.Roots[0].Children![0].ChildrenState);
     }
 
     [Fact]
@@ -949,13 +953,15 @@ public sealed class IndexJsonContractTests
             Roots:
             [
                 new IndexSceneTreeLiteNodeJsonContract(
-                    Name: "RootZ",
-                    GlobalObjectId: "z",
-                    Children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+                    name: "RootZ",
+                    globalObjectId: "z",
+                    children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
+                    childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
                 new IndexSceneTreeLiteNodeJsonContract(
-                    Name: "RootA",
-                    GlobalObjectId: "a",
-                    Children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+                    name: "RootA",
+                    globalObjectId: "a",
+                    children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
+                    childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
             ]);
         var inputsManifest = new IndexInputsManifestJsonContract(
             SchemaVersion: 1,

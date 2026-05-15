@@ -1,7 +1,7 @@
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Defines shared bounded query window limits. </summary>
-public static class BoundedWindowConstants
+internal static class BoundedWindowConstants
 {
     /// <summary> Gets the default bounded query result limit. </summary>
     public const int DefaultLimit = 100;
