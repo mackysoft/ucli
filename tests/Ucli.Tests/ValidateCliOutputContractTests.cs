@@ -157,7 +157,7 @@ public sealed class ValidateCliOutputContractTests
             .GetString();
         Assert.False(string.IsNullOrWhiteSpace(projectPath));
         Assert.True(Path.IsPathFullyQualified(projectPath));
-        Assert.EndsWith("/UnityProject", projectPath, StringComparison.Ordinal);
+        Assert.Equal("UnityProject", Path.GetFileName(projectPath));
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
                 .HasProperty("project", project => project

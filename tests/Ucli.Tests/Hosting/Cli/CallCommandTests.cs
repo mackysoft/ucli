@@ -189,8 +189,13 @@ public sealed class CallCommandTests
     private static ProjectIdentityInfo CreateProjectIdentity ()
     {
         return new ProjectIdentityInfo(
-            ProjectPath: "/repo/UnityProject",
+            ProjectPath: CreateProjectPath(),
             ProjectFingerprint: "project-fingerprint",
             UnityVersion: "6000.1.4f1");
+    }
+
+    private static string CreateProjectPath ()
+    {
+        return Path.GetFullPath(Path.Combine(Path.GetTempPath(), "ucli-tests", "UnityProject"));
     }
 }
