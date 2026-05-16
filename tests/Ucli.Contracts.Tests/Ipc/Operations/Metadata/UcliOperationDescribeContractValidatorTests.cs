@@ -283,6 +283,132 @@ public sealed class UcliOperationDescribeContractValidatorTests
         Assert.Equal(string.Empty, errorMessage);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(nameof(UcliOperationAssuranceContract.PlanSemantics))]
+    [InlineData(nameof(UcliOperationAssuranceContract.CallSemantics))]
+    [InlineData(nameof(UcliOperationAssuranceContract.TouchedContract))]
+    [InlineData(nameof(UcliOperationAssuranceContract.ReadPostconditionContract))]
+    [InlineData(nameof(UcliOperationAssuranceContract.FailureSemantics))]
+    public void TryValidatePublicRawOpDescribeContract_WhenAssuranceSemanticFieldIsMissing_ReturnsFalse (
+        string fieldName)
+    {
+        var describe = CreateValidDescribeContract();
+        switch (fieldName)
+        {
+            case nameof(UcliOperationAssuranceContract.PlanSemantics):
+                describe.Assurance!.PlanSemantics = null;
+                break;
+            case nameof(UcliOperationAssuranceContract.CallSemantics):
+                describe.Assurance!.CallSemantics = string.Empty;
+                break;
+            case nameof(UcliOperationAssuranceContract.TouchedContract):
+                describe.Assurance!.TouchedContract = " ";
+                break;
+            case nameof(UcliOperationAssuranceContract.ReadPostconditionContract):
+                describe.Assurance!.ReadPostconditionContract = null;
+                break;
+            case nameof(UcliOperationAssuranceContract.FailureSemantics):
+                describe.Assurance!.FailureSemantics = string.Empty;
+                break;
+        }
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Test contract has invalid assurance metadata.", errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpDescribeContract_WhenAssuranceSideEffectIsUnsupported_ReturnsFalse ()
+    {
+        var describe = CreateValidDescribeContract();
+        describe.Assurance!.SideEffects = ["not-supported"];
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Test contract has an unsupported side effect 'not-supported'.", errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpDescribeContract_WhenAssuranceTouchedKindIsUnsupported_ReturnsFalse ()
+    {
+        var describe = CreateValidDescribeContract();
+        describe.Assurance!.TouchedKinds = ["not-supported"];
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Test contract has an unsupported touched kind 'not-supported'.", errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpDescribeContract_WhenAssurancePlanModeIsUnsupported_ReturnsFalse ()
+    {
+        var describe = CreateValidDescribeContract();
+        describe.Assurance!.PlanMode = "not-supported";
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Test contract has invalid assurance metadata.", errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpDescribeContract_WhenQueryAssuranceCanMutate_ReturnsFalse ()
+    {
+        var describe = CreateValidDescribeContract();
+        describe.Assurance!.MayDirty = true;
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
+            describe,
+            operationKind: "query",
+            operationPolicy: "safe",
+            ownerName: "Test contract",
+            out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Test contract has query assurance metadata with mutation or side-effect risk.", errorMessage);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("advanced")]
+    [InlineData("dangerous")]
+    public void TryValidatePublicRawOpDescribeContract_WhenRiskyPolicyHasNoDangerousNotes_ReturnsFalse (
+        string policy)
+    {
+        var describe = CreateValidDescribeContract();
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
+            describe,
+            operationKind: "command",
+            operationPolicy: policy,
+            ownerName: "Test contract",
+            out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Test contract must declare dangerousNotes for advanced or dangerous policy.", errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpDescribeContract_WhenDangerousNoteIsEmpty_ReturnsFalse ()
+    {
+        var describe = CreateValidDescribeContract();
+        describe.Assurance!.DangerousNotes = [" "];
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Test contract has an invalid dangerous note.", errorMessage);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void TryValidatePublicRawOpDescribeContract_WhenCodeContractParameterDescriptionIsMissing_ReturnsFalse ()
@@ -381,11 +507,17 @@ public sealed class UcliOperationDescribeContractValidatorTests
         return UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
             "Opens a Unity scene asset in the editor.",
             new UcliOperationAssuranceContract(
-                Array.Empty<UcliOperationSideEffect>(),
+                sideEffects: Array.Empty<UcliOperationSideEffect>(),
                 mayDirty: false,
                 mayPersist: false,
-                Array.Empty<string>(),
-                UcliOperationPlanMode.ObservesLiveUnity));
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate arguments and observe Unity state without applying mutation.",
+                callSemantics: "Read Unity state without applying mutation.",
+                touchedContract: "Returns no touched resources.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Failure means the observation was not fully produced.",
+                dangerousNotes: Array.Empty<string>()));
     }
 
     private static UcliOperationCodeContract CreateValidCodeContract ()

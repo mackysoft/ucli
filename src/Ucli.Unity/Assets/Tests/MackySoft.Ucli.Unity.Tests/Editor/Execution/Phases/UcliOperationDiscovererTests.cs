@@ -92,12 +92,7 @@ namespace MackySoft.Ucli.Unity.Tests
                             emitted: true,
                             resultType: "DifferentResult",
                             description: "Wrong result contract."),
-                    new UcliOperationAssuranceContract(
-                        Array.Empty<UcliOperationSideEffect>(),
-                        mayDirty: false,
-                        mayPersist: false,
-                        Array.Empty<string>(),
-                        UcliOperationPlanMode.ValidationOnly)));
+                    CreateValidationOnlyAssurance()));
             });
         }
 
@@ -112,12 +107,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     kind: UcliOperationKind.Query,
                     policy: OperationPolicy.Safe,
                     description: "Reserved var property operation.",
-                    assurance: new UcliOperationAssuranceContract(
-                        Array.Empty<UcliOperationSideEffect>(),
-                        mayDirty: false,
-                        mayPersist: false,
-                        Array.Empty<string>(),
-                        UcliOperationPlanMode.ValidationOnly));
+                    assurance: CreateValidationOnlyAssurance());
             });
         }
 
@@ -132,12 +122,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     kind: UcliOperationKind.Query,
                     policy: OperationPolicy.Safe,
                     description: "Reserved alias type operation.",
-                    assurance: new UcliOperationAssuranceContract(
-                        Array.Empty<UcliOperationSideEffect>(),
-                        mayDirty: false,
-                        mayPersist: false,
-                        Array.Empty<string>(),
-                        UcliOperationPlanMode.ValidationOnly));
+                    assurance: CreateValidationOnlyAssurance());
             });
         }
 
@@ -176,12 +161,7 @@ namespace MackySoft.Ucli.Unity.Tests
                                 }),
                         },
                         UcliOperationResultContract.NoResult("This operation does not emit operation-specific result data."),
-                        new UcliOperationAssuranceContract(
-                            Array.Empty<UcliOperationSideEffect>(),
-                            mayDirty: false,
-                            mayPersist: false,
-                            Array.Empty<string>(),
-                            UcliOperationPlanMode.ValidationOnly)));
+                        CreateValidationOnlyAssurance()));
             });
         }
 
@@ -211,12 +191,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 "Defensive copy operation.",
                 new[] { input },
                 UcliOperationResultContract.NoResult("This operation does not emit operation-specific result data."),
-                new UcliOperationAssuranceContract(
-                    Array.Empty<UcliOperationSideEffect>(),
-                    mayDirty: false,
-                    mayPersist: false,
-                    Array.Empty<string>(),
-                    UcliOperationPlanMode.ValidationOnly));
+                CreateValidationOnlyAssurance());
 
             var metadata = UcliOperationMetadata.Create<GenericDiscoverableArgs, UcliNoResult>(
                 operationName: "ucli.tests.describe-defensive-copy",
@@ -598,12 +573,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 kind: UcliOperationKind.Query,
                 policy: OperationPolicy.Safe,
                 description: "Generic operation used to verify custom operation authoring.",
-                assurance: new UcliOperationAssuranceContract(
-                    Array.Empty<UcliOperationSideEffect>(),
-                    mayDirty: false,
-                    mayPersist: false,
-                    Array.Empty<string>(),
-                    UcliOperationPlanMode.ValidationOnly));
+                assurance: CreateValidationOnlyAssurance());
 
             protected override Task<OperationPhaseStepResult> ValidateAsync (
                 NormalizedOperation operation,
@@ -641,12 +611,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 kind: UcliOperationKind.Query,
                 policy: OperationPolicy.Safe,
                 description: "Metadata args mismatch operation.",
-                assurance: new UcliOperationAssuranceContract(
-                    Array.Empty<UcliOperationSideEffect>(),
-                    mayDirty: false,
-                    mayPersist: false,
-                    Array.Empty<string>(),
-                    UcliOperationPlanMode.ValidationOnly));
+                assurance: CreateValidationOnlyAssurance());
 
             protected override Task<OperationPhaseStepResult> ValidateAsync (
                 NormalizedOperation operation,
@@ -684,12 +649,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 kind: UcliOperationKind.Query,
                 policy: OperationPolicy.Safe,
                 description: "Metadata result mismatch operation.",
-                assurance: new UcliOperationAssuranceContract(
-                    Array.Empty<UcliOperationSideEffect>(),
-                    mayDirty: false,
-                    mayPersist: false,
-                    Array.Empty<string>(),
-                    UcliOperationPlanMode.ValidationOnly));
+                assurance: CreateValidationOnlyAssurance());
 
             protected override Task<OperationPhaseStepResult> ValidateAsync (
                 NormalizedOperation operation,
@@ -908,18 +868,29 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
+        private static UcliOperationAssuranceContract CreateValidationOnlyAssurance ()
+        {
+            return new UcliOperationAssuranceContract(
+                sideEffects: Array.Empty<UcliOperationSideEffect>(),
+                mayDirty: false,
+                mayPersist: false,
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanMode.ValidationOnly,
+                planSemantics: "Validate arguments without applying mutation.",
+                callSemantics: "Read Unity state without applying mutation.",
+                touchedContract: "Returns no touched resources.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Failure means the observation was not fully produced.",
+                dangerousNotes: Array.Empty<string>());
+        }
+
         private static UcliOperationDescribeContract CreateDescribeContract (string operationName)
         {
             return new UcliOperationDescribeContract(
                 $"{operationName} test operation.",
                 Array.Empty<UcliOperationInputContract>(),
                 UcliOperationResultContract.NoResult("This test operation does not emit operation-specific result data."),
-                new UcliOperationAssuranceContract(
-                    Array.Empty<UcliOperationSideEffect>(),
-                    mayDirty: false,
-                    mayPersist: false,
-                    Array.Empty<string>(),
-                    UcliOperationPlanMode.ValidationOnly));
+                CreateValidationOnlyAssurance());
         }
     }
 }
