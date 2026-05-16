@@ -28,7 +28,9 @@ public sealed class UnityIpcRequestBuilderTests
     {
         var builder = new UnityIpcRequestBuilder();
 
-        var request = builder.Build(new UnityRequestPayload.Ping("test-client", FailFast: true));
+        var request = builder.Build(new UnityRequestPayload.Ping(
+            "test-client",
+            FailFast: true));
 
         Assert.Equal(IpcMethodNames.Ping, request.Method);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPingRequest payload, out _));

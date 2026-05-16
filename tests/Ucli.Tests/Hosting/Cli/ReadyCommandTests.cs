@@ -74,6 +74,29 @@ public sealed class ReadyCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Ready_WhenTargetIsBlank_ReturnsInvalidArgumentWithoutCallingService ()
+    {
+        var service = new StubReadyService((_, _) => throw new InvalidOperationException("Service should not be called."));
+        var command = new ReadyCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.ReadyAsync(
+            @for: "   ",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
+        Assert.Null(service.CapturedInput);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Ready,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Ready_WhenTargetIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new StubReadyService((_, _) => throw new InvalidOperationException("Service should not be called."));
@@ -118,19 +141,53 @@ public sealed class ReadyCommandTests
         Assert.Equal(verdict, outputJson.RootElement.GetProperty("payload").GetProperty("verdict").GetString());
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Ready_WithAutoOneshotOutput_MatchesGolden ()
+    {
+        var service = new StubReadyService((_, _) => ValueTask.FromResult(ReadyExecutionResult.Success(CreateOutput())));
+        var command = new ReadyCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.ReadyAsync(
+            @for: "execution",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        JsonGoldenFileAssert.Matches(
+            CliOutputGoldenFiles.GetPath("ready", "auto-oneshot-success.json"),
+            standardOutput,
+            CreateReadyGoldenNormalization());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Ready_WithReadIndexOutput_MatchesGolden ()
+    {
+        var service = new StubReadyService((_, _) => ValueTask.FromResult(ReadyExecutionResult.Success(CreateReadIndexOutput())));
+        var command = new ReadyCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.ReadyAsync(
+            @for: "readIndex",
+            readIndexMode: "allowStale",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        JsonGoldenFileAssert.Matches(
+            CliOutputGoldenFiles.GetPath("ready", "read-index-success.json"),
+            standardOutput,
+            CreateReadyGoldenNormalization());
+    }
+
     private static ReadyExecutionOutput CreateOutput (
         string verdict = ReadyVerdictValues.Pass)
     {
-        var project = new ProjectIdentityInfo(
-            ProjectPath: "/repo/UnityProject",
-            ProjectFingerprint: "project-fingerprint",
-            UnityVersion: "6000.1.4f1");
+        var lifecycle = CreateLifecycle();
         var claimStatus = string.Equals(verdict, ReadyVerdictValues.Pass, StringComparison.Ordinal)
             ? ReadyClaimStatusValues.Passed
             : ReadyClaimStatusValues.Failed;
         return new ReadyExecutionOutput(
             Verdict: verdict,
-            Project: project,
+            Project: CreateProject(),
             Verifiers:
             [
                 new ReadyVerifierOutput(
@@ -150,11 +207,16 @@ public sealed class ReadyCommandTests
                     Required: true,
                     VerifierRef: "ready.lifecycle",
                     Statement: "Unity is ready for execution.",
-                    Subject: new Dictionary<string, object?>(StringComparer.Ordinal),
+                    Subject: CreateSubject("execution", "auto", "oneshot", "transientProbe"),
                     Validity: new ReadyClaimValidityOutput(
                         ReadyValidityKindValues.ProbeOnly,
                         GuaranteesReusableSession: false),
-                    Evidence: [],
+                    Evidence:
+                    [
+                        new ReadyEvidenceOutput(
+                            Kind: "lifecycleSnapshot",
+                            Data: lifecycle),
+                    ],
                     ResidualRisks: []),
             ],
             Reports: new Dictionary<string, ReadyReportOutput>(StringComparer.Ordinal),
@@ -163,7 +225,135 @@ public sealed class ReadyCommandTests
             RequestedMode: "auto",
             ResolvedMode: "oneshot",
             SessionKind: "transientProbe",
-            TimeoutMilliseconds: 1234);
+            TimeoutMilliseconds: 10000,
+            Lifecycle: lifecycle,
+            ReadIndex: null);
+    }
+
+    private static ReadyExecutionOutput CreateReadIndexOutput ()
+    {
+        var readIndex = new ReadyReadIndexOutput("allowStale", CreateReadIndexArtifacts());
+        return new ReadyExecutionOutput(
+            Verdict: ReadyVerdictValues.Pass,
+            Project: CreateProject(),
+            Verifiers:
+            [
+                new ReadyVerifierOutput(
+                    Id: "ready.readIndex",
+                    Kind: "ready.readIndex",
+                    Deterministic: false,
+                    Required: true,
+                    PrimaryClaims: [ReadyClaimCodes.UnityReadyReadIndex],
+                    Effects: []),
+            ],
+            Claims:
+            [
+                new ReadyClaimOutput(
+                    Id: ReadyClaimCodes.UnityReadyReadIndex,
+                    Status: ReadyClaimStatusValues.Passed,
+                    Coverage: ReadyCoverageValues.Full,
+                    Required: true,
+                    VerifierRef: "ready.readIndex",
+                    Statement: "Unity is ready for readIndex.",
+                    Subject: CreateSubject("readIndex", "auto", ReadyExecutionModeCodec.NotApplicable, ReadySessionKindValues.ArtifactOnly),
+                    Validity: new ReadyClaimValidityOutput(
+                        ReadyValidityKindValues.ProbeOnly,
+                        GuaranteesReusableSession: false),
+                    Evidence:
+                    [
+                        new ReadyEvidenceOutput(
+                            Kind: "readIndexSummary",
+                            Data: readIndex),
+                    ],
+                    ResidualRisks: []),
+            ],
+            Reports: new Dictionary<string, ReadyReportOutput>(StringComparer.Ordinal),
+            ResidualRisks: [],
+            Target: "readIndex",
+            RequestedMode: "auto",
+            ResolvedMode: ReadyExecutionModeCodec.NotApplicable,
+            SessionKind: ReadySessionKindValues.ArtifactOnly,
+            TimeoutMilliseconds: 10000,
+            Lifecycle: null,
+            ReadIndex: readIndex);
+    }
+
+    private static ProjectIdentityInfo CreateProject ()
+    {
+        return new ProjectIdentityInfo(
+            ProjectPath: "<projectPath>",
+            ProjectFingerprint: "<projectFingerprint>",
+            UnityVersion: "6000.1.4f1");
+    }
+
+    private static JsonGoldenFileNormalization CreateReadyGoldenNormalization ()
+    {
+        return new JsonGoldenFileNormalization()
+            .NormalizeStringPropertyValue("projectPath", "<projectPath>")
+            .NormalizeStringPropertyValue("projectFingerprint", "<projectFingerprint>");
+    }
+
+    private static ReadyLifecycleOutput CreateLifecycle ()
+    {
+        return new ReadyLifecycleOutput(
+            ServerVersion: "0.5.0",
+            UnityVersion: "6000.1.4f1",
+            EditorMode: "batchmode",
+            LifecycleState: "ready",
+            BlockingReason: null,
+            CompileState: "ready",
+            CompileGeneration: "12",
+            DomainReloadGeneration: "7",
+            CanAcceptExecutionRequests: true,
+            ObservedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
+            ActionRequired: null,
+            PrimaryDiagnostic: null);
+    }
+
+    private static Dictionary<string, object?> CreateSubject (
+        string target,
+        string requestedMode,
+        string resolvedMode,
+        string sessionKind)
+    {
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["kind"] = "unityReady",
+            ["target"] = target,
+            ["requestedMode"] = requestedMode,
+            ["resolvedMode"] = resolvedMode,
+            ["sessionKind"] = sessionKind,
+        };
+    }
+
+    private static IReadOnlyList<ReadyReadIndexArtifactOutput> CreateReadIndexArtifacts ()
+    {
+        var generatedAtUtc = DateTimeOffset.Parse("2026-05-17T00:00:00Z");
+        return
+        [
+            new ReadyReadIndexArtifactOutput(
+                Name: "inputs.manifest",
+                Status: ReadyReadIndexArtifactStatusValues.Available,
+                SourceInputsHash: "source-hash",
+                GeneratedAtUtc: generatedAtUtc),
+            CreateCatalogArtifact("ops.catalog", generatedAtUtc),
+            CreateCatalogArtifact("types.catalog", generatedAtUtc),
+            CreateCatalogArtifact("schemas.catalog", generatedAtUtc),
+            CreateCatalogArtifact("asset-search.lookup", generatedAtUtc),
+            CreateCatalogArtifact("guid-path.lookup", generatedAtUtc),
+        ];
+    }
+
+    private static ReadyReadIndexArtifactOutput CreateCatalogArtifact (
+        string name,
+        DateTimeOffset generatedAtUtc)
+    {
+        return new ReadyReadIndexArtifactOutput(
+            Name: name,
+            Status: ReadyReadIndexArtifactStatusValues.Available,
+            Freshness: "fresh",
+            SourceInputsHash: "source-hash",
+            GeneratedAtUtc: generatedAtUtc);
     }
 
     private sealed class StubReadyService : IReadyService

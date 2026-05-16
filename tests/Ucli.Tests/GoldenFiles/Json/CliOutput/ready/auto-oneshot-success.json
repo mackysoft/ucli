@@ -9,7 +9,7 @@
     "project": {
       "projectPath": "<projectPath>",
       "projectFingerprint": "<projectFingerprint>",
-      "unityVersion": "<unityVersion>"
+      "unityVersion": "6000.1.4f1"
     },
     "verifiers": [
       {

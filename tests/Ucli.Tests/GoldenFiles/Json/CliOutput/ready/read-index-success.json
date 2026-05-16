@@ -9,7 +9,7 @@
     "project": {
       "projectPath": "<projectPath>",
       "projectFingerprint": "<projectFingerprint>",
-      "unityVersion": "<unityVersion>"
+      "unityVersion": "6000.1.4f1"
     },
     "verifiers": [
       {
@@ -60,6 +60,34 @@
                   "freshness": "fresh",
                   "sourceInputsHash": "source-hash",
                   "generatedAtUtc": "2026-05-17T00:00:00+00:00"
+                },
+                {
+                  "name": "types.catalog",
+                  "status": "available",
+                  "freshness": "fresh",
+                  "sourceInputsHash": "source-hash",
+                  "generatedAtUtc": "2026-05-17T00:00:00+00:00"
+                },
+                {
+                  "name": "schemas.catalog",
+                  "status": "available",
+                  "freshness": "fresh",
+                  "sourceInputsHash": "source-hash",
+                  "generatedAtUtc": "2026-05-17T00:00:00+00:00"
+                },
+                {
+                  "name": "asset-search.lookup",
+                  "status": "available",
+                  "freshness": "fresh",
+                  "sourceInputsHash": "source-hash",
+                  "generatedAtUtc": "2026-05-17T00:00:00+00:00"
+                },
+                {
+                  "name": "guid-path.lookup",
+                  "status": "available",
+                  "freshness": "fresh",
+                  "sourceInputsHash": "source-hash",
+                  "generatedAtUtc": "2026-05-17T00:00:00+00:00"
                 }
               ]
             }
@@ -87,6 +115,34 @@
         },
         {
           "name": "ops.catalog",
+          "status": "available",
+          "freshness": "fresh",
+          "sourceInputsHash": "source-hash",
+          "generatedAtUtc": "2026-05-17T00:00:00+00:00"
+        },
+        {
+          "name": "types.catalog",
+          "status": "available",
+          "freshness": "fresh",
+          "sourceInputsHash": "source-hash",
+          "generatedAtUtc": "2026-05-17T00:00:00+00:00"
+        },
+        {
+          "name": "schemas.catalog",
+          "status": "available",
+          "freshness": "fresh",
+          "sourceInputsHash": "source-hash",
+          "generatedAtUtc": "2026-05-17T00:00:00+00:00"
+        },
+        {
+          "name": "asset-search.lookup",
+          "status": "available",
+          "freshness": "fresh",
+          "sourceInputsHash": "source-hash",
+          "generatedAtUtc": "2026-05-17T00:00:00+00:00"
+        },
+        {
+          "name": "guid-path.lookup",
           "status": "available",
           "freshness": "fresh",
           "sourceInputsHash": "source-hash",

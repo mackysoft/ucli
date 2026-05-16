@@ -42,16 +42,19 @@ public sealed class ReadyCliOutputContractTests
         Assert.Equal(ReadySessionKindValues.ArtifactOnly, payload.GetProperty("sessionKind").GetString());
         Assert.Equal(JsonValueKind.Null, payload.GetProperty("lifecycle").ValueKind);
         Assert.Equal(JsonValueKind.Object, payload.GetProperty("readIndex").ValueKind);
+        Assert.Equal(6, payload.GetProperty("readIndex").GetProperty("artifacts").GetArrayLength());
     }
 
     private static AssuranceSemanticInvariantValidator CreateValidator ()
     {
-        return new AssuranceSemanticInvariantValidator(new CodeCatalog(
-        [
-            new ContractsCodeCatalogContributor(),
-            new ApplicationCodeCatalogContributor(),
-            new ReadyCodeCatalogContributor(),
-        ]));
+        return new AssuranceSemanticInvariantValidator(
+            new CodeCatalog(
+            [
+                new ContractsCodeCatalogContributor(),
+                new ApplicationCodeCatalogContributor(),
+                new ReadyCodeCatalogContributor(),
+            ]),
+            [new ReadyAssuranceSemanticInvariantRule()]);
     }
 
     private static string FindRepositoryRoot ()

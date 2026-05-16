@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 
@@ -673,12 +674,14 @@ public sealed class AssuranceSemanticInvariantValidatorTests
 
     private static AssuranceSemanticInvariantValidator CreateValidator ()
     {
-        return new AssuranceSemanticInvariantValidator(new StubCodeCatalog(
-        [
-            CreateDescriptor(ReadyClaim, CodeCatalogKindValues.Claim),
-            CreateDescriptor(CompileClaim, CodeCatalogKindValues.Claim),
-            CreateDescriptor(LogUnavailableRisk, CodeCatalogKindValues.Risk),
-        ]));
+        return new AssuranceSemanticInvariantValidator(
+            new StubCodeCatalog(
+            [
+                CreateDescriptor(ReadyClaim, CodeCatalogKindValues.Claim),
+                CreateDescriptor(CompileClaim, CodeCatalogKindValues.Claim),
+                CreateDescriptor(LogUnavailableRisk, CodeCatalogKindValues.Risk),
+            ]),
+            [new ReadyAssuranceSemanticInvariantRule()]);
     }
 
     private static string ValidReadyPayload (string validityJson)

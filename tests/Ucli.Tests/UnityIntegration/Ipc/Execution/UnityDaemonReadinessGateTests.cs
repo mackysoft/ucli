@@ -75,6 +75,29 @@ public sealed class UnityDaemonReadinessGateTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenDomainReloadingState_ReturnsEditorDomainReloadingWithoutDispatch ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-daemon-readiness-gate", "domain-reloading");
+        var pingClient = new StubDaemonPingInfoClient(CreatePingPayload(IpcEditorLifecycleStateCodec.DomainReloading, false));
+        var daemonClient = new StubUnityIpcClient(CreateSuccessResult());
+        var gate = new UnityDaemonReadinessGate(pingClient);
+
+        var result = await gate.ExecuteAsync(
+            CreateContext(scope),
+            CreateOpsReadDispatchRequest(failFast: false),
+            new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
+            UnityIpcExecutionBudget.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+            daemonClient,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(EditorLifecycleErrorCodes.EditorDomainReloading, result.ErrorCode);
+        Assert.Equal(1, pingClient.CallCount);
+        Assert.Empty(daemonClient.Requests);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenGuiSessionIsInPlaymode_ReturnsEditorPlaymodeWithoutDispatch ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-daemon-readiness-gate", "gui-playmode");

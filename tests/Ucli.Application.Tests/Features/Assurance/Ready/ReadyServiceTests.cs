@@ -85,6 +85,35 @@ public sealed class ReadyServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WithUnsupportedDaemonLifecycleState_ReturnsCommandFailure ()
+    {
+        var service = CreateService(
+            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(new UnityExecutionModeDecision(
+                UnityExecutionMode.Daemon,
+                DaemonRunning: true,
+                UnityExecutionTarget.Daemon,
+                TimeSpan.FromSeconds(10)))),
+            daemonPingInfoClient: new StubDaemonPingInfoClient(CreateReadyPingResponse(
+                lifecycleState: "futureState",
+                canAcceptExecutionRequests: false)));
+
+        var result = await service.ExecuteAsync(new ReadyCommandInput(
+            ProjectPath: null,
+            Target: ReadyTarget.Execution,
+            Mode: UnityExecutionMode.Daemon,
+            TimeoutMilliseconds: 10000,
+            ReadIndexMode: null,
+            IsReadIndexModeSpecified: false,
+            FailFast: true));
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("unsupported state", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WithReadIndexModeOnNonReadIndexTarget_ReturnsInvalidArgument ()
     {
         var service = CreateService();
@@ -264,6 +293,70 @@ public sealed class ReadyServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WithOneshotPingProjectFingerprintMismatch_ReturnsCommandFailure ()
+    {
+        var service = CreateService(
+            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(new UnityExecutionModeDecision(
+                UnityExecutionMode.Auto,
+                DaemonRunning: false,
+                UnityExecutionTarget.Oneshot,
+                TimeSpan.FromSeconds(10)))),
+            unityRequestExecutor: new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(new UnityRequestResponse(
+                IpcPayloadCodec.SerializeToElement(CreateReadyPingResponse(projectFingerprint: "other-fingerprint")),
+                [],
+                HasFailureStatus: false))));
+
+        var result = await service.ExecuteAsync(new ReadyCommandInput(
+            ProjectPath: null,
+            Target: ReadyTarget.Execution,
+            Mode: UnityExecutionMode.Auto,
+            TimeoutMilliseconds: 10000,
+            ReadIndexMode: null,
+            IsReadIndexModeSpecified: false,
+            FailFast: false));
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("projectFingerprint mismatch", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithDomainReloadingLifecycle_ReturnsFailedClaimWithoutWaiting ()
+    {
+        var service = CreateService(
+            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(new UnityExecutionModeDecision(
+                UnityExecutionMode.Auto,
+                DaemonRunning: false,
+                UnityExecutionTarget.Oneshot,
+                TimeSpan.FromSeconds(10)))),
+            unityRequestExecutor: new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(new UnityRequestResponse(
+                IpcPayloadCodec.SerializeToElement(CreateReadyPingResponse(
+                    lifecycleState: IpcEditorLifecycleStateCodec.DomainReloading,
+                    canAcceptExecutionRequests: false)),
+                [],
+                HasFailureStatus: false))));
+
+        var result = await service.ExecuteAsync(new ReadyCommandInput(
+            ProjectPath: null,
+            Target: ReadyTarget.Execution,
+            Mode: UnityExecutionMode.Auto,
+            TimeoutMilliseconds: 10000,
+            ReadIndexMode: null,
+            IsReadIndexModeSpecified: false,
+            FailFast: false));
+
+        Assert.True(result.IsSuccess);
+        var output = Assert.IsType<ReadyExecutionOutput>(result.Output);
+        Assert.Equal(ReadyVerdictValues.Fail, output.Verdict);
+        var claim = Assert.Single(output.Claims);
+        Assert.Equal(ReadyClaimStatusValues.Failed, claim.Status);
+        Assert.Contains(claim.Evidence, static evidence => string.Equals(evidence.Kind, "readinessDecision", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WithOneshotFailFast_PropagatesFailFastToPingPayload ()
     {
         var unityRequestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(new UnityRequestResponse(
@@ -335,13 +428,14 @@ public sealed class ReadyServiceTests
 
     private static IpcPingResponse CreateReadyPingResponse (
         string lifecycleState = IpcEditorLifecycleStateCodec.Ready,
-        bool canAcceptExecutionRequests = true)
+        bool canAcceptExecutionRequests = true,
+        string projectFingerprint = "project-fingerprint")
     {
         return new IpcPingResponse(
             ServerVersion: "0.5.0",
             EditorMode: "batchmode",
             UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: "project-fingerprint",
+            ProjectFingerprint: projectFingerprint,
             CompileState: "ready",
             LifecycleState: lifecycleState,
             BlockingReason: lifecycleState == IpcEditorLifecycleStateCodec.Ready ? null : "compileFailed",
