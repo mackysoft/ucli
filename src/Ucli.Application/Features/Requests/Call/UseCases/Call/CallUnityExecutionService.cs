@@ -39,7 +39,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         ArgumentNullException.ThrowIfNull(preparedRequest);
         ArgumentNullException.ThrowIfNull(input);
 
-        var baseOutput = CallExecutionOutputFactory.CreateBase(preparedRequest.Request.RequestId!);
+        var baseOutput = CallExecutionOutputFactory.CreateBase(preparedRequest.PreparedRequest);
         var effectivePlanToken = StringValueNormalizer.TrimToNull(input.PlanToken);
 
         if (input.WithPlan)
@@ -75,11 +75,17 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             }
 
             var convertedPlanResponse = ExecuteResponseConverter.Convert(planExecutionResult.Response!);
+            var planProject = convertedPlanResponse.Project ?? baseOutput.Project;
             var planOutput = new CallPlanOutput(
                 RequestId: preparedRequest.Request.RequestId!,
+                Project: planProject,
                 OpResults: convertedPlanResponse.OpResults,
                 PlanToken: convertedPlanResponse.PlanToken);
-            baseOutput = baseOutput with { Plan = planOutput };
+            baseOutput = baseOutput with
+            {
+                Project = planProject,
+                Plan = planOutput,
+            };
 
             if (!convertedPlanResponse.IsSuccess)
             {
@@ -137,8 +143,11 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         }
 
         var convertedCallResponse = ExecuteResponseConverter.Convert(callExecutionResult.Response!);
+        var callProject = convertedCallResponse.Project ?? baseOutput.Project;
         var executionOutput = baseOutput with
         {
+            Project = callProject,
+            Plan = baseOutput.Plan == null ? null : baseOutput.Plan with { Project = callProject },
             OpResults = convertedCallResponse.OpResults,
             ReadPostcondition = convertedCallResponse.ReadPostcondition,
         };

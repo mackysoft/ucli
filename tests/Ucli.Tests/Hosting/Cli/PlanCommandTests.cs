@@ -25,6 +25,7 @@ public sealed class PlanCommandTests
         var service = new StubPlanService((input, _) => ValueTask.FromResult(PlanServiceResult.Success(
             new PlanExecutionOutput(
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                Project: ProjectIdentityInfoTestFactory.Create(),
                 OpResults:
                 [
                     new OperationExecutionOperationResult(
@@ -87,6 +88,7 @@ public sealed class PlanCommandTests
             ],
             new PlanExecutionOutput(
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                Project: ProjectIdentityInfoTestFactory.Create(),
                 OpResults: [],
                 ReadIndex: CreateReadIndexInfo(
                     used: true,
@@ -143,6 +145,7 @@ public sealed class PlanCommandTests
         var preflightService = new StubPlanCommandPreflightService((_, _, _, _) => ValueTask.FromResult(PlanCommandPreflightResult.Success(
             new PlanExecutionOutput(
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                Project: ProjectIdentityInfoTestFactory.Create(),
                 OpResults: [],
                 ReadIndex: CreateReadIndexInfo(
                     used: false,

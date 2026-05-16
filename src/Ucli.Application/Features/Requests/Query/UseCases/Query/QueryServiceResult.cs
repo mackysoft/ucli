@@ -12,7 +12,8 @@ internal sealed record QueryServiceResult
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         string message,
-        ReadIndexInfo readIndex)
+        ReadIndexInfo readIndex,
+        ProjectIdentityInfo? project = null)
     {
         CommandName = commandName;
         RequestId = requestId;
@@ -20,6 +21,7 @@ internal sealed record QueryServiceResult
         Errors = errors;
         Message = message;
         ReadIndex = readIndex;
+        Project = project;
     }
 
     /// <summary> Gets the command name associated with this typed-query result. </summary>
@@ -45,6 +47,9 @@ internal sealed record QueryServiceResult
     /// <summary> Gets the read-index metadata associated with this result. </summary>
     public ReadIndexInfo ReadIndex { get; }
 
+    /// <summary> Gets the resolved Unity project identity when project resolution succeeded. </summary>
+    public ProjectIdentityInfo? Project { get; }
+
     /// <summary> Gets a value indicating whether query execution succeeded. </summary>
     public bool IsSuccess => Errors.Count == 0;
 
@@ -54,12 +59,14 @@ internal sealed record QueryServiceResult
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         string message,
-        ReadIndexInfo readIndex)
+        ReadIndexInfo readIndex,
+        ProjectIdentityInfo project)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
         ArgumentNullException.ThrowIfNull(readIndex);
+        ArgumentNullException.ThrowIfNull(project);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
 
         return new QueryServiceResult(
@@ -68,7 +75,8 @@ internal sealed record QueryServiceResult
             opResults,
             RequestServiceResultInvariants.EmptyErrors,
             message,
-            readIndex);
+            readIndex,
+            project);
     }
 
     /// <summary> Creates one failed typed-query result. </summary>
@@ -78,7 +86,8 @@ internal sealed record QueryServiceResult
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         string message,
-        ReadIndexInfo readIndex)
+        ReadIndexInfo readIndex,
+        ProjectIdentityInfo? project = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
@@ -93,6 +102,7 @@ internal sealed record QueryServiceResult
             opResults,
             failureErrors,
             message,
-            readIndex);
+            readIndex,
+            project);
     }
 }

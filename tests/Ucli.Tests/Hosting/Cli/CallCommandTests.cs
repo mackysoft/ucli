@@ -23,6 +23,7 @@ public sealed class CallCommandTests
         var service = new StubCallService((input, _) => ValueTask.FromResult(CallServiceResult.Success(
             new CallExecutionOutput(
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                Project: ProjectIdentityInfoTestFactory.Create(),
                 OpResults:
                 [
                     new OperationExecutionOperationResult(
@@ -35,6 +36,7 @@ public sealed class CallCommandTests
                 ],
                 Plan: new CallPlanOutput(
                     RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                    Project: ProjectIdentityInfoTestFactory.Create(),
                     OpResults:
                     [
                         new OperationExecutionOperationResult(
@@ -94,6 +96,7 @@ public sealed class CallCommandTests
         var preflightService = new StubCallCommandPreflightService((_, _, _) => ValueTask.FromResult(CallCommandPreflightResult.Success(
             new CallExecutionOutput(
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                Project: ProjectIdentityInfoTestFactory.Create(),
                 OpResults: [],
                 Plan: null,
                 ReadPostcondition: null))));
@@ -182,4 +185,5 @@ public sealed class CallCommandTests
             return ValueTask.FromResult(result);
         }
     }
+
 }

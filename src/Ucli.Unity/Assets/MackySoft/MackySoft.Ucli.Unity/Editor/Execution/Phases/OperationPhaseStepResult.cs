@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Ipc;
 
 #nullable enable
 
@@ -22,6 +23,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Gets the optional read-surface invalidations emitted by this step. </summary>
         internal IReadOnlyList<OperationReadInvalidation> ReadInvalidations { get; init; } = Array.Empty<OperationReadInvalidation>();
+
+        /// <summary> Gets non-fatal diagnostics emitted by this step. </summary>
+        public IReadOnlyList<OperationDiagnostic> Diagnostics { get; init; } = Array.Empty<OperationDiagnostic>();
 
         /// <summary> Gets a value indicating whether this step succeeded. </summary>
         public bool IsSuccess => Failure is null;
@@ -116,6 +120,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return this with
             {
                 ReadInvalidations = readInvalidations ?? Array.Empty<OperationReadInvalidation>(),
+            };
+        }
+
+        /// <summary> Returns a copy with the supplied diagnostics. </summary>
+        /// <param name="diagnostics"> The diagnostics to attach to the step result. </param>
+        /// <returns> One copied step result carrying the supplied diagnostics. </returns>
+        public OperationPhaseStepResult WithDiagnostics (IReadOnlyList<OperationDiagnostic>? diagnostics)
+        {
+            return this with
+            {
+                Diagnostics = diagnostics ?? Array.Empty<OperationDiagnostic>(),
             };
         }
 

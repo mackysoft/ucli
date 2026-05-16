@@ -16,9 +16,14 @@ internal static class QueryCommandResultFactory
         var payload = new Dictionary<string, object?>
         {
             ["requestId"] = serviceResult.RequestId,
-            ["opResults"] = serviceResult.OpResults,
-            ["readIndex"] = ReadIndexInfoPayloadProjector.Create(serviceResult.ReadIndex),
         };
+        if (serviceResult.Project != null)
+        {
+            payload["project"] = ProjectIdentityPayloadProjector.Create(serviceResult.Project);
+        }
+
+        payload["opResults"] = serviceResult.OpResults;
+        payload["readIndex"] = ReadIndexInfoPayloadProjector.Create(serviceResult.ReadIndex);
         if (!serviceResult.IsSuccess)
         {
             StartupFailurePayloadProjector.AppendFromFailures(payload, serviceResult.Errors);

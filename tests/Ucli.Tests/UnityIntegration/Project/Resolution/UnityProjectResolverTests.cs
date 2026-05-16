@@ -23,7 +23,29 @@ public sealed class UnityProjectResolverTests
         Assert.Equal(unityProjectPath, context.UnityProjectRoot);
         Assert.Equal(unityProjectPath, context.RepositoryRoot);
         Assert.Equal(UnityProjectPathSource.CommandOption, context.PathSource);
+        Assert.Equal("6000.1.4f1", context.UnityVersion);
         Assert.Matches("^[0-9a-f]{64}$", context.ProjectFingerprint);
+    }
+
+    [Theory]
+    [InlineData("serializedVersion: 1")]
+    [InlineData("m_EditorVersion:")]
+    [Trait("Size", "Small")]
+    public void Resolve_WhenUnityVersionCannotBeRead_ReturnsContextWithUnknownUnityVersion (string projectVersionContent)
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "unknown-unity-version");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(
+            scope,
+            "UnityProject",
+            projectVersionContent);
+        var resolver = CreateResolver();
+
+        var result = resolver.Resolve(CreateCandidate(unityProjectPath));
+
+        Assert.True(result.IsSuccess);
+        Assert.Null(result.Error);
+        var context = Assert.IsType<ResolvedUnityProjectContext>(result.Context);
+        Assert.Equal(ProjectIdentityDefaults.UnknownUnityVersion, context.UnityVersion);
     }
 
     [Fact]

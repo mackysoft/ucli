@@ -21,4 +21,7 @@ internal sealed record OperationExecutionOperationResult (
     /// <summary> Gets the optional query result payload produced by the step. </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public JsonElement? Result { get; init; }
+
+    /// <summary> Gets non-fatal diagnostics emitted for this public step. </summary>
+    public IReadOnlyList<OperationExecutionDiagnostic> Diagnostics { get; init; } = Array.Empty<OperationExecutionDiagnostic>();
 }

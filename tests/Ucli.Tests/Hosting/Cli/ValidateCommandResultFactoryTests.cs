@@ -14,7 +14,7 @@ public sealed class ValidateCommandResultFactoryTests
     public void Create_WhenSuccess_ReturnsOkEnvelopeWithReadIndexPayload ()
     {
         var result = ValidateCommandResultFactory.Create(ValidateServiceResult.Success(
-            new ValidateExecutionOutput(CreateReadIndexInfo()),
+            new ValidateExecutionOutput(ProjectIdentityInfoTestFactory.Create(), CreateReadIndexInfo()),
             "Static validation passed."));
 
         Assert.Equal(UcliCommandNames.Validate, result.Command);
@@ -36,7 +36,7 @@ public sealed class ValidateCommandResultFactoryTests
     public void Create_WhenValidationFails_ReturnsInvalidArgumentEnvelope ()
     {
         var result = ValidateCommandResultFactory.Create(ValidateServiceResult.ValidationFailure(
-            new ValidateExecutionOutput(CreateReadIndexInfo()),
+            new ValidateExecutionOutput(ProjectIdentityInfoTestFactory.Create(), CreateReadIndexInfo()),
             "Static validation failed.",
             [
                 new ValidationError(
@@ -60,7 +60,7 @@ public sealed class ValidateCommandResultFactoryTests
         var result = ValidateCommandResultFactory.Create(ValidateServiceResult.Failure(
             "Index contract file 'ops.catalog.json' is malformed.",
             ReadIndexErrorCodes.ReadIndexFormatInvalid,
-            new ValidateExecutionOutput(CreateReadIndexInfo())));
+            new ValidateExecutionOutput(ProjectIdentityInfoTestFactory.Create(), CreateReadIndexInfo())));
 
         Assert.Equal(UcliCommandNames.Validate, result.Command);
         Assert.Equal("error", result.Status);
@@ -85,4 +85,5 @@ public sealed class ValidateCommandResultFactoryTests
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
             FallbackReason: null);
     }
+
 }

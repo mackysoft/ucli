@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -24,6 +25,11 @@ internal static class ExecuteResponseConverter
                 ]);
         }
 
+        if (!TryValidateRequiredPayloadProperties(response.Payload, out var requiredPayloadPropertyError))
+        {
+            return CreateInvalidPayloadFailure(requiredPayloadPropertyError);
+        }
+
         if (!TryValidatePayload(payload, out var payloadValidationError))
         {
             return CreateInvalidPayloadFailure(payloadValidationError);
@@ -40,7 +46,65 @@ internal static class ExecuteResponseConverter
             OpResults: OperationExecutionModelMapper.MapOpResults(validatedPayload.OpResults),
             Errors: normalizedErrors,
             PlanToken: validatedPayload.PlanToken,
-            ReadPostcondition: OperationExecutionModelMapper.MapReadPostcondition(validatedPayload.ReadPostcondition));
+            ReadPostcondition: OperationExecutionModelMapper.MapReadPostcondition(validatedPayload.ReadPostcondition),
+            Project: MapProject(validatedPayload.Project));
+    }
+
+    private static bool TryValidateRequiredPayloadProperties (
+        JsonElement payload,
+        out string errorMessage)
+    {
+        errorMessage = string.Empty;
+        if (payload.ValueKind != JsonValueKind.Object)
+        {
+            errorMessage = "Execute response payload is invalid. The payload must be a JSON object.";
+            return false;
+        }
+
+        if (!TryGetProperty(payload, "project", out _))
+        {
+            errorMessage = "Execute response payload is invalid. The 'project' field is missing.";
+            return false;
+        }
+
+        if (!TryGetProperty(payload, "opResults", out var opResults)
+            || opResults.ValueKind != JsonValueKind.Array)
+        {
+            return true;
+        }
+
+        var opResultIndex = 0;
+        foreach (var opResult in opResults.EnumerateArray())
+        {
+            if (opResult.ValueKind == JsonValueKind.Object
+                && !TryGetProperty(opResult, "diagnostics", out _))
+            {
+                errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].diagnostics' field is missing.";
+                return false;
+            }
+
+            opResultIndex++;
+        }
+
+        return true;
+    }
+
+    private static bool TryGetProperty (
+        JsonElement element,
+        string propertyName,
+        out JsonElement propertyValue)
+    {
+        foreach (var property in element.EnumerateObject())
+        {
+            if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                propertyValue = property.Value;
+                return true;
+            }
+        }
+
+        propertyValue = default;
+        return false;
     }
 
     private static IReadOnlyList<OperationExecutionError> NormalizeErrors (
@@ -79,6 +143,30 @@ internal static class ExecuteResponseConverter
         if (payload == null || payload.OpResults is null)
         {
             errorMessage = "Execute response payload is invalid. The 'opResults' field is missing.";
+            return false;
+        }
+
+        if (payload.Project == null)
+        {
+            errorMessage = "Execute response payload is invalid. The 'project' field is missing.";
+            return false;
+        }
+
+        if (IsMissingRequiredString(payload.Project.ProjectPath))
+        {
+            errorMessage = "Execute response payload is invalid. The 'project.projectPath' field is missing.";
+            return false;
+        }
+
+        if (IsMissingRequiredString(payload.Project.ProjectFingerprint))
+        {
+            errorMessage = "Execute response payload is invalid. The 'project.projectFingerprint' field is missing.";
+            return false;
+        }
+
+        if (IsMissingRequiredString(payload.Project.UnityVersion))
+        {
+            errorMessage = "Execute response payload is invalid. The 'project.unityVersion' field is missing.";
             return false;
         }
 
@@ -121,6 +209,12 @@ internal static class ExecuteResponseConverter
                 return false;
             }
 
+            if (opResult.Diagnostics is null)
+            {
+                errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].diagnostics' field is missing.";
+                return false;
+            }
+
             for (var touchedIndex = 0; touchedIndex < opResult.Touched.Count; touchedIndex++)
             {
                 if (opResult.Touched[touchedIndex] == null)
@@ -144,6 +238,52 @@ internal static class ExecuteResponseConverter
                 if (IsMissingRequiredString(opResult.Touched[touchedIndex].Path))
                 {
                     errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].touched[{touchedIndex}].path' field is missing.";
+                    return false;
+                }
+            }
+
+            for (var diagnosticIndex = 0; diagnosticIndex < opResult.Diagnostics.Count; diagnosticIndex++)
+            {
+                var diagnostic = opResult.Diagnostics[diagnosticIndex];
+                if (diagnostic == null)
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].diagnostics[{diagnosticIndex}]' item is missing.";
+                    return false;
+                }
+
+                if (!diagnostic.Code.IsValid)
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].diagnostics[{diagnosticIndex}].code' field is missing.";
+                    return false;
+                }
+
+                if (IsMissingRequiredString(diagnostic.Severity))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].diagnostics[{diagnosticIndex}].severity' field is missing.";
+                    return false;
+                }
+
+                if (!IsKnownDiagnosticSeverity(diagnostic.Severity))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].diagnostics[{diagnosticIndex}].severity' value is unsupported. Actual: {diagnostic.Severity}";
+                    return false;
+                }
+
+                if (IsMissingRequiredString(diagnostic.CoverageImpact))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].diagnostics[{diagnosticIndex}].coverageImpact' field is missing.";
+                    return false;
+                }
+
+                if (!IsKnownDiagnosticCoverageImpact(diagnostic.CoverageImpact))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].diagnostics[{diagnosticIndex}].coverageImpact' value is unsupported. Actual: {diagnostic.CoverageImpact}";
+                    return false;
+                }
+
+                if (IsMissingRequiredString(diagnostic.Message))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].diagnostics[{diagnosticIndex}].message' field is missing.";
                     return false;
                 }
             }
@@ -247,6 +387,30 @@ internal static class ExecuteResponseConverter
             or IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite;
     }
 
+    private static bool IsKnownDiagnosticSeverity (string severity)
+    {
+        return severity is IpcExecuteDiagnosticSeverityNames.Info
+            or IpcExecuteDiagnosticSeverityNames.Warning
+            or IpcExecuteDiagnosticSeverityNames.Error;
+    }
+
+    private static bool IsKnownDiagnosticCoverageImpact (string coverageImpact)
+    {
+        return coverageImpact is IpcExecuteDiagnosticCoverageImpactNames.None
+            or IpcExecuteDiagnosticCoverageImpactNames.Partial
+            or IpcExecuteDiagnosticCoverageImpactNames.Indeterminate;
+    }
+
+    private static ProjectIdentityInfo MapProject (IpcProjectIdentity project)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+
+        return new ProjectIdentityInfo(
+            ProjectPath: project.ProjectPath,
+            ProjectFingerprint: project.ProjectFingerprint,
+            UnityVersion: project.UnityVersion);
+    }
+
     private static ExecuteResponseConversionResult CreateInvalidPayloadFailure (string message)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
@@ -268,6 +432,7 @@ internal static class ExecuteResponseConverter
             OpResults: [],
             Errors: errors,
             PlanToken: null,
-            ReadPostcondition: null);
+            ReadPostcondition: null,
+            Project: null);
     }
 }

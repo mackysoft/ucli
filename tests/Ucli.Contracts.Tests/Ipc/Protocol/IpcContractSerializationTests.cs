@@ -692,11 +692,19 @@ public sealed class IpcContractSerializationTests
         })
         {
             PlanToken = "issued-token",
+            Project = new IpcProjectIdentity(
+                ProjectPath: "/repo/UnityProject",
+                ProjectFingerprint: "project-fingerprint",
+                UnityVersion: "6000.1.4f1"),
         };
 
         using var jsonDocument = JsonDocument.Parse(JsonSerializer.Serialize(response, SerializerOptions));
         JsonAssert.For(jsonDocument.RootElement)
             .HasArrayLength("opResults", 1)
+            .HasProperty("project", project => project
+                .HasString("projectPath", "/repo/UnityProject")
+                .HasString("projectFingerprint", "project-fingerprint")
+                .HasString("unityVersion", "6000.1.4f1"))
             .HasString("planToken", "issued-token")
             .HasProperty("opResults", 0, opResult => opResult
                 .HasString("opId", "op-1")
@@ -705,6 +713,7 @@ public sealed class IpcContractSerializationTests
                 .HasBoolean("applied", true)
                 .HasBoolean("changed", true)
                 .HasArrayLength("touched", 1)
+                .HasArrayLength("diagnostics", 0)
                 .HasProperty("touched", 0, touched => touched
                     .HasString("kind", IpcExecuteTouchedResourceKindNames.Scene)
                     .HasString("path", "Assets/Scenes/Main.unity")
@@ -724,7 +733,15 @@ public sealed class IpcContractSerializationTests
             applied: false,
             changed: false,
             touched: Array.Empty<IpcExecuteTouchedResource>(),
-            result: payload);
+            result: payload,
+            diagnostics:
+            [
+                new IpcExecuteDiagnostic(
+                    Code: ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects,
+                    Severity: IpcExecuteDiagnosticSeverityNames.Warning,
+                    CoverageImpact: IpcExecuteDiagnosticCoverageImpactNames.Partial,
+                    Message: "Scene query skipped GameObjects whose names contain '/'."),
+            ]);
 
         using var jsonDocument = JsonDocument.Parse(JsonSerializer.Serialize(opResult, SerializerOptions));
 
@@ -735,6 +752,12 @@ public sealed class IpcContractSerializationTests
             .HasBoolean("applied", false)
             .HasBoolean("changed", false)
             .HasArrayLength("touched", 0)
+            .HasArrayLength("diagnostics", 1)
+            .HasProperty("diagnostics", 0, diagnostic => diagnostic
+                .HasString("code", "HIERARCHY_PATH_UNREPRESENTABLE_OBJECTS")
+                .HasString("severity", IpcExecuteDiagnosticSeverityNames.Warning)
+                .HasString("coverageImpact", IpcExecuteDiagnosticCoverageImpactNames.Partial)
+                .HasString("message", "Scene query skipped GameObjects whose names contain '/'."))
             .HasProperty("result", result => result
                 .HasString("globalObjectId", "GlobalObjectId_V1-2-3-4-5-6"));
     }
@@ -809,6 +832,7 @@ public sealed class IpcContractSerializationTests
         var response = new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>());
 
         var jsonElement = JsonSerializer.SerializeToElement(response, SerializerOptions);
+        Assert.True(jsonElement.TryGetProperty("project", out _));
         Assert.False(jsonElement.TryGetProperty("planToken", out _));
         Assert.False(jsonElement.TryGetProperty("readPostcondition", out _));
     }

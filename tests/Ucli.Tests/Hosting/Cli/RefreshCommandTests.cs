@@ -30,7 +30,9 @@ public sealed class RefreshCommandTests
                         Guid: null),
                 ]),
         ],
-        "uCLI refresh completed.");
+        "uCLI refresh completed.",
+        readPostcondition: null,
+        project: ProjectIdentityInfoTestFactory.Create());
 
     [Fact]
     [Trait("Size", "Small")]
@@ -66,6 +68,10 @@ public sealed class RefreshCommandTests
             .HasString("message", "uCLI refresh completed.")
             .HasProperty("payload", payload => payload
                 .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
+                .HasProperty("project", project => project
+                    .HasString("projectPath", ProjectIdentityInfoTestFactory.DefaultProjectPath)
+                    .HasString("projectFingerprint", ProjectIdentityInfoTestFactory.ProjectFingerprint)
+                    .HasString("unityVersion", ProjectIdentityInfoTestFactory.UnityVersion))
                 .HasArrayLength("opResults", 1)
                 .HasProperty("opResults", 0, op => op
                     .HasString("opId", "refresh")
@@ -138,7 +144,8 @@ public sealed class RefreshCommandTests
                     Touched: []),
             ],
             "uCLI refresh completed.",
-            readPostcondition)));
+            readPostcondition,
+            project: ProjectIdentityInfoTestFactory.Create())));
         var command = new RefreshCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.RefreshAsync(

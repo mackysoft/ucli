@@ -3,15 +3,13 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.UnityIntegration.Resolution;
 
 namespace MackySoft.Ucli.UnityIntegration.Project.Resolution;
 
 /// <summary> Resolves UnityProject identity information from command inputs. </summary>
 internal sealed class UnityProjectResolver : IUnityProjectResolver
 {
-    private const string ProjectSettingsDirectoryName = "ProjectSettings";
-    private const string ProjectVersionFileName = "ProjectVersion.txt";
-
     /// <summary> Initializes a new instance of the <see cref="UnityProjectResolver" /> class. </summary>
     public UnityProjectResolver ()
     {
@@ -40,10 +38,7 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
                 ProjectContextErrorCodes.ProjectPathNotFound));
         }
 
-        var projectVersionPath = Path.Combine(
-            unityProjectRoot,
-            ProjectSettingsDirectoryName,
-            ProjectVersionFileName);
+        var projectVersionPath = UnityProjectVersionFileReader.GetProjectVersionPath(unityProjectRoot);
         if (!File.Exists(projectVersionPath))
         {
             return UnityProjectResolutionResult.Failure(ExecutionError.InvalidArgument(
@@ -53,11 +48,21 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
 
         var repositoryRoot = UcliStoragePathResolver.ResolveStorageRoot(unityProjectRoot);
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(repositoryRoot, unityProjectRoot);
+        var unityVersion = ReadUnityVersionOrUnknown(projectVersionPath);
         return UnityProjectResolutionResult.Success(new ResolvedUnityProjectContext(
             UnityProjectRoot: unityProjectRoot,
             RepositoryRoot: repositoryRoot,
             ProjectFingerprint: projectFingerprint,
             PathSource: projectPathCandidate.Source,
-            PathSourceLabel: projectPathCandidate.SourceLabel));
+            PathSourceLabel: projectPathCandidate.SourceLabel,
+            UnityVersion: unityVersion));
+    }
+
+    private static string ReadUnityVersionOrUnknown (string projectVersionPath)
+    {
+        var readResult = UnityProjectVersionFileReader.ReadEditorVersion(projectVersionPath);
+        return readResult.Status == UnityProjectVersionFileReader.ReadStatus.Success
+            ? readResult.UnityVersion!
+            : ProjectIdentityDefaults.UnknownUnityVersion;
     }
 }

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using UnityEngine;
@@ -25,9 +27,11 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             IpcEditStepContract step,
             OperationExecutionContext executionContext,
             out List<QueryMatch> matches,
+            out IReadOnlyList<OperationDiagnostic> diagnostics,
             out string errorMessage)
         {
             matches = new List<QueryMatch>();
+            diagnostics = Array.Empty<OperationDiagnostic>();
             errorMessage = string.Empty;
             if (step.Context.Kind != IpcEditStepContract.ContextKind.Scene)
             {
@@ -41,7 +45,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             }
 
             var queryArguments = CreateQueryArguments(parsedArgs);
-            if (!TryQueryRuntime(step.Context.Path!, queryArguments, executionContext, allowTemporaryState: true, out var resolvedMatches, out errorMessage))
+            if (!TryQueryRuntime(step.Context.Path!, queryArguments, executionContext, allowTemporaryState: true, out var resolvedMatches, out diagnostics, out errorMessage))
             {
                 return false;
             }
@@ -109,43 +113,6 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         }
 
         /// <summary>
-        /// Executes one deterministic scene query.
-        /// </summary>
-        /// <param name="scenePath"> The queried scene asset path. </param>
-        /// <param name="queryArguments"> The parsed scene-query arguments. </param>
-        /// <param name="matches"> The deduplicated matches in ascending canonical-key order when the query succeeds. </param>
-        /// <param name="errorMessage"> The validation or query error message when the query fails. </param>
-        /// <returns> <see langword="true" /> when the scene can be queried successfully; otherwise <see langword="false" />. </returns>
-        public static bool TryQueryPersisted (
-            string scenePath,
-            QueryArguments queryArguments,
-            out List<QueryMatch> matches,
-            out string errorMessage)
-        {
-            matches = new List<QueryMatch>();
-            errorMessage = string.Empty;
-            if (!SceneSourceResolver.TryAcquire(
-                    scenePath,
-                    SceneSourceResolver.Policy.PersistedPreview,
-                    executionContext: null,
-                    out var sceneLease,
-                    out errorMessage))
-            {
-                return false;
-            }
-
-            using (sceneLease)
-            {
-                if (!CollectMatches(scenePath, sceneLease.Scene, queryArguments, executionContext: null, allowTemporaryState: false, out matches, out errorMessage))
-                {
-                    return false;
-                }
-
-                return true;
-            }
-        }
-
-        /// <summary>
         /// Executes one runtime scene query against request-local plan state or current loaded state.
         /// </summary>
         /// <param name="scenePath"> The queried scene asset path. </param>
@@ -153,6 +120,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         /// <param name="executionContext"> The request execution context. </param>
         /// <param name="allowTemporaryState"> <see langword="true" /> to observe request-local preview-scene state during plan execution without creating new tracked preview state. </param>
         /// <param name="matches"> The deduplicated matches in ascending canonical-key order when the query succeeds. </param>
+        /// <param name="diagnostics"> The non-fatal diagnostics emitted while collecting matches. </param>
         /// <param name="errorMessage"> The validation or query error message when the query fails. </param>
         /// <returns> <see langword="true" /> when the scene can be queried successfully; otherwise <see langword="false" />. </returns>
         public static bool TryQueryRuntime (
@@ -161,9 +129,11 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out List<QueryMatch> matches,
+            out IReadOnlyList<OperationDiagnostic> diagnostics,
             out string errorMessage)
         {
             matches = new List<QueryMatch>();
+            diagnostics = Array.Empty<OperationDiagnostic>();
             errorMessage = string.Empty;
             if (executionContext == null)
             {
@@ -185,7 +155,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
             using (sceneLease)
             {
-                return CollectMatches(scenePath, sceneLease.Scene, queryArguments, executionContext, allowTemporaryState, out matches, out errorMessage);
+                return CollectMatches(scenePath, sceneLease.Scene, queryArguments, executionContext, allowTemporaryState, out matches, out diagnostics, out errorMessage);
             }
         }
 
@@ -201,20 +171,24 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             OperationExecutionContext? executionContext,
             bool allowTemporaryState,
             out List<QueryMatch> matches,
+            out IReadOnlyList<OperationDiagnostic> diagnostics,
             out string errorMessage)
         {
+            var collectedDiagnostics = new List<OperationDiagnostic>();
             var orderedMatches = new SortedDictionary<string, QueryMatch>(StringComparer.Ordinal);
             var roots = scene.GetRootGameObjects();
             for (var i = 0; i < roots.Length; i++)
             {
-                if (!TryCollectMatchesRecursive(scenePath, roots[i].transform, queryArguments, executionContext, allowTemporaryState, orderedMatches, out errorMessage))
+                if (!TryCollectMatchesRecursive(scenePath, roots[i].transform, queryArguments, executionContext, allowTemporaryState, orderedMatches, collectedDiagnostics, out errorMessage))
                 {
                     matches = new List<QueryMatch>();
+                    diagnostics = collectedDiagnostics.ToArray();
                     return false;
                 }
             }
 
             matches = new List<QueryMatch>(orderedMatches.Values);
+            diagnostics = collectedDiagnostics.ToArray();
             errorMessage = string.Empty;
             return true;
         }
@@ -226,6 +200,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             OperationExecutionContext? executionContext,
             bool allowTemporaryState,
             SortedDictionary<string, QueryMatch> orderedMatches,
+            List<OperationDiagnostic> diagnostics,
             out string errorMessage)
         {
             if (transform.name.Contains("/", StringComparison.Ordinal))
@@ -233,6 +208,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 // NOTE:
                 // hierarchyPath selectors use '/' as a structural delimiter, so a GameObject name that contains '/'
                 // cannot be represented or re-resolved later. Skip the entire subtree instead of failing unrelated queries.
+                diagnostics.Add(CreateHierarchyPathUnrepresentableObjectsDiagnostic());
                 errorMessage = string.Empty;
                 return true;
             }
@@ -287,7 +263,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
             for (var childIndex = 0; childIndex < transform.childCount; childIndex++)
             {
-                if (!TryCollectMatchesRecursive(scenePath, transform.GetChild(childIndex), queryArguments, executionContext, allowTemporaryState, orderedMatches, out errorMessage))
+                if (!TryCollectMatchesRecursive(scenePath, transform.GetChild(childIndex), queryArguments, executionContext, allowTemporaryState, orderedMatches, diagnostics, out errorMessage))
                 {
                     return false;
                 }
@@ -295,6 +271,15 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
             errorMessage = string.Empty;
             return true;
+        }
+
+        private static OperationDiagnostic CreateHierarchyPathUnrepresentableObjectsDiagnostic ()
+        {
+            return new OperationDiagnostic(
+                Code: ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects,
+                Severity: IpcExecuteDiagnosticSeverityNames.Warning,
+                CoverageImpact: IpcExecuteDiagnosticCoverageImpactNames.Partial,
+                Message: "Scene query skipped GameObjects whose names contain '/' because hierarchyPath cannot represent them.");
         }
 
         private static bool TryCreateComponentMatch (

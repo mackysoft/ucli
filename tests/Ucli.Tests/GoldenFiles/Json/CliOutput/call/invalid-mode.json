@@ -6,6 +6,11 @@
   "message": "Mode must be auto, daemon, or oneshot.",
   "payload": {
     "requestId": "<requestId>",
+    "project": {
+      "projectPath": "<projectPath>",
+      "projectFingerprint": "<projectFingerprint>",
+      "unityVersion": "<unityVersion>"
+    },
     "opResults": []
   },
   "errors": [

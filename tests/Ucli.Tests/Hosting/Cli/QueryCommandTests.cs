@@ -58,6 +58,10 @@ public sealed class QueryCommandTests
             .HasString("message", "uCLI query completed.")
             .HasProperty("payload", payload => payload
                 .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
+                .HasProperty("project", project => project
+                    .HasString("projectPath", ProjectIdentityInfoTestFactory.DefaultProjectPath)
+                    .HasString("projectFingerprint", ProjectIdentityInfoTestFactory.ProjectFingerprint)
+                    .HasString("unityVersion", ProjectIdentityInfoTestFactory.UnityVersion))
                 .HasArrayLength("opResults", 1)
                 .HasProperty("readIndex", readIndex => readIndex
                     .HasBoolean("used", true)
@@ -315,7 +319,8 @@ public sealed class QueryCommandTests
                 Source: ReadIndexInfoSource.Index,
                 Freshness: IndexFreshness.Fresh,
                 GeneratedAtUtc: DateTimeOffset.Parse("2026-04-25T00:00:00+00:00"),
-                FallbackReason: null));
+                FallbackReason: null),
+            ProjectIdentityInfoTestFactory.Create());
     }
 
     private static QueryServiceResult CreateFailureResult (string commandName)

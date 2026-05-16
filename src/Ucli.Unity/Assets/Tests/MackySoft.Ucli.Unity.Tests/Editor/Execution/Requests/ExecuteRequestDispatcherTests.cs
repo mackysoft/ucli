@@ -113,6 +113,102 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenOperationTraceContainsDiagnostics_MapsDiagnosticsToPayload () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest();
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var operationTrace = new OperationPhaseTrace(
+                "op-1",
+                MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneQuery,
+                OperationPhase.Plan,
+                false,
+                false,
+                System.Array.Empty<OperationTouch>(),
+                null)
+            {
+                Diagnostics = new[]
+                {
+                    new OperationDiagnostic(
+                        Code: ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects,
+                        Severity: IpcExecuteDiagnosticSeverityNames.Warning,
+                        CoverageImpact: IpcExecuteDiagnosticCoverageImpactNames.Partial,
+                        Message: "Scene query skipped GameObjects whose names contain '/'."),
+                },
+            };
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: normalizedRequest.ProtocolVersion,
+                requestId: normalizedRequest.RequestId,
+                steps: CreateTraceSteps(normalizedRequest),
+                operationTraces: new[]
+                {
+                    operationTrace,
+                }));
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(UcliCommandIds.Plan, operationName: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneQuery);
+
+            var response = await DispatchAsync(dispatcher, request, context, "Operation diagnostics payload mapping");
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            var opResult = GetSingleArrayElement(response.Payload.GetProperty("opResults"));
+            var diagnostic = GetSingleArrayElement(opResult.GetProperty("diagnostics"));
+            Assert.That(diagnostic.GetProperty("code").GetString(), Is.EqualTo(ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects.Value));
+            Assert.That(diagnostic.GetProperty("severity").GetString(), Is.EqualTo(IpcExecuteDiagnosticSeverityNames.Warning));
+            Assert.That(diagnostic.GetProperty("coverageImpact").GetString(), Is.EqualTo(IpcExecuteDiagnosticCoverageImpactNames.Partial));
+            Assert.That(diagnostic.GetProperty("message").GetString(), Does.Contain("Scene query skipped"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenPublicStepContainsDiagnostics_MapsDiagnosticsToPayload () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest(operationName: "edit");
+            var traceSteps = CreateTraceSteps(normalizedRequest);
+            traceSteps[0] = traceSteps[0] with
+            {
+                Diagnostics = new[]
+                {
+                    new OperationDiagnostic(
+                        Code: ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects,
+                        Severity: IpcExecuteDiagnosticSeverityNames.Warning,
+                        CoverageImpact: IpcExecuteDiagnosticCoverageImpactNames.Partial,
+                        Message: "Scene edit selection skipped GameObjects whose names contain '/'."),
+                },
+            };
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: normalizedRequest.ProtocolVersion,
+                requestId: normalizedRequest.RequestId,
+                steps: traceSteps,
+                operationTraces: new[]
+                {
+                    new OperationPhaseTrace(
+                        "op-1",
+                        MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDelete,
+                        OperationPhase.Call,
+                        true,
+                        true,
+                        System.Array.Empty<OperationTouch>(),
+                        null),
+                }));
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(UcliCommandIds.Call, operationName: "edit");
+
+            var response = await DispatchAsync(dispatcher, request, context, "Public step diagnostics payload mapping");
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            var opResult = GetSingleArrayElement(response.Payload.GetProperty("opResults"));
+            Assert.That(opResult.GetProperty("op").GetString(), Is.EqualTo("edit"));
+            var diagnostic = GetSingleArrayElement(opResult.GetProperty("diagnostics"));
+            Assert.That(diagnostic.GetProperty("code").GetString(), Is.EqualTo(ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects.Value));
+            Assert.That(diagnostic.GetProperty("severity").GetString(), Is.EqualTo(IpcExecuteDiagnosticSeverityNames.Warning));
+            Assert.That(diagnostic.GetProperty("coverageImpact").GetString(), Is.EqualTo(IpcExecuteDiagnosticCoverageImpactNames.Partial));
+            Assert.That(diagnostic.GetProperty("message").GetString(), Does.Contain("Scene edit selection skipped"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Dispatch_WhenOperationTraceContainsReadInvalidations_MapsReadPostconditionToPayload () => UniTask.ToCoroutine(async () =>
         {
             var normalizedRequest = CreateNormalizedRequest(

@@ -45,6 +45,7 @@ internal static class CallCommandResultFactory
         var payload = new Dictionary<string, object?>
         {
             ["requestId"] = output.RequestId,
+            ["project"] = ProjectIdentityPayloadProjector.Create(output.Project),
             ["opResults"] = output.OpResults,
         };
 
@@ -63,6 +64,7 @@ internal static class CallCommandResultFactory
             payload["plan"] = new
             {
                 requestId = output.Plan.RequestId,
+                project = ProjectIdentityPayloadProjector.Create(output.Plan.Project),
                 opResults = output.Plan.OpResults,
             };
             return payload;
@@ -71,6 +73,7 @@ internal static class CallCommandResultFactory
         payload["plan"] = new
         {
             requestId = output.Plan.RequestId,
+            project = ProjectIdentityPayloadProjector.Create(output.Plan.Project),
             opResults = output.Plan.OpResults,
             planToken = output.Plan.PlanToken,
         };

@@ -19,13 +19,15 @@ public sealed class ValidateCommandTests
     public async Task Validate_UsesValidateServiceAndWritesCommandResult ()
     {
         var service = new StubValidateService((input, _) => ValueTask.FromResult(ValidateServiceResult.Success(
-            new ValidateExecutionOutput(new ReadIndexInfo(
-                Used: false,
-                Hit: false,
-                Source: ReadIndexInfoSource.Index,
-                Freshness: IndexFreshness.Probable,
-                GeneratedAtUtc: null,
-                FallbackReason: "readIndex disabled by mode.")),
+            new ValidateExecutionOutput(
+                ProjectIdentityInfoTestFactory.Create(),
+                new ReadIndexInfo(
+                    Used: false,
+                    Hit: false,
+                    Source: ReadIndexInfoSource.Index,
+                    Freshness: IndexFreshness.Probable,
+                    GeneratedAtUtc: null,
+                    FallbackReason: "readIndex disabled by mode.")),
             "Static validation passed.")));
         var command = new ValidateCommand(service, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
 

@@ -111,6 +111,7 @@ internal sealed class PlanService : IPlanService
         var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
         var executionOutput = baseOutput with
         {
+            Project = convertedResponse.Project ?? baseOutput.Project,
             OpResults = convertedResponse.OpResults,
         };
         if (!convertedResponse.IsSuccess)

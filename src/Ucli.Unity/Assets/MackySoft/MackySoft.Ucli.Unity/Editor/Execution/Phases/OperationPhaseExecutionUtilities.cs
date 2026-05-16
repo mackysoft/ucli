@@ -1,8 +1,8 @@
 using System;
-using MackySoft.Ucli.Contracts;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 
@@ -73,6 +73,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public static void MergeTouched (
             List<OperationTouch> target,
             IReadOnlyList<OperationTouch> source)
+        {
+            for (var i = 0; i < source.Count; i++)
+            {
+                target.Add(source[i]);
+            }
+        }
+
+        /// <summary> Merges diagnostic entries into one target list. </summary>
+        /// <param name="target"> The target diagnostic-entry list. </param>
+        /// <param name="source"> The source diagnostic-entry collection. </param>
+        public static void MergeDiagnostics (
+            List<OperationDiagnostic> target,
+            IReadOnlyList<OperationDiagnostic> source)
         {
             for (var i = 0; i < source.Count; i++)
             {

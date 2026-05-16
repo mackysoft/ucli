@@ -28,7 +28,8 @@ internal static class OperationExecuteResultFactory
     public static OperationExecuteResult FromExecutionError (
         string requestId,
         ExecutionError error,
-        string? failureMessage = null)
+        string? failureMessage = null,
+        ProjectIdentityInfo? project = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(error);
@@ -40,7 +41,8 @@ internal static class OperationExecuteResultFactory
             [
                 executionError,
             ],
-            failureMessage);
+            failureMessage,
+            project: project);
     }
 
     /// <summary> Creates one failure result from static validation errors. </summary>
@@ -51,7 +53,8 @@ internal static class OperationExecuteResultFactory
     public static OperationExecuteResult FromValidationErrors (
         string requestId,
         IReadOnlyList<ValidationError> validationErrors,
-        string? failureMessage = null)
+        string? failureMessage = null,
+        ProjectIdentityInfo? project = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
 
@@ -59,7 +62,8 @@ internal static class OperationExecuteResultFactory
             requestId,
             [],
             RequestFailureNormalizer.FromValidationErrors(validationErrors),
-            failureMessage);
+            failureMessage,
+            project: project);
     }
 
     /// <summary> Creates one successful operation execution result. </summary>
@@ -72,9 +76,10 @@ internal static class OperationExecuteResultFactory
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         string message,
-        OperationExecutionReadPostcondition? readPostcondition = null)
+        OperationExecutionReadPostcondition? readPostcondition,
+        ProjectIdentityInfo project)
     {
-        return OperationExecuteResult.Success(requestId, opResults, message, readPostcondition);
+        return OperationExecuteResult.Success(requestId, opResults, message, readPostcondition, project);
     }
 
     /// <summary> Creates one failed operation execution result. </summary>
@@ -87,14 +92,16 @@ internal static class OperationExecuteResultFactory
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
-        OperationExecutionReadPostcondition? readPostcondition = null)
+        OperationExecutionReadPostcondition? readPostcondition = null,
+        ProjectIdentityInfo? project = null)
     {
         return Failure(
             requestId,
             opResults,
             errors,
             failureMessage: null,
-            readPostcondition);
+            readPostcondition,
+            project);
     }
 
     /// <summary> Creates one failed operation execution result. </summary>
@@ -109,7 +116,8 @@ internal static class OperationExecuteResultFactory
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         string? failureMessage,
-        OperationExecutionReadPostcondition? readPostcondition = null)
+        OperationExecutionReadPostcondition? readPostcondition = null,
+        ProjectIdentityInfo? project = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
@@ -119,6 +127,7 @@ internal static class OperationExecuteResultFactory
             opResults,
             errors,
             RequestFailureNormalizer.ResolveMessage(errors, failureMessage ?? DefaultFailureMessage),
-            readPostcondition);
+            readPostcondition,
+            project);
     }
 }

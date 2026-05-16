@@ -5,4 +5,7 @@ public static class ExecuteRequestErrorCodes
 {
     /// <summary> Gets the error code emitted when one request-id is reused with different request content. </summary>
     public static readonly UcliErrorCode RequestIdConflict = new("REQUEST_ID_CONFLICT");
+
+    /// <summary> Gets the diagnostic code emitted when hierarchy paths cannot represent GameObject names containing slashes. </summary>
+    public static readonly UcliErrorCode HierarchyPathUnrepresentableObjects = new("HIERARCHY_PATH_UNREPRESENTABLE_OBJECTS");
 }

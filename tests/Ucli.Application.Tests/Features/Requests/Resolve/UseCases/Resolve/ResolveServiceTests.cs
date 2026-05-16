@@ -164,6 +164,11 @@ public sealed class ResolveServiceTests
         Assert.Equal(ReadIndexInfoSource.Unity, result.ReadIndex.Source);
         Assert.Equal(IndexFreshness.Fresh, result.ReadIndex.Freshness);
         Assert.Equal("selector requires live Unity resolution.", result.ReadIndex.FallbackReason);
+        Assert.NotNull(result.Project);
+        var project = result.Project!;
+        Assert.Equal("/unity/ResponseProject", project.ProjectPath);
+        Assert.Equal("unity-response-fingerprint", project.ProjectFingerprint);
+        Assert.Equal("7000.0.1f1", project.UnityVersion);
 
         var executeRequest = Assert.IsType<UnityRequestPayload.ExecuteOperation>(unityRequestExecutor.CapturedPayload);
         Assert.Equal(UcliCommandIds.Resolve, executeRequest.Command);
@@ -277,23 +282,35 @@ public sealed class ResolveServiceTests
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: "unity-response-request-id",
             Status: IpcProtocol.StatusOk,
-            Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse(
-            [
-                new IpcExecuteOperationResult(
-                    OpId: "resolve",
-                    Op: UcliPrimitiveOperationNames.Resolve,
-                    Phase: IpcExecuteOperationPhaseNames.Plan,
-                    Applied: false,
-                    Changed: false,
-                    Touched: [])
-                {
-                    Result = JsonSerializer.SerializeToElement(new
+            Payload: IpcPayloadCodec.SerializeToElement(
+                new IpcExecuteResponse(
+                [
+                    new IpcExecuteOperationResult(
+                        OpId: "resolve",
+                        Op: UcliPrimitiveOperationNames.Resolve,
+                        Phase: IpcExecuteOperationPhaseNames.Plan,
+                        Applied: false,
+                        Changed: false,
+                        Touched: [])
                     {
-                        globalObjectId = "GlobalObjectId_V1-1-2-3-4-5-6",
-                    }),
-                },
-            ])),
+                        Result = JsonSerializer.SerializeToElement(new
+                        {
+                            globalObjectId = "GlobalObjectId_V1-1-2-3-4-5-6",
+                        }),
+                    },
+                ])
+                {
+                    Project = CreateUnityResponseProjectIdentity(),
+                }),
             Errors: []));
+    }
+
+    private static IpcProjectIdentity CreateUnityResponseProjectIdentity ()
+    {
+        return new IpcProjectIdentity(
+            ProjectPath: "/unity/ResponseProject",
+            ProjectFingerprint: "unity-response-fingerprint",
+            UnityVersion: "7000.0.1f1");
     }
 
     private sealed class StubProjectContextResolver : IProjectContextResolver
