@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/daemon.start.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "startStatus": {
+      "type": "string"
+    },
+    "daemonStatus": {
+      "type": "string"
+    },
+    "lifecycleState": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "blockingReason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "canAcceptExecutionRequests": {
+      "type": "boolean"
+    },
+    "timeoutMilliseconds": {
+      "type": "integer"
+    },
+    "session": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "startup": {
+      "type": "object"
+    },
+    "diagnosis": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "retryDisposition": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "safeToRetryImmediately": {
+      "type": "boolean"
+    }
+  }
+}

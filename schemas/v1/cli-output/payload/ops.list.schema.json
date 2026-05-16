@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/ops.list.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "policy": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "policy",
+          "description"
+        ]
+      }
+    },
+    "readIndex": {
+      "$ref": "../defs/read-index.schema.json"
+    }
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/op-result.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "opId": {
+      "type": "string"
+    },
+    "op": {
+      "type": "string"
+    },
+    "phase": {
+      "type": "string"
+    },
+    "applied": {
+      "type": "boolean"
+    },
+    "changed": {
+      "type": "boolean"
+    },
+    "touched": {
+      "type": "array",
+      "items": {
+        "$ref": "../defs/touched.schema.json"
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "../defs/diagnostic.schema.json"
+      }
+    },
+    "result": {},
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  "required": [
+    "opId",
+    "op",
+    "phase",
+    "applied",
+    "changed",
+    "touched",
+    "diagnostics"
+  ]
+}

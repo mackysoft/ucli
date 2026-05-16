@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/request/edit-dsl.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "type": "string",
+      "const": "edit"
+    },
+    "id": {
+      "type": "string"
+    },
+    "on": {
+      "type": "object"
+    },
+    "select": {
+      "type": "object"
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "commit": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "id",
+    "on",
+    "select",
+    "actions",
+    "commit"
+  ]
+}
