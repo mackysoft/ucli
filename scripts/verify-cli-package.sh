@@ -7,6 +7,8 @@ if [[ "$#" -ne 2 ]]; then
 fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/schema-artifact-common.sh
+source "${script_dir}/schema-artifact-common.sh"
 repo_root="$(cd "${script_dir}/.." && pwd)"
 package_dir="$1"
 expected_version="$2"
@@ -57,6 +59,10 @@ for entry in README.md LICENSE tools/net8.0/any/DotnetToolSettings.xml tools/net
   fi
 done
 
+package_schema_manifest_path="${tool_path}/package-schema-manifest.json"
+unzip -p "${package_path}" tools/net8.0/any/schemas/v1/schema-manifest.json > "${package_schema_manifest_path}"
+assert_json_manifest_package_version "${package_schema_manifest_path}" "${expected_version}" "CLI package schema manifest"
+
 while IFS= read -r skill_file; do
   relative_path="${skill_file#"${repo_root}/"}"
   entry="tools/net8.0/any/${relative_path}"
@@ -75,10 +81,13 @@ while IFS= read -r schema_file; do
   fi
 done < <(find "${repo_root}/schemas" -type f | sort)
 
-if ! find "${tool_path}" -path "*/schemas/v1/schema-manifest.json" -type f | grep -F "schema-manifest.json" >/dev/null; then
+installed_schema_manifest="$(find "${tool_path}" -path "*/schemas/v1/schema-manifest.json" -type f | head -n 1)"
+if [[ -z "${installed_schema_manifest}" ]]; then
   echo "Installed CLI tool package did not materialize schemas/v1/schema-manifest.json." >&2
   exit 1
 fi
+
+assert_json_manifest_package_version "${installed_schema_manifest}" "${expected_version}" "Installed CLI tool schema manifest"
 
 list_host_independent_skill_files() {
   local relative_path

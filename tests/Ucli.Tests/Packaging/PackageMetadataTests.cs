@@ -244,6 +244,38 @@ public sealed class PackageMetadataTests
         Assert.Equal("true", outputs["needs_unity_pack"]);
     }
 
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Verify_scope_detector_tracks_schema_artifact_changes ()
+    {
+        IReadOnlyDictionary<string, string> outputs = await RunVerifyScopeDetectorForSingleFileChangeAsync(
+            "schemas/v1/schema-manifest.json",
+            """{"schemaSet":"ucli","packageVersion":"0.0.0"}""",
+            """{"schemaSet":"ucli","packageVersion":"0.0.1"}""");
+
+        Assert.Equal("true", outputs["needs_dotnet"]);
+        Assert.Equal("true", outputs["needs_cli_pack"]);
+        Assert.Equal("false", outputs["needs_shared_pack"]);
+        Assert.Equal("false", outputs["needs_unity"]);
+        Assert.Equal("false", outputs["needs_unity_pack"]);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Verify_scope_detector_tracks_schema_generation_script_changes ()
+    {
+        IReadOnlyDictionary<string, string> outputs = await RunVerifyScopeDetectorForSingleFileChangeAsync(
+            "scripts/generate-schemas.sh",
+            "echo old\n",
+            "echo new\n");
+
+        Assert.Equal("true", outputs["needs_dotnet"]);
+        Assert.Equal("true", outputs["needs_cli_pack"]);
+        Assert.Equal("false", outputs["needs_shared_pack"]);
+        Assert.Equal("false", outputs["needs_unity"]);
+        Assert.Equal("false", outputs["needs_unity_pack"]);
+    }
+
     private static async Task<IReadOnlyDictionary<string, string>> RunVerifyScopeDetectorForSingleFileChangeAsync (
         string relativePath,
         string initialContents,

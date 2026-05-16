@@ -159,7 +159,7 @@ is_cli_pack_input() {
   fi
 
   case "${file}" in
-    README.md|LICENSE|.gitattributes|Directory.Build.props|.github/workflows/verify.yaml|.github/workflows/cli-package-publish.yaml|scripts/detect-verify-scopes.sh|scripts/generate-schemas.sh|scripts/generate-skills.sh|scripts/sync-cli-package-version.sh|scripts/verify-cli-package.sh|scripts/verify-schemas.sh|scripts/verify-skills.sh|schemas/*|skills/*|src/Ucli/*|src/Ucli.Application/*|src/Ucli.Contracts/*|src/Ucli.Infrastructure/*|src/Ucli.Skills/*|tools/*)
+    README.md|LICENSE|.gitattributes|Directory.Build.props|.github/workflows/verify.yaml|.github/workflows/cli-package-publish.yaml|scripts/detect-verify-scopes.sh|scripts/generate-schemas.sh|scripts/generate-skills.sh|scripts/pack-schema-artifacts.sh|scripts/schema-artifact-common.sh|scripts/sync-cli-package-version.sh|scripts/verify-cli-package.sh|scripts/verify-schema-artifacts.sh|scripts/verify-schemas.sh|scripts/verify-skills.sh|schemas/*|skills/*|src/Ucli/*|src/Ucli.Application/*|src/Ucli.Contracts/*|src/Ucli.Infrastructure/*|src/Ucli.Skills/*|tools/*)
       return 0
       ;;
     *)

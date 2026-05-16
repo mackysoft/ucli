@@ -88,14 +88,17 @@ jobs:
           --output artifacts/packages
 
       - name: Pack schema artifacts
-        run: |
-          set -euo pipefail
-          (cd . && zip -r "artifacts/packages/MackySoft.Ucli.Schemas.${{ needs.prepare-release.outputs.package_version }}.zip" schemas)
+        run: ./scripts/pack-schema-artifacts.sh --version "${{ needs.prepare-release.outputs.package_version }}" --output artifacts/packages
 
       - name: Smoke test CLI tool package
         env:
           PACKAGE_VERSION: ${{ needs.prepare-release.outputs.package_version }}
         run: ./scripts/verify-cli-package.sh artifacts/packages "${PACKAGE_VERSION}"
+
+      - name: Verify schema artifacts
+        env:
+          PACKAGE_VERSION: ${{ needs.prepare-release.outputs.package_version }}
+        run: ./scripts/verify-schema-artifacts.sh artifacts/packages "${PACKAGE_VERSION}"
 
       - name: Publish to nuget.org
         uses: ./.github/actions/publish-nuget-package
@@ -146,6 +149,7 @@ jobs:
             --sync-branch "${sync_branch}" \
             --commit-message "chore(cli): sync package version to ${PACKAGE_VERSION}" \
             --pr-title "chore(cli): sync package version to ${PACKAGE_VERSION}" \
-            --pr-body "Sync \`MackySoft.Ucli\` package version to \`${PACKAGE_VERSION}\` after \`${RELEASE_TAG}\` publish. The \`cli-package-publish\` workflow packed, smoke-tested, published, and released the package before creating this PR, then dispatched \`verify.yaml\` for \`${sync_branch}\`." \
+            --pr-body "Sync \`MackySoft.Ucli\` package version and generated schema manifest to \`${PACKAGE_VERSION}\` after \`${RELEASE_TAG}\` publish. The \`cli-package-publish\` workflow packed, smoke-tested, published, and released the package before creating this PR, then dispatched \`verify.yaml\` for \`${sync_branch}\`." \
             --verify-workflow verify.yaml \
-            --changed-path "Directory.Build.props"
+            --changed-path "Directory.Build.props" \
+            --changed-path "schemas/v1/schema-manifest.json"
