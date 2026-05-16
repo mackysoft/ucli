@@ -83,9 +83,25 @@ internal static class UnityEditorReadinessPolicy
         return errorCode == EditorLifecycleErrorCodes.EditorStarting
             || errorCode == EditorLifecycleErrorCodes.EditorBusy
             || errorCode == EditorLifecycleErrorCodes.EditorCompiling
-            || errorCode == EditorLifecycleErrorCodes.EditorDomainReloading
             || errorCode == EditorLifecycleErrorCodes.EditorRecovering
             || errorCode == EditorLifecycleErrorCodes.EditorReimporting;
+    }
+
+    /// <summary> Determines whether an error code was produced by Unity editor lifecycle readiness evaluation. </summary>
+    public static bool IsReadinessFailureCode (UcliErrorCode errorCode)
+    {
+        return errorCode == EditorLifecycleErrorCodes.EditorStarting
+            || errorCode == EditorLifecycleErrorCodes.EditorBusy
+            || errorCode == EditorLifecycleErrorCodes.EditorCompiling
+            || errorCode == EditorLifecycleErrorCodes.EditorCompileFailed
+            || errorCode == EditorLifecycleErrorCodes.EditorDomainReloading
+            || errorCode == EditorLifecycleErrorCodes.EditorRecovering
+            || errorCode == EditorLifecycleErrorCodes.EditorReimporting
+            || errorCode == EditorLifecycleErrorCodes.EditorPlaymode
+            || errorCode == EditorLifecycleErrorCodes.EditorModalBlocked
+            || errorCode == EditorLifecycleErrorCodes.EditorSafeMode
+            || errorCode == EditorLifecycleErrorCodes.EditorShuttingDown
+            || errorCode == EditorLifecycleErrorCodes.EditorUnavailable;
     }
 
     private static bool IsWaitableLifecycleState (string lifecycleState)
@@ -94,7 +110,6 @@ internal static class UnityEditorReadinessPolicy
             || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Recovering, StringComparison.Ordinal)
             || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Busy, StringComparison.Ordinal)
             || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Compiling, StringComparison.Ordinal)
-            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.DomainReloading, StringComparison.Ordinal)
             || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Reimporting, StringComparison.Ordinal);
     }
 }

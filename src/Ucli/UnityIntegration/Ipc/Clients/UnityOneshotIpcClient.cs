@@ -221,8 +221,18 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                             requestTimeout,
                             cancellationToken)
                         .ConfigureAwait(false);
-                    var exitWaitError = await WaitForExitAsync(processHandle, cleanupTimeout, cancellationToken).ConfigureAwait(false);
-                    if (exitWaitError != null)
+                    var terminalPingShutdownError = await RequestTerminalPingShutdownAsync(
+                            unityProject,
+                            sessionToken,
+                            dispatchRequest,
+                            processHandle)
+                        .ConfigureAwait(false);
+                    if (terminalPingShutdownError != null)
+                    {
+                        result = UnityRequestExecutionResult.Failure(
+                            UnityIpcFailureClassifier.FromExecutionError(terminalPingShutdownError));
+                    }
+                    else if (await WaitForExitAsync(processHandle, cleanupTimeout, cancellationToken).ConfigureAwait(false) is { } exitWaitError)
                     {
                         result = UnityRequestExecutionResult.Failure(
                             UnityIpcFailureClassifier.FromExecutionError(exitWaitError));
@@ -266,6 +276,34 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             return UnityRequestExecutionResult.Failure(
                 UnityIpcFailureClassifier.FromOneshotDispatchException(exception, timeout));
         }
+    }
+
+    private async ValueTask<ExecutionError?> RequestTerminalPingShutdownAsync (
+        ResolvedUnityProjectContext unityProject,
+        string sessionToken,
+        UnityIpcDispatchRequest dispatchRequest,
+        IUnityBatchmodeProcessHandle processHandle)
+    {
+        if (!string.Equals(dispatchRequest.Method, IpcMethodNames.Ping, StringComparison.Ordinal)
+            || processHandle.HasExited)
+        {
+            return null;
+        }
+
+        var cleanupDeadline = ExecutionDeadline.Start(cleanupTimeout);
+        if (await TryRequestShutdownUntilCleanupDeadlineAsync(
+                unityProject,
+                sessionToken,
+                processHandle,
+                cleanupDeadline)
+            .ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        return ExecutionError.Timeout(
+            $"Unity oneshot ping shutdown did not complete within {cleanupTimeout.TotalMilliseconds:0} milliseconds.",
+            ExecutionErrorCodes.IpcTimeout);
     }
 
     private async ValueTask<ProcessTerminationResult> CleanupLaunchedProcessAsync (

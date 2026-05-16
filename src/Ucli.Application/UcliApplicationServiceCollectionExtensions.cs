@@ -100,6 +100,7 @@ public static class UcliApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddUcliApplicationAssuranceServices (this IServiceCollection services)
     {
+        services.AddSingleton<IAssuranceSemanticInvariantRule, ReadyAssuranceSemanticInvariantRule>();
         services.AddSingleton<AssuranceSemanticInvariantValidator>();
         services.AddSingleton<IReadyService, ReadyService>();
         return services;

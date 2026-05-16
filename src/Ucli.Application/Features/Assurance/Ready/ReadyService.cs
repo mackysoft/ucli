@@ -248,7 +248,7 @@ internal sealed class ReadyService : IReadyService
                 var readinessDecision = UnityEditorReadinessPolicy.Evaluate(pingResponse, failFast);
                 if (readinessDecision.IsReady || readinessDecision.IsFailure)
                 {
-                    return ReadyLifecycleProbeResult.Success(lastLifecycle, readinessDecision);
+                    return CreateReadinessDecisionProbeResult(lastLifecycle, readinessDecision);
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -290,7 +290,9 @@ internal sealed class ReadyService : IReadyService
                 timeout,
                 context.Config,
                 context.UnityProject,
-                new UnityRequestPayload.Ping(IpcPingClientVersions.Ready, failFast),
+                new UnityRequestPayload.Ping(
+                    IpcPingClientVersions.Ready,
+                    failFast),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
@@ -327,8 +329,40 @@ internal sealed class ReadyService : IReadyService
         }
 
         var lifecycle = ReadyLifecycleOutputFactory.Create(pingResponse);
+        if (!string.Equals(pingResponse.ProjectFingerprint, context.UnityProject.ProjectFingerprint, StringComparison.Ordinal))
+        {
+            return ReadyLifecycleProbeResult.FailureResult(ApplicationFailure.InternalError(
+                $"Unity ready ping projectFingerprint mismatch. Requested={context.UnityProject.ProjectFingerprint}, Actual={pingResponse.ProjectFingerprint}."));
+        }
+
         var readinessDecision = UnityEditorReadinessPolicy.Evaluate(pingResponse, failFast);
-        return ReadyLifecycleProbeResult.Success(lifecycle, readinessDecision);
+        return CreateReadinessDecisionProbeResult(lifecycle, readinessDecision);
+    }
+
+    private static ReadyLifecycleProbeResult CreateReadinessDecisionProbeResult (
+        ReadyLifecycleOutput? lifecycle,
+        UnityReadinessDecision readinessDecision)
+    {
+        if (!readinessDecision.IsFailure)
+        {
+            return ReadyLifecycleProbeResult.Success(lifecycle, readinessDecision);
+        }
+
+        if (!readinessDecision.ErrorCode.HasValue || !readinessDecision.ErrorCode.Value.IsValid)
+        {
+            return ReadyLifecycleProbeResult.FailureResult(ApplicationFailure.InternalError(
+                "Unity readiness decision did not provide an error code."));
+        }
+
+        var errorCode = readinessDecision.ErrorCode.Value;
+        if (UnityEditorReadinessPolicy.IsReadinessFailureCode(errorCode))
+        {
+            return ReadyLifecycleProbeResult.Success(lifecycle, readinessDecision);
+        }
+
+        return ReadyLifecycleProbeResult.FailureResult(ApplicationFailure.FromCode(
+            errorCode,
+            readinessDecision.ErrorMessage ?? "Unity readiness failed."));
     }
 
     private async ValueTask<ReadyReadIndexObservation> ObserveReadIndexAsync (
@@ -707,18 +741,7 @@ internal sealed class ReadyService : IReadyService
         ArgumentNullException.ThrowIfNull(failure);
 
         return failure.StartupFailure is null
-            && (failure.Code == EditorLifecycleErrorCodes.EditorStarting
-                || failure.Code == EditorLifecycleErrorCodes.EditorBusy
-                || failure.Code == EditorLifecycleErrorCodes.EditorCompiling
-                || failure.Code == EditorLifecycleErrorCodes.EditorCompileFailed
-                || failure.Code == EditorLifecycleErrorCodes.EditorDomainReloading
-                || failure.Code == EditorLifecycleErrorCodes.EditorRecovering
-                || failure.Code == EditorLifecycleErrorCodes.EditorReimporting
-                || failure.Code == EditorLifecycleErrorCodes.EditorPlaymode
-                || failure.Code == EditorLifecycleErrorCodes.EditorModalBlocked
-                || failure.Code == EditorLifecycleErrorCodes.EditorSafeMode
-                || failure.Code == EditorLifecycleErrorCodes.EditorShuttingDown
-                || failure.Code == EditorLifecycleErrorCodes.EditorUnavailable);
+            && UnityEditorReadinessPolicy.IsReadinessFailureCode(failure.Code);
     }
 
     private static TimeSpan GetRetryDelay (TimeSpan remainingTimeout)

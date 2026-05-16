@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Semantics;
@@ -13,12 +12,18 @@ internal sealed class AssuranceSemanticInvariantValidator
 
     private readonly ICodeCatalog codeCatalog;
 
+    private readonly IReadOnlyList<IAssuranceSemanticInvariantRule> rules;
+
     /// <summary> Initializes a new instance of the <see cref="AssuranceSemanticInvariantValidator" /> class. </summary>
     /// <param name="codeCatalog"> The code catalog used to resolve claim and risk codes. </param>
+    /// <param name="rules"> Command-specific semantic invariant rules. </param>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="codeCatalog" /> is <see langword="null" />. </exception>
-    public AssuranceSemanticInvariantValidator (ICodeCatalog codeCatalog)
+    public AssuranceSemanticInvariantValidator (
+        ICodeCatalog codeCatalog,
+        IEnumerable<IAssuranceSemanticInvariantRule>? rules = null)
     {
         this.codeCatalog = codeCatalog ?? throw new ArgumentNullException(nameof(codeCatalog));
+        this.rules = rules?.ToArray() ?? Array.Empty<IAssuranceSemanticInvariantRule>();
     }
 
     /// <summary> Validates one assurance payload object. </summary>
@@ -169,7 +174,7 @@ internal sealed class AssuranceSemanticInvariantValidator
                 : string.Empty;
             var required = TryReadBoolean(claimElement, "required", defaultValue: false);
 
-            ValidateReadyClaimValidity(claimElement, claimPath, id, payload, violations);
+            ValidateCommandSpecificRules(payload, claimElement, claimPath, id, violations);
             ResolveEvidenceReferences(claimElement, claimPath, reports, violations);
             var residualRisks = ReadResidualRisks(claimElement, BuildPropertyPath(claimPath, "residualRisks"), violations);
 
@@ -400,79 +405,17 @@ internal sealed class AssuranceSemanticInvariantValidator
         }
     }
 
-    private static void ValidateReadyClaimValidity (
+    private void ValidateCommandSpecificRules (
+        JsonElement payload,
         JsonElement claimElement,
         string claimPath,
         string claimId,
-        JsonElement payload,
         List<AssuranceSemanticInvariantViolation> violations)
     {
-        if (!IsReadyClaim(claimId) || !IsReadyPayload(payload))
+        for (var i = 0; i < rules.Count; i++)
         {
-            return;
+            rules[i].ValidateClaim(payload, claimElement, claimPath, claimId, violations);
         }
-
-        var validityPath = BuildPropertyPath(claimPath, "validity");
-        if (!claimElement.TryGetProperty("validity", out var validityElement) || validityElement.ValueKind != JsonValueKind.Object)
-        {
-            AddViolation(violations, validityPath, "Ready claim validity must be an object.");
-            return;
-        }
-
-        if (!TryReadRequiredString(validityElement, "kind", validityPath, violations, out var kind))
-        {
-            return;
-        }
-
-        if (!string.Equals(kind, ReadyValidityKindValues.SessionBound, StringComparison.Ordinal)
-            && !string.Equals(kind, ReadyValidityKindValues.ProbeOnly, StringComparison.Ordinal))
-        {
-            AddViolation(violations, BuildPropertyPath(validityPath, "kind"), "Ready claim validity kind must be sessionBound or probeOnly.");
-        }
-
-        if (!validityElement.TryGetProperty("guaranteesReusableSession", out var guaranteeElement)
-            || (guaranteeElement.ValueKind != JsonValueKind.True && guaranteeElement.ValueKind != JsonValueKind.False))
-        {
-            AddViolation(violations, BuildPropertyPath(validityPath, "guaranteesReusableSession"), "Ready claim validity must declare guaranteesReusableSession.");
-            return;
-        }
-
-        var guaranteesReusableSession = guaranteeElement.GetBoolean();
-        if (string.Equals(kind, ReadyValidityKindValues.ProbeOnly, StringComparison.Ordinal) && guaranteesReusableSession)
-        {
-            AddViolation(violations, BuildPropertyPath(validityPath, "guaranteesReusableSession"), "Probe-only ready validity must not guarantee a reusable session.");
-        }
-
-        if (IsAutoOneshotReadyPayload(payload) && guaranteesReusableSession)
-        {
-            AddViolation(violations, BuildPropertyPath(validityPath, "guaranteesReusableSession"), "ready --mode auto resolved to oneshot must not guarantee a reusable session.");
-        }
-    }
-
-    private static bool IsReadyClaim (string claimId)
-    {
-        return string.Equals(claimId, ReadyClaimCodes.UnityReadyExecution, StringComparison.Ordinal)
-            || string.Equals(claimId, ReadyClaimCodes.UnityReadyMutation, StringComparison.Ordinal)
-            || string.Equals(claimId, ReadyClaimCodes.UnityReadyTest, StringComparison.Ordinal)
-            || string.Equals(claimId, ReadyClaimCodes.UnityReadyReadIndex, StringComparison.Ordinal);
-    }
-
-    private static bool IsAutoOneshotReadyPayload (JsonElement payload)
-    {
-        return payload.TryGetProperty("requestedMode", out var requestedModeElement)
-            && requestedModeElement.ValueKind == JsonValueKind.String
-            && string.Equals(requestedModeElement.GetString(), ReadyExecutionModeCodec.Auto, StringComparison.Ordinal)
-            && payload.TryGetProperty("resolvedMode", out var resolvedModeElement)
-            && resolvedModeElement.ValueKind == JsonValueKind.String
-            && string.Equals(resolvedModeElement.GetString(), ReadyExecutionModeCodec.Oneshot, StringComparison.Ordinal);
-    }
-
-    private static bool IsReadyPayload (JsonElement payload)
-    {
-        return payload.TryGetProperty("target", out _)
-            && payload.TryGetProperty("requestedMode", out _)
-            && payload.TryGetProperty("resolvedMode", out _)
-            && payload.TryGetProperty("sessionKind", out _);
     }
 
     private static string RecalculateVerdict (

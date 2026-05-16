@@ -9,6 +9,7 @@ internal static class IpcTimeoutDefaults
     private static readonly (UcliCommand Command, int DefaultTimeoutMilliseconds)[] DefaultTimeoutEntries =
     [
         (UcliCommandIds.Test, 300000),
+        (UcliCommandIds.Ready, 10000),
         (UcliCommandIds.Status, 5000),
         (UcliCommandIds.Validate, 10000),
         (UcliCommandIds.Plan, 20000),

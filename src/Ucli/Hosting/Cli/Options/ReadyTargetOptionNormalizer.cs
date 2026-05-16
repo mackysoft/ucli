@@ -11,17 +11,14 @@ internal static class ReadyTargetOptionNormalizer
     /// <summary> Normalizes one optional <c>--for</c> value. </summary>
     public static ReadyTargetOptionNormalizationResult Normalize (string? optionValue)
     {
-        if (string.IsNullOrWhiteSpace(optionValue))
+        if (optionValue is null)
         {
             return ReadyTargetOptionNormalizationResult.Success(ReadyTarget.Execution);
         }
 
-        if (ReadyTargetCodec.TryParse(optionValue, out var target))
-        {
-            return ReadyTargetOptionNormalizationResult.Success(target);
-        }
-
-        return ReadyTargetOptionNormalizationResult.Failure(
-            ExecutionError.InvalidArgument(InvalidTargetMessage));
+        var normalizedValue = optionValue.Trim();
+        return ReadyTargetCodec.TryParseValue(normalizedValue, out var target)
+            ? ReadyTargetOptionNormalizationResult.Success(target)
+            : ReadyTargetOptionNormalizationResult.Failure(ExecutionError.InvalidArgument(InvalidTargetMessage));
     }
 }

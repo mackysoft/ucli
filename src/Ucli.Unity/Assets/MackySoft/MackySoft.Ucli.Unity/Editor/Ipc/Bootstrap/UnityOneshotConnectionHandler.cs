@@ -46,14 +46,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            return !string.Equals(result.Request.Method, IpcMethodNames.Ping, StringComparison.Ordinal)
-                || IsReadyCompletionPing(result.Request);
-        }
-
-        private static bool IsReadyCompletionPing (IpcRequest request)
-        {
-            return IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPingRequest payload, out _)
-                && string.Equals(payload.ClientVersion, IpcPingClientVersions.Ready, StringComparison.Ordinal);
+            return !string.Equals(result.Request.Method, IpcMethodNames.Ping, StringComparison.Ordinal);
         }
 
         private static bool HasPreDispatchFailure (IpcResponse response)
