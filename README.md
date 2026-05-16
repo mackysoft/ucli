@@ -29,7 +29,7 @@ uCLI focuses on those guarantees:
 - **Machine-readable evidence:** automation receives structured JSON with `opResults`, `applied`, `changed`, `touched`, errors, logs, and artifacts.
 - **Lifecycle-aware execution:** compile, domain reload, busy, play mode, shutdown, and blocked states are surfaced as protocol states or structured errors.
 - **Worktree-safe sessions:** daemon state, indexes, and artifacts are scoped by project identity; Unity process launches are serialized by physical project root.
-- **Dangerous operations are opt-in:** unsafe paths are isolated behind operation policy and `--allowDangerous`.
+- **Dangerous operations are opt-in:** unsafe paths are isolated behind derived operation policy and `--allowDangerous`.
 
 ## 🧭 What uCLI Makes Explicit
 
@@ -43,7 +43,7 @@ uCLI is built around the review boundary: an automated Unity change should be in
 | Timeout recovery | Whether a retry is safe after timeout or disconnect. | Timeout is not proof of no-op; inspect returned results when available and logs before retrying. |
 | Persistence | Whether a mutation also saved project data. | `commit` makes save boundaries explicit. |
 | Evidence | What changed, what was touched, and where diagnostics live. | JSON envelopes, logs, and test artifacts are first-class outputs. |
-| Operation discovery | Which operation contract is installed for this project. | `ops describe` exposes the installed operation's kind, policy, argument schema, and static constraints. |
+| Operation discovery | Which operation contract is installed for this project. | `ops describe` exposes the installed operation's kind, policy, inputs, result contract, assurance facts, optional code contract, and structural schemas. |
 | Read freshness | Whether cached read data is fresh, stale, or advisory. | readIndex accelerates reads, while `call` re-resolves against live Unity state. |
 | Guarded execution | Which requests cross the normal edit boundary. | Dangerous operations are isolated and require explicit opt-in. |
 
@@ -70,7 +70,7 @@ Use uCLI when you need to automate Unity from scripts, CI, or agents without los
 Agents should not hard-code operation arguments or guess Unity state from memory.
 
 - Discover available operations with `ucli ops list` and `ucli ops describe`.
-- Treat `ucli ops describe <operation>` as the runtime contract for that operation's kind, policy, argument schema, and static constraints.
+- Treat `ucli ops describe <operation>` as the runtime contract for that operation's kind, policy, inputs, result contract, assurance facts, optional code contract, and structural schemas.
 - Use `ucli ready --for execution` instead of fixed sleeps before read-only or generic Unity-backed work.
 - Use `ucli ready --for mutation` before normal write workflows.
 - Inspect assets, scene trees, components, and serialized schemas before editing.
@@ -186,7 +186,7 @@ Use `--projectPath <path>` when a single command needs to override the environme
 - The CLI generates the internal request protocol metadata for automation workflows.
 - `MackySoft.Ucli.Contracts` is for direct IPC protocol and tooling consumers.
 - `MackySoft.Ucli.Infrastructure` is an advanced integration package for runtime support code.
-- Operations marked `dangerous` are outside the normal guarded edit path and require an explicit `ucli call --allowDangerous`.
+- Operations whose policy is `dangerous` are outside the normal guarded edit path and require an explicit `ucli call --allowDangerous`.
 
 ## 🔄 Typical Workflow
 
@@ -328,7 +328,7 @@ ucli ops list
 ucli ops describe ucli.scene.open
 ```
 
-`ops describe` returns the agent-facing operation contract for one primitive operation. Agents should use `description`, `inputs[].constraints`, `inputs[].variants[].fields[].constraints`, `resultContract`, and `assurance` to choose the operation, build `steps[].args`, and interpret results. Reusable operation values such as scene asset paths, prefab asset paths, hierarchy paths, GlobalObjectId strings, asset GUIDs, and Unity type identifiers are modeled as semantic Args/Result value types in C#, while the IPC JSON remains primitive strings. Input descriptions and semantic constraints are generated from Args property attributes and those semantic value-type attributes. The generated `argsSchema` and `resultSchema` validate only JSON structure; descriptions and semantic constraints live in the describe contract, not in JSON Schema constraint keywords.
+`ops describe` returns the agent-facing operation contract for one public raw operation. Its operation payload is fixed to `name`, `kind`, `policy`, `description`, `inputs[]`, `resultContract`, `assurance`, optional `codeContract`, `argsSchema`, and `resultSchema`. Agents should use `description`, `inputs[].constraints`, `inputs[].variants[].fields[].constraints`, `resultContract`, `assurance`, and `codeContract` when present to choose the operation, build `steps[].args`, decide admission, and interpret results. Reusable operation values such as scene asset paths, prefab asset paths, hierarchy paths, GlobalObjectId strings, asset GUIDs, and Unity type identifiers are modeled as semantic Args/Result value types in C#, while the IPC JSON remains primitive strings. Input descriptions and semantic constraints are generated from Args property attributes and those semantic value-type attributes. The generated `argsSchema` and `resultSchema` validate only JSON structure; descriptions and semantic constraints live in the describe contract, not in JSON Schema constraint keywords.
 
 ## Custom Operation Authoring Overview
 
@@ -344,7 +344,7 @@ An operation has three parts:
 
 Use `UcliNoResult` for operations that do not emit `opResults[].result`.
 
-The Args and Result CLR types are the source of truth for the public operation contract. `UcliOperationMetadata.Create<TArgs,TResult>` derives `inputs`, `resultContract`, `argsSchema`, and `resultSchema` from those types, their attributes, and the metadata passed to `Create`. Do not hand-write JSON Schema for a normal operation.
+The Args and Result CLR types are the source of truth for the public operation contract. `UcliOperationMetadata.Create<TArgs,TResult>` derives `inputs`, `resultContract`, `argsSchema`, and `resultSchema` from those types and their attributes. The catalog builder derives the public `kind` and `policy` from the operation contract facts. Do not hand-write JSON Schema for a normal operation.
 
 Contract rules:
 
@@ -429,20 +429,28 @@ Input constraints describe the meaning of values in `ops describe`; they are not
 
 For object references and selectors, prefer existing contract types such as `AssetReferenceArgs`, `GameObjectReferenceArgs`, `SceneGameObjectReferenceArgs`, `ComponentReferenceArgs`, and `ResolveSelectorArgs`. If an operation needs a new reference object, use `[UcliExclusiveRequiredPropertySet]` on the object type to define mutually exclusive selector shapes, and `[UcliPropertyRequires]` when one property requires other properties.
 
-Choose operation metadata deliberately:
+Declare operation contract facts deliberately:
 
 | Metadata | Values | Use it for |
 | --- | --- | --- |
-| `UcliOperationKind` | `Query`, `Command`, `Mutation` | `Query` observes only. `Command` changes Editor or AssetDatabase state without content mutation as the main purpose. `Mutation` can dirty or persist scene, prefab, asset, or project content. |
-| `OperationPolicy` | `Safe`, `Advanced`, `Dangerous` | `Safe` is suitable for normal guarded automation. `Advanced` covers writes and broader project effects. `Dangerous` is for escape hatches and requires explicit `ucli call --allowDangerous`. |
-| `UcliOperationAssuranceContract` | side effects, dirty/persist flags, touched kinds, plan mode | Machine-readable behavior that lets runners decide whether an operation is acceptable. |
-| `UcliOperationPlanMode` | `ValidationOnly`, `ObservesLiveUnity`, `MayCreatePreviewState` | How much the `Plan` phase may do before `Call`. |
+| `declaredKind` | `Query`, `Command`, `Mutation` | The author-declared operation intent. The catalog builder validates it against contract facts and publishes the validated public kind. |
+| `UcliOperationAssuranceContract` | side effects, dirty/persist flags, touched kinds, plan mode | Machine-readable behavior facts used to derive admission policy and let runners decide whether an operation is acceptable. |
+| `UcliOperationPlanMode` | `ValidationOnly`, `ObservesLiveUnity` for public v1 operations | How much the `Plan` phase may do before `Call`. `MayCreatePreviewState` is reserved for internal or experimental work and is not part of the public raw catalog. |
+| `UcliOperationCodeContract` | source forms, entry point, source-visible API, return constraints | Required for operations that accept source code. Arbitrary source execution derives `dangerous` policy. |
+| `UcliOperationExposure` | `Public`, `EditLoweringOnly`, `Internal` | Whether the operation can be called as a public raw `kind:"op"` step or only through lowering/internal flows. |
+
+`OperationPolicy` is not an author-chosen safety label. It is the admission policy derived only from operation contract facts. The catalog builder computes `policy` from `declaredKind` compatibility, `assurance.sideEffects`, `assurance.mayDirty`, `assurance.mayPersist`, `assurance.touchedKinds`, `assurance.planMode`, `codeContract`, `exposure`, destructive scope, arbitrary execution, and external process or filesystem access. Operation authors do not specify `policy` and cannot tighten or loosen it directly.
+
+Safe operations are bounded observations that cannot dirty, persist, or change Editor state, and do not execute arbitrary code or external processes. Advanced operations include deterministic Unity Editor API writes, Editor state changes, dirty or persisted Unity content, AssetDatabase refresh/import/compile effects, and broader project effects. Dangerous operations are escape hatches such as arbitrary C# execution, arbitrary shell/process/filesystem writes, unbounded destructive operations, or operations whose touched/save boundary cannot be sufficiently guaranteed.
+
+An operation with `MayCreatePreviewState` must not be published as a public raw operation in v1. If an internal or experimental operation can create preview state during `Plan`, it must derive at least `advanced` and document cleanup evidence and residual risk. If cleanup or the application boundary cannot be guaranteed, it is `dangerous`.
 
 Keep phase behavior consistent:
 
 - `Validate` checks typed args and cheap preconditions.
 - `Plan` may inspect Unity state according to `planMode`, but must not persist content.
 - `Call` performs the operation.
+- Query operations must report `applied:false`, `changed:false`, and `touched:[]`.
 - `applied`, `changed`, and `touched` belong to the operation result envelope. Do not put those fields in `TResult`.
 - `TResult` should contain only the operation-specific main data. Use `UcliNoResult` when there is no main data.
 
@@ -490,14 +498,13 @@ internal sealed class CountSceneObjectsOperation : UcliOperation<CountSceneObjec
     public override UcliOperationMetadata Metadata { get; } =
         UcliOperationMetadata.Create<CountSceneObjectsArgs, CountSceneObjectsResult>(
             operationName: "game.scene.countGameObjects",
-            kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
+            declaredKind: UcliOperationKind.Query,
             description: "Counts GameObjects in a Unity scene.",
             assurance: new UcliOperationAssuranceContract(
                 Array.Empty<UcliOperationSideEffect>(),
                 mayDirty: false,
                 mayPersist: false,
-                new[] { IpcExecuteTouchedResourceKindNames.Scene },
+                Array.Empty<string>(),
                 UcliOperationPlanMode.ObservesLiveUnity));
 
     protected override Task<OperationPhaseStepResult> Validate (
@@ -527,7 +534,7 @@ internal sealed class CountSceneObjectsOperation : UcliOperation<CountSceneObjec
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(SuccessWithResult(new CountSceneObjectsResult(0), applied: true, changed: false));
+        return Task.FromResult(SuccessWithResult(new CountSceneObjectsResult(0), applied: false, changed: false));
     }
 }
 ```
@@ -851,10 +858,12 @@ ucli ops list
 ucli ops describe ucli.comp.set
 ```
 
+`ops list` returns only operations that are callable as public raw `kind:"op"` steps. Edit-lowering-only and internal primitives are validated internally but are not listed for agent selection.
+
 Use `ops describe` as the source of truth for:
 
 - operation kind and policy
-- argument schema and static constraints
+- inputs, result contract, assurance facts, optional code contract, and structural schemas
 - `readIndex` source and freshness metadata
 
 README examples show common operations only. The installed Unity plugin's operation catalog is the runtime contract.
@@ -881,11 +890,11 @@ Common operation groups include:
 
 Extensions can expose operations under names such as `myorg.navmesh.bake`.
 
-Custom operations are not hidden shortcuts. Once they are in the catalog, they participate in the same policy, schema, and JSON result envelope contracts as built-in operations, so agents and CI can discover them with `ucli ops list` and inspect them with `ucli ops describe`.
+Custom operations are not hidden shortcuts. Once they are in the catalog, they participate in the same derived policy, schema, and JSON result envelope contracts as built-in operations, so agents and CI can discover them with `ucli ops list` and inspect them with `ucli ops describe`.
 
 ## ⚠️ Dangerous Operations
 
-> **WARNING:** `ucli call` blocks operations marked `dangerous` unless every guard allows them: project policy, operation allowlist, and the explicit `--allowDangerous` flag. Prefer the normal `edit` flow and non-dangerous primitive operations.
+> **WARNING:** `ucli call` blocks operations whose policy is `dangerous` unless every guard allows them: project policy, operation allowlist, and the explicit `--allowDangerous` flag. Prefer the normal `edit` flow and non-dangerous primitive operations.
 
 uCLI keeps the normal edit path declarative, typed, planned, and reviewable.
 
@@ -958,7 +967,7 @@ Common options:
 | `--failFast` | Unity-backed commands | Fail when the Unity editor lifecycle is not ready instead of waiting. |
 | `--withPlan` | `ucli call` | Run a plan pass inside `call` and include it in the result. |
 | `--planToken <token>` | `ucli call` | Apply a request using a token returned by `ucli plan`. |
-| `--allowDangerous` | `ucli call` | Allow operations marked dangerous by the operation catalog. |
+| `--allowDangerous` | `ucli call` | Allow operations whose catalog policy is `dangerous`. |
 
 > **NOTE:** Project path resolution uses `--projectPath`, then `UCLI_PROJECT_PATH`, then the command default. The default is usually the current working directory.
 
