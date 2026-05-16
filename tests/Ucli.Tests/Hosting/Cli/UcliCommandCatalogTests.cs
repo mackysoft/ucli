@@ -66,6 +66,7 @@ public sealed class UcliCommandCatalogTests
     [Trait("Size", "Small")]
     [InlineData(UcliCommandNames.Init)]
     [InlineData(UcliCommandNames.Status)]
+    [InlineData(UcliCommandNames.Ready)]
     [InlineData(UcliCommandNames.Refresh)]
     [InlineData(UcliCommandNames.Resolve)]
     [InlineData(UcliCommandNames.Query)]

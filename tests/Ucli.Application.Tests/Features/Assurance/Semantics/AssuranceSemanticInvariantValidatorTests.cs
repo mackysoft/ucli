@@ -23,6 +23,44 @@ public sealed class AssuranceSemanticInvariantValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Validate_WithValidReadyProbeOnlyPayload_ReturnsNoViolations ()
+    {
+        var result = Validate(ValidReadyPayload("""
+            "validity": {
+              "kind": "probeOnly",
+              "guaranteesReusableSession": false
+            },
+            """));
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Violations);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithReadyClaimMissingValidity_ReturnsValidityPath ()
+    {
+        var result = Validate(ValidReadyPayload(validityJson: string.Empty));
+
+        AssertViolationPath(result, "$.claims[0].validity");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithAutoOneshotReadyClaimGuaranteeingReusableSession_ReturnsGuaranteePath ()
+    {
+        var result = Validate(ValidReadyPayload("""
+            "validity": {
+              "kind": "probeOnly",
+              "guaranteesReusableSession": true
+            },
+            """));
+
+        AssertViolationPath(result, "$.claims[0].validity.guaranteesReusableSession");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Validate_WithMissingVerifierReference_ReturnsClaimVerifierPath ()
     {
         var payload = """
@@ -641,6 +679,45 @@ public sealed class AssuranceSemanticInvariantValidatorTests
             CreateDescriptor(CompileClaim, CodeCatalogKindValues.Claim),
             CreateDescriptor(LogUnavailableRisk, CodeCatalogKindValues.Risk),
         ]));
+    }
+
+    private static string ValidReadyPayload (string validityJson)
+    {
+        return $$"""
+            {
+              "verdict": "pass",
+              "target": "execution",
+              "requestedMode": "auto",
+              "resolvedMode": "oneshot",
+              "sessionKind": "transientProbe",
+              "verifiers": [
+                {
+                  "id": "ready.lifecycle",
+                  "kind": "ready.lifecycle",
+                  "deterministic": false,
+                  "required": true,
+                  "primaryClaims": [
+                    "UNITY_READY_EXECUTION"
+                  ],
+                  "effects": []
+                }
+              ],
+              "claims": [
+                {
+                  "id": "UNITY_READY_EXECUTION",
+                  "status": "passed",
+                  "coverage": "full",
+                  "required": true,
+                  "verifierRef": "ready.lifecycle",
+                  {{validityJson}}
+                  "evidence": [],
+                  "residualRisks": []
+                }
+              ],
+              "reports": {},
+              "residualRisks": []
+            }
+            """;
     }
 
     private static CodeCatalogDescriptor CreateDescriptor (

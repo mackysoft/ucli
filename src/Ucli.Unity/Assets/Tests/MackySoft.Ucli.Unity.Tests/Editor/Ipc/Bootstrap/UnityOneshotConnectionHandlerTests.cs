@@ -35,6 +35,22 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Handle_WhenReadyPingRequestHandled_SignalsCompletion () => UniTask.ToCoroutine(async () =>
+        {
+            var completionSignal = new OneshotRequestCompletionSignal();
+            var request = CreateRequest(IpcMethodNames.Ping, JsonSerializer.SerializeToElement(new IpcPingRequest(IpcPingClientVersions.Ready)));
+            var handler = CreateHandler(request, CreateSuccessResponse(request.RequestId), completionSignal);
+
+            using var stream = await CreateStreamAsync(request);
+            var handledResult = await handler.HandleAsync(stream, CancellationToken.None);
+
+            Assert.That(handledResult.Request, Is.Not.Null);
+            Assert.That(handledResult.Request.Method, Is.EqualTo(IpcMethodNames.Ping));
+            Assert.That(completionSignal.IsCompleted, Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Handle_WhenSuccessfulNonPingRequestHandled_SignalsCompletion () => UniTask.ToCoroutine(async () =>
         {
             var completionSignal = new OneshotRequestCompletionSignal();

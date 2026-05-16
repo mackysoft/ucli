@@ -227,6 +227,23 @@ public sealed class IpcContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IpcPingRequest_SerializesFailFastOnlyWhenSpecified ()
+    {
+        var defaultRequest = new IpcPingRequest(IpcPingClientVersions.OneshotStartup);
+        var defaultJson = JsonSerializer.SerializeToElement(defaultRequest, SerializerOptions);
+
+        Assert.Equal(IpcPingClientVersions.OneshotStartup, defaultJson.GetProperty("clientVersion").GetString());
+        Assert.False(defaultJson.TryGetProperty("failFast", out _));
+
+        var failFastRequest = new IpcPingRequest(IpcPingClientVersions.Ready, FailFast: true);
+        var failFastJson = JsonSerializer.SerializeToElement(failFastRequest, SerializerOptions);
+
+        Assert.Equal(IpcPingClientVersions.Ready, failFastJson.GetProperty("clientVersion").GetString());
+        Assert.True(failFastJson.GetProperty("failFast").GetBoolean());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcMethodNames_ExposeExpectedMethodLiterals ()
     {
         Assert.Equal("ping", IpcMethodNames.Ping);
@@ -856,6 +873,7 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("resolve", UcliCommandIds.Resolve.Name);
         Assert.Equal("query", UcliCommandIds.Query.Name);
         Assert.Equal("refresh", UcliCommandIds.Refresh.Name);
+        Assert.Equal("ready", UcliCommandIds.Ready.Name);
     }
 
     [Fact]
@@ -899,6 +917,7 @@ public sealed class IpcContractSerializationTests
         Assert.True(IpcExecuteCommandNames.IsKnown(UcliCommandIds.Resolve.Name));
         Assert.True(IpcExecuteCommandNames.IsKnown(UcliCommandIds.Query.Name));
         Assert.False(IpcExecuteCommandNames.IsKnown(UcliCommandIds.Refresh.Name));
+        Assert.False(IpcExecuteCommandNames.IsKnown(UcliCommandIds.Ready.Name));
         Assert.False(IpcExecuteCommandNames.IsKnown("unknown"));
 
         Assert.False(IpcExecuteCommandNames.IsOperationPipelineCommand(UcliCommandIds.Validate.Name));
@@ -907,6 +926,7 @@ public sealed class IpcContractSerializationTests
         Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(UcliCommandIds.Resolve.Name));
         Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(UcliCommandIds.Query.Name));
         Assert.False(IpcExecuteCommandNames.IsOperationPipelineCommand(UcliCommandIds.Refresh.Name));
+        Assert.False(IpcExecuteCommandNames.IsOperationPipelineCommand(UcliCommandIds.Ready.Name));
         Assert.False(IpcExecuteCommandNames.IsOperationPipelineCommand("unknown"));
     }
 

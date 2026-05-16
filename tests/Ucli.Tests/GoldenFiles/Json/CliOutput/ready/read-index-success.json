@@ -1,0 +1,99 @@
+{
+  "protocolVersion": 1,
+  "command": "ready",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "uCLI ready assurance passed.",
+  "payload": {
+    "verdict": "pass",
+    "project": {
+      "projectPath": "<projectPath>",
+      "projectFingerprint": "<projectFingerprint>",
+      "unityVersion": "<unityVersion>"
+    },
+    "verifiers": [
+      {
+        "id": "ready.readIndex",
+        "kind": "ready.readIndex",
+        "deterministic": false,
+        "required": true,
+        "primaryClaims": [
+          "UNITY_READY_READ_INDEX"
+        ],
+        "effects": []
+      }
+    ],
+    "claims": [
+      {
+        "id": "UNITY_READY_READ_INDEX",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "ready.readIndex",
+        "statement": "Unity is ready for readIndex.",
+        "subject": {
+          "kind": "unityReady",
+          "target": "readIndex",
+          "requestedMode": "auto",
+          "resolvedMode": "notApplicable",
+          "sessionKind": "artifactOnly"
+        },
+        "validity": {
+          "kind": "probeOnly",
+          "guaranteesReusableSession": false
+        },
+        "evidence": [
+          {
+            "kind": "readIndexSummary",
+            "data": {
+              "mode": "allowStale",
+              "artifacts": [
+                {
+                  "name": "inputs.manifest",
+                  "status": "available",
+                  "sourceInputsHash": "source-hash",
+                  "generatedAtUtc": "2026-05-17T00:00:00+00:00"
+                },
+                {
+                  "name": "ops.catalog",
+                  "status": "available",
+                  "freshness": "fresh",
+                  "sourceInputsHash": "source-hash",
+                  "generatedAtUtc": "2026-05-17T00:00:00+00:00"
+                }
+              ]
+            }
+          }
+        ],
+        "residualRisks": []
+      }
+    ],
+    "reports": {},
+    "residualRisks": [],
+    "target": "readIndex",
+    "requestedMode": "auto",
+    "resolvedMode": "notApplicable",
+    "sessionKind": "artifactOnly",
+    "timeoutMilliseconds": 10000,
+    "lifecycle": null,
+    "readIndex": {
+      "mode": "allowStale",
+      "artifacts": [
+        {
+          "name": "inputs.manifest",
+          "status": "available",
+          "sourceInputsHash": "source-hash",
+          "generatedAtUtc": "2026-05-17T00:00:00+00:00"
+        },
+        {
+          "name": "ops.catalog",
+          "status": "available",
+          "freshness": "fresh",
+          "sourceInputsHash": "source-hash",
+          "generatedAtUtc": "2026-05-17T00:00:00+00:00"
+        }
+      ]
+    }
+  },
+  "errors": []
+}

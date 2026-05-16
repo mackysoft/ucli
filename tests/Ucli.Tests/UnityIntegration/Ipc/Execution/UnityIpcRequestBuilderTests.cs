@@ -24,6 +24,20 @@ public sealed class UnityIpcRequestBuilderTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Build_WithPing_CreatesPingPayload ()
+    {
+        var builder = new UnityIpcRequestBuilder();
+
+        var request = builder.Build(new UnityRequestPayload.Ping("test-client", FailFast: true));
+
+        Assert.Equal(IpcMethodNames.Ping, request.Method);
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPingRequest payload, out _));
+        Assert.Equal("test-client", payload.ClientVersion);
+        Assert.True(payload.FailFast);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Build_WithExecuteJson_CreatesExecutePayload ()
     {
         var executeArguments = JsonSerializer.SerializeToElement(new
