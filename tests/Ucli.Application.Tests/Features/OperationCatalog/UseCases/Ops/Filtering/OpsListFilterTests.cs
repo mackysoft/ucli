@@ -26,7 +26,7 @@ public sealed class OpsListFilterTests
             out _));
         var snapshot = CreateListSnapshot(
             CreateSceneSaveEntry(),
-            CreateSceneSaveEntry() with { Name = "custom.scene.query", Kind = "query", Policy = "safe" },
+            CreateSceneSaveEntry() with { Name = "custom.scene.query", Kind = "query", Policy = "safe", Assurance = CreateGoDescribeEntry().Assurance },
             CreateSceneSaveEntry() with { Name = "custom.asset.mutation", Kind = "mutation", Policy = "safe" },
             CreateSceneSaveEntry() with { Name = "custom.scene.dangerous", Kind = "mutation", Policy = "dangerous" });
 

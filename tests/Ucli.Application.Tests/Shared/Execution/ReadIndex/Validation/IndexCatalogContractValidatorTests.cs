@@ -722,11 +722,17 @@ public sealed class IndexCatalogContractValidatorTests
             ],
             ResultContract = UcliOperationResultContract.NoResult("No operation-specific result is emitted."),
             Assurance = new UcliOperationAssuranceContract(
-                Array.Empty<string>(),
+                sideEffects: Array.Empty<string>(),
                 mayDirty: false,
                 mayPersist: false,
-                Array.Empty<string>(),
-                UcliOperationPlanModeValues.ValidationOnly),
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanModeValues.ValidationOnly,
+                planSemantics: "Validate arguments without applying mutation.",
+                callSemantics: "Open an editor context without persisting project data.",
+                touchedContract: "Reports no mutation resources.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Failure means the operation did not complete.",
+                dangerousNotes: Array.Empty<string>()),
         };
     }
 

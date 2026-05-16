@@ -1079,18 +1079,33 @@ namespace MackySoft.Ucli.Unity.Tests
             return new InMemoryPhaseOperationRegistry(registrations);
         }
 
-        private static UcliOperationDescribeContract CreateDescribeContract (string operationName)
+        private static UcliOperationDescribeContract CreateDescribeContract (
+            string operationName,
+            OperationPolicy policy = OperationPolicy.Safe)
         {
             return new UcliOperationDescribeContract(
                 $"{operationName} test operation.",
                 Array.Empty<UcliOperationInputContract>(),
                 UcliOperationResultContract.NoResult("This test operation does not emit operation-specific result data."),
-                new UcliOperationAssuranceContract(
-                    Array.Empty<UcliOperationSideEffect>(),
-                    mayDirty: false,
-                    mayPersist: false,
-                    Array.Empty<string>(),
-                    UcliOperationPlanMode.ValidationOnly));
+                CreateValidationOnlyAssurance(policy));
+        }
+
+        private static UcliOperationAssuranceContract CreateValidationOnlyAssurance (OperationPolicy policy = OperationPolicy.Safe)
+        {
+            return new UcliOperationAssuranceContract(
+                sideEffects: Array.Empty<UcliOperationSideEffect>(),
+                mayDirty: false,
+                mayPersist: false,
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanMode.ValidationOnly,
+                planSemantics: "Validate arguments without applying mutation.",
+                callSemantics: "Read Unity state without applying mutation.",
+                touchedContract: "Returns no touched resources.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Failure means the observation was not fully produced.",
+                dangerousNotes: policy == OperationPolicy.Safe
+                    ? Array.Empty<string>()
+                    : new[] { "Test fixture uses a non-safe policy to exercise policy gating." });
         }
 
         private static NormalizedExecuteRequest CreateRequest (
@@ -1389,12 +1404,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 kind: UcliOperationKind.Query,
                 policy: OperationPolicy.Safe,
                 description: "Test operation requiring one typed arg.",
-                assurance: new UcliOperationAssuranceContract(
-                    Array.Empty<UcliOperationSideEffect>(),
-                    mayDirty: false,
-                    mayPersist: false,
-                    Array.Empty<string>(),
-                    UcliOperationPlanMode.ValidationOnly));
+                assurance: CreateValidationOnlyAssurance());
 
             public bool ValidateBodyCalled { get; private set; }
 
@@ -1448,12 +1458,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 kind: UcliOperationKind.Query,
                 policy: OperationPolicy.Safe,
                 description: "Test operation accepting one object reference.",
-                assurance: new UcliOperationAssuranceContract(
-                    Array.Empty<UcliOperationSideEffect>(),
-                    mayDirty: false,
-                    mayPersist: false,
-                    Array.Empty<string>(),
-                    UcliOperationPlanMode.ValidationOnly));
+                assurance: CreateValidationOnlyAssurance());
 
             public bool ValidateBodyCalled { get; private set; }
 
@@ -1513,7 +1518,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     operationName: "ucli.tests.recording",
                     kind: UcliOperationKind.Query,
                     policy: policy,
-                    describeContract: CreateDescribeContract("ucli.tests.recording"));
+                    describeContract: CreateDescribeContract("ucli.tests.recording", policy));
             }
 
             public UcliOperationMetadata Metadata { get; }
@@ -1609,7 +1614,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 operationName: "ucli.tests.replay-failing",
                 kind: UcliOperationKind.Mutation,
                 policy: OperationPolicy.Advanced,
-                describeContract: CreateDescribeContract("ucli.tests.replay-failing"),
+                describeContract: CreateDescribeContract("ucli.tests.replay-failing", OperationPolicy.Advanced),
                 argsType: typeof(UcliEmptyArgs),
                 resultType: typeof(UcliNoResult),
                 requiresPreCallPlanReplay: true);

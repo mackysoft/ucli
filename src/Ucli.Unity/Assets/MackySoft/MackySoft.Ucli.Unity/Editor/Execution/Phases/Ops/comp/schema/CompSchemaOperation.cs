@@ -25,11 +25,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             policy: OperationPolicy.Safe,
             description: "Returns the serialized schema for a component type.",
             assurance: new UcliOperationAssuranceContract(
-                Array.Empty<UcliOperationSideEffect>(),
+                sideEffects: Array.Empty<UcliOperationSideEffect>(),
                 mayDirty: false,
                 mayPersist: false,
-                Array.Empty<string>(),
-                UcliOperationPlanMode.ObservesLiveUnity));
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate the component type and observe serialized property metadata without applying mutation.",
+                callSemantics: "Read serialized schema metadata for the requested component type without applying mutation.",
+                touchedContract: "Returns no touched resources because schema metadata is observational data.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Timeout, cancellation, or schema extraction failure means the schema was not fully produced.",
+                dangerousNotes: Array.Empty<string>()));
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,

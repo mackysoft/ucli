@@ -14,17 +14,13 @@ internal static class IndexOpEntryJsonContractWriter
         WriteNullableString(writer, "name", entry.Name);
         WriteNullableString(writer, "kind", entry.Kind);
         WriteNullableString(writer, "policy", entry.Policy);
-        WriteNullableString(writer, "argsSchemaJson", entry.ArgsSchemaJson);
-        if (entry.ResultSchemaJson != null)
-        {
-            writer.WriteString("resultSchemaJson", entry.ResultSchemaJson);
-        }
-
         WriteNullableString(writer, "description", entry.Description);
         WriteArray(writer, "inputs", entry.Inputs, WriteOperationInput);
         WriteOperationResultContract(writer, entry.ResultContract);
         WriteOperationAssurance(writer, entry.Assurance);
         WriteOperationCodeContract(writer, entry.CodeContract);
+        WriteSchema(writer, "argsSchema", entry.ArgsSchemaJson);
+        WriteOptionalSchema(writer, "resultSchema", entry.ResultSchemaJson);
         writer.WriteEndObject();
     }
 
@@ -204,7 +200,43 @@ internal static class IndexOpEntryJsonContractWriter
         writer.WriteBoolean("mayPersist", assurance.MayPersist);
         WriteStringArray(writer, "touchedKinds", assurance.TouchedKinds);
         WriteNullableString(writer, "planMode", assurance.PlanMode);
+        WriteNullableString(writer, "planSemantics", assurance.PlanSemantics);
+        WriteNullableString(writer, "callSemantics", assurance.CallSemantics);
+        WriteNullableString(writer, "touchedContract", assurance.TouchedContract);
+        WriteNullableString(writer, "readPostconditionContract", assurance.ReadPostconditionContract);
+        WriteNullableString(writer, "failureSemantics", assurance.FailureSemantics);
+        WriteStringArray(writer, "dangerousNotes", assurance.DangerousNotes);
         writer.WriteEndObject();
+    }
+
+    private static void WriteSchema (
+        Utf8JsonWriter writer,
+        string propertyName,
+        string? schemaJson)
+    {
+        writer.WritePropertyName(propertyName);
+        if (schemaJson == null)
+        {
+            writer.WriteNullValue();
+            return;
+        }
+
+        using var document = JsonDocument.Parse(schemaJson);
+        document.RootElement.WriteTo(writer);
+    }
+
+    private static void WriteOptionalSchema (
+        Utf8JsonWriter writer,
+        string propertyName,
+        string? schemaJson)
+    {
+        if (schemaJson == null)
+        {
+            writer.WriteNull(propertyName);
+            return;
+        }
+
+        WriteSchema(writer, propertyName, schemaJson);
     }
 
     private static void WriteOperationCodeContract (
@@ -275,16 +307,8 @@ internal static class IndexOpEntryJsonContractWriter
         WriteNullableString(writer, "kind", member.Kind);
         WriteNullableString(writer, "name", member.Name);
         WriteNullableString(writer, "description", member.Description);
-        if (member.Type != null)
-        {
-            writer.WriteString("type", member.Type);
-        }
-
-        if (member.ReturnType != null)
-        {
-            writer.WriteString("returnType", member.ReturnType);
-        }
-
+        WriteNullableString(writer, "type", member.Type);
+        WriteNullableString(writer, "returnType", member.ReturnType);
         WriteArray(writer, "parameters", member.Parameters, WriteCodeApiParameter);
         writer.WriteEndObject();
     }

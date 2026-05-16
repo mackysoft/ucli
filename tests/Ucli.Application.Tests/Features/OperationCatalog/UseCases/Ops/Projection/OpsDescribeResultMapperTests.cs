@@ -198,11 +198,17 @@ public sealed class OpsDescribeResultMapperTests
         var describe = UcliOperationDescribeContractBuilder.Create<ResolveSelectorArgs, IpcResolveOperationResult>(
             "Resolves an asset, scene object, prefab object, or component reference to a Unity GlobalObjectId.",
             new UcliOperationAssuranceContract(
-                Array.Empty<UcliOperationSideEffect>(),
+                sideEffects: Array.Empty<UcliOperationSideEffect>(),
                 mayDirty: false,
                 mayPersist: false,
-                Array.Empty<string>(),
-                UcliOperationPlanMode.ObservesLiveUnity));
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate arguments and observe Unity state without applying mutation.",
+                callSemantics: "Read Unity state without applying mutation.",
+                touchedContract: "Returns no touched resources.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Failure means the observation was not fully produced.",
+                dangerousNotes: Array.Empty<string>()));
         return new IndexOpEntryJsonContract(
             name,
             kind,
@@ -213,8 +219,28 @@ public sealed class OpsDescribeResultMapperTests
             Description = describe.Description,
             Inputs = describe.Inputs,
             ResultContract = describe.ResultContract,
-            Assurance = describe.Assurance,
+            Assurance = CreateAssurance(kind, policy),
         };
+    }
+
+    private static UcliOperationAssuranceContract CreateAssurance (
+        string kind,
+        string policy)
+    {
+        var isMutation = string.Equals(kind, "mutation", StringComparison.Ordinal);
+        var isRiskyPolicy = !string.Equals(policy, "safe", StringComparison.Ordinal);
+        return new UcliOperationAssuranceContract(
+            sideEffects: isMutation ? [UcliOperationSideEffect.WritesAsset] : Array.Empty<UcliOperationSideEffect>(),
+            mayDirty: isMutation,
+            mayPersist: isMutation,
+            touchedKinds: isMutation ? [IpcExecuteTouchedResourceKindNames.Asset] : Array.Empty<string>(),
+            planMode: UcliOperationPlanMode.ObservesLiveUnity,
+            planSemantics: "Validate arguments and observe Unity state without applying mutation.",
+            callSemantics: isMutation ? "Execute the mutation against live Unity state." : "Read Unity state without applying mutation.",
+            touchedContract: isMutation ? "Reports the resource touched by the mutation." : "Returns no touched resources.",
+            readPostconditionContract: isMutation ? "Touched resource read surfaces may be stale after a successful call." : "Does not stale read surfaces by itself.",
+            failureSemantics: isMutation ? "Failure may leave partial or indeterminate Unity state changes." : "Failure means the observation was not fully produced.",
+            dangerousNotes: isRiskyPolicy ? ["Fixture operation has policy-specific risk metadata for contract validation."] : Array.Empty<string>());
     }
 
     private static UcliOperationCodeContract CreateCodeContract ()

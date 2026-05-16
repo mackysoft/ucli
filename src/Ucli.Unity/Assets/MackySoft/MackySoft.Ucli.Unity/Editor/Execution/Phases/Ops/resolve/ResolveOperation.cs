@@ -19,11 +19,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             policy: OperationPolicy.Safe,
             description: "Resolves an asset, scene object, prefab object, or component reference to a Unity GlobalObjectId.",
             assurance: new UcliOperationAssuranceContract(
-                Array.Empty<UcliOperationSideEffect>(),
+                sideEffects: Array.Empty<UcliOperationSideEffect>(),
                 mayDirty: false,
                 mayPersist: false,
-                Array.Empty<string>(),
-                UcliOperationPlanMode.ObservesLiveUnity));
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate selector structure and resolve the referenced Unity object without applying mutation.",
+                callSemantics: "Resolve the selector against live Unity state and emit a GlobalObjectId without applying mutation.",
+                touchedContract: "Returns no touched resources because resolution reports an object identity, not a mutation target.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Timeout, cancellation, or unresolved selector failure means no object identity was produced.",
+                dangerousNotes: Array.Empty<string>()));
 
         /// <summary> Executes validate phase for <c>ucli.resolve</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

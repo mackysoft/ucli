@@ -148,11 +148,17 @@ public sealed class OperationCatalogDiscoveryServiceTests
             var describe = UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
                 "Opens a Unity scene asset in the editor.",
                 new UcliOperationAssuranceContract(
-                    Array.Empty<UcliOperationSideEffect>(),
+                    sideEffects: Array.Empty<UcliOperationSideEffect>(),
                     mayDirty: false,
                     mayPersist: false,
-                    Array.Empty<string>(),
-                    UcliOperationPlanMode.ObservesLiveUnity));
+                    touchedKinds: Array.Empty<string>(),
+                    planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                    planSemantics: "Validate arguments and observe Unity state without applying mutation.",
+                    callSemantics: "Read Unity state without applying mutation.",
+                    touchedContract: "Returns no touched resources.",
+                    readPostconditionContract: "Does not stale read surfaces by itself.",
+                    failureSemantics: "Failure means the observation was not fully produced.",
+                    dangerousNotes: Array.Empty<string>()));
 
             return ValueTask.FromResult(OpsCatalogFetchResult.Success(
                 CreateSnapshot(
