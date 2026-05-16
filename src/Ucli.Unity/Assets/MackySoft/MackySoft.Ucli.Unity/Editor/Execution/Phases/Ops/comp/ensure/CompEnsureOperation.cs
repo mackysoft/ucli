@@ -21,11 +21,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             policy: OperationPolicy.Advanced,
             description: "Ensures that a GameObject has a component of the requested type.",
             assurance: new UcliOperationAssuranceContract(
-                new[] { UcliOperationSideEffect.WritesScene, UcliOperationSideEffect.WritesPrefab },
+                sideEffects: new[] { UcliOperationSideEffect.WritesScene, UcliOperationSideEffect.WritesPrefab },
                 mayDirty: true,
                 mayPersist: false,
-                new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
-                UcliOperationPlanMode.MayCreatePreviewState));
+                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                planMode: UcliOperationPlanMode.MayCreatePreviewState,
+                planSemantics: "Validate the target GameObject and component type, then compute preview changes without persisting project data.",
+                callSemantics: "Add the component to live Unity state when missing and leave saving to explicit save operations.",
+                touchedContract: "Reports the scene or prefab resource dirtied by the component change when the target can be resolved.",
+                readPostconditionContract: "Scene, prefab, and object read surfaces covering touched resources may be stale until refreshed.",
+                failureSemantics: "Failure before apply leaves no requested mutation; failure during apply may leave live Unity state partially changed.",
+                dangerousNotes: new[] { "This operation can dirty scene or prefab state without persisting it; callers must save or discard changes explicitly." }));
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,

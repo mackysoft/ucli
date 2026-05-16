@@ -21,11 +21,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             policy: OperationPolicy.Safe,
             description: "Finds project assets by type, path prefix, or name substring.",
             assurance: new UcliOperationAssuranceContract(
-                Array.Empty<UcliOperationSideEffect>(),
+                sideEffects: Array.Empty<UcliOperationSideEffect>(),
                 mayDirty: false,
                 mayPersist: false,
-                Array.Empty<string>(),
-                UcliOperationPlanMode.ObservesLiveUnity));
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate asset query arguments and observe matching project assets without applying mutation.",
+                callSemantics: "Read matching project assets and emit bounded result data without applying mutation.",
+                touchedContract: "Returns no touched resources because asset search results are data, not mutation targets.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Timeout, cancellation, or source read failure means the asset search was not fully produced.",
+                dangerousNotes: Array.Empty<string>()));
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,

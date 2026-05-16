@@ -20,11 +20,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             policy: OperationPolicy.Advanced,
             description: "Saves a loaded or previewed Unity scene asset.",
             assurance: new UcliOperationAssuranceContract(
-                new[] { UcliOperationSideEffect.WritesScene },
+                sideEffects: new[] { UcliOperationSideEffect.WritesScene },
                 mayDirty: false,
                 mayPersist: true,
-                new[] { IpcExecuteTouchedResourceKindNames.Scene },
-                UcliOperationPlanMode.ObservesLiveUnity));
+                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene },
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate the scene path and observe whether the loaded or previewed scene has save-relevant changes.",
+                callSemantics: "Persist the loaded or previewed scene asset when dirty or request-attributed changes exist.",
+                touchedContract: "Reports the scene resource when the operation saves or confirms request-attributed scene changes.",
+                readPostconditionContract: "Scene tree, GUID path, and readIndex surfaces covering the saved scene may be stale after a successful call.",
+                failureSemantics: "Scene save is not transactional; timeout, cancellation, or Unity failure can leave partial or indeterminate scene file changes.",
+                dangerousNotes: new[] { "This operation can persist a scene file and is not transactional across Unity save/import steps." }));
 
         /// <summary> Executes validate phase for <c>ucli.scene.save</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>
