@@ -438,6 +438,22 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(entry.CodeContract.SourceForms![0].Kind, Is.EqualTo(CsEvalSourceKindValues.CompilationUnit));
             Assert.That(entry.CodeContract.SourceForms[1].Kind, Is.EqualTo(CsEvalSourceKindValues.Snippet));
             Assert.That(entry.CodeContract.ApiTypes!.Count, Is.EqualTo(1));
+            Assert.That(entry.Assurance, Is.Not.Null);
+            Assert.That(entry.Assurance!.PlanSemantics, Does.Contain("without invoking user code"));
+            Assert.That(entry.Assurance.CallSemantics, Does.Contain("execute the user C# entry point"));
+            Assert.That(entry.Assurance.TouchedContract, Does.Contain("caller-controlled"));
+            Assert.That(entry.Assurance.FailureSemantics, Does.Contain("cannot be forcibly stopped"));
+            Assert.That(entry.Assurance.DangerousNotes!.Count, Is.EqualTo(2));
+            var apiType = entry.CodeContract.ApiTypes[0];
+            Assert.That(apiType.Members!.Count, Is.EqualTo(8));
+            Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "DeclareNoTouchedResources"));
+            Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "DeclareTouchedAsset"));
+            Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "DeclareTouchedPrefab"));
+            Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "DeclareTouchedProjectSettings"));
+            Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "DeclareTouchedScene"));
+            Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "Log"));
+            Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "LogError"));
+            Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "LogWarning"));
         }
 
         [Test]
@@ -455,6 +471,10 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(sceneOpenEntry.ResultContract!.Emitted, Is.False);
             Assert.That(sceneOpenEntry.Assurance, Is.Not.Null);
             Assert.That(sceneOpenEntry.Assurance!.PlanMode, Is.EqualTo(UcliOperationPlanModeValues.MayCreatePreviewState));
+            Assert.That(sceneOpenEntry.Assurance.PlanSemantics, Does.Contain("scene path"));
+            Assert.That(sceneOpenEntry.Assurance.CallSemantics, Does.Contain("Open the requested scene"));
+            Assert.That(sceneOpenEntry.Assurance.TouchedContract, Does.Contain("observed editor context"));
+            Assert.That(sceneOpenEntry.Assurance.DangerousNotes, Is.Empty);
 
             var projectRefreshEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.ProjectRefresh);
             Assert.That(projectRefreshEntry.Kind, Is.EqualTo(UcliOperationKindValues.Command));
@@ -466,6 +486,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.WritesProjectSettings));
             Assert.That(projectRefreshEntry.Assurance.MayDirty, Is.True);
             Assert.That(projectRefreshEntry.Assurance.MayPersist, Is.True);
+            Assert.That(projectRefreshEntry.Assurance.ReadPostconditionContract, Does.Contain("readIndex"));
+            Assert.That(projectRefreshEntry.Assurance.DangerousNotes, Is.Not.Empty);
 
             var prefabCreateEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.PrefabCreate);
             Assert.That(prefabCreateEntry.Assurance, Is.Not.Null);
@@ -480,6 +502,9 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(assetSetEntry.Assurance, Is.Not.Null);
             Assert.That(assetSetEntry.Assurance!.SideEffects, Does.Contain(UcliOperationSideEffectValues.WritesAsset));
             Assert.That(assetSetEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.WritesProjectSettings));
+            Assert.That(assetSetEntry.Assurance.PlanSemantics, Does.Contain("preview"));
+            Assert.That(assetSetEntry.Assurance.CallSemantics, Does.Contain("live asset"));
+            Assert.That(assetSetEntry.Assurance.DangerousNotes, Is.Not.Empty);
 
             var goCreateSchemaJson = FindCatalogSchema(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.GoCreate);
             using var goCreateSchemaDocument = JsonDocument.Parse(goCreateSchemaJson);

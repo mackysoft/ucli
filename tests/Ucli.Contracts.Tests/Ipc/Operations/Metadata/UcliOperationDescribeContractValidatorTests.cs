@@ -360,10 +360,38 @@ public sealed class UcliOperationDescribeContractValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryValidatePublicRawOpDescribeContract_WhenQueryAssuranceCanMutate_ReturnsFalse ()
+    public void TryValidatePublicRawOpDescribeContract_WhenDangerousNotesIsNull_ReturnsFalse ()
     {
         var describe = CreateValidDescribeContract();
-        describe.Assurance!.MayDirty = true;
+        describe.Assurance!.DangerousNotes = null;
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Test contract has invalid assurance metadata.", errorMessage);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("mayDirty")]
+    [InlineData("mayPersist")]
+    [InlineData("sideEffects")]
+    public void TryValidatePublicRawOpDescribeContract_WhenQueryAssuranceHasMutationRisk_ReturnsFalse (
+        string mutationRisk)
+    {
+        var describe = CreateValidDescribeContract();
+        switch (mutationRisk)
+        {
+            case "mayDirty":
+                describe.Assurance!.MayDirty = true;
+                break;
+            case "mayPersist":
+                describe.Assurance!.MayPersist = true;
+                break;
+            case "sideEffects":
+                describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.WritesAsset];
+                break;
+        }
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
             describe,

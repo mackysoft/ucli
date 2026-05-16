@@ -38,8 +38,15 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(operation.Metadata.DescribeContract.CodeContract.ApiTypes!.Count, Is.EqualTo(1));
             var contextType = operation.Metadata.DescribeContract.CodeContract.ApiTypes![0];
             Assert.That(contextType.FullName, Is.EqualTo(typeof(UcliCsEvalContext).FullName));
+            Assert.That(contextType.Members!.Count, Is.EqualTo(8));
             Assert.That(contextType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == nameof(UcliCsEvalContext.Log)));
+            Assert.That(contextType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == nameof(UcliCsEvalContext.LogWarning)));
+            Assert.That(contextType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == nameof(UcliCsEvalContext.LogError)));
+            Assert.That(contextType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == nameof(UcliCsEvalContext.DeclareNoTouchedResources)));
             Assert.That(contextType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == nameof(UcliCsEvalContext.DeclareTouchedAsset)));
+            Assert.That(contextType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == nameof(UcliCsEvalContext.DeclareTouchedScene)));
+            Assert.That(contextType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == nameof(UcliCsEvalContext.DeclareTouchedPrefab)));
+            Assert.That(contextType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == nameof(UcliCsEvalContext.DeclareTouchedProjectSettings)));
         }
 
         [UnityTest]

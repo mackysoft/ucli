@@ -53,33 +53,125 @@
         "language": "csharp",
         "entryPoint": {
           "signature": "public static object? Run(UcliCsEvalContext context)",
-          "matchRule": "Compiled source must contain exactly one matching Run method.",
+          "matchRule": "Compiled source must contain exactly one public static object? Run(UcliCsEvalContext context) method.",
           "requiredStatic": true,
           "parameterTypes": [
             "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext"
           ],
-          "returnValue": "JSON-serializable value."
+          "returnValue": "Return null or a JSON-serializable object value; a snippet without return yields null. DTO and anonymous object serialization may execute public getters. Task, Task\u003CT\u003E, ValueTask, and ValueTask\u003CT\u003E are rejected."
         },
         "sourceForms": [
           {
             "kind": "compilationUnit",
-            "description": "Complete C# compilation unit."
+            "description": "Complete C# compilation unit containing using directives, namespace or type declarations, and exactly one public static object? Run(UcliCsEvalContext context) method."
           },
           {
             "kind": "snippet",
-            "description": "Run method body snippet."
+            "description": "Run method body snippet. Leading using directives, statements, explicit return, no return, and one expression are accepted; snippets without return produce null."
           }
         ],
         "apiTypes": [
           {
             "name": "UcliCsEvalContext",
             "fullName": "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext",
-            "description": "Execution context.",
+            "description": "Execution context passed to ucli.cs.eval entry points.",
             "members": [
+              {
+                "kind": "method",
+                "name": "DeclareNoTouchedResources",
+                "description": "Declares that the eval call did not touch Unity resources.",
+                "type": null,
+                "returnType": "void",
+                "parameters": []
+              },
+              {
+                "kind": "method",
+                "name": "DeclareTouchedAsset",
+                "description": "Declares that the eval call touched a project asset.",
+                "type": null,
+                "returnType": "void",
+                "parameters": [
+                  {
+                    "name": "path",
+                    "type": "System.String",
+                    "description": "Project-relative asset path."
+                  }
+                ]
+              },
+              {
+                "kind": "method",
+                "name": "DeclareTouchedPrefab",
+                "description": "Declares that the eval call touched a prefab asset.",
+                "type": null,
+                "returnType": "void",
+                "parameters": [
+                  {
+                    "name": "path",
+                    "type": "System.String",
+                    "description": "Project-relative prefab asset path."
+                  }
+                ]
+              },
+              {
+                "kind": "method",
+                "name": "DeclareTouchedProjectSettings",
+                "description": "Declares that the eval call touched a ProjectSettings asset.",
+                "type": null,
+                "returnType": "void",
+                "parameters": [
+                  {
+                    "name": "path",
+                    "type": "System.String",
+                    "description": "Project-relative ProjectSettings path."
+                  }
+                ]
+              },
+              {
+                "kind": "method",
+                "name": "DeclareTouchedScene",
+                "description": "Declares that the eval call touched a scene asset.",
+                "type": null,
+                "returnType": "void",
+                "parameters": [
+                  {
+                    "name": "path",
+                    "type": "System.String",
+                    "description": "Project-relative scene asset path."
+                  }
+                ]
+              },
               {
                 "kind": "method",
                 "name": "Log",
                 "description": "Records an informational eval log entry.",
+                "type": null,
+                "returnType": "void",
+                "parameters": [
+                  {
+                    "name": "message",
+                    "type": "System.String",
+                    "description": "Log message text."
+                  }
+                ]
+              },
+              {
+                "kind": "method",
+                "name": "LogError",
+                "description": "Records an error eval log entry.",
+                "type": null,
+                "returnType": "void",
+                "parameters": [
+                  {
+                    "name": "message",
+                    "type": "System.String",
+                    "description": "Log message text."
+                  }
+                ]
+              },
+              {
+                "kind": "method",
+                "name": "LogWarning",
+                "description": "Records a warning eval log entry.",
                 "type": null,
                 "returnType": "void",
                 "parameters": [

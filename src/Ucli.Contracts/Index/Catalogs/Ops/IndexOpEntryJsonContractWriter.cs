@@ -307,16 +307,8 @@ internal static class IndexOpEntryJsonContractWriter
         WriteNullableString(writer, "kind", member.Kind);
         WriteNullableString(writer, "name", member.Name);
         WriteNullableString(writer, "description", member.Description);
-        if (member.Type != null)
-        {
-            writer.WriteString("type", member.Type);
-        }
-
-        if (member.ReturnType != null)
-        {
-            writer.WriteString("returnType", member.ReturnType);
-        }
-
+        WriteNullableString(writer, "type", member.Type);
+        WriteNullableString(writer, "returnType", member.ReturnType);
         WriteArray(writer, "parameters", member.Parameters, WriteCodeApiParameter);
         writer.WriteEndObject();
     }

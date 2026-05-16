@@ -24,11 +24,16 @@ internal static class IndexOpsDescribeJsonContractSerializer
         }
 
         var root = document.RootElement;
+        if (root.ValueKind != JsonValueKind.Object)
+        {
+            throw new JsonException("Ops describe JSON root must be an object or null.");
+        }
+
         return new IndexOpsDescribeJsonContract(
-            SchemaVersion: root.GetProperty("schemaVersion").GetInt32(),
-            GeneratedAtUtc: root.GetProperty("generatedAtUtc").GetDateTimeOffset(),
+            SchemaVersion: ReadRequiredInt32(root, "schemaVersion"),
+            GeneratedAtUtc: ReadRequiredDateTimeOffset(root, "generatedAtUtc"),
             SourceInputsHash: ReadNullableString(root, "sourceInputsHash"),
-            Operation: DeserializeOperation(root.GetProperty("operation")));
+            Operation: DeserializeOperation(ReadRequiredProperty(root, "operation")));
     }
 
     private static IndexOpEntryJsonContract? DeserializeOperation (JsonElement operationElement)
@@ -65,9 +70,18 @@ internal static class IndexOpsDescribeJsonContractSerializer
         JsonElement element,
         string propertyName)
     {
-        return element.TryGetProperty(propertyName, out var property) && property.ValueKind != JsonValueKind.Null
-            ? property.GetString()
-            : null;
+        if (!element.TryGetProperty(propertyName, out var property)
+            || property.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (property.ValueKind != JsonValueKind.String)
+        {
+            throw new JsonException($"Ops describe JSON property '{propertyName}' must be a string or null.");
+        }
+
+        return property.GetString();
     }
 
     private static string? ReadSchemaJsonOrNull (
@@ -81,5 +95,43 @@ internal static class IndexOpsDescribeJsonContractSerializer
         }
 
         return JsonSerializer.Serialize(property);
+    }
+
+    private static JsonElement ReadRequiredProperty (
+        JsonElement element,
+        string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var property))
+        {
+            throw new JsonException($"Ops describe JSON is missing required property '{propertyName}'.");
+        }
+
+        return property;
+    }
+
+    private static int ReadRequiredInt32 (
+        JsonElement element,
+        string propertyName)
+    {
+        var property = ReadRequiredProperty(element, propertyName);
+        if (property.ValueKind != JsonValueKind.Number || !property.TryGetInt32(out var value))
+        {
+            throw new JsonException($"Ops describe JSON property '{propertyName}' must be an int32 number.");
+        }
+
+        return value;
+    }
+
+    private static DateTimeOffset ReadRequiredDateTimeOffset (
+        JsonElement element,
+        string propertyName)
+    {
+        var property = ReadRequiredProperty(element, propertyName);
+        if (property.ValueKind != JsonValueKind.String || !property.TryGetDateTimeOffset(out var value))
+        {
+            throw new JsonException($"Ops describe JSON property '{propertyName}' must be an ISO 8601 date-time string.");
+        }
+
+        return value;
     }
 }

@@ -351,6 +351,20 @@ public sealed class IndexJsonContractTests
             string.Equals(constraint.GetProperty("kind").GetString(), UcliOperationInputConstraintKindValues.HierarchyPath, StringComparison.Ordinal));
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("""[]""")]
+    [InlineData("""{}""")]
+    [InlineData("""{"schemaVersion":"1","generatedAtUtc":"2026-03-03T00:00:00+00:00","operation":null}""")]
+    [InlineData("""{"schemaVersion":1,"generatedAtUtc":1,"operation":null}""")]
+    [InlineData("""{"schemaVersion":1,"generatedAtUtc":"not-a-date","operation":null}""")]
+    [InlineData("""{"schemaVersion":1,"generatedAtUtc":"2026-03-03T00:00:00+00:00","sourceInputsHash":1,"operation":null}""")]
+    public void IndexOpsDescribeJsonContractSerializer_ThrowsJsonException_WhenRootContractIsMalformed (
+        string json)
+    {
+        Assert.Throws<JsonException>(() => IndexOpsDescribeJsonContractSerializer.Deserialize(json));
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void IndexJsonContractWriters_UseCamelCaseContractFields ()
@@ -788,6 +802,13 @@ public sealed class IndexJsonContractTests
                                     [
                                         new UcliCodeApiParameterContract("message", "System.String", "Log message text."),
                                     ]),
+                                new UcliCodeApiMemberContract(
+                                    UcliCodeApiMemberKindValues.Property,
+                                    "ProjectPath",
+                                    "Gets the Unity project path.",
+                                    type: "System.String",
+                                    returnType: null,
+                                    parameters: Array.Empty<UcliCodeApiParameterContract>()),
                             }),
                     }),
             });
@@ -908,6 +929,7 @@ public sealed class IndexJsonContractTests
                               "kind": "method",
                               "name": "Log",
                               "description": "Records an informational eval log entry.",
+                              "type": null,
                               "returnType": "void",
                               "parameters": [
                                 {
@@ -916,6 +938,14 @@ public sealed class IndexJsonContractTests
                                   "description": "Log message text."
                                 }
                               ]
+                            },
+                            {
+                              "kind": "property",
+                              "name": "ProjectPath",
+                              "description": "Gets the Unity project path.",
+                              "type": "System.String",
+                              "returnType": null,
+                              "parameters": []
                             }
                           ]
                         }

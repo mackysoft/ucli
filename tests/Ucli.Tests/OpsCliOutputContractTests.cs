@@ -799,24 +799,95 @@ public sealed class OpsCliOutputContractTests
             "csharp",
             new UcliCodeEntryPointContract(
                 "public static object? Run(UcliCsEvalContext context)",
-                "Compiled source must contain exactly one matching Run method.",
+                "Compiled source must contain exactly one public static object? Run(UcliCsEvalContext context) method.",
                 requiredStatic: true,
                 new[] { "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext" },
-                "JSON-serializable value."),
+                "Return null or a JSON-serializable object value; a snippet without return yields null. DTO and anonymous object serialization may execute public getters. Task, Task<T>, ValueTask, and ValueTask<T> are rejected."),
             [
-                new UcliCodeSourceFormContract(CsEvalSourceKindValues.CompilationUnit, "Complete C# compilation unit."),
-                new UcliCodeSourceFormContract(CsEvalSourceKindValues.Snippet, "Run method body snippet."),
+                new UcliCodeSourceFormContract(
+                    CsEvalSourceKindValues.CompilationUnit,
+                    "Complete C# compilation unit containing using directives, namespace or type declarations, and exactly one public static object? Run(UcliCsEvalContext context) method."),
+                new UcliCodeSourceFormContract(
+                    CsEvalSourceKindValues.Snippet,
+                    "Run method body snippet. Leading using directives, statements, explicit return, no return, and one expression are accepted; snippets without return produce null."),
             ],
             [
                 new UcliCodeApiTypeContract(
                     "UcliCsEvalContext",
                     "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext",
-                    "Execution context.",
+                    "Execution context passed to ucli.cs.eval entry points.",
                     [
+                        new UcliCodeApiMemberContract(
+                            UcliCodeApiMemberKindValues.Method,
+                            "DeclareNoTouchedResources",
+                            "Declares that the eval call did not touch Unity resources.",
+                            type: null,
+                            returnType: "void",
+                            parameters: Array.Empty<UcliCodeApiParameterContract>()),
+                        new UcliCodeApiMemberContract(
+                            UcliCodeApiMemberKindValues.Method,
+                            "DeclareTouchedAsset",
+                            "Declares that the eval call touched a project asset.",
+                            type: null,
+                            returnType: "void",
+                            parameters:
+                            [
+                                new UcliCodeApiParameterContract("path", "System.String", "Project-relative asset path."),
+                            ]),
+                        new UcliCodeApiMemberContract(
+                            UcliCodeApiMemberKindValues.Method,
+                            "DeclareTouchedPrefab",
+                            "Declares that the eval call touched a prefab asset.",
+                            type: null,
+                            returnType: "void",
+                            parameters:
+                            [
+                                new UcliCodeApiParameterContract("path", "System.String", "Project-relative prefab asset path."),
+                            ]),
+                        new UcliCodeApiMemberContract(
+                            UcliCodeApiMemberKindValues.Method,
+                            "DeclareTouchedProjectSettings",
+                            "Declares that the eval call touched a ProjectSettings asset.",
+                            type: null,
+                            returnType: "void",
+                            parameters:
+                            [
+                                new UcliCodeApiParameterContract("path", "System.String", "Project-relative ProjectSettings path."),
+                            ]),
+                        new UcliCodeApiMemberContract(
+                            UcliCodeApiMemberKindValues.Method,
+                            "DeclareTouchedScene",
+                            "Declares that the eval call touched a scene asset.",
+                            type: null,
+                            returnType: "void",
+                            parameters:
+                            [
+                                new UcliCodeApiParameterContract("path", "System.String", "Project-relative scene asset path."),
+                            ]),
                         new UcliCodeApiMemberContract(
                             UcliCodeApiMemberKindValues.Method,
                             "Log",
                             "Records an informational eval log entry.",
+                            type: null,
+                            returnType: "void",
+                            parameters:
+                            [
+                                new UcliCodeApiParameterContract("message", "System.String", "Log message text."),
+                            ]),
+                        new UcliCodeApiMemberContract(
+                            UcliCodeApiMemberKindValues.Method,
+                            "LogError",
+                            "Records an error eval log entry.",
+                            type: null,
+                            returnType: "void",
+                            parameters:
+                            [
+                                new UcliCodeApiParameterContract("message", "System.String", "Log message text."),
+                            ]),
+                        new UcliCodeApiMemberContract(
+                            UcliCodeApiMemberKindValues.Method,
+                            "LogWarning",
+                            "Records a warning eval log entry.",
                             type: null,
                             returnType: "void",
                             parameters:
