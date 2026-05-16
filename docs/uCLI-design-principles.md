@@ -133,8 +133,17 @@ transport は搬送路であり、意味論を変える理由ではない。
 差異がある場合は、黙って欠落させず capability として明示する。
 ### Contract 型を唯一の正本にする
 README、help、skill、tool description を別々に人手で保守しない。  
-operation ごとの Args/Result contract 型と operation metadata を公開 contract の正本にする。複数 operation で同じ意味を持つ scalar 入力/出力は C# contract 上の semantic value type として表し、IPC JSON では primitive JSON 値のまま扱う。asset path、hierarchy path、GlobalObjectId、asset GUID、type identifier のような値は、必要な制約属性を持つ dedicated value type に寄せる。入力ごとの説明と意味制約は Args property または semantic value type の属性に置き、`inputs[]` はそこから生成する。operation 全体の description / resultContract / assurance metadata は operation metadata に置く。request-local alias は `edit` lowering の内部 primitive 間だけで使い、public raw `op` の contract には出さない。
+operation ごとの Args/Result contract 型と operation metadata を公開 contract の正本にする。複数 operation で同じ意味を持つ scalar 入力/出力は C# contract 上の semantic value type として表し、IPC JSON では primitive JSON 値のまま扱う。asset path、hierarchy path、GlobalObjectId、asset GUID、type identifier のような値は、必要な制約属性を持つ dedicated value type に寄せる。入力ごとの説明と意味制約は Args property または semantic value type の属性に置き、`inputs[]` はそこから生成する。operation 全体の description、declared intent、assurance facts、codeContract、exposure は operation metadata に置く。公開 `kind` / `policy` は author の自由ラベルではなく、それらの contract facts から導出・検証された catalog projection とする。public `ops list` と `ops describe` は exposure が `public` の operation だけを返し、raw `op` として呼べない operation を agent の選択面へ出さない。request-local alias は `edit` lowering の内部 primitive 間だけで使い、public raw `op` の contract には出さない。
 `argsSchema` / `resultSchema` はその contract から生成される JSON 構造検証用 schema とし、agent 向けの主契約にはしない。意味制約は JSON Schema の低レベル keyword ではなく Args 属性から生成される `inputs[].constraints` と `inputs[].variants[].fields[].constraints` に置く。
+### Operation policy は契約事実から導出する
+`policy` は説明用分類ではなく、`ops list --maxPolicy`、operation allowlist、`--allowDangerous` の判断に使う入場制御である。
+そのため author が `safe` / `advanced` / `dangerous` を任意に選べる仕様にしない。
+
+catalog builder は `assurance.sideEffects`、`mayDirty`、`mayPersist`、`touchedKinds`、`planMode`、`codeContract`、`exposure`、destructive scope、arbitrary execution、external process / filesystem access から `operation.policy` を導出する。author が `policy` を直接指定する API や、主観的に policy を厳しくする上書き指定は持たない。
+
+v1 public raw catalog は `planMode=validationOnly` または `observesLiveUnity` だけを許可する。Plan が preview state を作る operation は review gate 前に状態を作るため、internal / experimental に限定し、public raw operation として扱わない。
+
+公開 `operation.policy` は導出済みの唯一の final admission policy である。`ops describe` は policy の別表現や導出履歴を公開せず、runner は `operation.policy` と `assurance` の contract facts を使って admission を判断する。
 ### Operation は1つのユーザー意図を表す
 1つの operation に複数の意味 variant を持たせない。
 description が「A または B」になる operation、必須入力セットによってユーザー意図が変わる operation、result 解釈や policy / sideEffects / planMode が変わる operation は分割対象とする。
@@ -142,7 +151,7 @@ description が「A または B」になる operation、必須入力セットに
 同じ対象を指定する複数の方法は operation variant ではなく input variant として扱う。たとえば `globalObjectId`、`sceneHierarchy`、`prefabHierarchy` は `GameObjectReferenceArgs` などの reference input の表現方法であり、`ucli.go.delete` 自体の意味を増やすものではない。
 ### Unsafe path は隔離する
 任意コード実行や危険操作は認めてもよいが、safe 系の主経路とは分ける。  
-危険操作に safe と同じ保証を与えない。
+危険操作に safe と同じ保証を与えない。任意 C# 実行、任意 shell / process / filesystem write、Unity YAML 直編集、unbounded destructive operation、typed context / save boundary / touched contract を十分に保証できない escape hatch は `dangerous` に導出する。
 ### Safe core は typed operation で閉じる
 safe 系主経路は `typed reference + typed op + explicit context` を基準にする。
 generic setter や任意コード実行を safe core の前提にしない。

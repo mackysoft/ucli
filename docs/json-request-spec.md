@@ -123,7 +123,7 @@ no-op request は envelope、pipeline、smoke check のために有効な reques
 
 ### 代表例: `ucli.cs.eval`
 
-`ucli.cs.eval` は `operationPolicy = dangerous`、operation allowlist 一致、`ucli call --allowDangerous` の全条件を満たす場合だけ `call` できる。利用者は `ucli ops list` で operation と policy を確認し、`ucli ops describe ucli.cs.eval` の `codeContract` で source forms、entry point、`UcliCsEvalContext` API を確認する。
+`ucli.cs.eval` は operation policy が `dangerous`、operation allowlist 一致、`ucli call --allowDangerous` の全条件を満たす場合だけ `call` できる。利用者は `ucli ops list` で operation と policy を確認し、`ucli ops describe ucli.cs.eval` の `codeContract` で source forms、entry point、`UcliCsEvalContext` API を確認する。
 
 ```json
 {
