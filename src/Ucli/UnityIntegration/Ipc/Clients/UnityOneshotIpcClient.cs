@@ -23,7 +23,6 @@ namespace MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 /// <summary> Executes one IPC request through Unity oneshot batchmode startup and shared IPC transport. </summary>
 internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 {
-    private const string StartupProbeClientVersion = "ucli-oneshot-startup";
     private const string CleanupShutdownRequestedBy = "ucli-oneshot-cleanup";
 
     private static readonly TimeSpan StartupRetryDelay = TimeSpan.FromMilliseconds(50);
@@ -693,6 +692,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 static request => request.RequireReadinessGate && request.FailFast),
             IpcMethodNames.IndexAssetsRead => TryReadFailFast<IpcIndexAssetsReadRequest>(dispatchRequest.Payload, static request => request.FailFast),
             IpcMethodNames.IndexSceneTreeLiteRead => TryReadFailFast<IpcIndexSceneTreeLiteReadRequest>(dispatchRequest.Payload, static request => request.FailFast),
+            IpcMethodNames.Ping => TryReadFailFast<IpcPingRequest>(dispatchRequest.Payload, static request => request.FailFast),
             _ => false,
         };
     }
@@ -719,7 +719,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     /// <returns> The IPC ping request used to verify startup readiness. </returns>
     private static IpcRequest CreateStartupProbeRequest (string sessionToken)
     {
-        var payload = IpcPayloadCodec.SerializeToElement(new IpcPingRequest(StartupProbeClientVersion));
+        var payload = IpcPayloadCodec.SerializeToElement(new IpcPingRequest(IpcPingClientVersions.OneshotStartup));
         return UnityIpcRequestFactory.Create(sessionToken, IpcMethodNames.Ping, payload);
     }
 

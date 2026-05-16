@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Context.Project;
 
-namespace MackySoft.Ucli.Hosting.Cli.Requests;
+namespace MackySoft.Ucli.Hosting.Cli.Common.Projection;
 
 /// <summary> Projects resolved project identity into the public CLI payload shape. </summary>
 internal static class ProjectIdentityPayloadProjector
