@@ -27,9 +27,11 @@ public sealed class CallCommandResultFactoryTests
             ],
             new CallExecutionOutput(
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                Project: ProjectIdentityInfoTestFactory.Create(),
                 OpResults: [],
                 Plan: new CallPlanOutput(
                     RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                    Project: ProjectIdentityInfoTestFactory.Create(),
                     OpResults: [],
                     PlanToken: null),
                 ReadPostcondition: null)));
@@ -102,9 +104,11 @@ public sealed class CallCommandResultFactoryTests
         var result = CallCommandResultFactory.Create(CallServiceResult.Success(
             new CallExecutionOutput(
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                Project: ProjectIdentityInfoTestFactory.Create(),
                 OpResults: [],
                 Plan: new CallPlanOutput(
                     RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                    Project: ProjectIdentityInfoTestFactory.Create(),
                     OpResults: [],
                     PlanToken: "plan-token-1"),
                 ReadPostcondition: readPostcondition),

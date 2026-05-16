@@ -94,6 +94,19 @@ public sealed class UcliErrorCodeDescriptorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void HierarchyPathUnrepresentableObjectsDescriptor_IsRegisteredAsDiagnostic ()
+    {
+        var descriptor = FindDescriptor(ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects);
+
+        Assert.Equal("diagnostic", descriptor.Category);
+        Assert.Contains(UcliCommandIds.Query, descriptor.AppliesTo);
+        Assert.Contains(UcliCommandIds.Call, descriptor.AppliesTo);
+        Assert.Contains("payload.opResults[].diagnostics[]", descriptor.Inspect);
+        Assert.Equal(UcliErrorRetryClassValues.ContextDependent, descriptor.ExecutionSemantics.SafeToRetry);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcTimeoutDescriptor_MatchesPublishedTimeoutContract ()
     {
         var descriptor = FindDescriptor(IpcTransportErrorCodes.IpcTimeout);

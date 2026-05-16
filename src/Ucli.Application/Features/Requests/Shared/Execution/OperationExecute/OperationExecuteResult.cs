@@ -11,13 +11,15 @@ internal sealed record OperationExecuteResult
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         string message,
-        OperationExecutionReadPostcondition? readPostcondition)
+        OperationExecutionReadPostcondition? readPostcondition,
+        ProjectIdentityInfo? project)
     {
         RequestId = requestId;
         OpResults = opResults;
         Errors = errors;
         Message = message;
         ReadPostcondition = readPostcondition;
+        Project = project;
     }
 
     /// <summary> Gets the request identifier associated with this execution. </summary>
@@ -40,6 +42,9 @@ internal sealed record OperationExecuteResult
     /// <summary> Gets the read postcondition emitted by mutation execution, when available. </summary>
     public OperationExecutionReadPostcondition? ReadPostcondition { get; }
 
+    /// <summary> Gets the resolved Unity project identity when project resolution succeeded. </summary>
+    public ProjectIdentityInfo? Project { get; }
+
     /// <summary> Gets a value indicating whether the operation execution succeeded. </summary>
     public bool IsSuccess => Errors.Count == 0;
 
@@ -48,18 +53,21 @@ internal sealed record OperationExecuteResult
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         string message,
-        OperationExecutionReadPostcondition? readPostcondition = null)
+        OperationExecutionReadPostcondition? readPostcondition,
+        ProjectIdentityInfo project)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        ArgumentNullException.ThrowIfNull(project);
 
         return new OperationExecuteResult(
             requestId,
             opResults,
             RequestServiceResultInvariants.EmptyErrors,
             message,
-            readPostcondition);
+            readPostcondition,
+            project);
     }
 
     /// <summary> Creates one failed operation execution result. </summary>
@@ -68,7 +76,8 @@ internal sealed record OperationExecuteResult
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         string message,
-        OperationExecutionReadPostcondition? readPostcondition = null)
+        OperationExecutionReadPostcondition? readPostcondition = null,
+        ProjectIdentityInfo? project = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
@@ -80,6 +89,7 @@ internal sealed record OperationExecuteResult
             opResults,
             failureErrors,
             message,
-            readPostcondition);
+            readPostcondition,
+            project);
     }
 }

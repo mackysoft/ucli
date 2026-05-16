@@ -29,5 +29,30 @@ internal static class ExecuteRequestErrorCodeDescriptors
                     Action: "Use a new requestId for changed request content, or resend the exact original request."),
             ],
             relatedCodes: [UcliCoreErrorCodes.InvalidArgument]),
+
+        UcliErrorCodeDescriptorFactory.Create(
+            code: ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects,
+            category: "diagnostic",
+            summary: "Some GameObjects could not be represented by hierarchyPath selectors.",
+            meaning: "uCLI hierarchyPath selectors use '/' as the path separator, so GameObject names containing '/' cannot be represented without ambiguity and are excluded from hierarchy-path matching.",
+            appliesTo:
+            [
+                UcliCommandIds.Call,
+                UcliCommandIds.Plan,
+                UcliCommandIds.Query,
+                UcliCommandIds.Resolve,
+            ],
+            possiblePhases: ["plan", "call"],
+            impliesNotApplied: null,
+            mayBeIndeterminate: false,
+            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            inspect: ["payload.opResults[].diagnostics[]", "steps[].args.selector.hierarchyPath", "Unity scene hierarchy"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Rename GameObjects whose names contain '/', then rerun the request."),
+            ],
+            relatedCodes: []),
     ];
 }

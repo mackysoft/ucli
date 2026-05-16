@@ -21,4 +21,7 @@ public sealed record IpcExecuteOperationResult (
     /// <summary> Gets the optional query result payload produced by the step. </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public JsonElement? Result { get; init; }
+
+    /// <summary> Gets non-fatal diagnostics emitted for this public step. </summary>
+    public IReadOnlyList<IpcExecuteDiagnostic> Diagnostics { get; init; } = Array.Empty<IpcExecuteDiagnostic>();
 }

@@ -15,15 +15,37 @@ internal static class CliOutputGoldenFiles
 
     public static JsonGoldenFileNormalization NormalizeGeneratedAtUtc ()
     {
-        return new JsonGoldenFileNormalization().NormalizeTimestampProperty(
-            "generatedAtUtc",
-            "<generatedAtUtc>",
-            static timestamp => timestamp.Offset == TimeSpan.Zero,
-            "an ISO-8601 UTC timestamp");
+        return NormalizeProjectIdentity(new JsonGoldenFileNormalization())
+            .NormalizeTimestampProperty(
+                "generatedAtUtc",
+                "<generatedAtUtc>",
+                static timestamp => timestamp.Offset == TimeSpan.Zero,
+                "an ISO-8601 UTC timestamp");
     }
 
     public static JsonGoldenFileNormalization NormalizeRequestIds ()
     {
-        return new JsonGoldenFileNormalization().NormalizeGuidProperty("requestId", "<requestId>");
+        return NormalizeProjectIdentity(new JsonGoldenFileNormalization())
+            .NormalizeGuidProperty("requestId", "<requestId>");
+    }
+
+    private static JsonGoldenFileNormalization NormalizeProjectIdentity (JsonGoldenFileNormalization normalization)
+    {
+        return normalization
+            .NormalizeStringPropertyValue(
+                "projectPath",
+                "<projectPath>",
+                static value => Path.IsPathFullyQualified(value),
+                "an absolute path")
+            .NormalizeStringPropertyValue(
+                "projectFingerprint",
+                "<projectFingerprint>",
+                static value => !string.IsNullOrWhiteSpace(value),
+                "a project fingerprint")
+            .NormalizeStringPropertyValue(
+                "unityVersion",
+                "<unityVersion>",
+                static value => !string.IsNullOrWhiteSpace(value),
+                "a Unity version");
     }
 }

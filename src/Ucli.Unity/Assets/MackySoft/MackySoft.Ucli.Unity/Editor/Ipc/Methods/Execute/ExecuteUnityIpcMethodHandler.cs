@@ -11,11 +11,24 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly IExecuteRequestDispatcher executeRequestDispatcher;
 
+        private readonly IpcProjectIdentity projectIdentity;
+
         /// <summary> Initializes a new instance of the <see cref="ExecuteUnityIpcMethodHandler" /> class. </summary>
         /// <param name="executeRequestDispatcher"> The execute-request dispatcher dependency. </param>
         public ExecuteUnityIpcMethodHandler (IExecuteRequestDispatcher executeRequestDispatcher)
+            : this(executeRequestDispatcher, IpcProjectIdentity.Unknown)
+        {
+        }
+
+        /// <summary> Initializes a new instance of the <see cref="ExecuteUnityIpcMethodHandler" /> class. </summary>
+        /// <param name="executeRequestDispatcher"> The execute-request dispatcher dependency. </param>
+        /// <param name="projectIdentity"> The project identity served by this Unity IPC host. </param>
+        public ExecuteUnityIpcMethodHandler (
+            IExecuteRequestDispatcher executeRequestDispatcher,
+            IpcProjectIdentity projectIdentity)
         {
             this.executeRequestDispatcher = executeRequestDispatcher ?? throw new ArgumentNullException(nameof(executeRequestDispatcher));
+            this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
         }
 
         /// <inheritdoc />
@@ -42,7 +55,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             var context = new ExecuteDispatchContext(
                 RequestId: request.RequestId,
-                ProtocolVersion: request.ProtocolVersion);
+                ProtocolVersion: request.ProtocolVersion)
+            {
+                Project = projectIdentity,
+            };
             return await executeRequestDispatcher.DispatchAsync(executeRequest!, context, cancellationToken);
         }
     }

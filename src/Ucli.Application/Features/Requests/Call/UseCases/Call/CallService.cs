@@ -52,7 +52,7 @@ internal sealed class CallService : ICallService
                 cancellationToken)
             .ConfigureAwait(false);
         var preparedRequestContext = requestPreparationResult.PreparedRequest;
-        var baseOutput = CallExecutionOutputFactory.TryCreateBase(preparedRequestContext?.Request.RequestId);
+        var baseOutput = CallExecutionOutputFactory.TryCreateBase(preparedRequestContext);
         if (requestPreparationResult.Error != null)
         {
             return CallFailureResultFactory.FromExecutionError(requestPreparationResult.Error, baseOutput);
@@ -79,7 +79,7 @@ internal sealed class CallService : ICallService
             .ConfigureAwait(false);
 
         var preparedRequest = preflightResult.PreparedRequest;
-        baseOutput = CallExecutionOutputFactory.TryCreateBase(preparedRequest?.Request.RequestId);
+        baseOutput = CallExecutionOutputFactory.TryCreateBase(preparedRequest?.PreparedRequest);
         if (preflightResult.Error != null)
         {
             return CallFailureResultFactory.FromExecutionError(preflightResult.Error, baseOutput, preflightResult.ErrorCode);

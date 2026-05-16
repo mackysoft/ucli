@@ -46,6 +46,19 @@ internal sealed class JsonGoldenFileNormalization
             validationDescription);
     }
 
+    public JsonGoldenFileNormalization NormalizeStringPropertyValue (
+        string propertyName,
+        string token,
+        Func<string, bool>? validate = null,
+        string validationDescription = "a valid string")
+    {
+        return NormalizeStringProperty(
+            propertyName,
+            token,
+            validate,
+            validationDescription);
+    }
+
     private JsonGoldenFileNormalization NormalizeStringProperty (
         string propertyName,
         string token,

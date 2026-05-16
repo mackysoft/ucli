@@ -15,16 +15,18 @@ internal static class ResolveServiceResultFactory
     public static ResolveServiceResult Success (
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
-        ReadIndexInfo readIndex)
+        ReadIndexInfo readIndex,
+        ProjectIdentityInfo project)
     {
-        return ResolveServiceResult.Success(requestId, opResults, SuccessMessage, readIndex);
+        return ResolveServiceResult.Success(requestId, opResults, SuccessMessage, readIndex, project);
     }
 
     /// <summary> Creates one failure result from a structured execution error. </summary>
     public static ResolveServiceResult FromExecutionError (
         string requestId,
         ExecutionError error,
-        ReadIndexInfo? readIndex = null)
+        ReadIndexInfo? readIndex = null,
+        ProjectIdentityInfo? project = null)
     {
         ArgumentNullException.ThrowIfNull(error);
 
@@ -35,14 +37,16 @@ internal static class ResolveServiceResultFactory
             [
                 executionError,
             ],
-            readIndex ?? ReadIndexInfoFactory.Unity(fallbackReason: null));
+            readIndex ?? ReadIndexInfoFactory.Unity(fallbackReason: null),
+            project);
     }
 
     /// <summary> Creates one failure result from one IPC error. </summary>
     public static ResolveServiceResult FromIpcError (
         string requestId,
         OperationExecutionError error,
-        ReadIndexInfo readIndex)
+        ReadIndexInfo readIndex,
+        ProjectIdentityInfo? project = null)
     {
         ArgumentNullException.ThrowIfNull(error);
         var normalizedError = RequestFailureNormalizer.FromOperationError(error, FailureMessage);
@@ -50,7 +54,8 @@ internal static class ResolveServiceResultFactory
             requestId,
             [],
             [normalizedError],
-            readIndex);
+            readIndex,
+            project);
     }
 
     /// <summary> Creates one failed resolve result. </summary>
@@ -58,7 +63,8 @@ internal static class ResolveServiceResultFactory
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
-        ReadIndexInfo readIndex)
+        ReadIndexInfo readIndex,
+        ProjectIdentityInfo? project = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
@@ -69,6 +75,7 @@ internal static class ResolveServiceResultFactory
             opResults,
             errors,
             RequestFailureNormalizer.ResolveMessage(errors, FailureMessage),
-            readIndex);
+            readIndex,
+            project);
     }
 }

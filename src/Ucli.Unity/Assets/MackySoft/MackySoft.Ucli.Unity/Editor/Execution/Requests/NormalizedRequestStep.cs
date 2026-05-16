@@ -1,4 +1,7 @@
+using System.Collections.Generic;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
+using MackySoft.Ucli.Unity.Execution.Phases;
 
 namespace MackySoft.Ucli.Unity.Execution.Requests
 {
@@ -11,5 +14,9 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         string Id,
         IpcRequestStepKind Kind,
         string OperationName,
-        int PrimitiveCount);
+        int PrimitiveCount)
+    {
+        /// <summary> Gets diagnostics emitted while compiling this public step. </summary>
+        public IReadOnlyList<OperationDiagnostic> Diagnostics { get; init; } = System.Array.Empty<OperationDiagnostic>();
+    }
 }

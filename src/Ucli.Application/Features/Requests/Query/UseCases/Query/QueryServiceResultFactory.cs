@@ -16,14 +16,16 @@ internal static class QueryServiceResultFactory
         string commandName,
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
-        ReadIndexInfo readIndex)
+        ReadIndexInfo readIndex,
+        ProjectIdentityInfo project)
     {
         return QueryServiceResult.Success(
             commandName,
             requestId,
             opResults,
             SuccessMessage,
-            readIndex);
+            readIndex,
+            project);
     }
 
     /// <summary> Creates one failure result from a structured execution error. </summary>
@@ -31,7 +33,8 @@ internal static class QueryServiceResultFactory
         string commandName,
         string requestId,
         ExecutionError error,
-        ReadIndexInfo? readIndex = null)
+        ReadIndexInfo? readIndex = null,
+        ProjectIdentityInfo? project = null)
     {
         ArgumentNullException.ThrowIfNull(error);
 
@@ -44,7 +47,8 @@ internal static class QueryServiceResultFactory
                 executionError,
             ],
             error.Message,
-            readIndex ?? ReadIndexInfoFactory.Unity(fallbackReason: null));
+            readIndex ?? ReadIndexInfoFactory.Unity(fallbackReason: null),
+            project);
     }
 
     /// <summary> Creates one failure result from one IPC error. </summary>
@@ -52,7 +56,8 @@ internal static class QueryServiceResultFactory
         string commandName,
         string requestId,
         OperationExecutionError error,
-        ReadIndexInfo readIndex)
+        ReadIndexInfo readIndex,
+        ProjectIdentityInfo? project = null)
     {
         ArgumentNullException.ThrowIfNull(error);
         var normalizedError = RequestFailureNormalizer.FromOperationError(error, FailureMessage);
@@ -62,7 +67,8 @@ internal static class QueryServiceResultFactory
             [],
             [normalizedError],
             normalizedError.Message,
-            readIndex);
+            readIndex,
+            project);
     }
 
     /// <summary> Creates one failed typed-query result. </summary>
@@ -72,7 +78,8 @@ internal static class QueryServiceResultFactory
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         string message,
-        ReadIndexInfo readIndex)
+        ReadIndexInfo readIndex,
+        ProjectIdentityInfo? project = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
@@ -85,6 +92,7 @@ internal static class QueryServiceResultFactory
             opResults,
             errors,
             message,
-            readIndex);
+            readIndex,
+            project);
     }
 }

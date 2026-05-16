@@ -6,6 +6,11 @@
   "message": "uCLI plan completed.",
   "payload": {
     "requestId": "<requestId>",
+    "project": {
+      "projectPath": "<projectPath>",
+      "projectFingerprint": "<projectFingerprint>",
+      "unityVersion": "<unityVersion>"
+    },
     "opResults": [
       {
         "opId": "step-1",
@@ -13,7 +18,8 @@
         "phase": "plan",
         "applied": false,
         "changed": false,
-        "touched": []
+        "touched": [],
+        "diagnostics": []
       }
     ],
     "readIndex": {

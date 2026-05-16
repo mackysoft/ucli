@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -11,6 +13,10 @@ namespace MackySoft.Ucli.Unity.Tests
     /// <summary> Owns temporary editor-side test resources and releases them in one place. </summary>
     internal sealed class EditorTestScope : IDisposable
     {
+        private static readonly TimeSpan PrefabStageCloseCompilationWaitTimeout = TimeSpan.FromSeconds(30);
+
+        private static readonly TimeSpan PrefabStageCloseCompilationPollInterval = TimeSpan.FromMilliseconds(50);
+
         private readonly HashSet<string> assetPaths = new HashSet<string>(StringComparer.Ordinal);
 
         private readonly List<IDisposable> trackedDisposables = new List<IDisposable>();
@@ -214,6 +220,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return false;
             }
 
+            WaitForCompilationBeforePrefabStageClose();
             var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
             if (prefabStage == null)
             {
@@ -233,6 +240,22 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             return false;
+        }
+
+        private static void WaitForCompilationBeforePrefabStageClose ()
+        {
+            if (!EditorApplication.isCompiling)
+            {
+                return;
+            }
+
+            // NOTE: Unity refuses to leave Prefab Mode while scripts are compiling, which can leak
+            // the current prefab stage into the next EditMode test after package restore.
+            var stopwatch = Stopwatch.StartNew();
+            while (EditorApplication.isCompiling && stopwatch.Elapsed < PrefabStageCloseCompilationWaitTimeout)
+            {
+                Thread.Sleep(PrefabStageCloseCompilationPollInterval);
+            }
         }
 
         /// <summary> Requests editor scene reset during disposal even when no scene asset path is tracked. </summary>

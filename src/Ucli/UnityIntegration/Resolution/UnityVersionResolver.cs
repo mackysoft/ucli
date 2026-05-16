@@ -7,12 +7,6 @@ namespace MackySoft.Ucli.UnityIntegration.Resolution;
 /// <summary> Resolves Unity version values from preferred input and <c>ProjectVersion.txt</c>. </summary>
 internal sealed class UnityVersionResolver : IUnityVersionResolver
 {
-    private const string ProjectSettingsDirectoryName = "ProjectSettings";
-
-    private const string ProjectVersionFileName = "ProjectVersion.txt";
-
-    private const string EditorVersionPrefix = "m_EditorVersion:";
-
     /// <summary> Resolves the effective Unity version from preferred input and project metadata. </summary>
     /// <param name="projectPath"> The Unity project root path. </param>
     /// <param name="preferredUnityVersion"> The preferred Unity version value. </param>
@@ -43,75 +37,32 @@ internal sealed class UnityVersionResolver : IUnityVersionResolver
                 $"Unity project path is invalid: {projectPath}"));
         }
 
-        var projectVersionPath = Path.Combine(
-            normalizedProjectPath,
-            ProjectSettingsDirectoryName,
-            ProjectVersionFileName);
+        var projectVersionPath = UnityProjectVersionFileReader.GetProjectVersionPath(normalizedProjectPath);
         if (!File.Exists(projectVersionPath))
         {
             return UnityVersionResolutionResult.Failure(ExecutionError.InvalidArgument(
                 $"ProjectVersion.txt does not exist: {projectVersionPath}"));
         }
 
-        string content;
-        try
+        var readResult = UnityProjectVersionFileReader.ReadEditorVersion(projectVersionPath);
+        if (readResult.Status == UnityProjectVersionFileReader.ReadStatus.Success)
         {
-            content = File.ReadAllText(projectVersionPath);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return UnityVersionResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"ProjectVersion.txt path is invalid: {projectVersionPath}. {exception.Message}"));
-        }
-        catch (UnauthorizedAccessException exception)
-        {
-            return UnityVersionResolutionResult.Failure(ExecutionError.InternalError(
-                $"Failed to read ProjectVersion.txt. {exception.Message}"));
-        }
-        catch (IOException exception)
-        {
-            return UnityVersionResolutionResult.Failure(ExecutionError.InternalError(
-                $"Failed to read ProjectVersion.txt. {exception.Message}"));
+            return UnityVersionResolutionResult.Success(readResult.UnityVersion!);
         }
 
-        if (!TryGetEditorVersion(content, out var unityVersion))
+        if (readResult.Status == UnityProjectVersionFileReader.ReadStatus.MissingEditorVersion)
         {
             return UnityVersionResolutionResult.Failure(ExecutionError.InvalidArgument(
                 $"m_EditorVersion is missing or invalid in: {projectVersionPath}"));
         }
 
-        return UnityVersionResolutionResult.Success(unityVersion);
-    }
-
-    /// <summary> Tries to extract one editor version value from <c>ProjectVersion.txt</c> contents. </summary>
-    /// <param name="content"> The full file contents. </param>
-    /// <param name="unityVersion"> The extracted Unity version. </param>
-    /// <returns> <see langword="true" /> when extraction succeeds; otherwise <see langword="false" />. </returns>
-    private static bool TryGetEditorVersion (
-        string content,
-        out string unityVersion)
-    {
-        unityVersion = string.Empty;
-
-        using var reader = new StringReader(content);
-        string? line;
-        while ((line = reader.ReadLine()) is not null)
+        if (readResult.Status == UnityProjectVersionFileReader.ReadStatus.PathInvalid)
         {
-            if (!line.StartsWith(EditorVersionPrefix, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            var value = line[EditorVersionPrefix.Length..].Trim();
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return false;
-            }
-
-            unityVersion = value;
-            return true;
+            return UnityVersionResolutionResult.Failure(ExecutionError.InvalidArgument(
+                $"ProjectVersion.txt path is invalid: {projectVersionPath}. {readResult.ErrorMessage}"));
         }
 
-        return false;
+        return UnityVersionResolutionResult.Failure(ExecutionError.InternalError(
+            $"Failed to read ProjectVersion.txt. {readResult.ErrorMessage}"));
     }
 }

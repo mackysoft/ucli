@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Ipc;
 
 #nullable enable
 
@@ -27,5 +28,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Gets the read-surface invalidations emitted by the final phase. </summary>
         public IReadOnlyList<OperationReadInvalidation> ReadInvalidations { get; init; } = System.Array.Empty<OperationReadInvalidation>();
+
+        /// <summary> Gets non-fatal diagnostics emitted by this primitive trace. </summary>
+        public IReadOnlyList<OperationDiagnostic> Diagnostics { get; init; } = System.Array.Empty<OperationDiagnostic>();
     }
 }
