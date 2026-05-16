@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -20,11 +21,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             policy: OperationPolicy.Safe,
             description: "Opens a prefab asset in the Unity editor.",
             assurance: new UcliOperationAssuranceContract(
-                new[] { UcliOperationSideEffect.OpensPrefabStage },
+                sideEffects: new[] { UcliOperationSideEffect.OpensPrefabStage },
                 mayDirty: false,
                 mayPersist: false,
-                new[] { IpcExecuteTouchedResourceKindNames.Prefab },
-                UcliOperationPlanMode.MayCreatePreviewState));
+                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Prefab },
+                planMode: UcliOperationPlanMode.MayCreatePreviewState,
+                planSemantics: "Validate the prefab path and observe whether the prefab stage can be opened without saving project data.",
+                callSemantics: "Open the requested prefab stage in the Unity Editor without saving project data.",
+                touchedContract: "Reports the prefab resource as an observed editor context, not as a persisted mutation.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Timeout, cancellation, or domain reload may leave the open prefab stage indeterminate.",
+                dangerousNotes: Array.Empty<string>()));
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,

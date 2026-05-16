@@ -20,11 +20,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             policy: OperationPolicy.Advanced,
             description: "Creates a prefab asset from a scene GameObject.",
             assurance: new UcliOperationAssuranceContract(
-                new[] { UcliOperationSideEffect.WritesPrefab, UcliOperationSideEffect.WritesScene },
+                sideEffects: new[] { UcliOperationSideEffect.WritesPrefab, UcliOperationSideEffect.WritesScene },
                 mayDirty: true,
                 mayPersist: true,
-                new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
-                UcliOperationPlanMode.MayCreatePreviewState));
+                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                planMode: UcliOperationPlanMode.MayCreatePreviewState,
+                planSemantics: "Validate the source GameObject and prefab path, then compute preview creation state without persisting project data.",
+                callSemantics: "Create and persist the prefab asset from the live GameObject, and dirty related scene state when Unity creates prefab linkage.",
+                touchedContract: "Reports the created prefab and any scene resource dirtied by prefab creation when Unity exposes them.",
+                readPostconditionContract: "Prefab, scene, asset search, GUID path, and readIndex surfaces covering touched resources may be stale after a successful call.",
+                failureSemantics: "Prefab creation is not transactional; timeout, cancellation, or Unity failure can leave partial or indeterminate scene and prefab file changes.",
+                dangerousNotes: new[] { "This operation can persist prefab project files and dirty scene state; callers must account for partial Unity save/import behavior." }));
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,

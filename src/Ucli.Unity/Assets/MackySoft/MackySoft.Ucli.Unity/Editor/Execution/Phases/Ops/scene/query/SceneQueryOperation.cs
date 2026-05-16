@@ -21,11 +21,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             policy: OperationPolicy.Safe,
             description: "Finds objects or components in a scene by hierarchy path prefix and component type.",
             assurance: new UcliOperationAssuranceContract(
-                Array.Empty<UcliOperationSideEffect>(),
+                sideEffects: Array.Empty<UcliOperationSideEffect>(),
                 mayDirty: false,
                 mayPersist: false,
-                new[] { IpcExecuteTouchedResourceKindNames.Scene },
-                UcliOperationPlanMode.ObservesLiveUnity));
+                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene },
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate the scene query and observe the selected scene context without applying mutation.",
+                callSemantics: "Read selection candidates from the scene hierarchy without applying mutation.",
+                touchedContract: "Reports the scene resource used as the observed query context.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Timeout, cancellation, or source read failure means the candidate set was not fully produced.",
+                dangerousNotes: Array.Empty<string>()));
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,

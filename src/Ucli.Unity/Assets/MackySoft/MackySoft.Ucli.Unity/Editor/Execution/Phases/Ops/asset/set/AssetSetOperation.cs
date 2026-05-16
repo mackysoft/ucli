@@ -21,11 +21,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             policy: OperationPolicy.Advanced,
             description: "Assigns serialized property values on an asset or project asset target.",
             assurance: new UcliOperationAssuranceContract(
-                new[] { UcliOperationSideEffect.WritesAsset, UcliOperationSideEffect.WritesProjectSettings },
+                sideEffects: new[] { UcliOperationSideEffect.WritesAsset, UcliOperationSideEffect.WritesProjectSettings },
                 mayDirty: true,
                 mayPersist: false,
-                new[] { IpcExecuteTouchedResourceKindNames.Asset, IpcExecuteTouchedResourceKindNames.ProjectSettings },
-                UcliOperationPlanMode.MayCreatePreviewState));
+                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Asset, IpcExecuteTouchedResourceKindNames.ProjectSettings },
+                planMode: UcliOperationPlanMode.MayCreatePreviewState,
+                planSemantics: "Validate the asset target and serialized property values, then compute preview changes without persisting project data.",
+                callSemantics: "Apply serialized property values to the live asset or project settings object and leave saving to explicit save operations.",
+                touchedContract: "Reports the asset or project settings resource dirtied by the mutation when the target can be resolved.",
+                readPostconditionContract: "Asset and project settings read surfaces covering touched resources may be stale until refreshed.",
+                failureSemantics: "Failure before apply leaves no requested mutation; failure during apply may leave live Unity state partially changed.",
+                dangerousNotes: new[] { "This operation can dirty asset or ProjectSettings state without persisting it; callers must save or discard changes explicitly." }));
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,

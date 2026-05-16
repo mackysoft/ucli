@@ -286,6 +286,8 @@ public sealed class IndexJsonContractTests
         Assert.Equal(contract.SourceInputsHash, deserialized.SourceInputsHash);
         Assert.NotNull(deserialized.Operation);
         Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, deserialized.Operation.Name);
+        Assert.Equal("""{"type":"object"}""", deserialized.Operation.ArgsSchemaJson);
+        Assert.Equal("""{"type":"object"}""", deserialized.Operation.ResultSchemaJson);
         Assert.Equal(describe.Description, deserialized.Operation.Description);
         Assert.NotNull(deserialized.Operation.Inputs);
         Assert.NotNull(deserialized.Operation.ResultContract);
@@ -304,6 +306,13 @@ public sealed class IndexJsonContractTests
 
         using var jsonDocument = JsonDocument.Parse(json);
         var operationElement = jsonDocument.RootElement.GetProperty("operation");
+        Assert.False(operationElement.TryGetProperty("argsSchemaJson", out _));
+        Assert.False(operationElement.TryGetProperty("resultSchemaJson", out _));
+        JsonAssert.For(operationElement)
+            .HasProperty("argsSchema", schema => schema
+                .HasString("type", "object"))
+            .HasProperty("resultSchema", schema => schema
+                .HasString("type", "object"));
         var targetInputElement = operationElement.GetProperty("inputs").EnumerateArray().Single(input =>
             string.Equals(input.GetProperty("name").GetString(), "target", StringComparison.Ordinal));
         var globalObjectIdVariantElement = targetInputElement.GetProperty("variants").EnumerateArray().Single(variant =>
@@ -340,6 +349,20 @@ public sealed class IndexJsonContractTests
             .HasString("description", "Unity hierarchy path inside the selected scene or prefab.");
         Assert.Contains(hierarchyPathFieldElement.GetProperty("constraints").EnumerateArray(), constraint =>
             string.Equals(constraint.GetProperty("kind").GetString(), UcliOperationInputConstraintKindValues.HierarchyPath, StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("""[]""")]
+    [InlineData("""{}""")]
+    [InlineData("""{"schemaVersion":"1","generatedAtUtc":"2026-03-03T00:00:00+00:00","operation":null}""")]
+    [InlineData("""{"schemaVersion":1,"generatedAtUtc":1,"operation":null}""")]
+    [InlineData("""{"schemaVersion":1,"generatedAtUtc":"not-a-date","operation":null}""")]
+    [InlineData("""{"schemaVersion":1,"generatedAtUtc":"2026-03-03T00:00:00+00:00","sourceInputsHash":1,"operation":null}""")]
+    public void IndexOpsDescribeJsonContractSerializer_ThrowsJsonException_WhenRootContractIsMalformed (
+        string json)
+    {
+        Assert.Throws<JsonException>(() => IndexOpsDescribeJsonContractSerializer.Deserialize(json));
     }
 
     [Fact]
@@ -741,7 +764,13 @@ public sealed class IndexJsonContractTests
                     [
                         IpcExecuteTouchedResourceKindNames.Asset,
                     ],
-                    planMode: UcliOperationPlanModeValues.MayCreatePreviewState),
+                    planMode: UcliOperationPlanModeValues.MayCreatePreviewState,
+                    planSemantics: "Validate asset write inputs and compute preview state without persisting project data.",
+                    callSemantics: "Write the requested asset data to Unity project state.",
+                    touchedContract: "Reports the asset resource affected by the write.",
+                    readPostconditionContract: "Asset read surfaces may be stale after a successful call.",
+                    failureSemantics: "Write failure may leave partial or indeterminate asset state.",
+                    dangerousNotes: Array.Empty<string>()),
                 CodeContract = new UcliOperationCodeContract(
                     "csharp",
                     new UcliCodeEntryPointContract(
@@ -773,6 +802,13 @@ public sealed class IndexJsonContractTests
                                     [
                                         new UcliCodeApiParameterContract("message", "System.String", "Log message text."),
                                     ]),
+                                new UcliCodeApiMemberContract(
+                                    UcliCodeApiMemberKindValues.Property,
+                                    "ProjectPath",
+                                    "Gets the Unity project path.",
+                                    type: "System.String",
+                                    returnType: null,
+                                    parameters: Array.Empty<UcliCodeApiParameterContract>()),
                             }),
                     }),
             });
@@ -790,8 +826,6 @@ public sealed class IndexJsonContractTests
                     "name": "write.asset",
                     "kind": "mutation",
                     "policy": "safe",
-                    "argsSchemaJson": "{\u0022type\u0022:\u0022object\u0022}",
-                    "resultSchemaJson": "{\u0022$ref\u0022:\u0022#/definitions/WriteResult\u0022}",
                     "description": "Writes one asset.",
                     "inputs": [
                       {
@@ -856,7 +890,13 @@ public sealed class IndexJsonContractTests
                       "touchedKinds": [
                         "asset"
                       ],
-                      "planMode": "mayCreatePreviewState"
+                      "planMode": "mayCreatePreviewState",
+                      "planSemantics": "Validate asset write inputs and compute preview state without persisting project data.",
+                      "callSemantics": "Write the requested asset data to Unity project state.",
+                      "touchedContract": "Reports the asset resource affected by the write.",
+                      "readPostconditionContract": "Asset read surfaces may be stale after a successful call.",
+                      "failureSemantics": "Write failure may leave partial or indeterminate asset state.",
+                      "dangerousNotes": []
                     },
                     "codeContract": {
                       "language": "csharp",
@@ -889,6 +929,7 @@ public sealed class IndexJsonContractTests
                               "kind": "method",
                               "name": "Log",
                               "description": "Records an informational eval log entry.",
+                              "type": null,
                               "returnType": "void",
                               "parameters": [
                                 {
@@ -897,10 +938,24 @@ public sealed class IndexJsonContractTests
                                   "description": "Log message text."
                                 }
                               ]
+                            },
+                            {
+                              "kind": "property",
+                              "name": "ProjectPath",
+                              "description": "Gets the Unity project path.",
+                              "type": "System.String",
+                              "returnType": null,
+                              "parameters": []
                             }
                           ]
                         }
                       ]
+                    },
+                    "argsSchema": {
+                      "type": "object"
+                    },
+                    "resultSchema": {
+                      "$ref": "#/definitions/WriteResult"
                     }
                   }
                 }
@@ -1114,10 +1169,16 @@ public sealed class IndexJsonContractTests
         return UcliOperationDescribeContractBuilder.Create<GoDescribeArgs, GameObjectDescriptionResult>(
             "Returns a GameObject description including components and child hierarchy.",
             new UcliOperationAssuranceContract(
-                Array.Empty<UcliOperationSideEffect>(),
+                sideEffects: Array.Empty<UcliOperationSideEffect>(),
                 mayDirty: false,
                 mayPersist: false,
-                Array.Empty<string>(),
-                UcliOperationPlanMode.ObservesLiveUnity));
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate arguments and observe Unity state without applying mutation.",
+                callSemantics: "Read Unity state without applying mutation.",
+                touchedContract: "Returns no touched resources.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Failure means the observation was not fully produced.",
+                dangerousNotes: Array.Empty<string>()));
     }
 }
