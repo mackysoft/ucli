@@ -65,6 +65,7 @@ public sealed class PackageReferenceBoundaryTests
     {
         var expectedPackagesByProject = new Dictionary<string, string[]>(StringComparer.Ordinal)
         {
+            ["tools/Ucli.SchemaGenerator/Ucli.SchemaGenerator.csproj"] = [],
             ["tools/Ucli.SkillGenerator/Ucli.SkillGenerator.csproj"] = [],
         };
 
