@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/project.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectPath": {
+      "type": "string"
+    },
+    "projectFingerprint": {
+      "type": "string"
+    },
+    "unityVersion": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "projectPath",
+    "projectFingerprint",
+    "unityVersion"
+  ]
+}

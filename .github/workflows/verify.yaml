@@ -340,6 +340,9 @@ jobs:
       - name: Verify generated skills
         run: bash scripts/verify-skills.sh
 
+      - name: Generate CI schemas
+        run: bash scripts/generate-schemas.sh --package-version 0.0.0-ci
+
       - name: Pack CLI tool
         run: >-
           dotnet pack src/Ucli/Ucli.csproj
@@ -349,8 +352,14 @@ jobs:
           -p:PackageVersion=0.0.0-ci
           --output artifacts/packages
 
+      - name: Pack schema artifacts
+        run: ./scripts/pack-schema-artifacts.sh --version 0.0.0-ci --output artifacts/packages
+
       - name: Smoke test CLI tool package
         run: ./scripts/verify-cli-package.sh artifacts/packages 0.0.0-ci
+
+      - name: Verify schema artifacts
+        run: ./scripts/verify-schema-artifacts.sh artifacts/packages 0.0.0-ci
 
       - name: Upload CLI package
         if: always()

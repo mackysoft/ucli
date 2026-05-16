@@ -218,7 +218,7 @@ done
 - `shared-package-publish`: `shared/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、その同一 workflow run の中で nuget.org publish / GitHub Release mirror / repository version sync PR 作成まで継続する。
 - `shared-package-publish` は公開後に `chore/shared-sync-<version>` ブランチを作成し、`Directory.Build.props`、`src/Ucli.Unity/Assets/packages.config`、`src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec` の shared package version を同一値へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
 - `cli-package-publish`: `cli/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、同一 workflow run の中で pack / smoke test / nuget.org publish / GitHub Release mirror まで継続する。
-- `cli-package-publish` は公開後に `chore/cli-sync-<version>` ブランチを作成し、`Directory.Build.props` の `MackySoft.Ucli` バージョンを公開 version へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
+- `cli-package-publish` は公開後に `chore/cli-sync-<version>` ブランチを作成し、`Directory.Build.props` の `MackySoft.Ucli` バージョンと `schemas/v1/schema-manifest.json` の schema artifact version を公開 version へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
 - `unity-package-publish`: `unity/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、同一 workflow run の中で pack / package verify / nuget.org publish / GitHub Release mirror / repository version sync PR 作成まで継続する。
 - `unity-package-publish` は公開後に `chore/unity-sync-<version>` ブランチを作成し、`src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec` の `MackySoft.Ucli.Unity` バージョンを公開 version へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
 - タグは `v` プレフィックスを付けない（例: `shared/x.y.z`、`cli/x.y.z`、`unity/x.y.z`）。

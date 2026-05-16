@@ -1,0 +1,193 @@
+{
+  "schemaSet": "ucli",
+  "schemaSetVersion": "v1",
+  "protocolVersion": 1,
+  "packageVersion": "0.0.0",
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "schemas": [
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/envelope.schema.json",
+      "path": "cli-output/envelope.schema.json",
+      "kind": "cli-output-envelope"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/project.schema.json",
+      "path": "cli-output/defs/project.schema.json",
+      "kind": "cli-output-def"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/read-index.schema.json",
+      "path": "cli-output/defs/read-index.schema.json",
+      "kind": "cli-output-def"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/op-result.schema.json",
+      "path": "cli-output/defs/op-result.schema.json",
+      "kind": "cli-output-def"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/diagnostic.schema.json",
+      "path": "cli-output/defs/diagnostic.schema.json",
+      "kind": "cli-output-def"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/touched.schema.json",
+      "path": "cli-output/defs/touched.schema.json",
+      "kind": "cli-output-def"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/window.schema.json",
+      "path": "cli-output/defs/window.schema.json",
+      "kind": "cli-output-def"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/verifier.schema.json",
+      "path": "cli-output/defs/verifier.schema.json",
+      "kind": "cli-output-def"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/assurance-claim.schema.json",
+      "path": "cli-output/defs/assurance-claim.schema.json",
+      "kind": "cli-output-def"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/evidence.schema.json",
+      "path": "cli-output/defs/evidence.schema.json",
+      "kind": "cli-output-def"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/report-ref.schema.json",
+      "path": "cli-output/defs/report-ref.schema.json",
+      "kind": "cli-output-def"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/residual-risk.schema.json",
+      "path": "cli-output/defs/residual-risk.schema.json",
+      "kind": "cli-output-def"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/status.schema.json",
+      "path": "cli-output/payload/status.schema.json",
+      "kind": "cli-output-payload",
+      "command": "status"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/init.schema.json",
+      "path": "cli-output/payload/init.schema.json",
+      "kind": "cli-output-payload",
+      "command": "init"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/validate.schema.json",
+      "path": "cli-output/payload/validate.schema.json",
+      "kind": "cli-output-payload",
+      "command": "validate"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/plan.schema.json",
+      "path": "cli-output/payload/plan.schema.json",
+      "kind": "cli-output-payload",
+      "command": "plan"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/call.schema.json",
+      "path": "cli-output/payload/call.schema.json",
+      "kind": "cli-output-payload",
+      "command": "call"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/refresh.schema.json",
+      "path": "cli-output/payload/refresh.schema.json",
+      "kind": "cli-output-payload",
+      "command": "refresh"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/resolve.schema.json",
+      "path": "cli-output/payload/resolve.schema.json",
+      "kind": "cli-output-payload",
+      "command": "resolve"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/query.assets.find.schema.json",
+      "path": "cli-output/payload/query.assets.find.schema.json",
+      "kind": "cli-output-payload",
+      "command": "query.assets.find"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/query.scene.tree.schema.json",
+      "path": "cli-output/payload/query.scene.tree.schema.json",
+      "kind": "cli-output-payload",
+      "command": "query.scene.tree"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/query.go.describe.schema.json",
+      "path": "cli-output/payload/query.go.describe.schema.json",
+      "kind": "cli-output-payload",
+      "command": "query.go.describe"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/query.comp.schema.schema.json",
+      "path": "cli-output/payload/query.comp.schema.schema.json",
+      "kind": "cli-output-payload",
+      "command": "query.comp.schema"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/query.asset.schema.schema.json",
+      "path": "cli-output/payload/query.asset.schema.schema.json",
+      "kind": "cli-output-payload",
+      "command": "query.asset.schema"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/ops.list.schema.json",
+      "path": "cli-output/payload/ops.list.schema.json",
+      "kind": "cli-output-payload",
+      "command": "ops.list"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/codes.list.schema.json",
+      "path": "cli-output/payload/codes.list.schema.json",
+      "kind": "cli-output-payload",
+      "command": "codes.list"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/codes.describe.schema.json",
+      "path": "cli-output/payload/codes.describe.schema.json",
+      "kind": "cli-output-payload",
+      "command": "codes.describe"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/daemon.start.schema.json",
+      "path": "cli-output/payload/daemon.start.schema.json",
+      "kind": "cli-output-payload",
+      "command": "daemon.start"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/daemon.status.schema.json",
+      "path": "cli-output/payload/daemon.status.schema.json",
+      "kind": "cli-output-payload",
+      "command": "daemon.status"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/test.profile.init.schema.json",
+      "path": "cli-output/payload/test.profile.init.schema.json",
+      "kind": "cli-output-payload",
+      "command": "test.profile.init"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/test.run.schema.json",
+      "path": "cli-output/payload/test.run.schema.json",
+      "kind": "cli-output-payload",
+      "command": "test.run"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/request/request-envelope.schema.json",
+      "path": "request/request-envelope.schema.json",
+      "kind": "request-envelope"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/request/edit-dsl.schema.json",
+      "path": "request/edit-dsl.schema.json",
+      "kind": "request-edit-dsl"
+    }
+  ]
+}

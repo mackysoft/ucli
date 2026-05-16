@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/test.run.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "result": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "errorKind": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "runId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "artifactsDir": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "summaryJsonPath": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "result",
+    "errorKind",
+    "runId",
+    "artifactsDir",
+    "summaryJsonPath"
+  ]
+}

@@ -7,6 +7,8 @@ if [[ "$#" -ne 2 ]]; then
 fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/schema-artifact-common.sh
+source "${script_dir}/schema-artifact-common.sh"
 repo_root="$(cd "${script_dir}/.." && pwd)"
 package_dir="$1"
 expected_version="$2"
@@ -50,12 +52,16 @@ if ! "${tool_path}/ucli" --help | grep -F "Commands:" >/dev/null; then
 fi
 
 package_entries="$(unzip -Z1 "${package_path}")"
-for entry in README.md LICENSE tools/net8.0/any/DotnetToolSettings.xml; do
+for entry in README.md LICENSE tools/net8.0/any/DotnetToolSettings.xml tools/net8.0/any/schemas/v1/schema-manifest.json; do
   if ! grep -Fx "${entry}" <<< "${package_entries}" >/dev/null; then
     echo "CLI package is missing required entry: ${entry}" >&2
     exit 1
   fi
 done
+
+package_schema_manifest_path="${tool_path}/package-schema-manifest.json"
+unzip -p "${package_path}" tools/net8.0/any/schemas/v1/schema-manifest.json > "${package_schema_manifest_path}"
+assert_json_manifest_package_version "${package_schema_manifest_path}" "${expected_version}" "CLI package schema manifest"
 
 while IFS= read -r skill_file; do
   relative_path="${skill_file#"${repo_root}/"}"
@@ -65,6 +71,23 @@ while IFS= read -r skill_file; do
     exit 1
   fi
 done < <(find "${repo_root}/skills" -type f | sort)
+
+while IFS= read -r schema_file; do
+  relative_path="${schema_file#"${repo_root}/"}"
+  entry="tools/net8.0/any/${relative_path}"
+  if ! grep -Fx "${entry}" <<< "${package_entries}" >/dev/null; then
+    echo "CLI package is missing required schema entry: ${entry}" >&2
+    exit 1
+  fi
+done < <(find "${repo_root}/schemas" -type f | sort)
+
+installed_schema_manifest="$(find "${tool_path}" -path "*/schemas/v1/schema-manifest.json" -type f | head -n 1)"
+if [[ -z "${installed_schema_manifest}" ]]; then
+  echo "Installed CLI tool package did not materialize schemas/v1/schema-manifest.json." >&2
+  exit 1
+fi
+
+assert_json_manifest_package_version "${installed_schema_manifest}" "${expected_version}" "Installed CLI tool schema manifest"
 
 list_host_independent_skill_files() {
   local relative_path
