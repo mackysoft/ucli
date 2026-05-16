@@ -75,6 +75,9 @@ jobs:
       - name: Verify generated skills
         run: bash scripts/verify-skills.sh
 
+      - name: Generate release schemas
+        run: bash scripts/generate-schemas.sh --package-version "${{ needs.prepare-release.outputs.package_version }}"
+
       - name: Pack CLI tool
         run: >-
           dotnet pack src/Ucli/Ucli.csproj
@@ -83,6 +86,11 @@ jobs:
           -p:Version=${{ needs.prepare-release.outputs.package_version }}
           -p:PackageVersion=${{ needs.prepare-release.outputs.package_version }}
           --output artifacts/packages
+
+      - name: Pack schema artifacts
+        run: |
+          set -euo pipefail
+          (cd . && zip -r "artifacts/packages/MackySoft.Ucli.Schemas.${{ needs.prepare-release.outputs.package_version }}.zip" schemas)
 
       - name: Smoke test CLI tool package
         env:
@@ -105,6 +113,14 @@ jobs:
           release-title: uCLI ${{ needs.prepare-release.outputs.package_version }}
           release-notes: CLI global tool package for ${{ needs.prepare-release.outputs.tag_name }}.
           repository: ${{ github.repository }}
+
+      - name: Mirror schema artifacts to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.tag_name }}
+          REPOSITORY: ${{ github.repository }}
+          SCHEMA_ARCHIVE: artifacts/packages/MackySoft.Ucli.Schemas.${{ needs.prepare-release.outputs.package_version }}.zip
+        run: gh release upload "${RELEASE_TAG}" "${SCHEMA_ARCHIVE}" --repo "${REPOSITORY}" --clobber
 
       - name: Create CLI package version sync pull request
         env:

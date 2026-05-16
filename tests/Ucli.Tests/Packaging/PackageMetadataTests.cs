@@ -132,6 +132,22 @@ public sealed class PackageMetadataTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Cli_tool_project_includes_generated_schema_artifacts ()
+    {
+        XDocument document = XDocument.Load(Path.Combine(RepositoryRoot, "src/Ucli/Ucli.csproj"));
+        var schemaItem = document
+            .Descendants("None")
+            .SingleOrDefault(static element => string.Equals(
+                element.Attribute("Include")?.Value,
+                "../../schemas/**/*",
+                StringComparison.Ordinal));
+
+        Assert.NotNull(schemaItem);
+        Assert.Equal("schemas", schemaItem!.Attribute("LinkBase")?.Value);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Projects_declare_expected_packability ()
     {
         var expectedPackabilityByProject = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -148,6 +164,7 @@ public sealed class PackageMetadataTests
             ["tests/Ucli.Infrastructure.Tests/Ucli.Infrastructure.Tests.csproj"] = "false",
             ["tests/Ucli.Skills.Tests/Ucli.Skills.Tests.csproj"] = "false",
             ["tests/Ucli.Tests/Ucli.Tests.csproj"] = "false",
+            ["tools/Ucli.SchemaGenerator/Ucli.SchemaGenerator.csproj"] = "false",
             ["tools/Ucli.SkillGenerator/Ucli.SkillGenerator.csproj"] = "false",
         };
 
