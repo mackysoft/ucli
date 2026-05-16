@@ -270,6 +270,7 @@ internal static class UcliOperationDescribeContractValidator
             case UcliOperationInputConstraintKindValues.HierarchyPath:
             case UcliOperationInputConstraintKindValues.TypeExists:
             case UcliOperationInputConstraintKindValues.AssetGuid:
+            case UcliOperationInputConstraintKindValues.Cursor:
                 return TryValidateNoConstraintParameters(constraint, out errorMessage);
 
             case UcliOperationInputConstraintKindValues.Range:

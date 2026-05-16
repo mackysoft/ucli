@@ -127,7 +127,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
                     ScenePath: "Assets/Scenes/Main.unity",
                     Roots:
                     [
-                        new IndexSceneTreeLiteNodeJsonContract("Root", string.Empty, null),
+                        new IndexSceneTreeLiteNodeJsonContract("Root", string.Empty, null, IndexSceneTreeLiteNodeChildrenStateValues.Complete),
                     ],
                     SourceState: CreateSourceState()))),
         };
@@ -170,7 +170,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             ScenePath: scenePath,
             Roots:
             [
-                new IndexSceneTreeLiteNodeJsonContract(rootName, "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+                new IndexSceneTreeLiteNodeJsonContract(rootName, "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>(), IndexSceneTreeLiteNodeChildrenStateValues.Complete),
             ],
             SourceState: CreateSourceState());
     }

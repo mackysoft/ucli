@@ -2,15 +2,21 @@ using System.Globalization;
 using System.Text;
 using MackySoft.Ucli.Contracts.Text;
 
-namespace MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query.Projection;
+namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Encodes and decodes typed-query window cursors. </summary>
-internal static class QueryWindowCursorCodec
+/// <summary> Encodes and decodes bounded query window cursors. </summary>
+internal static class BoundedWindowCursorCodec
 {
+    private const int MaxEncodedOffsetCursorLength = 14;
+
     /// <summary> Encodes one result offset as a base64url cursor. </summary>
     public static string Encode (int offset)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(offset);
+        if (offset < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(offset), "Offset must not be negative.");
+        }
+
         var bytes = Encoding.UTF8.GetBytes(offset.ToString(CultureInfo.InvariantCulture));
         return Base64UrlCodec.Encode(bytes);
     }
@@ -21,6 +27,13 @@ internal static class QueryWindowCursorCodec
         out int offset)
     {
         offset = 0;
+        if (string.IsNullOrEmpty(cursor)
+            || cursor.Length > MaxEncodedOffsetCursorLength
+            || StringValueValidator.HasOuterWhitespace(cursor))
+        {
+            return false;
+        }
+
         if (!Base64UrlCodec.TryDecode(cursor, out var bytes))
         {
             return false;
@@ -28,6 +41,7 @@ internal static class QueryWindowCursorCodec
 
         var text = Encoding.UTF8.GetString(bytes);
         return int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out offset)
-            && offset >= 0;
+            && offset >= 0
+            && string.Equals(Encode(offset), cursor, StringComparison.Ordinal);
     }
 }

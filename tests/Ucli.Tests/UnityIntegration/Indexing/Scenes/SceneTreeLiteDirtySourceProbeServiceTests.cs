@@ -111,7 +111,7 @@ public sealed class SceneTreeLiteDirtySourceProbeServiceTests
             ScenePath: "Assets/Scenes/Main.unity",
             Roots:
             [
-                new IndexSceneTreeLiteNodeJsonContract("Root", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+                new IndexSceneTreeLiteNodeJsonContract("Root", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>(), IndexSceneTreeLiteNodeChildrenStateValues.Complete),
             ],
             SourceState: sourceState);
     }

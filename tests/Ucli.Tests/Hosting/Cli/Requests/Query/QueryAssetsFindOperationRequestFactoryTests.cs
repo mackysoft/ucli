@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 
 namespace MackySoft.Ucli.Tests.Hosting.Cli.Requests.Query;
@@ -80,8 +81,8 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
         Assert.Equal("Assets/UI", operation.Filter.PathPrefix);
         Assert.Equal("Button", operation.Filter.NameContains);
         Assert.False(operation.WindowOptions.All);
-        Assert.Equal(QueryWindowOptionsFactory.DefaultLimit, operation.WindowOptions.Limit);
-        Assert.Null(operation.WindowOptions.After);
+        Assert.Equal(BoundedWindowConstants.DefaultLimit, operation.WindowOptions.Limit);
+        Assert.Null(operation.WindowOptions.Cursor);
         Assert.Equal(0, operation.WindowOptions.Offset);
     }
 
@@ -125,7 +126,7 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
         var operation = Assert.IsType<QueryAssetsFindOperationRequest>(result.Operation);
         Assert.True(operation.WindowOptions.All);
         Assert.Equal(0, operation.WindowOptions.Limit);
-        Assert.Null(operation.WindowOptions.After);
+        Assert.Null(operation.WindowOptions.Cursor);
         Assert.Equal(0, operation.WindowOptions.Offset);
     }
 
@@ -154,7 +155,7 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
     [Trait("Size", "Small")]
     public void Create_WhenAfterCursorIsValid_ReturnsDecodedOffset ()
     {
-        var cursor = QueryWindowCursorCodec.Encode(123);
+        var cursor = BoundedWindowCursorCodec.Encode(123);
 
         var result = QueryAssetsFindOperationRequestFactory.Create(
             commandName: "query assets find",
@@ -169,14 +170,14 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
 
         Assert.True(result.IsSuccess);
         var operation = Assert.IsType<QueryAssetsFindOperationRequest>(result.Operation);
-        Assert.Equal(cursor, operation.WindowOptions.After);
+        Assert.Equal(cursor, operation.WindowOptions.Cursor);
         Assert.Equal(123, operation.WindowOptions.Offset);
     }
 
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(0)]
-    [InlineData(QueryWindowOptionsFactory.MaxLimit + 1)]
+    [InlineData(BoundedWindowConstants.MaxLimit + 1)]
     public void Create_WhenLimitIsOutOfRange_ReturnsWindowingError (int limit)
     {
         var result = QueryAssetsFindOperationRequestFactory.Create(
@@ -196,10 +197,16 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
         Assert.Contains("limit must be between", result.Error.Message, StringComparison.Ordinal);
     }
 
-    [Fact]
+    [Theory]
     [Trait("Size", "Small")]
-    public void Create_WhenAfterCursorIsInvalid_ReturnsWindowingError ()
+    [InlineData("not-a-cursor")]
+    [InlineData("outer-whitespace")]
+    public void Create_WhenAfterCursorIsInvalid_ReturnsWindowingError (string cursorCase)
     {
+        var after = cursorCase == "outer-whitespace"
+            ? " " + BoundedWindowCursorCodec.Encode(1)
+            : cursorCase;
+
         var result = QueryAssetsFindOperationRequestFactory.Create(
             commandName: "query assets find",
             operationId: "query.assets.find",
@@ -209,7 +216,7 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
             nameContains: null,
             all: false,
             limit: null,
-            after: "not-a-cursor");
+            after: after);
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
@@ -230,7 +237,7 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
             nameContains: null,
             all: true,
             limit: null,
-            after: QueryWindowCursorCodec.Encode(1));
+            after: BoundedWindowCursorCodec.Encode(1));
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);

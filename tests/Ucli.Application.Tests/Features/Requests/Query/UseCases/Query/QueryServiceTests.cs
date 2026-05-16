@@ -51,10 +51,10 @@ public sealed class QueryServiceTests
                     OperationId: "assets.find",
                     OperationName: UcliPrimitiveOperationNames.AssetsFind,
                     Filter: new QueryAssetsFindFilter("UnityEngine.Material, UnityEngine.CoreModule", null, null),
-                    WindowOptions: new QueryWindowOptions(
+                    WindowOptions: new BoundedWindowOptions(
                         All: false,
                         Limit: 1,
-                        After: null,
+                        Cursor: null,
                         Offset: 0)),
                 failFast: true),
             CancellationToken.None);
@@ -81,6 +81,73 @@ public sealed class QueryServiceTests
         Assert.False(payload.GetProperty("window").GetProperty("isComplete").GetBoolean());
         Assert.True(payload.GetProperty("window").TryGetProperty("nextCursor", out var nextCursor));
         Assert.False(string.IsNullOrWhiteSpace(nextCursor.GetString()));
+        Assert.False(payload.GetProperty("window").TryGetProperty("after", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenAssetsFindWindowHasCursor_ReturnsRequestedCursorWindow ()
+    {
+        var cursor = BoundedWindowCursorCodec.Encode(1);
+        var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
+        var assetSearchLookupAccessService = new StubAssetSearchLookupAccessService(AssetSearchLookupReadResult.Success(
+            new AssetSearchLookupReadOutput(
+                Entries:
+                [
+                    new IndexAssetSearchEntryJsonContract(
+                        AssetPath: "Assets/A.mat",
+                        AssetGuid: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        Name: "A",
+                        TypeId: "UnityEngine.Material, UnityEngine.CoreModule",
+                        SearchTypeIds: ["UnityEngine.Material, UnityEngine.CoreModule"]),
+                    new IndexAssetSearchEntryJsonContract(
+                        AssetPath: "Assets/B.mat",
+                        AssetGuid: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                        Name: "B",
+                        TypeId: "UnityEngine.Material, UnityEngine.CoreModule",
+                        SearchTypeIds: ["UnityEngine.Material, UnityEngine.CoreModule"]),
+                    new IndexAssetSearchEntryJsonContract(
+                        AssetPath: "Assets/C.mat",
+                        AssetGuid: "cccccccccccccccccccccccccccccccc",
+                        Name: "C",
+                        TypeId: "UnityEngine.Material, UnityEngine.CoreModule",
+                        SearchTypeIds: ["UnityEngine.Material, UnityEngine.CoreModule"]),
+                ],
+                AccessInfo: new AssetLookupAccessInfo(
+                    Used: true,
+                    Hit: true,
+                    Source: AssetLookupSource.Index,
+                    Freshness: IndexFreshness.Fresh,
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-25T00:00:00+00:00"),
+                    FallbackReason: null)),
+            "Asset-search lookup read completed."));
+        var service = new QueryService(
+            projectContextResolver,
+            assetSearchLookupAccessService,
+            new StubSceneTreeLiteAccessService(),
+            new SpyUnityRequestExecutor());
+
+        var result = await service.ExecuteAsync(
+            CreateInput(
+                new QueryAssetsFindOperationRequest(
+                    CommandName: "query.assets.find",
+                    OperationId: "assets.find",
+                    OperationName: UcliPrimitiveOperationNames.AssetsFind,
+                    Filter: new QueryAssetsFindFilter("UnityEngine.Material, UnityEngine.CoreModule", null, null),
+                    WindowOptions: new BoundedWindowOptions(
+                        All: false,
+                        Limit: 1,
+                        Cursor: cursor,
+                        Offset: 1)),
+                failFast: true),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var payload = Assert.Single(result.OpResults).Result!.Value;
+        Assert.Equal("Assets/B.mat", payload.GetProperty("matches")[0].GetProperty("assetPath").GetString());
+        Assert.Equal(cursor, payload.GetProperty("window").GetProperty("cursor").GetString());
+        Assert.Equal(BoundedWindowCursorCodec.Encode(2), payload.GetProperty("window").GetProperty("nextCursor").GetString());
+        Assert.Equal(3, payload.GetProperty("window").GetProperty("totalCount").GetInt32());
     }
 
     [Fact]
@@ -94,7 +161,14 @@ public sealed class QueryServiceTests
                 ScenePath: "Assets/Scenes/Main.unity",
                 Roots:
                 [
-                    new IndexSceneTreeLiteNodeJsonContract("Root", "GlobalObjectId_V1-1-2-3-4-5-6", []),
+                    new IndexSceneTreeLiteNodeJsonContract(
+                        "Root",
+                        "GlobalObjectId_V1-1-2-3-4-5-6",
+                        [
+                            new IndexSceneTreeLiteNodeJsonContract("First", "GlobalObjectId_V1-1-2-3-4-5-7", [], IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                            new IndexSceneTreeLiteNodeJsonContract("Second", "GlobalObjectId_V1-1-2-3-4-5-8", [], IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                        ],
+                        IndexSceneTreeLiteNodeChildrenStateValues.Complete),
                 ],
                 SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.ReadIndex, isDirty: false),
                 AccessInfo: new SceneTreeLiteAccessInfo(
@@ -116,10 +190,10 @@ public sealed class QueryServiceTests
                     OperationName: UcliPrimitiveOperationNames.SceneTree,
                     ScenePath: "Assets/Scenes/Main.unity",
                     Depth: 1,
-                    WindowOptions: new QueryWindowOptions(
+                    WindowOptions: new BoundedWindowOptions(
                         All: false,
-                        Limit: 100,
-                        After: null,
+                        Limit: 2,
+                        Cursor: null,
                         Offset: 0)),
                 failFast: true),
             CancellationToken.None);
@@ -135,8 +209,72 @@ public sealed class QueryServiceTests
         var payload = opResult.Result!.Value;
         Assert.Equal("Assets/Scenes/Main.unity", payload.GetProperty("path").GetString());
         Assert.Equal(1, payload.GetProperty("roots").GetArrayLength());
+        Assert.Equal(1, payload.GetProperty("roots")[0].GetProperty("children").GetArrayLength());
+        Assert.Equal("truncatedByWindow", payload.GetProperty("roots")[0].GetProperty("childrenState").GetString());
         Assert.Equal("readIndex", payload.GetProperty("sourceState").GetProperty("kind").GetString());
-        Assert.True(payload.GetProperty("window").GetProperty("isComplete").GetBoolean());
+        Assert.False(payload.GetProperty("window").GetProperty("isComplete").GetBoolean());
+        Assert.Equal(3, payload.GetProperty("window").GetProperty("totalCount").GetInt32());
+        Assert.False(payload.GetProperty("window").TryGetProperty("after", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenSceneTreeWindowHasCursor_ReturnsFragmentRootWindow ()
+    {
+        var cursor = BoundedWindowCursorCodec.Encode(1);
+        var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
+        var sceneTreeLiteAccessService = new StubSceneTreeLiteAccessService(SceneTreeLiteReadResult.Success(
+            new SceneTreeLiteReadOutput(
+                ScenePath: "Assets/Scenes/Main.unity",
+                Roots:
+                [
+                    new IndexSceneTreeLiteNodeJsonContract(
+                        "Root",
+                        "GlobalObjectId_V1-1-2-3-4-5-6",
+                        [
+                            new IndexSceneTreeLiteNodeJsonContract("First", "GlobalObjectId_V1-1-2-3-4-5-7", [], IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                            new IndexSceneTreeLiteNodeJsonContract("Second", "GlobalObjectId_V1-1-2-3-4-5-8", [], IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                        ],
+                        IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                ],
+                SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.ReadIndex, isDirty: false),
+                AccessInfo: new SceneTreeLiteAccessInfo(
+                    Used: true,
+                    Hit: true,
+                    Source: SceneTreeLiteSource.Index,
+                    Freshness: IndexFreshness.Fresh,
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-25T00:00:00+00:00"),
+                    FallbackReason: null)),
+            "Scene-tree-lite read completed."));
+        var service = new QueryService(
+            projectContextResolver,
+            new StubAssetSearchLookupAccessService(),
+            sceneTreeLiteAccessService,
+            new SpyUnityRequestExecutor());
+
+        var result = await service.ExecuteAsync(
+            CreateInput(
+                new QuerySceneTreeOperationRequest(
+                    CommandName: "query.scene.tree",
+                    OperationId: "scene.tree",
+                    OperationName: UcliPrimitiveOperationNames.SceneTree,
+                    ScenePath: "Assets/Scenes/Main.unity",
+                    Depth: 1,
+                    WindowOptions: new BoundedWindowOptions(
+                        All: false,
+                        Limit: 1,
+                        Cursor: cursor,
+                        Offset: 1)),
+                failFast: true),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var payload = Assert.Single(result.OpResults).Result!.Value;
+        Assert.Equal(1, payload.GetProperty("roots").GetArrayLength());
+        Assert.Equal("First", payload.GetProperty("roots")[0].GetProperty("name").GetString());
+        Assert.Equal(cursor, payload.GetProperty("window").GetProperty("cursor").GetString());
+        Assert.Equal(BoundedWindowCursorCodec.Encode(2), payload.GetProperty("window").GetProperty("nextCursor").GetString());
+        Assert.Equal(3, payload.GetProperty("window").GetProperty("totalCount").GetInt32());
     }
 
     [Fact]

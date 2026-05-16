@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query.Projection;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Context;
@@ -164,7 +163,7 @@ internal sealed class QueryService : IQueryService
         }
 
         var output = readResult.Output!;
-        var windowedEntries = QueryWindowApplicator.Apply(output.Entries, operation.WindowOptions);
+        var windowedEntries = BoundedWindowApplicator.Apply(output.Entries, operation.WindowOptions);
         return QueryServiceResultFactory.Success(
             operation.CommandName,
             requestId,
@@ -211,7 +210,7 @@ internal sealed class QueryService : IQueryService
         }
 
         var output = readResult.Output!;
-        var windowedRoots = QueryWindowApplicator.Apply(output.Roots, operation.WindowOptions);
+        var windowedRoots = SceneTreeWindowProjector.Apply(output.Roots, operation.WindowOptions);
         return QueryServiceResultFactory.Success(
             operation.CommandName,
             requestId,
@@ -302,17 +301,17 @@ internal sealed class QueryService : IQueryService
             result: result);
     }
 
-    private static AssetsFindResult CreateAssetsFindResult (QueryWindowResult<IndexAssetSearchEntryJsonContract> windowedEntries)
+    private static AssetsFindResult CreateAssetsFindResult (BoundedWindowResult<IndexAssetSearchEntryJsonContract> windowedEntries)
     {
         var matches = new AssetsFindMatch[windowedEntries.Items.Count];
         for (var i = 0; i < windowedEntries.Items.Count; i++)
         {
             var entry = windowedEntries.Items[i];
             matches[i] = new AssetsFindMatch(
-                AssetPath: entry.AssetPath,
-                AssetGuid: entry.AssetGuid,
-                Name: entry.Name,
-                TypeId: entry.TypeId);
+                assetPath: entry.AssetPath!,
+                assetGuid: entry.AssetGuid!,
+                name: entry.Name!,
+                typeId: entry.TypeId!);
         }
 
         return new AssetsFindResult(matches, windowedEntries.Window);
@@ -320,14 +319,14 @@ internal sealed class QueryService : IQueryService
 
     private static SceneTreeResult CreateSceneTreeResult (
         string scenePath,
-        QueryWindowResult<IndexSceneTreeLiteNodeJsonContract> windowedRoots,
+        BoundedWindowResult<IndexSceneTreeLiteNodeJsonContract> windowedRoots,
         SceneTreeSourceState sourceState)
     {
         return new SceneTreeResult(
-            Path: scenePath,
-            Roots: windowedRoots.Items,
-            SourceState: sourceState,
-            Window: windowedRoots.Window);
+            path: new SceneAssetPath(scenePath),
+            roots: windowedRoots.Items,
+            sourceState: sourceState,
+            window: windowedRoots.Window);
     }
 
     private static string ResolveUnityOnlyFallbackReason (ReadIndexMode readIndexMode)
@@ -337,19 +336,4 @@ internal sealed class QueryService : IQueryService
             : "query operation is not backed by readIndex.";
     }
 
-    private sealed record AssetsFindResult (
-        IReadOnlyList<AssetsFindMatch> Matches,
-        QueryWindowInfo Window);
-
-    private sealed record AssetsFindMatch (
-        string? AssetPath,
-        string? AssetGuid,
-        string? Name,
-        string? TypeId);
-
-    private sealed record SceneTreeResult (
-        string Path,
-        IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> Roots,
-        SceneTreeSourceState SourceState,
-        QueryWindowInfo Window);
 }

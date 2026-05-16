@@ -38,4 +38,7 @@ public enum UcliOperationInputConstraintKind
 
     /// <summary> Requires Unity asset GUID syntax. </summary>
     AssetGuid = 11,
+
+    /// <summary> Requires a bounded query window cursor. </summary>
+    Cursor = 12,
 }

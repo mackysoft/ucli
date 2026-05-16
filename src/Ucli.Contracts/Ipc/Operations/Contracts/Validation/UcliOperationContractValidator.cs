@@ -673,6 +673,14 @@ public static class UcliOperationContractValidator
                     }
 
                     break;
+
+                case UcliOperationInputConstraintKind.Cursor:
+                    if (!TryValidateCursor(value, path, out errorMessage))
+                    {
+                        return false;
+                    }
+
+                    break;
             }
         }
 
@@ -736,6 +744,27 @@ public static class UcliOperationContractValidator
         return true;
     }
 
+    private static bool TryValidateCursor (
+        object value,
+        string path,
+        out string errorMessage)
+    {
+        if (!TryConvertToCursorText(value, out var cursor))
+        {
+            errorMessage = string.Empty;
+            return true;
+        }
+
+        if (!BoundedWindowCursorCodec.TryDecode(cursor, out _))
+        {
+            errorMessage = $"Operation '{path}' must be a valid cursor.";
+            return false;
+        }
+
+        errorMessage = string.Empty;
+        return true;
+    }
+
     private static bool IsEmptyJsonElement (JsonElement jsonElement)
     {
         switch (jsonElement.ValueKind)
@@ -761,6 +790,30 @@ public static class UcliOperationContractValidator
     {
         using var enumerator = jsonElement.EnumerateArray();
         return enumerator.MoveNext();
+    }
+
+    private static bool TryConvertToCursorText (
+        object value,
+        out string? cursor)
+    {
+        switch (value)
+        {
+            case string text:
+                cursor = text;
+                return true;
+
+            case UcliStringValue semanticString:
+                cursor = semanticString.Value;
+                return true;
+
+            case JsonElement { ValueKind: JsonValueKind.String } jsonElement:
+                cursor = jsonElement.GetString();
+                return true;
+
+            default:
+                cursor = null;
+                return false;
+        }
     }
 
     private static bool TryConvertToDouble (

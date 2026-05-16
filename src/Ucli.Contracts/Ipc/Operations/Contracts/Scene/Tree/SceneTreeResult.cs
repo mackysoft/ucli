@@ -10,11 +10,13 @@ public sealed record SceneTreeResult
     public SceneTreeResult (
         SceneAssetPath path,
         IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> roots,
-        SceneTreeSourceState sourceState)
+        SceneTreeSourceState sourceState,
+        BoundedWindow window)
     {
         Path = path;
         Roots = roots;
         SourceState = sourceState;
+        Window = window;
     }
 
     [UcliRequired]
@@ -28,4 +30,8 @@ public sealed record SceneTreeResult
     [UcliRequired]
     [UcliDescription("Source state used to build the scene tree.")]
     public SceneTreeSourceState SourceState { get; init; }
+
+    [UcliRequired]
+    [UcliDescription("Bounded result window metadata.")]
+    public BoundedWindow Window { get; init; }
 }

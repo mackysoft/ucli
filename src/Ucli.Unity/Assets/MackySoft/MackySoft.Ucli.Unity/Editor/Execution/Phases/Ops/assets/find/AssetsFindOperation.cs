@@ -74,20 +74,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var matches = includeTemporaryState
                 ? AssetsFindSearchEngine.SearchWithTemporaryState(validationState.Criteria, executionContext)
                 : AssetsFindSearchEngine.SearchLive(validationState.Criteria);
-            var payloadMatches = new AssetsFindMatch[matches.Count];
-            for (var i = 0; i < matches.Count; i++)
+            var windowedMatches = BoundedWindowApplicator.Apply(matches, validationState.WindowOptions);
+            var payloadMatches = new AssetsFindMatch[windowedMatches.Items.Count];
+            for (var i = 0; i < windowedMatches.Items.Count; i++)
             {
                 payloadMatches[i] = new AssetsFindMatch(
-                    assetPath: matches[i].AssetPath,
-                    assetGuid: matches[i].AssetGuid,
-                    name: matches[i].Name,
-                    typeId: matches[i].TypeId);
+                    assetPath: windowedMatches.Items[i].AssetPath,
+                    assetGuid: windowedMatches.Items[i].AssetGuid,
+                    name: windowedMatches.Items[i].Name,
+                    typeId: windowedMatches.Items[i].TypeId);
             }
 
             return OperationPhaseStepResult.Success(
                 applied: applied,
                 changed: false,
-                result: IpcPayloadCodec.SerializeToElement(new AssetsFindResult(payloadMatches)));
+                result: IpcPayloadCodec.SerializeToElement(new AssetsFindResult(payloadMatches, windowedMatches.Window)));
         }
 
         private static bool TryValidate (
@@ -148,22 +149,30 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
+            var windowOptions = BoundedWindowOptionsNormalizer.NormalizeValidated(args.Limit, args.Cursor);
+
             validationState = new ValidationState(
                 new AssetsFindSearchEngine.SearchCriteria(
                     typeFilter,
                     normalizedPathPrefix,
-                    args.NameContains));
+                    args.NameContains),
+                windowOptions);
             return true;
         }
 
         private readonly struct ValidationState
         {
-            public ValidationState (AssetsFindSearchEngine.SearchCriteria criteria)
+            public ValidationState (
+                AssetsFindSearchEngine.SearchCriteria criteria,
+                BoundedWindowOptions windowOptions)
             {
                 Criteria = criteria;
+                WindowOptions = windowOptions;
             }
 
             public AssetsFindSearchEngine.SearchCriteria Criteria { get; }
+
+            public BoundedWindowOptions WindowOptions { get; }
         }
     }
 }

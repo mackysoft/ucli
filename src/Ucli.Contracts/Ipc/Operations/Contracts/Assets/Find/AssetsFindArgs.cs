@@ -9,21 +9,45 @@ public sealed record AssetsFindArgs
     public AssetsFindArgs (
         UnityTypeId? type,
         ProjectRelativePathPrefix? pathPrefix,
-        string? nameContains)
+        string? nameContains,
+        int? limit,
+        string? cursor)
     {
         Type = type;
         PathPrefix = pathPrefix;
         NameContains = nameContains;
+        Limit = limit;
+        Cursor = cursor;
+    }
+
+    public AssetsFindArgs (
+        UnityTypeId? type,
+        ProjectRelativePathPrefix? pathPrefix,
+        string? nameContains)
+        : this(type, pathPrefix, nameContains, limit: null, cursor: null)
+    {
     }
 
     public AssetsFindArgs (
         string? type,
         string? pathPrefix,
         string? nameContains)
+        : this(type, pathPrefix, nameContains, limit: null, cursor: null)
+    {
+    }
+
+    public AssetsFindArgs (
+        string? type,
+        string? pathPrefix,
+        string? nameContains,
+        int? limit,
+        string? cursor)
         : this(
             type == null ? null : new UnityTypeId(type),
             pathPrefix == null ? null : new ProjectRelativePathPrefix(pathPrefix),
-            nameContains)
+            nameContains,
+            limit,
+            cursor)
     {
     }
 
@@ -39,4 +63,14 @@ public sealed record AssetsFindArgs
     [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? NameContains { get; init; }
+
+    [UcliDescription("Maximum number of matches to include in the response window.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.Range, Min = 1, Max = BoundedWindowConstants.MaxLimit)]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Limit { get; init; }
+
+    [UcliDescription("Opaque cursor returned by the previous assets-find window.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.Cursor)]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Cursor { get; init; }
 }

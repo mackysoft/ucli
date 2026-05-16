@@ -387,15 +387,17 @@ public sealed class IpcContractSerializationTests
             Roots:
             [
                 new IndexSceneTreeLiteNodeJsonContract(
-                    Name: "Root",
-                    GlobalObjectId: "GlobalObjectId_V1-2-3-4-5-6",
-                    Children:
+                    name: "Root",
+                    globalObjectId: "GlobalObjectId_V1-2-3-4-5-6",
+                    children:
                     [
                         new IndexSceneTreeLiteNodeJsonContract(
-                            Name: "Child",
-                            GlobalObjectId: string.Empty,
-                            Children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
-                    ]),
+                            name: "Child",
+                            globalObjectId: string.Empty,
+                            children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
+                            childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                    ],
+                    childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
             ],
             SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.LoadedScene, isDirty: true));
 
@@ -416,7 +418,85 @@ public sealed class IpcContractSerializationTests
             .HasProperty("roots", 0, node => node
                 .HasString("name", "Root")
                 .HasString("globalObjectId", "GlobalObjectId_V1-2-3-4-5-6")
+                .HasString("childrenState", IndexSceneTreeLiteNodeChildrenStateValues.Complete)
                 .HasArrayLength("children", 1));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void BoundedQueryOperationContracts_SerializeWithCursorWindowFields ()
+    {
+        var cursor = BoundedWindowCursorCodec.Encode(1);
+        var nextCursor = BoundedWindowCursorCodec.Encode(2);
+        var assetsResult = new AssetsFindResult(
+            matches:
+            [
+                new AssetsFindMatch(
+                    assetPath: "Assets/Data/A.asset",
+                    assetGuid: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    name: "A",
+                    typeId: "UnityEngine.ScriptableObject, UnityEngine.CoreModule"),
+            ],
+            window: new BoundedWindow(
+                limit: 1,
+                cursor: cursor,
+                nextCursor: nextCursor,
+                isComplete: false,
+                totalCount: 3));
+        var sceneResult = new SceneTreeResult(
+            path: new SceneAssetPath("Assets/Scenes/Main.unity"),
+            roots:
+            [
+                new IndexSceneTreeLiteNodeJsonContract(
+                    name: "Root",
+                    globalObjectId: "GlobalObjectId_V1-1-2-3-4-5",
+                    children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
+                    childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+            ],
+            sourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.ReadIndex, isDirty: false),
+            window: new BoundedWindow(
+                limit: 1,
+                cursor: null,
+                nextCursor: nextCursor,
+                isComplete: false,
+                totalCount: 2));
+
+        var assetsElement = IpcPayloadCodec.SerializeToElement(assetsResult);
+        var sceneElement = IpcPayloadCodec.SerializeToElement(sceneResult);
+
+        JsonAssert.For(assetsElement)
+            .HasArrayLength("matches", 1)
+            .HasProperty("window", window => window
+                .HasInt32("limit", 1)
+                .HasString("cursor", cursor)
+                .HasString("nextCursor", nextCursor)
+                .HasBoolean("isComplete", false)
+                .HasInt32("totalCount", 3));
+        Assert.False(assetsElement.GetProperty("window").TryGetProperty("after", out _));
+        JsonAssert.For(sceneElement)
+            .HasArrayLength("roots", 1)
+            .HasProperty("roots", 0, root => root
+                .HasString("childrenState", IndexSceneTreeLiteNodeChildrenStateValues.Complete))
+            .HasProperty("window", window => window
+                .IsNull("cursor")
+                .HasString("nextCursor", nextCursor));
+        Assert.False(sceneElement.GetProperty("window").TryGetProperty("after", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void SceneTreeNodeContract_SerializesUnknownChildrenState ()
+    {
+        var node = new IndexSceneTreeLiteNodeJsonContract(
+            name: "Root",
+            globalObjectId: "GlobalObjectId_V1-1-2-3-4-5",
+            children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
+            childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Unknown);
+
+        var element = IpcPayloadCodec.SerializeToElement(node);
+
+        JsonAssert.For(element)
+            .HasString("childrenState", IndexSceneTreeLiteNodeChildrenStateValues.Unknown);
     }
 
     [Fact]

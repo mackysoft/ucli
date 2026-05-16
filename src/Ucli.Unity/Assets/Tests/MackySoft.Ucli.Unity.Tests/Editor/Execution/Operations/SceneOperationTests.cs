@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -475,6 +476,61 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Tree_Validate_WhenCursorIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new SceneTreeOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var requestOperation = CreateOperation(
+                opId: "op-tree",
+                opName: UcliPrimitiveOperationNames.SceneTree,
+                args: new
+                {
+                    path = scenePath,
+                    cursor = "not-a-cursor",
+                });
+
+            var result = await operation.ValidateAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-tree");
+            Assert.That(result.Failure!.Message, Does.Contain("args.cursor"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Tree_Validate_WhenLimitIsOutOfRange_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new SceneTreeOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var invalidLimits = new[] { 0, BoundedWindowConstants.MaxLimit + 1 };
+
+            for (var i = 0; i < invalidLimits.Length; i++)
+            {
+                var requestOperation = CreateOperation(
+                    opId: "op-tree",
+                    opName: UcliPrimitiveOperationNames.SceneTree,
+                    args: new
+                    {
+                        path = scenePath,
+                        limit = invalidLimits[i],
+                    });
+
+                var result = await operation.ValidateAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+                AssertInvalidArgument(result, "op-tree");
+                Assert.That(result.Failure!.Message, Does.Contain("args.limit"));
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Tree_Plan_WhenDepthIsNull_AcceptsUnlimitedDepth () => UniTask.ToCoroutine(async () =>
         {
             var operation = new SceneTreeOperation();
@@ -501,8 +557,76 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Result!.Value.GetProperty("path").GetString(), Is.EqualTo(scenePath));
             Assert.That(result.Result.Value.GetProperty("roots").GetArrayLength(), Is.EqualTo(1));
             Assert.That(result.Result.Value.GetProperty("roots")[0].GetProperty("children").GetArrayLength(), Is.EqualTo(1));
+            Assert.That(result.Result.Value.GetProperty("roots")[0].GetProperty("childrenState").GetString(), Is.EqualTo(IndexSceneTreeLiteNodeChildrenStateValues.Complete));
             Assert.That(result.Result.Value.GetProperty("sourceState").GetProperty("kind").GetString(), Is.EqualTo(SceneTreeSourceStateKindValues.LoadedScene));
             Assert.That(result.Result.Value.GetProperty("sourceState").GetProperty("isDirty").GetBoolean(), Is.False);
+            Assert.That(result.Result.Value.GetProperty("window").GetProperty("limit").GetInt32(), Is.EqualTo(BoundedWindowConstants.DefaultLimit));
+            Assert.That(result.Result.Value.GetProperty("window").TryGetProperty("after", out _), Is.False);
+            Assert.That(result.Result.Value.GetProperty("window").GetProperty("totalCount").GetInt32(), Is.EqualTo(2));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Tree_Plan_WhenLimitCutsDirectChildren_MarksChildrenStateTruncatedByWindow () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new SceneTreeOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            var firstChild = new GameObject("FirstChild");
+            var secondChild = new GameObject("SecondChild");
+            firstChild.transform.SetParent(root.transform, worldPositionStays: false);
+            secondChild.transform.SetParent(root.transform, worldPositionStays: false);
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var requestOperation = CreateOperation(
+                opId: "op-tree",
+                opName: UcliPrimitiveOperationNames.SceneTree,
+                args: new
+                {
+                    path = scenePath,
+                    depth = (int?)null,
+                    limit = 2,
+                });
+
+            var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertSuccess(result, applied: false, changed: false);
+            var payload = result.Result!.Value;
+            var rootElement = payload.GetProperty("roots")[0];
+            Assert.That(rootElement.GetProperty("children").GetArrayLength(), Is.EqualTo(1));
+            Assert.That(rootElement.GetProperty("childrenState").GetString(), Is.EqualTo(IndexSceneTreeLiteNodeChildrenStateValues.TruncatedByWindow));
+            Assert.That(payload.GetProperty("window").GetProperty("nextCursor").GetString(), Is.EqualTo(BoundedWindowCursorCodec.Encode(2)));
+            Assert.That(payload.GetProperty("window").GetProperty("totalCount").GetInt32(), Is.EqualTo(3));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Tree_Plan_WhenDepthStopsExpansion_MarksChildrenStateNotExpandedByDepth () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new SceneTreeOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            var child = new GameObject("Child");
+            child.transform.SetParent(root.transform, worldPositionStays: false);
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var requestOperation = CreateOperation(
+                opId: "op-tree",
+                opName: UcliPrimitiveOperationNames.SceneTree,
+                args: new
+                {
+                    path = scenePath,
+                    depth = 0,
+                });
+
+            var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertSuccess(result, applied: false, changed: false);
+            var rootElement = result.Result!.Value.GetProperty("roots")[0];
+            Assert.That(rootElement.GetProperty("children").GetArrayLength(), Is.EqualTo(0));
+            Assert.That(rootElement.GetProperty("childrenState").GetString(), Is.EqualTo(IndexSceneTreeLiteNodeChildrenStateValues.NotExpandedByDepth));
         });
 
         [UnityTest]

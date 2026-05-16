@@ -37,9 +37,9 @@ internal sealed class QuerySceneTreeCommand
     /// <param name="path">Scene asset path.</param>
     /// <param name="depth">Tree depth. 0 returns only roots.</param>
     /// <param name="fullDepth">--fullDepth, Expands the full tree.</param>
-    /// <param name="limit">Maximum number of root nodes to return in one window.</param>
+    /// <param name="limit">Maximum number of preorder hierarchy nodes to return in one window.</param>
     /// <param name="after">Window cursor returned from the previous response.</param>
-    /// <param name="all">Returns all roots without bounded windowing.</param>
+    /// <param name="all">Returns the full tree without bounded windowing.</param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.TreeSubcommand)]

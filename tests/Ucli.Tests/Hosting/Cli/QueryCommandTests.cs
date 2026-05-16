@@ -129,6 +129,81 @@ public sealed class QueryCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task SceneTree_UsesQueryServiceAndForwardsWindowOptions ()
+    {
+        var cursor = BoundedWindowCursorCodec.Encode(3);
+        var service = new StubQueryService((_, _) => ValueTask.FromResult(CreateSuccessResult(UcliCommandNames.QuerySceneTree)));
+        var command = new QuerySceneTreeCommand(service, CommandResultTestWriter.Create());
+        using var cancellationTokenSource = new CancellationTokenSource();
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.TreeAsync(
+            projectPath: "/repo/UnityProject",
+            mode: "oneshot",
+            timeout: "1234",
+            readIndexMode: "allowStale",
+            failFast: true,
+            path: "Assets/Scenes/Main.unity",
+            depth: 2,
+            limit: 25,
+            after: cursor,
+            cancellationToken: cancellationTokenSource.Token));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        Assert.Equal(cancellationTokenSource.Token, service.CapturedCancellationToken);
+        Assert.NotNull(service.CapturedInput);
+        Assert.Equal("/repo/UnityProject", service.CapturedInput!.ProjectPath);
+        Assert.Equal(UnityExecutionMode.Oneshot, service.CapturedInput.Mode);
+        Assert.Equal(1234, service.CapturedInput.TimeoutMilliseconds);
+        Assert.Equal(ReadIndexMode.AllowStale, service.CapturedInput.ReadIndexMode);
+        Assert.True(service.CapturedInput.FailFast);
+
+        var operation = Assert.IsType<QuerySceneTreeOperationRequest>(service.CapturedInput.Operation);
+        Assert.Equal(UcliCommandNames.QuerySceneTree, operation.CommandName);
+        Assert.Equal("scene.tree", operation.OperationId);
+        Assert.Equal(UcliPrimitiveOperationNames.SceneTree, operation.OperationName);
+        Assert.Equal("Assets/Scenes/Main.unity", operation.ScenePath);
+        Assert.Equal(2, operation.Depth);
+        Assert.False(operation.WindowOptions.All);
+        Assert.Equal(25, operation.WindowOptions.Limit);
+        Assert.Equal(cursor, operation.WindowOptions.Cursor);
+        Assert.Equal(3, operation.WindowOptions.Offset);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.QuerySceneTree,
+            IpcProtocol.StatusOk,
+            (int)CliExitCode.Success);
+        CommandResultAssert.HasNoErrors(outputJson.RootElement);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SceneTree_WhenWindowOptionsConflict_ReturnsInvalidArgumentWithoutCallingService ()
+    {
+        var service = new StubQueryService((_, _) => throw new InvalidOperationException("Service should not be called."));
+        var command = new QuerySceneTreeCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.TreeAsync(
+            path: "Assets/Scenes/Main.unity",
+            limit: 10,
+            all: true,
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
+        Assert.Null(service.CapturedInput);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.QuerySceneTree,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task GoDescribe_WhenTargetIsAmbiguous_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new StubQueryService((_, _) => throw new InvalidOperationException("Service should not be called."));

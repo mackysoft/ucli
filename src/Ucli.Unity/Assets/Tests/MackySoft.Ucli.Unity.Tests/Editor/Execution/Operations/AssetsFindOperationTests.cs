@@ -94,6 +94,51 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Validate_WhenCursorIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new AssetsFindOperation();
+            var requestOperation = CreateOperation(
+                opId: "op-find",
+                args: new
+                {
+                    nameContains = "asset",
+                    cursor = "not-a-cursor",
+                });
+
+            using var executionContext = new OperationExecutionContext();
+            var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-find");
+            Assert.That(result.Failure!.Message, Does.Contain("args.cursor"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Validate_WhenLimitIsOutOfRange_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new AssetsFindOperation();
+            var invalidLimits = new[] { 0, BoundedWindowConstants.MaxLimit + 1 };
+
+            for (var i = 0; i < invalidLimits.Length; i++)
+            {
+                var requestOperation = CreateOperation(
+                    opId: "op-find",
+                    args: new
+                    {
+                        nameContains = "asset",
+                        limit = invalidLimits[i],
+                    });
+
+                using var executionContext = new OperationExecutionContext();
+                var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
+
+                AssertInvalidArgument(result, "op-find");
+                Assert.That(result.Failure!.Message, Does.Contain("args.limit"));
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator PlanAndCall_WhenMatchesExist_ReturnSortedMatchesInAssetPathOrder () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetsFindOperation();
@@ -125,6 +170,47 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(liveMatches.Count, Is.EqualTo(2));
             Assert.That(liveMatches[0].AssetPath, Is.EqualTo(secondPath));
             Assert.That(liveMatches[1].AssetPath, Is.EqualTo(firstPath));
+            var window = GetWindow(planResult);
+            Assert.That(window.GetProperty("limit").GetInt32(), Is.EqualTo(BoundedWindowConstants.DefaultLimit));
+            Assert.That(window.TryGetProperty("after", out _), Is.False);
+            Assert.That(window.GetProperty("isComplete").GetBoolean(), Is.True);
+            Assert.That(window.GetProperty("totalCount").GetInt32(), Is.EqualTo(2));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Plan_WhenLimitAndCursorAreSpecified_ReturnsRequestedWindow () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new AssetsFindOperation();
+            using var scope = new EditorTestScope();
+            var token = Guid.NewGuid().ToString("N");
+            var firstPath = $"Assets/aaa_assets_find_window_{token}.asset";
+            var secondPath = $"Assets/bbb_assets_find_window_{token}.asset";
+            var thirdPath = $"Assets/ccc_assets_find_window_{token}.asset";
+            _ = CreateTrackedScriptableAsset<AssetOperationTestAsset>(scope, firstPath, $"Window-{token}-A");
+            _ = CreateTrackedScriptableAsset<AssetOperationTestAsset>(scope, secondPath, $"Window-{token}-B");
+            _ = CreateTrackedScriptableAsset<AssetOperationTestAsset>(scope, thirdPath, $"Window-{token}-C");
+            var cursor = BoundedWindowCursorCodec.Encode(1);
+            var requestOperation = CreateOperation(
+                opId: "op-find",
+                args: new
+                {
+                    nameContains = token,
+                    limit = 1,
+                    cursor,
+                });
+
+            var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertQuerySuccess(result, applied: false);
+            var matches = GetMatches(result);
+            Assert.That(matches.Count, Is.EqualTo(1));
+            Assert.That(matches[0].AssetPath, Is.EqualTo(secondPath));
+            var window = GetWindow(result);
+            Assert.That(window.GetProperty("cursor").GetString(), Is.EqualTo(cursor));
+            Assert.That(window.GetProperty("nextCursor").GetString(), Is.EqualTo(BoundedWindowCursorCodec.Encode(2)));
+            Assert.That(window.GetProperty("isComplete").GetBoolean(), Is.False);
+            Assert.That(window.GetProperty("totalCount").GetInt32(), Is.EqualTo(3));
         });
 
         [UnityTest]
@@ -535,6 +621,11 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             return matches;
+        }
+
+        private static JsonElement GetWindow (OperationPhaseStepResult result)
+        {
+            return result.Result!.Value.GetProperty("window");
         }
 
         private static void AssertInvalidArgument (
