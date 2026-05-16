@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/residual-risk.schema.json",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string"
+    },
+    "blocking": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "code",
+    "blocking"
+  ]
+}

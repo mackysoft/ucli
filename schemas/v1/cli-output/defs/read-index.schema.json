@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/read-index.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "used": {
+      "type": "boolean"
+    },
+    "hit": {
+      "type": "boolean"
+    },
+    "source": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "freshness": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "generatedAtUtc": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "fallbackReason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "used",
+    "hit",
+    "source",
+    "freshness",
+    "generatedAtUtc",
+    "fallbackReason"
+  ]
+}

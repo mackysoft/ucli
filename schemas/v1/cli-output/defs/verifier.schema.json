@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/verifier.schema.json",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "deterministic": {
+      "type": "boolean"
+    },
+    "required": {
+      "type": "boolean"
+    },
+    "primaryClaims": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "effects": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reportRef": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "kind",
+    "deterministic",
+    "required",
+    "primaryClaims"
+  ]
+}

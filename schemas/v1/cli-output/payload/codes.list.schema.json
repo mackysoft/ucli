@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/codes.list.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "catalogVersion": {
+      "type": "integer"
+    },
+    "source": {
+      "type": "string"
+    },
+    "kinds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "codes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "kind",
+          "category",
+          "summary"
+        ]
+      }
+    }
+  },
+  "required": [
+    "catalogVersion",
+    "source",
+    "kinds",
+    "codes"
+  ]
+}

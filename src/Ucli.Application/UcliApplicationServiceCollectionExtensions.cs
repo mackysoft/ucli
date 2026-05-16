@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
@@ -64,6 +65,7 @@ public static class UcliApplicationServiceCollectionExtensions
 
         services.AddUcliApplicationSharedServices();
         services.AddUcliApplicationCodeCatalogServices();
+        services.AddUcliApplicationAssuranceServices();
         services.AddUcliApplicationRequestServices();
         services.AddUcliApplicationOperationCatalogServices();
         services.AddUcliApplicationDaemonServices();
@@ -91,6 +93,12 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddSingleton<ICodeCatalogContributor, ApplicationCodeCatalogContributor>();
         services.AddSingleton<ICodeCatalog, CodeCatalog>();
         services.AddSingleton<ICodeCatalogService, CodeCatalogService>();
+        return services;
+    }
+
+    private static IServiceCollection AddUcliApplicationAssuranceServices (this IServiceCollection services)
+    {
+        services.AddSingleton<AssuranceSemanticInvariantValidator>();
         return services;
     }
 

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/assurance-claim.schema.json",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "coverage": {
+      "type": "string"
+    },
+    "required": {
+      "type": "boolean"
+    },
+    "verifierRef": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "../defs/evidence.schema.json"
+      }
+    },
+    "residualRisks": {
+      "type": "array",
+      "items": {
+        "$ref": "../defs/residual-risk.schema.json"
+      }
+    }
+  },
+  "required": [
+    "id",
+    "status",
+    "coverage",
+    "required",
+    "verifierRef"
+  ]
+}
