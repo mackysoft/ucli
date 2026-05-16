@@ -13,12 +13,5 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         UcliErrorCode Code,
         string Severity,
         string CoverageImpact,
-        string Message)
-    {
-        /// <summary> Indicates a warning diagnostic. </summary>
-        public const string WarningSeverity = "warning";
-
-        /// <summary> Indicates that the operation covered only part of the requested target set. </summary>
-        public const string PartialCoverageImpact = "partial";
-    }
+        string Message);
 }

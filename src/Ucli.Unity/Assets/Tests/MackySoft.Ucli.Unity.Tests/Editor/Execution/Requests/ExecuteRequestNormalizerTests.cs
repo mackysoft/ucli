@@ -644,8 +644,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(compiledStep.Diagnostics.Count, Is.EqualTo(1));
             var diagnostic = compiledStep.Diagnostics[0];
             Assert.That(diagnostic.Code, Is.EqualTo(ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects));
-            Assert.That(diagnostic.Severity, Is.EqualTo(OperationDiagnostic.WarningSeverity));
-            Assert.That(diagnostic.CoverageImpact, Is.EqualTo(OperationDiagnostic.PartialCoverageImpact));
+            Assert.That(diagnostic.Severity, Is.EqualTo(IpcExecuteDiagnosticSeverityNames.Warning));
+            Assert.That(diagnostic.CoverageImpact, Is.EqualTo(IpcExecuteDiagnosticCoverageImpactNames.Partial));
         }
 
         [Test]

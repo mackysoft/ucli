@@ -113,96 +113,6 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         }
 
         /// <summary>
-        /// Executes one deterministic scene query.
-        /// </summary>
-        /// <param name="scenePath"> The queried scene asset path. </param>
-        /// <param name="queryArguments"> The parsed scene-query arguments. </param>
-        /// <param name="matches"> The deduplicated matches in ascending canonical-key order when the query succeeds. </param>
-        /// <param name="errorMessage"> The validation or query error message when the query fails. </param>
-        /// <returns> <see langword="true" /> when the scene can be queried successfully; otherwise <see langword="false" />. </returns>
-        public static bool TryQueryPersisted (
-            string scenePath,
-            QueryArguments queryArguments,
-            out List<QueryMatch> matches,
-            out string errorMessage)
-        {
-            return TryQueryPersisted(
-                scenePath,
-                queryArguments,
-                out matches,
-                out _,
-                out errorMessage);
-        }
-
-        /// <summary>
-        /// Executes one deterministic scene query.
-        /// </summary>
-        /// <param name="scenePath"> The queried scene asset path. </param>
-        /// <param name="queryArguments"> The parsed scene-query arguments. </param>
-        /// <param name="matches"> The deduplicated matches in ascending canonical-key order when the query succeeds. </param>
-        /// <param name="diagnostics"> The non-fatal diagnostics emitted while collecting matches. </param>
-        /// <param name="errorMessage"> The validation or query error message when the query fails. </param>
-        /// <returns> <see langword="true" /> when the scene can be queried successfully; otherwise <see langword="false" />. </returns>
-        public static bool TryQueryPersisted (
-            string scenePath,
-            QueryArguments queryArguments,
-            out List<QueryMatch> matches,
-            out IReadOnlyList<OperationDiagnostic> diagnostics,
-            out string errorMessage)
-        {
-            matches = new List<QueryMatch>();
-            diagnostics = Array.Empty<OperationDiagnostic>();
-            errorMessage = string.Empty;
-            if (!SceneSourceResolver.TryAcquire(
-                    scenePath,
-                    SceneSourceResolver.Policy.PersistedPreview,
-                    executionContext: null,
-                    out var sceneLease,
-                    out errorMessage))
-            {
-                return false;
-            }
-
-            using (sceneLease)
-            {
-                if (!CollectMatches(scenePath, sceneLease.Scene, queryArguments, executionContext: null, allowTemporaryState: false, out matches, out diagnostics, out errorMessage))
-                {
-                    return false;
-                }
-
-                return true;
-            }
-        }
-
-        /// <summary>
-        /// Executes one runtime scene query against request-local plan state or current loaded state.
-        /// </summary>
-        /// <param name="scenePath"> The queried scene asset path. </param>
-        /// <param name="queryArguments"> The parsed scene-query arguments. </param>
-        /// <param name="executionContext"> The request execution context. </param>
-        /// <param name="allowTemporaryState"> <see langword="true" /> to observe request-local preview-scene state during plan execution without creating new tracked preview state. </param>
-        /// <param name="matches"> The deduplicated matches in ascending canonical-key order when the query succeeds. </param>
-        /// <param name="errorMessage"> The validation or query error message when the query fails. </param>
-        /// <returns> <see langword="true" /> when the scene can be queried successfully; otherwise <see langword="false" />. </returns>
-        public static bool TryQueryRuntime (
-            string scenePath,
-            QueryArguments queryArguments,
-            OperationExecutionContext executionContext,
-            bool allowTemporaryState,
-            out List<QueryMatch> matches,
-            out string errorMessage)
-        {
-            return TryQueryRuntime(
-                scenePath,
-                queryArguments,
-                executionContext,
-                allowTemporaryState,
-                out matches,
-                out _,
-                out errorMessage);
-        }
-
-        /// <summary>
         /// Executes one runtime scene query against request-local plan state or current loaded state.
         /// </summary>
         /// <param name="scenePath"> The queried scene asset path. </param>
@@ -367,8 +277,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         {
             return new OperationDiagnostic(
                 Code: ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects,
-                Severity: OperationDiagnostic.WarningSeverity,
-                CoverageImpact: OperationDiagnostic.PartialCoverageImpact,
+                Severity: IpcExecuteDiagnosticSeverityNames.Warning,
+                CoverageImpact: IpcExecuteDiagnosticCoverageImpactNames.Partial,
                 Message: "Scene query skipped GameObjects whose names contain '/' because hierarchyPath cannot represent them.");
         }
 

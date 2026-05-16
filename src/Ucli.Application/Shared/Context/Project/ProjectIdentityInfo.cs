@@ -9,12 +9,6 @@ internal sealed record ProjectIdentityInfo (
     string ProjectFingerprint,
     string UnityVersion)
 {
-    /// <summary> Gets a sentinel project identity for tests and legacy in-process construction. </summary>
-    public static ProjectIdentityInfo Unknown { get; } = new(
-        ProjectPath: "unknown",
-        ProjectFingerprint: "unknown",
-        UnityVersion: "unknown");
-
     /// <summary> Creates public project identity from a resolved Unity project context. </summary>
     /// <param name="project"> The resolved Unity project context. </param>
     /// <returns> The normalized project identity. </returns>
@@ -25,6 +19,6 @@ internal sealed record ProjectIdentityInfo (
         return new ProjectIdentityInfo(
             ProjectPath: project.UnityProjectRoot,
             ProjectFingerprint: project.ProjectFingerprint,
-            UnityVersion: string.IsNullOrWhiteSpace(project.UnityVersion) ? "unknown" : project.UnityVersion);
+            UnityVersion: string.IsNullOrWhiteSpace(project.UnityVersion) ? ProjectIdentityDefaults.UnknownUnityVersion : project.UnityVersion);
     }
 }

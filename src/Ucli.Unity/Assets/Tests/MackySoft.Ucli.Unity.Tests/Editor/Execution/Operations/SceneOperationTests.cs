@@ -879,8 +879,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(matches.GetArrayLength(), Is.EqualTo(1));
             Assert.That(matches[0].GetProperty("hierarchyPath").GetString(), Is.EqualTo("GoodRoot"));
             var diagnostic = AssertSingleHierarchyPathDiagnostic(queryResult.Diagnostics);
-            Assert.That(diagnostic.Severity, Is.EqualTo(OperationDiagnostic.WarningSeverity));
-            Assert.That(diagnostic.CoverageImpact, Is.EqualTo(OperationDiagnostic.PartialCoverageImpact));
+            Assert.That(diagnostic.Severity, Is.EqualTo(IpcExecuteDiagnosticSeverityNames.Warning));
+            Assert.That(diagnostic.CoverageImpact, Is.EqualTo(IpcExecuteDiagnosticCoverageImpactNames.Partial));
         });
 
         private static NormalizedOperation CreateOperation (

@@ -32,7 +32,7 @@ public sealed class RefreshCommandTests
         ],
         "uCLI refresh completed.",
         readPostcondition: null,
-        project: CreateProjectIdentity());
+        project: ProjectIdentityInfoTestFactory.Create());
 
     [Fact]
     [Trait("Size", "Small")]
@@ -69,9 +69,9 @@ public sealed class RefreshCommandTests
             .HasProperty("payload", payload => payload
                 .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
                 .HasProperty("project", project => project
-                    .HasString("projectPath", "/repo/UnityProject")
-                    .HasString("projectFingerprint", "project-fingerprint")
-                    .HasString("unityVersion", "6000.1.4f1"))
+                    .HasString("projectPath", ProjectIdentityInfoTestFactory.DefaultProjectPath)
+                    .HasString("projectFingerprint", ProjectIdentityInfoTestFactory.ProjectFingerprint)
+                    .HasString("unityVersion", ProjectIdentityInfoTestFactory.UnityVersion))
                 .HasArrayLength("opResults", 1)
                 .HasProperty("opResults", 0, op => op
                     .HasString("opId", "refresh")
@@ -145,7 +145,7 @@ public sealed class RefreshCommandTests
             ],
             "uCLI refresh completed.",
             readPostcondition,
-            project: CreateProjectIdentity())));
+            project: ProjectIdentityInfoTestFactory.Create())));
         var command = new RefreshCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.RefreshAsync(
@@ -206,14 +206,6 @@ public sealed class RefreshCommandTests
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
         AssertRefreshFailurePayload(outputJson.RootElement);
-    }
-
-    private static ProjectIdentityInfo CreateProjectIdentity ()
-    {
-        return new ProjectIdentityInfo(
-            ProjectPath: "/repo/UnityProject",
-            ProjectFingerprint: "project-fingerprint",
-            UnityVersion: "6000.1.4f1");
     }
 
     private sealed class StubRefreshService : IRefreshService

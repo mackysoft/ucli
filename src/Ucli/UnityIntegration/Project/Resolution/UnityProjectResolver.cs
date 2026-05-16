@@ -3,17 +3,13 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.UnityIntegration.Resolution;
 
 namespace MackySoft.Ucli.UnityIntegration.Project.Resolution;
 
 /// <summary> Resolves UnityProject identity information from command inputs. </summary>
 internal sealed class UnityProjectResolver : IUnityProjectResolver
 {
-    private const string ProjectSettingsDirectoryName = "ProjectSettings";
-    private const string ProjectVersionFileName = "ProjectVersion.txt";
-    private const string EditorVersionPrefix = "m_EditorVersion:";
-    private const string UnknownUnityVersion = "unknown";
-
     /// <summary> Initializes a new instance of the <see cref="UnityProjectResolver" /> class. </summary>
     public UnityProjectResolver ()
     {
@@ -42,10 +38,7 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
                 ProjectContextErrorCodes.ProjectPathNotFound));
         }
 
-        var projectVersionPath = Path.Combine(
-            unityProjectRoot,
-            ProjectSettingsDirectoryName,
-            ProjectVersionFileName);
+        var projectVersionPath = UnityProjectVersionFileReader.GetProjectVersionPath(unityProjectRoot);
         if (!File.Exists(projectVersionPath))
         {
             return UnityProjectResolutionResult.Failure(ExecutionError.InvalidArgument(
@@ -55,7 +48,7 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
 
         var repositoryRoot = UcliStoragePathResolver.ResolveStorageRoot(unityProjectRoot);
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(repositoryRoot, unityProjectRoot);
-        var unityVersion = TryReadUnityVersion(projectVersionPath);
+        var unityVersion = ReadUnityVersionOrUnknown(projectVersionPath);
         return UnityProjectResolutionResult.Success(new ResolvedUnityProjectContext(
             UnityProjectRoot: unityProjectRoot,
             RepositoryRoot: repositoryRoot,
@@ -65,30 +58,11 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
             UnityVersion: unityVersion));
     }
 
-    private static string TryReadUnityVersion (string projectVersionPath)
+    private static string ReadUnityVersionOrUnknown (string projectVersionPath)
     {
-        try
-        {
-            foreach (var line in File.ReadLines(projectVersionPath))
-            {
-                if (!line.StartsWith(EditorVersionPrefix, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                var unityVersion = line[EditorVersionPrefix.Length..].Trim();
-                return string.IsNullOrWhiteSpace(unityVersion) ? UnknownUnityVersion : unityVersion;
-            }
-        }
-        catch (IOException)
-        {
-            return UnknownUnityVersion;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return UnknownUnityVersion;
-        }
-
-        return UnknownUnityVersion;
+        var readResult = UnityProjectVersionFileReader.ReadEditorVersion(projectVersionPath);
+        return readResult.Status == UnityProjectVersionFileReader.ReadStatus.Success
+            ? readResult.UnityVersion!
+            : ProjectIdentityDefaults.UnknownUnityVersion;
     }
 }

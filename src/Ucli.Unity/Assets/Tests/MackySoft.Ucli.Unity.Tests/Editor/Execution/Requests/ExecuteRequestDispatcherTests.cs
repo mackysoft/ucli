@@ -130,8 +130,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     new OperationDiagnostic(
                         Code: ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects,
-                        Severity: OperationDiagnostic.WarningSeverity,
-                        CoverageImpact: OperationDiagnostic.PartialCoverageImpact,
+                        Severity: IpcExecuteDiagnosticSeverityNames.Warning,
+                        CoverageImpact: IpcExecuteDiagnosticCoverageImpactNames.Partial,
                         Message: "Scene query skipped GameObjects whose names contain '/'."),
                 },
             };
@@ -170,8 +170,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     new OperationDiagnostic(
                         Code: ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects,
-                        Severity: OperationDiagnostic.WarningSeverity,
-                        CoverageImpact: OperationDiagnostic.PartialCoverageImpact,
+                        Severity: IpcExecuteDiagnosticSeverityNames.Warning,
+                        CoverageImpact: IpcExecuteDiagnosticCoverageImpactNames.Partial,
                         Message: "Scene edit selection skipped GameObjects whose names contain '/'."),
                 },
             };

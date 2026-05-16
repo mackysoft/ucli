@@ -20,7 +20,7 @@ public sealed class ValidateCommandTests
     {
         var service = new StubValidateService((input, _) => ValueTask.FromResult(ValidateServiceResult.Success(
             new ValidateExecutionOutput(
-                CreateProjectIdentity(),
+                ProjectIdentityInfoTestFactory.Create(),
                 new ReadIndexInfo(
                     Used: false,
                     Hit: false,
@@ -70,14 +70,6 @@ public sealed class ValidateCommandTests
             UcliCommandNames.Validate,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-    }
-
-    private static ProjectIdentityInfo CreateProjectIdentity ()
-    {
-        return new ProjectIdentityInfo(
-            ProjectPath: "/repo/UnityProject",
-            ProjectFingerprint: "project-fingerprint",
-            UnityVersion: "6000.1.4f1");
     }
 
     private sealed class StubValidateService : IValidateService

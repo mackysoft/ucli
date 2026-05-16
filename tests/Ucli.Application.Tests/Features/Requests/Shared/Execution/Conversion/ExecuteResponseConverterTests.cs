@@ -157,6 +157,82 @@ public sealed class ExecuteResponseConverterTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Convert_WhenDiagnosticCoverageImpactIsMissing_ReturnsInternalError ()
+    {
+        var response = CreateResponse("""
+            {
+              "project": {
+                "projectPath": "/repo/UnityProject",
+                "projectFingerprint": "project-fingerprint",
+                "unityVersion": "6000.1.4f1"
+              },
+              "opResults": [
+                {
+                  "opId": "query",
+                  "op": "ucli.scene.query",
+                  "phase": "plan",
+                  "applied": false,
+                  "changed": false,
+                  "touched": [],
+                  "diagnostics": [
+                    {
+                      "code": "HIERARCHY_PATH_UNREPRESENTABLE_OBJECTS",
+                      "severity": "warning",
+                      "message": "coverage is partial."
+                    }
+                  ]
+                }
+              ]
+            }
+            """);
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("opResults[0].diagnostics[0].coverageImpact", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Convert_WhenDiagnosticCoverageImpactIsUnsupported_ReturnsInternalError ()
+    {
+        var response = CreateResponse(new IpcExecuteResponse(
+        [
+            new IpcExecuteOperationResult(
+                OpId: "refresh",
+                Op: UcliPrimitiveOperationNames.ProjectRefresh,
+                Phase: IpcExecuteOperationPhaseNames.Call,
+                Applied: true,
+                Changed: true,
+                Touched: [])
+            {
+                Diagnostics =
+                [
+                    new IpcExecuteDiagnostic(
+                        ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects,
+                        IpcExecuteDiagnosticSeverityNames.Warning,
+                        "unsupported",
+                        "coverage is partial."),
+                ],
+            },
+        ])
+        {
+            Project = CreateProjectIdentity(),
+        });
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("opResults[0].diagnostics[0].coverageImpact", error.Message, StringComparison.Ordinal);
+        Assert.Contains("unsupported", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Convert_WhenDiagnosticIsPresent_PropagatesDiagnostic ()
     {
         var response = CreateResponse(new IpcExecuteResponse(

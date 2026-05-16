@@ -13,4 +13,4 @@ internal sealed record ResolvedUnityProjectContext (
     string ProjectFingerprint,
     UnityProjectPathSource PathSource,
     string? PathSourceLabel = null,
-    string UnityVersion = "unknown");
+    string UnityVersion = ProjectIdentityDefaults.UnknownUnityVersion);
