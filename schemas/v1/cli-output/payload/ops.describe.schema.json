@@ -1,0 +1,348 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/ops.describe.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "query",
+            "command",
+            "mutation"
+          ]
+        },
+        "policy": {
+          "type": "string",
+          "enum": [
+            "safe",
+            "advanced",
+            "dangerous"
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "valueType": {
+                "type": "string"
+              },
+              "constraints": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              }
+            },
+            "required": [
+              "name",
+              "description",
+              "valueType",
+              "constraints"
+            ]
+          }
+        },
+        "resultContract": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "emitted": {
+              "type": "boolean"
+            },
+            "resultType": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "emitted",
+            "resultType",
+            "description"
+          ]
+        },
+        "assurance": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sideEffects": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "opensSceneInEditor",
+                  "opensPrefabStage",
+                  "refreshesAssetDatabase",
+                  "writesAsset",
+                  "writesScene",
+                  "writesPrefab",
+                  "writesProjectSettings"
+                ]
+              }
+            },
+            "mayDirty": {
+              "type": "boolean"
+            },
+            "mayPersist": {
+              "type": "boolean"
+            },
+            "touchedKinds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "scene",
+                  "prefab",
+                  "asset",
+                  "projectSettings"
+                ]
+              }
+            },
+            "planMode": {
+              "type": "string",
+              "enum": [
+                "validationOnly",
+                "observesLiveUnity",
+                "mayCreatePreviewState"
+              ]
+            },
+            "planSemantics": {
+              "type": "string"
+            },
+            "callSemantics": {
+              "type": "string"
+            },
+            "touchedContract": {
+              "type": "string"
+            },
+            "readPostconditionContract": {
+              "type": "string"
+            },
+            "failureSemantics": {
+              "type": "string"
+            },
+            "dangerousNotes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "sideEffects",
+            "mayDirty",
+            "mayPersist",
+            "touchedKinds",
+            "planMode",
+            "planSemantics",
+            "callSemantics",
+            "touchedContract",
+            "readPostconditionContract",
+            "failureSemantics",
+            "dangerousNotes"
+          ]
+        },
+        "codeContract": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "language": {
+              "type": "string"
+            },
+            "entryPoint": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "signature": {
+                  "type": "string"
+                },
+                "matchRule": {
+                  "type": "string"
+                },
+                "requiredStatic": {
+                  "type": "boolean"
+                },
+                "parameterTypes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "returnValue": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "signature",
+                "matchRule",
+                "requiredStatic",
+                "parameterTypes",
+                "returnValue"
+              ]
+            },
+            "sourceForms": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "compilationUnit",
+                      "snippet"
+                    ]
+                  },
+                  "description": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "description"
+                ]
+              }
+            },
+            "apiTypes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "fullName": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "members": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "property",
+                            "method"
+                          ]
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "returnType": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "parameters": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "name": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "type",
+                              "description"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "name",
+                        "description",
+                        "type",
+                        "returnType",
+                        "parameters"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "name",
+                  "fullName",
+                  "description",
+                  "members"
+                ]
+              }
+            }
+          },
+          "required": [
+            "language",
+            "entryPoint",
+            "sourceForms",
+            "apiTypes"
+          ]
+        },
+        "argsSchema": {
+          "type": "object"
+        },
+        "resultSchema": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "policy",
+        "description",
+        "inputs",
+        "resultContract",
+        "assurance",
+        "argsSchema",
+        "resultSchema"
+      ]
+    },
+    "readIndex": {
+      "$ref": "../defs/read-index.schema.json"
+    }
+  }
+}
