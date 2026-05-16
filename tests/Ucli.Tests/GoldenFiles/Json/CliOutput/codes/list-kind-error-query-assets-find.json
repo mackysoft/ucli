@@ -142,6 +142,12 @@
         "summary": "An edit step violates request DSL constraints."
       },
       {
+        "code": "HIERARCHY_PATH_UNREPRESENTABLE_OBJECTS",
+        "kind": "error",
+        "category": "diagnostic",
+        "summary": "Some GameObjects could not be represented by hierarchyPath selectors."
+      },
+      {
         "code": "INTERNAL_ERROR",
         "kind": "error",
         "category": "internal",
