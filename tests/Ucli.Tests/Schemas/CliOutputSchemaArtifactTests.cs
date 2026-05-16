@@ -68,6 +68,28 @@ public sealed class CliOutputSchemaArtifactTests
             repositoryRelativeGoldenPath);
     }
 
+    [Theory]
+    [MemberData(nameof(GetReportRefContractCases))]
+    [Trait("Size", "Small")]
+    public void ReportRefSchema_RequiresKindAndExactlyOneLocation (
+        string reportJson,
+        bool expectedValid)
+    {
+        using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
+        using var document = JsonDocument.Parse(reportJson);
+
+        var errors = schemaSet.Validate("cli-output/defs/report-ref.schema.json", document.RootElement);
+
+        if (expectedValid)
+        {
+            Assert.Empty(errors);
+        }
+        else
+        {
+            Assert.NotEmpty(errors);
+        }
+    }
+
     public static IEnumerable<object[]> GetCliOutputGoldenFiles ()
     {
         var goldenRoot = Path.Combine(RepositoryRoot, "tests", "Ucli.Tests", "GoldenFiles", "Json", "CliOutput");
@@ -78,6 +100,51 @@ public sealed class CliOutputSchemaArtifactTests
             {
                 Path.GetRelativePath(RepositoryRoot, path),
             });
+    }
+
+    public static IEnumerable<object[]> GetReportRefContractCases ()
+    {
+        yield return new object[]
+        {
+            """
+            {
+              "kind": "log",
+              "path": "artifacts/ready.log"
+            }
+            """,
+            true,
+        };
+        yield return new object[]
+        {
+            """
+            {
+              "kind": "report",
+              "uri": "https://example.test/report"
+            }
+            """,
+            true,
+        };
+        yield return new object[]
+        {
+            """
+            {
+              "kind": "report",
+              "digest": "sha256:abc"
+            }
+            """,
+            false,
+        };
+        yield return new object[]
+        {
+            """
+            {
+              "kind": "report",
+              "path": "artifacts/ready.log",
+              "uri": "https://example.test/report"
+            }
+            """,
+            false,
+        };
     }
 
     private static void AssertSchemaValid (

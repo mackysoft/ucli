@@ -224,9 +224,7 @@ internal sealed class AssuranceSemanticInvariantValidator
         IReadOnlyList<VerifierInfo> verifiers,
         List<AssuranceSemanticInvariantViolation> violations)
     {
-        var verifierById = verifiers
-            .Where(static verifier => !string.IsNullOrWhiteSpace(verifier.Id))
-            .ToDictionary(static verifier => verifier.Id, static verifier => verifier, StringComparer.Ordinal);
+        var verifierById = BuildVerifierIndex(verifiers, violations);
 
         for (var i = 0; i < claims.Count; i++)
         {
@@ -249,9 +247,7 @@ internal sealed class AssuranceSemanticInvariantValidator
         IReadOnlyList<ClaimInfo> claims,
         List<AssuranceSemanticInvariantViolation> violations)
     {
-        var claimsById = claims
-            .Where(static claim => !string.IsNullOrWhiteSpace(claim.Id))
-            .ToDictionary(static claim => claim.Id, static claim => claim, StringComparer.Ordinal);
+        var claimsById = BuildClaimIndex(claims, violations);
 
         for (var i = 0; i < verifiers.Count; i++)
         {
@@ -270,8 +266,57 @@ internal sealed class AssuranceSemanticInvariantValidator
                 {
                     AddViolation(violations, claimPath, $"Verifier primary claim '{claimId}' is owned by verifierRef '{claim.VerifierRef}'.");
                 }
+
+                if (verifier.Required && !claim.Required)
+                {
+                    AddViolation(violations, claimPath, $"Required verifier primary claim '{claimId}' must be required.");
+                }
             }
         }
+    }
+
+    private static Dictionary<string, VerifierInfo> BuildVerifierIndex (
+        IReadOnlyList<VerifierInfo> verifiers,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        var verifierById = new Dictionary<string, VerifierInfo>(StringComparer.Ordinal);
+        for (var i = 0; i < verifiers.Count; i++)
+        {
+            var verifier = verifiers[i];
+            if (string.IsNullOrWhiteSpace(verifier.Id))
+            {
+                continue;
+            }
+
+            if (!verifierById.TryAdd(verifier.Id, verifier))
+            {
+                AddViolation(violations, BuildPropertyPath(verifier.Path, "id"), $"Verifier id '{verifier.Id}' must be unique.");
+            }
+        }
+
+        return verifierById;
+    }
+
+    private static Dictionary<string, ClaimInfo> BuildClaimIndex (
+        IReadOnlyList<ClaimInfo> claims,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        var claimById = new Dictionary<string, ClaimInfo>(StringComparer.Ordinal);
+        for (var i = 0; i < claims.Count; i++)
+        {
+            var claim = claims[i];
+            if (string.IsNullOrWhiteSpace(claim.Id))
+            {
+                continue;
+            }
+
+            if (!claimById.TryAdd(claim.Id, claim))
+            {
+                AddViolation(violations, BuildPropertyPath(claim.Path, "id"), $"Claim id '{claim.Id}' must be unique.");
+            }
+        }
+
+        return claimById;
     }
 
     private static void ValidateVerdict (

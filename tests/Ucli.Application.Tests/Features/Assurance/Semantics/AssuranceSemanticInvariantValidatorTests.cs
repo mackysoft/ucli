@@ -197,6 +197,56 @@ public sealed class AssuranceSemanticInvariantValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Validate_WithOptionalPrimaryClaimOwnedByRequiredVerifier_ReturnsPrimaryClaimPath ()
+    {
+        var payload = """
+            {
+              "verdict": "pass",
+              "verifiers": [
+                {
+                  "id": "ready",
+                  "kind": "ready",
+                  "deterministic": true,
+                  "required": true,
+                  "primaryClaims": [
+                    "UNITY_READY_EXECUTION"
+                  ],
+                  "reportRef": "ready-log"
+                }
+              ],
+              "claims": [
+                {
+                  "id": "UNITY_READY_EXECUTION",
+                  "status": "passed",
+                  "coverage": "full",
+                  "required": false,
+                  "verifierRef": "ready",
+                  "evidence": [
+                    {
+                      "kind": "log",
+                      "evidenceRef": "ready-log"
+                    }
+                  ],
+                  "residualRisks": []
+                }
+              ],
+              "reports": {
+                "ready-log": {
+                  "kind": "log",
+                  "path": "artifacts/ready.log"
+                }
+              },
+              "residualRisks": []
+            }
+            """;
+
+        var result = Validate(payload);
+
+        AssertViolationPath(result, "$.verifiers[0].primaryClaims[0]");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Validate_WithVerdictMismatch_ReturnsVerdictPath ()
     {
         var payload = """
@@ -406,6 +456,130 @@ public sealed class AssuranceSemanticInvariantValidatorTests
         AssertViolationPath(result, "$.claims[0].id");
         AssertViolationPath(result, "$.claims[0].residualRisks[0].code");
         AssertViolationPath(result, "$.residualRisks[0].code");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithDuplicateVerifierId_ReturnsDuplicateVerifierPath ()
+    {
+        var payload = """
+            {
+              "verdict": "pass",
+              "verifiers": [
+                {
+                  "id": "ready",
+                  "kind": "ready",
+                  "deterministic": true,
+                  "required": true,
+                  "primaryClaims": [
+                    "UNITY_READY_EXECUTION"
+                  ],
+                  "reportRef": "ready-log"
+                },
+                {
+                  "id": "ready",
+                  "kind": "ready",
+                  "deterministic": true,
+                  "required": true,
+                  "primaryClaims": [
+                    "UNITY_READY_EXECUTION"
+                  ],
+                  "reportRef": "ready-log"
+                }
+              ],
+              "claims": [
+                {
+                  "id": "UNITY_READY_EXECUTION",
+                  "status": "passed",
+                  "coverage": "full",
+                  "required": true,
+                  "verifierRef": "ready",
+                  "evidence": [
+                    {
+                      "kind": "log",
+                      "evidenceRef": "ready-log"
+                    }
+                  ],
+                  "residualRisks": []
+                }
+              ],
+              "reports": {
+                "ready-log": {
+                  "kind": "log",
+                  "path": "artifacts/ready.log"
+                }
+              },
+              "residualRisks": []
+            }
+            """;
+
+        var result = Validate(payload);
+
+        AssertViolationPath(result, "$.verifiers[1].id");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithDuplicateClaimId_ReturnsDuplicateClaimPath ()
+    {
+        var payload = """
+            {
+              "verdict": "pass",
+              "verifiers": [
+                {
+                  "id": "ready",
+                  "kind": "ready",
+                  "deterministic": true,
+                  "required": true,
+                  "primaryClaims": [
+                    "UNITY_READY_EXECUTION"
+                  ],
+                  "reportRef": "ready-log"
+                }
+              ],
+              "claims": [
+                {
+                  "id": "UNITY_READY_EXECUTION",
+                  "status": "passed",
+                  "coverage": "full",
+                  "required": true,
+                  "verifierRef": "ready",
+                  "evidence": [
+                    {
+                      "kind": "log",
+                      "evidenceRef": "ready-log"
+                    }
+                  ],
+                  "residualRisks": []
+                },
+                {
+                  "id": "UNITY_READY_EXECUTION",
+                  "status": "passed",
+                  "coverage": "full",
+                  "required": true,
+                  "verifierRef": "ready",
+                  "evidence": [
+                    {
+                      "kind": "log",
+                      "evidenceRef": "ready-log"
+                    }
+                  ],
+                  "residualRisks": []
+                }
+              ],
+              "reports": {
+                "ready-log": {
+                  "kind": "log",
+                  "path": "artifacts/ready.log"
+                }
+              },
+              "residualRisks": []
+            }
+            """;
+
+        var result = Validate(payload);
+
+        AssertViolationPath(result, "$.claims[1].id");
     }
 
     private static AssuranceSemanticInvariantValidationResult Validate (string payload)

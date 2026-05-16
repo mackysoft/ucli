@@ -53,16 +53,29 @@ internal sealed class JsonSchemaArtifactSet : IDisposable
 
         var documentsByPath = new Dictionary<string, JsonDocument>(StringComparer.Ordinal);
         var pathsById = new Dictionary<string, string>(StringComparer.Ordinal);
+        var schemaDefinitionErrors = new List<string>();
         foreach (var schemaPath in Directory.EnumerateFiles(fullVersionRoot, "*.schema.json", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
         {
             var relativePath = NormalizeRelativeSchemaPath(Path.GetRelativePath(fullVersionRoot, schemaPath));
             var document = JsonDocument.Parse(File.ReadAllText(schemaPath));
             documentsByPath.Add(relativePath, document);
+            ValidateSchemaDefinition(document.RootElement, relativePath, "$", schemaDefinitionErrors);
             if (document.RootElement.TryGetProperty("$id", out var idElement)
                 && idElement.ValueKind == JsonValueKind.String)
             {
                 pathsById.Add(idElement.GetString()!, relativePath);
             }
+        }
+
+        if (schemaDefinitionErrors.Count > 0)
+        {
+            foreach (var document in documentsByPath.Values)
+            {
+                document.Dispose();
+            }
+
+            throw new InvalidOperationException(
+                $"Schema artifact set contains unsupported schema definitions:{Environment.NewLine}{string.Join(Environment.NewLine, schemaDefinitionErrors)}");
         }
 
         using var manifest = JsonDocument.Parse(File.ReadAllText(manifestPath));
@@ -78,7 +91,7 @@ internal sealed class JsonSchemaArtifactSet : IDisposable
                 ?? throw new InvalidOperationException("Schema manifest command entry must be a string.");
             var path = schemaEntry.GetProperty("path").GetString()
                 ?? throw new InvalidOperationException("Schema manifest path entry must be a string.");
-            payloadSchemaPathsByCommand.Add(command, path);
+            payloadSchemaPathsByCommand.Add(command, NormalizeRelativeSchemaPath(path));
         }
 
         return new JsonSchemaArtifactSet(
@@ -103,7 +116,12 @@ internal sealed class JsonSchemaArtifactSet : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
         var errors = new List<string>();
-        var normalizedSchemaPath = NormalizeRelativeSchemaPath(schemaPath);
+        if (!TryNormalizeRelativeSchemaPath(schemaPath, out var normalizedSchemaPath, out var normalizationError))
+        {
+            errors.Add(normalizationError!);
+            return errors;
+        }
+
         if (!documentsByPath.TryGetValue(normalizedSchemaPath, out var document))
         {
             errors.Add($"schema '{normalizedSchemaPath}' was not found.");
@@ -382,12 +400,20 @@ internal sealed class JsonSchemaArtifactSet : IDisposable
         }
         else
         {
-            referencePath = NormalizeRelativeSchemaPath(Path.Join(
+            var relativeReferencePath = Path.Join(
                 Path.GetDirectoryName(currentSchemaPath) ?? string.Empty,
-                referencePath));
+                referencePath);
+            if (!TryNormalizeRelativeSchemaPath(relativeReferencePath, out referencePath, out error))
+            {
+                return false;
+            }
         }
 
-        referencePath = NormalizeRelativeSchemaPath(referencePath);
+        if (!TryNormalizeRelativeSchemaPath(referencePath, out referencePath, out error))
+        {
+            return false;
+        }
+
         if (!documentsByPath.TryGetValue(referencePath, out var document))
         {
             error = $"schema reference '{reference}' from '{currentSchemaPath}' resolved to missing schema '{referencePath}'.";
@@ -444,6 +470,87 @@ internal sealed class JsonSchemaArtifactSet : IDisposable
             if (!SupportedKeywords.Contains(property.Name))
             {
                 errors.Add($"schema '{schemaPath}' for path '{path}' uses unsupported keyword '{property.Name}'.");
+            }
+        }
+    }
+
+    private static void ValidateSchemaDefinition (
+        JsonElement schema,
+        string schemaPath,
+        string path,
+        List<string> errors)
+    {
+        if (schema.ValueKind != JsonValueKind.Object)
+        {
+            errors.Add($"schema '{schemaPath}' for path '{path}' must be an object.");
+            return;
+        }
+
+        ValidateSupportedKeywords(schema, schemaPath, path, errors);
+
+        if (schema.TryGetProperty("$defs", out var defsElement))
+        {
+            if (defsElement.ValueKind != JsonValueKind.Object)
+            {
+                errors.Add($"schema '{schemaPath}' for path '{path}' has non-object $defs.");
+            }
+            else
+            {
+                foreach (var definition in defsElement.EnumerateObject())
+                {
+                    ValidateSchemaDefinition(
+                        definition.Value,
+                        schemaPath,
+                        BuildPropertyPath(BuildPropertyPath(path, "$defs"), definition.Name),
+                        errors);
+                }
+            }
+        }
+
+        if (schema.TryGetProperty("properties", out var propertiesElement))
+        {
+            if (propertiesElement.ValueKind != JsonValueKind.Object)
+            {
+                errors.Add($"schema '{schemaPath}' for path '{path}' has non-object properties.");
+            }
+            else
+            {
+                foreach (var property in propertiesElement.EnumerateObject())
+                {
+                    ValidateSchemaDefinition(
+                        property.Value,
+                        schemaPath,
+                        BuildPropertyPath(BuildPropertyPath(path, "properties"), property.Name),
+                        errors);
+                }
+            }
+        }
+
+        if (schema.TryGetProperty("additionalProperties", out var additionalPropertiesElement)
+            && additionalPropertiesElement.ValueKind != JsonValueKind.False)
+        {
+            errors.Add($"schema '{schemaPath}' for path '{path}' has unsupported additionalProperties value.");
+        }
+
+        if (schema.TryGetProperty("items", out var itemsElement))
+        {
+            ValidateSchemaDefinition(itemsElement, schemaPath, BuildPropertyPath(path, "items"), errors);
+        }
+
+        if (schema.TryGetProperty("oneOf", out var oneOfElement))
+        {
+            if (oneOfElement.ValueKind != JsonValueKind.Array)
+            {
+                errors.Add($"schema '{schemaPath}' for path '{path}' has a non-array oneOf.");
+            }
+            else
+            {
+                var index = 0;
+                foreach (var branch in oneOfElement.EnumerateArray())
+                {
+                    ValidateSchemaDefinition(branch, schemaPath, $"{BuildPropertyPath(path, "oneOf")}[{index}]", errors);
+                    index++;
+                }
             }
         }
     }
@@ -562,6 +669,28 @@ internal sealed class JsonSchemaArtifactSet : IDisposable
 
     private static string NormalizeRelativeSchemaPath (string path)
     {
+        if (!TryNormalizeRelativeSchemaPath(path, out var normalizedPath, out var error))
+        {
+            throw new InvalidOperationException(error);
+        }
+
+        return normalizedPath;
+    }
+
+    private static bool TryNormalizeRelativeSchemaPath (
+        string path,
+        out string normalizedPath,
+        out string? error)
+    {
+        normalizedPath = string.Empty;
+        error = null;
+
+        if (Path.IsPathRooted(path))
+        {
+            error = $"schema path '{path}' must be relative.";
+            return false;
+        }
+
         var normalized = path.Replace('\\', '/');
         var segments = new Stack<string>();
         foreach (var segment in normalized.Split('/', StringSplitOptions.RemoveEmptyEntries))
@@ -573,18 +702,21 @@ internal sealed class JsonSchemaArtifactSet : IDisposable
 
             if (string.Equals(segment, "..", StringComparison.Ordinal))
             {
-                if (segments.Count > 0)
+                if (segments.Count == 0)
                 {
-                    segments.Pop();
+                    error = $"schema path '{path}' escapes the schema root.";
+                    return false;
                 }
 
+                segments.Pop();
                 continue;
             }
 
             segments.Push(segment);
         }
 
-        return string.Join("/", segments.Reverse());
+        normalizedPath = string.Join("/", segments.Reverse());
+        return true;
     }
 
     private void ThrowIfDisposed ()

@@ -51,7 +51,7 @@ internal static class Program
         var versionRoot = Path.Combine(outputRoot, SchemaSetVersion);
         if (Directory.Exists(versionRoot))
         {
-            Directory.Delete(versionRoot, recursive: true);
+            DeleteExistingVersionRoot(versionRoot);
         }
 
         Directory.CreateDirectory(versionRoot);
@@ -293,12 +293,22 @@ internal static class Program
 
     private static Dictionary<string, object?> CreateReportRefSchema ()
     {
-        return ObjectSchema(
-            additionalProperties: false,
-            Required("kind", StringSchema()),
-            Optional("path", StringSchema()),
-            Optional("uri", StringSchema()),
-            Optional("digest", StringSchema()));
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["oneOf"] = new object?[]
+            {
+                ObjectSchema(
+                    additionalProperties: false,
+                    Required("kind", StringSchema()),
+                    Required("path", StringSchema()),
+                    Optional("digest", StringSchema())),
+                ObjectSchema(
+                    additionalProperties: false,
+                    Required("kind", StringSchema()),
+                    Required("uri", StringSchema()),
+                    Optional("digest", StringSchema())),
+            },
+        };
     }
 
     private static Dictionary<string, object?> CreateResidualRiskSchema ()
@@ -662,6 +672,27 @@ internal static class Program
             .Replace("\r\n", "\n", StringComparison.Ordinal)
             .Replace("\r", "\n", StringComparison.Ordinal);
         return json.EndsWith('\n') ? json : json + "\n";
+    }
+
+    private static void DeleteExistingVersionRoot (string versionRoot)
+    {
+        var manifestPath = Path.Combine(versionRoot, "schema-manifest.json");
+        if (!File.Exists(manifestPath))
+        {
+            throw new InvalidOperationException($"Refusing to delete schema output directory without a uCLI schema manifest: {versionRoot}");
+        }
+
+        using var manifest = JsonDocument.Parse(File.ReadAllText(manifestPath));
+        var root = manifest.RootElement;
+        if (!root.TryGetProperty("schemaSet", out var schemaSetElement)
+            || !string.Equals(schemaSetElement.GetString(), SchemaSet, StringComparison.Ordinal)
+            || !root.TryGetProperty("schemaSetVersion", out var schemaSetVersionElement)
+            || !string.Equals(schemaSetVersionElement.GetString(), SchemaSetVersion, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Refusing to delete schema output directory with an unexpected manifest: {versionRoot}");
+        }
+
+        Directory.Delete(versionRoot, recursive: true);
     }
 
     private static string ReadPackageVersion (string repositoryRoot)
