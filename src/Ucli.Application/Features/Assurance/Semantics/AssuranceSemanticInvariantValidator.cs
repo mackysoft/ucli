@@ -12,12 +12,18 @@ internal sealed class AssuranceSemanticInvariantValidator
 
     private readonly ICodeCatalog codeCatalog;
 
+    private readonly IReadOnlyList<IAssuranceSemanticInvariantRule> rules;
+
     /// <summary> Initializes a new instance of the <see cref="AssuranceSemanticInvariantValidator" /> class. </summary>
     /// <param name="codeCatalog"> The code catalog used to resolve claim and risk codes. </param>
+    /// <param name="rules"> Command-specific semantic invariant rules. </param>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="codeCatalog" /> is <see langword="null" />. </exception>
-    public AssuranceSemanticInvariantValidator (ICodeCatalog codeCatalog)
+    public AssuranceSemanticInvariantValidator (
+        ICodeCatalog codeCatalog,
+        IEnumerable<IAssuranceSemanticInvariantRule>? rules = null)
     {
         this.codeCatalog = codeCatalog ?? throw new ArgumentNullException(nameof(codeCatalog));
+        this.rules = rules?.ToArray() ?? Array.Empty<IAssuranceSemanticInvariantRule>();
     }
 
     /// <summary> Validates one assurance payload object. </summary>
@@ -168,6 +174,7 @@ internal sealed class AssuranceSemanticInvariantValidator
                 : string.Empty;
             var required = TryReadBoolean(claimElement, "required", defaultValue: false);
 
+            ValidateCommandSpecificRules(payload, claimElement, claimPath, id, violations);
             ResolveEvidenceReferences(claimElement, claimPath, reports, violations);
             var residualRisks = ReadResidualRisks(claimElement, BuildPropertyPath(claimPath, "residualRisks"), violations);
 
@@ -395,6 +402,19 @@ internal sealed class AssuranceSemanticInvariantValidator
             }
 
             index++;
+        }
+    }
+
+    private void ValidateCommandSpecificRules (
+        JsonElement payload,
+        JsonElement claimElement,
+        string claimPath,
+        string claimId,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        for (var i = 0; i < rules.Count; i++)
+        {
+            rules[i].ValidateClaim(payload, claimElement, claimPath, claimId, violations);
         }
     }
 

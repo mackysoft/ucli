@@ -19,6 +19,9 @@ internal sealed class UnityIpcRequestBuilder
         return request switch
         {
             UnityRequestPayload.Raw raw => new UnityIpcDispatchRequest(raw.Method, raw.Payload),
+            UnityRequestPayload.Ping ping => new UnityIpcDispatchRequest(
+                IpcMethodNames.Ping,
+                IpcPayloadCodec.SerializeToElement(new IpcPingRequest(ping.ClientVersion, ping.FailFast))),
             UnityRequestPayload.ExecuteJson executeJson => new UnityIpcDispatchRequest(
                 IpcMethodNames.Execute,
                 CreateExecutePayload(

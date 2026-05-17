@@ -15,6 +15,9 @@ internal static class UcliCommandNames
     /// <summary> Gets the command name for status. </summary>
     public const string Status = "status";
 
+    /// <summary> Gets the command name for ready. </summary>
+    public const string Ready = "ready";
+
     /// <summary> Gets the command name for refresh. </summary>
     public const string Refresh = "refresh";
 

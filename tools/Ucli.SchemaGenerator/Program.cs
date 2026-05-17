@@ -87,6 +87,7 @@ internal static class Program
             CreateSchema("cli-output/defs/report-ref.schema.json", "cli-output-def", null, CreateReportRefSchema()),
             CreateSchema("cli-output/defs/residual-risk.schema.json", "cli-output-def", null, CreateResidualRiskSchema()),
             CreatePayloadSchema(UcliCommandIds.Status.Name, CreateStatusPayloadSchema()),
+            CreatePayloadSchema(UcliCommandIds.Ready.Name, CreateReadyPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.Init.Name, CreateInitPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.Validate.Name, CreateValidatePayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.Plan.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: true, includePlanToken: true, includePlan: false)),
@@ -339,6 +340,139 @@ internal static class Program
             Optional("actionRequired", NullableStringSchema()),
             Optional("primaryDiagnostic", NullableObjectSchema()),
             Optional("timeoutMilliseconds", IntegerSchema()));
+    }
+
+    private static Dictionary<string, object?> CreateReadyPayloadSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("verdict", EnumSchema("pass", "fail", "incomplete")),
+            Required("project", ReferenceSchema("../defs/project.schema.json")),
+            Required("verifiers", ArraySchema(ReferenceSchema("../defs/verifier.schema.json"))),
+            Required("claims", ArraySchema(CreateReadyClaimSchema())),
+            Required("reports", ObjectSchema(additionalProperties: true)),
+            Required("residualRisks", ArraySchema(ReferenceSchema("../defs/residual-risk.schema.json"))),
+            Required("target", EnumSchema("execution", "mutation", "test", "readIndex")),
+            Required("requestedMode", EnumSchema("auto", "daemon", "oneshot")),
+            Required("resolvedMode", EnumSchema("daemon", "oneshot", "notApplicable")),
+            Required("sessionKind", EnumSchema("daemon", "transientProbe", "artifactOnly")),
+            Required("timeoutMilliseconds", IntegerSchema()),
+            Required("lifecycle", CreateReadyLifecycleSchema()),
+            Required("readIndex", CreateReadyReadIndexSchema()));
+    }
+
+    private static Dictionary<string, object?> CreateReadyLifecycleSchema ()
+    {
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["type"] = new object?[]
+            {
+                "object",
+                "null",
+            },
+            ["additionalProperties"] = false,
+            ["properties"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["serverVersion"] = NullableStringSchema(),
+                ["unityVersion"] = NullableStringSchema(),
+                ["editorMode"] = NullableStringSchema(),
+                ["lifecycleState"] = NullableStringSchema(),
+                ["blockingReason"] = NullableStringSchema(),
+                ["compileState"] = NullableStringSchema(),
+                ["compileGeneration"] = NullableStringSchema(),
+                ["domainReloadGeneration"] = NullableStringSchema(),
+                ["canAcceptExecutionRequests"] = BooleanSchema(),
+                ["observedAtUtc"] = NullableStringSchema(),
+                ["actionRequired"] = NullableStringSchema(),
+                ["primaryDiagnostic"] = CreateReadyPrimaryDiagnosticSchema(),
+            },
+        };
+    }
+
+    private static Dictionary<string, object?> CreateReadyPrimaryDiagnosticSchema ()
+    {
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["type"] = new object?[]
+            {
+                "object",
+                "null",
+            },
+            ["additionalProperties"] = false,
+            ["properties"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["kind"] = StringSchema(),
+                ["code"] = NullableStringSchema(),
+                ["file"] = NullableStringSchema(),
+                ["line"] = NullableIntegerSchema(),
+                ["column"] = NullableIntegerSchema(),
+                ["message"] = NullableStringSchema(),
+            },
+            ["required"] = new[]
+            {
+                "kind",
+            },
+        };
+    }
+
+    private static Dictionary<string, object?> CreateReadyClaimSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: true,
+            Required("id", StringSchema()),
+            Required("status", StringSchema()),
+            Required("coverage", StringSchema()),
+            Required("required", BooleanSchema()),
+            Required("verifierRef", StringSchema()),
+            Required("statement", StringSchema()),
+            Required("subject", ObjectSchema(additionalProperties: true)),
+            Required("validity", CreateReadyClaimValiditySchema()),
+            Required("evidence", ArraySchema(ReferenceSchema("../defs/evidence.schema.json"))),
+            Required("residualRisks", ArraySchema(ReferenceSchema("../defs/residual-risk.schema.json"))));
+    }
+
+    private static Dictionary<string, object?> CreateReadyClaimValiditySchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("kind", EnumSchema("sessionBound", "probeOnly")),
+            Required("guaranteesReusableSession", BooleanSchema()));
+    }
+
+    private static Dictionary<string, object?> CreateReadyReadIndexSchema ()
+    {
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["type"] = new object?[]
+            {
+                "object",
+                "null",
+            },
+            ["additionalProperties"] = false,
+            ["properties"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["mode"] = EnumSchema("allowStale", "requireFresh"),
+                ["artifacts"] = ArraySchema(CreateReadyReadIndexArtifactSchema()),
+            },
+            ["required"] = new[]
+            {
+                "mode",
+                "artifacts",
+            },
+        };
+    }
+
+    private static Dictionary<string, object?> CreateReadyReadIndexArtifactSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("name", StringSchema()),
+            Required("status", EnumSchema("available", "failed")),
+            Optional("freshness", NullableStringSchema()),
+            Optional("sourceInputsHash", NullableStringSchema()),
+            Optional("generatedAtUtc", NullableStringSchema()),
+            Optional("code", NullableStringSchema()),
+            Optional("message", NullableStringSchema()));
     }
 
     private static Dictionary<string, object?> CreateInitPayloadSchema ()

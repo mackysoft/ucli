@@ -12,6 +12,7 @@ internal static class IpcTransportErrorCodeDescriptors
             appliesTo:
             [
                 UcliCommandIds.Status,
+                UcliCommandIds.Ready,
                 UcliCommandIds.Validate,
                 UcliCommandIds.DaemonStart,
                 UcliCommandIds.DaemonStop,

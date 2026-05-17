@@ -1,0 +1,348 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/ready.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail",
+        "incomplete"
+      ]
+    },
+    "project": {
+      "$ref": "../defs/project.schema.json"
+    },
+    "verifiers": {
+      "type": "array",
+      "items": {
+        "$ref": "../defs/verifier.schema.json"
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "coverage": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "verifierRef": {
+            "type": "string"
+          },
+          "statement": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "object"
+          },
+          "validity": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "sessionBound",
+                  "probeOnly"
+                ]
+              },
+              "guaranteesReusableSession": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "kind",
+              "guaranteesReusableSession"
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "../defs/evidence.schema.json"
+            }
+          },
+          "residualRisks": {
+            "type": "array",
+            "items": {
+              "$ref": "../defs/residual-risk.schema.json"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "coverage",
+          "required",
+          "verifierRef",
+          "statement",
+          "subject",
+          "validity",
+          "evidence",
+          "residualRisks"
+        ]
+      }
+    },
+    "reports": {
+      "type": "object"
+    },
+    "residualRisks": {
+      "type": "array",
+      "items": {
+        "$ref": "../defs/residual-risk.schema.json"
+      }
+    },
+    "target": {
+      "type": "string",
+      "enum": [
+        "execution",
+        "mutation",
+        "test",
+        "readIndex"
+      ]
+    },
+    "requestedMode": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "daemon",
+        "oneshot"
+      ]
+    },
+    "resolvedMode": {
+      "type": "string",
+      "enum": [
+        "daemon",
+        "oneshot",
+        "notApplicable"
+      ]
+    },
+    "sessionKind": {
+      "type": "string",
+      "enum": [
+        "daemon",
+        "transientProbe",
+        "artifactOnly"
+      ]
+    },
+    "timeoutMilliseconds": {
+      "type": "integer"
+    },
+    "lifecycle": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "serverVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "unityVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "editorMode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lifecycleState": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "blockingReason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "compileState": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "compileGeneration": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "domainReloadGeneration": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "canAcceptExecutionRequests": {
+          "type": "boolean"
+        },
+        "observedAtUtc": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actionRequired": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "primaryDiagnostic": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string"
+            },
+            "code": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "file": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "line": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "column": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "message": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      }
+    },
+    "readIndex": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "allowStale",
+            "requireFresh"
+          ]
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "available",
+                  "failed"
+                ]
+              },
+              "freshness": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sourceInputsHash": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "generatedAtUtc": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "code": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "message": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "status"
+            ]
+          }
+        }
+      },
+      "required": [
+        "mode",
+        "artifacts"
+      ]
+    }
+  },
+  "required": [
+    "verdict",
+    "project",
+    "verifiers",
+    "claims",
+    "reports",
+    "residualRisks",
+    "target",
+    "requestedMode",
+    "resolvedMode",
+    "sessionKind",
+    "timeoutMilliseconds",
+    "lifecycle",
+    "readIndex"
+  ]
+}

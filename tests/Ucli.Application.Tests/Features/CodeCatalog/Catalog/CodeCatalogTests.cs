@@ -1,6 +1,8 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Diagnostics;
+using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using CodeCatalogModel = MackySoft.Ucli.Application.Features.CodeCatalog.Catalog.CodeCatalog;
 
@@ -55,6 +57,43 @@ public sealed class CodeCatalogTests
             Assert.Contains("errors[].code", descriptor.AppearsIn);
             ErrorInspectTargetAssert.DoesNotUseBroadOrSensitiveTargets(descriptor.Inspect);
         }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WithReadyContributor_RegistersReadyClaimCodes ()
+    {
+        var catalog = new CodeCatalogModel(
+            [
+                new ReadyCodeCatalogContributor(),
+            ]);
+
+        Assert.True(catalog.TryFind(ReadyClaimCodes.UnityReadyExecution, out var descriptor));
+        Assert.Equal(CodeCatalogKindValues.Claim, descriptor.Kind);
+        Assert.Equal("ready", descriptor.Category);
+        Assert.Contains(UcliCommandIds.Ready, descriptor.AppliesTo);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WithProductionContributors_RegistersReadyAndModeDecisionCodes ()
+    {
+        var catalog = new CodeCatalogModel(
+            [
+                new ContractsCodeCatalogContributor(),
+                new ApplicationCodeCatalogContributor(),
+                new ReadyCodeCatalogContributor(),
+            ]);
+
+        Assert.True(catalog.TryFind(ReadyClaimCodes.UnityReadyReadIndex, out var readyDescriptor));
+        Assert.Equal(CodeCatalogKindValues.Claim, readyDescriptor.Kind);
+        Assert.Contains(UcliCommandIds.Ready, readyDescriptor.AppliesTo);
+
+        Assert.True(catalog.TryFind(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning.Value, out var daemonNotRunningDescriptor));
+        Assert.Contains(UcliCommandIds.Ready, daemonNotRunningDescriptor.AppliesTo);
+        Assert.Equal(
+            daemonNotRunningDescriptor.AppliesTo.Count,
+            daemonNotRunningDescriptor.AppliesTo.Distinct().Count());
     }
 
     [Fact]
@@ -335,6 +374,21 @@ public sealed class CodeCatalogTests
         var descriptor = CreateDescriptor("INVALID_COMMAND_CODE") with
         {
             AppliesTo = [new UcliCommand("unknown.command")],
+        };
+
+        Assert.Throws<InvalidOperationException>(() => new CodeCatalogModel(
+            [
+                new StubContributor([descriptor]),
+            ]));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WithDuplicateAppliesTo_Throws ()
+    {
+        var descriptor = CreateDescriptor("DUPLICATE_APPLIES_TO_CODE") with
+        {
+            AppliesTo = [UcliCommandIds.Ready, UcliCommandIds.Ready],
         };
 
         Assert.Throws<InvalidOperationException>(() => new CodeCatalogModel(

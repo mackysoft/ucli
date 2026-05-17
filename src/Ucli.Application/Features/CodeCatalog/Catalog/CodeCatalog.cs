@@ -133,6 +133,7 @@ internal sealed class CodeCatalog : ICodeCatalog
         IReadOnlyList<UcliCommand> commands,
         string propertyName)
     {
+        var seenCommands = new HashSet<UcliCommand>();
         for (var i = 0; i < commands.Count; i++)
         {
             if (!commands[i].IsValid)
@@ -143,6 +144,11 @@ internal sealed class CodeCatalog : ICodeCatalog
             if (!KnownCommandSet.Contains(commands[i]))
             {
                 throw new InvalidOperationException($"Code catalog descriptor '{code}' references unknown public command '{commands[i].Name}'.");
+            }
+
+            if (!seenCommands.Add(commands[i]))
+            {
+                throw new InvalidOperationException($"Code catalog descriptor '{code}' contains duplicate {propertyName} item '{commands[i].Name}'.");
             }
         }
     }

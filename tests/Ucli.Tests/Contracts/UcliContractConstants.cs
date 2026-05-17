@@ -63,6 +63,8 @@ internal static class UcliContractConstants
 
         public const int IpcTimeoutDefaultTestMilliseconds = 300000;
 
+        public const int IpcTimeoutDefaultReadyMilliseconds = 10000;
+
         public const int IpcTimeoutDefaultStatusMilliseconds = 5000;
 
         public const int IpcTimeoutDefaultValidateMilliseconds = 10000;
@@ -96,6 +98,8 @@ internal static class UcliContractConstants
         public const int IpcTimeoutDefaultLogsUnityClearMilliseconds = 3000;
 
         public const string IpcTimeoutCommandTest = "test";
+
+        public const string IpcTimeoutCommandReady = "ready";
 
         public const string IpcTimeoutCommandStatus = "status";
 

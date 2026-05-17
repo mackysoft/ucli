@@ -1,0 +1,91 @@
+{
+  "protocolVersion": 1,
+  "command": "ready",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "uCLI ready assurance passed.",
+  "payload": {
+    "verdict": "pass",
+    "project": {
+      "projectPath": "<projectPath>",
+      "projectFingerprint": "<projectFingerprint>",
+      "unityVersion": "6000.1.4f1"
+    },
+    "verifiers": [
+      {
+        "id": "ready.lifecycle",
+        "kind": "ready.lifecycle",
+        "deterministic": false,
+        "required": true,
+        "primaryClaims": [
+          "UNITY_READY_EXECUTION"
+        ],
+        "effects": []
+      }
+    ],
+    "claims": [
+      {
+        "id": "UNITY_READY_EXECUTION",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "ready.lifecycle",
+        "statement": "Unity is ready for execution.",
+        "subject": {
+          "kind": "unityReady",
+          "target": "execution",
+          "requestedMode": "auto",
+          "resolvedMode": "oneshot",
+          "sessionKind": "transientProbe"
+        },
+        "validity": {
+          "kind": "probeOnly",
+          "guaranteesReusableSession": false
+        },
+        "evidence": [
+          {
+            "kind": "lifecycleSnapshot",
+            "data": {
+              "serverVersion": "0.5.0",
+              "unityVersion": "6000.1.4f1",
+              "editorMode": "batchmode",
+              "lifecycleState": "ready",
+              "blockingReason": null,
+              "compileState": "ready",
+              "compileGeneration": "12",
+              "domainReloadGeneration": "7",
+              "canAcceptExecutionRequests": true,
+              "observedAtUtc": "2026-05-17T00:00:00+00:00",
+              "actionRequired": null,
+              "primaryDiagnostic": null
+            }
+          }
+        ],
+        "residualRisks": []
+      }
+    ],
+    "reports": {},
+    "residualRisks": [],
+    "target": "execution",
+    "requestedMode": "auto",
+    "resolvedMode": "oneshot",
+    "sessionKind": "transientProbe",
+    "timeoutMilliseconds": 10000,
+    "lifecycle": {
+      "serverVersion": "0.5.0",
+      "unityVersion": "6000.1.4f1",
+      "editorMode": "batchmode",
+      "lifecycleState": "ready",
+      "blockingReason": null,
+      "compileState": "ready",
+      "compileGeneration": "12",
+      "domainReloadGeneration": "7",
+      "canAcceptExecutionRequests": true,
+      "observedAtUtc": "2026-05-17T00:00:00+00:00",
+      "actionRequired": null,
+      "primaryDiagnostic": null
+    },
+    "readIndex": null
+  },
+  "errors": []
+}

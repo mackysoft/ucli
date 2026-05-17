@@ -16,6 +16,7 @@
     ],
     "appliesTo": [
       "status",
+      "ready",
       "validate",
       "daemon.start",
       "daemon.stop",

@@ -72,6 +72,12 @@
       "command": "status"
     },
     {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/ready.schema.json",
+      "path": "cli-output/payload/ready.schema.json",
+      "kind": "cli-output-payload",
+      "command": "ready"
+    },
+    {
       "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/init.schema.json",
       "path": "cli-output/payload/init.schema.json",
       "kind": "cli-output-payload",

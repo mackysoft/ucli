@@ -12,6 +12,7 @@ internal static class UnityExecutionModeDecisionErrorCodeDescriptors
             appliesTo:
             [
                 UcliCommandIds.Status,
+                UcliCommandIds.Ready,
                 UcliCommandIds.DaemonStatus,
                 UcliCommandIds.Plan,
                 UcliCommandIds.Call,
@@ -40,6 +41,7 @@ internal static class UnityExecutionModeDecisionErrorCodeDescriptors
             meaning: "The command policy forbids starting a separate oneshot Unity process when an active daemon session already owns the project.",
             appliesTo:
             [
+                UcliCommandIds.Ready,
                 UcliCommandIds.Plan,
                 UcliCommandIds.Call,
                 UcliCommandIds.Resolve,
