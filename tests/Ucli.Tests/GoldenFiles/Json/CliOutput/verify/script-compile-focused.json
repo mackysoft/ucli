@@ -1,0 +1,95 @@
+{
+  "protocolVersion": 1,
+  "command": "verify",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "Verify assurance completed.",
+  "payload": {
+    "verdict": "pass",
+    "project": {
+      "projectPath": "<projectPath>",
+      "projectFingerprint": "<projectFingerprint>",
+      "unityVersion": "<unityVersion>"
+    },
+    "verifiers": [
+      {
+        "id": "ready.lifecycle",
+        "kind": "ready",
+        "deterministic": false,
+        "required": true,
+        "primaryClaims": [
+          "UNITY_READY_EXECUTION"
+        ],
+        "effects": []
+      },
+      {
+        "id": "compile",
+        "kind": "compile",
+        "deterministic": false,
+        "required": true,
+        "primaryClaims": [
+          "UNITY_COMPILE_NO_ERRORS"
+        ],
+        "effects": [
+          "assetDatabaseRefresh",
+          "scriptCompilation",
+          "domainReload"
+        ],
+        "reportRef": "compile.summary"
+      }
+    ],
+    "claims": [
+      {
+        "id": "UNITY_READY_EXECUTION",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "ready.lifecycle",
+        "statement": "Unity is ready for execution.",
+        "subject": {
+          "target": "execution"
+        },
+        "validity": {
+          "kind": "probeOnly",
+          "guaranteesReusableSession": false
+        },
+        "evidence": [],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_COMPILE_NO_ERRORS",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "compile",
+        "statement": "Unity script compilation has no errors.",
+        "subject": {
+          "kind": "unityCompile"
+        },
+        "evidence": [
+          {
+            "kind": "compileSummary",
+            "evidenceRef": "compile.summary"
+          }
+        ],
+        "residualRisks": []
+      }
+    ],
+    "reports": {
+      "compile.summary": {
+        "kind": "compileSummary",
+        "path": ".ucli/local/compile/run-1/summary.json"
+      }
+    },
+    "residualRisks": [],
+    "profile": {
+      "source": "builtIn",
+      "name": "built-in:script",
+      "path": null,
+      "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    "profileDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "timeoutMilliseconds": 120000
+  },
+  "errors": []
+}
