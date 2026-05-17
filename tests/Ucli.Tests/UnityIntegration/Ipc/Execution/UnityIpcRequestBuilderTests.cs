@@ -49,6 +49,9 @@ public sealed class UnityIpcRequestBuilderTests
         Assert.Equal(IpcMethodNames.Compile, request.Method);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcCompileRequest payload, out _));
         Assert.Equal("run-1", payload.RunId);
+        Assert.Equal(
+            [IpcEditorLifecycleStateCodec.CompileFailed, IpcEditorLifecycleStateCodec.SafeMode],
+            request.AllowedStartupLifecycleStates);
     }
 
     [Fact]

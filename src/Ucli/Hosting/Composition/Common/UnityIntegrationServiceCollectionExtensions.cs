@@ -46,7 +46,9 @@ internal static class UnityIntegrationServiceCollectionExtensions
         services.AddSingleton<IUnityVersionResolver, UnityVersionResolver>();
         services.AddSingleton<IUnityEditorSearchRootProvider, DefaultUnityEditorSearchRootProvider>();
         services.AddSingleton<IUnityEditorPathResolver, UnityEditorPathResolver>();
-        services.AddSingleton<ICompileRunArtifactReader, FileCompileRunArtifactReader>();
+        services.AddSingleton<FileCompileRunArtifactReader>();
+        services.AddSingleton<ICompileRunArtifactReader>(static serviceProvider => serviceProvider.GetRequiredService<FileCompileRunArtifactReader>());
+        services.AddSingleton<ICompileRunArtifactStore>(static serviceProvider => serviceProvider.GetRequiredService<FileCompileRunArtifactReader>());
         services.AddSingleton<IReadIndexArtifactReader, FileReadIndexArtifactReader>();
         services.AddSingleton<IReadIndexArtifactWriter, FileReadIndexArtifactWriter>();
         services.AddSingleton<IMutationReadPostconditionStore, MutationReadPostconditionStore>();

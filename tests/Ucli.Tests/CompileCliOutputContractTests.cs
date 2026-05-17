@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using MackySoft.Ucli.Application.Features.Assurance.Compile;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
@@ -53,6 +54,30 @@ public sealed class CompileCliOutputContractTests
             .GetInt32());
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CompileGolden_WhenErrorCountConflictsWithPassedClaim_ReturnsSemanticViolation ()
+    {
+        var payloadNode = LoadGoldenPayloadNode("pass-no-reload.json");
+        payloadNode["compile"]!["scriptCompilation"]!["diagnostics"]!["errorCount"] = 1;
+
+        var result = Validate(payloadNode);
+
+        AssertViolationPath(result, "$.claims[0].status");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CompileGolden_WhenRefreshOriginIsUnknown_ReturnsSemanticViolation ()
+    {
+        var payloadNode = LoadGoldenPayloadNode("pass-no-reload.json");
+        payloadNode["compile"]!["refresh"]!["origin"] = "unknown";
+
+        var result = Validate(payloadNode);
+
+        AssertViolationPath(result, "$.compile.refresh.origin");
+    }
+
     private static AssuranceSemanticInvariantValidator CreateValidator ()
     {
         return new AssuranceSemanticInvariantValidator(
@@ -67,6 +92,28 @@ public sealed class CompileCliOutputContractTests
                 new ReadyAssuranceSemanticInvariantRule(),
                 new CompileAssuranceSemanticInvariantRule(),
             ]);
+    }
+
+    private static AssuranceSemanticInvariantValidationResult Validate (JsonNode payloadNode)
+    {
+        using var document = JsonDocument.Parse(payloadNode.ToJsonString());
+        return CreateValidator().Validate(document.RootElement);
+    }
+
+    private static JsonNode LoadGoldenPayloadNode (string fileName)
+    {
+        var rootNode = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                FindRepositoryRoot(),
+                CliOutputGoldenFiles.GetPath("compile", fileName))))
+            ?? throw new InvalidOperationException("Compile golden JSON could not be parsed.");
+        return rootNode["payload"] ?? throw new InvalidOperationException("Compile golden payload is missing.");
+    }
+
+    private static void AssertViolationPath (
+        AssuranceSemanticInvariantValidationResult result,
+        string path)
+    {
+        Assert.Contains(result.Violations, violation => string.Equals(violation.Path, path, StringComparison.Ordinal));
     }
 
     private static string FindRepositoryRoot ()

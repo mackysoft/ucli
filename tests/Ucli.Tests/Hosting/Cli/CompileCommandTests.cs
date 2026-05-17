@@ -1,6 +1,6 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Assurance;
 using MackySoft.Ucli.Application.Features.Assurance.Compile;
-using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Assurance;
@@ -158,9 +158,9 @@ public sealed class CompileCommandTests
                 ["compile.diagnostics"] = new CompileReportOutput("compile.diagnostics", "/tmp/ucli/compile/diagnostics.json"),
             },
             ResidualRisks: [],
-            RequestedMode: ReadyExecutionModeCodec.Auto,
-            ResolvedMode: ReadyExecutionModeCodec.Oneshot,
-            SessionKind: ReadySessionKindValues.TransientProbe,
+            RequestedMode: AssuranceExecutionModeCodec.Auto,
+            ResolvedMode: AssuranceExecutionModeCodec.Oneshot,
+            SessionKind: AssuranceSessionKindValues.TransientProbe,
             TimeoutMilliseconds: 10000,
             Compile: compile);
     }
@@ -192,7 +192,7 @@ public sealed class CompileCommandTests
     {
         var primaryDiagnostic = errorCount == 0
             ? null
-            : new IpcPrimaryDiagnostic(
+            : new CompilePrimaryDiagnosticOutput(
                 Kind: "compiler",
                 Code: "CS1002",
                 File: "Assets/Broken.cs",
@@ -202,28 +202,28 @@ public sealed class CompileCommandTests
         var canAcceptExecutionRequests = errorCount == 0;
         return new CompileOutput(
             RunId: "20260517_000000Z_abcdef12",
-            Refresh: new IpcCompileSummary.RefreshEvidence(
+            Refresh: new CompileRefreshOutput(
                 Origin: "assetDatabaseRefresh",
                 Requested: true,
                 StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
                 CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02Z"),
                 Completed: true),
-            ScriptCompilation: new IpcCompileSummary.ScriptCompilationEvidence(
+            ScriptCompilation: new CompileScriptCompilationOutput(
                 Started: true,
                 Completed: true,
                 CompileGenerationBefore: "12",
                 CompileGenerationAfter: "14",
-                Diagnostics: new IpcCompileSummary.DiagnosticsEvidence(
+                Diagnostics: new CompileDiagnosticsOutput(
                     ErrorCount: errorCount,
                     WarningCount: 0,
                     PrimaryDiagnostic: primaryDiagnostic)),
-            DomainReload: new IpcCompileSummary.DomainReloadEvidence(
+            DomainReload: new CompileDomainReloadOutput(
                 ReloadRequired: false,
                 ReloadObserved: false,
                 GenerationBefore: "7",
                 GenerationAfter: "7",
                 Settled: true),
-            Lifecycle: new IpcCompileSummary.LifecycleEvidence(
+            Lifecycle: new CompileLifecycleOutput(
                 ServerVersion: "0.5.0",
                 UnityVersion: "6000.1.4f1",
                 EditorMode: "batchmode",

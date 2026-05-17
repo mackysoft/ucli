@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,6 +21,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     internal sealed class CompileUnityIpcMethodHandler : IUnityIpcMethodHandler
     {
         private const string RefreshOriginAssetDatabaseRefresh = "assetDatabaseRefresh";
+        private const long MaxCompileRequestBytes = 1024 * 1024;
 
         private readonly IUnityEditorReadinessGate readinessGate;
 
@@ -93,8 +95,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var summary = await recorder.ExecuteAsync(cancellationToken).ConfigureAwait(false);
                 var response = new IpcCompileResponse(
                     RunId: compileRequest.RunId,
-                    SummaryJsonPath: paths.SummaryJsonPath,
-                    DiagnosticsJsonPath: paths.DiagnosticsJsonPath,
                     Summary: summary);
                 return UnityIpcResponseFactory.CreateSuccessResponse(request, response);
             }
@@ -134,41 +134,23 @@ namespace MackySoft.Ucli.Unity.Ipc
                     return;
                 }
 
+                FileSystemAccessBoundary.EnsureSecureDirectory(compileArtifactsDirectory);
                 foreach (var runDirectoryPath in Directory.EnumerateDirectories(compileArtifactsDirectory))
                 {
-                    var summaryPath = Path.Combine(runDirectoryPath, UcliStoragePathNames.CompileSummaryFileName);
-                    if (File.Exists(summaryPath))
+                    try
                     {
-                        continue;
+                        RecoverPendingRun(
+                            runDirectoryPath,
+                            readinessGate,
+                            serverVersionProvider,
+                            daemonLogger);
                     }
-
-                    var requestPath = Path.Combine(runDirectoryPath, UcliStoragePathNames.CompileRequestFileName);
-                    if (!File.Exists(requestPath))
+                    catch (Exception exception)
                     {
-                        continue;
+                        daemonLogger.Warning(
+                            DaemonLogCategories.Ipc,
+                            $"Compile pending-run recovery skipped for '{runDirectoryPath}'. {exception.Message}");
                     }
-
-                    var pendingSummary = JsonSerializer.Deserialize<IpcCompileSummary>(
-                        File.ReadAllText(requestPath),
-                        IpcJsonSerializerOptions.Default);
-                    if (pendingSummary == null || pendingSummary.Completed)
-                    {
-                        continue;
-                    }
-
-                    var paths = new CompileArtifactPaths(
-                        runDirectoryPath,
-                        requestPath,
-                        summaryPath,
-                        Path.Combine(runDirectoryPath, UcliStoragePathNames.CompileDiagnosticsFileName));
-                    var finalSummary = CreateFinalSummary(
-                        pendingSummary,
-                        readinessGate.CaptureSnapshot(),
-                        serverVersionProvider,
-                        DateTimeOffset.UtcNow,
-                        diagnostics: new DiagnosticAccumulator());
-                    WriteDiagnostics(paths.DiagnosticsJsonPath, finalSummary);
-                    WriteJsonAtomically(paths.SummaryJsonPath, finalSummary);
                 }
             }
             catch (Exception exception)
@@ -176,6 +158,156 @@ namespace MackySoft.Ucli.Unity.Ipc
                 daemonLogger.Warning(
                     DaemonLogCategories.Ipc,
                     $"Compile pending-run recovery skipped. {exception.Message}");
+            }
+        }
+
+        private static void RecoverPendingRun (
+            string runDirectoryPath,
+            IUnityEditorReadinessGate readinessGate,
+            IServerVersionProvider serverVersionProvider,
+            IDaemonLogger daemonLogger)
+        {
+            FileSystemAccessBoundary.EnsureSecureDirectory(runDirectoryPath);
+            var summaryPath = Path.Combine(runDirectoryPath, UcliStoragePathNames.CompileSummaryFileName);
+            if (File.Exists(summaryPath))
+            {
+                return;
+            }
+
+            var requestPath = Path.Combine(runDirectoryPath, UcliStoragePathNames.CompileRequestFileName);
+            if (!TryReadPendingSummary(requestPath, daemonLogger, out var pendingSummary)
+                || pendingSummary == null
+                || pendingSummary.Completed)
+            {
+                return;
+            }
+
+            var paths = new CompileArtifactPaths(
+                runDirectoryPath,
+                requestPath,
+                summaryPath,
+                Path.Combine(runDirectoryPath, UcliStoragePathNames.CompileDiagnosticsFileName));
+            var finalSummary = CreateFinalSummary(
+                pendingSummary,
+                readinessGate.CaptureSnapshot(),
+                serverVersionProvider,
+                DateTimeOffset.UtcNow,
+                diagnostics: new DiagnosticAccumulator());
+            WriteDiagnostics(paths.DiagnosticsJsonPath, finalSummary);
+            WriteJsonAtomically(paths.SummaryJsonPath, finalSummary);
+        }
+
+        private static bool TryReadPendingSummary (
+            string requestPath,
+            IDaemonLogger daemonLogger,
+            out IpcCompileSummary pendingSummary)
+        {
+            pendingSummary = null;
+            if (!File.Exists(requestPath) && !Directory.Exists(requestPath))
+            {
+                return false;
+            }
+
+            try
+            {
+                pendingSummary = JsonSerializer.Deserialize<IpcCompileSummary>(
+                    ReadAllTextBounded(
+                        requestPath,
+                        MaxCompileRequestBytes,
+                        "Compile pending-run request"),
+                    IpcJsonSerializerOptions.Default);
+                return pendingSummary != null;
+            }
+            catch (Exception exception)
+            {
+                daemonLogger.Warning(
+                    DaemonLogCategories.Ipc,
+                    $"Compile pending-run request could not be read and was skipped: {requestPath}. {exception.Message}");
+                return false;
+            }
+        }
+
+        private static string ReadAllTextBounded (
+            string path,
+            long maxBytes,
+            string artifactDescription)
+        {
+            EnsureReadableArtifactPath(path, maxBytes, artifactDescription);
+            using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (var memoryStream = new MemoryStream())
+            {
+                if (stream.Length > maxBytes)
+                {
+                    throw new IOException($"{artifactDescription} exceeded {maxBytes} bytes: {path}");
+                }
+
+                var buffer = new byte[8192];
+                long totalBytesRead = 0;
+                while (true)
+                {
+                    var bytesRead = stream.Read(buffer, 0, buffer.Length);
+                    if (bytesRead == 0)
+                    {
+                        break;
+                    }
+
+                    totalBytesRead += bytesRead;
+                    if (totalBytesRead > maxBytes)
+                    {
+                        throw new IOException($"{artifactDescription} exceeded {maxBytes} bytes: {path}");
+                    }
+
+                    memoryStream.Write(buffer, 0, bytesRead);
+                }
+
+                return Encoding.UTF8.GetString(memoryStream.ToArray());
+            }
+        }
+
+        private static void EnsureReadableArtifactPath (
+            string path,
+            long maxBytes,
+            string artifactDescription)
+        {
+            if (!File.Exists(path) && !Directory.Exists(path))
+            {
+                throw new FileNotFoundException($"{artifactDescription} was not found: {path}", path);
+            }
+
+            var attributes = File.GetAttributes(path);
+            if ((attributes & FileAttributes.ReparsePoint) != 0)
+            {
+                throw new IOException($"{artifactDescription} source must not be a reparse point: {path}");
+            }
+
+            if ((attributes & FileAttributes.Directory) != 0)
+            {
+                throw new IOException($"{artifactDescription} source must not be a directory: {path}");
+            }
+
+            var fileInfo = new FileInfo(path);
+            if (fileInfo.Length > maxBytes)
+            {
+                throw new IOException($"{artifactDescription} exceeded {maxBytes} bytes: {path}");
+            }
+        }
+
+        private static void EnsureWritableArtifactPath (string path)
+        {
+            if (!File.Exists(path) && !Directory.Exists(path))
+            {
+                return;
+            }
+
+            var attributes = File.GetAttributes(path);
+            if ((attributes & FileAttributes.ReparsePoint) != 0)
+            {
+                throw new IOException($"Compile artifact target must not be a reparse point: {path}");
+            }
+
+            if ((attributes & FileAttributes.Directory) != 0)
+            {
+                throw new IOException($"Compile artifact target must not be a directory: {path}");
             }
         }
 
@@ -387,18 +519,67 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
-            var tempPath = path + ".tmp";
-            File.WriteAllText(
-                tempPath,
-                JsonSerializer.Serialize(value, IpcJsonSerializerOptions.Default));
-            FileSystemAccessBoundary.EnsureSecureFile(tempPath);
+            var tempPath = path + $".tmp.{Guid.NewGuid():N}";
+
+            try
+            {
+                EnsureWritableArtifactPath(tempPath);
+                using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                using (var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+                {
+                    writer.Write(JsonSerializer.Serialize(value, IpcJsonSerializerOptions.Default));
+                }
+
+                FileSystemAccessBoundary.EnsureSecureFile(tempPath);
+                EnsureWritableArtifactPath(path);
+                ReplaceFile(tempPath, path);
+                FileSystemAccessBoundary.EnsureSecureFile(path);
+            }
+            finally
+            {
+                DeleteTemporaryFileIfExists(tempPath);
+            }
+        }
+
+        private static void ReplaceFile (
+            string temporaryPath,
+            string path)
+        {
+            try
+            {
+                File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
+            }
+            catch (FileNotFoundException)
+            {
+                MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
+            }
+            catch (IOException) when (!File.Exists(path))
+            {
+                MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
+            }
+        }
+
+        private static void MoveOrReplaceWhenCreatedConcurrently (
+            string temporaryPath,
+            string path)
+        {
+            try
+            {
+                File.Move(temporaryPath, path);
+            }
+            catch (IOException) when (File.Exists(path))
+            {
+                EnsureWritableArtifactPath(path);
+                File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
+            }
+        }
+
+        private static void DeleteTemporaryFileIfExists (string path)
+        {
             if (File.Exists(path))
             {
                 File.Delete(path);
             }
-
-            File.Move(tempPath, path);
-            FileSystemAccessBoundary.EnsureSecureFile(path);
         }
 
         private sealed class CompileRunRecorder : IDisposable
@@ -537,11 +718,39 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 return new IpcPrimaryDiagnostic(
                     Kind: "compiler",
-                    Code: null,
+                    Code: TryExtractCompilerCode(message.message),
                     File: string.IsNullOrWhiteSpace(message.file) ? null : message.file,
                     Line: message.line > 0 ? message.line : null,
                     Column: message.column > 0 ? message.column : null,
                     Message: string.IsNullOrWhiteSpace(message.message) ? null : message.message.Trim());
+            }
+
+            private static string TryExtractCompilerCode (string message)
+            {
+                if (string.IsNullOrWhiteSpace(message))
+                {
+                    return null;
+                }
+
+                for (var i = 0; i < message.Length - 2; i++)
+                {
+                    if (char.ToUpperInvariant(message[i]) != 'C'
+                        || char.ToUpperInvariant(message[i + 1]) != 'S'
+                        || !char.IsDigit(message[i + 2]))
+                    {
+                        continue;
+                    }
+
+                    var end = i + 3;
+                    while (end < message.Length && char.IsDigit(message[end]))
+                    {
+                        end++;
+                    }
+
+                    return message.Substring(i, end - i).ToUpperInvariant();
+                }
+
+                return null;
             }
         }
 

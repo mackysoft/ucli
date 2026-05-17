@@ -30,6 +30,7 @@ public sealed class UcliServiceCollectionExtensionsTests
         Assert.NotNull(serviceProvider.GetRequiredService<IReadIndexArtifactReader>());
         Assert.NotNull(serviceProvider.GetRequiredService<ICompileService>());
         Assert.NotNull(serviceProvider.GetRequiredService<ICompileRunArtifactReader>());
+        Assert.NotNull(serviceProvider.GetRequiredService<ICompileRunArtifactStore>());
         Assert.NotNull(serviceProvider.GetRequiredService<IReadIndexArtifactWriter>());
         Assert.NotNull(serviceProvider.GetRequiredService<IReadIndexFreshnessEvaluator>());
         Assert.NotNull(serviceProvider.GetRequiredService<IOpsCatalogSourceRefreshService>());

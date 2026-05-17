@@ -462,7 +462,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                     return null;
                 }
 
-                if (IsCompileAssuranceDispatchAllowed(dispatchRequest, payload!))
+                if (IsStartupLifecycleDispatchAllowed(dispatchRequest, payload!))
                 {
                     return null;
                 }
@@ -744,16 +744,16 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         };
     }
 
-    private static bool IsCompileAssuranceDispatchAllowed (
+    private static bool IsStartupLifecycleDispatchAllowed (
         UnityIpcDispatchRequest dispatchRequest,
         IpcPingResponse pingResponse)
     {
         ArgumentNullException.ThrowIfNull(dispatchRequest);
         ArgumentNullException.ThrowIfNull(pingResponse);
 
-        return string.Equals(dispatchRequest.Method, IpcMethodNames.Compile, StringComparison.Ordinal)
-            && (string.Equals(pingResponse.LifecycleState, IpcEditorLifecycleStateCodec.CompileFailed, StringComparison.Ordinal)
-                || string.Equals(pingResponse.LifecycleState, IpcEditorLifecycleStateCodec.SafeMode, StringComparison.Ordinal));
+        return dispatchRequest.AllowedStartupLifecycleStates.Contains(
+            pingResponse.LifecycleState,
+            StringComparer.Ordinal);
     }
 
     private static bool TryReadFailFast<TRequest> (

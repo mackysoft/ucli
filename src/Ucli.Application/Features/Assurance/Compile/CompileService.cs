@@ -1,7 +1,7 @@
-using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Compile;
 
@@ -11,6 +11,9 @@ internal sealed class CompileService : ICompileService
     private const string VerifierId = "compile";
     private const string SummaryReportRef = "compile.summary";
     private const string DiagnosticsReportRef = "compile.diagnostics";
+    private const string RefreshOriginAssetDatabaseRefresh = "assetDatabaseRefresh";
+    private const string RefreshOriginDiagnosticsRead = "diagnosticsRead";
+    private const string UnknownGeneration = "unknown";
 
     private static readonly IReadOnlyList<CompileResidualRiskOutput> EmptyResidualRisks =
         Array.Empty<CompileResidualRiskOutput>();
@@ -30,7 +33,7 @@ internal sealed class CompileService : ICompileService
 
     private readonly ICompileRunIdFactory runIdFactory;
 
-    private readonly ICompileRunArtifactReader artifactReader;
+    private readonly ICompileRunArtifactStore artifactStore;
 
     private readonly TimeProvider timeProvider;
 
@@ -40,14 +43,14 @@ internal sealed class CompileService : ICompileService
         IUnityExecutionModeDecisionService executionModeDecisionService,
         IUnityRequestExecutor unityRequestExecutor,
         ICompileRunIdFactory runIdFactory,
-        ICompileRunArtifactReader artifactReader,
+        ICompileRunArtifactStore artifactStore,
         TimeProvider? timeProvider = null)
     {
         this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
         this.executionModeDecisionService = executionModeDecisionService ?? throw new ArgumentNullException(nameof(executionModeDecisionService));
         this.unityRequestExecutor = unityRequestExecutor ?? throw new ArgumentNullException(nameof(unityRequestExecutor));
         this.runIdFactory = runIdFactory ?? throw new ArgumentNullException(nameof(runIdFactory));
-        this.artifactReader = artifactReader ?? throw new ArgumentNullException(nameof(artifactReader));
+        this.artifactStore = artifactStore ?? throw new ArgumentNullException(nameof(artifactStore));
         this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
@@ -142,11 +145,15 @@ internal sealed class CompileService : ICompileService
             summary = artifactResult.Summary!;
         }
 
-        if (!string.Equals(summary.ProjectFingerprint, context.UnityProject.ProjectFingerprint, StringComparison.Ordinal))
+        var completedSummary = summary ?? throw new InvalidOperationException("Compile summary was not resolved.");
+        var summaryValidationFailure = ValidateSummary(
+            completedSummary,
+            runId,
+            context.UnityProject.ProjectFingerprint,
+            requireCompleted: true);
+        if (summaryValidationFailure != null)
         {
-            return CompileExecutionResult.Failure(ApplicationFailure.InternalError(
-                $"Unity compile summary projectFingerprint mismatch. Requested={context.UnityProject.ProjectFingerprint}, Actual={summary.ProjectFingerprint}."),
-                project);
+            return CompileExecutionResult.Failure(summaryValidationFailure, project);
         }
 
         var output = CreateOutput(
@@ -154,9 +161,9 @@ internal sealed class CompileService : ICompileService
             requestedMode,
             executionTarget,
             timeout,
-            summary,
-            artifactReader.ResolveSummaryPath(context.UnityProject, runId),
-            artifactReader.ResolveDiagnosticsPath(context.UnityProject, runId));
+            completedSummary,
+            artifactStore.ResolveSummaryPath(context.UnityProject, runId),
+            artifactStore.ResolveDiagnosticsPath(context.UnityProject, runId));
         return CompileExecutionResult.Success(output);
     }
 
@@ -180,6 +187,26 @@ internal sealed class CompileService : ICompileService
         if (!executionResult.IsSuccess)
         {
             var failureInfo = executionResult.FailureInfo!;
+            if (TryCreateDiagnosticsReadSummary(
+                    failureInfo.StartupFailure,
+                    project,
+                    runId,
+                    out var diagnosticsReadSummary))
+            {
+                var writeError = await artifactStore.WriteArtifactsAsync(
+                        context.UnityProject,
+                        runId,
+                        diagnosticsReadSummary!,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (writeError != null)
+                {
+                    return CompileDispatchResult.Failure(ApplicationFailure.FromExecutionError(writeError));
+                }
+
+                return CompileDispatchResult.Success(diagnosticsReadSummary!);
+            }
+
             return CompileDispatchResult.ArtifactRecoverableFailure(ApplicationFailure.FromCode(
                 failureInfo.Code,
                 failureInfo.Message,
@@ -207,10 +234,19 @@ internal sealed class CompileService : ICompileService
                 $"Unity compile response runId mismatch. Requested={runId}, Actual={compileResponse.RunId}."));
         }
 
-        if (!string.Equals(compileResponse.Summary.ProjectFingerprint, project.ProjectFingerprint, StringComparison.Ordinal))
+        if (compileResponse.Summary is null)
         {
-            return CompileDispatchResult.Failure(ApplicationFailure.InternalError(
-                $"Unity compile response projectFingerprint mismatch. Requested={project.ProjectFingerprint}, Actual={compileResponse.Summary.ProjectFingerprint}."));
+            return CompileDispatchResult.Failure(ApplicationFailure.InternalError("Unity compile response summary is missing."));
+        }
+
+        var summaryValidationFailure = ValidateSummary(
+            compileResponse.Summary,
+            runId,
+            project.ProjectFingerprint,
+            requireCompleted: false);
+        if (summaryValidationFailure != null)
+        {
+            return CompileDispatchResult.Failure(summaryValidationFailure);
         }
 
         return CompileDispatchResult.Success(compileResponse.Summary);
@@ -228,12 +264,23 @@ internal sealed class CompileService : ICompileService
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var readResult = await artifactReader.ReadSummaryAsync(unityProject, runId, cancellationToken).ConfigureAwait(false);
+            var readResult = await artifactStore.ReadSummaryAsync(unityProject, runId, cancellationToken).ConfigureAwait(false);
             if (readResult.IsSuccess)
             {
-                if (readResult.Summary!.Completed)
+                var summary = readResult.Summary!;
+                var summaryValidationFailure = ValidateSummary(
+                    summary,
+                    runId,
+                    unityProject.ProjectFingerprint,
+                    requireCompleted: false);
+                if (summaryValidationFailure != null)
                 {
-                    return CompileSummaryPollResult.Success(readResult.Summary);
+                    return CompileSummaryPollResult.Failure(summaryValidationFailure);
+                }
+
+                if (summary.Completed)
+                {
+                    return CompileSummaryPollResult.Success(summary);
                 }
             }
             else if (!readResult.IsMissing)
@@ -261,12 +308,7 @@ internal sealed class CompileService : ICompileService
         string summaryJsonPath,
         string diagnosticsJsonPath)
     {
-        var compileOutput = new CompileOutput(
-            RunId: summary.RunId,
-            Refresh: summary.Refresh,
-            ScriptCompilation: summary.ScriptCompilation,
-            DomainReload: summary.DomainReload,
-            Lifecycle: summary.Lifecycle);
+        var compileOutput = CreateCompileOutput(summary);
         var claims = CreateClaims(summary, compileOutput);
         var verdict = RecalculateVerdict(claims);
         return new CompileExecutionOutput(
@@ -290,11 +332,64 @@ internal sealed class CompileService : ICompileService
                 [DiagnosticsReportRef] = new CompileReportOutput("compile.diagnostics", diagnosticsJsonPath),
             },
             ResidualRisks: EmptyResidualRisks,
-            RequestedMode: ReadyExecutionModeCodec.ToRequestedModeValue(requestedMode),
-            ResolvedMode: ReadyExecutionModeCodec.ToResolvedModeValue(executionTarget),
-            SessionKind: ReadyExecutionModeCodec.ToSessionKindValue(executionTarget),
+            RequestedMode: AssuranceExecutionModeCodec.ToRequestedModeValue(requestedMode),
+            ResolvedMode: AssuranceExecutionModeCodec.ToResolvedModeValue(executionTarget),
+            SessionKind: AssuranceExecutionModeCodec.ToSessionKindValue(executionTarget),
             TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
             Compile: compileOutput);
+    }
+
+    private static CompileOutput CreateCompileOutput (IpcCompileSummary summary)
+    {
+        return new CompileOutput(
+            RunId: summary.RunId,
+            Refresh: new CompileRefreshOutput(
+                Origin: summary.Refresh.Origin,
+                Requested: summary.Refresh.Requested,
+                StartedAtUtc: summary.Refresh.StartedAtUtc,
+                CompletedAtUtc: summary.Refresh.CompletedAtUtc,
+                Completed: summary.Refresh.Completed),
+            ScriptCompilation: new CompileScriptCompilationOutput(
+                Started: summary.ScriptCompilation.Started,
+                Completed: summary.ScriptCompilation.Completed,
+                CompileGenerationBefore: summary.ScriptCompilation.CompileGenerationBefore,
+                CompileGenerationAfter: summary.ScriptCompilation.CompileGenerationAfter,
+                Diagnostics: new CompileDiagnosticsOutput(
+                    ErrorCount: summary.ScriptCompilation.Diagnostics.ErrorCount,
+                    WarningCount: summary.ScriptCompilation.Diagnostics.WarningCount,
+                    PrimaryDiagnostic: CreatePrimaryDiagnosticOutput(summary.ScriptCompilation.Diagnostics.PrimaryDiagnostic))),
+            DomainReload: new CompileDomainReloadOutput(
+                ReloadRequired: summary.DomainReload.ReloadRequired,
+                ReloadObserved: summary.DomainReload.ReloadObserved,
+                GenerationBefore: summary.DomainReload.GenerationBefore,
+                GenerationAfter: summary.DomainReload.GenerationAfter,
+                Settled: summary.DomainReload.Settled),
+            Lifecycle: new CompileLifecycleOutput(
+                ServerVersion: summary.Lifecycle.ServerVersion,
+                UnityVersion: summary.Lifecycle.UnityVersion,
+                EditorMode: summary.Lifecycle.EditorMode,
+                LifecycleState: summary.Lifecycle.LifecycleState,
+                BlockingReason: summary.Lifecycle.BlockingReason,
+                CompileState: summary.Lifecycle.CompileState,
+                CompileGeneration: summary.Lifecycle.CompileGeneration,
+                DomainReloadGeneration: summary.Lifecycle.DomainReloadGeneration,
+                CanAcceptExecutionRequests: summary.Lifecycle.CanAcceptExecutionRequests,
+                ObservedAtUtc: summary.Lifecycle.ObservedAtUtc,
+                ActionRequired: summary.Lifecycle.ActionRequired,
+                PrimaryDiagnostic: CreatePrimaryDiagnosticOutput(summary.Lifecycle.PrimaryDiagnostic)));
+    }
+
+    private static CompilePrimaryDiagnosticOutput? CreatePrimaryDiagnosticOutput (IpcPrimaryDiagnostic? diagnostic)
+    {
+        return diagnostic is null
+            ? null
+            : new CompilePrimaryDiagnosticOutput(
+                Kind: diagnostic.Kind,
+                Code: diagnostic.Code,
+                File: diagnostic.File,
+                Line: diagnostic.Line,
+                Column: diagnostic.Column,
+                Message: diagnostic.Message);
     }
 
     private static IReadOnlyList<CompileClaimOutput> CreateClaims (
@@ -377,6 +472,158 @@ internal sealed class CompileService : ICompileService
             && summary.ScriptCompilation.Diagnostics.ErrorCount == 0
             ? CompileClaimStatusValues.Passed
             : CompileClaimStatusValues.Failed;
+    }
+
+    private static bool TryCreateDiagnosticsReadSummary (
+        StartupFailureDetail? startupFailure,
+        ProjectIdentityInfo project,
+        string runId,
+        out IpcCompileSummary? summary)
+    {
+        summary = null;
+        var diagnosis = startupFailure?.Diagnosis;
+        if (diagnosis is null)
+        {
+            return false;
+        }
+
+        var primaryDiagnostic = diagnosis.PrimaryDiagnostic;
+        var isCompilerDiagnosis = primaryDiagnostic is not null
+            && string.Equals(primaryDiagnostic.Kind, DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler, StringComparison.Ordinal);
+        if (!isCompilerDiagnosis
+            && !string.Equals(diagnosis.Reason, DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var startup = startupFailure!.Startup;
+        var observedAtUtc = diagnosis.UpdatedAtUtc;
+        var startedAtUtc = startup?.StartedAtUtc ?? observedAtUtc;
+        var compileDiagnostic = primaryDiagnostic is null
+            ? new IpcPrimaryDiagnostic(
+                Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
+                Code: null,
+                File: null,
+                Line: null,
+                Column: null,
+                Message: diagnosis.Message)
+            : new IpcPrimaryDiagnostic(
+                Kind: primaryDiagnostic.Kind,
+                Code: primaryDiagnostic.Code,
+                File: primaryDiagnostic.File,
+                Line: primaryDiagnostic.Line,
+                Column: primaryDiagnostic.Column,
+                Message: primaryDiagnostic.Message);
+
+        summary = new IpcCompileSummary(
+            RunId: runId,
+            ProjectFingerprint: project.ProjectFingerprint,
+            Completed: true,
+            StartedAtUtc: startedAtUtc,
+            CompletedAtUtc: observedAtUtc,
+            Refresh: new IpcCompileSummary.RefreshEvidence(
+                Origin: RefreshOriginDiagnosticsRead,
+                Requested: false,
+                StartedAtUtc: startedAtUtc,
+                CompletedAtUtc: observedAtUtc,
+                Completed: true),
+            ScriptCompilation: new IpcCompileSummary.ScriptCompilationEvidence(
+                Started: false,
+                Completed: true,
+                CompileGenerationBefore: UnknownGeneration,
+                CompileGenerationAfter: UnknownGeneration,
+                Diagnostics: new IpcCompileSummary.DiagnosticsEvidence(
+                    ErrorCount: 1,
+                    WarningCount: 0,
+                    PrimaryDiagnostic: compileDiagnostic)),
+            DomainReload: new IpcCompileSummary.DomainReloadEvidence(
+                ReloadRequired: false,
+                ReloadObserved: false,
+                GenerationBefore: UnknownGeneration,
+                GenerationAfter: UnknownGeneration,
+                Settled: true),
+            Lifecycle: new IpcCompileSummary.LifecycleEvidence(
+                ServerVersion: null,
+                UnityVersion: project.UnityVersion,
+                EditorMode: startup?.EditorMode,
+                LifecycleState: IpcEditorLifecycleStateCodec.CompileFailed,
+                BlockingReason: IpcEditorLifecycleStateCodec.CompileFailed,
+                CompileState: IpcCompileStateCodec.Failed,
+                CompileGeneration: UnknownGeneration,
+                DomainReloadGeneration: UnknownGeneration,
+                CanAcceptExecutionRequests: false,
+                ObservedAtUtc: observedAtUtc,
+                ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+                PrimaryDiagnostic: compileDiagnostic));
+        return true;
+    }
+
+    private static ApplicationFailure? ValidateSummary (
+        IpcCompileSummary summary,
+        string expectedRunId,
+        string expectedProjectFingerprint,
+        bool requireCompleted)
+    {
+        ArgumentNullException.ThrowIfNull(summary);
+        ArgumentException.ThrowIfNullOrWhiteSpace(expectedRunId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(expectedProjectFingerprint);
+
+        if (!string.Equals(summary.RunId, expectedRunId, StringComparison.Ordinal))
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity compile summary runId mismatch. Requested={expectedRunId}, Actual={summary.RunId}.");
+        }
+
+        if (!string.Equals(summary.ProjectFingerprint, expectedProjectFingerprint, StringComparison.Ordinal))
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity compile summary projectFingerprint mismatch. Requested={expectedProjectFingerprint}, Actual={summary.ProjectFingerprint}.");
+        }
+
+        if (requireCompleted && !summary.Completed)
+        {
+            return ApplicationFailure.InternalError("Unity compile summary is incomplete.");
+        }
+
+        if (summary.Refresh is null)
+        {
+            return ApplicationFailure.InternalError("Unity compile summary is missing refresh evidence.");
+        }
+
+        if (!string.Equals(summary.Refresh.Origin, RefreshOriginAssetDatabaseRefresh, StringComparison.Ordinal)
+            && !string.Equals(summary.Refresh.Origin, RefreshOriginDiagnosticsRead, StringComparison.Ordinal))
+        {
+            return ApplicationFailure.InternalError(
+                $"Unity compile summary refresh origin is invalid: {summary.Refresh.Origin}.");
+        }
+
+        if (summary.ScriptCompilation is null)
+        {
+            return ApplicationFailure.InternalError("Unity compile summary is missing script compilation evidence.");
+        }
+
+        if (summary.ScriptCompilation.Diagnostics is null)
+        {
+            return ApplicationFailure.InternalError("Unity compile summary is missing diagnostics evidence.");
+        }
+
+        if (summary.ScriptCompilation.Diagnostics.ErrorCount < 0
+            || summary.ScriptCompilation.Diagnostics.WarningCount < 0)
+        {
+            return ApplicationFailure.InternalError("Unity compile summary diagnostic counts must not be negative.");
+        }
+
+        if (summary.DomainReload is null)
+        {
+            return ApplicationFailure.InternalError("Unity compile summary is missing domain reload evidence.");
+        }
+
+        if (summary.Lifecycle is null)
+        {
+            return ApplicationFailure.InternalError("Unity compile summary is missing lifecycle evidence.");
+        }
+
+        return null;
     }
 
     private static string RecalculateVerdict (IReadOnlyList<CompileClaimOutput> claims)

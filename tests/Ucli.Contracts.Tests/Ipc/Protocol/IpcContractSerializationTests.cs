@@ -252,6 +252,7 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("index.assets.read", IpcMethodNames.IndexAssetsRead);
         Assert.Equal("index.scene-tree-lite.read", IpcMethodNames.IndexSceneTreeLiteRead);
         Assert.Equal("test.run", IpcMethodNames.TestRun);
+        Assert.Equal("compile", IpcMethodNames.Compile);
         Assert.Equal("shutdown", IpcMethodNames.Shutdown);
         Assert.Equal("daemon.logs.read", IpcMethodNames.DaemonLogsRead);
         Assert.Equal("unity.logs.read", IpcMethodNames.UnityLogsRead);
@@ -562,6 +563,36 @@ public sealed class IpcContractSerializationTests
             .HasBoolean("failFast", true);
         JsonAssert.For(responseDocument.RootElement)
             .HasInt32("exitCode", 2);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcCompileContracts_SerializeWithCamelCaseFields ()
+    {
+        var requestPayload = new IpcCompileRequest("run-1");
+        var responsePayload = new IpcCompileResponse(
+            RunId: "run-1",
+            Summary: CreateCompileSummary());
+
+        using var requestDocument = JsonDocument.Parse(JsonSerializer.Serialize(requestPayload, SerializerOptions));
+        using var responseDocument = JsonDocument.Parse(JsonSerializer.Serialize(responsePayload, SerializerOptions));
+
+        JsonAssert.For(requestDocument.RootElement)
+            .HasString("runId", "run-1");
+        JsonAssert.For(responseDocument.RootElement)
+            .HasString("runId", "run-1")
+            .HasProperty("summary", summary => summary
+                .HasString("runId", "run-1")
+                .HasString("projectFingerprint", "project-fingerprint")
+                .HasBoolean("completed", true)
+                .HasProperty("scriptCompilation", scriptCompilation => scriptCompilation
+                    .HasProperty("diagnostics", diagnostics => diagnostics
+                        .HasInt32("errorCount", 1)
+                        .HasProperty("primaryDiagnostic", primaryDiagnostic => primaryDiagnostic
+                            .HasString("kind", "compiler")
+                            .HasString("code", "CS1002")))));
+        Assert.False(responseDocument.RootElement.TryGetProperty("summaryJsonPath", out _));
+        Assert.False(responseDocument.RootElement.TryGetProperty("diagnosticsJsonPath", out _));
     }
 
     [Fact]
@@ -966,5 +997,56 @@ public sealed class IpcContractSerializationTests
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Failure means the observation was not fully produced.",
                 dangerousNotes: Array.Empty<string>()));
+    }
+
+    private static IpcCompileSummary CreateCompileSummary ()
+    {
+        var primaryDiagnostic = new IpcPrimaryDiagnostic(
+            Kind: "compiler",
+            Code: "CS1002",
+            File: "Assets/Broken.cs",
+            Line: 4,
+            Column: 16,
+            Message: "; expected");
+        return new IpcCompileSummary(
+            RunId: "run-1",
+            ProjectFingerprint: "project-fingerprint",
+            Completed: true,
+            StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00+00:00"),
+            CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02+00:00"),
+            Refresh: new IpcCompileSummary.RefreshEvidence(
+                Origin: "assetDatabaseRefresh",
+                Requested: true,
+                StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00+00:00"),
+                CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:01+00:00"),
+                Completed: true),
+            ScriptCompilation: new IpcCompileSummary.ScriptCompilationEvidence(
+                Started: true,
+                Completed: true,
+                CompileGenerationBefore: "12",
+                CompileGenerationAfter: "14",
+                Diagnostics: new IpcCompileSummary.DiagnosticsEvidence(
+                    ErrorCount: 1,
+                    WarningCount: 0,
+                    PrimaryDiagnostic: primaryDiagnostic)),
+            DomainReload: new IpcCompileSummary.DomainReloadEvidence(
+                ReloadRequired: false,
+                ReloadObserved: false,
+                GenerationBefore: "7",
+                GenerationAfter: "7",
+                Settled: true),
+            Lifecycle: new IpcCompileSummary.LifecycleEvidence(
+                ServerVersion: "0.5.0",
+                UnityVersion: "6000.1.4f1",
+                EditorMode: "batchmode",
+                LifecycleState: "compileFailed",
+                BlockingReason: "compileFailed",
+                CompileState: "failed",
+                CompileGeneration: "14",
+                DomainReloadGeneration: "7",
+                CanAcceptExecutionRequests: false,
+                ObservedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02+00:00"),
+                ActionRequired: "fixCompileErrors",
+                PrimaryDiagnostic: primaryDiagnostic));
     }
 }
