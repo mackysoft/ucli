@@ -892,6 +892,34 @@ public sealed class IpcContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IpcExecuteResponse_SerializesContractViolationsContract ()
+    {
+        var response = new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>())
+        {
+            ContractViolations =
+            [
+                new IpcExecuteContractViolation(
+                    OpId: "query-1",
+                    Operation: UcliPrimitiveOperationNames.SceneQuery,
+                    ExpectedFact: "operation.kind=query",
+                    ObservedResult: "opResults[].applied=true",
+                    ApplicationState: IpcExecuteContractViolationApplicationStateNames.Applied),
+            ],
+        };
+
+        using var jsonDocument = JsonDocument.Parse(JsonSerializer.Serialize(response, SerializerOptions));
+        JsonAssert.For(jsonDocument.RootElement)
+            .HasArrayLength("contractViolations", 1)
+            .HasProperty("contractViolations", 0, violation => violation
+                .HasString("opId", "query-1")
+                .HasString("operation", UcliPrimitiveOperationNames.SceneQuery)
+                .HasString("expectedFact", "operation.kind=query")
+                .HasString("observedResult", "opResults[].applied=true")
+                .HasString("applicationState", IpcExecuteContractViolationApplicationStateNames.Applied));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcExecuteResponse_OmitsPlanTokenWhenNull ()
     {
         var response = new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>());
@@ -900,6 +928,7 @@ public sealed class IpcContractSerializationTests
         Assert.True(jsonElement.TryGetProperty("project", out _));
         Assert.False(jsonElement.TryGetProperty("planToken", out _));
         Assert.False(jsonElement.TryGetProperty("readPostcondition", out _));
+        Assert.False(jsonElement.TryGetProperty("contractViolations", out _));
     }
 
     [Fact]

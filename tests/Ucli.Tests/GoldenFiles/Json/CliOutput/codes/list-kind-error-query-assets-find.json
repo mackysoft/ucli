@@ -190,6 +190,12 @@
         "summary": "Operation arguments violate the registered schema."
       },
       {
+        "code": "OPERATION_CONTRACT_VIOLATION",
+        "kind": "error",
+        "category": "contract",
+        "summary": "An operation result violated the operation\u0027s declared execution contract."
+      },
+      {
         "code": "OPERATION_NAME_REQUIRED",
         "kind": "error",
         "category": "requestValidation",

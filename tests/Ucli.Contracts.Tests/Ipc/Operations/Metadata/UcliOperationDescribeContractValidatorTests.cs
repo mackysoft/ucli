@@ -376,6 +376,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
     [InlineData("mayDirty")]
     [InlineData("mayPersist")]
     [InlineData("sideEffects")]
+    [InlineData("touchedKinds")]
     public void TryValidatePublicRawOpDescribeContract_WhenQueryAssuranceHasMutationRisk_ReturnsFalse (
         string mutationRisk)
     {
@@ -390,6 +391,9 @@ public sealed class UcliOperationDescribeContractValidatorTests
                 break;
             case "sideEffects":
                 describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.WritesAsset];
+                break;
+            case "touchedKinds":
+                describe.Assurance!.TouchedKinds = [IpcExecuteTouchedResourceKindNames.Scene];
                 break;
         }
 

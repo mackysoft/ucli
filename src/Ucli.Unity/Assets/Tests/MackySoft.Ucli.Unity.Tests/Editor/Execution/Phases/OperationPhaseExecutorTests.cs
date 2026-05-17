@@ -248,6 +248,65 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Execute_WhenQueryPlanResultReportsMutationEvidence_ReturnsContractViolation () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(
+                    applied: true,
+                    changed: true,
+                    touched: new[]
+                    {
+                        new OperationTouch(OperationTouchKind.Scene, "Assets/Scenes/Main.unity", null),
+                    }),
+                callResult: OperationPhaseStepResult.Success(),
+                kind: UcliOperationKind.Query);
+            var executor = CreateExecutor(operation);
+            var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Plan, request, "Query contract violation execution");
+
+            Assert.That(trace.IsSuccess, Is.False);
+            Assert.That(trace.Errors.Count, Is.EqualTo(1));
+            Assert.That(trace.Errors[0].Code, Is.EqualTo(ExecuteRequestErrorCodes.OperationContractViolation));
+            Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Plan));
+            Assert.That(trace.OperationTraces[0].Applied, Is.True);
+            Assert.That(trace.OperationTraces[0].Changed, Is.True);
+            Assert.That(trace.OperationTraces[0].Touched.Count, Is.EqualTo(1));
+            Assert.That(trace.OperationTraces[0].ContractViolations.Count, Is.EqualTo(3));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhenMutationTouchesUndeclaredKind_ReturnsContractViolation () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(),
+                callResult: OperationPhaseStepResult.Success(
+                    applied: true,
+                    changed: false,
+                    touched: new[]
+                    {
+                        new OperationTouch(OperationTouchKind.Asset, "Assets/Example.asset", "11111111111111111111111111111111"),
+                    }));
+            var executor = CreateExecutor(operation);
+            var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Mutation touched kind contract violation execution");
+
+            Assert.That(trace.IsSuccess, Is.False);
+            Assert.That(trace.Errors.Count, Is.EqualTo(1));
+            Assert.That(trace.Errors[0].Code, Is.EqualTo(ExecuteRequestErrorCodes.OperationContractViolation));
+            Assert.That(trace.OperationTraces[0].ContractViolations.Count, Is.EqualTo(1));
+            var violation = trace.OperationTraces[0].ContractViolations[0];
+            Assert.That(violation.ExpectedFact, Is.EqualTo("assurance.touchedKinds contains 'asset'"));
+            Assert.That(violation.ObservedResult, Is.EqualTo("opResults[].touched[].kind=asset"));
+            Assert.That(violation.ApplicationState, Is.EqualTo(IpcExecuteContractViolationApplicationStateNames.Applied));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Execute_WhenCommandIsPlanWithoutToken_ExecutesValidateAndPlanWithoutPlanToken () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
@@ -1081,13 +1140,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static UcliOperationDescribeContract CreateDescribeContract (
             string operationName,
-            OperationPolicy policy = OperationPolicy.Safe)
+            OperationPolicy policy = OperationPolicy.Safe,
+            UcliOperationAssuranceContract? assurance = null)
         {
             return new UcliOperationDescribeContract(
                 $"{operationName} test operation.",
                 Array.Empty<UcliOperationInputContract>(),
                 UcliOperationResultContract.NoResult("This test operation does not emit operation-specific result data."),
-                CreateValidationOnlyAssurance(policy));
+                assurance ?? CreateValidationOnlyAssurance(policy));
         }
 
         private static UcliOperationAssuranceContract CreateValidationOnlyAssurance (OperationPolicy policy = OperationPolicy.Safe)
@@ -1103,6 +1163,24 @@ namespace MackySoft.Ucli.Unity.Tests
                 touchedContract: "Returns no touched resources.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Failure means the observation was not fully produced.",
+                dangerousNotes: policy == OperationPolicy.Safe
+                    ? Array.Empty<string>()
+                    : new[] { "Test fixture uses a non-safe policy to exercise policy gating." });
+        }
+
+        private static UcliOperationAssuranceContract CreateMutableAssurance (OperationPolicy policy = OperationPolicy.Safe)
+        {
+            return new UcliOperationAssuranceContract(
+                sideEffects: new[] { UcliOperationSideEffect.WritesScene },
+                mayDirty: true,
+                mayPersist: false,
+                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate arguments and prepare mutation without applying it.",
+                callSemantics: "Apply test mutation state.",
+                touchedContract: "Reports scene or prefab resources touched by the test mutation.",
+                readPostconditionContract: "May stale read surfaces associated with touched test resources.",
+                failureSemantics: "Failure means the mutation did not fully complete.",
                 dangerousNotes: policy == OperationPolicy.Safe
                     ? Array.Empty<string>()
                     : new[] { "Test fixture uses a non-safe policy to exercise policy gating." });
@@ -1509,16 +1587,22 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationPhaseStepResult validateResult,
                 OperationPhaseStepResult planResult,
                 OperationPhaseStepResult callResult,
-                OperationPolicy policy = OperationPolicy.Safe)
+                OperationPolicy policy = OperationPolicy.Safe,
+                UcliOperationKind kind = UcliOperationKind.Mutation)
             {
                 this.validateResult = validateResult;
                 this.planResult = planResult;
                 this.callResult = callResult;
                 Metadata = new UcliOperationMetadata(
                     operationName: "ucli.tests.recording",
-                    kind: UcliOperationKind.Query,
+                    kind: kind,
                     policy: policy,
-                    describeContract: CreateDescribeContract("ucli.tests.recording", policy));
+                    describeContract: CreateDescribeContract(
+                        "ucli.tests.recording",
+                        policy,
+                        kind == UcliOperationKind.Query
+                            ? CreateValidationOnlyAssurance(policy)
+                            : CreateMutableAssurance(policy)));
             }
 
             public UcliOperationMetadata Metadata { get; }
@@ -1614,7 +1698,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 operationName: "ucli.tests.replay-failing",
                 kind: UcliOperationKind.Mutation,
                 policy: OperationPolicy.Advanced,
-                describeContract: CreateDescribeContract("ucli.tests.replay-failing", OperationPolicy.Advanced),
+                describeContract: CreateDescribeContract(
+                    "ucli.tests.replay-failing",
+                    OperationPolicy.Advanced,
+                    CreateMutableAssurance(OperationPolicy.Advanced)),
                 argsType: typeof(UcliEmptyArgs),
                 resultType: typeof(UcliNoResult),
                 requiresPreCallPlanReplay: true);
@@ -1702,7 +1789,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 CallContext = executionContext;
-                return Task.FromResult(OperationPhaseStepResult.Success(applied: true, changed: false));
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
             }
         }
     }

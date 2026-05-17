@@ -34,6 +34,7 @@ public sealed class CallCommandTests
                         Changed: false,
                         Touched: []),
                 ],
+                ContractViolations: [],
                 Plan: new CallPlanOutput(
                     RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                     Project: ProjectIdentityInfoTestFactory.Create(),
@@ -47,6 +48,7 @@ public sealed class CallCommandTests
                         Changed: false,
                         Touched: []),
                     ],
+                    ContractViolations: [],
                     PlanToken: "plan-token-1"),
                 ReadPostcondition: null),
             "uCLI call completed.")));
@@ -98,6 +100,7 @@ public sealed class CallCommandTests
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 Project: ProjectIdentityInfoTestFactory.Create(),
                 OpResults: [],
+                ContractViolations: [],
                 Plan: null,
                 ReadPostcondition: null))));
         var command = new CallCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());

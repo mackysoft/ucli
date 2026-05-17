@@ -92,6 +92,37 @@ public sealed class IndexCatalogContractValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IsValidOpsCatalog_ReturnsFalse_WhenQueryDescribeDeclaresTouchedKinds ()
+    {
+        var entry = CreateValidOpsEntry() with
+        {
+            Kind = UcliOperationKindValues.Query,
+            Assurance = new UcliOperationAssuranceContract(
+                sideEffects: Array.Empty<string>(),
+                mayDirty: false,
+                mayPersist: false,
+                touchedKinds: [IpcExecuteTouchedResourceKindNames.Scene],
+                planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
+                planSemantics: "Observe scene hierarchy without applying mutation.",
+                callSemantics: "Read scene hierarchy without applying mutation.",
+                touchedContract: "Invalid query touched resource declaration.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Failure means the observation did not complete.",
+                dangerousNotes: Array.Empty<string>()),
+        };
+        var contract = new IndexOpsDescribeJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "source-hash",
+            Operation: entry);
+
+        var result = IndexCatalogContractValidator.IsValidOpsDescribe(contract);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IsValidOpsCatalog_ReturnsTrue_WhenDescribeContractHasMultiFieldVariant ()
     {
         var contract = new IndexOpsDescribeJsonContract(

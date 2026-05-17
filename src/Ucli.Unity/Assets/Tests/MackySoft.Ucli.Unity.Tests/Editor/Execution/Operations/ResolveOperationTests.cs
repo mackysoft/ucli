@@ -1115,7 +1115,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Call_WhenResolutionSucceeds_ReturnsAppliedTrueAndChangedFalse () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Call_WhenResolutionSucceeds_ReturnsAppliedFalseAndChangedFalse () => UniTask.ToCoroutine(async () =>
         {
             var operation = new ResolveOperation();
             using var scope = new EditorTestScope();
@@ -1131,7 +1131,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
-            AssertSuccess(result, applied: true, changed: false);
+            AssertSuccess(result, applied: false, changed: false);
             Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
             Assert.That(resolvedReference, Is.Not.Null);
         });

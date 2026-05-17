@@ -296,6 +296,60 @@ public sealed class ExecuteResponseConverterTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Convert_WhenContractViolationIsPresent_PropagatesContractViolation ()
+    {
+        var response = CreateResponse(new IpcExecuteResponse([])
+        {
+            ContractViolations =
+            [
+                new IpcExecuteContractViolation(
+                    OpId: "query-1",
+                    Operation: UcliPrimitiveOperationNames.SceneQuery,
+                    ExpectedFact: "operation.kind=query",
+                    ObservedResult: "opResults[].applied=true",
+                    ApplicationState: IpcExecuteContractViolationApplicationStateNames.Applied),
+            ],
+        });
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.True(result.IsSuccess);
+        var violation = Assert.Single(result.ContractViolations);
+        Assert.Equal("query-1", violation.OpId);
+        Assert.Equal(UcliPrimitiveOperationNames.SceneQuery, violation.Operation);
+        Assert.Equal("operation.kind=query", violation.ExpectedFact);
+        Assert.Equal("opResults[].applied=true", violation.ObservedResult);
+        Assert.Equal(IpcExecuteContractViolationApplicationStateNames.Applied, violation.ApplicationState);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Convert_WhenContractViolationApplicationStateIsUnsupported_ReturnsInternalError ()
+    {
+        var response = CreateResponse(new IpcExecuteResponse([])
+        {
+            ContractViolations =
+            [
+                new IpcExecuteContractViolation(
+                    OpId: "query-1",
+                    Operation: UcliPrimitiveOperationNames.SceneQuery,
+                    ExpectedFact: "operation.kind=query",
+                    ObservedResult: "opResults[].applied=true",
+                    ApplicationState: "unknownState"),
+            ],
+        });
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("contractViolations[0].applicationState", error.Message, StringComparison.Ordinal);
+        Assert.Contains("unsupported", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Convert_WhenOpResultRequiredTextIsMissing_ReturnsInternalError ()
     {
         var response = CreateResponse(new IpcExecuteResponse(

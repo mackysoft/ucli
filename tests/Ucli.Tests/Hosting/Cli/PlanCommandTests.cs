@@ -36,6 +36,7 @@ public sealed class PlanCommandTests
                         Changed: false,
                         Touched: []),
                 ],
+                ContractViolations: [],
                 ReadIndex: CreateReadIndexInfo(
                     used: false,
                     hit: false,
@@ -90,6 +91,7 @@ public sealed class PlanCommandTests
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 Project: ProjectIdentityInfoTestFactory.Create(),
                 OpResults: [],
+                ContractViolations: [],
                 ReadIndex: CreateReadIndexInfo(
                     used: true,
                     hit: true,
@@ -147,6 +149,7 @@ public sealed class PlanCommandTests
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 Project: ProjectIdentityInfoTestFactory.Create(),
                 OpResults: [],
+                ContractViolations: [],
                 ReadIndex: CreateReadIndexInfo(
                     used: false,
                     hit: false,
