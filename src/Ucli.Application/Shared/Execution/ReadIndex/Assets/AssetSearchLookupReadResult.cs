@@ -4,7 +4,7 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 internal sealed record AssetSearchLookupReadResult (
     AssetSearchLookupReadOutput? Output,
     string Message,
-    UcliCodeValue? ErrorCode)
+    UcliCode? ErrorCode)
 {
     /// <summary> Gets a value indicating whether the lookup read succeeded. </summary>
     public bool IsSuccess => Output is not null && ErrorCode is null;
@@ -21,7 +21,7 @@ internal sealed record AssetSearchLookupReadResult (
     /// <summary> Creates a failed lookup-read result. </summary>
     public static AssetSearchLookupReadResult Failure (
         string message,
-        UcliCodeValue errorCode)
+        UcliCode errorCode)
     {
         return new AssetSearchLookupReadResult(null, message, errorCode);
     }

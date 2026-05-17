@@ -324,7 +324,7 @@ public sealed class UnityDaemonReadinessGateTests
     }
 
     private static IpcResponse CreateErrorResponse (
-        UcliCodeValue code,
+        UcliCode code,
         string message)
     {
         return new IpcResponse(

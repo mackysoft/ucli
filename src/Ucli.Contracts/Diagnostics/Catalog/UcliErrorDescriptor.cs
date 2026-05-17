@@ -12,7 +12,7 @@ namespace MackySoft.Ucli.Contracts;
 /// <param name="NextActions"> The follow-up actions associated with the code. </param>
 /// <param name="RelatedCodes"> Other known error codes that represent adjacent conditions. </param>
 public sealed record UcliErrorDescriptor (
-    UcliCodeValue Code,
+    UcliCode Code,
     string Category,
     string Summary,
     string Meaning,
@@ -21,4 +21,4 @@ public sealed record UcliErrorDescriptor (
     UcliErrorExecutionSemantics ExecutionSemantics,
     IReadOnlyList<string> Inspect,
     IReadOnlyList<UcliErrorNextActionDescriptor> NextActions,
-    IReadOnlyList<UcliCodeValue> RelatedCodes);
+    IReadOnlyList<UcliCode> RelatedCodes);

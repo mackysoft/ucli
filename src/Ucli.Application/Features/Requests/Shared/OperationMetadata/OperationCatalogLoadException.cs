@@ -10,7 +10,7 @@ internal sealed class OperationCatalogLoadException : InvalidOperationException
     /// <param name="errorCode"> The original machine-readable error code associated with the catalog-load failure. </param>
     public OperationCatalogLoadException (
         ExecutionError error,
-        UcliCodeValue? errorCode = null)
+        UcliCode? errorCode = null)
         : base(error?.Message)
     {
         Error = error ?? throw new ArgumentNullException(nameof(error));
@@ -23,7 +23,7 @@ internal sealed class OperationCatalogLoadException : InvalidOperationException
     public ExecutionError Error { get; }
 
     /// <summary> Gets the original machine-readable error code associated with this failure. </summary>
-    public UcliCodeValue ErrorCode { get; }
+    public UcliCode ErrorCode { get; }
 
     /// <summary> Creates one execution error that preserves the original kind while prefixing the message. </summary>
     /// <param name="messagePrefix"> The prefix to prepend to the original error message. </param>

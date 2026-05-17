@@ -87,7 +87,7 @@ internal sealed class OperationCatalogDiscoveryService : IOperationCatalogDiscov
     }
 
     private static ExecutionError CreateErrorFromCode (
-        UcliCodeValue errorCode,
+        UcliCode errorCode,
         string message)
     {
         if (!errorCode.IsValid)

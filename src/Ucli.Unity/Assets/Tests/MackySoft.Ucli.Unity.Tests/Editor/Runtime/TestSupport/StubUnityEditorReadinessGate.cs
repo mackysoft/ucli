@@ -88,7 +88,7 @@ namespace MackySoft.Ucli.Unity.Tests
             DaemonEditorMode editorMode,
             string lifecycleState,
             string? blockingReason,
-            UcliCodeValue errorCode,
+            UcliCode errorCode,
             string errorMessage)
         {
             return UnityEditorExecutionReadinessResult.Blocked(

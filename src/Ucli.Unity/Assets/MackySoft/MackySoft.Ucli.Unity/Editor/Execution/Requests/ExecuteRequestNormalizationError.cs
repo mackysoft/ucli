@@ -10,7 +10,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
     /// <param name="Message"> The user-facing error message. </param>
     /// <param name="OpId"> The related operation identifier when available; otherwise <see langword="null" />. </param>
     internal sealed record ExecuteRequestNormalizationError (
-        UcliCodeValue Code,
+        UcliCode Code,
         string Message,
         string? OpId)
     {

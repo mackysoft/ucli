@@ -1,6 +1,6 @@
 namespace MackySoft.Ucli.Contracts.Tests.CodeCatalog;
 
-public sealed class UcliCodeValueTests
+public sealed class UcliCodeTests
 {
     [Theory]
     [InlineData("IPC_TIMEOUT")]
@@ -10,14 +10,14 @@ public sealed class UcliCodeValueTests
     [Trait("Size", "Small")]
     public void IsValidValue_WithValidCode_ReturnsTrue (string value)
     {
-        Assert.True(UcliCodeValue.IsValidValue(value));
+        Assert.True(UcliCode.IsValidValue(value));
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void Constructor_WithValidValue_PreservesValue ()
     {
-        var code = new UcliCodeValue("UNITY_READY_EXECUTION");
+        var code = new UcliCode("UNITY_READY_EXECUTION");
 
         Assert.Equal("UNITY_READY_EXECUTION", code.Value);
         Assert.Equal("UNITY_READY_EXECUTION", code.ToString());
@@ -30,7 +30,7 @@ public sealed class UcliCodeValueTests
     [Trait("Size", "Small")]
     public void TryCreate_WithValidValue_ReturnsCode ()
     {
-        var result = UcliCodeValue.TryCreate("UNITY_READY_MUTATION", out var code);
+        var result = UcliCode.TryCreate("UNITY_READY_MUTATION", out var code);
 
         Assert.True(result);
         Assert.Equal("UNITY_READY_MUTATION", code.Value);
@@ -42,7 +42,7 @@ public sealed class UcliCodeValueTests
     [Trait("Size", "Small")]
     public void IsValidValue_WithInvalidCode_ReturnsFalse (string? value)
     {
-        Assert.False(UcliCodeValue.IsValidValue(value));
+        Assert.False(UcliCode.IsValidValue(value));
     }
 
     [Theory]
@@ -50,7 +50,7 @@ public sealed class UcliCodeValueTests
     [Trait("Size", "Small")]
     public void TryCreate_WithInvalidValue_ReturnsFalse (string? value)
     {
-        var result = UcliCodeValue.TryCreate(value, out var code);
+        var result = UcliCode.TryCreate(value, out var code);
 
         Assert.False(result);
         Assert.False(code.IsValid);
@@ -61,7 +61,7 @@ public sealed class UcliCodeValueTests
     [Trait("Size", "Small")]
     public void Constructor_WithInvalidValue_Throws (string? value)
     {
-        Assert.ThrowsAny<ArgumentException>(() => new UcliCodeValue(value!));
+        Assert.ThrowsAny<ArgumentException>(() => new UcliCode(value!));
     }
 
     public static TheoryData<string?> InvalidCodeValues { get; } =
@@ -77,6 +77,6 @@ public sealed class UcliCodeValueTests
         "CODE.",
         "A..B",
         "ERROR.2ND_PHASE",
-        new string('A', UcliCodeValue.MaximumLength + 1),
+        new string('A', UcliCode.MaximumLength + 1),
     ];
 }

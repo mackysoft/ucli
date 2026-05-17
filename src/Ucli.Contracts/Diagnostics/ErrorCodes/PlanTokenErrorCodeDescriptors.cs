@@ -36,7 +36,7 @@ internal static class PlanTokenErrorCodeDescriptors
     ];
 
     private static UcliErrorDescriptor CreatePlanTokenDescriptor (
-        UcliCodeValue code,
+        UcliCode code,
         string summary,
         string meaning,
         IReadOnlyList<string> possiblePhases)

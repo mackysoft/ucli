@@ -113,7 +113,7 @@ public sealed class TestRunServiceTests
         Assert.Contains("planTokenMode", result.Message, StringComparison.Ordinal);
     }
 
-    public static TheoryData<UcliCodeValue, string> ModeContractErrorCases => new()
+    public static TheoryData<UcliCode, string> ModeContractErrorCases => new()
     {
         { UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, "Daemon is not running for mode=daemon." },
         { UnityExecutionModeDecisionErrorCodes.DaemonRunningOneshotForbidden, "Daemon is running for mode=oneshot." },
@@ -123,7 +123,7 @@ public sealed class TestRunServiceTests
     [Trait("Size", "Small")]
     [MemberData(nameof(ModeContractErrorCases))]
     public async Task Execute_WithModeContractError_ReturnsToolErrorWithModeCode (
-        UcliCodeValue errorCode,
+        UcliCode errorCode,
         string message)
     {
         var configuration = CreateResolvedConfiguration();

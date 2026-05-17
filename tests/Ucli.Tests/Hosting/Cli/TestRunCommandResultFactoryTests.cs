@@ -46,7 +46,7 @@ public sealed class TestRunCommandResultFactoryTests
     [Trait("Size", "Small")]
     public void Create_WithServiceErrorCode_ReturnsErrorEnvelopeWithSameCode ()
     {
-        UcliCodeValue errorCode = new("UNITY_TEST_EXECUTION_FAILED");
+        UcliCode errorCode = new("UNITY_TEST_EXECUTION_FAILED");
         const string message = "Unity test execution failed.";
 
         var serviceResult = TestRunServiceResult.ToolError(

@@ -63,7 +63,7 @@ internal static class ApplicationFailureOutcomeResolver
     /// <summary> Returns whether the failure code represents a caller-correctable invalid argument. </summary>
     /// <param name="errorCode"> The machine-readable failure code. </param>
     /// <returns> <see langword="true" /> when the code maps to <see cref="ApplicationOutcome.InvalidArgument" />; otherwise <see langword="false" />. </returns>
-    public static bool IsInvalidArgumentCode (UcliCodeValue errorCode)
+    public static bool IsInvalidArgumentCode (UcliCode errorCode)
     {
         return InvalidArgumentErrorCodeSet.Contains(errorCode);
     }

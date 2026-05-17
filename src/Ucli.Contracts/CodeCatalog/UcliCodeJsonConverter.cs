@@ -3,11 +3,11 @@ using System.Text.Json.Serialization;
 
 namespace MackySoft.Ucli.Contracts;
 
-/// <summary> Converts <see cref="UcliCodeValue" /> values as JSON strings. </summary>
-public sealed class UcliCodeValueJsonConverter : JsonConverter<UcliCodeValue>
+/// <summary> Converts <see cref="UcliCode" /> values as JSON strings. </summary>
+public sealed class UcliCodeJsonConverter : JsonConverter<UcliCode>
 {
     /// <inheritdoc />
-    public override UcliCodeValue Read (
+    public override UcliCode Read (
         ref Utf8JsonReader reader,
         Type typeToConvert,
         JsonSerializerOptions options)
@@ -20,7 +20,7 @@ public sealed class UcliCodeValueJsonConverter : JsonConverter<UcliCodeValue>
         var value = reader.GetString();
         try
         {
-            return new UcliCodeValue(value!);
+            return new UcliCode(value!);
         }
         catch (ArgumentException exception)
         {
@@ -31,7 +31,7 @@ public sealed class UcliCodeValueJsonConverter : JsonConverter<UcliCodeValue>
     /// <inheritdoc />
     public override void Write (
         Utf8JsonWriter writer,
-        UcliCodeValue value,
+        UcliCode value,
         JsonSerializerOptions options)
     {
         if (!value.IsValid)

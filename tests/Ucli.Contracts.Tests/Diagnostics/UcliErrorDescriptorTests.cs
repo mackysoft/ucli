@@ -21,8 +21,8 @@ public sealed class UcliErrorDescriptorTests
     [Trait("Size", "Small")]
     public void KnownDescriptors_IncludeEveryContractsErrorCodeDefinition ()
     {
-        var expectedCodes = StaticFieldValueReader.ReadFromStaticClasses<UcliCodeValue>(
-            typeof(UcliCodeValue).Assembly,
+        var expectedCodes = StaticFieldValueReader.ReadFromStaticClasses<UcliCode>(
+            typeof(UcliCode).Assembly,
             "ErrorCodes");
         var actualCodes = UcliKnownErrorDescriptors.All
             .Select(static descriptor => descriptor.Code)
@@ -120,7 +120,7 @@ public sealed class UcliErrorDescriptorTests
         Assert.Contains("payload.readPostcondition", descriptor.Inspect);
     }
 
-    private static UcliErrorDescriptor FindDescriptor (UcliCodeValue code)
+    private static UcliErrorDescriptor FindDescriptor (UcliCode code)
     {
         return UcliKnownErrorDescriptors.All.Single(descriptor => descriptor.Code == code);
     }

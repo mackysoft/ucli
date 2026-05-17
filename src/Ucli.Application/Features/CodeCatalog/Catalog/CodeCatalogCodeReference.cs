@@ -4,5 +4,5 @@ namespace MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 /// <param name="Code"> The validated code value. </param>
 /// <param name="ExpectedKind"> The expected kind from a qualified lookup, or <see langword="null" /> for an unqualified lookup. </param>
 internal sealed record CodeCatalogCodeReference (
-    UcliCodeValue Code,
+    UcliCode Code,
     string? ExpectedKind);

@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 internal sealed record AssetLookupRefreshResult (
     IpcIndexAssetsReadResponse? Response,
     string Message,
-    UcliCodeValue? ErrorCode,
+    UcliCode? ErrorCode,
     string? FallbackReason)
 {
     /// <summary> Gets a value indicating whether refresh succeeded. </summary>
@@ -28,7 +28,7 @@ internal sealed record AssetLookupRefreshResult (
     /// <summary> Creates a failed refresh result. </summary>
     public static AssetLookupRefreshResult Failure (
         string message,
-        UcliCodeValue errorCode)
+        UcliCode errorCode)
     {
         return new AssetLookupRefreshResult(
             Response: null,

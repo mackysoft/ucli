@@ -213,7 +213,7 @@ public sealed class RequestServiceResultInvariantTests
     [Theory]
     [Trait("Size", "Small")]
     [MemberData(nameof(InvalidArgumentErrorCodeValues))]
-    public void InvalidArgumentErrorCodes_MapToInvalidArgumentOutcome (UcliCodeValue errorCode)
+    public void InvalidArgumentErrorCodes_MapToInvalidArgumentOutcome (UcliCode errorCode)
     {
         var validationError = new ValidationError(errorCode, "Validation failed.", "step-1");
 
@@ -241,7 +241,7 @@ public sealed class RequestServiceResultInvariantTests
     [Trait("Size", "Small")]
     public void UnknownErrorCode_IsPreservedAndMapsToToolError ()
     {
-        var futureErrorCode = new UcliCodeValue("FUTURE_TRANSPORT_FAILURE");
+        var futureErrorCode = new UcliCode("FUTURE_TRANSPORT_FAILURE");
         var error = RequestFailureNormalizer.FromTransportFailure(
             errorCode: futureErrorCode,
             message: "Future transport failed.");
@@ -255,7 +255,7 @@ public sealed class RequestServiceResultInvariantTests
     [Trait("Size", "Small")]
     public void Failure_FromTransportFailure_NormalizesBlankBoundaryMessage ()
     {
-        var error = RequestFailureNormalizer.FromTransportFailure(errorCode: default(UcliCodeValue), message: "");
+        var error = RequestFailureNormalizer.FromTransportFailure(errorCode: default(UcliCode), message: "");
 
         Assert.Equal(ApplicationFailureKind.InternalError, error.Kind);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
@@ -308,9 +308,9 @@ public sealed class RequestServiceResultInvariantTests
         Assert.True(collection.IsReadOnly);
     }
 
-    public static TheoryData<UcliCodeValue> InvalidArgumentErrorCodeValues ()
+    public static TheoryData<UcliCode> InvalidArgumentErrorCodeValues ()
     {
-        return new TheoryData<UcliCodeValue>
+        return new TheoryData<UcliCode>
         {
             UcliCoreErrorCodes.InvalidArgument,
             PlanTokenErrorCodes.PlanTokenRequired,

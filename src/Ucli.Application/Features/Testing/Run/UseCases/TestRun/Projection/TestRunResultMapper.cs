@@ -74,7 +74,7 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
         {
             if (unityExecutionResult.FailureKind == UnityTestExecutionFailureKind.ClientSetupFailed)
             {
-                UcliCodeValue setupErrorCode = !unityExecutionResult.ErrorCode.HasValue || !unityExecutionResult.ErrorCode.Value.IsValid
+                UcliCode setupErrorCode = !unityExecutionResult.ErrorCode.HasValue || !unityExecutionResult.ErrorCode.Value.IsValid
                     ? UcliCoreErrorCodes.InternalError
                     : unityExecutionResult.ErrorCode.Value;
 
@@ -87,7 +87,7 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
                     startupFailure: unityExecutionResult.StartupFailure);
             }
 
-            UcliCodeValue errorCode = unityExecutionResult.FailureKind switch
+            UcliCode errorCode = unityExecutionResult.FailureKind switch
             {
                 UnityTestExecutionFailureKind.Canceled => ExecutionErrorCodes.Canceled,
                 UnityTestExecutionFailureKind.IpcTimedOut => ExecutionErrorCodes.IpcTimeout,

@@ -30,7 +30,7 @@ internal sealed class CodeCatalog : ICodeCatalog
 
     /// <inheritdoc />
     public bool TryFind (
-        UcliCodeValue code,
+        UcliCode code,
         out CodeCatalogDescriptor descriptor)
     {
         if (!code.IsValid)
@@ -45,7 +45,7 @@ internal sealed class CodeCatalog : ICodeCatalog
     private static List<CodeCatalogDescriptor> CollectDescriptors (IEnumerable<ICodeCatalogContributor> contributors)
     {
         var descriptors = new List<CodeCatalogDescriptor>();
-        var seenCodes = new HashSet<UcliCodeValue>();
+        var seenCodes = new HashSet<UcliCode>();
 
         foreach (var contributor in contributors)
         {
@@ -129,7 +129,7 @@ internal sealed class CodeCatalog : ICodeCatalog
     }
 
     private static void ValidateCommandList (
-        UcliCodeValue code,
+        UcliCode code,
         IReadOnlyList<UcliCommand> commands,
         string propertyName)
     {
@@ -154,7 +154,7 @@ internal sealed class CodeCatalog : ICodeCatalog
     }
 
     private static void ValidateRequiredString (
-        UcliCodeValue code,
+        UcliCode code,
         string? value,
         string propertyName)
     {
@@ -164,16 +164,16 @@ internal sealed class CodeCatalog : ICodeCatalog
         }
     }
 
-    private static void ValidateCodeValue (UcliCodeValue code)
+    private static void ValidateCodeValue (UcliCode code)
     {
         if (!code.IsValid)
         {
-            throw new InvalidOperationException($"Code catalog descriptor code is invalid. {UcliCodeValue.InvalidValueMessage}");
+            throw new InvalidOperationException($"Code catalog descriptor code is invalid. {UcliCode.InvalidValueMessage}");
         }
     }
 
     private static void ValidateStringList (
-        UcliCodeValue code,
+        UcliCode code,
         IReadOnlyList<string> values,
         string propertyName)
     {

@@ -5,6 +5,6 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 /// <param name="Message"> The human-readable error message. </param>
 /// <param name="OpId"> The related operation identifier, or <see langword="null" /> when not applicable. </param>
 internal sealed record OperationExecutionError (
-    UcliCodeValue Code,
+    UcliCode Code,
     string Message,
     string? OpId);

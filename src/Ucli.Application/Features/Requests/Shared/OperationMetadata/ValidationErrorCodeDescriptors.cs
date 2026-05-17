@@ -76,7 +76,7 @@ internal static class ValidationErrorCodeDescriptors
     ];
 
     private static UcliErrorDescriptor CreateValidationDescriptor (
-        UcliCodeValue code,
+        UcliCode code,
         string summary,
         string meaning,
         IReadOnlyList<string> possiblePhases)

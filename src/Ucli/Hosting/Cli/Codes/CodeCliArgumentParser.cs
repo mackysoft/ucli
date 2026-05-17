@@ -58,14 +58,14 @@ internal static class CodeCliArgumentParser
             return false;
         }
 
-        if (!UcliCodeValue.IsValidValue(code))
+        if (!UcliCode.IsValidValue(code))
         {
             reference = null!;
-            errorMessage = UcliCodeValue.InvalidValueMessage;
+            errorMessage = UcliCode.InvalidValueMessage;
             return false;
         }
 
-        reference = new CodeCatalogCodeReference(new UcliCodeValue(code), expectedKind);
+        reference = new CodeCatalogCodeReference(new UcliCode(code), expectedKind);
         errorMessage = string.Empty;
         return true;
     }

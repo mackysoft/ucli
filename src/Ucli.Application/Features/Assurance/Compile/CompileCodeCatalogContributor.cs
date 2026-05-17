@@ -35,7 +35,7 @@ internal sealed class CompileCodeCatalogContributor : ICodeCatalogContributor
     }
 
     private static CodeCatalogDescriptor Create (
-        UcliCodeValue code,
+        UcliCode code,
         string summary)
     {
         return new CodeCatalogDescriptor(

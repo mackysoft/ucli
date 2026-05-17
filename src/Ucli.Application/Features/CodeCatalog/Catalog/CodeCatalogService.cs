@@ -13,7 +13,7 @@ internal sealed class CodeCatalogService : ICodeCatalogService
 
     private static readonly IReadOnlyList<string> EmptyStrings = Array.Empty<string>();
 
-    private static readonly IReadOnlyList<UcliCodeValue> EmptyCodeValues = Array.Empty<UcliCodeValue>();
+    private static readonly IReadOnlyList<UcliCode> EmptyCodeValues = Array.Empty<UcliCode>();
 
     private readonly ICodeCatalog catalog;
 
@@ -131,7 +131,7 @@ internal sealed class CodeCatalogService : ICodeCatalogService
         return CodeCatalogDescribeResult.Success(CreateUnknownDescriptor(reference.Code), known: false);
     }
 
-    private static CodeCatalogDescriptor CreateUnknownDescriptor (UcliCodeValue code)
+    private static CodeCatalogDescriptor CreateUnknownDescriptor (UcliCode code)
     {
         return new CodeCatalogDescriptor(
             Code: code,

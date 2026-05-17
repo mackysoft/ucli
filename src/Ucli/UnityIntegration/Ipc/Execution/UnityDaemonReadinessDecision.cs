@@ -4,7 +4,7 @@ namespace MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 internal readonly record struct UnityDaemonReadinessDecision (
     bool IsReady,
     bool IsFailure,
-    UcliCodeValue? ErrorCode,
+    UcliCode? ErrorCode,
     string? ErrorMessage)
 {
     /// <summary> Creates a decision that indicates daemon is ready. </summary>
@@ -34,7 +34,7 @@ internal readonly record struct UnityDaemonReadinessDecision (
     /// <param name="errorMessage"> The user-facing error message. </param>
     /// <returns> The failure decision. </returns>
     public static UnityDaemonReadinessDecision Failure (
-        UcliCodeValue errorCode,
+        UcliCode errorCode,
         string errorMessage)
     {
         if (!errorCode.IsValid)

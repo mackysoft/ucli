@@ -35,7 +35,7 @@ public sealed class CodeCatalogTests
         var actualCodes = catalog.Descriptors
             .Select(static descriptor => descriptor.Code)
             .ToHashSet();
-        var expectedCodes = StaticFieldValueReader.ReadFromStaticClasses<UcliCodeValue>(
+        var expectedCodes = StaticFieldValueReader.ReadFromStaticClasses<UcliCode>(
             typeof(ApplicationErrorCodeDescriptors).Assembly,
             "ErrorCodes");
 
@@ -287,7 +287,7 @@ public sealed class CodeCatalogTests
     public void Describe_WithUnknownCodeAndExpectedKind_ReturnsUnknownFallback ()
     {
         var service = new CodeCatalogService(CreateCatalog());
-        var futureCode = new UcliCodeValue("SOME_FUTURE_CODE");
+        var futureCode = new UcliCode("SOME_FUTURE_CODE");
 
         var result = service.Describe(
             new CodeCatalogCodeReference(futureCode, CodeCatalogKindValues.Error),
@@ -307,7 +307,7 @@ public sealed class CodeCatalogTests
     public void Describe_WithUnknownCodeAndFutureExpectedKind_ReturnsUnknownFallback ()
     {
         var service = new CodeCatalogService(CreateCatalog());
-        var futureCode = new UcliCodeValue("SOME_FUTURE_CODE");
+        var futureCode = new UcliCode("SOME_FUTURE_CODE");
 
         var result = service.Describe(
             new CodeCatalogCodeReference(futureCode, "future-kind"),
@@ -326,7 +326,7 @@ public sealed class CodeCatalogTests
     {
         var service = new CodeCatalogService(CreateCatalog());
 
-        var result = service.Describe(new CodeCatalogCodeReference(new UcliCodeValue("SOME_FUTURE_CODE"), ExpectedKind: null), requireKnown: true);
+        var result = service.Describe(new CodeCatalogCodeReference(new UcliCode("SOME_FUTURE_CODE"), ExpectedKind: null), requireKnown: true);
 
         Assert.False(result.IsSuccess);
         Assert.False(result.Known);
@@ -449,7 +449,7 @@ public sealed class CodeCatalogTests
     {
         var descriptor = CreateDescriptor("UNKNOWN_RELATED_CODE") with
         {
-            RelatedCodes = [new UcliCodeValue("MISSING_RELATED_CODE")],
+            RelatedCodes = [new UcliCode("MISSING_RELATED_CODE")],
         };
 
         Assert.Throws<InvalidOperationException>(() => new CodeCatalogModel(
@@ -479,7 +479,7 @@ public sealed class CodeCatalogTests
     private static CodeCatalogDescriptor CreateDescriptor (string code)
     {
         return new CodeCatalogDescriptor(
-            Code: new UcliCodeValue(code),
+            Code: new UcliCode(code),
             Kind: CodeCatalogKindValues.Error,
             Category: "test",
             Summary: "Test descriptor.",

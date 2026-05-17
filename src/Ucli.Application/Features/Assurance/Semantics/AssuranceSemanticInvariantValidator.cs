@@ -355,9 +355,9 @@ internal sealed class AssuranceSemanticInvariantValidator
             return;
         }
 
-        if (!UcliCodeValue.TryCreate(code, out var codeValue))
+        if (!UcliCode.TryCreate(code, out var codeValue))
         {
-            AddViolation(violations, path, UcliCodeValue.InvalidValueMessage);
+            AddViolation(violations, path, UcliCode.InvalidValueMessage);
             return;
         }
 

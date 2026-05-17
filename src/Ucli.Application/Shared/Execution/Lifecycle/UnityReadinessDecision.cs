@@ -4,7 +4,7 @@ namespace MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 internal readonly record struct UnityReadinessDecision (
     bool IsReady,
     bool IsFailure,
-    UcliCodeValue? ErrorCode,
+    UcliCode? ErrorCode,
     string? ErrorMessage)
 {
     /// <summary> Creates a decision that indicates Unity is ready. </summary>
@@ -29,7 +29,7 @@ internal readonly record struct UnityReadinessDecision (
 
     /// <summary> Creates a decision that indicates Unity readiness failed. </summary>
     public static UnityReadinessDecision Failure (
-        UcliCodeValue errorCode,
+        UcliCode errorCode,
         string errorMessage)
     {
         if (!errorCode.IsValid)

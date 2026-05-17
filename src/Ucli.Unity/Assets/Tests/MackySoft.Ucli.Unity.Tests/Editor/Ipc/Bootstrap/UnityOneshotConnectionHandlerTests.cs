@@ -203,7 +203,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static IpcResponse CreateErrorResponse (
             string requestId,
-            UcliCodeValue errorCode)
+            UcliCode errorCode)
         {
             return new IpcResponse(
                 ProtocolVersion: IpcProtocol.CurrentVersion,

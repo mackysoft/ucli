@@ -152,12 +152,12 @@ internal static class DaemonErrorCodeDescriptors
     ];
 
     private static UcliErrorDescriptor CreateStartupProjectFixDescriptor (
-        UcliCodeValue code,
+        UcliCode code,
         string summary,
         string meaning,
         string phase,
         string nextAction,
-        IReadOnlyList<UcliCodeValue>? relatedCodes)
+        IReadOnlyList<UcliCode>? relatedCodes)
     {
         return UcliErrorDescriptorFactory.Create(
             code: code,

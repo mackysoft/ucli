@@ -8,10 +8,10 @@ internal static class UcliErrorDescriptorFactory
 
     private static readonly IReadOnlyList<UcliErrorNextActionDescriptor> EmptyActions = Array.Empty<UcliErrorNextActionDescriptor>();
 
-    private static readonly IReadOnlyList<UcliCodeValue> EmptyCodes = Array.Empty<UcliCodeValue>();
+    private static readonly IReadOnlyList<UcliCode> EmptyCodes = Array.Empty<UcliCode>();
 
     public static UcliErrorDescriptor Create (
-        UcliCodeValue code,
+        UcliCode code,
         string category,
         string summary,
         string meaning,
@@ -22,7 +22,7 @@ internal static class UcliErrorDescriptorFactory
         string safeToRetry,
         IReadOnlyList<string>? inspect,
         IReadOnlyList<UcliErrorNextActionDescriptor>? nextActions,
-        IReadOnlyList<UcliCodeValue>? relatedCodes)
+        IReadOnlyList<UcliCode>? relatedCodes)
     {
         return new UcliErrorDescriptor(
             Code: code,

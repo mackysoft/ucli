@@ -14,7 +14,7 @@ internal sealed record RequestStaticValidationPreflightResult (
     ReadIndexInfo? ReadIndex,
     IReadOnlyList<ValidationError> ValidationErrors,
     ExecutionError? Error,
-    UcliCodeValue? ErrorCode)
+    UcliCode? ErrorCode)
 {
     /// <summary> Gets a value indicating whether static-validation preflight succeeded. </summary>
     public bool IsSuccess => PreparedRequest is not null && ReadIndex is not null && ValidationErrors.Count == 0 && Error is null && ErrorCode is null;
@@ -76,7 +76,7 @@ internal sealed record RequestStaticValidationPreflightResult (
         ExecutionError error,
         PreparedRequestContext? preparedRequest = null,
         ReadIndexInfo? readIndex = null,
-        UcliCodeValue? errorCode = null)
+        UcliCode? errorCode = null)
     {
         ArgumentNullException.ThrowIfNull(error);
         return new RequestStaticValidationPreflightResult(

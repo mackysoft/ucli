@@ -15,7 +15,7 @@ internal static class IpcDaemonTestRunResponseCodec
     public static bool TryDecode (
         IpcResponse response,
         out int exitCode,
-        out UcliCodeValue? errorCode,
+        out UcliCode? errorCode,
         out string? errorMessage)
     {
         ArgumentNullException.ThrowIfNull(response);

@@ -80,15 +80,15 @@ public sealed class IpcContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void UcliCodeValue_RetainsUnknownCodeValue ()
+    public void UcliCode_RetainsUnknownCodeValue ()
     {
-        UcliCodeValue code = new("FUTURE_DAEMON_FAILURE");
+        UcliCode code = new("FUTURE_DAEMON_FAILURE");
 
         Assert.Equal("FUTURE_DAEMON_FAILURE", code.Value);
         Assert.Equal("FUTURE_DAEMON_FAILURE", code.ToString());
         string rawValue = code;
         Assert.Equal("FUTURE_DAEMON_FAILURE", rawValue);
-        Assert.Equal(new UcliCodeValue("FUTURE_DAEMON_FAILURE"), code);
+        Assert.Equal(new UcliCode("FUTURE_DAEMON_FAILURE"), code);
     }
 
     [Theory]
@@ -96,10 +96,10 @@ public sealed class IpcContractSerializationTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData(" ")]
-    public void UcliCodeValue_RejectsBlankValue (string? value)
+    public void UcliCode_RejectsBlankValue (string? value)
     {
-        Assert.ThrowsAny<ArgumentException>(() => new UcliCodeValue(value!));
-        Assert.False(UcliCodeValue.TryCreate(value, out _));
+        Assert.ThrowsAny<ArgumentException>(() => new UcliCode(value!));
+        Assert.False(UcliCode.TryCreate(value, out _));
     }
 
     [Theory]
@@ -108,10 +108,10 @@ public sealed class IpcContractSerializationTests
     [InlineData("CODE-WITH-HYPHEN")]
     [InlineData("1_CODE")]
     [InlineData("CODE.")]
-    public void UcliCodeValue_RejectsInvalidMachineToken (string value)
+    public void UcliCode_RejectsInvalidMachineToken (string value)
     {
-        Assert.ThrowsAny<ArgumentException>(() => new UcliCodeValue(value));
-        Assert.False(UcliCodeValue.TryCreate(value, out _));
+        Assert.ThrowsAny<ArgumentException>(() => new UcliCode(value));
+        Assert.False(UcliCode.TryCreate(value, out _));
     }
 
     [Theory]

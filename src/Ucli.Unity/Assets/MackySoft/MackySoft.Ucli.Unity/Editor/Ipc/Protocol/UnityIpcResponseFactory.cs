@@ -33,7 +33,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> The error response envelope. </returns>
         public static IpcResponse CreateErrorResponse (
             IpcRequest request,
-            UcliCodeValue code,
+            UcliCode code,
             string message,
             string opId)
         {

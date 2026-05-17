@@ -78,7 +78,7 @@ internal static class UnityEditorReadinessPolicy
     }
 
     /// <summary> Determines whether an error code represents a waitable late lifecycle regression. </summary>
-    public static bool IsWaitableRegressionError (UcliCodeValue errorCode)
+    public static bool IsWaitableRegressionError (UcliCode errorCode)
     {
         return errorCode == EditorLifecycleErrorCodes.EditorStarting
             || errorCode == EditorLifecycleErrorCodes.EditorBusy
@@ -88,7 +88,7 @@ internal static class UnityEditorReadinessPolicy
     }
 
     /// <summary> Determines whether an error code was produced by Unity editor lifecycle readiness evaluation. </summary>
-    public static bool IsReadinessFailureCode (UcliCodeValue errorCode)
+    public static bool IsReadinessFailureCode (UcliCode errorCode)
     {
         return errorCode == EditorLifecycleErrorCodes.EditorStarting
             || errorCode == EditorLifecycleErrorCodes.EditorBusy

@@ -47,7 +47,7 @@ internal static class ProjectContextErrorCodeDescriptors
     ];
 
     private static UcliErrorDescriptor CreateProjectContextDescriptor (
-        UcliCodeValue code,
+        UcliCode code,
         string summary,
         string meaning,
         string phase)

@@ -3,16 +3,16 @@ using System.Text.Json.Serialization;
 namespace MackySoft.Ucli.Contracts;
 
 /// <summary> Represents one machine-readable code value from the shared uCLI open code set. </summary>
-[JsonConverter(typeof(UcliCodeValueJsonConverter))]
-public readonly record struct UcliCodeValue
+[JsonConverter(typeof(UcliCodeJsonConverter))]
+public readonly record struct UcliCode
 {
     /// <summary> Gets the maximum supported code value length. </summary>
     public const int MaximumLength = 128;
 
-    /// <summary> Initializes a new instance of the <see cref="UcliCodeValue" /> struct. </summary>
+    /// <summary> Initializes a new instance of the <see cref="UcliCode" /> struct. </summary>
     /// <param name="value"> The raw code value. </param>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="value" /> is not a valid uCLI code value. </exception>
-    public UcliCodeValue (string value)
+    public UcliCode (string value)
     {
         if (!IsValidValue(value))
         {
@@ -37,7 +37,7 @@ public readonly record struct UcliCodeValue
     /// <returns> <see langword="true" /> when the input is valid; otherwise <see langword="false" />. </returns>
     public static bool TryCreate (
         string? value,
-        out UcliCodeValue code)
+        out UcliCode code)
     {
         if (!IsValidValue(value))
         {
@@ -45,7 +45,7 @@ public readonly record struct UcliCodeValue
             return false;
         }
 
-        code = new UcliCodeValue(value!);
+        code = new UcliCode(value!);
         return true;
     }
 
@@ -99,7 +99,7 @@ public readonly record struct UcliCodeValue
 
     /// <summary> Converts the code value to its raw string value. </summary>
     /// <param name="code"> The code value to convert. </param>
-    public static implicit operator string (UcliCodeValue code)
+    public static implicit operator string (UcliCode code)
     {
         return code.ToString();
     }

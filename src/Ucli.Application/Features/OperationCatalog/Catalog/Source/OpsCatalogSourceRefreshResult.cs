@@ -7,7 +7,7 @@ internal sealed record OpsCatalogSourceRefreshResult (
     OpsCatalogSnapshot? Snapshot,
     string? FallbackReason,
     string Message,
-    UcliCodeValue? ErrorCode,
+    UcliCode? ErrorCode,
     StartupFailureDetail? StartupFailure = null)
 {
     /// <summary> Gets a value indicating whether the source refresh succeeded. </summary>
@@ -27,7 +27,7 @@ internal sealed record OpsCatalogSourceRefreshResult (
     /// <summary> Creates a failed source refresh result. </summary>
     public static OpsCatalogSourceRefreshResult Failure (
         string message,
-        UcliCodeValue errorCode,
+        UcliCode errorCode,
         StartupFailureDetail? startupFailure = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);

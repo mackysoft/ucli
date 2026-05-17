@@ -728,7 +728,7 @@ public sealed class AssuranceSemanticInvariantValidatorTests
         string kind)
     {
         return new CodeCatalogDescriptor(
-            new UcliCodeValue(code),
+            new UcliCode(code),
             kind,
             Category: "test",
             Summary: code,
@@ -767,7 +767,7 @@ public sealed class AssuranceSemanticInvariantValidatorTests
         public IReadOnlyList<CodeCatalogDescriptor> Descriptors { get; }
 
         public bool TryFind (
-            UcliCodeValue code,
+            UcliCode code,
             out CodeCatalogDescriptor descriptor)
         {
             if (code.IsValid && descriptorsByCode.TryGetValue(code.Value, out descriptor!))

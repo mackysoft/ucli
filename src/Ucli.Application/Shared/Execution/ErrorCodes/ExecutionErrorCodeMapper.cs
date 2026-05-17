@@ -8,7 +8,7 @@ internal static class ExecutionErrorCodeMapper
     /// <summary> Converts one execution error to the corresponding CLI contract error code. </summary>
     /// <param name="error"> The execution error. </param>
     /// <returns> The mapped machine-readable error code. </returns>
-    public static UcliCodeValue ToCode (ExecutionError error)
+    public static UcliCode ToCode (ExecutionError error)
     {
         ArgumentNullException.ThrowIfNull(error);
 
@@ -20,7 +20,7 @@ internal static class ExecutionErrorCodeMapper
     /// <summary> Converts one execution-error kind to the corresponding CLI contract error code. </summary>
     /// <param name="kind"> The execution-error kind. </param>
     /// <returns> The mapped machine-readable error code. </returns>
-    public static UcliCodeValue ToCode (ExecutionErrorKind kind)
+    public static UcliCode ToCode (ExecutionErrorKind kind)
     {
         return kind switch
         {

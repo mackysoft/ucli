@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.UnityIntegration.Indexing.Assets;
 internal sealed record AssetLookupSnapshotFetchResult (
     IpcIndexAssetsReadResponse? Response,
     string Message,
-    UcliCodeValue? ErrorCode)
+    UcliCode? ErrorCode)
 {
     /// <summary> Gets a value indicating whether fetch succeeded. </summary>
     public bool IsSuccess => Response is not null && ErrorCode is null;
@@ -24,7 +24,7 @@ internal sealed record AssetLookupSnapshotFetchResult (
     /// <summary> Creates a failed fetch result. </summary>
     public static AssetLookupSnapshotFetchResult Failure (
         string message,
-        UcliCodeValue errorCode)
+        UcliCode errorCode)
     {
         return new AssetLookupSnapshotFetchResult(
             Response: null,

@@ -185,7 +185,7 @@ internal static class EditorLifecycleErrorCodeDescriptors
     ];
 
     private static UcliErrorDescriptor CreateTransient (
-        UcliCodeValue code,
+        UcliCode code,
         string summary,
         string meaning,
         string phase)

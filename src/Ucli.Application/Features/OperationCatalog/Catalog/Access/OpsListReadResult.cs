@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 internal sealed record OpsListReadResult (
     OpsListReadOutput? Output,
     string Message,
-    UcliCodeValue? ErrorCode,
+    UcliCode? ErrorCode,
     StartupFailureDetail? StartupFailure = null)
 {
     /// <summary> Gets a value indicating whether the list read succeeded. </summary>
@@ -24,7 +24,7 @@ internal sealed record OpsListReadResult (
     /// <summary> Creates a failed list-read result. </summary>
     public static OpsListReadResult Failure (
         string message,
-        UcliCodeValue errorCode,
+        UcliCode errorCode,
         StartupFailureDetail? startupFailure = null)
     {
         return new OpsListReadResult(null, message, errorCode, startupFailure);

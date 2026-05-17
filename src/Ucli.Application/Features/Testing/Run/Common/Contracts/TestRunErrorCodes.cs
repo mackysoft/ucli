@@ -4,17 +4,17 @@ namespace MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 internal static class TestRunErrorCodes
 {
     /// <summary> Gets the error code emitted when Unity test process execution fails. </summary>
-    public static readonly UcliCodeValue UnityTestExecutionFailed = new UcliCodeValue("UNITY_TEST_EXECUTION_FAILED");
+    public static readonly UcliCode UnityTestExecutionFailed = new UcliCode("UNITY_TEST_EXECUTION_FAILED");
 
     /// <summary> Gets the error code emitted when Unity test execution exceeds its runtime budget. </summary>
-    public static readonly UcliCodeValue UnityTestExecutionTimeout = new UcliCodeValue("UNITY_TEST_EXECUTION_TIMEOUT");
+    public static readonly UcliCode UnityTestExecutionTimeout = new UcliCode("UNITY_TEST_EXECUTION_TIMEOUT");
 
     /// <summary> Gets the error code emitted when Unity test results XML is invalid. </summary>
-    public static readonly UcliCodeValue TestResultsXmlInvalid = new UcliCodeValue("TEST_RESULTS_XML_INVALID");
+    public static readonly UcliCode TestResultsXmlInvalid = new UcliCode("TEST_RESULTS_XML_INVALID");
 
     /// <summary> Gets the error code emitted when reading Unity test results XML fails. </summary>
-    public static readonly UcliCodeValue TestResultsXmlReadFailed = new UcliCodeValue("TEST_RESULTS_XML_READ_FAILED");
+    public static readonly UcliCode TestResultsXmlReadFailed = new UcliCode("TEST_RESULTS_XML_READ_FAILED");
 
     /// <summary> Gets the error code emitted when writing normalized test result artifacts fails. </summary>
-    public static readonly UcliCodeValue TestResultsOutputWriteFailed = new UcliCodeValue("TEST_RESULTS_OUTPUT_WRITE_FAILED");
+    public static readonly UcliCode TestResultsOutputWriteFailed = new UcliCode("TEST_RESULTS_OUTPUT_WRITE_FAILED");
 }

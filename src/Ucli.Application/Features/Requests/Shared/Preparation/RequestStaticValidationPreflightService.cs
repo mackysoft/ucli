@@ -76,7 +76,7 @@ internal sealed class RequestStaticValidationPreflightService : IRequestStaticVa
     }
 
     private static ExecutionError CreateMetadataResolutionError (
-        UcliCodeValue errorCode,
+        UcliCode errorCode,
         string message)
     {
         if (!errorCode.IsValid)

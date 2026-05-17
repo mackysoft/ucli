@@ -12,7 +12,7 @@ internal sealed record UnityTestExecutionResult (
     int? ProcessExitCode,
     UnityTestExecutionFailureKind? FailureKind,
     string? ErrorMessage,
-    UcliCodeValue? ErrorCode,
+    UcliCode? ErrorCode,
     StartupFailureDetail? StartupFailure = null)
 {
     /// <summary> Gets a value indicating whether execution succeeded. </summary>
@@ -34,7 +34,7 @@ internal sealed record UnityTestExecutionResult (
     public static UnityTestExecutionResult Failure (
         UnityTestExecutionFailureKind failureKind,
         string errorMessage,
-        UcliCodeValue? errorCode = null,
+        UcliCode? errorCode = null,
         StartupFailureDetail? startupFailure = null)
     {
         return new UnityTestExecutionResult(
@@ -43,7 +43,7 @@ internal sealed record UnityTestExecutionResult (
             errorMessage,
             errorCode.HasValue && errorCode.Value.IsValid
                 ? errorCode.Value
-                : (UcliCodeValue?)null,
+                : (UcliCode?)null,
             startupFailure);
     }
 }

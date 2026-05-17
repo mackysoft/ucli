@@ -23,7 +23,7 @@ internal sealed record UnityRequestExecutionResult
     public string Message => FailureInfo?.Message ?? SuccessMessage;
 
     /// <summary> Gets the machine-readable error code on failure; otherwise <see langword="null" />. </summary>
-    public UcliCodeValue? ErrorCode => FailureInfo?.Code;
+    public UcliCode? ErrorCode => FailureInfo?.Code;
 
     /// <summary> Gets a value indicating whether request execution succeeded. </summary>
     public bool IsSuccess => Response is not null && FailureInfo is null;
