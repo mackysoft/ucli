@@ -35,7 +35,7 @@ internal sealed class ReadyCodeCatalogContributor : ICodeCatalogContributor
     }
 
     private static CodeCatalogDescriptor Create (
-        string code,
+        UcliCode code,
         string summary)
     {
         return new CodeCatalogDescriptor(

@@ -4,5 +4,5 @@ namespace MackySoft.Ucli.Contracts;
 public static class IpcTransportErrorCodes
 {
     /// <summary> Gets the error code emitted when IPC execution exceeds the configured timeout budget. </summary>
-    public static readonly UcliErrorCode IpcTimeout = new("IPC_TIMEOUT");
+    public static readonly UcliCode IpcTimeout = new("IPC_TIMEOUT");
 }

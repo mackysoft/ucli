@@ -66,7 +66,7 @@ internal sealed record CommandResult (
     public static CommandResult InvalidArgument (
         string command,
         string message,
-        UcliErrorCode? errorCode = null)
+        UcliCode? errorCode = null)
     {
         return CreateError(
             command: command,
@@ -98,7 +98,7 @@ internal sealed record CommandResult (
     public static CommandResult Timeout (
         string command,
         string message,
-        UcliErrorCode? errorCode = null)
+        UcliCode? errorCode = null)
     {
         return CreateError(
             command: command,
@@ -117,7 +117,7 @@ internal sealed record CommandResult (
     public static CommandResult InternalError (
         string command,
         string message,
-        UcliErrorCode? errorCode = null)
+        UcliCode? errorCode = null)
     {
         return CreateError(
             command: command,
@@ -138,7 +138,7 @@ internal sealed record CommandResult (
         string command,
         string message,
         CliExitCode exitCode,
-        UcliErrorCode errorCode)
+        UcliCode errorCode)
     {
         var normalizedCommand = NormalizeCommand(command);
         var normalizedMessage = NormalizeMessage(message);

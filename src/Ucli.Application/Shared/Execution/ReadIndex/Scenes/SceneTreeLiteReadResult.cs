@@ -4,7 +4,7 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 internal sealed record SceneTreeLiteReadResult (
     SceneTreeLiteReadOutput? Output,
     string Message,
-    UcliErrorCode? ErrorCode)
+    UcliCode? ErrorCode)
 {
     /// <summary> Gets a value indicating whether the read succeeded. </summary>
     public bool IsSuccess => Output is not null && ErrorCode is null;
@@ -21,7 +21,7 @@ internal sealed record SceneTreeLiteReadResult (
     /// <summary> Creates a failed scene-tree-lite read result. </summary>
     public static SceneTreeLiteReadResult Failure (
         string message,
-        UcliErrorCode errorCode)
+        UcliCode errorCode)
     {
         return new SceneTreeLiteReadResult(null, message, errorCode);
     }

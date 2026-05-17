@@ -17,10 +17,10 @@ internal sealed class CodeCatalog : ICodeCatalog
 
         var descriptors = CollectDescriptors(contributors);
         Descriptors = descriptors
-            .OrderBy(static descriptor => descriptor.Code, StringComparer.Ordinal)
+            .OrderBy(static descriptor => descriptor.Code.Value, StringComparer.Ordinal)
             .ToArray();
         descriptorsByCode = Descriptors.ToDictionary(
-            static descriptor => descriptor.Code,
+            static descriptor => descriptor.Code.Value,
             static descriptor => descriptor,
             StringComparer.Ordinal);
     }
@@ -30,22 +30,22 @@ internal sealed class CodeCatalog : ICodeCatalog
 
     /// <inheritdoc />
     public bool TryFind (
-        string? code,
+        UcliCode code,
         out CodeCatalogDescriptor descriptor)
     {
-        if (string.IsNullOrWhiteSpace(code))
+        if (!code.IsValid)
         {
             descriptor = null!;
             return false;
         }
 
-        return descriptorsByCode.TryGetValue(code, out descriptor!);
+        return descriptorsByCode.TryGetValue(code.Value, out descriptor!);
     }
 
     private static List<CodeCatalogDescriptor> CollectDescriptors (IEnumerable<ICodeCatalogContributor> contributors)
     {
         var descriptors = new List<CodeCatalogDescriptor>();
-        var seenCodes = new HashSet<string>(StringComparer.Ordinal);
+        var seenCodes = new HashSet<UcliCode>();
 
         foreach (var contributor in contributors)
         {
@@ -87,7 +87,7 @@ internal sealed class CodeCatalog : ICodeCatalog
             throw new InvalidOperationException($"Code catalog contributor '{contributor.GetType().FullName}' returned a null descriptor.");
         }
 
-        ValidateRequiredString(descriptor.Code, descriptor.Code, nameof(descriptor.Code));
+        ValidateCodeValue(descriptor.Code);
         if (!CodeCatalogKindValues.IsSupported(descriptor.Kind))
         {
             throw new InvalidOperationException($"Code catalog descriptor '{descriptor.Code}' has unsupported kind '{descriptor.Kind}'.");
@@ -129,7 +129,7 @@ internal sealed class CodeCatalog : ICodeCatalog
     }
 
     private static void ValidateCommandList (
-        string code,
+        UcliCode code,
         IReadOnlyList<UcliCommand> commands,
         string propertyName)
     {
@@ -154,7 +154,7 @@ internal sealed class CodeCatalog : ICodeCatalog
     }
 
     private static void ValidateRequiredString (
-        string code,
+        UcliCode code,
         string? value,
         string propertyName)
     {
@@ -164,8 +164,16 @@ internal sealed class CodeCatalog : ICodeCatalog
         }
     }
 
+    private static void ValidateCodeValue (UcliCode code)
+    {
+        if (!code.IsValid)
+        {
+            throw new InvalidOperationException($"Code catalog descriptor code is invalid. {UcliCode.InvalidValueMessage}");
+        }
+    }
+
     private static void ValidateStringList (
-        string code,
+        UcliCode code,
         IReadOnlyList<string> values,
         string propertyName)
     {
@@ -182,14 +190,19 @@ internal sealed class CodeCatalog : ICodeCatalog
     {
         var knownCodes = descriptors
             .Select(static descriptor => descriptor.Code)
-            .ToHashSet(StringComparer.Ordinal);
+            .ToHashSet();
         for (var i = 0; i < descriptors.Count; i++)
         {
             var descriptor = descriptors[i];
             for (var j = 0; j < descriptor.RelatedCodes.Count; j++)
             {
                 var relatedCode = descriptor.RelatedCodes[j];
-                if (string.Equals(relatedCode, descriptor.Code, StringComparison.Ordinal))
+                if (!relatedCode.IsValid)
+                {
+                    throw new InvalidOperationException($"Code catalog descriptor '{descriptor.Code}' has invalid related code at index {j}.");
+                }
+
+                if (relatedCode == descriptor.Code)
                 {
                     throw new InvalidOperationException($"Code catalog descriptor '{descriptor.Code}' must not reference itself.");
                 }

@@ -2,9 +2,9 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 
 internal static class ExecutionErrorCodeDescriptors
 {
-    public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
+    public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: ExecutionErrorCodes.Canceled,
             category: "execution",
             summary: "Command execution was canceled.",

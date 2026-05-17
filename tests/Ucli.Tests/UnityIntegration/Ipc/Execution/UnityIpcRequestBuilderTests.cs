@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 
 namespace MackySoft.Ucli.Tests.Ipc;
@@ -36,6 +37,40 @@ public sealed class UnityIpcRequestBuilderTests
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPingRequest payload, out _));
         Assert.Equal("test-client", payload.ClientVersion);
         Assert.True(payload.FailFast);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Build_WithCompile_CreatesCompilePayload ()
+    {
+        var builder = new UnityIpcRequestBuilder();
+
+        var request = builder.Build(new UnityRequestPayload.Compile("run-1"));
+
+        Assert.Equal(IpcMethodNames.Compile, request.Method);
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcCompileRequest payload, out _));
+        Assert.Equal("run-1", payload.RunId);
+        Assert.Null(payload.TimeoutMilliseconds);
+        Assert.Equal(
+            [IpcEditorLifecycleStateCodec.CompileFailed, IpcEditorLifecycleStateCodec.SafeMode],
+            request.AllowedStartupLifecycleStates);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UnityIpcRequestFactory_WithCompileDispatchTimeout_InjectsTimeoutPayload ()
+    {
+        var payload = IpcPayloadCodec.SerializeToElement(new IpcCompileRequest("run-1"));
+
+        var request = UnityIpcRequestFactory.Create(
+            "session-token",
+            IpcMethodNames.Compile,
+            payload,
+            TimeSpan.FromMilliseconds(1234));
+
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcCompileRequest compileRequest, out _));
+        Assert.Equal("run-1", compileRequest.RunId);
+        Assert.Equal(1234, compileRequest.TimeoutMilliseconds);
     }
 
     [Fact]

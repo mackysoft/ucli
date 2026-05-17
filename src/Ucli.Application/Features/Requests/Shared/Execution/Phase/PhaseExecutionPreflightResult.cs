@@ -12,7 +12,7 @@ internal sealed record PhaseExecutionPreflightResult (
     PhaseExecutionPreparedRequest? PreparedRequest,
     IReadOnlyList<ValidationError> ValidationErrors,
     ExecutionError? Error,
-    UcliErrorCode? ErrorCode)
+    UcliCode? ErrorCode)
 {
     /// <summary> Gets a value indicating whether preflight succeeded. </summary>
     public bool IsSuccess => PreparedRequest is not null && ValidationErrors.Count == 0 && Error is null && ErrorCode is null;
@@ -65,7 +65,7 @@ internal sealed record PhaseExecutionPreflightResult (
     public static PhaseExecutionPreflightResult Failure (
         ExecutionError error,
         PhaseExecutionPreparedRequest? preparedRequest = null,
-        UcliErrorCode? errorCode = null)
+        UcliCode? errorCode = null)
     {
         ArgumentNullException.ThrowIfNull(error);
         return new PhaseExecutionPreflightResult(

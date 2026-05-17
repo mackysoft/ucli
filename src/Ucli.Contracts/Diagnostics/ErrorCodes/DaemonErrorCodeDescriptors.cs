@@ -14,9 +14,9 @@ internal static class DaemonErrorCodeDescriptors
         UcliCommandIds.TestRun,
     ];
 
-    public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
+    public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: DaemonErrorCodes.DaemonEditorModeMismatch,
             category: "daemon",
             summary: "The requested Editor mode conflicts with an existing daemon session.",
@@ -44,7 +44,7 @@ internal static class DaemonErrorCodeDescriptors
             ],
             relatedCodes: null),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: DaemonErrorCodes.DaemonStartupBlocked,
             category: "daemon",
             summary: "Unity daemon startup was blocked by a known Unity startup condition.",
@@ -72,7 +72,7 @@ internal static class DaemonErrorCodeDescriptors
                 IpcTransportErrorCodes.IpcTimeout,
             ]),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: DaemonErrorCodes.DaemonStartProcessExited,
             category: "daemon",
             summary: "Unity exited before daemon startup completed.",
@@ -91,7 +91,7 @@ internal static class DaemonErrorCodeDescriptors
             ],
             relatedCodes: [DaemonErrorCodes.DaemonStartupBlocked, DaemonErrorCodes.DaemonEndpointNotRegistered]),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: DaemonErrorCodes.DaemonEndpointNotRegistered,
             category: "daemon",
             summary: "Daemon endpoint was not registered before the startup timeout.",
@@ -151,15 +151,15 @@ internal static class DaemonErrorCodeDescriptors
             [DaemonErrorCodes.EditorCompileErrors]),
     ];
 
-    private static UcliErrorCodeDescriptor CreateStartupProjectFixDescriptor (
-        UcliErrorCode code,
+    private static UcliErrorDescriptor CreateStartupProjectFixDescriptor (
+        UcliCode code,
         string summary,
         string meaning,
         string phase,
         string nextAction,
-        IReadOnlyList<UcliErrorCode>? relatedCodes)
+        IReadOnlyList<UcliCode>? relatedCodes)
     {
-        return UcliErrorCodeDescriptorFactory.Create(
+        return UcliErrorDescriptorFactory.Create(
             code: code,
             category: "daemon",
             summary: summary,

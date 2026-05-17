@@ -1,0 +1,418 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/compile.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail",
+        "incomplete"
+      ]
+    },
+    "project": {
+      "$ref": "../defs/project.schema.json"
+    },
+    "verifiers": {
+      "type": "array",
+      "items": {
+        "$ref": "../defs/verifier.schema.json"
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "coverage": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "verifierRef": {
+            "type": "string"
+          },
+          "statement": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "object"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "../defs/evidence.schema.json"
+            }
+          },
+          "residualRisks": {
+            "type": "array",
+            "items": {
+              "$ref": "../defs/residual-risk.schema.json"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "coverage",
+          "required",
+          "verifierRef",
+          "statement",
+          "subject",
+          "evidence",
+          "residualRisks"
+        ]
+      }
+    },
+    "reports": {
+      "type": "object"
+    },
+    "residualRisks": {
+      "type": "array",
+      "items": {
+        "$ref": "../defs/residual-risk.schema.json"
+      }
+    },
+    "requestedMode": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "daemon",
+        "oneshot"
+      ]
+    },
+    "resolvedMode": {
+      "type": "string",
+      "enum": [
+        "daemon",
+        "oneshot"
+      ]
+    },
+    "sessionKind": {
+      "type": "string",
+      "enum": [
+        "daemon",
+        "transientProbe"
+      ]
+    },
+    "timeoutMilliseconds": {
+      "type": "integer"
+    },
+    "compile": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "runId": {
+          "type": "string"
+        },
+        "refresh": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "origin": {
+              "type": "string",
+              "enum": [
+                "assetDatabaseRefresh",
+                "diagnosticsRead"
+              ]
+            },
+            "requested": {
+              "type": "boolean"
+            },
+            "startedAtUtc": {
+              "type": "string"
+            },
+            "completedAtUtc": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "completed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "origin",
+            "requested",
+            "startedAtUtc",
+            "completedAtUtc",
+            "completed"
+          ]
+        },
+        "scriptCompilation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "started": {
+              "type": "boolean"
+            },
+            "completed": {
+              "type": "boolean"
+            },
+            "compileGenerationBefore": {
+              "type": "string"
+            },
+            "compileGenerationAfter": {
+              "type": "string"
+            },
+            "diagnostics": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "errorCount": {
+                  "type": "integer"
+                },
+                "warningCount": {
+                  "type": "integer"
+                },
+                "primaryDiagnostic": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "file": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "line": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "column": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "message": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                }
+              },
+              "required": [
+                "errorCount",
+                "warningCount",
+                "primaryDiagnostic"
+              ]
+            }
+          },
+          "required": [
+            "started",
+            "completed",
+            "compileGenerationBefore",
+            "compileGenerationAfter",
+            "diagnostics"
+          ]
+        },
+        "domainReload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "reloadRequired": {
+              "type": "boolean"
+            },
+            "reloadObserved": {
+              "type": "boolean"
+            },
+            "generationBefore": {
+              "type": "string"
+            },
+            "generationAfter": {
+              "type": "string"
+            },
+            "settled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "reloadRequired",
+            "reloadObserved",
+            "generationBefore",
+            "generationAfter",
+            "settled"
+          ]
+        },
+        "lifecycle": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "serverVersion": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "unityVersion": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "editorMode": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "lifecycleState": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "blockingReason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "compileState": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "compileGeneration": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "domainReloadGeneration": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "canAcceptExecutionRequests": {
+              "type": "boolean"
+            },
+            "observedAtUtc": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "actionRequired": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "primaryDiagnostic": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "file": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "line": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "column": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "message": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "required": [
+            "serverVersion",
+            "unityVersion",
+            "editorMode",
+            "lifecycleState",
+            "blockingReason",
+            "compileState",
+            "compileGeneration",
+            "domainReloadGeneration",
+            "canAcceptExecutionRequests",
+            "observedAtUtc",
+            "actionRequired",
+            "primaryDiagnostic"
+          ]
+        }
+      },
+      "required": [
+        "runId",
+        "refresh",
+        "scriptCompilation",
+        "domainReload",
+        "lifecycle"
+      ]
+    }
+  },
+  "required": [
+    "verdict",
+    "project",
+    "verifiers",
+    "claims",
+    "reports",
+    "residualRisks",
+    "requestedMode",
+    "resolvedMode",
+    "sessionKind",
+    "timeoutMilliseconds",
+    "compile"
+  ]
+}

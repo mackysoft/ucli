@@ -7,9 +7,9 @@ namespace MackySoft.Ucli.Application.Diagnostics;
 internal static class ApplicationErrorCodeDescriptors
 {
     /// <summary> Gets application-owned descriptors sorted by error code value. </summary>
-    public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } = CreateAll();
+    public static IReadOnlyList<UcliErrorDescriptor> All { get; } = CreateAll();
 
-    private static UcliErrorCodeDescriptor[] CreateAll ()
+    private static UcliErrorDescriptor[] CreateAll ()
     {
         return ExecutionErrorCodeDescriptors.All
             .Concat(UnityProcessErrorCodeDescriptors.All)

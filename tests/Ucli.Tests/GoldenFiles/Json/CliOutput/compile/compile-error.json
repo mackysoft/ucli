@@ -1,0 +1,209 @@
+{
+  "protocolVersion": 1,
+  "command": "compile",
+  "status": "ok",
+  "exitCode": 1,
+  "message": "Unity compile assurance completed.",
+  "payload": {
+    "verdict": "fail",
+    "project": {
+      "projectPath": "<projectPath>",
+      "projectFingerprint": "<projectFingerprint>",
+      "unityVersion": "6000.1.4f1"
+    },
+    "verifiers": [
+      {
+        "id": "compile",
+        "kind": "compile",
+        "deterministic": false,
+        "required": true,
+        "primaryClaims": [
+          "UNITY_COMPILE_NO_ERRORS",
+          "UNITY_DOMAIN_RELOAD_SETTLED",
+          "UNITY_LIFECYCLE_READY_AFTER_COMPILE"
+        ],
+        "effects": [
+          "assetDatabaseRefresh",
+          "scriptCompilation",
+          "domainReload"
+        ],
+        "reportRef": "compile.summary"
+      }
+    ],
+    "claims": [
+      {
+        "id": "UNITY_COMPILE_NO_ERRORS",
+        "status": "failed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "compile",
+        "statement": "Unity script compilation completed without compiler errors.",
+        "subject": {
+          "kind": "unityCompile",
+          "runId": "20260517_000000Z_abcdef12"
+        },
+        "evidence": [
+          {
+            "kind": "scriptCompilation",
+            "evidenceRef": "compile.diagnostics",
+            "data": {
+              "started": true,
+              "completed": true,
+              "compileGenerationBefore": "12",
+              "compileGenerationAfter": "14",
+              "diagnostics": {
+                "errorCount": 1,
+                "warningCount": 0,
+                "primaryDiagnostic": {
+                  "kind": "compiler",
+                  "code": "CS1002",
+                  "file": "Assets/Broken.cs",
+                  "line": 4,
+                  "column": 16,
+                  "message": "; expected"
+                }
+              }
+            }
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_DOMAIN_RELOAD_SETTLED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "compile",
+        "statement": "Unity domain reload reached a settled state after compile observation.",
+        "subject": {
+          "kind": "unityDomainReload",
+          "runId": "20260517_000000Z_abcdef12"
+        },
+        "evidence": [
+          {
+            "kind": "domainReload",
+            "data": {
+              "reloadRequired": false,
+              "reloadObserved": false,
+              "generationBefore": "7",
+              "generationAfter": "7",
+              "settled": true
+            }
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "UNITY_LIFECYCLE_READY_AFTER_COMPILE",
+        "status": "failed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "compile",
+        "statement": "Unity lifecycle is ready after compile observation.",
+        "subject": {
+          "kind": "unityLifecycle",
+          "runId": "20260517_000000Z_abcdef12"
+        },
+        "evidence": [
+          {
+            "kind": "lifecycleSnapshot",
+            "data": {
+              "serverVersion": "0.5.0",
+              "unityVersion": "6000.1.4f1",
+              "editorMode": "batchmode",
+              "lifecycleState": "compileFailed",
+              "blockingReason": "compileFailed",
+              "compileState": "failed",
+              "compileGeneration": "14",
+              "domainReloadGeneration": "7",
+              "canAcceptExecutionRequests": false,
+              "observedAtUtc": "2026-05-17T00:00:03+00:00",
+              "actionRequired": "fixCompileErrors",
+              "primaryDiagnostic": {
+                "kind": "compiler",
+                "code": "CS1002",
+                "file": "Assets/Broken.cs",
+                "line": 4,
+                "column": 16,
+                "message": "; expected"
+              }
+            }
+          }
+        ],
+        "residualRisks": []
+      }
+    ],
+    "reports": {
+      "compile.summary": {
+        "kind": "compile.summary",
+        "path": "/tmp/ucli/compile/summary.json"
+      },
+      "compile.diagnostics": {
+        "kind": "compile.diagnostics",
+        "path": "/tmp/ucli/compile/diagnostics.json"
+      }
+    },
+    "residualRisks": [],
+    "requestedMode": "auto",
+    "resolvedMode": "oneshot",
+    "sessionKind": "transientProbe",
+    "timeoutMilliseconds": 10000,
+    "compile": {
+      "runId": "20260517_000000Z_abcdef12",
+      "refresh": {
+        "origin": "assetDatabaseRefresh",
+        "requested": true,
+        "startedAtUtc": "2026-05-17T00:00:00+00:00",
+        "completedAtUtc": "2026-05-17T00:00:02+00:00",
+        "completed": true
+      },
+      "scriptCompilation": {
+        "started": true,
+        "completed": true,
+        "compileGenerationBefore": "12",
+        "compileGenerationAfter": "14",
+        "diagnostics": {
+          "errorCount": 1,
+          "warningCount": 0,
+          "primaryDiagnostic": {
+            "kind": "compiler",
+            "code": "CS1002",
+            "file": "Assets/Broken.cs",
+            "line": 4,
+            "column": 16,
+            "message": "; expected"
+          }
+        }
+      },
+      "domainReload": {
+        "reloadRequired": false,
+        "reloadObserved": false,
+        "generationBefore": "7",
+        "generationAfter": "7",
+        "settled": true
+      },
+      "lifecycle": {
+        "serverVersion": "0.5.0",
+        "unityVersion": "6000.1.4f1",
+        "editorMode": "batchmode",
+        "lifecycleState": "compileFailed",
+        "blockingReason": "compileFailed",
+        "compileState": "failed",
+        "compileGeneration": "14",
+        "domainReloadGeneration": "7",
+        "canAcceptExecutionRequests": false,
+        "observedAtUtc": "2026-05-17T00:00:03+00:00",
+        "actionRequired": "fixCompileErrors",
+        "primaryDiagnostic": {
+          "kind": "compiler",
+          "code": "CS1002",
+          "file": "Assets/Broken.cs",
+          "line": 4,
+          "column": 16,
+          "message": "; expected"
+        }
+      }
+    }
+  },
+  "errors": []
+}

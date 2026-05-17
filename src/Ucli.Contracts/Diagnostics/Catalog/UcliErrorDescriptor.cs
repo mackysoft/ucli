@@ -11,8 +11,8 @@ namespace MackySoft.Ucli.Contracts;
 /// <param name="Inspect"> The response fields or diagnostic commands callers should inspect. </param>
 /// <param name="NextActions"> The follow-up actions associated with the code. </param>
 /// <param name="RelatedCodes"> Other known error codes that represent adjacent conditions. </param>
-public sealed record UcliErrorCodeDescriptor (
-    UcliErrorCode Code,
+public sealed record UcliErrorDescriptor (
+    UcliCode Code,
     string Category,
     string Summary,
     string Meaning,
@@ -21,4 +21,4 @@ public sealed record UcliErrorCodeDescriptor (
     UcliErrorExecutionSemantics ExecutionSemantics,
     IReadOnlyList<string> Inspect,
     IReadOnlyList<UcliErrorNextActionDescriptor> NextActions,
-    IReadOnlyList<UcliErrorCode> RelatedCodes);
+    IReadOnlyList<UcliCode> RelatedCodes);

@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="CoverageImpact"> The diagnostic coverage impact literal. </param>
 /// <param name="Message"> The human-readable diagnostic message. </param>
 public sealed record IpcExecuteDiagnostic (
-    UcliErrorCode Code,
+    UcliCode Code,
     string Severity,
     string CoverageImpact,
     string Message);

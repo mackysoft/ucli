@@ -538,7 +538,7 @@ internal sealed class ReadyService : IReadyService
             {
                 ["kind"] = "unityReady",
                 ["target"] = targetValue,
-                ["requestedMode"] = ReadyExecutionModeCodec.ToRequestedModeValue(requestedMode),
+                ["requestedMode"] = AssuranceExecutionModeCodec.ToRequestedModeValue(requestedMode),
                 ["resolvedMode"] = resolvedMode,
                 ["sessionKind"] = sessionKind,
             },
@@ -563,7 +563,7 @@ internal sealed class ReadyService : IReadyService
             Reports: EmptyReports,
             ResidualRisks: EmptyResidualRisks,
             Target: targetValue,
-            RequestedMode: ReadyExecutionModeCodec.ToRequestedModeValue(requestedMode),
+            RequestedMode: AssuranceExecutionModeCodec.ToRequestedModeValue(requestedMode),
             ResolvedMode: resolvedMode,
             SessionKind: sessionKind,
             TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
@@ -576,8 +576,8 @@ internal sealed class ReadyService : IReadyService
         UnityExecutionTarget executionTarget)
     {
         return target == ReadyTarget.ReadIndex
-            ? ReadyExecutionModeCodec.NotApplicable
-            : ReadyExecutionModeCodec.ToResolvedModeValue(executionTarget);
+            ? AssuranceExecutionModeCodec.NotApplicable
+            : AssuranceExecutionModeCodec.ToResolvedModeValue(executionTarget);
     }
 
     private static string ResolveSessionKindValue (
@@ -585,8 +585,8 @@ internal sealed class ReadyService : IReadyService
         UnityExecutionTarget executionTarget)
     {
         return target == ReadyTarget.ReadIndex
-            ? ReadySessionKindValues.ArtifactOnly
-            : ReadyExecutionModeCodec.ToSessionKindValue(executionTarget);
+            ? AssuranceSessionKindValues.ArtifactOnly
+            : AssuranceExecutionModeCodec.ToSessionKindValue(executionTarget);
     }
 
     private static ReadyClaimValidityOutput CreateValidity (

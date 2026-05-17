@@ -1,6 +1,6 @@
 namespace MackySoft.Ucli.Contracts;
 
-internal static class UcliErrorCodeDescriptorFactory
+internal static class UcliErrorDescriptorFactory
 {
     private static readonly IReadOnlyList<UcliCommand> EmptyCommands = Array.Empty<UcliCommand>();
 
@@ -8,10 +8,10 @@ internal static class UcliErrorCodeDescriptorFactory
 
     private static readonly IReadOnlyList<UcliErrorNextActionDescriptor> EmptyActions = Array.Empty<UcliErrorNextActionDescriptor>();
 
-    private static readonly IReadOnlyList<UcliErrorCode> EmptyCodes = Array.Empty<UcliErrorCode>();
+    private static readonly IReadOnlyList<UcliCode> EmptyCodes = Array.Empty<UcliCode>();
 
-    public static UcliErrorCodeDescriptor Create (
-        UcliErrorCode code,
+    public static UcliErrorDescriptor Create (
+        UcliCode code,
         string category,
         string summary,
         string meaning,
@@ -22,9 +22,9 @@ internal static class UcliErrorCodeDescriptorFactory
         string safeToRetry,
         IReadOnlyList<string>? inspect,
         IReadOnlyList<UcliErrorNextActionDescriptor>? nextActions,
-        IReadOnlyList<UcliErrorCode>? relatedCodes)
+        IReadOnlyList<UcliCode>? relatedCodes)
     {
-        return new UcliErrorCodeDescriptor(
+        return new UcliErrorDescriptor(
             Code: code,
             Category: category,
             Summary: summary,

@@ -60,20 +60,20 @@ internal sealed class ReadyAssuranceSemanticInvariantRule : IAssuranceSemanticIn
 
     private static bool IsReadyClaim (string claimId)
     {
-        return string.Equals(claimId, ReadyClaimCodes.UnityReadyExecution, StringComparison.Ordinal)
-            || string.Equals(claimId, ReadyClaimCodes.UnityReadyMutation, StringComparison.Ordinal)
-            || string.Equals(claimId, ReadyClaimCodes.UnityReadyTest, StringComparison.Ordinal)
-            || string.Equals(claimId, ReadyClaimCodes.UnityReadyReadIndex, StringComparison.Ordinal);
+        return ReadyClaimCodes.UnityReadyExecution.EqualsValue(claimId)
+            || ReadyClaimCodes.UnityReadyMutation.EqualsValue(claimId)
+            || ReadyClaimCodes.UnityReadyTest.EqualsValue(claimId)
+            || ReadyClaimCodes.UnityReadyReadIndex.EqualsValue(claimId);
     }
 
     private static bool IsAutoOneshotReadyPayload (JsonElement payload)
     {
         return payload.TryGetProperty("requestedMode", out var requestedModeElement)
             && requestedModeElement.ValueKind == JsonValueKind.String
-            && string.Equals(requestedModeElement.GetString(), ReadyExecutionModeCodec.Auto, StringComparison.Ordinal)
+            && string.Equals(requestedModeElement.GetString(), AssuranceExecutionModeCodec.Auto, StringComparison.Ordinal)
             && payload.TryGetProperty("resolvedMode", out var resolvedModeElement)
             && resolvedModeElement.ValueKind == JsonValueKind.String
-            && string.Equals(resolvedModeElement.GetString(), ReadyExecutionModeCodec.Oneshot, StringComparison.Ordinal);
+            && string.Equals(resolvedModeElement.GetString(), AssuranceExecutionModeCodec.Oneshot, StringComparison.Ordinal);
     }
 
     private static bool IsReadyPayload (JsonElement payload)

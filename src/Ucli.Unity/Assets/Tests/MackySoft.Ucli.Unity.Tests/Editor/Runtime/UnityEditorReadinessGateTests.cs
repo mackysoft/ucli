@@ -17,7 +17,7 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         private static readonly TimeSpan AsyncWaitTimeout = TimeSpan.FromSeconds(5);
 
-        private static readonly (string LifecycleState, string BlockingReason, UcliErrorCode ExpectedErrorCode, string ExpectedMessage)[] BlockedLifecycleStateCases =
+        private static readonly (string LifecycleState, string BlockingReason, UcliCode ExpectedErrorCode, string ExpectedMessage)[] BlockedLifecycleStateCases =
         {
             (
                 IpcEditorLifecycleStateCodec.Starting,

@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <param name="Message"> The human-readable error message. </param>
     /// <param name="OpId"> The related operation identifier, or <see langword="null" /> when unavailable. </param>
     public sealed record OperationFailure (
-        UcliErrorCode Code,
+        UcliCode Code,
         string Message,
         string? OpId);
 }

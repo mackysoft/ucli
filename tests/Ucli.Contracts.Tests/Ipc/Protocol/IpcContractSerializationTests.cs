@@ -80,15 +80,15 @@ public sealed class IpcContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void UcliErrorCode_RetainsUnknownCodeValue ()
+    public void UcliCode_RetainsUnknownCodeValue ()
     {
-        UcliErrorCode code = new("FUTURE_DAEMON_FAILURE");
+        UcliCode code = new("FUTURE_DAEMON_FAILURE");
 
         Assert.Equal("FUTURE_DAEMON_FAILURE", code.Value);
         Assert.Equal("FUTURE_DAEMON_FAILURE", code.ToString());
         string rawValue = code;
         Assert.Equal("FUTURE_DAEMON_FAILURE", rawValue);
-        Assert.Equal(new UcliErrorCode("FUTURE_DAEMON_FAILURE"), code);
+        Assert.Equal(new UcliCode("FUTURE_DAEMON_FAILURE"), code);
     }
 
     [Theory]
@@ -96,10 +96,22 @@ public sealed class IpcContractSerializationTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData(" ")]
-    public void UcliErrorCode_RejectsBlankValue (string? value)
+    public void UcliCode_RejectsBlankValue (string? value)
     {
-        Assert.ThrowsAny<ArgumentException>(() => new UcliErrorCode(value!));
-        Assert.False(UcliErrorCode.TryCreate(value, out _));
+        Assert.ThrowsAny<ArgumentException>(() => new UcliCode(value!));
+        Assert.False(UcliCode.TryCreate(value, out _));
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("lowercase_code")]
+    [InlineData("CODE-WITH-HYPHEN")]
+    [InlineData("1_CODE")]
+    [InlineData("CODE.")]
+    public void UcliCode_RejectsInvalidMachineToken (string value)
+    {
+        Assert.ThrowsAny<ArgumentException>(() => new UcliCode(value));
+        Assert.False(UcliCode.TryCreate(value, out _));
     }
 
     [Theory]
@@ -107,6 +119,7 @@ public sealed class IpcContractSerializationTests
     [InlineData("""{"protocolVersion":1,"requestId":"req","status":"error","payload":{},"errors":[{"code":null,"message":"bad","opId":null}]}""")]
     [InlineData("""{"protocolVersion":1,"requestId":"req","status":"error","payload":{},"errors":[{"code":123,"message":"bad","opId":null}]}""")]
     [InlineData("""{"protocolVersion":1,"requestId":"req","status":"error","payload":{},"errors":[{"code":"","message":"bad","opId":null}]}""")]
+    [InlineData("""{"protocolVersion":1,"requestId":"req","status":"error","payload":{},"errors":[{"code":"lowercase_code","message":"bad","opId":null}]}""")]
     public void IpcResponse_WhenErrorCodeJsonIsInvalid_Throws (string json)
     {
         Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<IpcResponse>(json, SerializerOptions));
@@ -252,6 +265,7 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("index.assets.read", IpcMethodNames.IndexAssetsRead);
         Assert.Equal("index.scene-tree-lite.read", IpcMethodNames.IndexSceneTreeLiteRead);
         Assert.Equal("test.run", IpcMethodNames.TestRun);
+        Assert.Equal("compile", IpcMethodNames.Compile);
         Assert.Equal("shutdown", IpcMethodNames.Shutdown);
         Assert.Equal("daemon.logs.read", IpcMethodNames.DaemonLogsRead);
         Assert.Equal("unity.logs.read", IpcMethodNames.UnityLogsRead);
@@ -562,6 +576,40 @@ public sealed class IpcContractSerializationTests
             .HasBoolean("failFast", true);
         JsonAssert.For(responseDocument.RootElement)
             .HasInt32("exitCode", 2);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcCompileContracts_SerializeWithCamelCaseFields ()
+    {
+        var requestPayload = new IpcCompileRequest("run-1")
+        {
+            TimeoutMilliseconds = 10000,
+        };
+        var responsePayload = new IpcCompileResponse(
+            RunId: "run-1",
+            Summary: CreateCompileSummary());
+
+        using var requestDocument = JsonDocument.Parse(JsonSerializer.Serialize(requestPayload, SerializerOptions));
+        using var responseDocument = JsonDocument.Parse(JsonSerializer.Serialize(responsePayload, SerializerOptions));
+
+        JsonAssert.For(requestDocument.RootElement)
+            .HasString("runId", "run-1")
+            .HasInt32("timeoutMilliseconds", 10000);
+        JsonAssert.For(responseDocument.RootElement)
+            .HasString("runId", "run-1")
+            .HasProperty("summary", summary => summary
+                .HasString("runId", "run-1")
+                .HasString("projectFingerprint", "project-fingerprint")
+                .HasBoolean("completed", true)
+                .HasProperty("scriptCompilation", scriptCompilation => scriptCompilation
+                    .HasProperty("diagnostics", diagnostics => diagnostics
+                        .HasInt32("errorCount", 1)
+                        .HasProperty("primaryDiagnostic", primaryDiagnostic => primaryDiagnostic
+                            .HasString("kind", "compiler")
+                            .HasString("code", "CS1002")))));
+        Assert.False(responseDocument.RootElement.TryGetProperty("summaryJsonPath", out _));
+        Assert.False(responseDocument.RootElement.TryGetProperty("diagnosticsJsonPath", out _));
     }
 
     [Fact]
@@ -966,5 +1014,56 @@ public sealed class IpcContractSerializationTests
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Failure means the observation was not fully produced.",
                 dangerousNotes: Array.Empty<string>()));
+    }
+
+    private static IpcCompileSummary CreateCompileSummary ()
+    {
+        var primaryDiagnostic = new IpcPrimaryDiagnostic(
+            Kind: "compiler",
+            Code: "CS1002",
+            File: "Assets/Broken.cs",
+            Line: 4,
+            Column: 16,
+            Message: "; expected");
+        return new IpcCompileSummary(
+            RunId: "run-1",
+            ProjectFingerprint: "project-fingerprint",
+            Completed: true,
+            StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00+00:00"),
+            CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02+00:00"),
+            Refresh: new IpcCompileSummary.RefreshEvidence(
+                Origin: "assetDatabaseRefresh",
+                Requested: true,
+                StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00+00:00"),
+                CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:01+00:00"),
+                Completed: true),
+            ScriptCompilation: new IpcCompileSummary.ScriptCompilationEvidence(
+                Started: true,
+                Completed: true,
+                CompileGenerationBefore: "12",
+                CompileGenerationAfter: "14",
+                Diagnostics: new IpcCompileSummary.DiagnosticsEvidence(
+                    ErrorCount: 1,
+                    WarningCount: 0,
+                    PrimaryDiagnostic: primaryDiagnostic)),
+            DomainReload: new IpcCompileSummary.DomainReloadEvidence(
+                ReloadRequired: false,
+                ReloadObserved: false,
+                GenerationBefore: "7",
+                GenerationAfter: "7",
+                Settled: true),
+            Lifecycle: new IpcCompileSummary.LifecycleEvidence(
+                ServerVersion: "0.5.0",
+                UnityVersion: "6000.1.4f1",
+                EditorMode: "batchmode",
+                LifecycleState: "compileFailed",
+                BlockingReason: "compileFailed",
+                CompileState: "failed",
+                CompileGeneration: "14",
+                DomainReloadGeneration: "7",
+                CanAcceptExecutionRequests: false,
+                ObservedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02+00:00"),
+                ActionRequired: "fixCompileErrors",
+                PrimaryDiagnostic: primaryDiagnostic));
     }
 }

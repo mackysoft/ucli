@@ -2,9 +2,9 @@ namespace MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 
 internal static class TestRunErrorCodeDescriptors
 {
-    public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
+    public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: TestRunErrorCodes.UnityTestExecutionFailed,
             category: "testRun",
             summary: "Unity test process execution failed.",
@@ -27,7 +27,7 @@ internal static class TestRunErrorCodeDescriptors
                 TestRunErrorCodes.TestResultsXmlReadFailed,
             ]),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: TestRunErrorCodes.UnityTestExecutionTimeout,
             category: "testRun",
             summary: "Unity test execution exceeded its runtime budget.",
@@ -50,7 +50,7 @@ internal static class TestRunErrorCodeDescriptors
                 IpcTransportErrorCodes.IpcTimeout,
             ]),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: TestRunErrorCodes.TestResultsXmlInvalid,
             category: "testRun",
             summary: "Unity test results XML is invalid.",
@@ -69,7 +69,7 @@ internal static class TestRunErrorCodeDescriptors
             ],
             relatedCodes: [TestRunErrorCodes.TestResultsXmlReadFailed]),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: TestRunErrorCodes.TestResultsXmlReadFailed,
             category: "testRun",
             summary: "Reading Unity test results XML failed.",
@@ -92,7 +92,7 @@ internal static class TestRunErrorCodeDescriptors
                 TestRunErrorCodes.TestResultsXmlInvalid,
             ]),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: TestRunErrorCodes.TestResultsOutputWriteFailed,
             category: "testRun",
             summary: "Writing normalized test result artifacts failed.",

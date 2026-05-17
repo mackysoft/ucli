@@ -3,40 +3,40 @@ using System.Text.Json.Serialization;
 
 namespace MackySoft.Ucli.Contracts;
 
-/// <summary> Converts <see cref="UcliErrorCode" /> values as JSON strings. </summary>
-public sealed class UcliErrorCodeJsonConverter : JsonConverter<UcliErrorCode>
+/// <summary> Converts <see cref="UcliCode" /> values as JSON strings. </summary>
+public sealed class UcliCodeJsonConverter : JsonConverter<UcliCode>
 {
     /// <inheritdoc />
-    public override UcliErrorCode Read (
+    public override UcliCode Read (
         ref Utf8JsonReader reader,
         Type typeToConvert,
         JsonSerializerOptions options)
     {
         if (reader.TokenType != JsonTokenType.String)
         {
-            throw new JsonException("Expected a JSON string for an error code.");
+            throw new JsonException("Expected a JSON string for a code value.");
         }
 
         var value = reader.GetString();
         try
         {
-            return new UcliErrorCode(value!);
+            return new UcliCode(value!);
         }
         catch (ArgumentException exception)
         {
-            throw new JsonException("JSON string for an error code is invalid.", exception);
+            throw new JsonException("JSON string for a code value is invalid.", exception);
         }
     }
 
     /// <inheritdoc />
     public override void Write (
         Utf8JsonWriter writer,
-        UcliErrorCode value,
+        UcliCode value,
         JsonSerializerOptions options)
     {
         if (!value.IsValid)
         {
-            throw new JsonException("Error code value is invalid.");
+            throw new JsonException("Code value is invalid.");
         }
 
         writer.WriteStringValue(value.Value);

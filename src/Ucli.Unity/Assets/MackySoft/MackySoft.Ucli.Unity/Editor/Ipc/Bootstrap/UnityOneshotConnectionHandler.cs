@@ -62,7 +62,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             return false;
         }
 
-        private static bool IsPreDispatchErrorCode (UcliErrorCode errorCode)
+        private static bool IsPreDispatchErrorCode (UcliCode errorCode)
         {
             return errorCode == IpcSessionErrorCodes.SessionTokenRequired
                 || errorCode == IpcSessionErrorCodes.SessionTokenInvalid

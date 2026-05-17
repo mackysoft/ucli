@@ -195,6 +195,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 var startupProbeFailure = await WaitUntilReachableAsync(
                         unityProject,
                         sessionToken,
+                        dispatchRequest,
                         ResolveStartupProbeFailFast(dispatchRequest),
                         deadline,
                         processHandle,
@@ -217,7 +218,8 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                             UnityIpcRequestFactory.Create(
                                 sessionToken,
                                 dispatchRequest.Method,
-                                dispatchRequest.Payload),
+                                dispatchRequest.Payload,
+                                requestTimeout),
                             requestTimeout,
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -393,12 +395,15 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     private async ValueTask<UnityRequestFailure?> WaitUntilReachableAsync (
         ResolvedUnityProjectContext unityProject,
         string sessionToken,
+        UnityIpcDispatchRequest dispatchRequest,
         bool failFast,
         ExecutionDeadline deadline,
         IUnityBatchmodeProcessHandle processHandle,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(dispatchRequest);
+
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -454,6 +459,11 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
                 var readinessDecision = UnityDaemonReadinessPolicy.Evaluate(payload!, failFast);
                 if (readinessDecision.IsReady)
+                {
+                    return null;
+                }
+
+                if (IsStartupLifecycleDispatchAllowed(dispatchRequest, payload!))
                 {
                     return null;
                 }
@@ -733,6 +743,18 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             IpcMethodNames.Ping => TryReadFailFast<IpcPingRequest>(dispatchRequest.Payload, static request => request.FailFast),
             _ => false,
         };
+    }
+
+    private static bool IsStartupLifecycleDispatchAllowed (
+        UnityIpcDispatchRequest dispatchRequest,
+        IpcPingResponse pingResponse)
+    {
+        ArgumentNullException.ThrowIfNull(dispatchRequest);
+        ArgumentNullException.ThrowIfNull(pingResponse);
+
+        return dispatchRequest.AllowedStartupLifecycleStates.Contains(
+            pingResponse.LifecycleState,
+            StringComparer.Ordinal);
     }
 
     private static bool TryReadFailFast<TRequest> (

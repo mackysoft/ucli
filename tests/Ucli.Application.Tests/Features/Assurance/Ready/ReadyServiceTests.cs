@@ -1,4 +1,5 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Assurance;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
@@ -155,8 +156,8 @@ public sealed class ReadyServiceTests
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<ReadyExecutionOutput>(result.Output);
         Assert.Equal(ReadyVerdictValues.Pass, output.Verdict);
-        Assert.Equal(ReadyExecutionModeCodec.NotApplicable, output.ResolvedMode);
-        Assert.Equal(ReadySessionKindValues.ArtifactOnly, output.SessionKind);
+        Assert.Equal(AssuranceExecutionModeCodec.NotApplicable, output.ResolvedMode);
+        Assert.Equal(AssuranceSessionKindValues.ArtifactOnly, output.SessionKind);
         Assert.Null(output.Lifecycle);
         Assert.NotNull(output.ReadIndex);
         Assert.Equal(ReadIndexModeValues.AllowStale, output.ReadIndex.Mode);

@@ -1,12 +1,12 @@
 namespace MackySoft.Ucli.Contracts;
 
 /// <summary> Provides the bundled catalog descriptors for error codes owned by <c>Ucli.Contracts</c>. </summary>
-public static class UcliKnownErrorCodeDescriptors
+public static class UcliKnownErrorDescriptors
 {
     /// <summary> Gets bundled descriptors sorted by error code value. </summary>
-    public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } = CreateAll();
+    public static IReadOnlyList<UcliErrorDescriptor> All { get; } = CreateAll();
 
-    private static UcliErrorCodeDescriptor[] CreateAll ()
+    private static UcliErrorDescriptor[] CreateAll ()
     {
         return UcliCoreErrorCodeDescriptors.All
             .Concat(DaemonErrorCodeDescriptors.All)

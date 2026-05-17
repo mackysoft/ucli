@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 /// <param name="Message"> The human-readable authorization detail. </param>
 internal sealed record OperationAuthorizationResult (
     bool IsAllowed,
-    UcliErrorCode? ErrorCode,
+    UcliCode? ErrorCode,
     string Message)
 {
     /// <summary> Creates an allowed authorization result. </summary>
@@ -25,7 +25,7 @@ internal sealed record OperationAuthorizationResult (
     /// <returns> The denied authorization result. </returns>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="errorCode" /> is <see langword="null" />, empty, or whitespace. </exception>
     public static OperationAuthorizationResult Denied (
-        UcliErrorCode errorCode,
+        UcliCode errorCode,
         string message)
     {
         if (!errorCode.IsValid)

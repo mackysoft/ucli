@@ -1,7 +1,7 @@
-namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
+namespace MackySoft.Ucli.Application.Features.Assurance;
 
-/// <summary> Converts Unity execution mode and target values to ready payload literals. </summary>
-internal static class ReadyExecutionModeCodec
+/// <summary> Converts Unity execution mode and target values to assurance payload literals. </summary>
+internal static class AssuranceExecutionModeCodec
 {
     public const string Auto = "auto";
 
@@ -39,8 +39,8 @@ internal static class ReadyExecutionModeCodec
     {
         return target switch
         {
-            UnityExecutionTarget.Daemon => ReadySessionKindValues.Daemon,
-            UnityExecutionTarget.Oneshot => ReadySessionKindValues.TransientProbe,
+            UnityExecutionTarget.Daemon => AssuranceSessionKindValues.Daemon,
+            UnityExecutionTarget.Oneshot => AssuranceSessionKindValues.TransientProbe,
             _ => throw new ArgumentOutOfRangeException(nameof(target), target, "Unsupported execution target."),
         };
     }

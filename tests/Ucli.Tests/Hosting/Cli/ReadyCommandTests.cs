@@ -1,4 +1,5 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Assurance;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -255,7 +256,7 @@ public sealed class ReadyCommandTests
                     Required: true,
                     VerifierRef: "ready.readIndex",
                     Statement: "Unity is ready for readIndex.",
-                    Subject: CreateSubject("readIndex", "auto", ReadyExecutionModeCodec.NotApplicable, ReadySessionKindValues.ArtifactOnly),
+                    Subject: CreateSubject("readIndex", "auto", AssuranceExecutionModeCodec.NotApplicable, AssuranceSessionKindValues.ArtifactOnly),
                     Validity: new ReadyClaimValidityOutput(
                         ReadyValidityKindValues.ProbeOnly,
                         GuaranteesReusableSession: false),
@@ -271,8 +272,8 @@ public sealed class ReadyCommandTests
             ResidualRisks: [],
             Target: "readIndex",
             RequestedMode: "auto",
-            ResolvedMode: ReadyExecutionModeCodec.NotApplicable,
-            SessionKind: ReadySessionKindValues.ArtifactOnly,
+            ResolvedMode: AssuranceExecutionModeCodec.NotApplicable,
+            SessionKind: AssuranceSessionKindValues.ArtifactOnly,
             TimeoutMilliseconds: 10000,
             Lifecycle: null,
             ReadIndex: readIndex);
