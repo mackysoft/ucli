@@ -17,7 +17,9 @@
         "description": "No operation-specific result is emitted."
       },
       "assurance": {
-        "sideEffects": [],
+        "sideEffects": [
+          "observesUnityState"
+        ],
         "mayDirty": false,
         "mayPersist": false,
         "touchedKinds": [],

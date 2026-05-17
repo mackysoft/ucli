@@ -65,7 +65,7 @@ internal static class OperationCatalogTestFixtures
             Inputs = Array.Empty<UcliOperationInputContract>(),
             ResultContract = UcliOperationResultContract.NoResult("No operation-specific result is emitted."),
             Assurance = new UcliOperationAssuranceContract(
-                sideEffects: Array.Empty<string>(),
+                sideEffects: [UcliOperationSideEffectValues.SceneSave],
                 mayDirty: false,
                 mayPersist: true,
                 touchedKinds: Array.Empty<string>(),
@@ -82,7 +82,7 @@ internal static class OperationCatalogTestFixtures
     private static UcliOperationAssuranceContract CreateSafeQueryAssurance ()
     {
         return new UcliOperationAssuranceContract(
-            sideEffects: Array.Empty<string>(),
+            sideEffects: [UcliOperationSideEffectValues.ObservesUnityState],
             mayDirty: false,
             mayPersist: false,
             touchedKinds: Array.Empty<string>(),

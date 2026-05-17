@@ -228,9 +228,12 @@ public sealed class OpsDescribeResultMapperTests
         string policy)
     {
         var isMutation = string.Equals(kind, "mutation", StringComparison.Ordinal);
+        var isDangerousPolicy = string.Equals(policy, "dangerous", StringComparison.Ordinal);
         var isRiskyPolicy = !string.Equals(policy, "safe", StringComparison.Ordinal);
         return new UcliOperationAssuranceContract(
-            sideEffects: isMutation ? [UcliOperationSideEffect.WritesAsset] : Array.Empty<UcliOperationSideEffect>(),
+            sideEffects: isDangerousPolicy
+                ? [UcliOperationSideEffect.AssetSave, UcliOperationSideEffect.ArbitrarySourceExecution]
+                : isMutation ? [UcliOperationSideEffect.AssetSave] : [UcliOperationSideEffect.ObservesUnityState],
             mayDirty: isMutation,
             mayPersist: isMutation,
             touchedKinds: isMutation ? [IpcExecuteTouchedResourceKindNames.Asset] : Array.Empty<string>(),

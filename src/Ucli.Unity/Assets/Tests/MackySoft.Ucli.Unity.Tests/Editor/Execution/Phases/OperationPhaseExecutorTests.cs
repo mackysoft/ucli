@@ -1068,7 +1068,6 @@ namespace MackySoft.Ucli.Unity.Tests
                     new UcliOperationMetadata(
                         operationName: operations[i].Name,
                         kind: operations[i].Operation.Metadata.Kind,
-                        policy: operations[i].Operation.Metadata.Policy,
                         describeContract: operations[i].Operation.Metadata.DescribeContract,
                         argsType: operations[i].Operation.Metadata.ArgsType,
                         resultType: operations[i].Operation.Metadata.ResultType,
@@ -1093,7 +1092,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static UcliOperationAssuranceContract CreateValidationOnlyAssurance (OperationPolicy policy = OperationPolicy.Safe)
         {
             return new UcliOperationAssuranceContract(
-                sideEffects: Array.Empty<UcliOperationSideEffect>(),
+                sideEffects: CreateSideEffects(policy),
                 mayDirty: false,
                 mayPersist: false,
                 touchedKinds: Array.Empty<string>(),
@@ -1106,6 +1105,17 @@ namespace MackySoft.Ucli.Unity.Tests
                 dangerousNotes: policy == OperationPolicy.Safe
                     ? Array.Empty<string>()
                     : new[] { "Test fixture uses a non-safe policy to exercise policy gating." });
+        }
+
+        private static IReadOnlyList<UcliOperationSideEffect> CreateSideEffects (OperationPolicy policy)
+        {
+            return policy switch
+            {
+                OperationPolicy.Safe => Array.Empty<UcliOperationSideEffect>(),
+                OperationPolicy.Advanced => new[] { UcliOperationSideEffect.EditorStateChange },
+                OperationPolicy.Dangerous => new[] { UcliOperationSideEffect.ExternalProcess },
+                _ => throw new ArgumentOutOfRangeException(nameof(policy), policy, "Unsupported operation policy."),
+            };
         }
 
         private static NormalizedExecuteRequest CreateRequest (
@@ -1402,7 +1412,6 @@ namespace MackySoft.Ucli.Unity.Tests
             public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<RequiredTypedArgs, UcliNoResult>(
                 operationName: "ucli.tests.required",
                 kind: UcliOperationKind.Query,
-                policy: OperationPolicy.Safe,
                 description: "Test operation requiring one typed arg.",
                 assurance: CreateValidationOnlyAssurance());
 
@@ -1456,7 +1465,6 @@ namespace MackySoft.Ucli.Unity.Tests
             public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AliasReferenceTypedArgs, UcliNoResult>(
                 operationName: "ucli.tests.alias-reference",
                 kind: UcliOperationKind.Query,
-                policy: OperationPolicy.Safe,
                 description: "Test operation accepting one object reference.",
                 assurance: CreateValidationOnlyAssurance());
 
@@ -1516,8 +1524,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 this.callResult = callResult;
                 Metadata = new UcliOperationMetadata(
                     operationName: "ucli.tests.recording",
-                    kind: UcliOperationKind.Query,
-                    policy: policy,
+                    kind: policy == OperationPolicy.Safe ? UcliOperationKind.Query : UcliOperationKind.Command,
                     describeContract: CreateDescribeContract("ucli.tests.recording", policy));
             }
 
@@ -1563,7 +1570,6 @@ namespace MackySoft.Ucli.Unity.Tests
             public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
                 operationName: "ucli.tests.stateful",
                 kind: UcliOperationKind.Query,
-                policy: OperationPolicy.Safe,
                 describeContract: CreateDescribeContract("ucli.tests.stateful"),
                 argsType: typeof(UcliEmptyArgs),
                 resultType: typeof(UcliNoResult),
@@ -1613,7 +1619,6 @@ namespace MackySoft.Ucli.Unity.Tests
             public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
                 operationName: "ucli.tests.replay-failing",
                 kind: UcliOperationKind.Mutation,
-                policy: OperationPolicy.Advanced,
                 describeContract: CreateDescribeContract("ucli.tests.replay-failing", OperationPolicy.Advanced),
                 argsType: typeof(UcliEmptyArgs),
                 resultType: typeof(UcliNoResult),
@@ -1666,7 +1671,6 @@ namespace MackySoft.Ucli.Unity.Tests
             public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
                 operationName: "ucli.tests.context",
                 kind: UcliOperationKind.Query,
-                policy: OperationPolicy.Safe,
                 describeContract: CreateDescribeContract("ucli.tests.context"));
 
             public OperationExecutionContext? ValidateContext { get; private set; }

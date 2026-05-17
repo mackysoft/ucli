@@ -148,6 +148,19 @@ public sealed class IndexCatalogContractValidatorTests
         var entry = CreateValidOpsEntry();
         entry = entry with
         {
+            Policy = OperationPolicyValues.Dangerous,
+            Assurance = new UcliOperationAssuranceContract(
+                sideEffects: [UcliOperationSideEffectValues.ArbitrarySourceExecution],
+                mayDirty: false,
+                mayPersist: false,
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanModeValues.ValidationOnly,
+                planSemantics: "Validate code without applying mutation.",
+                callSemantics: "Execute caller-provided source code.",
+                touchedContract: "Returns no touched resources.",
+                readPostconditionContract: "Source execution may stale read surfaces.",
+                failureSemantics: "Execution failure may leave indeterminate process state.",
+                dangerousNotes: ["Executes caller-provided source code."]),
             CodeContract = new UcliOperationCodeContract(
                 "csharp",
                 new UcliCodeEntryPointContract(

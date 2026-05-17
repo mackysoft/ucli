@@ -25,10 +25,18 @@
       },
       "assurance": {
         "sideEffects": [
-          "writesAsset",
-          "writesScene",
-          "writesPrefab",
-          "writesProjectSettings"
+          "sceneContentMutation",
+          "prefabContentMutation",
+          "assetContentMutation",
+          "projectSettingsMutation",
+          "sceneSave",
+          "prefabSave",
+          "assetSave",
+          "projectSave",
+          "externalProcess",
+          "filesystemWrite",
+          "arbitrarySourceExecution",
+          "destructiveScope"
         ],
         "mayDirty": true,
         "mayPersist": true,

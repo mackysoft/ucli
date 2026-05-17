@@ -275,6 +275,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
     public void TryValidatePublicRawOpDescribeContract_WhenCodeContractIsValid_ReturnsTrue ()
     {
         var describe = CreateValidDescribeContract();
+        describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.ArbitrarySourceExecution];
         describe.CodeContract = CreateValidCodeContract();
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
@@ -371,6 +372,24 @@ public sealed class UcliOperationDescribeContractValidatorTests
         Assert.Equal("Test contract has invalid assurance metadata.", errorMessage);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpDescribeContract_WhenQueryObservesUnityState_ReturnsTrue ()
+    {
+        var describe = CreateValidDescribeContract();
+        describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.ObservesUnityState];
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
+            describe,
+            operationKind: "query",
+            operationPolicy: "safe",
+            ownerName: "Test contract",
+            out var errorMessage);
+
+        Assert.True(isValid, errorMessage);
+        Assert.Empty(errorMessage);
+    }
+
     [Theory]
     [Trait("Size", "Small")]
     [InlineData("mayDirty")]
@@ -389,7 +408,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
                 describe.Assurance!.MayPersist = true;
                 break;
             case "sideEffects":
-                describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.WritesAsset];
+                describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.SceneContentMutation];
                 break;
         }
 
@@ -412,6 +431,9 @@ public sealed class UcliOperationDescribeContractValidatorTests
         string policy)
     {
         var describe = CreateValidDescribeContract();
+        describe.Assurance!.SideEffects = policy == "advanced"
+            ? [UcliOperationSideEffectValues.EditorStateChange]
+            : [UcliOperationSideEffectValues.ExternalProcess];
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
             describe,
@@ -422,6 +444,38 @@ public sealed class UcliOperationDescribeContractValidatorTests
 
         Assert.False(isValid);
         Assert.Equal("Test contract must declare dangerousNotes for advanced or dangerous policy.", errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpDescribeContract_WhenDeclaredPolicyDoesNotMatchDerivedPolicy_ReturnsFalse ()
+    {
+        var describe = CreateValidDescribeContract();
+        describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.EditorStateChange];
+        describe.Assurance.DangerousNotes = ["Editor state changes require advanced policy."];
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
+            describe,
+            operationKind: "command",
+            operationPolicy: "safe",
+            ownerName: "Test contract",
+            out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Test contract policy 'safe' does not match derived policy 'advanced'.", errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpDescribeContract_WhenCodeContractLacksArbitrarySourceExecution_ReturnsFalse ()
+    {
+        var describe = CreateValidDescribeContract();
+        describe.CodeContract = CreateValidCodeContract();
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Test contract has invalid policy derivation metadata. Operations with codeContract must declare sideEffects value 'arbitrarySourceExecution'.", errorMessage);
     }
 
     [Fact]
@@ -442,6 +496,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
     public void TryValidatePublicRawOpDescribeContract_WhenCodeContractParameterDescriptionIsMissing_ReturnsFalse ()
     {
         var describe = CreateValidDescribeContract();
+        describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.ArbitrarySourceExecution];
         describe.CodeContract = new UcliOperationCodeContract(
             "csharp",
             new UcliCodeEntryPointContract(
@@ -490,6 +545,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
         string? matchRule)
     {
         var describe = CreateValidDescribeContract();
+        describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.ArbitrarySourceExecution];
         describe.CodeContract = CreateValidCodeContract();
         describe.CodeContract.EntryPoint!.MatchRule = matchRule;
 
@@ -504,6 +560,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
     public void TryValidatePublicRawOpDescribeContract_WhenCodeContractLanguageIsUnsupported_ReturnsFalse ()
     {
         var describe = CreateValidDescribeContract();
+        describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.ArbitrarySourceExecution];
         describe.CodeContract = CreateValidCodeContract();
         describe.CodeContract.Language = "python";
 
@@ -518,6 +575,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
     public void TryValidatePublicRawOpDescribeContract_WhenCodeContractSourceFormIsUnsupported_ReturnsFalse ()
     {
         var describe = CreateValidDescribeContract();
+        describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.ArbitrarySourceExecution];
         describe.CodeContract = CreateValidCodeContract();
         describe.CodeContract.SourceForms =
         [

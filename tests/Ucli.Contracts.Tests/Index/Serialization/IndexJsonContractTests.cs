@@ -756,7 +756,8 @@ public sealed class IndexJsonContractTests
                 Assurance = new UcliOperationAssuranceContract(
                     sideEffects:
                     [
-                        UcliOperationSideEffectValues.WritesAsset,
+                        UcliOperationSideEffectValues.AssetContentMutation,
+                        UcliOperationSideEffectValues.ArbitrarySourceExecution,
                     ],
                     mayDirty: true,
                     mayPersist: true,
@@ -883,7 +884,8 @@ public sealed class IndexJsonContractTests
                     },
                     "assurance": {
                       "sideEffects": [
-                        "writesAsset"
+                        "assetContentMutation",
+                        "arbitrarySourceExecution"
                       ],
                       "mayDirty": true,
                       "mayPersist": true,
