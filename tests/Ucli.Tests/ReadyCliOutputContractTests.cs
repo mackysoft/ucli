@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Assurance;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
@@ -38,8 +39,8 @@ public sealed class ReadyCliOutputContractTests
 
         Assert.True(result.IsValid);
         Assert.Equal("readIndex", payload.GetProperty("target").GetString());
-        Assert.Equal(ReadyExecutionModeCodec.NotApplicable, payload.GetProperty("resolvedMode").GetString());
-        Assert.Equal(ReadySessionKindValues.ArtifactOnly, payload.GetProperty("sessionKind").GetString());
+        Assert.Equal(AssuranceExecutionModeCodec.NotApplicable, payload.GetProperty("resolvedMode").GetString());
+        Assert.Equal(AssuranceSessionKindValues.ArtifactOnly, payload.GetProperty("sessionKind").GetString());
         Assert.Equal(JsonValueKind.Null, payload.GetProperty("lifecycle").ValueKind);
         Assert.Equal(JsonValueKind.Object, payload.GetProperty("readIndex").ValueKind);
         Assert.Equal(6, payload.GetProperty("readIndex").GetProperty("artifacts").GetArrayLength());

@@ -70,10 +70,10 @@ internal sealed class ReadyAssuranceSemanticInvariantRule : IAssuranceSemanticIn
     {
         return payload.TryGetProperty("requestedMode", out var requestedModeElement)
             && requestedModeElement.ValueKind == JsonValueKind.String
-            && string.Equals(requestedModeElement.GetString(), ReadyExecutionModeCodec.Auto, StringComparison.Ordinal)
+            && string.Equals(requestedModeElement.GetString(), AssuranceExecutionModeCodec.Auto, StringComparison.Ordinal)
             && payload.TryGetProperty("resolvedMode", out var resolvedModeElement)
             && resolvedModeElement.ValueKind == JsonValueKind.String
-            && string.Equals(resolvedModeElement.GetString(), ReadyExecutionModeCodec.Oneshot, StringComparison.Ordinal);
+            && string.Equals(resolvedModeElement.GetString(), AssuranceExecutionModeCodec.Oneshot, StringComparison.Ordinal);
     }
 
     private static bool IsReadyPayload (JsonElement payload)
