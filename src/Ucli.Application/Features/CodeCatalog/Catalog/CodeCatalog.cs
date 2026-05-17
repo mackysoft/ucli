@@ -87,7 +87,7 @@ internal sealed class CodeCatalog : ICodeCatalog
             throw new InvalidOperationException($"Code catalog contributor '{contributor.GetType().FullName}' returned a null descriptor.");
         }
 
-        ValidateRequiredString(descriptor.Code, descriptor.Code, nameof(descriptor.Code));
+        ValidateCodeValue(descriptor.Code);
         if (!CodeCatalogKindValues.IsSupported(descriptor.Kind))
         {
             throw new InvalidOperationException($"Code catalog descriptor '{descriptor.Code}' has unsupported kind '{descriptor.Kind}'.");
@@ -161,6 +161,14 @@ internal sealed class CodeCatalog : ICodeCatalog
         if (string.IsNullOrWhiteSpace(value))
         {
             throw new InvalidOperationException($"Code catalog descriptor '{code}' has empty {propertyName}.");
+        }
+    }
+
+    private static void ValidateCodeValue (string? code)
+    {
+        if (!UcliCodeValue.IsValidValue(code))
+        {
+            throw new InvalidOperationException($"Code catalog descriptor code must be an uppercase machine token up to {UcliCodeValue.MaximumLength} characters using letters, digits, underscores, and optional dot-separated segments.");
         }
     }
 

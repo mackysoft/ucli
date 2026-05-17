@@ -5,14 +5,6 @@ namespace MackySoft.Ucli.Hosting.Cli.Codes;
 /// <summary> Parses public CLI code references before projecting them into catalog payloads. </summary>
 internal static class CodeCliArgumentParser
 {
-    private const int MaximumCodeLength = 128;
-
-    private enum TokenCharacterSet
-    {
-        Code,
-        Kind,
-    }
-
     /// <summary> Tries to parse a CLI-safe code reference from <c>CODE</c> or <c>KIND:CODE</c>. </summary>
     /// <param name="value"> The raw command-line argument. </param>
     /// <param name="reference"> The parsed code reference when successful. </param>
@@ -66,10 +58,10 @@ internal static class CodeCliArgumentParser
             return false;
         }
 
-        if (!IsMachineToken(code))
+        if (!UcliCodeValue.IsValidValue(code))
         {
             reference = null!;
-            errorMessage = "Code must be an uppercase machine token up to 128 characters using letters, digits, underscores, and optional dot-separated segments.";
+            errorMessage = $"Code must be an uppercase machine token up to {UcliCodeValue.MaximumLength} characters using letters, digits, underscores, and optional dot-separated segments.";
             return false;
         }
 
@@ -78,33 +70,15 @@ internal static class CodeCliArgumentParser
         return true;
     }
 
-    private static bool IsMachineToken (string value)
-    {
-        return IsSegmentedToken(value, MaximumCodeLength, TokenCharacterSet.Code);
-    }
-
     private static bool IsKindToken (string value)
     {
-        return IsSegmentedToken(value, int.MaxValue, TokenCharacterSet.Kind);
-    }
-
-    private static bool IsSegmentedToken (
-        string value,
-        int maximumLength,
-        TokenCharacterSet characterSet)
-    {
         var segmentStart = true;
-        if (value.Length > maximumLength)
-        {
-            return false;
-        }
-
         for (var i = 0; i < value.Length; i++)
         {
             var character = value[i];
             if (segmentStart)
             {
-                if (!IsSegmentStart(character, characterSet))
+                if (!IsLowercaseAsciiLetter(character))
                 {
                     return false;
                 }
@@ -119,7 +93,7 @@ internal static class CodeCliArgumentParser
                 continue;
             }
 
-            if (!IsSegmentBody(character, characterSet))
+            if (!IsLowercaseAsciiLetter(character) && !IsAsciiDigit(character) && character != '-' && character != '_')
             {
                 return false;
             }
@@ -128,38 +102,9 @@ internal static class CodeCliArgumentParser
         return !segmentStart;
     }
 
-    private static bool IsSegmentStart (
-        char character,
-        TokenCharacterSet characterSet)
-    {
-        return characterSet switch
-        {
-            TokenCharacterSet.Code => IsUppercaseAsciiLetter(character),
-            TokenCharacterSet.Kind => IsLowercaseAsciiLetter(character),
-            _ => throw new ArgumentOutOfRangeException(nameof(characterSet), characterSet, "Unknown token character set."),
-        };
-    }
-
-    private static bool IsSegmentBody (
-        char character,
-        TokenCharacterSet characterSet)
-    {
-        return characterSet switch
-        {
-            TokenCharacterSet.Code => IsUppercaseAsciiLetter(character) || IsAsciiDigit(character) || character == '_',
-            TokenCharacterSet.Kind => IsLowercaseAsciiLetter(character) || IsAsciiDigit(character) || character == '-' || character == '_',
-            _ => throw new ArgumentOutOfRangeException(nameof(characterSet), characterSet, "Unknown token character set."),
-        };
-    }
-
     private static bool IsLowercaseAsciiLetter (char character)
     {
         return character >= 'a' && character <= 'z';
-    }
-
-    private static bool IsUppercaseAsciiLetter (char character)
-    {
-        return character >= 'A' && character <= 'Z';
     }
 
     private static bool IsAsciiDigit (char character)

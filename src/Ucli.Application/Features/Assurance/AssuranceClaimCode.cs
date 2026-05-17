@@ -1,16 +1,16 @@
 namespace MackySoft.Ucli.Application.Features.Assurance;
 
-/// <summary> Represents one non-empty machine-readable assurance claim code. </summary>
+/// <summary> Represents one assurance claim code from the shared uCLI open code set. </summary>
 internal readonly record struct AssuranceClaimCode
 {
     /// <summary> Initializes a new instance of the <see cref="AssuranceClaimCode" /> struct. </summary>
     /// <param name="value"> The raw claim code value. </param>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="value" /> is null, empty, or whitespace. </exception>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="value" /> is not a valid uCLI code value. </exception>
     public AssuranceClaimCode (string value)
     {
         if (!IsValidValue(value))
         {
-            throw new ArgumentException("Assurance claim code must not be null, empty, or whitespace.", nameof(value));
+            throw new ArgumentException("Assurance claim code must be an uppercase machine token up to 128 characters using letters, digits, underscores, and optional dot-separated segments.", nameof(value));
         }
 
         Value = value;
@@ -45,7 +45,7 @@ internal readonly record struct AssuranceClaimCode
     /// <returns> <see langword="true" /> when the value is valid; otherwise <see langword="false" />. </returns>
     public static bool IsValidValue (string? value)
     {
-        return !string.IsNullOrWhiteSpace(value);
+        return UcliCodeValue.IsValidValue(value);
     }
 
     /// <summary> Determines whether this claim code equals the specified raw value. </summary>

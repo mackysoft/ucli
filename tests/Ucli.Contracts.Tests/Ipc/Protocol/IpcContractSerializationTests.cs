@@ -104,9 +104,22 @@ public sealed class IpcContractSerializationTests
 
     [Theory]
     [Trait("Size", "Small")]
+    [InlineData("lowercase_code")]
+    [InlineData("CODE-WITH-HYPHEN")]
+    [InlineData("1_CODE")]
+    [InlineData("CODE.")]
+    public void UcliErrorCode_RejectsInvalidMachineToken (string value)
+    {
+        Assert.ThrowsAny<ArgumentException>(() => new UcliErrorCode(value));
+        Assert.False(UcliErrorCode.TryCreate(value, out _));
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
     [InlineData("""{"protocolVersion":1,"requestId":"req","status":"error","payload":{},"errors":[{"code":null,"message":"bad","opId":null}]}""")]
     [InlineData("""{"protocolVersion":1,"requestId":"req","status":"error","payload":{},"errors":[{"code":123,"message":"bad","opId":null}]}""")]
     [InlineData("""{"protocolVersion":1,"requestId":"req","status":"error","payload":{},"errors":[{"code":"","message":"bad","opId":null}]}""")]
+    [InlineData("""{"protocolVersion":1,"requestId":"req","status":"error","payload":{},"errors":[{"code":"lowercase_code","message":"bad","opId":null}]}""")]
     public void IpcResponse_WhenErrorCodeJsonIsInvalid_Throws (string json)
     {
         Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<IpcResponse>(json, SerializerOptions));

@@ -336,6 +336,26 @@ public sealed class CodeCatalogTests
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.Error.Code);
     }
 
+    [Theory]
+    [InlineData("lowercase_code")]
+    [InlineData("CODE-WITH-HYPHEN")]
+    [InlineData("1_CODE")]
+    [InlineData("CODE.")]
+    [Trait("Size", "Small")]
+    public void Describe_WithInvalidCodeValue_ReturnsInvalidArgument (string code)
+    {
+        var service = new CodeCatalogService(CreateCatalog());
+
+        var result = service.Describe(new CodeCatalogCodeReference(code, ExpectedKind: null), requireKnown: false);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.Known);
+        Assert.Null(result.Descriptor);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.Error.Code);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void Constructor_WithDuplicateCode_Throws ()
@@ -349,6 +369,22 @@ public sealed class CodeCatalogTests
         Assert.Throws<InvalidOperationException>(() => new CodeCatalogModel(
             [
                 new StubContributor([descriptor, duplicateDescriptor]),
+            ]));
+    }
+
+    [Theory]
+    [InlineData("lowercase_code")]
+    [InlineData("CODE-WITH-HYPHEN")]
+    [InlineData("1_CODE")]
+    [InlineData("CODE.")]
+    [Trait("Size", "Small")]
+    public void Constructor_WithInvalidCodeValue_Throws (string code)
+    {
+        var descriptor = CreateDescriptor(code);
+
+        Assert.Throws<InvalidOperationException>(() => new CodeCatalogModel(
+            [
+                new StubContributor([descriptor]),
             ]));
     }
 

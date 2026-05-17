@@ -96,6 +96,14 @@ internal sealed class CodeCatalogService : ICodeCatalogService
                     UcliCoreErrorCodes.InvalidArgument));
         }
 
+        if (!UcliCodeValue.IsValidValue(reference.Code))
+        {
+            return CodeCatalogDescribeResult.Failure(
+                ExecutionError.InvalidArgument(
+                    $"Code must be an uppercase machine token up to {UcliCodeValue.MaximumLength} characters using letters, digits, underscores, and optional dot-separated segments.",
+                    UcliCoreErrorCodes.InvalidArgument));
+        }
+
         if (reference.ExpectedKind is not null && string.IsNullOrWhiteSpace(reference.ExpectedKind))
         {
             return CodeCatalogDescribeResult.Failure(

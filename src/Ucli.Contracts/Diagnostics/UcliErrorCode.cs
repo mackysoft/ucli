@@ -2,19 +2,19 @@ using System.Text.Json.Serialization;
 
 namespace MackySoft.Ucli.Contracts;
 
-/// <summary> Represents a non-empty machine-readable error code from an open code set. </summary>
+/// <summary> Represents a machine-readable error code from the shared uCLI open code set. </summary>
 /// <remarks> Unknown values are preserved so new codes can be introduced without changing closed enum contracts. </remarks>
 [JsonConverter(typeof(UcliErrorCodeJsonConverter))]
 public readonly record struct UcliErrorCode
 {
     /// <summary> Initializes a new instance of the <see cref="UcliErrorCode" /> struct. </summary>
     /// <param name="value"> The raw error code value. </param>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="value" /> is null, empty, or whitespace. </exception>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="value" /> is not a valid uCLI code value. </exception>
     public UcliErrorCode (string value)
     {
         if (!IsValidValue(value))
         {
-            throw new ArgumentException("Error code must not be null, empty, or whitespace.", nameof(value));
+            throw new ArgumentException("Error code must be an uppercase machine token up to 128 characters using letters, digits, underscores, and optional dot-separated segments.", nameof(value));
         }
 
         Value = value;
@@ -49,7 +49,7 @@ public readonly record struct UcliErrorCode
     /// <returns> <see langword="true" /> when the value is valid; otherwise <see langword="false" />. </returns>
     public static bool IsValidValue (string? value)
     {
-        return !string.IsNullOrWhiteSpace(value);
+        return UcliCodeValue.IsValidValue(value);
     }
 
     /// <summary> Converts the error code to its raw string value. </summary>

@@ -16,9 +16,7 @@ public sealed class AssuranceClaimCodeTests
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData(" ")]
+    [MemberData(nameof(InvalidCodeValues))]
     [Trait("Size", "Small")]
     public void TryCreate_WithInvalidValue_ReturnsFalse (string? value)
     {
@@ -27,4 +25,24 @@ public sealed class AssuranceClaimCodeTests
         Assert.False(result);
         Assert.False(code.IsValid);
     }
+
+    [Theory]
+    [MemberData(nameof(InvalidCodeValues))]
+    [Trait("Size", "Small")]
+    public void Constructor_WithInvalidValue_Throws (string? value)
+    {
+        Assert.ThrowsAny<ArgumentException>(() => new AssuranceClaimCode(value!));
+    }
+
+    public static TheoryData<string?> InvalidCodeValues { get; } =
+    [
+        null,
+        string.Empty,
+        " ",
+        "lowercase_code",
+        "CODE-WITH-HYPHEN",
+        "1_CODE",
+        "CODE.",
+        new string('A', UcliCodeValue.MaximumLength + 1),
+    ];
 }
