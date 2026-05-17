@@ -23,6 +23,8 @@ namespace MackySoft.Ucli.Unity.Ipc
         private const string RefreshOriginAssetDatabaseRefresh = "assetDatabaseRefresh";
         private const long MaxCompileRequestBytes = 1024 * 1024;
 
+        private static readonly TimeSpan MinimumSettledObservationDuration = TimeSpan.FromMilliseconds(500);
+
         private readonly IUnityEditorReadinessGate readinessGate;
 
         private readonly IpcProjectIdentity projectIdentity;
@@ -92,7 +94,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                     readinessGate,
                     serverVersionProvider,
                     paths);
-                var summary = await recorder.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                // NOTE: Compile handling observes Unity Editor APIs across awaits, so it must remain on
+                // Unity's synchronization context instead of resuming on a thread-pool thread.
+                var summary = await recorder.ExecuteAsync(cancellationToken);
                 var response = new IpcCompileResponse(
                     RunId: compileRequest.RunId,
                     Summary: summary);
@@ -128,30 +132,20 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             try
             {
-                var compileArtifactsDirectory = CompileArtifactPaths.ResolveCompileArtifactsDirectory(projectIdentity.ProjectFingerprint);
-                if (!Directory.Exists(compileArtifactsDirectory))
+                if (TryRecoverPendingRuns(
+                    readinessGate,
+                    projectIdentity,
+                    serverVersionProvider,
+                    daemonLogger))
                 {
                     return;
                 }
 
-                FileSystemAccessBoundary.EnsureSecureDirectory(compileArtifactsDirectory);
-                foreach (var runDirectoryPath in Directory.EnumerateDirectories(compileArtifactsDirectory))
-                {
-                    try
-                    {
-                        RecoverPendingRun(
-                            runDirectoryPath,
-                            readinessGate,
-                            serverVersionProvider,
-                            daemonLogger);
-                    }
-                    catch (Exception exception)
-                    {
-                        daemonLogger.Warning(
-                            DaemonLogCategories.Ipc,
-                            $"Compile pending-run recovery skipped for '{runDirectoryPath}'. {exception.Message}");
-                    }
-                }
+                SchedulePendingRunRecovery(
+                    readinessGate,
+                    projectIdentity,
+                    serverVersionProvider,
+                    daemonLogger);
             }
             catch (Exception exception)
             {
@@ -161,7 +155,82 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private static void RecoverPendingRun (
+        private static bool TryRecoverPendingRuns (
+            IUnityEditorReadinessGate readinessGate,
+            IpcProjectIdentity projectIdentity,
+            IServerVersionProvider serverVersionProvider,
+            IDaemonLogger daemonLogger)
+        {
+            var compileArtifactsDirectory = CompileArtifactPaths.ResolveCompileArtifactsDirectory(projectIdentity.ProjectFingerprint);
+            if (!Directory.Exists(compileArtifactsDirectory))
+            {
+                return true;
+            }
+
+            var hasDeferredPendingRun = false;
+            FileSystemAccessBoundary.EnsureSecureDirectory(compileArtifactsDirectory);
+            foreach (var runDirectoryPath in Directory.EnumerateDirectories(compileArtifactsDirectory))
+            {
+                try
+                {
+                    if (RecoverPendingRun(
+                        runDirectoryPath,
+                        readinessGate,
+                        serverVersionProvider,
+                        daemonLogger) == PendingRunRecoveryStatus.Deferred)
+                    {
+                        hasDeferredPendingRun = true;
+                    }
+                }
+                catch (Exception exception)
+                {
+                    daemonLogger.Warning(
+                        DaemonLogCategories.Ipc,
+                        $"Compile pending-run recovery skipped for '{runDirectoryPath}'. {exception.Message}");
+                }
+            }
+
+            return !hasDeferredPendingRun;
+        }
+
+        private static void SchedulePendingRunRecovery (
+            IUnityEditorReadinessGate readinessGate,
+            IpcProjectIdentity projectIdentity,
+            IServerVersionProvider serverVersionProvider,
+            IDaemonLogger daemonLogger)
+        {
+            var observationWindow = new SettledLifecycleObservationWindow();
+
+            void RecoverOnSettledEditorUpdate ()
+            {
+                try
+                {
+                    var snapshot = readinessGate.CaptureSnapshot();
+                    if (!observationWindow.Observe(snapshot))
+                    {
+                        return;
+                    }
+
+                    EditorApplication.update -= RecoverOnSettledEditorUpdate;
+                    RecoverPendingRuns(
+                        readinessGate,
+                        projectIdentity,
+                        serverVersionProvider,
+                        daemonLogger);
+                }
+                catch (Exception exception)
+                {
+                    EditorApplication.update -= RecoverOnSettledEditorUpdate;
+                    daemonLogger.Warning(
+                        DaemonLogCategories.Ipc,
+                        $"Compile pending-run delayed recovery skipped. {exception.Message}");
+                }
+            }
+
+            EditorApplication.update += RecoverOnSettledEditorUpdate;
+        }
+
+        private static PendingRunRecoveryStatus RecoverPendingRun (
             string runDirectoryPath,
             IUnityEditorReadinessGate readinessGate,
             IServerVersionProvider serverVersionProvider,
@@ -171,7 +240,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             var summaryPath = Path.Combine(runDirectoryPath, UcliStoragePathNames.CompileSummaryFileName);
             if (File.Exists(summaryPath))
             {
-                return;
+                return PendingRunRecoveryStatus.Skipped;
             }
 
             var requestPath = Path.Combine(runDirectoryPath, UcliStoragePathNames.CompileRequestFileName);
@@ -179,7 +248,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                 || pendingSummary == null
                 || pendingSummary.Completed)
             {
-                return;
+                return PendingRunRecoveryStatus.Skipped;
+            }
+
+            var snapshot = readinessGate.CaptureSnapshot();
+            if (!IsLifecycleSettled(snapshot))
+            {
+                return PendingRunRecoveryStatus.Deferred;
             }
 
             var paths = new CompileArtifactPaths(
@@ -189,12 +264,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                 Path.Combine(runDirectoryPath, UcliStoragePathNames.CompileDiagnosticsFileName));
             var finalSummary = CreateFinalSummary(
                 pendingSummary,
-                readinessGate.CaptureSnapshot(),
+                snapshot,
                 serverVersionProvider,
                 DateTimeOffset.UtcNow,
                 diagnostics: new DiagnosticAccumulator());
             WriteDiagnostics(paths.DiagnosticsJsonPath, finalSummary);
             WriteJsonAtomically(paths.SummaryJsonPath, finalSummary);
+            return PendingRunRecoveryStatus.Completed;
         }
 
         private static bool TryReadPendingSummary (
@@ -444,29 +520,21 @@ namespace MackySoft.Ucli.Unity.Ipc
                 && !string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Starting, StringComparison.Ordinal);
         }
 
-        private static async Task WaitUntilCompileSettledAsync (
+        private static async Task<UnityEditorLifecycleSnapshot> WaitUntilCompileSettledAsync (
             IUnityEditorReadinessGate readinessGate,
             CancellationToken cancellationToken)
         {
-            var stableUpdates = 0;
+            var observationWindow = new SettledLifecycleObservationWindow();
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var snapshot = readinessGate.CaptureSnapshot();
-                if (IsLifecycleSettled(snapshot))
+                if (observationWindow.Observe(snapshot))
                 {
-                    stableUpdates++;
-                    if (stableUpdates >= 2)
-                    {
-                        return;
-                    }
-                }
-                else
-                {
-                    stableUpdates = 0;
+                    return snapshot;
                 }
 
-                await WaitForNextEditorUpdateAsync(cancellationToken).ConfigureAwait(false);
+                await WaitForNextEditorUpdateAsync(cancellationToken);
             }
         }
 
@@ -582,6 +650,49 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
+        private sealed class SettledLifecycleObservationWindow
+        {
+            private int stableUpdates;
+
+            private DateTimeOffset stableStartedAtUtc = DateTimeOffset.MinValue;
+
+            private string stableCompileGeneration;
+
+            private string stableDomainReloadGeneration;
+
+            public bool Observe (UnityEditorLifecycleSnapshot snapshot)
+            {
+                if (!IsLifecycleSettled(snapshot))
+                {
+                    stableUpdates = 0;
+                    stableCompileGeneration = null;
+                    stableDomainReloadGeneration = null;
+                    return false;
+                }
+
+                if (stableUpdates == 0
+                    || !string.Equals(stableCompileGeneration, snapshot.CompileGeneration, StringComparison.Ordinal)
+                    || !string.Equals(stableDomainReloadGeneration, snapshot.DomainReloadGeneration, StringComparison.Ordinal))
+                {
+                    stableUpdates = 0;
+                    stableStartedAtUtc = DateTimeOffset.UtcNow;
+                    stableCompileGeneration = snapshot.CompileGeneration;
+                    stableDomainReloadGeneration = snapshot.DomainReloadGeneration;
+                }
+
+                stableUpdates++;
+                return stableUpdates >= 2
+                    && DateTimeOffset.UtcNow - stableStartedAtUtc >= MinimumSettledObservationDuration;
+            }
+        }
+
+        private enum PendingRunRecoveryStatus
+        {
+            Skipped,
+            Completed,
+            Deferred,
+        }
+
         private sealed class CompileRunRecorder : IDisposable
         {
             private readonly string runId;
@@ -626,23 +737,22 @@ namespace MackySoft.Ucli.Unity.Ipc
                 try
                 {
                     AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
-                    await WaitUntilCompileSettledAsync(readinessGate, cancellationToken).ConfigureAwait(false);
+                    var afterSnapshot = await WaitUntilCompileSettledAsync(readinessGate, cancellationToken);
+                    var completedAtUtc = DateTimeOffset.UtcNow;
+                    var finalSummary = CreateFinalSummary(
+                        pendingSummary,
+                        afterSnapshot,
+                        serverVersionProvider,
+                        completedAtUtc,
+                        diagnostics);
+                    WriteDiagnostics(paths.DiagnosticsJsonPath, finalSummary);
+                    WriteJsonAtomically(paths.SummaryJsonPath, finalSummary);
+                    return finalSummary;
                 }
                 finally
                 {
                     Dispose();
                 }
-
-                var completedAtUtc = DateTimeOffset.UtcNow;
-                var finalSummary = CreateFinalSummary(
-                    pendingSummary,
-                    readinessGate.CaptureSnapshot(),
-                    serverVersionProvider,
-                    completedAtUtc,
-                    diagnostics);
-                WriteDiagnostics(paths.DiagnosticsJsonPath, finalSummary);
-                WriteJsonAtomically(paths.SummaryJsonPath, finalSummary);
-                return finalSummary;
             }
 
             public void Dispose ()
