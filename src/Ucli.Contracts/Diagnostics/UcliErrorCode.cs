@@ -14,7 +14,7 @@ public readonly record struct UcliErrorCode
     {
         if (!IsValidValue(value))
         {
-            throw new ArgumentException("Error code must be an uppercase machine token up to 128 characters using letters, digits, underscores, and optional dot-separated segments.", nameof(value));
+            throw new ArgumentException(UcliCodeValue.InvalidValueMessage, nameof(value));
         }
 
         Value = value;

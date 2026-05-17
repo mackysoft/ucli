@@ -61,7 +61,7 @@ internal static class CodeCliArgumentParser
         if (!UcliCodeValue.IsValidValue(code))
         {
             reference = null!;
-            errorMessage = $"Code must be an uppercase machine token up to {UcliCodeValue.MaximumLength} characters using letters, digits, underscores, and optional dot-separated segments.";
+            errorMessage = UcliCodeValue.InvalidValueMessage;
             return false;
         }
 

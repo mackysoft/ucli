@@ -168,7 +168,7 @@ internal sealed class CodeCatalog : ICodeCatalog
     {
         if (!UcliCodeValue.IsValidValue(code))
         {
-            throw new InvalidOperationException($"Code catalog descriptor code must be an uppercase machine token up to {UcliCodeValue.MaximumLength} characters using letters, digits, underscores, and optional dot-separated segments.");
+            throw new InvalidOperationException($"Code catalog descriptor code is invalid. {UcliCodeValue.InvalidValueMessage}");
         }
     }
 

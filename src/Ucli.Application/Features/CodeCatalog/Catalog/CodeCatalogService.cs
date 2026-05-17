@@ -100,7 +100,7 @@ internal sealed class CodeCatalogService : ICodeCatalogService
         {
             return CodeCatalogDescribeResult.Failure(
                 ExecutionError.InvalidArgument(
-                    $"Code must be an uppercase machine token up to {UcliCodeValue.MaximumLength} characters using letters, digits, underscores, and optional dot-separated segments.",
+                    UcliCodeValue.InvalidValueMessage,
                     UcliCoreErrorCodes.InvalidArgument));
         }
 
