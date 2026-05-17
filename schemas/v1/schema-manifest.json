@@ -26,6 +26,11 @@
       "kind": "cli-output-def"
     },
     {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/contract-violation.schema.json",
+      "path": "cli-output/defs/contract-violation.schema.json",
+      "kind": "cli-output-def"
+    },
+    {
       "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/diagnostic.schema.json",
       "path": "cli-output/defs/diagnostic.schema.json",
       "kind": "cli-output-def"
