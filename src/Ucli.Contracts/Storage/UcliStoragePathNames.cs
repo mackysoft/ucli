@@ -69,6 +69,18 @@ public static class UcliStoragePathNames
     /// <summary> Gets the test-artifacts directory name under one fingerprint artifacts directory. </summary>
     public const string TestArtifactsDirectoryName = "test";
 
+    /// <summary> Gets the compile-artifacts directory name under one fingerprint artifacts directory. </summary>
+    public const string CompileArtifactsDirectoryName = "compile";
+
+    /// <summary> Gets the compile-run request artifact file name. </summary>
+    public const string CompileRequestFileName = "request.json";
+
+    /// <summary> Gets the compile-run summary artifact file name. </summary>
+    public const string CompileSummaryFileName = "summary.json";
+
+    /// <summary> Gets the compile-run diagnostics artifact file name. </summary>
+    public const string CompileDiagnosticsFileName = "diagnostics.json";
+
     /// <summary> Gets the shared config file name under <c>.ucli</c>. </summary>
     public const string ConfigFileName = "config.json";
 

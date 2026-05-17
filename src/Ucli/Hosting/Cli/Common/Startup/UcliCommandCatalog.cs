@@ -22,6 +22,7 @@ internal static class UcliCommandCatalog
         UcliCommandNames.Init,
         UcliCommandNames.Status,
         UcliCommandNames.Ready,
+        UcliCommandNames.Compile,
         UcliCommandNames.Refresh,
         UcliCommandNames.Resolve,
         UcliCommandNames.Validate,
@@ -152,6 +153,7 @@ internal static class UcliCommandCatalog
         app.Add<InitCommand>();
         app.Add<StatusCommand>();
         app.Add<ReadyCommand>();
+        app.Add<CompileCommand>();
         app.Add<RefreshCommand>();
         app.Add<ResolveCommand>();
         app.Add<QueryAssetsFindCommand>("query assets");

@@ -195,6 +195,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 var startupProbeFailure = await WaitUntilReachableAsync(
                         unityProject,
                         sessionToken,
+                        dispatchRequest,
                         ResolveStartupProbeFailFast(dispatchRequest),
                         deadline,
                         processHandle,
@@ -393,12 +394,15 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     private async ValueTask<UnityRequestFailure?> WaitUntilReachableAsync (
         ResolvedUnityProjectContext unityProject,
         string sessionToken,
+        UnityIpcDispatchRequest dispatchRequest,
         bool failFast,
         ExecutionDeadline deadline,
         IUnityBatchmodeProcessHandle processHandle,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(dispatchRequest);
+
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -454,6 +458,11 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
                 var readinessDecision = UnityDaemonReadinessPolicy.Evaluate(payload!, failFast);
                 if (readinessDecision.IsReady)
+                {
+                    return null;
+                }
+
+                if (IsCompileAssuranceDispatchAllowed(dispatchRequest, payload!))
                 {
                     return null;
                 }
@@ -733,6 +742,18 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             IpcMethodNames.Ping => TryReadFailFast<IpcPingRequest>(dispatchRequest.Payload, static request => request.FailFast),
             _ => false,
         };
+    }
+
+    private static bool IsCompileAssuranceDispatchAllowed (
+        UnityIpcDispatchRequest dispatchRequest,
+        IpcPingResponse pingResponse)
+    {
+        ArgumentNullException.ThrowIfNull(dispatchRequest);
+        ArgumentNullException.ThrowIfNull(pingResponse);
+
+        return string.Equals(dispatchRequest.Method, IpcMethodNames.Compile, StringComparison.Ordinal)
+            && (string.Equals(pingResponse.LifecycleState, IpcEditorLifecycleStateCodec.CompileFailed, StringComparison.Ordinal)
+                || string.Equals(pingResponse.LifecycleState, IpcEditorLifecycleStateCodec.SafeMode, StringComparison.Ordinal));
     }
 
     private static bool TryReadFailFast<TRequest> (

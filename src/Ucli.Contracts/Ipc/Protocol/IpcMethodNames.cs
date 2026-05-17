@@ -12,6 +12,9 @@ public static class IpcMethodNames
     /// <summary> Gets the method name used for Unity test-run requests. </summary>
     public const string TestRun = "test.run";
 
+    /// <summary> Gets the method name used for compile assurance requests. </summary>
+    public const string Compile = "compile";
+
     /// <summary> Gets the method name used for Unity ops-catalog read requests. </summary>
     public const string OpsRead = "ops.read";
 

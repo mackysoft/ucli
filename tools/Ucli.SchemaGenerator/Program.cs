@@ -88,6 +88,7 @@ internal static class Program
             CreateSchema("cli-output/defs/residual-risk.schema.json", "cli-output-def", null, CreateResidualRiskSchema()),
             CreatePayloadSchema(UcliCommandIds.Status.Name, CreateStatusPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.Ready.Name, CreateReadyPayloadSchema()),
+            CreatePayloadSchema(UcliCommandIds.Compile.Name, CreateCompilePayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.Init.Name, CreateInitPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.Validate.Name, CreateValidatePayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.Plan.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: true, includePlanToken: true, includePlan: false)),
@@ -473,6 +474,84 @@ internal static class Program
             Optional("generatedAtUtc", NullableStringSchema()),
             Optional("code", NullableStringSchema()),
             Optional("message", NullableStringSchema()));
+    }
+
+    private static Dictionary<string, object?> CreateCompilePayloadSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("verdict", EnumSchema("pass", "fail", "incomplete")),
+            Required("project", ReferenceSchema("../defs/project.schema.json")),
+            Required("verifiers", ArraySchema(ReferenceSchema("../defs/verifier.schema.json"))),
+            Required("claims", ArraySchema(CreateCompileClaimSchema())),
+            Required("reports", ObjectSchema(additionalProperties: true)),
+            Required("residualRisks", ArraySchema(ReferenceSchema("../defs/residual-risk.schema.json"))),
+            Required("requestedMode", EnumSchema("auto", "daemon", "oneshot")),
+            Required("resolvedMode", EnumSchema("daemon", "oneshot")),
+            Required("sessionKind", EnumSchema("daemon", "transientProbe")),
+            Required("timeoutMilliseconds", IntegerSchema()),
+            Required("compile", CreateCompileEvidenceSchema()));
+    }
+
+    private static Dictionary<string, object?> CreateCompileClaimSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: true,
+            Required("id", StringSchema()),
+            Required("status", StringSchema()),
+            Required("coverage", StringSchema()),
+            Required("required", BooleanSchema()),
+            Required("verifierRef", StringSchema()),
+            Required("statement", StringSchema()),
+            Required("subject", ObjectSchema(additionalProperties: true)),
+            Required("evidence", ArraySchema(ReferenceSchema("../defs/evidence.schema.json"))),
+            Required("residualRisks", ArraySchema(ReferenceSchema("../defs/residual-risk.schema.json"))));
+    }
+
+    private static Dictionary<string, object?> CreateCompileEvidenceSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("runId", StringSchema()),
+            Required("refresh", ObjectSchema(
+                additionalProperties: false,
+                Required("origin", EnumSchema("assetDatabaseRefresh", "diagnosticsRead")),
+                Required("requested", BooleanSchema()),
+                Required("startedAtUtc", StringSchema()),
+                Required("completedAtUtc", NullableStringSchema()),
+                Required("completed", BooleanSchema()))),
+            Required("scriptCompilation", ObjectSchema(
+                additionalProperties: false,
+                Required("started", BooleanSchema()),
+                Required("completed", BooleanSchema()),
+                Required("compileGenerationBefore", StringSchema()),
+                Required("compileGenerationAfter", StringSchema()),
+                Required("diagnostics", ObjectSchema(
+                    additionalProperties: false,
+                    Required("errorCount", IntegerSchema()),
+                    Required("warningCount", IntegerSchema()),
+                    Required("primaryDiagnostic", CreateReadyPrimaryDiagnosticSchema()))))),
+            Required("domainReload", ObjectSchema(
+                additionalProperties: false,
+                Required("reloadRequired", BooleanSchema()),
+                Required("reloadObserved", BooleanSchema()),
+                Required("generationBefore", StringSchema()),
+                Required("generationAfter", StringSchema()),
+                Required("settled", BooleanSchema()))),
+            Required("lifecycle", ObjectSchema(
+                additionalProperties: false,
+                Required("serverVersion", NullableStringSchema()),
+                Required("unityVersion", NullableStringSchema()),
+                Required("editorMode", NullableStringSchema()),
+                Required("lifecycleState", NullableStringSchema()),
+                Required("blockingReason", NullableStringSchema()),
+                Required("compileState", NullableStringSchema()),
+                Required("compileGeneration", NullableStringSchema()),
+                Required("domainReloadGeneration", NullableStringSchema()),
+                Required("canAcceptExecutionRequests", BooleanSchema()),
+                Required("observedAtUtc", NullableStringSchema()),
+                Required("actionRequired", NullableStringSchema()),
+                Required("primaryDiagnostic", CreateReadyPrimaryDiagnosticSchema()))));
     }
 
     private static Dictionary<string, object?> CreateInitPayloadSchema ()

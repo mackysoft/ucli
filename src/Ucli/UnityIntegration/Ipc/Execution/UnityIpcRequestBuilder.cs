@@ -22,6 +22,9 @@ internal sealed class UnityIpcRequestBuilder
             UnityRequestPayload.Ping ping => new UnityIpcDispatchRequest(
                 IpcMethodNames.Ping,
                 IpcPayloadCodec.SerializeToElement(new IpcPingRequest(ping.ClientVersion, ping.FailFast))),
+            UnityRequestPayload.Compile compile => new UnityIpcDispatchRequest(
+                IpcMethodNames.Compile,
+                IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(compile.RunId))),
             UnityRequestPayload.ExecuteJson executeJson => new UnityIpcDispatchRequest(
                 IpcMethodNames.Execute,
                 CreateExecutePayload(
