@@ -12,19 +12,11 @@ internal sealed class CompileService : ICompileService
     private const string VerifierId = "compile";
     private const string SummaryReportRef = "compile.summary";
     private const string DiagnosticsReportRef = "compile.diagnostics";
-    private const string RefreshOriginAssetDatabaseRefresh = "assetDatabaseRefresh";
     private const string RefreshOriginDiagnosticsRead = "diagnosticsRead";
     private const string UnknownGeneration = "unknown";
 
     private static readonly IReadOnlyList<CompileResidualRiskOutput> EmptyResidualRisks =
         Array.Empty<CompileResidualRiskOutput>();
-
-    private static readonly IReadOnlyList<string> VerifierEffects =
-    [
-        "assetDatabaseRefresh",
-        "scriptCompilation",
-        "domainReload",
-    ];
 
     private readonly IProjectContextResolver projectContextResolver;
 
@@ -338,7 +330,7 @@ internal sealed class CompileService : ICompileService
                     Deterministic: false,
                     Required: true,
                     PrimaryClaims: CompileClaimCodes.AllValues,
-                    Effects: VerifierEffects,
+                    Effects: CompileEffectValues.All,
                     ReportRef: SummaryReportRef),
             ],
             Claims: claims,
@@ -428,7 +420,7 @@ internal sealed class CompileService : ICompileService
                 },
                 [
                     new CompileEvidenceOutput(
-                        Kind: "scriptCompilation",
+                        Kind: CompileEffectValues.ScriptCompilation,
                         EvidenceRef: DiagnosticsReportRef,
                         Data: compileOutput.ScriptCompilation),
                 ]),
@@ -443,7 +435,7 @@ internal sealed class CompileService : ICompileService
                 },
                 [
                     new CompileEvidenceOutput(
-                        Kind: "domainReload",
+                        Kind: CompileEffectValues.DomainReload,
                         Data: compileOutput.DomainReload),
                 ]),
             CreateClaim(
@@ -609,7 +601,7 @@ internal sealed class CompileService : ICompileService
             return ApplicationFailure.InternalError("Unity compile summary is missing refresh evidence.");
         }
 
-        if (!string.Equals(summary.Refresh.Origin, RefreshOriginAssetDatabaseRefresh, StringComparison.Ordinal)
+        if (!string.Equals(summary.Refresh.Origin, CompileEffectValues.AssetDatabaseRefresh, StringComparison.Ordinal)
             && !string.Equals(summary.Refresh.Origin, RefreshOriginDiagnosticsRead, StringComparison.Ordinal))
         {
             return ApplicationFailure.InternalError(

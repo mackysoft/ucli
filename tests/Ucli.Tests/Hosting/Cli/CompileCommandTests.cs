@@ -123,12 +123,7 @@ public sealed class CompileCommandTests
                     Deterministic: false,
                     Required: true,
                     PrimaryClaims: CompileClaimCodes.AllValues,
-                    Effects:
-                    [
-                        "assetDatabaseRefresh",
-                        "scriptCompilation",
-                        "domainReload",
-                    ],
+                    Effects: CompileEffectValues.All,
                     ReportRef: "compile.summary"),
             ],
             Claims:
@@ -138,13 +133,13 @@ public sealed class CompileCommandTests
                     compileStatus,
                     "Unity script compilation completed without compiler errors.",
                     "unityCompile",
-                    new CompileEvidenceOutput("scriptCompilation", "compile.diagnostics", compile.ScriptCompilation)),
+                    new CompileEvidenceOutput(CompileEffectValues.ScriptCompilation, "compile.diagnostics", compile.ScriptCompilation)),
                 CreateClaim(
                     CompileClaimCodes.UnityDomainReloadSettled,
                     CompileClaimStatusValues.Passed,
                     "Unity domain reload reached a settled state after compile observation.",
                     "unityDomainReload",
-                    new CompileEvidenceOutput("domainReload", Data: compile.DomainReload)),
+                    new CompileEvidenceOutput(CompileEffectValues.DomainReload, Data: compile.DomainReload)),
                 CreateClaim(
                     CompileClaimCodes.UnityLifecycleReadyAfterCompile,
                     lifecycleStatus,
@@ -203,7 +198,7 @@ public sealed class CompileCommandTests
         return new CompileOutput(
             RunId: "20260517_000000Z_abcdef12",
             Refresh: new CompileRefreshOutput(
-                Origin: "assetDatabaseRefresh",
+                Origin: CompileEffectValues.AssetDatabaseRefresh,
                 Requested: true,
                 StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
                 CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02Z"),

@@ -6,13 +6,6 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Compile;
 /// <summary> Validates compile-specific semantic invariants inside the common assurance payload shape. </summary>
 internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceSemanticInvariantRule
 {
-    private static readonly string[] RequiredEffects =
-    [
-        "assetDatabaseRefresh",
-        "scriptCompilation",
-        "domainReload",
-    ];
-
     /// <inheritdoc />
     public void ValidateClaim (
         JsonElement payload,
@@ -95,7 +88,7 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceSemantic
             .Where(static item => item.ValueKind == JsonValueKind.String)
             .Select(static item => item.GetString() ?? string.Empty)
             .ToArray();
-        if (!effects.SequenceEqual(RequiredEffects, StringComparer.Ordinal))
+        if (!effects.SequenceEqual(CompileEffectValues.All, StringComparer.Ordinal))
         {
             AddViolation(violations, effectsPath, "Compile verifier effects must be assetDatabaseRefresh, scriptCompilation, domainReload.");
         }
@@ -140,7 +133,7 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceSemantic
             return;
         }
 
-        if (!string.Equals(origin, "assetDatabaseRefresh", StringComparison.Ordinal)
+        if (!string.Equals(origin, CompileEffectValues.AssetDatabaseRefresh, StringComparison.Ordinal)
             && !string.Equals(origin, "diagnosticsRead", StringComparison.Ordinal))
         {
             AddViolation(violations, BuildPropertyPath(refreshPath, "origin"), "Compile refresh origin must distinguish assetDatabaseRefresh from diagnosticsRead.");
