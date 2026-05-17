@@ -114,7 +114,9 @@ public sealed class UcliErrorDescriptorTests
         Assert.Equal("operationContract", descriptor.Category);
         Assert.Contains(UcliCommandIds.Call, descriptor.AppliesTo);
         Assert.Contains(UcliCommandIds.Plan, descriptor.AppliesTo);
+        Assert.Contains(UcliCommandIds.Query, descriptor.AppliesTo);
         Assert.Contains(UcliCommandIds.Refresh, descriptor.AppliesTo);
+        Assert.Contains(UcliCommandIds.Resolve, descriptor.AppliesTo);
         Assert.Null(descriptor.ExecutionSemantics.ImpliesNotApplied);
         Assert.True(descriptor.ExecutionSemantics.MayBeIndeterminate);
         Assert.Equal(UcliErrorRetryClassValues.ContextDependent, descriptor.ExecutionSemantics.SafeToRetry);

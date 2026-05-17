@@ -26,7 +26,31 @@
       "type": "object"
     },
     "plan": {
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requestId": {
+          "type": "string"
+        },
+        "project": {
+          "$ref": "../defs/project.schema.json"
+        },
+        "opResults": {
+          "type": "array",
+          "items": {
+            "$ref": "../defs/op-result.schema.json"
+          }
+        },
+        "contractViolations": {
+          "type": "array",
+          "items": {
+            "$ref": "../defs/contract-violation.schema.json"
+          }
+        },
+        "planToken": {
+          "type": "string"
+        }
+      }
     }
   }
 }

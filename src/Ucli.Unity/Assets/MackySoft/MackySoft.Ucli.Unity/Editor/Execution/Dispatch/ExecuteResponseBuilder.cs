@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Infrastructure.Paths;
@@ -44,7 +43,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             }
 
             var issuedAtUtc = DateTimeOffset.UtcNow;
-            var contractViolations = CreateContractViolations(trace.OperationTraces);
+            var contractViolations = OperationContractViolationDetector.Detect(trace.OperationTraces);
             var payloadModel = CreateExecutePayload(context.Project, trace.Steps, trace.OperationTraces, trace.PlanToken, issuedAtUtc, contractViolations);
             var errors = CreateErrors(trace.Errors, contractViolations);
             return new IpcResponse(
@@ -174,114 +173,6 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             };
         }
 
-        private static IpcExecuteContractViolation[] CreateContractViolations (
-            IReadOnlyList<OperationPhaseTrace> operationTraces)
-        {
-            if (operationTraces == null)
-            {
-                throw new ArgumentNullException(nameof(operationTraces));
-            }
-
-            var violations = new List<IpcExecuteContractViolation>();
-            for (var traceIndex = 0; traceIndex < operationTraces.Count; traceIndex++)
-            {
-                var trace = operationTraces[traceIndex];
-                var contracts = trace.Contracts;
-                if (contracts == null)
-                {
-                    continue;
-                }
-
-                if (trace.Changed && !contracts.MayDirty)
-                {
-                    AddContractViolation(
-                        violations,
-                        trace,
-                        expectedFact: "assurance.mayDirty=false",
-                        observedResult: "opResults[].changed=true");
-                }
-
-                AddTouchedKindViolations(violations, trace, contracts);
-                AddQueryKindViolations(violations, trace, contracts);
-            }
-
-            return violations.ToArray();
-        }
-
-        private static void AddTouchedKindViolations (
-            List<IpcExecuteContractViolation> violations,
-            OperationPhaseTrace trace,
-            OperationPhaseTrace.ContractFacts contracts)
-        {
-            var allowedTouchedKinds = new HashSet<string>(contracts.TouchedKinds, StringComparer.Ordinal);
-            for (var touchIndex = 0; touchIndex < trace.Touched.Count; touchIndex++)
-            {
-                var touchedKind = ToTouchedResourceKindName(trace.Touched[touchIndex].Kind);
-                if (allowedTouchedKinds.Contains(touchedKind))
-                {
-                    continue;
-                }
-
-                AddContractViolation(
-                    violations,
-                    trace,
-                    expectedFact: "assurance.touchedKinds=[" + string.Join(",", contracts.TouchedKinds) + "]",
-                    observedResult: "opResults[].touched[].kind=" + touchedKind);
-            }
-        }
-
-        private static void AddQueryKindViolations (
-            List<IpcExecuteContractViolation> violations,
-            OperationPhaseTrace trace,
-            OperationPhaseTrace.ContractFacts contracts)
-        {
-            if (contracts.OperationKind != UcliOperationKind.Query)
-            {
-                return;
-            }
-
-            if (trace.Applied)
-            {
-                AddContractViolation(
-                    violations,
-                    trace,
-                    expectedFact: "operation.kind=query",
-                    observedResult: "opResults[].applied=true");
-            }
-
-            if (trace.Changed)
-            {
-                AddContractViolation(
-                    violations,
-                    trace,
-                    expectedFact: "operation.kind=query",
-                    observedResult: "opResults[].changed=true");
-            }
-
-            if (trace.Touched.Count != 0)
-            {
-                AddContractViolation(
-                    violations,
-                    trace,
-                    expectedFact: "operation.kind=query",
-                    observedResult: "opResults[].touched.length=" + trace.Touched.Count);
-            }
-        }
-
-        private static void AddContractViolation (
-            List<IpcExecuteContractViolation> violations,
-            OperationPhaseTrace trace,
-            string expectedFact,
-            string observedResult)
-        {
-            violations.Add(new IpcExecuteContractViolation(
-                OpId: trace.OpId,
-                Operation: trace.Op,
-                ExpectedFact: expectedFact,
-                ObservedResult: observedResult,
-                ApplicationState: IpcExecuteApplicationStateNames.Indeterminate));
-        }
-
         /// <summary>
         /// Aggregates touched resources and result flags across one compiled primitive range.
         /// </summary>
@@ -326,7 +217,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     }
 
                     touchedResources.Add(new IpcExecuteTouchedResource(
-                        Kind: ToTouchedResourceKindName(touchedResource.Kind),
+                        Kind: IpcExecuteTouchedResourceKindMapper.ToName(touchedResource.Kind),
                         Path: touchedResource.Path,
                         Guid: touchedResource.Guid));
                 }
@@ -515,31 +406,6 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
 
                 default:
                     throw new InvalidOperationException($"Unsupported operation phase '{phase}'.");
-            }
-        }
-
-        /// <summary> Converts one touched resource kind to protocol literal. </summary>
-        /// <param name="kind"> The touched resource kind. </param>
-        /// <returns> The protocol touched kind literal. </returns>
-        /// <exception cref="InvalidOperationException"> Thrown when kind has unsupported value. </exception>
-        private static string ToTouchedResourceKindName (OperationTouchKind kind)
-        {
-            switch (kind)
-            {
-                case OperationTouchKind.Scene:
-                    return IpcExecuteTouchedResourceKindNames.Scene;
-
-                case OperationTouchKind.Prefab:
-                    return IpcExecuteTouchedResourceKindNames.Prefab;
-
-                case OperationTouchKind.Asset:
-                    return IpcExecuteTouchedResourceKindNames.Asset;
-
-                case OperationTouchKind.ProjectSettings:
-                    return IpcExecuteTouchedResourceKindNames.ProjectSettings;
-
-                default:
-                    throw new InvalidOperationException($"Unsupported touched resource kind '{kind}'.");
             }
         }
 

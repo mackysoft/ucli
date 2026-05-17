@@ -226,6 +226,10 @@ namespace MackySoft.Ucli.Unity.Tests
             CollectionAssert.AreEqual(new[] { OperationPhase.Validate, OperationPhase.Plan }, operation.CalledPhases);
             Assert.That(trace.IsSuccess, Is.True);
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Plan));
+            Assert.That(trace.OperationTraces[0].Contracts, Is.Not.Null);
+            Assert.That(trace.OperationTraces[0].Contracts!.OperationKind, Is.EqualTo(UcliOperationKind.Query));
+            Assert.That(trace.OperationTraces[0].Contracts!.MayDirty, Is.False);
+            Assert.That(trace.OperationTraces[0].Contracts!.TouchedKinds, Is.Empty);
         });
 
         [UnityTest]
@@ -244,6 +248,10 @@ namespace MackySoft.Ucli.Unity.Tests
             CollectionAssert.AreEqual(new[] { OperationPhase.Validate, OperationPhase.Plan, OperationPhase.Call }, operation.CalledPhases);
             Assert.That(trace.IsSuccess, Is.True);
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Call));
+            Assert.That(trace.OperationTraces[0].Contracts, Is.Not.Null);
+            Assert.That(trace.OperationTraces[0].Contracts!.OperationKind, Is.EqualTo(UcliOperationKind.Query));
+            Assert.That(trace.OperationTraces[0].Contracts!.MayDirty, Is.False);
+            Assert.That(trace.OperationTraces[0].Contracts!.TouchedKinds, Is.Empty);
         });
 
         [UnityTest]

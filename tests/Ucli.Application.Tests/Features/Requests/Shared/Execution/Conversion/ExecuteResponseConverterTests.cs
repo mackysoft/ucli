@@ -587,6 +587,175 @@ public sealed class ExecuteResponseConverterTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Convert_WhenContractViolationPayloadHasNoError_ReturnsInternalError ()
+    {
+        var response = CreateResponse(new IpcExecuteResponse([])
+        {
+            ContractViolations =
+            [
+                new IpcExecuteContractViolation(
+                    OpId: "step-1",
+                    Operation: UcliPrimitiveOperationNames.ProjectRefresh,
+                    ExpectedFact: "assurance.mayDirty=false",
+                    ObservedResult: "opResults[].changed=true",
+                    ApplicationState: IpcExecuteApplicationStateNames.Indeterminate),
+            ],
+        });
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("OPERATION_CONTRACT_VIOLATION", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Convert_WhenContractViolationPayloadHasSuccessStatus_ReturnsInternalError ()
+    {
+        var response = new UnityRequestResponse(
+            Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse([])
+            {
+                Project = CreateProjectIdentity(),
+                ContractViolations =
+                [
+                    new IpcExecuteContractViolation(
+                        OpId: "step-1",
+                        Operation: UcliPrimitiveOperationNames.ProjectRefresh,
+                        ExpectedFact: "assurance.mayDirty=false",
+                        ObservedResult: "opResults[].changed=true",
+                        ApplicationState: IpcExecuteApplicationStateNames.Indeterminate),
+                ],
+            }),
+            Errors:
+            [
+                new OperationExecutionError(
+                    ExecuteRequestErrorCodes.OperationContractViolation,
+                    "Operation result violated declared assurance facts.",
+                    "step-1"),
+            ],
+            HasFailureStatus: false);
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("response status", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Convert_WhenContractViolationErrorOpIdDoesNotMatchPayload_ReturnsInternalError ()
+    {
+        var response = new UnityRequestResponse(
+            Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse([])
+            {
+                Project = CreateProjectIdentity(),
+                ContractViolations =
+                [
+                    new IpcExecuteContractViolation(
+                        OpId: "step-1",
+                        Operation: UcliPrimitiveOperationNames.ProjectRefresh,
+                        ExpectedFact: "assurance.mayDirty=false",
+                        ObservedResult: "opResults[].changed=true",
+                        ApplicationState: IpcExecuteApplicationStateNames.Indeterminate),
+                ],
+            }),
+            Errors:
+            [
+                new OperationExecutionError(
+                    ExecuteRequestErrorCodes.OperationContractViolation,
+                    "Operation result violated declared assurance facts.",
+                    "step-2"),
+            ],
+            HasFailureStatus: true);
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("step-1", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Convert_WhenContractViolationErrorOpIdIsMissing_ReturnsInternalError ()
+    {
+        var response = new UnityRequestResponse(
+            Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse([])
+            {
+                Project = CreateProjectIdentity(),
+                ContractViolations =
+                [
+                    new IpcExecuteContractViolation(
+                        OpId: "step-1",
+                        Operation: UcliPrimitiveOperationNames.ProjectRefresh,
+                        ExpectedFact: "assurance.mayDirty=false",
+                        ObservedResult: "opResults[].changed=true",
+                        ApplicationState: IpcExecuteApplicationStateNames.Indeterminate),
+                ],
+            }),
+            Errors:
+            [
+                new OperationExecutionError(
+                    ExecuteRequestErrorCodes.OperationContractViolation,
+                    "Operation result violated declared assurance facts.",
+                    null),
+            ],
+            HasFailureStatus: true);
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("errors[0].opId", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Convert_WhenContractViolationErrorHasNoMatchingPayloadItem_ReturnsInternalError ()
+    {
+        var response = new UnityRequestResponse(
+            Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse([])
+            {
+                Project = CreateProjectIdentity(),
+                ContractViolations =
+                [
+                    new IpcExecuteContractViolation(
+                        OpId: "step-1",
+                        Operation: UcliPrimitiveOperationNames.ProjectRefresh,
+                        ExpectedFact: "assurance.mayDirty=false",
+                        ObservedResult: "opResults[].changed=true",
+                        ApplicationState: IpcExecuteApplicationStateNames.Indeterminate),
+                ],
+            }),
+            Errors:
+            [
+                new OperationExecutionError(
+                    ExecuteRequestErrorCodes.OperationContractViolation,
+                    "Operation result violated declared assurance facts.",
+                    "step-1"),
+                new OperationExecutionError(
+                    ExecuteRequestErrorCodes.OperationContractViolation,
+                    "Operation result violated declared assurance facts.",
+                    "step-2"),
+            ],
+            HasFailureStatus: true);
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("step-2", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Convert_WhenContractViolationRequiredTextIsMissing_ReturnsInternalError ()
     {
         var response = CreateResponse("""

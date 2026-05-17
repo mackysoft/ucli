@@ -614,10 +614,21 @@ internal static class Program
 
         if (includePlan)
         {
-            properties.Add(Optional("plan", ObjectSchema(additionalProperties: true)));
+            properties.Add(Optional("plan", CreateCallPlanPayloadSchema()));
         }
 
         return ObjectSchema(additionalProperties: false, properties.ToArray());
+    }
+
+    private static Dictionary<string, object?> CreateCallPlanPayloadSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Optional("requestId", StringSchema()),
+            Optional("project", ReferenceSchema("../defs/project.schema.json")),
+            Optional("opResults", ArraySchema(ReferenceSchema("../defs/op-result.schema.json"))),
+            Optional("contractViolations", ArraySchema(ReferenceSchema("../defs/contract-violation.schema.json"))),
+            Optional("planToken", StringSchema()));
     }
 
     private static Dictionary<string, object?> CreateOpsListPayloadSchema ()
