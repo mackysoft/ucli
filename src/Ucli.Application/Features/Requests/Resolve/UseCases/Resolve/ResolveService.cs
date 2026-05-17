@@ -212,7 +212,8 @@ internal sealed class ResolveService : IResolveService
                 requestId,
                 convertedResponse.OpResults,
                 readIndex,
-                responseProject);
+                responseProject,
+                convertedResponse.ContractViolations);
         }
 
         return ResolveServiceResultFactory.Failure(
@@ -220,7 +221,8 @@ internal sealed class ResolveService : IResolveService
             convertedResponse.OpResults,
             RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, "uCLI resolve failed."),
             readIndex,
-            responseProject);
+            responseProject,
+            convertedResponse.ContractViolations);
     }
 
     private static UnityRequestPayload CreateExecuteRequestPayload (

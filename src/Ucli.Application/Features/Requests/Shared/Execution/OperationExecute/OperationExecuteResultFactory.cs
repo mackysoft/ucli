@@ -92,6 +92,7 @@ internal static class OperationExecuteResultFactory
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null,
         OperationExecutionReadPostcondition? readPostcondition = null,
         ProjectIdentityInfo? project = null)
     {
@@ -100,6 +101,7 @@ internal static class OperationExecuteResultFactory
             opResults,
             errors,
             failureMessage: null,
+            contractViolations,
             readPostcondition,
             project);
     }
@@ -116,6 +118,7 @@ internal static class OperationExecuteResultFactory
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         string? failureMessage,
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null,
         OperationExecutionReadPostcondition? readPostcondition = null,
         ProjectIdentityInfo? project = null)
     {
@@ -127,6 +130,7 @@ internal static class OperationExecuteResultFactory
             opResults,
             errors,
             RequestFailureNormalizer.ResolveMessage(errors, failureMessage ?? DefaultFailureMessage),
+            contractViolations,
             readPostcondition,
             project);
     }

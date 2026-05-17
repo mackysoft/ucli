@@ -23,11 +23,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 sideEffects: Array.Empty<UcliOperationSideEffect>(),
                 mayDirty: false,
                 mayPersist: false,
-                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the GameObject selector and observe the selected scene or prefab context without applying mutation.",
                 callSemantics: "Read the selected GameObject structure and component data without applying mutation.",
-                touchedContract: "Reports the scene or prefab resource that contains the observed GameObject.",
+                touchedContract: "Returns no touched resources because GameObject description is observational data.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Timeout, cancellation, or unresolved selector failure means the GameObject description was not fully produced.",
                 dangerousNotes: Array.Empty<string>()));
@@ -64,7 +64,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteAsync(operation, args, executionContext, applied: false);
+            return ExecuteAsync(operation, args, executionContext, includeTemporaryState: true);
         }
 
         /// <summary> Executes call phase for <c>ucli.go.describe</c>. </summary>
@@ -79,45 +79,41 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteAsync(operation, args, executionContext, applied: true);
+            return ExecuteAsync(operation, args, executionContext, includeTemporaryState: false);
         }
 
         /// <summary> Executes the shared plan/call flow. </summary>
         /// <param name="operation"> The normalized operation. </param>
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
-        /// <param name="applied"> The applied flag for the successful phase result. </param>
+        /// <param name="includeTemporaryState"> Whether temporary plan state should be included in the result. </param>
         /// <returns> The phase-step result. </returns>
         private static Task<OperationPhaseStepResult> ExecuteAsync (
             NormalizedOperation operation,
             GoDescribeArgs args,
             OperationExecutionContext executionContext,
-            bool applied)
+            bool includeTemporaryState)
         {
             if (!TryValidateArguments(
                 operation,
                 args,
                 executionContext,
-                allowTemporaryState: !applied,
+                allowTemporaryState: includeTemporaryState,
                 out var validationState,
                 out var failure))
             {
                 return Task.FromResult(failure!);
             }
 
-            var description = applied
-                ? GameObjectDescriptionBuilder.Build(validationState.Target, validationState.Depth)
-                : GameObjectDescriptionBuilder.Build(
+            var description = includeTemporaryState
+                ? GameObjectDescriptionBuilder.Build(
                     validationState.Target,
                     validationState.Depth,
                     executionContext,
-                    includeTemporaryState: true);
+                    includeTemporaryState: true)
+                : GameObjectDescriptionBuilder.Build(validationState.Target, validationState.Depth);
             return Task.FromResult(OperationPhaseStepResult.Success(
-                applied: applied,
+                applied: false,
                 changed: false,
-                touched: new[]
-                {
-                    OperationResourceUtilities.CreateTouch(validationState.Resource),
-                },
                 result: IpcPayloadCodec.SerializeToElement(description)));
         }
 

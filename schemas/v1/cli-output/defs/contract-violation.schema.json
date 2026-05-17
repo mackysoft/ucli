@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/contract-violation.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "opId": {
+      "type": "string"
+    },
+    "operation": {
+      "type": "string"
+    },
+    "expectedFact": {
+      "type": "string"
+    },
+    "observedResult": {
+      "type": "string"
+    },
+    "applicationState": {
+      "type": "string",
+      "enum": [
+        "notApplied",
+        "applied",
+        "indeterminate",
+        "unknown"
+      ]
+    }
+  },
+  "required": [
+    "opId",
+    "operation",
+    "expectedFact",
+    "observedResult",
+    "applicationState"
+  ]
+}

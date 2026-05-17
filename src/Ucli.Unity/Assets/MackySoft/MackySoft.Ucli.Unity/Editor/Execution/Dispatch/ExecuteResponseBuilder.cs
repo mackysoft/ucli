@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Infrastructure.Paths;
@@ -14,6 +15,8 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
     /// <summary> Builds execute-dispatch response envelopes from internal execution models. </summary>
     internal static class ExecuteResponseBuilder
     {
+        private const string ContractViolationMessage = "Operation result violated declared assurance facts.";
+
         /// <summary> Creates one execution response from phase execution trace. </summary>
         /// <param name="context"> The request-level dispatch context. </param>
         /// <param name="trace"> The phase execution trace. </param>
@@ -41,8 +44,9 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             }
 
             var issuedAtUtc = DateTimeOffset.UtcNow;
-            var payloadModel = CreateExecutePayload(context.Project, trace.Steps, trace.OperationTraces, trace.PlanToken, issuedAtUtc);
-            var errors = CreateErrors(trace.Errors);
+            var contractViolations = CreateContractViolations(trace.OperationTraces);
+            var payloadModel = CreateExecutePayload(context.Project, trace.Steps, trace.OperationTraces, trace.PlanToken, issuedAtUtc, contractViolations);
+            var errors = CreateErrors(trace.Errors, contractViolations);
             return new IpcResponse(
                 ProtocolVersion: context.ProtocolVersion,
                 RequestId: context.RequestId,
@@ -102,7 +106,8 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             IReadOnlyList<Execution.Requests.NormalizedRequestStep> steps,
             IReadOnlyList<OperationPhaseTrace> operationTraces,
             string? planToken,
-            DateTimeOffset issuedAtUtc)
+            DateTimeOffset issuedAtUtc,
+            IReadOnlyList<IpcExecuteContractViolation> contractViolations)
         {
             if (steps == null)
             {
@@ -112,6 +117,11 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             if (operationTraces == null)
             {
                 throw new ArgumentNullException(nameof(operationTraces));
+            }
+
+            if (contractViolations == null)
+            {
+                throw new ArgumentNullException(nameof(contractViolations));
             }
 
             var opResults = new IpcExecuteOperationResult[steps.Count];
@@ -160,7 +170,116 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 Project = project,
                 PlanToken = planToken,
                 ReadPostcondition = CreateReadPostcondition(operationTraces, issuedAtUtc),
+                ContractViolations = contractViolations.Count == 0 ? null : contractViolations,
             };
+        }
+
+        private static IpcExecuteContractViolation[] CreateContractViolations (
+            IReadOnlyList<OperationPhaseTrace> operationTraces)
+        {
+            if (operationTraces == null)
+            {
+                throw new ArgumentNullException(nameof(operationTraces));
+            }
+
+            var violations = new List<IpcExecuteContractViolation>();
+            for (var traceIndex = 0; traceIndex < operationTraces.Count; traceIndex++)
+            {
+                var trace = operationTraces[traceIndex];
+                var contracts = trace.Contracts;
+                if (contracts == null)
+                {
+                    continue;
+                }
+
+                if (trace.Changed && !contracts.MayDirty)
+                {
+                    AddContractViolation(
+                        violations,
+                        trace,
+                        expectedFact: "assurance.mayDirty=false",
+                        observedResult: "opResults[].changed=true");
+                }
+
+                AddTouchedKindViolations(violations, trace, contracts);
+                AddQueryKindViolations(violations, trace, contracts);
+            }
+
+            return violations.ToArray();
+        }
+
+        private static void AddTouchedKindViolations (
+            List<IpcExecuteContractViolation> violations,
+            OperationPhaseTrace trace,
+            OperationPhaseTrace.ContractFacts contracts)
+        {
+            var allowedTouchedKinds = new HashSet<string>(contracts.TouchedKinds, StringComparer.Ordinal);
+            for (var touchIndex = 0; touchIndex < trace.Touched.Count; touchIndex++)
+            {
+                var touchedKind = ToTouchedResourceKindName(trace.Touched[touchIndex].Kind);
+                if (allowedTouchedKinds.Contains(touchedKind))
+                {
+                    continue;
+                }
+
+                AddContractViolation(
+                    violations,
+                    trace,
+                    expectedFact: "assurance.touchedKinds=[" + string.Join(",", contracts.TouchedKinds) + "]",
+                    observedResult: "opResults[].touched[].kind=" + touchedKind);
+            }
+        }
+
+        private static void AddQueryKindViolations (
+            List<IpcExecuteContractViolation> violations,
+            OperationPhaseTrace trace,
+            OperationPhaseTrace.ContractFacts contracts)
+        {
+            if (contracts.OperationKind != UcliOperationKind.Query)
+            {
+                return;
+            }
+
+            if (trace.Applied)
+            {
+                AddContractViolation(
+                    violations,
+                    trace,
+                    expectedFact: "operation.kind=query",
+                    observedResult: "opResults[].applied=true");
+            }
+
+            if (trace.Changed)
+            {
+                AddContractViolation(
+                    violations,
+                    trace,
+                    expectedFact: "operation.kind=query",
+                    observedResult: "opResults[].changed=true");
+            }
+
+            if (trace.Touched.Count != 0)
+            {
+                AddContractViolation(
+                    violations,
+                    trace,
+                    expectedFact: "operation.kind=query",
+                    observedResult: "opResults[].touched.length=" + trace.Touched.Count);
+            }
+        }
+
+        private static void AddContractViolation (
+            List<IpcExecuteContractViolation> violations,
+            OperationPhaseTrace trace,
+            string expectedFact,
+            string observedResult)
+        {
+            violations.Add(new IpcExecuteContractViolation(
+                OpId: trace.OpId,
+                Operation: trace.Op,
+                ExpectedFact: expectedFact,
+                ObservedResult: observedResult,
+                ApplicationState: IpcExecuteApplicationStateNames.Indeterminate));
         }
 
         /// <summary>
@@ -321,21 +440,57 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         /// <param name="failures"> The operation failures to map. </param>
         /// <returns> The mapped IPC errors. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="failures" /> is <see langword="null" />. </exception>
-        private static IpcError[] CreateErrors (IReadOnlyList<OperationFailure> failures)
+        private static IpcError[] CreateErrors (
+            IReadOnlyList<OperationFailure> failures,
+            IReadOnlyList<IpcExecuteContractViolation> contractViolations)
         {
             if (failures == null)
             {
                 throw new ArgumentNullException(nameof(failures));
             }
 
-            var errors = new IpcError[failures.Count];
+            if (contractViolations == null)
+            {
+                throw new ArgumentNullException(nameof(contractViolations));
+            }
+
+            var violationErrorCount = CountUniqueViolationOperations(contractViolations);
+            var errors = new IpcError[failures.Count + violationErrorCount];
             for (var i = 0; i < failures.Count; i++)
             {
                 var failure = failures[i];
                 errors[i] = new IpcError(failure.Code, failure.Message, failure.OpId);
             }
 
+            var errorIndex = failures.Count;
+            var seenViolationOpIds = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < contractViolations.Count; i++)
+            {
+                var violation = contractViolations[i];
+                if (!seenViolationOpIds.Add(violation.OpId))
+                {
+                    continue;
+                }
+
+                errors[errorIndex] = new IpcError(
+                    ExecuteRequestErrorCodes.OperationContractViolation,
+                    ContractViolationMessage,
+                    violation.OpId);
+                errorIndex++;
+            }
+
             return errors;
+        }
+
+        private static int CountUniqueViolationOperations (IReadOnlyList<IpcExecuteContractViolation> contractViolations)
+        {
+            var opIds = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < contractViolations.Count; i++)
+            {
+                opIds.Add(contractViolations[i].OpId);
+            }
+
+            return opIds.Count;
         }
 
         /// <summary> Converts one operation phase to protocol literal. </summary>

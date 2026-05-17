@@ -16,9 +16,10 @@ internal static class ResolveServiceResultFactory
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         ReadIndexInfo readIndex,
-        ProjectIdentityInfo project)
+        ProjectIdentityInfo project,
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
-        return ResolveServiceResult.Success(requestId, opResults, SuccessMessage, readIndex, project);
+        return ResolveServiceResult.Success(requestId, opResults, SuccessMessage, readIndex, project, contractViolations);
     }
 
     /// <summary> Creates one failure result from a structured execution error. </summary>
@@ -64,7 +65,8 @@ internal static class ResolveServiceResultFactory
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         ReadIndexInfo readIndex,
-        ProjectIdentityInfo? project = null)
+        ProjectIdentityInfo? project = null,
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
@@ -76,6 +78,7 @@ internal static class ResolveServiceResultFactory
             errors,
             RequestFailureNormalizer.ResolveMessage(errors, FailureMessage),
             readIndex,
-            project);
+            project,
+            contractViolations);
     }
 }

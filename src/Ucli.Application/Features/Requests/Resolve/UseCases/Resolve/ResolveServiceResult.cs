@@ -12,13 +12,15 @@ internal sealed record ResolveServiceResult
         IReadOnlyList<ApplicationFailure> errors,
         string message,
         ReadIndexInfo readIndex,
-        ProjectIdentityInfo? project = null)
+        ProjectIdentityInfo? project = null,
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
         RequestId = requestId;
         OpResults = opResults;
         Errors = errors;
         Message = message;
         ReadIndex = readIndex;
+        ContractViolations = contractViolations ?? [];
         Project = project;
     }
 
@@ -42,6 +44,9 @@ internal sealed record ResolveServiceResult
     /// <summary> Gets the read-index metadata associated with this result. </summary>
     public ReadIndexInfo ReadIndex { get; }
 
+    /// <summary> Gets runtime operation-result violations against published assurance facts. </summary>
+    public IReadOnlyList<OperationExecutionContractViolation> ContractViolations { get; }
+
     /// <summary> Gets the resolved Unity project identity when project resolution succeeded. </summary>
     public ProjectIdentityInfo? Project { get; }
 
@@ -54,7 +59,8 @@ internal sealed record ResolveServiceResult
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         string message,
         ReadIndexInfo readIndex,
-        ProjectIdentityInfo project)
+        ProjectIdentityInfo project,
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
@@ -68,7 +74,8 @@ internal sealed record ResolveServiceResult
             RequestServiceResultInvariants.EmptyErrors,
             message,
             readIndex,
-            project);
+            contractViolations: contractViolations,
+            project: project);
     }
 
     /// <summary> Creates one failed resolve result. </summary>
@@ -78,7 +85,8 @@ internal sealed record ResolveServiceResult
         IReadOnlyList<ApplicationFailure> errors,
         string message,
         ReadIndexInfo readIndex,
-        ProjectIdentityInfo? project = null)
+        ProjectIdentityInfo? project = null,
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
@@ -92,6 +100,7 @@ internal sealed record ResolveServiceResult
             failureErrors,
             message,
             readIndex,
-            project);
+            contractViolations: contractViolations,
+            project: project);
     }
 }

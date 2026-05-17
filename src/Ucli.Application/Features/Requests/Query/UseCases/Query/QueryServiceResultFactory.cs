@@ -17,7 +17,8 @@ internal static class QueryServiceResultFactory
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         ReadIndexInfo readIndex,
-        ProjectIdentityInfo project)
+        ProjectIdentityInfo project,
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
         return QueryServiceResult.Success(
             commandName,
@@ -25,7 +26,8 @@ internal static class QueryServiceResultFactory
             opResults,
             SuccessMessage,
             readIndex,
-            project);
+            project,
+            contractViolations);
     }
 
     /// <summary> Creates one failure result from a structured execution error. </summary>
@@ -79,7 +81,8 @@ internal static class QueryServiceResultFactory
         IReadOnlyList<ApplicationFailure> errors,
         string message,
         ReadIndexInfo readIndex,
-        ProjectIdentityInfo? project = null)
+        ProjectIdentityInfo? project = null,
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
@@ -93,6 +96,7 @@ internal static class QueryServiceResultFactory
             errors,
             message,
             readIndex,
-            project);
+            project,
+            contractViolations);
     }
 }

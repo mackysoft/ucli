@@ -62,7 +62,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(Execute(operation, args, executionContext, applied: true, includeTemporaryState: false));
+            return Task.FromResult(Execute(operation, args, executionContext, applied: false, includeTemporaryState: false));
         }
 
         private static OperationPhaseStepResult Execute (

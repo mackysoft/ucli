@@ -113,6 +113,7 @@ internal sealed class PlanService : IPlanService
         {
             Project = convertedResponse.Project ?? baseOutput.Project,
             OpResults = convertedResponse.OpResults,
+            ContractViolations = convertedResponse.ContractViolations,
         };
         if (!convertedResponse.IsSuccess)
         {

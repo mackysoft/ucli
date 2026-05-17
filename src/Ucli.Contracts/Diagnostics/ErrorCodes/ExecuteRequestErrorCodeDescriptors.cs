@@ -54,5 +54,40 @@ internal static class ExecuteRequestErrorCodeDescriptors
                     Action: "Rename GameObjects whose names contain '/', then rerun the request."),
             ],
             relatedCodes: []),
+
+        UcliErrorDescriptorFactory.Create(
+            code: ExecuteRequestErrorCodes.OperationContractViolation,
+            category: "operationContract",
+            summary: "An operation result violated declared assurance facts.",
+            meaning: "The runtime result contradicted the operation metadata contract, so the failure indicates an operation implementation or metadata mismatch and does not imply that the operation was not applied.",
+            appliesTo:
+            [
+                UcliCommandIds.Plan,
+                UcliCommandIds.Call,
+                UcliCommandIds.Resolve,
+                UcliCommandIds.Query,
+                UcliCommandIds.Refresh,
+            ],
+            possiblePhases: ["plan", "call"],
+            impliesNotApplied: null,
+            mayBeIndeterminate: true,
+            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            inspect:
+            [
+                "errors[].code",
+                "errors[].opId",
+                "payload.contractViolations[]",
+                "payload.opResults[]",
+            ],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: "payload.contractViolations[].applicationState is not 'notApplied'",
+                    Action: "Do not retry automatically; inspect the operation implementation or metadata and decide whether manual recovery is needed."),
+                new UcliErrorNextActionDescriptor(
+                    When: "payload.contractViolations[].applicationState is 'notApplied'",
+                    Action: "The operation can be retried after the underlying contract mismatch is understood or fixed."),
+            ],
+            relatedCodes: [UcliCoreErrorCodes.InternalError]),
     ];
 }
