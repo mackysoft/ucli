@@ -35,11 +35,11 @@ internal sealed class ReadyCodeCatalogContributor : ICodeCatalogContributor
     }
 
     private static CodeCatalogDescriptor Create (
-        string code,
+        AssuranceClaimCode code,
         string summary)
     {
         return new CodeCatalogDescriptor(
-            Code: code,
+            Code: code.Value,
             Kind: CodeCatalogKindValues.Claim,
             Category: "ready",
             Summary: summary,

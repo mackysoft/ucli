@@ -337,7 +337,7 @@ internal sealed class CompileService : ICompileService
                     Kind: VerifierId,
                     Deterministic: false,
                     Required: true,
-                    PrimaryClaims: CompileClaimCodes.All,
+                    PrimaryClaims: CompileClaimCodes.AllValues,
                     Effects: VerifierEffects,
                     ReportRef: SummaryReportRef),
             ],

@@ -60,10 +60,10 @@ internal sealed class ReadyAssuranceSemanticInvariantRule : IAssuranceSemanticIn
 
     private static bool IsReadyClaim (string claimId)
     {
-        return string.Equals(claimId, ReadyClaimCodes.UnityReadyExecution, StringComparison.Ordinal)
-            || string.Equals(claimId, ReadyClaimCodes.UnityReadyMutation, StringComparison.Ordinal)
-            || string.Equals(claimId, ReadyClaimCodes.UnityReadyTest, StringComparison.Ordinal)
-            || string.Equals(claimId, ReadyClaimCodes.UnityReadyReadIndex, StringComparison.Ordinal);
+        return ReadyClaimCodes.UnityReadyExecution.EqualsValue(claimId)
+            || ReadyClaimCodes.UnityReadyMutation.EqualsValue(claimId)
+            || ReadyClaimCodes.UnityReadyTest.EqualsValue(claimId)
+            || ReadyClaimCodes.UnityReadyReadIndex.EqualsValue(claimId);
     }
 
     private static bool IsAutoOneshotReadyPayload (JsonElement payload)

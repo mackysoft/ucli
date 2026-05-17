@@ -122,7 +122,7 @@ public sealed class CompileCommandTests
                     Kind: "compile",
                     Deterministic: false,
                     Required: true,
-                    PrimaryClaims: CompileClaimCodes.All,
+                    PrimaryClaims: CompileClaimCodes.AllValues,
                     Effects:
                     [
                         "assetDatabaseRefresh",

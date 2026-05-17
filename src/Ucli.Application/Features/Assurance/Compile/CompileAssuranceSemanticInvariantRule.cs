@@ -34,17 +34,17 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceSemantic
             return;
         }
 
-        if (string.Equals(claimId, CompileClaimCodes.UnityCompileNoErrors, StringComparison.Ordinal))
+        if (CompileClaimCodes.UnityCompileNoErrors.EqualsValue(claimId))
         {
             ValidateVerifier(payload, violations);
             ValidateRefresh(compileElement, violations);
             ValidateCompileNoErrorsClaim(compileElement, claimElement, claimPath, violations);
         }
-        else if (string.Equals(claimId, CompileClaimCodes.UnityDomainReloadSettled, StringComparison.Ordinal))
+        else if (CompileClaimCodes.UnityDomainReloadSettled.EqualsValue(claimId))
         {
             ValidateDomainReloadClaim(compileElement, claimElement, claimPath, violations);
         }
-        else if (string.Equals(claimId, CompileClaimCodes.UnityLifecycleReadyAfterCompile, StringComparison.Ordinal))
+        else if (CompileClaimCodes.UnityLifecycleReadyAfterCompile.EqualsValue(claimId))
         {
             ValidateLifecycleClaim(compileElement, claimElement, claimPath, violations);
         }
@@ -118,7 +118,7 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceSemantic
             .Where(static item => item.ValueKind == JsonValueKind.String)
             .Select(static item => item.GetString() ?? string.Empty)
             .ToArray();
-        if (!primaryClaims.SequenceEqual(CompileClaimCodes.All, StringComparer.Ordinal))
+        if (!primaryClaims.SequenceEqual(CompileClaimCodes.AllValues, StringComparer.Ordinal))
         {
             AddViolation(violations, primaryClaimsPath, "Compile verifier primaryClaims must match the compile claim set.");
         }
@@ -266,9 +266,9 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceSemantic
 
     private static bool IsCompileClaim (string claimId)
     {
-        return string.Equals(claimId, CompileClaimCodes.UnityCompileNoErrors, StringComparison.Ordinal)
-            || string.Equals(claimId, CompileClaimCodes.UnityDomainReloadSettled, StringComparison.Ordinal)
-            || string.Equals(claimId, CompileClaimCodes.UnityLifecycleReadyAfterCompile, StringComparison.Ordinal);
+        return CompileClaimCodes.UnityCompileNoErrors.EqualsValue(claimId)
+            || CompileClaimCodes.UnityDomainReloadSettled.EqualsValue(claimId)
+            || CompileClaimCodes.UnityLifecycleReadyAfterCompile.EqualsValue(claimId);
     }
 
     private static bool IsCompilePayload (JsonElement payload)
