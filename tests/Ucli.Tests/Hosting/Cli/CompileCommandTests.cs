@@ -124,7 +124,7 @@ public sealed class CompileCommandTests
                     Kind: "compile",
                     Deterministic: false,
                     Required: true,
-                    PrimaryClaims: CompileClaimCodes.AllValues,
+                    PrimaryClaims: CompileClaimCodes.All.Select(static code => code.Value).ToArray(),
                     Effects: CompileEffectValues.All,
                     ReportRef: "compile.summary"),
             ],

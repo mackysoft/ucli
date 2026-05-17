@@ -16,10 +16,4 @@ internal static class CompileClaimCodes
         UnityLifecycleReadyAfterCompile,
     ];
 
-    public static IReadOnlyList<string> AllValues { get; } =
-    [
-        UnityCompileNoErrors.Value,
-        UnityDomainReloadSettled.Value,
-        UnityLifecycleReadyAfterCompile.Value,
-    ];
 }

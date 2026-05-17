@@ -112,7 +112,7 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceSemantic
             .Where(static item => item.ValueKind == JsonValueKind.String)
             .Select(static item => item.GetString() ?? string.Empty)
             .ToArray();
-        if (!primaryClaims.SequenceEqual(CompileClaimCodes.AllValues, StringComparer.Ordinal))
+        if (!primaryClaims.SequenceEqual(CompileClaimCodes.All.Select(static code => code.Value), StringComparer.Ordinal))
         {
             AddViolation(violations, primaryClaimsPath, "Compile verifier primaryClaims must match the compile claim set.");
         }
