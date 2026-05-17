@@ -90,11 +90,24 @@ public sealed class VerifyServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WithPostReadPartialDiagnostics_ReturnsPartialOptionalClaim ()
+    public async Task Execute_WithPostReadPartialDiagnostics_ReturnsPartialOptionalClaimWithoutLogs ()
     {
-        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithPostReadPartialDiagnostics_ReturnsPartialOptionalClaim));
+        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithPostReadPartialDiagnostics_ReturnsPartialOptionalClaimWithoutLogs));
         var fromPath = scope.WriteFile("from.json", CreateFromJson("project-fingerprint", coverageImpact: "partial"));
-        var logsService = new StubLogsUnityService(LogsReadServiceResult.Success());
+        var logsService = new StubLogsUnityService(async (_, onEvent, cancellationToken) =>
+        {
+            await onEvent(
+                    CreateLogEvent("cursor-1"),
+                    "cursor-1",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            await onEvent(
+                    CreateLogEvent("cursor-2"),
+                    "cursor-2",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return LogsReadServiceResult.Success();
+        });
         var service = CreateService(scope.FullPath, logsService: logsService);
 
         var result = await service.ExecuteAsync(new VerifyCommandInput(
@@ -111,7 +124,232 @@ public sealed class VerifyServiceTests
         Assert.False(claim.Required);
         Assert.Equal(VerifyClaimStatusValues.Passed, claim.Status);
         Assert.Equal(VerifyCoverageValues.Partial, claim.Coverage);
+        Assert.Equal(0, logsService.ExecuteCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenReadyConsumesTimeoutBudget_PassesRemainingTimeoutToCompile ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WhenReadyConsumesTimeoutBudget_PassesRemainingTimeoutToCompile));
+        var timeProvider = new ManualTimeProvider();
+        var project = CreateProjectIdentity(scope.FullPath);
+        var readyService = new StubReadyService(input =>
+        {
+            timeProvider.Advance(TimeSpan.FromMilliseconds(200));
+            return CreateReadyResult(input.Target, project);
+        });
+        var compileService = new StubCompileService(_ => CreateCompileResult(project));
+        var service = CreateService(
+            scope.FullPath,
+            readyService: readyService,
+            compileService: compileService,
+            timeProvider: timeProvider);
+
+        var result = await service.ExecuteAsync(new VerifyCommandInput(
+            ProjectPath: null,
+            Profile: "built-in:default",
+            ProfilePath: null,
+            FromPath: null,
+            Mode: UnityExecutionMode.Auto,
+            TimeoutMilliseconds: 1000));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(800, compileService.CapturedInput!.TimeoutMilliseconds);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenRemainingTimeoutIsSubMillisecond_RoundsStepTimeoutUp ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WhenRemainingTimeoutIsSubMillisecond_RoundsStepTimeoutUp));
+        var timeProvider = new ManualTimeProvider();
+        var project = CreateProjectIdentity(scope.FullPath);
+        var readyService = new StubReadyService(input =>
+        {
+            timeProvider.Advance(TimeSpan.FromMilliseconds(1000) - TimeSpan.FromTicks(1));
+            return CreateReadyResult(input.Target, project);
+        });
+        var compileService = new StubCompileService(_ => CreateCompileResult(project));
+        var service = CreateService(
+            scope.FullPath,
+            readyService: readyService,
+            compileService: compileService,
+            timeProvider: timeProvider);
+
+        var result = await service.ExecuteAsync(new VerifyCommandInput(
+            ProjectPath: null,
+            Profile: "built-in:default",
+            ProfilePath: null,
+            FromPath: null,
+            Mode: UnityExecutionMode.Auto,
+            TimeoutMilliseconds: 1000));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, compileService.CapturedInput!.TimeoutMilliseconds);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenLogsStepExceedsRemainingTimeout_ReturnsTimeoutFailure ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WhenLogsStepExceedsRemainingTimeout_ReturnsTimeoutFailure));
+        var timeProvider = new ManualTimeProvider();
+        var project = CreateProjectIdentity(scope.FullPath);
+        var compileService = new StubCompileService(_ =>
+        {
+            timeProvider.Advance(TimeSpan.FromMilliseconds(999));
+            return CreateCompileResult(project, CompileClaimStatusValues.Failed);
+        });
+        var logsService = new StubLogsUnityService((_, cancellationToken) =>
+        {
+            timeProvider.Advance(TimeSpan.FromMilliseconds(1));
+            cancellationToken.ThrowIfCancellationRequested();
+            return LogsReadServiceResult.Success();
+        });
+        var service = CreateService(
+            scope.FullPath,
+            compileService: compileService,
+            logsService: logsService,
+            timeProvider: timeProvider);
+
+        var result = await service.ExecuteAsync(new VerifyCommandInput(
+            ProjectPath: null,
+            Profile: "built-in:default",
+            ProfilePath: null,
+            FromPath: null,
+            Mode: UnityExecutionMode.Auto,
+            TimeoutMilliseconds: 1000));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, Assert.Single(result.Errors).Code);
         Assert.Equal(1, logsService.ExecuteCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenStepReturnsSuccessAfterDeadline_ReturnsTimeoutFailure ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WhenStepReturnsSuccessAfterDeadline_ReturnsTimeoutFailure));
+        var timeProvider = new ManualTimeProvider();
+        var project = CreateProjectIdentity(scope.FullPath);
+        var compileService = new StubCompileService(_ =>
+        {
+            timeProvider.Advance(TimeSpan.FromMilliseconds(1001));
+            return CreateCompileResult(project);
+        });
+        var service = CreateService(
+            scope.FullPath,
+            compileService: compileService,
+            timeProvider: timeProvider);
+
+        var result = await service.ExecuteAsync(new VerifyCommandInput(
+            ProjectPath: null,
+            Profile: "built-in:script",
+            ProfilePath: null,
+            FromPath: null,
+            Mode: UnityExecutionMode.Auto,
+            TimeoutMilliseconds: 1000));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, Assert.Single(result.Errors).Code);
+        Assert.Equal(1, compileService.ExecuteCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithRequiredPartialCoverageClaim_CollectsLogsEvidence ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithRequiredPartialCoverageClaim_CollectsLogsEvidence));
+        scope.WriteFile(
+            "verify.json",
+            """
+            {
+              "schemaVersion": 1,
+              "steps": [
+                {
+                  "kind": "postRead",
+                  "required": true
+                },
+                {
+                  "kind": "logs",
+                  "required": false
+                }
+              ]
+            }
+            """);
+        var fromPath = scope.WriteFile("from.json", CreateFromJson("project-fingerprint", coverageImpact: "partial"));
+        var logsService = new StubLogsUnityService(async (_, onEvent, cancellationToken) =>
+        {
+            await onEvent(
+                    CreateLogEvent("cursor-1"),
+                    "cursor-1",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            await onEvent(
+                    CreateLogEvent("cursor-2"),
+                    "cursor-2",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return LogsReadServiceResult.Success();
+        });
+        var service = CreateService(scope.FullPath, logsService: logsService);
+
+        var result = await service.ExecuteAsync(new VerifyCommandInput(
+            ProjectPath: null,
+            Profile: null,
+            ProfilePath: "verify.json",
+            FromPath: fromPath,
+            Mode: UnityExecutionMode.Auto,
+            TimeoutMilliseconds: 10000));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(VerifyVerdictValues.Incomplete, result.Output!.Verdict);
+        Assert.Equal(1, logsService.ExecuteCount);
+        var report = result.Output.Reports["logs.unity"];
+        Assert.Equal("ucli://logs/unity?tail=200&count=2", report.Uri);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithPostReadErrorDiagnostic_ReturnsFailedClaim ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithPostReadErrorDiagnostic_ReturnsFailedClaim));
+        scope.WriteFile(
+            "verify.json",
+            """
+            {
+              "schemaVersion": 1,
+              "steps": [
+                {
+                  "kind": "postRead",
+                  "required": true
+                }
+              ]
+            }
+            """);
+        var fromPath = scope.WriteFile(
+            "from.json",
+            CreateFromJson(
+                "project-fingerprint",
+                coverageImpact: "none",
+                severity: "error"));
+        var service = CreateService(scope.FullPath);
+
+        var result = await service.ExecuteAsync(new VerifyCommandInput(
+            ProjectPath: null,
+            Profile: null,
+            ProfilePath: "verify.json",
+            FromPath: fromPath,
+            Mode: UnityExecutionMode.Auto,
+            TimeoutMilliseconds: 10000));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(VerifyVerdictValues.Fail, result.Output!.Verdict);
+        var claim = Assert.Single(result.Output.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.ReadSurfaceSafe.Value, StringComparison.Ordinal));
+        Assert.True(claim.Required);
+        Assert.Equal(VerifyClaimStatusValues.Failed, claim.Status);
+        Assert.Equal(VerifyCoverageValues.Full, claim.Coverage);
     }
 
     [Fact]
@@ -212,7 +450,8 @@ public sealed class VerifyServiceTests
         StubTestRunService? testRunService = null,
         StubLogsUnityService? logsService = null,
         StubProfileFileReader? profileFileReader = null,
-        StubFromInputFileReader? fromInputFileReader = null)
+        StubFromInputFileReader? fromInputFileReader = null,
+        TimeProvider? timeProvider = null)
     {
         var project = CreateProjectIdentity(repositoryRoot);
         return new VerifyService(
@@ -229,7 +468,8 @@ public sealed class VerifyServiceTests
                 File.ReadAllText(Path.Combine(root, profilePath)),
                 profilePath.Replace('\\', '/'))),
             fromInputFileReader ?? new StubFromInputFileReader((fromPath, root) => VerifyFromInputFileReadResult.Success(
-                File.ReadAllText(Path.Combine(root, fromPath)))));
+                File.ReadAllText(Path.Combine(root, fromPath)))),
+            timeProvider);
     }
 
     private static ProjectContext CreateProjectContext (string repositoryRoot)
@@ -304,8 +544,16 @@ public sealed class VerifyServiceTests
 
     private static CompileExecutionResult CreateCompileResult (ProjectIdentityInfo project)
     {
+        return CreateCompileResult(project, CompileClaimStatusValues.Passed);
+    }
+
+    private static CompileExecutionResult CreateCompileResult (
+        ProjectIdentityInfo project,
+        string claimStatus)
+    {
+        var failed = string.Equals(claimStatus, CompileClaimStatusValues.Failed, StringComparison.Ordinal);
         return CompileExecutionResult.Success(new CompileExecutionOutput(
-            Verdict: CompileVerdictValues.Pass,
+            Verdict: failed ? CompileVerdictValues.Fail : CompileVerdictValues.Pass,
             Project: project,
             Verifiers:
             [
@@ -322,7 +570,7 @@ public sealed class VerifyServiceTests
             [
                 new CompileClaimOutput(
                     Id: CompileClaimCodes.UnityCompileNoErrors.Value,
-                    Status: CompileClaimStatusValues.Passed,
+                    Status: claimStatus,
                     Coverage: CompileCoverageValues.Full,
                     Required: true,
                     VerifierRef: "compile",
@@ -354,7 +602,7 @@ public sealed class VerifyServiceTests
                     CompileGenerationBefore: "1",
                     CompileGenerationAfter: "2",
                     Diagnostics: new CompileDiagnosticsOutput(
-                        ErrorCount: 0,
+                        ErrorCount: failed ? 1 : 0,
                         WarningCount: 0,
                         PrimaryDiagnostic: null)),
                 DomainReload: new CompileDomainReloadOutput(
@@ -380,13 +628,15 @@ public sealed class VerifyServiceTests
 
     private static string CreateFromJson (
         string projectFingerprint,
-        string coverageImpact)
+        string coverageImpact,
+        string severity = "warning")
     {
         return $$"""
         {
           "protocolVersion": 1,
-          "command": "call",
           "status": "ok",
+          "exitCode": 0,
+          "command": "call",
           "payload": {
             "project": {
               "projectPath": "/repo/UnityProject",
@@ -395,10 +645,11 @@ public sealed class VerifyServiceTests
             },
             "opResults": [
               {
-                "opId": "op-1",
-                "op": "Scene.Touch",
-                "applied": true,
-                "changed": true,
+                  "opId": "op-1",
+                  "op": "Scene.Touch",
+                  "phase": "call",
+                  "applied": true,
+                  "changed": true,
                 "touched": [
                   {
                     "kind": "asset",
@@ -406,10 +657,11 @@ public sealed class VerifyServiceTests
                   }
                 ],
                 "diagnostics": [
-                  {
-                    "code": "READ_SURFACE_PARTIAL",
-                    "coverageImpact": "{{coverageImpact}}",
-                    "message": "Read surface coverage is partial."
+                    {
+                      "code": "READ_SURFACE_PARTIAL",
+                      "severity": "{{severity}}",
+                      "coverageImpact": "{{coverageImpact}}",
+                      "message": "Read surface coverage is partial."
                   }
                 ]
               }
@@ -417,7 +669,8 @@ public sealed class VerifyServiceTests
             "readPostcondition": {
               "requirements": [
                 {
-                  "kind": "scene"
+                  "surface": "sceneTreeLite",
+                  "minSafeGeneratedAtUtc": "2026-05-17T00:00:00+00:00"
                 }
               ]
             }
@@ -425,6 +678,17 @@ public sealed class VerifyServiceTests
           "errors": []
         }
         """;
+    }
+
+    private static IpcUnityLogEvent CreateLogEvent (string cursor)
+    {
+        return new IpcUnityLogEvent(
+            Timestamp: "2026-05-17T00:00:00+00:00",
+            Level: "error",
+            Source: "runtime",
+            Message: "Unity log event.",
+            StackTrace: null,
+            Cursor: cursor);
     }
 
     private sealed class StubProjectContextResolver : IProjectContextResolver
@@ -477,12 +741,15 @@ public sealed class VerifyServiceTests
 
         public int ExecuteCount { get; private set; }
 
+        public CompileCommandInput? CapturedInput { get; private set; }
+
         public ValueTask<CompileExecutionResult> ExecuteAsync (
             CompileCommandInput input,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             ExecuteCount++;
+            CapturedInput = input;
             return ValueTask.FromResult(resultFactory(input));
         }
     }
@@ -513,11 +780,22 @@ public sealed class VerifyServiceTests
 
     private sealed class StubLogsUnityService : ILogsUnityService
     {
-        private readonly LogsReadServiceResult result;
+        private readonly Func<LogsUnityServiceRequest, Func<IpcUnityLogEvent, string, CancellationToken, ValueTask>, CancellationToken, ValueTask<LogsReadServiceResult>> resultFactory;
 
         public StubLogsUnityService (LogsReadServiceResult result)
+            : this((_, _, _) => ValueTask.FromResult(result))
         {
-            this.result = result;
+        }
+
+        public StubLogsUnityService (Func<LogsUnityServiceRequest, CancellationToken, LogsReadServiceResult> resultFactory)
+            : this((request, _, cancellationToken) => ValueTask.FromResult(resultFactory(request, cancellationToken)))
+        {
+        }
+
+        public StubLogsUnityService (
+            Func<LogsUnityServiceRequest, Func<IpcUnityLogEvent, string, CancellationToken, ValueTask>, CancellationToken, ValueTask<LogsReadServiceResult>> resultFactory)
+        {
+            this.resultFactory = resultFactory;
         }
 
         public int ExecuteCount { get; private set; }
@@ -529,7 +807,7 @@ public sealed class VerifyServiceTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             ExecuteCount++;
-            return ValueTask.FromResult(result);
+            return resultFactory(request, onEvent, cancellationToken);
         }
     }
 

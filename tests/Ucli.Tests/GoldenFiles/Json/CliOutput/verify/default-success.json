@@ -49,12 +49,12 @@
         "subject": {
           "target": "execution"
         },
+        "evidence": [],
+        "residualRisks": [],
         "validity": {
           "kind": "probeOnly",
           "guaranteesReusableSession": false
-        },
-        "evidence": [],
-        "residualRisks": []
+        }
       },
       {
         "id": "UNITY_COMPILE_NO_ERRORS",

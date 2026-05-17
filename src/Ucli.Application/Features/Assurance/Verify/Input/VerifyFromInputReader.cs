@@ -48,6 +48,11 @@ internal static class VerifyFromInputReader
             return Failure("The --from protocolVersion does not match the current uCLI protocol version.", VerifyErrorCodes.VerifyInputProtocolVersionMismatch);
         }
 
+        if (!IsSuccessfulPublicResult(root))
+        {
+            return Failure("The --from result must be a successful public uCLI result with status=ok, exitCode=0, and no errors.", VerifyErrorCodes.VerifyInputPayloadInvalid);
+        }
+
         if (!root.TryGetProperty("command", out var commandElement) || commandElement.ValueKind != JsonValueKind.String)
         {
             return Failure("The --from command is missing.", VerifyErrorCodes.VerifyInputCommandUnsupported);
@@ -90,12 +95,30 @@ internal static class VerifyFromInputReader
             return Failure("The --from payload.opResults contains malformed operation results.", VerifyErrorCodes.VerifyInputPayloadInvalid);
         }
 
-        var readPostconditionRequirementCount = ReadPostconditionRequirementCount(payload);
+        if (!TryReadPostconditionRequirementCount(payload, out var readPostconditionRequirementCount))
+        {
+            return Failure("The --from payload.readPostcondition contains malformed requirements.", VerifyErrorCodes.VerifyInputPayloadInvalid);
+        }
+
         return VerifyFromInputReadResult.Success(new VerifyFromInput(
             command,
             projectFingerprint,
             opResults,
             readPostconditionRequirementCount));
+    }
+
+    private static bool IsSuccessfulPublicResult (JsonElement root)
+    {
+        return root.TryGetProperty("status", out var statusElement)
+            && statusElement.ValueKind == JsonValueKind.String
+            && string.Equals(statusElement.GetString(), IpcProtocol.StatusOk, StringComparison.Ordinal)
+            && root.TryGetProperty("exitCode", out var exitCodeElement)
+            && exitCodeElement.ValueKind == JsonValueKind.Number
+            && exitCodeElement.TryGetInt32(out var exitCode)
+            && exitCode == 0
+            && root.TryGetProperty("errors", out var errorsElement)
+            && errorsElement.ValueKind == JsonValueKind.Array
+            && errorsElement.GetArrayLength() == 0;
     }
 
     private static bool TryReadOpResults (
@@ -108,6 +131,7 @@ internal static class VerifyFromInputReader
             if (opResultElement.ValueKind != JsonValueKind.Object
                 || !TryReadString(opResultElement, "opId", out var opId)
                 || !TryReadString(opResultElement, "op", out var op)
+                || !TryReadKnownOperationPhase(opResultElement, "phase")
                 || !TryReadBoolean(opResultElement, "applied", out var applied)
                 || !TryReadBoolean(opResultElement, "changed", out var changed)
                 || !opResultElement.TryGetProperty("touched", out var touchedElement)
@@ -119,6 +143,12 @@ internal static class VerifyFromInputReader
 
             var diagnostics = ReadDiagnostics(opResultElement);
             if (diagnostics is null)
+            {
+                opResults = [];
+                return false;
+            }
+
+            if (!TouchedItemsAreValid(touchedElement))
             {
                 opResults = [];
                 return false;
@@ -150,26 +180,53 @@ internal static class VerifyFromInputReader
         {
             if (diagnosticElement.ValueKind != JsonValueKind.Object
                 || !TryReadString(diagnosticElement, "code", out var code)
+                || !UcliCode.IsValidValue(code)
+                || !TryReadKnownDiagnosticSeverity(diagnosticElement, "severity", out var severity)
                 || !TryReadString(diagnosticElement, "coverageImpact", out var coverageImpact)
+                || !IsKnownDiagnosticCoverageImpact(coverageImpact)
                 || !TryReadString(diagnosticElement, "message", out var message))
             {
                 return null;
             }
 
-            diagnostics.Add(new VerifyFromDiagnostic(code, coverageImpact, message));
+            diagnostics.Add(new VerifyFromDiagnostic(code, severity, coverageImpact, message));
         }
 
         return diagnostics;
     }
 
-    private static int ReadPostconditionRequirementCount (JsonElement payload)
+    private static bool TryReadPostconditionRequirementCount (
+        JsonElement payload,
+        out int count)
     {
-        return payload.TryGetProperty("readPostcondition", out var readPostcondition)
-            && readPostcondition.ValueKind == JsonValueKind.Object
-            && readPostcondition.TryGetProperty("requirements", out var requirements)
-            && requirements.ValueKind == JsonValueKind.Array
-            ? requirements.GetArrayLength()
-            : 0;
+        count = 0;
+        if (!payload.TryGetProperty("readPostcondition", out var readPostcondition) || readPostcondition.ValueKind == JsonValueKind.Null)
+        {
+            return true;
+        }
+
+        if (readPostcondition.ValueKind != JsonValueKind.Object
+            || !readPostcondition.TryGetProperty("requirements", out var requirements)
+            || requirements.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        foreach (var requirement in requirements.EnumerateArray())
+        {
+            if (requirement.ValueKind != JsonValueKind.Object
+                || !TryReadString(requirement, "surface", out var surface)
+                || !IsKnownReadPostconditionSurface(surface)
+                || !TryReadString(requirement, "minSafeGeneratedAtUtc", out var minSafeGeneratedAtUtc)
+                || !IpcIso8601TimestampCodec.TryParseOptionalWithTimezoneOffset(minSafeGeneratedAtUtc, out var parsedMinSafeGeneratedAtUtc)
+                || parsedMinSafeGeneratedAtUtc is null)
+            {
+                return false;
+            }
+        }
+
+        count = requirements.GetArrayLength();
+        return true;
     }
 
     private static bool TryReadString (
@@ -201,6 +258,72 @@ internal static class VerifyFromInputReader
         }
 
         return false;
+    }
+
+    private static bool TryReadKnownOperationPhase (
+        JsonElement owner,
+        string propertyName)
+    {
+        return TryReadString(owner, propertyName, out var phase)
+            && phase is IpcExecuteOperationPhaseNames.Validate
+                or IpcExecuteOperationPhaseNames.Plan
+                or IpcExecuteOperationPhaseNames.Call
+                or IpcExecuteOperationPhaseNames.Skipped;
+    }
+
+    private static bool TouchedItemsAreValid (JsonElement touchedElement)
+    {
+        foreach (var item in touchedElement.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object
+                || !TryReadString(item, "kind", out var kind)
+                || !IsKnownTouchedResourceKind(kind)
+                || !TryReadString(item, "path", out _))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool TryReadKnownDiagnosticSeverity (
+        JsonElement owner,
+        string propertyName,
+        out string severity)
+    {
+        if (TryReadString(owner, propertyName, out severity)
+            && severity is IpcExecuteDiagnosticSeverityNames.Info
+                or IpcExecuteDiagnosticSeverityNames.Warning
+                or IpcExecuteDiagnosticSeverityNames.Error)
+        {
+            return true;
+        }
+
+        severity = string.Empty;
+        return false;
+    }
+
+    private static bool IsKnownDiagnosticCoverageImpact (string coverageImpact)
+    {
+        return coverageImpact is IpcExecuteDiagnosticCoverageImpactNames.None
+            or IpcExecuteDiagnosticCoverageImpactNames.Partial
+            or IpcExecuteDiagnosticCoverageImpactNames.Indeterminate;
+    }
+
+    private static bool IsKnownTouchedResourceKind (string kind)
+    {
+        return kind is IpcExecuteTouchedResourceKindNames.Scene
+            or IpcExecuteTouchedResourceKindNames.Prefab
+            or IpcExecuteTouchedResourceKindNames.Asset
+            or IpcExecuteTouchedResourceKindNames.ProjectSettings;
+    }
+
+    private static bool IsKnownReadPostconditionSurface (string surface)
+    {
+        return surface is IpcExecuteReadPostconditionSurfaceNames.AssetSearch
+            or IpcExecuteReadPostconditionSurfaceNames.GuidPath
+            or IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite;
     }
 
     private static VerifyFromInputReadResult Failure (

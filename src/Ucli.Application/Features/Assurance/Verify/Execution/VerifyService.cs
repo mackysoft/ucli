@@ -43,6 +43,8 @@ internal sealed class VerifyService : IVerifyService
 
     private readonly IVerifyFromInputFileReader fromInputFileReader;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="VerifyService" /> class. </summary>
     public VerifyService (
         IProjectContextResolver projectContextResolver,
@@ -51,7 +53,8 @@ internal sealed class VerifyService : IVerifyService
         ITestRunService testRunService,
         ILogsUnityService logsUnityService,
         IVerifyProfileFileReader profileFileReader,
-        IVerifyFromInputFileReader fromInputFileReader)
+        IVerifyFromInputFileReader fromInputFileReader,
+        TimeProvider? timeProvider = null)
     {
         this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
         this.readyService = readyService ?? throw new ArgumentNullException(nameof(readyService));
@@ -60,6 +63,7 @@ internal sealed class VerifyService : IVerifyService
         this.logsUnityService = logsUnityService ?? throw new ArgumentNullException(nameof(logsUnityService));
         this.profileFileReader = profileFileReader ?? throw new ArgumentNullException(nameof(profileFileReader));
         this.fromInputFileReader = fromInputFileReader ?? throw new ArgumentNullException(nameof(fromInputFileReader));
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <inheritdoc />
@@ -123,6 +127,7 @@ internal sealed class VerifyService : IVerifyService
         }
 
         var profile = profileResult.Profile!;
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         var builder = new VerifyPacketBuilder(project);
         foreach (var step in profile.Steps)
         {
@@ -133,17 +138,45 @@ internal sealed class VerifyService : IVerifyService
                 continue;
             }
 
-            var stepResult = await ExecuteStepAsync(
-                    input,
-                    timeout,
-                    step,
-                    fromInput,
-                    builder,
-                    cancellationToken)
-                .ConfigureAwait(false);
+            if (!deadline.TryGetRemainingTimeout(out var stepTimeout))
+            {
+                return VerifyExecutionResult.Failure(
+                    ApplicationFailure.Timeout("Timed out before verify profile step execution could begin."),
+                    project);
+            }
+
+            VerifyStepExecutionResult stepResult;
+            using (var stepCancellationScope = TimeProviderCancellationScope.CreateLinked(cancellationToken, stepTimeout, timeProvider))
+            {
+                try
+                {
+                    stepResult = await ExecuteStepAsync(
+                            input,
+                            stepTimeout,
+                            step,
+                            fromInput,
+                            builder,
+                            stepCancellationScope.Token)
+                        .ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (stepCancellationScope.HasTimedOut)
+                {
+                    return VerifyExecutionResult.Failure(
+                        ApplicationFailure.Timeout("Timed out during verify profile step execution."),
+                        project);
+                }
+            }
+
             if (!stepResult.IsSuccess)
             {
                 return VerifyExecutionResult.Failure(stepResult.Error!, project);
+            }
+
+            if (deadline.IsExpired)
+            {
+                return VerifyExecutionResult.Failure(
+                    ApplicationFailure.Timeout("Timed out during verify profile step execution."),
+                    project);
             }
         }
 
@@ -229,7 +262,7 @@ internal sealed class VerifyService : IVerifyService
                     ProjectPath: input.ProjectPath,
                     Target: step.ReadyTarget,
                     Mode: input.Mode,
-                    TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
+                    TimeoutMilliseconds: ToTimeoutMilliseconds(timeout),
                     ReadIndexMode: null,
                     IsReadIndexModeSpecified: false,
                     FailFast: false),
@@ -301,7 +334,7 @@ internal sealed class VerifyService : IVerifyService
                 new CompileCommandInput(
                     ProjectPath: input.ProjectPath,
                     Mode: input.Mode,
-                    TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds)),
+                    TimeoutMilliseconds: ToTimeoutMilliseconds(timeout)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!result.IsSuccess)
@@ -415,7 +448,7 @@ internal sealed class VerifyService : IVerifyService
                     TestCategory: step.TestCategory,
                     AssemblyName: step.AssemblyName,
                     TestSettingsPath: null,
-                    TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
+                    TimeoutMilliseconds: ToTimeoutMilliseconds(timeout),
                     FailFast: false),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -647,6 +680,14 @@ internal sealed class VerifyService : IVerifyService
 
     private static string ResolveDiagnosticStatus (IReadOnlyList<VerifyFromDiagnostic> diagnostics)
     {
+        if (diagnostics.Any(static diagnostic => string.Equals(
+                diagnostic.Severity,
+                IpcExecuteDiagnosticSeverityNames.Error,
+                StringComparison.Ordinal)))
+        {
+            return VerifyClaimStatusValues.Failed;
+        }
+
         return diagnostics.Any(static diagnostic => string.Equals(
                 diagnostic.CoverageImpact,
                 IpcExecuteDiagnosticCoverageImpactNames.Indeterminate,
@@ -691,6 +732,17 @@ internal sealed class VerifyService : IVerifyService
                 Data = evidence.Data,
             }).ToArray(),
             ResidualRisks: claim.ResidualRisks.Select(static risk => new VerifyResidualRiskOutput(risk.Code, risk.Blocking)).ToArray());
+    }
+
+    private static int ToTimeoutMilliseconds (TimeSpan timeout)
+    {
+        var timeoutMilliseconds = Math.Ceiling(timeout.TotalMilliseconds);
+        if (timeoutMilliseconds >= int.MaxValue)
+        {
+            return int.MaxValue;
+        }
+
+        return checked((int)timeoutMilliseconds);
     }
 
     private static string RecalculateVerdict (
@@ -745,7 +797,8 @@ internal sealed class VerifyService : IVerifyService
             string.Equals(claim.Status, VerifyClaimStatusValues.Failed, StringComparison.Ordinal)
             || string.Equals(claim.Status, VerifyClaimStatusValues.Indeterminate, StringComparison.Ordinal)
             || string.Equals(claim.Status, VerifyClaimStatusValues.Unverified, StringComparison.Ordinal)
-            || !string.Equals(claim.Coverage, VerifyCoverageValues.Full, StringComparison.Ordinal));
+            || (claim.Required
+                && !string.Equals(claim.Coverage, VerifyCoverageValues.Full, StringComparison.Ordinal)));
 
         public void AddVerifier (VerifyVerifierOutput verifier)
         {

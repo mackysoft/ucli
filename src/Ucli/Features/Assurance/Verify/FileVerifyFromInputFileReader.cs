@@ -15,7 +15,12 @@ internal sealed class FileVerifyFromInputFileReader : IVerifyFromInputFileReader
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!TryResolveRepositoryFile(repositoryRoot, fromPath, out var fullPath))
+        if (!VerifyRepositoryFilePathResolver.TryResolve(
+                repositoryRoot,
+                fromPath,
+                out var fullPath,
+                out _,
+                out _))
         {
             return Failure("The --from path must resolve to a file under the repository root.");
         }
@@ -41,39 +46,5 @@ internal sealed class FileVerifyFromInputFileReader : IVerifyFromInputFileReader
         return VerifyFromInputFileReadResult.Failure(ApplicationFailure.InvalidInput(
             message,
             VerifyErrorCodes.VerifyInputPayloadInvalid));
-    }
-
-    private static bool TryResolveRepositoryFile (
-        string repositoryRoot,
-        string path,
-        out string fullPath)
-    {
-        fullPath = string.Empty;
-
-        if (string.IsNullOrWhiteSpace(repositoryRoot) || string.IsNullOrWhiteSpace(path))
-        {
-            return false;
-        }
-
-        try
-        {
-            var normalizedRepositoryRoot = Path.GetFullPath(repositoryRoot);
-            var normalizedPath = Path.GetFullPath(path, normalizedRepositoryRoot);
-            var rootWithSeparator = normalizedRepositoryRoot.EndsWith(Path.DirectorySeparatorChar)
-                ? normalizedRepositoryRoot
-                : string.Concat(normalizedRepositoryRoot, Path.DirectorySeparatorChar);
-            if (!string.Equals(normalizedPath, normalizedRepositoryRoot, StringComparison.Ordinal)
-                && !normalizedPath.StartsWith(rootWithSeparator, StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            fullPath = normalizedPath;
-            return true;
-        }
-        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
-        {
-            return false;
-        }
     }
 }
