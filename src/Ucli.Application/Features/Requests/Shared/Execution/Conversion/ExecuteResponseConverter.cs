@@ -40,6 +40,11 @@ internal static class ExecuteResponseConverter
             return CreateInvalidPayloadFailure(errorsValidationError);
         }
 
+        if (!TryValidateContractViolationErrors(payload!.ContractViolations, response.Errors, out var contractViolationError))
+        {
+            return CreateInvalidPayloadFailure(contractViolationError);
+        }
+
         var normalizedErrors = NormalizeErrors(response.HasFailureStatus, response.FailureStatus, response.Errors);
         var validatedPayload = payload!;
         return new ExecuteResponseConversionResult(
@@ -407,6 +412,113 @@ internal static class ExecuteResponseConverter
         }
 
         return true;
+    }
+
+    private static bool TryValidateContractViolationErrors (
+        IReadOnlyList<IpcExecuteContractViolation>? contractViolations,
+        IReadOnlyList<OperationExecutionError> errors,
+        out string errorMessage)
+    {
+        errorMessage = string.Empty;
+        var hasContractViolationError = HasOperationContractViolationError(errors);
+        if (contractViolations is null || contractViolations.Count == 0)
+        {
+            if (hasContractViolationError)
+            {
+                errorMessage = "Execute response payload is invalid. OPERATION_CONTRACT_VIOLATION errors require payload.contractViolations[].";
+                return false;
+            }
+
+            return true;
+        }
+
+        if (!hasContractViolationError)
+        {
+            errorMessage = "Execute response payload is invalid. payload.contractViolations[] requires an OPERATION_CONTRACT_VIOLATION error.";
+            return false;
+        }
+
+        for (var violationIndex = 0; violationIndex < contractViolations.Count; violationIndex++)
+        {
+            var violation = contractViolations[violationIndex];
+            if (HasMatchingOperationContractViolationError(errors, violation.OpId))
+            {
+                continue;
+            }
+
+            errorMessage = $"Execute response payload is invalid. The 'contractViolations[{violationIndex}]' item requires a matching OPERATION_CONTRACT_VIOLATION error.";
+            return false;
+        }
+
+        for (var errorIndex = 0; errorIndex < errors.Count; errorIndex++)
+        {
+            var error = errors[errorIndex];
+            if (error.Code != ExecuteRequestErrorCodes.OperationContractViolation)
+            {
+                continue;
+            }
+
+            if (IsMissingRequiredString(error.OpId))
+            {
+                errorMessage = $"Execute response envelope is invalid. The 'errors[{errorIndex}].opId' field is required for OPERATION_CONTRACT_VIOLATION errors.";
+                return false;
+            }
+
+            if (HasMatchingContractViolation(contractViolations, error.OpId!))
+            {
+                continue;
+            }
+
+            errorMessage = $"Execute response envelope is invalid. The 'errors[{errorIndex}]' OPERATION_CONTRACT_VIOLATION error requires a matching payload.contractViolations[] item.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool HasOperationContractViolationError (IReadOnlyList<OperationExecutionError> errors)
+    {
+        for (var errorIndex = 0; errorIndex < errors.Count; errorIndex++)
+        {
+            if (errors[errorIndex].Code == ExecuteRequestErrorCodes.OperationContractViolation)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasMatchingOperationContractViolationError (
+        IReadOnlyList<OperationExecutionError> errors,
+        string opId)
+    {
+        for (var errorIndex = 0; errorIndex < errors.Count; errorIndex++)
+        {
+            var error = errors[errorIndex];
+            if (error.Code == ExecuteRequestErrorCodes.OperationContractViolation
+                && string.Equals(error.OpId, opId, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasMatchingContractViolation (
+        IReadOnlyList<IpcExecuteContractViolation> contractViolations,
+        string opId)
+    {
+        for (var violationIndex = 0; violationIndex < contractViolations.Count; violationIndex++)
+        {
+            if (string.Equals(contractViolations[violationIndex].OpId, opId, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool IsMissingRequiredString (string? value)

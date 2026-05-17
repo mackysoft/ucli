@@ -296,7 +296,46 @@ public sealed class ExecuteResponseConverterTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Convert_WhenContractViolationIsPresent_PropagatesContractViolation ()
+    public void Convert_WhenContractViolationIsPresentWithMatchingError_PropagatesFailureAndContractViolation ()
+    {
+        var response = CreateResponse(
+            new IpcExecuteResponse([])
+            {
+                ContractViolations =
+                [
+                    new IpcExecuteContractViolation(
+                        OpId: "query-1",
+                        Operation: UcliPrimitiveOperationNames.SceneQuery,
+                        ExpectedFact: "operation.kind=query",
+                        ObservedResult: "opResults[].applied=true",
+                        ApplicationState: IpcExecuteContractViolationApplicationStateNames.Applied),
+                ],
+            },
+            [
+                new OperationExecutionError(
+                    ExecuteRequestErrorCodes.OperationContractViolation,
+                    "Operation result violated declared assurance facts.",
+                    "query-1"),
+            ],
+            hasFailureStatus: true);
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(ExecuteRequestErrorCodes.OperationContractViolation, error.Code);
+        Assert.Equal("query-1", error.OpId);
+        var violation = Assert.Single(result.ContractViolations);
+        Assert.Equal("query-1", violation.OpId);
+        Assert.Equal(UcliPrimitiveOperationNames.SceneQuery, violation.Operation);
+        Assert.Equal("operation.kind=query", violation.ExpectedFact);
+        Assert.Equal("opResults[].applied=true", violation.ObservedResult);
+        Assert.Equal(IpcExecuteContractViolationApplicationStateNames.Applied, violation.ApplicationState);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Convert_WhenContractViolationIsPresentWithoutMatchingError_ReturnsInternalError ()
     {
         var response = CreateResponse(new IpcExecuteResponse([])
         {
@@ -313,13 +352,72 @@ public sealed class ExecuteResponseConverterTests
 
         var result = ExecuteResponseConverter.Convert(response);
 
-        Assert.True(result.IsSuccess);
-        var violation = Assert.Single(result.ContractViolations);
-        Assert.Equal("query-1", violation.OpId);
-        Assert.Equal(UcliPrimitiveOperationNames.SceneQuery, violation.Operation);
-        Assert.Equal("operation.kind=query", violation.ExpectedFact);
-        Assert.Equal("opResults[].applied=true", violation.ObservedResult);
-        Assert.Equal(IpcExecuteContractViolationApplicationStateNames.Applied, violation.ApplicationState);
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("payload.contractViolations[]", error.Message, StringComparison.Ordinal);
+        Assert.Contains("OPERATION_CONTRACT_VIOLATION", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Convert_WhenContractViolationErrorIsPresentWithoutContractViolation_ReturnsInternalError ()
+    {
+        var response = CreateResponse(
+            new IpcExecuteResponse([]),
+            [
+                new OperationExecutionError(
+                    ExecuteRequestErrorCodes.OperationContractViolation,
+                    "Operation result violated declared assurance facts.",
+                    "query-1"),
+            ],
+            hasFailureStatus: true);
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("payload.contractViolations[]", error.Message, StringComparison.Ordinal);
+        Assert.Contains("OPERATION_CONTRACT_VIOLATION", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Convert_WhenContractViolationErrorHasNoMatchingViolation_ReturnsInternalError ()
+    {
+        var response = CreateResponse(
+            new IpcExecuteResponse([])
+            {
+                ContractViolations =
+                [
+                    new IpcExecuteContractViolation(
+                        OpId: "query-1",
+                        Operation: UcliPrimitiveOperationNames.SceneQuery,
+                        ExpectedFact: "operation.kind=query",
+                        ObservedResult: "opResults[].applied=true",
+                        ApplicationState: IpcExecuteContractViolationApplicationStateNames.Applied),
+                ],
+            },
+            [
+                new OperationExecutionError(
+                    ExecuteRequestErrorCodes.OperationContractViolation,
+                    "Operation result violated declared assurance facts.",
+                    "query-1"),
+                new OperationExecutionError(
+                    ExecuteRequestErrorCodes.OperationContractViolation,
+                    "Operation result violated declared assurance facts.",
+                    "query-2"),
+            ],
+            hasFailureStatus: true);
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("errors[1]", error.Message, StringComparison.Ordinal);
+        Assert.Contains("payload.contractViolations[]", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -589,7 +687,10 @@ public sealed class ExecuteResponseConverterTests
         Assert.Equal(PlanTokenErrorCodes.PlanTokenInvalid, Assert.Single(result.Errors).Code);
     }
 
-    private static UnityRequestResponse CreateResponse (IpcExecuteResponse payload)
+    private static UnityRequestResponse CreateResponse (
+        IpcExecuteResponse payload,
+        IReadOnlyList<OperationExecutionError>? errors = null,
+        bool hasFailureStatus = false)
     {
         if (payload.Project == IpcProjectIdentity.Unknown)
         {
@@ -601,8 +702,9 @@ public sealed class ExecuteResponseConverterTests
 
         return new UnityRequestResponse(
             Payload: IpcPayloadCodec.SerializeToElement(payload),
-            Errors: [],
-            HasFailureStatus: false);
+            Errors: errors ?? [],
+            HasFailureStatus: hasFailureStatus,
+            FailureStatus: hasFailureStatus ? IpcProtocol.StatusError : null);
     }
 
     private static IpcProjectIdentity CreateProjectIdentity ()

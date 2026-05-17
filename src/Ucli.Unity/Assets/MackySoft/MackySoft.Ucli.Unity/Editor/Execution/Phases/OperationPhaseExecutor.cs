@@ -256,6 +256,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 remappedTraces[i] = trace with
                 {
                     Failure = CreatePlanTokenValidationFailure(trace.Failure, validationFailure),
+                    ContractViolations = Array.Empty<OperationContractViolation>(),
                 };
             }
 

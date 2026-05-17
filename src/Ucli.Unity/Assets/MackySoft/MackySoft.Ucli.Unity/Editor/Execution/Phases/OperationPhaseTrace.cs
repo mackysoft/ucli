@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Text.Json;
-using MackySoft.Ucli.Contracts.Ipc;
 
 #nullable enable
 
@@ -33,6 +32,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public IReadOnlyList<OperationDiagnostic> Diagnostics { get; init; } = System.Array.Empty<OperationDiagnostic>();
 
         /// <summary> Gets runtime violations of declared operation contract facts. </summary>
-        public IReadOnlyList<IpcExecuteContractViolation> ContractViolations { get; init; } = System.Array.Empty<IpcExecuteContractViolation>();
+        public IReadOnlyList<OperationContractViolation> ContractViolations { get; init; } = System.Array.Empty<OperationContractViolation>();
     }
 }

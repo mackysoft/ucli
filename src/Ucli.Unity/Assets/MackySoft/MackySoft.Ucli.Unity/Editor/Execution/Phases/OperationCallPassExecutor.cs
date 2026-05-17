@@ -64,27 +64,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     OperationPhaseExecutionUtilities.MergeTouched(touched, replayedPlanStepResult.Touched);
                     OperationPhaseExecutionUtilities.MergeDiagnostics(diagnostics, replayedPlanStepResult.Diagnostics);
 
-                    if (!replayedPlanStepResult.IsSuccess)
-                    {
-                        var replayTouchedSnapshot = touched.ToArray();
-                        operationTraces.Add(new OperationPhaseTrace(
-                            OpId: preparedOperation.Operation.Id,
-                            Op: preparedOperation.Operation.Op,
-                            Phase: OperationPhase.Plan,
-                            Applied: replayedPlanStepResult.Applied,
-                            Changed: replayedPlanStepResult.Changed,
-                            Touched: replayTouchedSnapshot,
-                            Failure: replayedPlanStepResult.Failure)
-                        {
-                            Result = replayedPlanStepResult.Result,
-                            ReadInvalidations = replayedPlanStepResult.ReadInvalidations,
-                            Diagnostics = diagnostics.ToArray(),
-                        });
-                        errors.Add(replayedPlanStepResult.Failure!);
-                        hasFailed = true;
-                        continue;
-                    }
-
                     var replayContractViolations = OperationPhaseResultContractValidator.Validate(
                         preparedOperation.Operation,
                         preparedOperation.PhaseOperation.Metadata,
@@ -110,6 +89,27 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         hasFailed = true;
                         continue;
                     }
+
+                    if (!replayedPlanStepResult.IsSuccess)
+                    {
+                        var replayTouchedSnapshot = touched.ToArray();
+                        operationTraces.Add(new OperationPhaseTrace(
+                            OpId: preparedOperation.Operation.Id,
+                            Op: preparedOperation.Operation.Op,
+                            Phase: OperationPhase.Plan,
+                            Applied: replayedPlanStepResult.Applied,
+                            Changed: replayedPlanStepResult.Changed,
+                            Touched: replayTouchedSnapshot,
+                            Failure: replayedPlanStepResult.Failure)
+                        {
+                            Result = replayedPlanStepResult.Result,
+                            ReadInvalidations = replayedPlanStepResult.ReadInvalidations,
+                            Diagnostics = diagnostics.ToArray(),
+                        });
+                        errors.Add(replayedPlanStepResult.Failure!);
+                        hasFailed = true;
+                        continue;
+                    }
                 }
 
                 var callStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStepAsync(
@@ -122,26 +122,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 OperationPhaseExecutionUtilities.MergeDiagnostics(diagnostics, callStepResult.Diagnostics);
                 var touchedSnapshot = touched.ToArray();
                 var diagnosticsSnapshot = diagnostics.ToArray();
-
-                if (!callStepResult.IsSuccess)
-                {
-                    operationTraces.Add(new OperationPhaseTrace(
-                        OpId: preparedOperation.Operation.Id,
-                        Op: preparedOperation.Operation.Op,
-                        Phase: OperationPhase.Call,
-                        Applied: callStepResult.Applied,
-                        Changed: callStepResult.Changed,
-                        Touched: touchedSnapshot,
-                        Failure: callStepResult.Failure)
-                    {
-                        Result = callStepResult.Result,
-                        ReadInvalidations = callStepResult.ReadInvalidations,
-                        Diagnostics = diagnosticsSnapshot,
-                    });
-                    errors.Add(callStepResult.Failure!);
-                    hasFailed = true;
-                    continue;
-                }
 
                 var contractViolations = OperationPhaseResultContractValidator.Validate(
                     preparedOperation.Operation,
@@ -165,6 +145,26 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         ContractViolations = contractViolations,
                     });
                     errors.Add(failure);
+                    hasFailed = true;
+                    continue;
+                }
+
+                if (!callStepResult.IsSuccess)
+                {
+                    operationTraces.Add(new OperationPhaseTrace(
+                        OpId: preparedOperation.Operation.Id,
+                        Op: preparedOperation.Operation.Op,
+                        Phase: OperationPhase.Call,
+                        Applied: callStepResult.Applied,
+                        Changed: callStepResult.Changed,
+                        Touched: touchedSnapshot,
+                        Failure: callStepResult.Failure)
+                    {
+                        Result = callStepResult.Result,
+                        ReadInvalidations = callStepResult.ReadInvalidations,
+                        Diagnostics = diagnosticsSnapshot,
+                    });
+                    errors.Add(callStepResult.Failure!);
                     hasFailed = true;
                     continue;
                 }

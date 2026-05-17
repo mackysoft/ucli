@@ -52,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(Execute(operation, args, executionContext, applied: false, includeTemporaryState: true));
+            return Task.FromResult(Execute(operation, args, executionContext, includeTemporaryState: true));
         }
 
         protected override Task<OperationPhaseStepResult> CallAsync (
@@ -62,14 +62,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(Execute(operation, args, executionContext, applied: false, includeTemporaryState: false));
+            return Task.FromResult(Execute(operation, args, executionContext, includeTemporaryState: false));
         }
 
         private static OperationPhaseStepResult Execute (
             NormalizedOperation operation,
             AssetsFindArgs args,
             OperationExecutionContext executionContext,
-            bool applied,
             bool includeTemporaryState)
         {
             if (!TryValidate(operation, args, out var validationState, out var failure))
@@ -92,7 +91,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return OperationPhaseStepResult.Success(
-                applied: applied,
+                applied: false,
                 changed: false,
                 result: IpcPayloadCodec.SerializeToElement(new AssetsFindResult(payloadMatches, windowedMatches.Window)));
         }

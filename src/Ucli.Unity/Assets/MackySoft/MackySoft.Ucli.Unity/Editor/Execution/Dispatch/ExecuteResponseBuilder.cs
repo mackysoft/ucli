@@ -327,13 +327,23 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 var operationTrace = operationTraces[traceIndex];
                 for (var violationIndex = 0; violationIndex < operationTrace.ContractViolations.Count; violationIndex++)
                 {
-                    violations.Add(operationTrace.ContractViolations[violationIndex]);
+                    violations.Add(MapContractViolation(operationTrace.ContractViolations[violationIndex]));
                 }
             }
 
             return violations.Count == 0
                 ? null
                 : violations.ToArray();
+        }
+
+        private static IpcExecuteContractViolation MapContractViolation (OperationContractViolation violation)
+        {
+            return new IpcExecuteContractViolation(
+                OpId: violation.OpId,
+                Operation: violation.Operation,
+                ExpectedFact: violation.ExpectedFact,
+                ObservedResult: violation.ObservedResult,
+                ApplicationState: violation.ApplicationState);
         }
 
         /// <summary> Creates IPC errors from operation failures. </summary>

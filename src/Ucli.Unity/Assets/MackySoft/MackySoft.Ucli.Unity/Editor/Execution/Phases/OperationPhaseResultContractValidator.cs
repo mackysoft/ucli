@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 
 #nullable enable
@@ -12,7 +11,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     internal static class OperationPhaseResultContractValidator
     {
         /// <summary> Creates runtime contract violation entries for one observed phase result. </summary>
-        public static IReadOnlyList<IpcExecuteContractViolation> Validate (
+        public static IReadOnlyList<OperationContractViolation> Validate (
             NormalizedOperation operation,
             UcliOperationMetadata metadata,
             OperationPhaseStepResult result)
@@ -32,7 +31,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(result));
             }
 
-            var violations = new List<IpcExecuteContractViolation>();
+            var violations = new List<OperationContractViolation>();
             if (metadata.Kind == UcliOperationKind.Query)
             {
                 AddQueryViolations(operation, result, violations);
@@ -71,7 +70,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private static void AddQueryViolations (
             NormalizedOperation operation,
             OperationPhaseStepResult result,
-            List<IpcExecuteContractViolation> violations)
+            List<OperationContractViolation> violations)
         {
             if (result.Applied)
             {
@@ -101,13 +100,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
         }
 
-        private static IpcExecuteContractViolation CreateViolation (
+        private static OperationContractViolation CreateViolation (
             NormalizedOperation operation,
             OperationPhaseStepResult result,
             string expectedFact,
             string observedResult)
         {
-            return new IpcExecuteContractViolation(
+            return new OperationContractViolation(
                 OpId: operation.Id,
                 Operation: operation.Op,
                 ExpectedFact: expectedFact,
@@ -119,12 +118,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             if (result.Applied)
             {
-                return IpcExecuteContractViolationApplicationStateNames.Applied;
+                return OperationContractViolationApplicationStateNames.Applied;
             }
 
             return result.Changed || result.Touched.Count != 0
-                ? IpcExecuteContractViolationApplicationStateNames.Indeterminate
-                : IpcExecuteContractViolationApplicationStateNames.NotApplied;
+                ? OperationContractViolationApplicationStateNames.Indeterminate
+                : OperationContractViolationApplicationStateNames.NotApplied;
         }
 
         private static string ToTouchedKindName (OperationTouchKind kind)
@@ -132,16 +131,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             switch (kind)
             {
                 case OperationTouchKind.Scene:
-                    return IpcExecuteTouchedResourceKindNames.Scene;
+                    return "scene";
 
                 case OperationTouchKind.Prefab:
-                    return IpcExecuteTouchedResourceKindNames.Prefab;
+                    return "prefab";
 
                 case OperationTouchKind.Asset:
-                    return IpcExecuteTouchedResourceKindNames.Asset;
+                    return "asset";
 
                 case OperationTouchKind.ProjectSettings:
-                    return IpcExecuteTouchedResourceKindNames.ProjectSettings;
+                    return "projectSettings";
 
                 default:
                     return kind.ToString();
