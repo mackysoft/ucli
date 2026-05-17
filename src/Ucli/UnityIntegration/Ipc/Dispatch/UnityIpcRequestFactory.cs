@@ -10,11 +10,13 @@ internal static class UnityIpcRequestFactory
     /// <param name="sessionToken"> The session token written into the request envelope. </param>
     /// <param name="method"> The IPC method name. </param>
     /// <param name="payload"> The payload element. </param>
+    /// <param name="dispatchTimeout"> The final dispatch timeout budget when the method needs server-side cancellation. </param>
     /// <returns> The created request envelope. </returns>
     public static IpcRequest Create (
         string sessionToken,
         string method,
-        JsonElement payload)
+        JsonElement payload,
+        TimeSpan? dispatchTimeout = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionToken);
         ArgumentException.ThrowIfNullOrWhiteSpace(method);
@@ -24,6 +26,24 @@ internal static class UnityIpcRequestFactory
             RequestId: $"{method}-{Guid.NewGuid():N}",
             SessionToken: sessionToken,
             Method: method,
-            Payload: payload);
+            Payload: ApplyDispatchTimeout(method, payload, dispatchTimeout));
+    }
+
+    private static JsonElement ApplyDispatchTimeout (
+        string method,
+        JsonElement payload,
+        TimeSpan? dispatchTimeout)
+    {
+        if (!dispatchTimeout.HasValue
+            || !string.Equals(method, IpcMethodNames.Compile, StringComparison.Ordinal)
+            || !IpcPayloadCodec.TryDeserialize(payload, out IpcCompileRequest compileRequest, out _))
+        {
+            return payload;
+        }
+
+        return IpcPayloadCodec.SerializeToElement(compileRequest with
+        {
+            TimeoutMilliseconds = checked((int)Math.Ceiling(dispatchTimeout.Value.TotalMilliseconds)),
+        });
     }
 }

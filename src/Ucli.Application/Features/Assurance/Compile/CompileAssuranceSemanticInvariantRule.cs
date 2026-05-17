@@ -196,10 +196,9 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceSemantic
 
         if (TryReadBoolean(domainReloadElement, "settled", out var settled)
             && TryReadString(claimElement, "status", out var status)
-            && settled
-            && !string.Equals(status, CompileClaimStatusValues.Passed, StringComparison.Ordinal))
+            && !IsExpectedBooleanClaimStatus(settled, status))
         {
-            AddViolation(violations, BuildPropertyPath(claimPath, "status"), "UNITY_DOMAIN_RELOAD_SETTLED must pass when domainReload.settled is true.");
+            AddViolation(violations, BuildPropertyPath(claimPath, "status"), "UNITY_DOMAIN_RELOAD_SETTLED must match domainReload.settled.");
         }
 
         if (reloadRequired)
@@ -229,11 +228,19 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceSemantic
 
         if (TryReadBoolean(lifecycleElement, "canAcceptExecutionRequests", out var canAcceptExecutionRequests)
             && TryReadString(claimElement, "status", out var status)
-            && canAcceptExecutionRequests
-            && !string.Equals(status, CompileClaimStatusValues.Passed, StringComparison.Ordinal))
+            && !IsExpectedBooleanClaimStatus(canAcceptExecutionRequests, status))
         {
-            AddViolation(violations, BuildPropertyPath(claimPath, "status"), "UNITY_LIFECYCLE_READY_AFTER_COMPILE must pass when lifecycle can accept execution requests.");
+            AddViolation(violations, BuildPropertyPath(claimPath, "status"), "UNITY_LIFECYCLE_READY_AFTER_COMPILE must match lifecycle.canAcceptExecutionRequests.");
         }
+    }
+
+    private static bool IsExpectedBooleanClaimStatus (
+        bool evidencePassed,
+        string status)
+    {
+        return evidencePassed
+            ? string.Equals(status, CompileClaimStatusValues.Passed, StringComparison.Ordinal)
+            : string.Equals(status, CompileClaimStatusValues.Failed, StringComparison.Ordinal);
     }
 
     private static bool TryReadDiagnostics (

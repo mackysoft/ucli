@@ -78,6 +78,30 @@ public sealed class CompileCliOutputContractTests
         AssertViolationPath(result, "$.compile.refresh.origin");
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CompileGolden_WhenDomainReloadUnsettledConflictsWithPassedClaim_ReturnsSemanticViolation ()
+    {
+        var payloadNode = LoadGoldenPayloadNode("pass-no-reload.json");
+        payloadNode["compile"]!["domainReload"]!["settled"] = false;
+
+        var result = Validate(payloadNode);
+
+        AssertViolationPath(result, "$.claims[1].status");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CompileGolden_WhenLifecycleNotReadyConflictsWithPassedClaim_ReturnsSemanticViolation ()
+    {
+        var payloadNode = LoadGoldenPayloadNode("pass-no-reload.json");
+        payloadNode["compile"]!["lifecycle"]!["canAcceptExecutionRequests"] = false;
+
+        var result = Validate(payloadNode);
+
+        AssertViolationPath(result, "$.claims[2].status");
+    }
+
     private static AssuranceSemanticInvariantValidator CreateValidator ()
     {
         return new AssuranceSemanticInvariantValidator(

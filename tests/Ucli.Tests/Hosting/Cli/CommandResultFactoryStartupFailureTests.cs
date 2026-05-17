@@ -1,11 +1,13 @@
 using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Assurance.Compile;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
+using MackySoft.Ucli.Hosting.Cli.Assurance;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Ops;
 using MackySoft.Ucli.Hosting.Cli.Requests;
@@ -59,6 +61,11 @@ public sealed class CommandResultFactoryStartupFailureTests
                     [CreateStartupFailure()],
                     "Unity startup is blocked.",
                     CreateReadIndexInfo()))
+            ];
+            yield return
+            [
+                UcliCommandNames.Compile,
+                CompileCommandResultFactory.Create(CompileExecutionResult.Failure(CreateStartupFailure()))
             ];
             yield return
             [

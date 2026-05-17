@@ -2,7 +2,7 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Compile;
 
 /// <summary> Represents the primary machine-readable diagnostic included in compile evidence. </summary>
 internal sealed record CompilePrimaryDiagnosticOutput (
-    string? Kind,
+    string Kind,
     string? Code,
     string? File,
     int? Line,

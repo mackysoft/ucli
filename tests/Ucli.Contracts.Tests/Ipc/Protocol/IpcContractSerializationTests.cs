@@ -569,7 +569,10 @@ public sealed class IpcContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcCompileContracts_SerializeWithCamelCaseFields ()
     {
-        var requestPayload = new IpcCompileRequest("run-1");
+        var requestPayload = new IpcCompileRequest("run-1")
+        {
+            TimeoutMilliseconds = 10000,
+        };
         var responsePayload = new IpcCompileResponse(
             RunId: "run-1",
             Summary: CreateCompileSummary());
@@ -578,7 +581,8 @@ public sealed class IpcContractSerializationTests
         using var responseDocument = JsonDocument.Parse(JsonSerializer.Serialize(responsePayload, SerializerOptions));
 
         JsonAssert.For(requestDocument.RootElement)
-            .HasString("runId", "run-1");
+            .HasString("runId", "run-1")
+            .HasInt32("timeoutMilliseconds", 10000);
         JsonAssert.For(responseDocument.RootElement)
             .HasString("runId", "run-1")
             .HasProperty("summary", summary => summary

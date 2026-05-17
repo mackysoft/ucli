@@ -36,12 +36,14 @@ internal static class CompileCommandResultFactory
 
     private static object? CreateFailurePayload (CompileExecutionResult executionResult)
     {
-        return executionResult.Project is null
-            ? null
-            : new
-            {
-                project = ProjectIdentityPayloadProjector.Create(executionResult.Project),
-            };
+        var payload = new Dictionary<string, object?>(StringComparer.Ordinal);
+        if (executionResult.Project != null)
+        {
+            payload["project"] = ProjectIdentityPayloadProjector.Create(executionResult.Project);
+        }
+
+        StartupFailurePayloadProjector.AppendFromFailures(payload, executionResult.Errors);
+        return payload.Count == 0 ? null : payload;
     }
 
     private static CommandResult CreateSuccess (CompileExecutionResult executionResult)

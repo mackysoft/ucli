@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Compile;
 
@@ -207,6 +208,14 @@ internal sealed class CompileService : ICompileService
                 return CompileDispatchResult.Success(diagnosticsReadSummary!);
             }
 
+            if (failureInfo.StartupFailure != null)
+            {
+                return CompileDispatchResult.Failure(ApplicationFailure.FromCode(
+                    failureInfo.Code,
+                    failureInfo.Message,
+                    startupFailure: failureInfo.StartupFailure));
+            }
+
             return CompileDispatchResult.ArtifactRecoverableFailure(ApplicationFailure.FromCode(
                 failureInfo.Code,
                 failureInfo.Message,
@@ -217,6 +226,13 @@ internal sealed class CompileService : ICompileService
         if (response.HasFailureStatus || response.Errors.Count != 0)
         {
             var firstError = response.Errors.FirstOrDefault();
+            if (firstError?.Code == ExecutionErrorCodes.IpcTimeout)
+            {
+                return CompileDispatchResult.ArtifactRecoverableFailure(ApplicationFailure.FromCode(
+                    firstError.Code,
+                    firstError.Message));
+            }
+
             return CompileDispatchResult.Failure(ApplicationFailure.FromCode(
                 firstError?.Code,
                 firstError?.Message ?? $"Unity compile IPC failed with status '{response.FailureStatus}'."));
@@ -381,15 +397,18 @@ internal sealed class CompileService : ICompileService
 
     private static CompilePrimaryDiagnosticOutput? CreatePrimaryDiagnosticOutput (IpcPrimaryDiagnostic? diagnostic)
     {
-        return diagnostic is null
-            ? null
-            : new CompilePrimaryDiagnosticOutput(
-                Kind: diagnostic.Kind,
-                Code: diagnostic.Code,
-                File: diagnostic.File,
-                Line: diagnostic.Line,
-                Column: diagnostic.Column,
-                Message: diagnostic.Message);
+        if (diagnostic is null || !StringValueNormalizer.TryTrimToNonEmpty(diagnostic.Kind, out var kind))
+        {
+            return null;
+        }
+
+        return new CompilePrimaryDiagnosticOutput(
+            Kind: kind,
+            Code: StringValueNormalizer.TrimToNull(diagnostic.Code),
+            File: StringValueNormalizer.TrimToNull(diagnostic.File),
+            Line: diagnostic.Line,
+            Column: diagnostic.Column,
+            Message: StringValueNormalizer.TrimToNull(diagnostic.Message));
     }
 
     private static IReadOnlyList<CompileClaimOutput> CreateClaims (

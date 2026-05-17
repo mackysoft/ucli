@@ -218,7 +218,8 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                             UnityIpcRequestFactory.Create(
                                 sessionToken,
                                 dispatchRequest.Method,
-                                dispatchRequest.Payload),
+                                dispatchRequest.Payload,
+                                requestTimeout),
                             requestTimeout,
                             cancellationToken)
                         .ConfigureAwait(false);

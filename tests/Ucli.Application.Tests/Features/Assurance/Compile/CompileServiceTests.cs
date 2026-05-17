@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Assurance.Compile;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
@@ -81,6 +82,28 @@ public sealed class CompileServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WithCompileTimeoutResponse_ReadsRecoveredArtifact ()
+    {
+        var artifactStore = new StubCompileRunArtifactReader(CompileRunArtifactReadResult.Success(CreateSummary(errorCount: 1)));
+        var service = CreateService(
+            unityRequestExecutor: new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(new UnityRequestResponse(
+                default,
+                [new OperationExecutionError(ExecutionErrorCodes.IpcTimeout, "Unity compile assurance timed out.", null)],
+                HasFailureStatus: true))),
+            artifactStore: artifactStore);
+
+        var result = await service.ExecuteAsync(new CompileCommandInput(
+            ProjectPath: null,
+            Mode: UnityExecutionMode.Oneshot,
+            TimeoutMilliseconds: 10000));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, artifactStore.ReadCount);
+        Assert.Equal(CompileVerdictValues.Fail, result.Output!.Verdict);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WithStartupCompilerDiagnostic_ReturnsDiagnosticsReadFailurePacket ()
     {
         var artifactStore = new StubCompileRunArtifactReader();
@@ -107,6 +130,61 @@ public sealed class CompileServiceTests
         Assert.Equal(0, artifactStore.ReadCount);
         Assert.Equal(1, artifactStore.WriteCount);
         Assert.Equal("diagnosticsRead", artifactStore.WrittenSummary!.Refresh.Origin);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithStartupCompilerDiagnosisWithoutPrimaryDiagnostic_ReturnsDiagnosticsReadFailurePacket ()
+    {
+        var artifactStore = new StubCompileRunArtifactReader();
+        var service = CreateService(
+            unityRequestExecutor: new StubUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+                DaemonErrorCodes.DaemonStartupBlocked,
+                "Unity startup was blocked by script compilation errors.",
+                CreateStartupFailure(
+                    DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
+                    primaryDiagnostic: null)))),
+            artifactStore: artifactStore);
+
+        var result = await service.ExecuteAsync(new CompileCommandInput(
+            ProjectPath: null,
+            Mode: UnityExecutionMode.Oneshot,
+            TimeoutMilliseconds: 10000));
+
+        Assert.True(result.IsSuccess);
+        var diagnostic = result.Output!.Compile.ScriptCompilation.Diagnostics.PrimaryDiagnostic!;
+        Assert.Equal("compiler", diagnostic.Kind);
+        Assert.Null(diagnostic.Code);
+        Assert.Contains("script compilation", diagnostic.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, artifactStore.ReadCount);
+        Assert.Equal(1, artifactStore.WriteCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithNonCompilerStartupFailure_ReturnsFailureWithoutPollingArtifact ()
+    {
+        var artifactStore = new StubCompileRunArtifactReader();
+        var service = CreateService(
+            unityRequestExecutor: new StubUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+                DaemonErrorCodes.DaemonStartupBlocked,
+                "Unity startup was blocked by package resolution.",
+                CreateStartupFailure(
+                    DaemonDiagnosisReasonValues.UnityPackageResolutionFailed,
+                    primaryDiagnostic: null)))),
+            artifactStore: artifactStore);
+
+        var result = await service.ExecuteAsync(new CompileCommandInput(
+            ProjectPath: null,
+            Mode: UnityExecutionMode.Oneshot,
+            TimeoutMilliseconds: 10000));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(0, artifactStore.ReadCount);
+        Assert.Equal(0, artifactStore.WriteCount);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
+        Assert.NotNull(error.StartupFailure);
     }
 
     private static CompileService CreateService (
@@ -212,10 +290,27 @@ public sealed class CompileServiceTests
 
     private static StartupFailureDetail CreateCompilerStartupFailure ()
     {
+        return CreateStartupFailure(
+            DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
+            new DaemonPrimaryDiagnosticOutput(
+                Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
+                Code: "CS0246",
+                File: "Assets/Broken.cs",
+                Line: 10,
+                Column: 5,
+                Message: "MissingType could not be found."));
+    }
+
+    private static StartupFailureDetail CreateStartupFailure (
+        string reason,
+        DaemonPrimaryDiagnosticOutput? primaryDiagnostic)
+    {
         return new StartupFailureDetail(
             Startup: new DaemonStartupObservationOutput(
                 StartupStatus: "blocked",
-                StartupBlockingReason: "compile",
+                StartupBlockingReason: string.Equals(reason, DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, StringComparison.Ordinal)
+                    ? "compile"
+                    : "packageResolution",
                 LaunchAttemptId: null,
                 EditorMode: "batchmode",
                 OwnerKind: "oneshot",
@@ -228,8 +323,10 @@ public sealed class CompileServiceTests
                 ArtifactPath: null,
                 RetryDisposition: "manualActionRequired"),
             Diagnosis: new DaemonDiagnosisOutput(
-                Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
-                Message: "Assets/Broken.cs(10,5): error CS0246: MissingType could not be found.",
+                Reason: reason,
+                Message: string.Equals(reason, DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, StringComparison.Ordinal)
+                    ? "Unity script compilation failed."
+                    : "Unity package resolution failed.",
                 ReportedBy: "unityLog",
                 IsInferred: true,
                 UpdatedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02Z"),
@@ -238,14 +335,10 @@ public sealed class CompileServiceTests
                 ProcessStartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
                 UnityLogPath: "/workspace/UnityProject/Logs/Editor.log",
                 StartupPhase: "scriptCompilation",
-                ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
-                PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
-                    Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
-                    Code: "CS0246",
-                    File: "Assets/Broken.cs",
-                    Line: 10,
-                    Column: 5,
-                    Message: "MissingType could not be found.")),
+                ActionRequired: string.Equals(reason, DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, StringComparison.Ordinal)
+                    ? DaemonDiagnosisActionRequiredValues.FixCompileErrors
+                    : DaemonDiagnosisActionRequiredValues.ResolvePackages,
+                PrimaryDiagnostic: primaryDiagnostic),
             RetryDisposition: "manualActionRequired",
             SafeToRetryImmediately: false);
     }

@@ -84,9 +84,24 @@ namespace MackySoft.Ucli.Unity.Ipc
                     null);
             }
 
+            if (!TryValidateTimeoutMilliseconds(compileRequest.TimeoutMilliseconds, out var timeoutErrorMessage))
+            {
+                return UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    UcliCoreErrorCodes.InvalidArgument,
+                    timeoutErrorMessage,
+                    null);
+            }
+
+            CompileArtifactPaths paths = null;
+            CancellationTokenSource requestTimeoutCancellationTokenSource = null;
             try
             {
-                var paths = CompileArtifactPaths.Resolve(projectIdentity.ProjectFingerprint, compileRequest.RunId);
+                requestTimeoutCancellationTokenSource = CreateRequestTimeoutCancellationTokenSource(
+                    compileRequest.TimeoutMilliseconds,
+                    cancellationToken);
+                var executionCancellationToken = requestTimeoutCancellationTokenSource?.Token ?? cancellationToken;
+                paths = CompileArtifactPaths.Resolve(projectIdentity.ProjectFingerprint, compileRequest.RunId);
                 var recorder = new CompileRunRecorder(
                     compileRequest.RunId,
                     projectIdentity,
@@ -95,11 +110,26 @@ namespace MackySoft.Ucli.Unity.Ipc
                     paths);
                 // NOTE: Compile handling observes Unity Editor APIs across awaits, so it must remain on
                 // Unity's synchronization context instead of resuming on a thread-pool thread.
-                var summary = await recorder.ExecuteAsync(cancellationToken);
+                var summary = await recorder.ExecuteAsync(executionCancellationToken);
                 var response = new IpcCompileResponse(
                     RunId: compileRequest.RunId,
                     Summary: summary);
                 return UnityIpcResponseFactory.CreateSuccessResponse(request, response);
+            }
+            catch (OperationCanceledException) when (IsRequestTimeout(
+                requestTimeoutCancellationTokenSource,
+                cancellationToken))
+            {
+                TryWriteAbandonedPendingRun(
+                    paths,
+                    readinessGate,
+                    serverVersionProvider,
+                    daemonLogger);
+                return UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    IpcTransportErrorCodes.IpcTimeout,
+                    $"Unity compile assurance timed out after {compileRequest.TimeoutMilliseconds!.Value} milliseconds.",
+                    null);
             }
             catch (OperationCanceledException)
             {
@@ -120,6 +150,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                     UcliCoreErrorCodes.InternalError,
                     $"Unity compile assurance failed. {exception.Message}",
                     null);
+            }
+            finally
+            {
+                requestTimeoutCancellationTokenSource?.Dispose();
             }
         }
 
@@ -261,12 +295,18 @@ namespace MackySoft.Ucli.Unity.Ipc
                 requestPath,
                 summaryPath,
                 Path.Combine(runDirectoryPath, UcliStoragePathNames.CompileDiagnosticsFileName));
-            var finalSummary = CreateFinalSummary(
-                pendingSummary,
-                snapshot,
-                serverVersionProvider,
-                DateTimeOffset.UtcNow,
-                diagnostics: new DiagnosticAccumulator());
+            var finalSummary = CanCompletePendingRunFromRecovery(pendingSummary, snapshot)
+                ? CreateFinalSummary(
+                    pendingSummary,
+                    snapshot,
+                    serverVersionProvider,
+                    DateTimeOffset.UtcNow,
+                    diagnostics: new DiagnosticAccumulator())
+                : CreateAbandonedPendingSummary(
+                    pendingSummary,
+                    snapshot,
+                    serverVersionProvider,
+                    DateTimeOffset.UtcNow);
             WriteDiagnostics(paths.DiagnosticsJsonPath, finalSummary);
             WriteJsonAtomically(paths.SummaryJsonPath, finalSummary);
             return PendingRunRecoveryStatus.Completed;
@@ -396,6 +436,80 @@ namespace MackySoft.Ucli.Unity.Ipc
                 && !string.Equals(runId, "..", StringComparison.Ordinal);
         }
 
+        private static bool TryValidateTimeoutMilliseconds (
+            int? timeoutMilliseconds,
+            out string errorMessage)
+        {
+            errorMessage = null;
+            if (!timeoutMilliseconds.HasValue || timeoutMilliseconds.Value > 0)
+            {
+                return true;
+            }
+
+            errorMessage = "Compile timeoutMilliseconds must be greater than zero when specified.";
+            return false;
+        }
+
+        private static CancellationTokenSource CreateRequestTimeoutCancellationTokenSource (
+            int? timeoutMilliseconds,
+            CancellationToken cancellationToken)
+        {
+            if (!timeoutMilliseconds.HasValue)
+            {
+                return null;
+            }
+
+            var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cancellationTokenSource.CancelAfter(timeoutMilliseconds.Value);
+            return cancellationTokenSource;
+        }
+
+        private static bool IsRequestTimeout (
+            CancellationTokenSource requestTimeoutCancellationTokenSource,
+            CancellationToken callerCancellationToken)
+        {
+            return requestTimeoutCancellationTokenSource != null
+                && requestTimeoutCancellationTokenSource.IsCancellationRequested
+                && !callerCancellationToken.IsCancellationRequested;
+        }
+
+        private static void TryWriteAbandonedPendingRun (
+            CompileArtifactPaths paths,
+            IUnityEditorReadinessGate readinessGate,
+            IServerVersionProvider serverVersionProvider,
+            IDaemonLogger daemonLogger)
+        {
+            if (paths == null || File.Exists(paths.SummaryJsonPath))
+            {
+                return;
+            }
+
+            if (!TryReadPendingSummary(paths.RequestJsonPath, daemonLogger, out var pendingSummary)
+                || pendingSummary == null
+                || pendingSummary.Completed)
+            {
+                return;
+            }
+
+            try
+            {
+                var snapshot = readinessGate.CaptureSnapshot();
+                var abandonedSummary = CreateAbandonedPendingSummary(
+                    pendingSummary,
+                    snapshot,
+                    serverVersionProvider,
+                    DateTimeOffset.UtcNow);
+                WriteDiagnostics(paths.DiagnosticsJsonPath, abandonedSummary);
+                WriteJsonAtomically(paths.SummaryJsonPath, abandonedSummary);
+            }
+            catch (Exception exception)
+            {
+                daemonLogger.Warning(
+                    DaemonLogCategories.Ipc,
+                    $"Compile pending-run timeout summary could not be written. {exception.Message}");
+            }
+        }
+
         private static IpcCompileSummary CreatePendingSummary (
             string runId,
             IpcProjectIdentity projectIdentity,
@@ -444,10 +558,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 errorCount = 1;
             }
 
-            var domainReloadObserved = !string.Equals(
-                pendingSummary.DomainReload.GenerationBefore,
-                afterSnapshot.DomainReloadGeneration,
-                StringComparison.Ordinal);
+            var domainReloadObserved = IsDomainReloadObserved(pendingSummary, afterSnapshot);
             return pendingSummary with
             {
                 Completed = true,
@@ -479,6 +590,67 @@ namespace MackySoft.Ucli.Unity.Ipc
                 },
                 Lifecycle = CreateLifecycleEvidence(afterSnapshot, pendingSummary.ProjectFingerprint, serverVersionProvider),
             };
+        }
+
+        private static IpcCompileSummary CreateAbandonedPendingSummary (
+            IpcCompileSummary pendingSummary,
+            UnityEditorLifecycleSnapshot afterSnapshot,
+            IServerVersionProvider serverVersionProvider,
+            DateTimeOffset completedAtUtc)
+        {
+            var primaryDiagnostic = afterSnapshot.PrimaryDiagnostic;
+            var errorCount = primaryDiagnostic == null ? 0 : 1;
+            var domainReloadObserved = IsDomainReloadObserved(pendingSummary, afterSnapshot);
+            return pendingSummary with
+            {
+                Completed = true,
+                CompletedAtUtc = completedAtUtc,
+                Refresh = pendingSummary.Refresh with
+                {
+                    Completed = false,
+                    CompletedAtUtc = null,
+                },
+                ScriptCompilation = pendingSummary.ScriptCompilation with
+                {
+                    Started = false,
+                    Completed = false,
+                    CompileGenerationAfter = afterSnapshot.CompileGeneration,
+                    Diagnostics = new IpcCompileSummary.DiagnosticsEvidence(
+                        ErrorCount: errorCount,
+                        WarningCount: 0,
+                        PrimaryDiagnostic: primaryDiagnostic),
+                },
+                DomainReload = pendingSummary.DomainReload with
+                {
+                    ReloadRequired = domainReloadObserved,
+                    ReloadObserved = domainReloadObserved,
+                    GenerationAfter = afterSnapshot.DomainReloadGeneration,
+                    Settled = IsLifecycleSettled(afterSnapshot),
+                },
+                Lifecycle = CreateLifecycleEvidence(afterSnapshot, pendingSummary.ProjectFingerprint, serverVersionProvider),
+            };
+        }
+
+        private static bool CanCompletePendingRunFromRecovery (
+            IpcCompileSummary pendingSummary,
+            UnityEditorLifecycleSnapshot afterSnapshot)
+        {
+            // NOTE: A pending artifact is written before AssetDatabase.Refresh so it can survive
+            // domain reload. Recovery may only claim a completed compile when persisted or
+            // lifecycle evidence proves the refresh crossed a compile/reload boundary.
+            return pendingSummary.Refresh.Completed
+                || pendingSummary.ScriptCompilation.Started
+                || IsDomainReloadObserved(pendingSummary, afterSnapshot);
+        }
+
+        private static bool IsDomainReloadObserved (
+            IpcCompileSummary pendingSummary,
+            UnityEditorLifecycleSnapshot afterSnapshot)
+        {
+            return !string.Equals(
+                pendingSummary.DomainReload.GenerationBefore,
+                afterSnapshot.DomainReloadGeneration,
+                StringComparison.Ordinal);
         }
 
         private static IpcCompileSummary.LifecycleEvidence CreateLifecycleEvidence (
@@ -540,26 +712,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static Task WaitForNextEditorUpdateAsync (CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var completionSource = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
-            CancellationTokenRegistration registration = default;
-            void Complete ()
-            {
-                EditorApplication.update -= Complete;
-                registration.Dispose();
-                completionSource.TrySetResult(null);
-            }
-
-            EditorApplication.update += Complete;
-            if (cancellationToken.CanBeCanceled)
-            {
-                registration = cancellationToken.Register(static state =>
-                {
-                    var source = (TaskCompletionSource<object>)state;
-                    source.TrySetCanceled();
-                }, completionSource);
-            }
-
-            return completionSource.Task;
+            return new EditorUpdateWaitState(cancellationToken).Attach();
         }
 
         private static void WriteDiagnostics (
@@ -646,6 +799,83 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (File.Exists(path))
             {
                 File.Delete(path);
+            }
+        }
+
+        private sealed class EditorUpdateWaitState
+        {
+            private readonly CancellationToken cancellationToken;
+
+            private readonly SynchronizationContext synchronizationContext;
+
+            private readonly TaskCompletionSource<object> completionSource =
+                new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            private CancellationTokenRegistration cancellationRegistration;
+
+            private int detached;
+
+            public EditorUpdateWaitState (CancellationToken cancellationToken)
+            {
+                this.cancellationToken = cancellationToken;
+                synchronizationContext = SynchronizationContext.Current;
+            }
+
+            public Task Attach ()
+            {
+                EditorApplication.update += CompleteOnEditorUpdate;
+                if (cancellationToken.CanBeCanceled)
+                {
+                    cancellationRegistration = cancellationToken.Register(static state =>
+                    {
+                        var waitState = (EditorUpdateWaitState)state;
+                        waitState.Cancel();
+                    }, this);
+                    if (Volatile.Read(ref detached) != 0)
+                    {
+                        cancellationRegistration.Dispose();
+                    }
+                }
+
+                return completionSource.Task;
+            }
+
+            private void CompleteOnEditorUpdate ()
+            {
+                DetachOnMainThread();
+                completionSource.TrySetResult(null);
+            }
+
+            private void Cancel ()
+            {
+                completionSource.TrySetCanceled(cancellationToken);
+                if (synchronizationContext == null)
+                {
+                    return;
+                }
+
+                if (SynchronizationContext.Current == synchronizationContext)
+                {
+                    DetachOnMainThread();
+                    return;
+                }
+
+                synchronizationContext.Post(static state =>
+                {
+                    var waitState = (EditorUpdateWaitState)state;
+                    waitState.DetachOnMainThread();
+                }, this);
+            }
+
+            private void DetachOnMainThread ()
+            {
+                if (Interlocked.Exchange(ref detached, 1) != 0)
+                {
+                    return;
+                }
+
+                EditorApplication.update -= CompleteOnEditorUpdate;
+                cancellationRegistration.Dispose();
             }
         }
 
