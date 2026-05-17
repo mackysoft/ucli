@@ -1,4 +1,5 @@
-using MackySoft.Ucli.Application.Features.Assurance.Compile;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Vocabulary;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;

@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Application.Features.Assurance.Compile;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Artifacts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Preflight;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;

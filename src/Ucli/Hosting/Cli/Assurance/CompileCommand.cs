@@ -1,5 +1,5 @@
 using ConsoleAppFramework;
-using MackySoft.Ucli.Application.Features.Assurance.Compile;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Options;

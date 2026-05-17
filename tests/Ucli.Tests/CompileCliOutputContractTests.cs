@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using MackySoft.Ucli.Application.Features.Assurance.Compile;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Catalog;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Semantics;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;

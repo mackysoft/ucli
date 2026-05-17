@@ -1,4 +1,8 @@
-using MackySoft.Ucli.Application.Features.Assurance.Compile;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Artifacts;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Catalog;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Execution;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Semantics;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;

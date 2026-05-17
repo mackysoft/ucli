@@ -1,5 +1,8 @@
 using System.Text.Json;
-using MackySoft.Ucli.Application.Features.Assurance.Compile;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Artifacts;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Execution;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Vocabulary;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Configuration;

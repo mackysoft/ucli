@@ -1,6 +1,6 @@
 using System.Text.Json;
 using MackySoft.Tests;
-using MackySoft.Ucli.Application.Features.Assurance.Compile;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
