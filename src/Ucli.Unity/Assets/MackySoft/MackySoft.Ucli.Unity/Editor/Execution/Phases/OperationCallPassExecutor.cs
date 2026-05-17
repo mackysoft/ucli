@@ -84,6 +84,32 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         hasFailed = true;
                         continue;
                     }
+
+                    var replayContractViolations = OperationPhaseResultContractValidator.Validate(
+                        preparedOperation.Operation,
+                        preparedOperation.PhaseOperation.Metadata,
+                        replayedPlanStepResult);
+                    if (replayContractViolations.Count != 0)
+                    {
+                        var failure = OperationPhaseExecutionUtilities.CreateOperationContractViolationFailure(preparedOperation.Operation.Id);
+                        operationTraces.Add(new OperationPhaseTrace(
+                            OpId: preparedOperation.Operation.Id,
+                            Op: preparedOperation.Operation.Op,
+                            Phase: OperationPhase.Plan,
+                            Applied: replayedPlanStepResult.Applied,
+                            Changed: replayedPlanStepResult.Changed,
+                            Touched: touched.ToArray(),
+                            Failure: failure)
+                        {
+                            Result = replayedPlanStepResult.Result,
+                            ReadInvalidations = replayedPlanStepResult.ReadInvalidations,
+                            Diagnostics = diagnostics.ToArray(),
+                            ContractViolations = replayContractViolations,
+                        });
+                        errors.Add(failure);
+                        hasFailed = true;
+                        continue;
+                    }
                 }
 
                 var callStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStepAsync(
@@ -113,6 +139,32 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         Diagnostics = diagnosticsSnapshot,
                     });
                     errors.Add(callStepResult.Failure!);
+                    hasFailed = true;
+                    continue;
+                }
+
+                var contractViolations = OperationPhaseResultContractValidator.Validate(
+                    preparedOperation.Operation,
+                    preparedOperation.PhaseOperation.Metadata,
+                    callStepResult);
+                if (contractViolations.Count != 0)
+                {
+                    var failure = OperationPhaseExecutionUtilities.CreateOperationContractViolationFailure(preparedOperation.Operation.Id);
+                    operationTraces.Add(new OperationPhaseTrace(
+                        OpId: preparedOperation.Operation.Id,
+                        Op: preparedOperation.Operation.Op,
+                        Phase: OperationPhase.Call,
+                        Applied: callStepResult.Applied,
+                        Changed: callStepResult.Changed,
+                        Touched: touchedSnapshot,
+                        Failure: failure)
+                    {
+                        Result = callStepResult.Result,
+                        ReadInvalidations = callStepResult.ReadInvalidations,
+                        Diagnostics = diagnosticsSnapshot,
+                        ContractViolations = contractViolations,
+                    });
+                    errors.Add(failure);
                     hasFailed = true;
                     continue;
                 }

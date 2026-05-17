@@ -10,6 +10,7 @@ internal sealed record QueryServiceResult
         string commandName,
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
+        IReadOnlyList<OperationExecutionContractViolation> contractViolations,
         IReadOnlyList<ApplicationFailure> errors,
         string message,
         ReadIndexInfo readIndex,
@@ -18,6 +19,7 @@ internal sealed record QueryServiceResult
         CommandName = commandName;
         RequestId = requestId;
         OpResults = opResults;
+        ContractViolations = contractViolations;
         Errors = errors;
         Message = message;
         ReadIndex = readIndex;
@@ -32,6 +34,9 @@ internal sealed record QueryServiceResult
 
     /// <summary> Gets the per-step execution results. </summary>
     public IReadOnlyList<OperationExecutionOperationResult> OpResults { get; }
+
+    /// <summary> Gets runtime contract violations reported by Unity. </summary>
+    public IReadOnlyList<OperationExecutionContractViolation> ContractViolations { get; }
 
     /// <summary> Gets the machine-readable error list. </summary>
     public IReadOnlyList<ApplicationFailure> Errors { get; }
@@ -60,7 +65,8 @@ internal sealed record QueryServiceResult
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         string message,
         ReadIndexInfo readIndex,
-        ProjectIdentityInfo project)
+        ProjectIdentityInfo project,
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
@@ -73,6 +79,7 @@ internal sealed record QueryServiceResult
             commandName,
             requestId,
             opResults,
+            contractViolations ?? [],
             RequestServiceResultInvariants.EmptyErrors,
             message,
             readIndex,
@@ -87,7 +94,8 @@ internal sealed record QueryServiceResult
         IReadOnlyList<ApplicationFailure> errors,
         string message,
         ReadIndexInfo readIndex,
-        ProjectIdentityInfo? project = null)
+        ProjectIdentityInfo? project = null,
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
@@ -100,6 +108,7 @@ internal sealed record QueryServiceResult
             commandName,
             requestId,
             opResults,
+            contractViolations ?? [],
             failureErrors,
             message,
             readIndex,

@@ -22,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Saves an opened or previewed prefab asset.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.WritesPrefab },
-                mayDirty: false,
+                mayDirty: true,
                 mayPersist: true,
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Prefab },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,

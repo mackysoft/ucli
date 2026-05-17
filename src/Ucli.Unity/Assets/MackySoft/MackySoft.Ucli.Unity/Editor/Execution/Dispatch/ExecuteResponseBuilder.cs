@@ -160,6 +160,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 Project = project,
                 PlanToken = planToken,
                 ReadPostcondition = CreateReadPostcondition(operationTraces, issuedAtUtc),
+                ContractViolations = CreateContractViolations(operationTraces),
             };
         }
 
@@ -315,6 +316,24 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             return requirements.Count == 0
                 ? null
                 : new IpcExecuteReadPostcondition(requirements.ToArray());
+        }
+
+        private static IReadOnlyList<IpcExecuteContractViolation>? CreateContractViolations (
+            IReadOnlyList<OperationPhaseTrace> operationTraces)
+        {
+            var violations = new List<IpcExecuteContractViolation>();
+            for (var traceIndex = 0; traceIndex < operationTraces.Count; traceIndex++)
+            {
+                var operationTrace = operationTraces[traceIndex];
+                for (var violationIndex = 0; violationIndex < operationTrace.ContractViolations.Count; violationIndex++)
+                {
+                    violations.Add(operationTrace.ContractViolations[violationIndex]);
+                }
+            }
+
+            return violations.Count == 0
+                ? null
+                : violations.ToArray();
         }
 
         /// <summary> Creates IPC errors from operation failures. </summary>

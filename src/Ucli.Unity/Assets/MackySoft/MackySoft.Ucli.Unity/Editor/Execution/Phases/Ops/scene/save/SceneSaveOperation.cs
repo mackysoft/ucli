@@ -21,7 +21,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Saves a loaded or previewed Unity scene asset.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.WritesScene },
-                mayDirty: false,
+                mayDirty: true,
                 mayPersist: true,
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,

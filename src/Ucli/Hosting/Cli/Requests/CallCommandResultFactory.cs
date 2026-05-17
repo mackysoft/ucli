@@ -50,6 +50,11 @@ internal static class CallCommandResultFactory
             ["opResults"] = output.OpResults,
         };
 
+        if (output.ContractViolations.Count != 0)
+        {
+            payload["contractViolations"] = output.ContractViolations;
+        }
+
         if (output.ReadPostcondition != null)
         {
             payload["readPostcondition"] = output.ReadPostcondition;
@@ -60,24 +65,24 @@ internal static class CallCommandResultFactory
             return payload;
         }
 
-        if (string.IsNullOrWhiteSpace(output.Plan.PlanToken))
+        var planPayload = new Dictionary<string, object?>
         {
-            payload["plan"] = new
-            {
-                requestId = output.Plan.RequestId,
-                project = ProjectIdentityPayloadProjector.Create(output.Plan.Project),
-                opResults = output.Plan.OpResults,
-            };
-            return payload;
+            ["requestId"] = output.Plan.RequestId,
+            ["project"] = ProjectIdentityPayloadProjector.Create(output.Plan.Project),
+            ["opResults"] = output.Plan.OpResults,
+        };
+
+        if (output.Plan.ContractViolations.Count != 0)
+        {
+            planPayload["contractViolations"] = output.Plan.ContractViolations;
         }
 
-        payload["plan"] = new
+        if (!string.IsNullOrWhiteSpace(output.Plan.PlanToken))
         {
-            requestId = output.Plan.RequestId,
-            project = ProjectIdentityPayloadProjector.Create(output.Plan.Project),
-            opResults = output.Plan.OpResults,
-            planToken = output.Plan.PlanToken,
-        };
+            planPayload["planToken"] = output.Plan.PlanToken;
+        }
+
+        payload["plan"] = planPayload;
         return payload;
     }
 }

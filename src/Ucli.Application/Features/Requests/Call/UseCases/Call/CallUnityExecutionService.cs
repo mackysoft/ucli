@@ -80,6 +80,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                 RequestId: preparedRequest.Request.RequestId!,
                 Project: planProject,
                 OpResults: convertedPlanResponse.OpResults,
+                ContractViolations: convertedPlanResponse.ContractViolations,
                 PlanToken: convertedPlanResponse.PlanToken);
             baseOutput = baseOutput with
             {
@@ -149,6 +150,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             Project = callProject,
             Plan = baseOutput.Plan == null ? null : baseOutput.Plan with { Project = callProject },
             OpResults = convertedCallResponse.OpResults,
+            ContractViolations = convertedCallResponse.ContractViolations,
             ReadPostcondition = convertedCallResponse.ReadPostcondition,
         };
         var postprocessedCallResponse = await ExecuteResponseReadPostconditionProcessor.PersistAsync(

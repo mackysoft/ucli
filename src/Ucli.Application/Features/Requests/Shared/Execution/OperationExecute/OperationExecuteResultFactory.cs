@@ -77,9 +77,10 @@ internal static class OperationExecuteResultFactory
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         string message,
         OperationExecutionReadPostcondition? readPostcondition,
-        ProjectIdentityInfo project)
+        ProjectIdentityInfo project,
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
-        return OperationExecuteResult.Success(requestId, opResults, message, readPostcondition, project);
+        return OperationExecuteResult.Success(requestId, opResults, message, readPostcondition, project, contractViolations);
     }
 
     /// <summary> Creates one failed operation execution result. </summary>
@@ -93,7 +94,8 @@ internal static class OperationExecuteResultFactory
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         OperationExecutionReadPostcondition? readPostcondition = null,
-        ProjectIdentityInfo? project = null)
+        ProjectIdentityInfo? project = null,
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
         return Failure(
             requestId,
@@ -101,7 +103,8 @@ internal static class OperationExecuteResultFactory
             errors,
             failureMessage: null,
             readPostcondition,
-            project);
+            project,
+            contractViolations);
     }
 
     /// <summary> Creates one failed operation execution result. </summary>
@@ -117,7 +120,8 @@ internal static class OperationExecuteResultFactory
         IReadOnlyList<ApplicationFailure> errors,
         string? failureMessage,
         OperationExecutionReadPostcondition? readPostcondition = null,
-        ProjectIdentityInfo? project = null)
+        ProjectIdentityInfo? project = null,
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
@@ -128,6 +132,7 @@ internal static class OperationExecuteResultFactory
             errors,
             RequestFailureNormalizer.ResolveMessage(errors, failureMessage ?? DefaultFailureMessage),
             readPostcondition,
-            project);
+            project,
+            contractViolations);
     }
 }

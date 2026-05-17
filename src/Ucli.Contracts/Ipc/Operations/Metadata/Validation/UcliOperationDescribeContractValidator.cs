@@ -423,7 +423,7 @@ internal static class UcliOperationDescribeContractValidator
             }
 
             if (parsedKind == UcliOperationKind.Query
-                && (assurance.MayDirty || assurance.MayPersist || assurance.SideEffects!.Count != 0))
+                && (assurance.MayDirty || assurance.MayPersist || assurance.SideEffects!.Count != 0 || assurance.TouchedKinds!.Count != 0))
             {
                 errorMessage = $"{ownerName} has query assurance metadata with mutation or side-effect risk.";
                 return false;

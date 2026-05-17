@@ -31,5 +31,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Gets non-fatal diagnostics emitted by this primitive trace. </summary>
         public IReadOnlyList<OperationDiagnostic> Diagnostics { get; init; } = System.Array.Empty<OperationDiagnostic>();
+
+        /// <summary> Gets runtime violations of declared operation contract facts. </summary>
+        public IReadOnlyList<IpcExecuteContractViolation> ContractViolations { get; init; } = System.Array.Empty<IpcExecuteContractViolation>();
     }
 }

@@ -76,7 +76,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteResolveAsync(operation, args, executionContext, applied: false);
+            return ExecuteResolveAsync(operation, args, executionContext, allowTemporaryState: true);
         }
 
         /// <summary> Executes call phase for <c>ucli.resolve</c>. </summary>
@@ -91,19 +91,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteResolveAsync(operation, args, executionContext, applied: true);
+            return ExecuteResolveAsync(operation, args, executionContext, allowTemporaryState: false);
         }
 
         /// <summary> Executes selector parse/resolve flow shared by plan and call phases. </summary>
         /// <param name="operation"> The normalized operation. </param>
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
-        /// <param name="applied"> The applied flag for successful phase result. </param>
+        /// <param name="allowTemporaryState"> Whether temporary plan state may satisfy selector resolution. </param>
         /// <returns> The phase-step result. </returns>
         private static Task<OperationPhaseStepResult> ExecuteResolveAsync (
             NormalizedOperation operation,
             ResolveSelectorArgs args,
             OperationExecutionContext executionContext,
-            bool applied)
+            bool allowTemporaryState)
         {
             if (!UnityObjectReferenceContractMapper.TryMap(args, out var selector, out var parseErrorMessage))
             {
@@ -115,14 +115,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(unsupportedSelectorResult!);
             }
 
-            if (!ResolveReferenceResolver.TryResolveStableReference(selector, executionContext, allowTemporaryState: !applied, out var resolvedReference, out var resolveErrorMessage))
+            if (!ResolveReferenceResolver.TryResolveStableReference(selector, executionContext, allowTemporaryState, out var resolvedReference, out var resolveErrorMessage))
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, resolveErrorMessage));
             }
 
             StoreAliasIfNeeded(operation.As, executionContext, resolvedReference!);
             return Task.FromResult(OperationPhaseStepResult.Success(
-                applied,
+                applied: false,
                 changed: false,
                 result: IpcPayloadCodec.SerializeToElement(new IpcResolveOperationResult(resolvedReference!.GlobalObjectId))));
         }

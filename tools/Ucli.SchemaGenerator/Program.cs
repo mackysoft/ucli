@@ -78,6 +78,7 @@ internal static class Program
             CreateSchema("cli-output/defs/project.schema.json", "cli-output-def", null, CreateProjectSchema()),
             CreateSchema("cli-output/defs/read-index.schema.json", "cli-output-def", null, CreateReadIndexSchema()),
             CreateSchema("cli-output/defs/op-result.schema.json", "cli-output-def", null, CreateOperationResultSchema()),
+            CreateSchema("cli-output/defs/contract-violation.schema.json", "cli-output-def", null, CreateContractViolationSchema()),
             CreateSchema("cli-output/defs/diagnostic.schema.json", "cli-output-def", null, CreateDiagnosticSchema()),
             CreateSchema("cli-output/defs/touched.schema.json", "cli-output-def", null, CreateTouchedSchema()),
             CreateSchema("cli-output/defs/window.schema.json", "cli-output-def", null, CreateWindowSchema()),
@@ -228,6 +229,21 @@ internal static class Program
             Required("diagnostics", ArraySchema(ReferenceSchema("../defs/diagnostic.schema.json"))),
             Optional("result", AnySchema()),
             Optional("errors", ArraySchema(ObjectSchema(additionalProperties: true))));
+    }
+
+    private static Dictionary<string, object?> CreateContractViolationSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("opId", StringSchema()),
+            Required("operation", StringSchema()),
+            Required("expectedFact", StringSchema()),
+            Required("observedResult", StringSchema()),
+            Required("applicationState", EnumSchema(
+                "applied",
+                "notApplied",
+                "indeterminate",
+                "unknown")));
     }
 
     private static Dictionary<string, object?> CreateDiagnosticSchema ()
@@ -580,6 +596,7 @@ internal static class Program
             Optional("requestId", StringSchema()),
             Optional("project", ReferenceSchema("../defs/project.schema.json")),
             Optional("opResults", ArraySchema(ReferenceSchema("../defs/op-result.schema.json"))),
+            Optional("contractViolations", ArraySchema(ReferenceSchema("../defs/contract-violation.schema.json"))),
             Optional("readPostcondition", ObjectSchema(additionalProperties: true)),
         };
 

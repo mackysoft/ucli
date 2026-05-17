@@ -30,7 +30,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     UcliOperationSideEffect.WritesPrefab,
                     UcliOperationSideEffect.WritesProjectSettings,
                 },
-                mayDirty: false,
+                mayDirty: true,
                 mayPersist: true,
                 touchedKinds: new[]
                 {

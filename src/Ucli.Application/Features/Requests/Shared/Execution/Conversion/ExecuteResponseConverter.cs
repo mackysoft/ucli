@@ -44,6 +44,7 @@ internal static class ExecuteResponseConverter
         var validatedPayload = payload!;
         return new ExecuteResponseConversionResult(
             OpResults: OperationExecutionModelMapper.MapOpResults(validatedPayload.OpResults),
+            ContractViolations: OperationExecutionModelMapper.MapContractViolations(validatedPayload.ContractViolations),
             Errors: normalizedErrors,
             PlanToken: validatedPayload.PlanToken,
             ReadPostcondition: OperationExecutionModelMapper.MapReadPostcondition(validatedPayload.ReadPostcondition),
@@ -289,6 +290,55 @@ internal static class ExecuteResponseConverter
             }
         }
 
+        if (payload.ContractViolations != null)
+        {
+            for (var violationIndex = 0; violationIndex < payload.ContractViolations.Count; violationIndex++)
+            {
+                var violation = payload.ContractViolations[violationIndex];
+                if (violation == null)
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'contractViolations[{violationIndex}]' item is missing.";
+                    return false;
+                }
+
+                if (IsMissingRequiredString(violation.OpId))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'contractViolations[{violationIndex}].opId' field is missing.";
+                    return false;
+                }
+
+                if (IsMissingRequiredString(violation.Operation))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'contractViolations[{violationIndex}].operation' field is missing.";
+                    return false;
+                }
+
+                if (IsMissingRequiredString(violation.ExpectedFact))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'contractViolations[{violationIndex}].expectedFact' field is missing.";
+                    return false;
+                }
+
+                if (IsMissingRequiredString(violation.ObservedResult))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'contractViolations[{violationIndex}].observedResult' field is missing.";
+                    return false;
+                }
+
+                if (IsMissingRequiredString(violation.ApplicationState))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'contractViolations[{violationIndex}].applicationState' field is missing.";
+                    return false;
+                }
+
+                if (!IsKnownContractViolationApplicationState(violation.ApplicationState))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'contractViolations[{violationIndex}].applicationState' value is unsupported. Actual: {violation.ApplicationState}";
+                    return false;
+                }
+            }
+        }
+
         if (payload.ReadPostcondition == null)
         {
             return true;
@@ -401,6 +451,14 @@ internal static class ExecuteResponseConverter
             or IpcExecuteDiagnosticCoverageImpactNames.Indeterminate;
     }
 
+    private static bool IsKnownContractViolationApplicationState (string applicationState)
+    {
+        return applicationState is IpcExecuteContractViolationApplicationStateNames.Applied
+            or IpcExecuteContractViolationApplicationStateNames.NotApplied
+            or IpcExecuteContractViolationApplicationStateNames.Indeterminate
+            or IpcExecuteContractViolationApplicationStateNames.Unknown;
+    }
+
     private static ProjectIdentityInfo MapProject (IpcProjectIdentity project)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -430,6 +488,7 @@ internal static class ExecuteResponseConverter
 
         return new ExecuteResponseConversionResult(
             OpResults: [],
+            ContractViolations: [],
             Errors: errors,
             PlanToken: null,
             ReadPostcondition: null,

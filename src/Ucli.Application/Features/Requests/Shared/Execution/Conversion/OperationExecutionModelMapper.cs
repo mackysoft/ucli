@@ -64,6 +64,30 @@ internal static class OperationExecutionModelMapper
             OpId: error.OpId);
     }
 
+    /// <summary> Maps runtime operation contract violations. </summary>
+    public static IReadOnlyList<OperationExecutionContractViolation> MapContractViolations (
+        IReadOnlyList<IpcExecuteContractViolation>? contractViolations)
+    {
+        if (contractViolations == null)
+        {
+            return [];
+        }
+
+        var mappedViolations = new OperationExecutionContractViolation[contractViolations.Count];
+        for (var i = 0; i < contractViolations.Count; i++)
+        {
+            var violation = contractViolations[i];
+            mappedViolations[i] = new OperationExecutionContractViolation(
+                OpId: violation.OpId,
+                Operation: violation.Operation,
+                ExpectedFact: violation.ExpectedFact,
+                ObservedResult: violation.ObservedResult,
+                ApplicationState: violation.ApplicationState);
+        }
+
+        return mappedViolations;
+    }
+
     /// <summary> Maps one optional read-postcondition contract. </summary>
     public static OperationExecutionReadPostcondition? MapReadPostcondition (IpcExecuteReadPostcondition? readPostcondition)
     {

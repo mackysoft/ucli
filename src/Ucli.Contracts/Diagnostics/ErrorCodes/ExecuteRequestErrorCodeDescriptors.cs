@@ -31,6 +31,32 @@ internal static class ExecuteRequestErrorCodeDescriptors
             relatedCodes: [UcliCoreErrorCodes.InvalidArgument]),
 
         UcliErrorDescriptorFactory.Create(
+            code: ExecuteRequestErrorCodes.OperationContractViolation,
+            category: "contract",
+            summary: "An operation result violated the operation's declared execution contract.",
+            meaning: "Unity executed the operation but the observed result contradicted the operation metadata that uCLI exposes to clients.",
+            appliesTo:
+            [
+                UcliCommandIds.Plan,
+                UcliCommandIds.Call,
+                UcliCommandIds.Resolve,
+                UcliCommandIds.Query,
+                UcliCommandIds.Refresh,
+            ],
+            possiblePhases: ["validate", "plan", "call"],
+            impliesNotApplied: null,
+            mayBeIndeterminate: true,
+            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            inspect: ["payload.contractViolations[]", "payload.opResults[]", "errors[].message"],
+            nextActions:
+            [
+                new UcliErrorNextActionDescriptor(
+                    When: null,
+                    Action: "Inspect payload.contractViolations[] and report the operation metadata and observed result."),
+            ],
+            relatedCodes: [UcliCoreErrorCodes.InternalError]),
+
+        UcliErrorDescriptorFactory.Create(
             code: ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects,
             category: "diagnostic",
             summary: "Some GameObjects could not be represented by hierarchyPath selectors.",

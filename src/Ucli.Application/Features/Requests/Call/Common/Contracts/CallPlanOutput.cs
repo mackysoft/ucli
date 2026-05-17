@@ -6,9 +6,11 @@ namespace MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 /// <param name="RequestId"> The execute request identifier shared with the surrounding call execution. </param>
 /// <param name="Project"> The resolved Unity project identity shared with the surrounding call execution. </param>
 /// <param name="OpResults"> The per-step plan execution results. </param>
+/// <param name="ContractViolations"> The runtime contract violations reported by the plan pass. </param>
 /// <param name="PlanToken"> The optional plan token issued by the pre-plan pass. </param>
 internal sealed record CallPlanOutput (
     string RequestId,
     ProjectIdentityInfo Project,
     IReadOnlyList<OperationExecutionOperationResult> OpResults,
+    IReadOnlyList<OperationExecutionContractViolation> ContractViolations,
     string? PlanToken);

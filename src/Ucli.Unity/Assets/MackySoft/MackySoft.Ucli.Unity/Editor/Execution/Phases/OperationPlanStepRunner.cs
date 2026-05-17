@@ -104,6 +104,31 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     PreparedOperation: null);
             }
 
+            var validateContractViolations = OperationPhaseResultContractValidator.Validate(
+                operation,
+                phaseOperation.Metadata,
+                validateStepResult);
+            if (validateContractViolations.Count != 0)
+            {
+                var failure = OperationPhaseExecutionUtilities.CreateOperationContractViolationFailure(operation.Id);
+                return new OperationPlanStepOutcome(
+                    OperationTrace: new OperationPhaseTrace(
+                        OpId: operation.Id,
+                        Op: operation.Op,
+                        Phase: OperationPhase.Validate,
+                        Applied: validateStepResult.Applied,
+                        Changed: validateStepResult.Changed,
+                        Touched: touched.ToArray(),
+                        Failure: failure)
+                    {
+                        Result = validateStepResult.Result,
+                        Diagnostics = diagnostics.ToArray(),
+                        ContractViolations = validateContractViolations,
+                    },
+                    Error: failure,
+                    PreparedOperation: null);
+            }
+
             var planStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStepAsync(
                 operation,
                 OperationPhase.Plan,
@@ -127,6 +152,31 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         Diagnostics = diagnostics.ToArray(),
                     },
                     Error: planStepResult.Failure,
+                    PreparedOperation: null);
+            }
+
+            var planContractViolations = OperationPhaseResultContractValidator.Validate(
+                operation,
+                phaseOperation.Metadata,
+                planStepResult);
+            if (planContractViolations.Count != 0)
+            {
+                var failure = OperationPhaseExecutionUtilities.CreateOperationContractViolationFailure(operation.Id);
+                return new OperationPlanStepOutcome(
+                    OperationTrace: new OperationPhaseTrace(
+                        OpId: operation.Id,
+                        Op: operation.Op,
+                        Phase: OperationPhase.Plan,
+                        Applied: planStepResult.Applied,
+                        Changed: planStepResult.Changed,
+                        Touched: touched.ToArray(),
+                        Failure: failure)
+                    {
+                        Result = planStepResult.Result,
+                        Diagnostics = diagnostics.ToArray(),
+                        ContractViolations = planContractViolations,
+                    },
+                    Error: failure,
                     PreparedOperation: null);
             }
 
