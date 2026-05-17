@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Configuration;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 internal static class UcliOperationDescribeContractValidator
@@ -13,6 +15,21 @@ internal static class UcliOperationDescribeContractValidator
         string ownerName,
         out string errorMessage)
     {
+        return TryValidatePublicRawOpDescribeContract(
+            describeContract,
+            operationKind: null,
+            operationPolicy: null,
+            ownerName,
+            out errorMessage);
+    }
+
+    public static bool TryValidatePublicRawOpDescribeContract (
+        UcliOperationDescribeContract? describeContract,
+        string? operationKind,
+        string? operationPolicy,
+        string ownerName,
+        out string errorMessage)
+    {
         if (describeContract == null
             || string.IsNullOrWhiteSpace(describeContract.Description))
         {
@@ -22,7 +39,7 @@ internal static class UcliOperationDescribeContractValidator
 
         if (!TryValidatePublicRawOpInputs(describeContract.Inputs, ownerName, out errorMessage)
             || !TryValidateResultContract(describeContract.ResultContract, ownerName, out errorMessage)
-            || !TryValidateAssurance(describeContract.Assurance, ownerName, out errorMessage)
+            || !TryValidateAssurance(describeContract.Assurance, operationKind, operationPolicy, ownerName, out errorMessage)
             || !TryValidateCodeContract(describeContract.CodeContract, ownerName, out errorMessage))
         {
             return false;
@@ -332,13 +349,21 @@ internal static class UcliOperationDescribeContractValidator
 
     private static bool TryValidateAssurance (
         UcliOperationAssuranceContract? assurance,
+        string? operationKind,
+        string? operationPolicy,
         string ownerName,
         out string errorMessage)
     {
         if (assurance == null
             || assurance.SideEffects == null
             || assurance.TouchedKinds == null
-            || !IsSupportedPlanMode(assurance.PlanMode))
+            || assurance.DangerousNotes == null
+            || !IsSupportedPlanMode(assurance.PlanMode)
+            || string.IsNullOrWhiteSpace(assurance.PlanSemantics)
+            || string.IsNullOrWhiteSpace(assurance.CallSemantics)
+            || string.IsNullOrWhiteSpace(assurance.TouchedContract)
+            || string.IsNullOrWhiteSpace(assurance.ReadPostconditionContract)
+            || string.IsNullOrWhiteSpace(assurance.FailureSemantics))
         {
             errorMessage = $"{ownerName} has invalid assurance metadata.";
             return false;
@@ -346,18 +371,76 @@ internal static class UcliOperationDescribeContractValidator
 
         for (var i = 0; i < assurance.SideEffects.Count; i++)
         {
-            if (!IsSupportedSideEffect(assurance.SideEffects[i]))
+            var sideEffect = assurance.SideEffects[i];
+            if (!IsSupportedSideEffect(sideEffect))
             {
-                errorMessage = $"{ownerName} has an unsupported side effect.";
+                errorMessage = $"{ownerName} has an unsupported side effect '{sideEffect}'.";
                 return false;
             }
         }
 
         for (var i = 0; i < assurance.TouchedKinds.Count; i++)
         {
-            if (!IsSupportedTouchedKind(assurance.TouchedKinds[i]))
+            var touchedKind = assurance.TouchedKinds[i];
+            if (!IsSupportedTouchedKind(touchedKind))
             {
-                errorMessage = $"{ownerName} has an unsupported touched kind.";
+                errorMessage = $"{ownerName} has an unsupported touched kind '{touchedKind}'.";
+                return false;
+            }
+        }
+
+        for (var i = 0; i < assurance.DangerousNotes.Count; i++)
+        {
+            if (string.IsNullOrWhiteSpace(assurance.DangerousNotes[i]))
+            {
+                errorMessage = $"{ownerName} has an invalid dangerous note.";
+                return false;
+            }
+        }
+
+        if (!TryValidateAssuranceConsistency(assurance, operationKind, operationPolicy, ownerName, out errorMessage))
+        {
+            return false;
+        }
+
+        errorMessage = string.Empty;
+        return true;
+    }
+
+    private static bool TryValidateAssuranceConsistency (
+        UcliOperationAssuranceContract assurance,
+        string? operationKind,
+        string? operationPolicy,
+        string ownerName,
+        out string errorMessage)
+    {
+        if (operationKind != null)
+        {
+            if (!UcliOperationKindCodec.TryParse(operationKind, out var parsedKind))
+            {
+                errorMessage = $"{ownerName} has unsupported operation kind metadata.";
+                return false;
+            }
+
+            if (parsedKind == UcliOperationKind.Query
+                && (assurance.MayDirty || assurance.MayPersist || assurance.SideEffects!.Count != 0))
+            {
+                errorMessage = $"{ownerName} has query assurance metadata with mutation or side-effect risk.";
+                return false;
+            }
+        }
+
+        if (operationPolicy != null)
+        {
+            if (!OperationPolicyCodec.TryParse(operationPolicy, out var parsedPolicy))
+            {
+                errorMessage = $"{ownerName} has unsupported operation policy metadata.";
+                return false;
+            }
+
+            if (parsedPolicy != OperationPolicy.Safe && assurance.DangerousNotes!.Count == 0)
+            {
+                errorMessage = $"{ownerName} must declare dangerousNotes for advanced or dangerous policy.";
                 return false;
             }
         }

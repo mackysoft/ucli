@@ -23,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             policy: OperationPolicy.Advanced,
             description: "Saves dirty project assets, scenes, and prefab stages known to uCLI.",
             assurance: new UcliOperationAssuranceContract(
-                new[]
+                sideEffects: new[]
                 {
                     UcliOperationSideEffect.WritesAsset,
                     UcliOperationSideEffect.WritesScene,
@@ -32,14 +32,20 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 },
                 mayDirty: false,
                 mayPersist: true,
-                new[]
+                touchedKinds: new[]
                 {
                     IpcExecuteTouchedResourceKindNames.Scene,
                     IpcExecuteTouchedResourceKindNames.Prefab,
                     IpcExecuteTouchedResourceKindNames.Asset,
                     IpcExecuteTouchedResourceKindNames.ProjectSettings,
                 },
-                UcliOperationPlanMode.ObservesLiveUnity));
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Observe request-attributed dirty resources that a project save would persist without writing project files.",
+                callSemantics: "Persist request-attributed dirty scenes, prefab stages, assets, and ProjectSettings through Unity save APIs.",
+                touchedContract: "Reports the scene, prefab, asset, and ProjectSettings resources known to be request-attributed and save-relevant.",
+                readPostconditionContract: "Asset, scene, prefab, ProjectSettings, GUID path, and readIndex surfaces covering saved resources may be stale after a successful call.",
+                failureSemantics: "Project save is not transactional; timeout, cancellation, or Unity failure can leave partial or indeterminate file changes across saved resource kinds.",
+                dangerousNotes: new[] { "This operation can persist multiple project resource kinds in one save boundary without transactional rollback." }));
 
         /// <summary> Executes validate phase for <c>ucli.project.save</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

@@ -20,11 +20,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             policy: OperationPolicy.Safe,
             description: "Returns a GameObject description including components and child hierarchy.",
             assurance: new UcliOperationAssuranceContract(
-                Array.Empty<UcliOperationSideEffect>(),
+                sideEffects: Array.Empty<UcliOperationSideEffect>(),
                 mayDirty: false,
                 mayPersist: false,
-                new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
-                UcliOperationPlanMode.ObservesLiveUnity));
+                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate the GameObject selector and observe the selected scene or prefab context without applying mutation.",
+                callSemantics: "Read the selected GameObject structure and component data without applying mutation.",
+                touchedContract: "Reports the scene or prefab resource that contains the observed GameObject.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Timeout, cancellation, or unresolved selector failure means the GameObject description was not fully produced.",
+                dangerousNotes: Array.Empty<string>()));
 
         /// <summary> Executes validate phase for <c>ucli.go.describe</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

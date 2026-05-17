@@ -21,11 +21,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             policy: OperationPolicy.Safe,
             description: "Returns the hierarchy tree for a Unity scene.",
             assurance: new UcliOperationAssuranceContract(
-                Array.Empty<UcliOperationSideEffect>(),
+                sideEffects: Array.Empty<UcliOperationSideEffect>(),
                 mayDirty: false,
                 mayPersist: false,
-                new[] { IpcExecuteTouchedResourceKindNames.Scene },
-                UcliOperationPlanMode.ObservesLiveUnity));
+                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene },
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate the scene path and observe the selected hierarchy source without applying mutation.",
+                callSemantics: "Read the scene hierarchy without applying mutation.",
+                touchedContract: "Reports the scene resource as the observed hierarchy context.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Timeout, cancellation, or source fallback failure means the hierarchy was not fully observed.",
+                dangerousNotes: Array.Empty<string>()));
 
         /// <summary> Executes validate phase for <c>ucli.scene.tree</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

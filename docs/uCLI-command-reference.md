@@ -35,9 +35,11 @@
   - `list` の複数フィルタは AND 条件で評価する。該当 operation がない場合も成功とし、`payload.operations: []` を返す。
   - `list` の出力順は operation name の ordinal 昇順とする。
   - `list` の各 operation は `name` / `kind` / `policy` / `description` を返す。
+  - `list` は public raw `kind:"op"` として呼べる operation だけを返し、edit lowering 専用または internal operation は返さない。
   - 無効な regex / kind / maxPolicy は `INVALID_ARGUMENT` を返す。
-  - `describe <opName>` は特定オペレーションの agent 向け contract と検証用 schema を返す。
+  - `describe <opName>` は特定の public raw operation の agent 向け contract と検証用 schema を返す。
   - `description` / `inputs[].constraints` / `inputs[].variants[].fields[].constraints` / `resultContract` / `assurance` は operation 選択、入力構築、結果解釈の主契約である。
+  - `policy` は operation contract facts から導出された admission policy であり、author の任意ラベルではない。
   - source code を受け取る operation では `codeContract` が source forms、entry point 署名、source-visible API、戻り値制約を表す。
   - `argsSchema` / `resultSchema` は Args/Result contract 型から生成された JSON Schema であり、`steps[].args` と `opResults[].result` の JSON 構造検証だけに使う。
   - `--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--readIndexMode <disabled|allowStale|requireFresh>`、`--failFast` を受け付ける。
@@ -340,6 +342,8 @@ Code catalog は次の不変条件を持つ。
   - `UNITY_PROJECT_ALREADY_OPEN`: 対象 project を開いている live Unity process が確認できる
   - `UNITY_PROJECT_LOCK_AMBIGUOUS`: `Temp/UnityLockfile` はあるが、所有 process の有無を安全に判定できない
   - `UNITY_PROJECT_LOCK_CLEANUP_FAILED`: stale lock と判定できたが、`Temp/UnityLockfile` の削除に失敗した
+- operation contract エラー
+  - `OPERATION_CONTRACT_VIOLATION`: operation の実行結果が `ops describe` の `assurance` facts と矛盾した。`status=error`、`errors[].opId` に該当 step id、`payload.contractViolations[]` に矛盾 details を返し、`applicationState=notApplied` 以外は再試行安全性を保証しない
 - timeout
   - 既定待機の timeout も既存の `IPC_TIMEOUT` を使用する。
 
@@ -360,7 +364,7 @@ Code catalog は次の不変条件を持つ。
 | `EnvironmentError` | 実行環境の前提不足 | `4` |
 | `UnityIpcFailure` | Unity IPC 応答失敗、lifecycle failure、daemon failure | `4` |
 | `ExternalProcessFailure` | 外部プロセス起動・実行失敗 | `4` |
-| `ContractViolation` | IPC 応答や内部契約の不整合 | `4` |
+| `ContractViolation` | IPC 応答や内部契約の不整合、operation result と assurance facts の矛盾 | `4` |
 | `Timeout` | IPC timeout、readiness wait timeout | `4` |
 | `Canceled` | 実行キャンセル | `4` |
 | `InternalError` | 予期しない内部障害 | `4` |
@@ -728,6 +732,7 @@ ucli plan --projectPath ./UnityProject --mode daemon --allowPlayMode < playmode-
 - ユーザー入力 JSON のトップレベルは `steps` のみを受け付ける。`protocolVersion` と `requestId` は CLI が Unity IPC 送信前に生成する。
 - `--readIndexMode` は受け付けない。
 - `dangerous` operation は、設定上許可されていても `--allowDangerous` が無ければ `OPERATION_NOT_ALLOWED` で失敗する。
+- `--allowDangerous` は dangerous policy の gate だけを開き、edit lowering 専用または internal operation の exposure gate は解除しない。
 - `kind:"edit"` step の dangerous 判定は、public DSL を lower した primitive operation 群に対して行う。
 - `--withPlan` 指定時、CLI は Unity IPC `execute(command=plan)` を先に 1 回送り、その結果を `payload.plan` に保持する。
 - `--planToken` 未指定で `--withPlan` が plan token を発行した場合、CLI はその token を後続の `call` request に転送する。

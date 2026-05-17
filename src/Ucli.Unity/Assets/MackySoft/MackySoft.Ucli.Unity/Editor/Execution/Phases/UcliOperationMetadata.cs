@@ -117,7 +117,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 ValidateSchemaJson(resultSchemaJson, nameof(resultSchemaJson), "Result schema JSON");
             }
 
-            ValidateDescribeContract(operationName, describeContract, resultType);
+            ValidateDescribeContract(operationName, kind, policy, describeContract, resultType);
             var ownedDescribeContract = CopyDescribeContract(describeContract);
 
             OperationName = operationName;
@@ -212,10 +212,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static void ValidateDescribeContract (
             string operationName,
+            UcliOperationKind kind,
+            OperationPolicy policy,
             UcliOperationDescribeContract describeContract,
             Type resultType)
         {
-            if (!UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describeContract, $"Describe contract for operation '{operationName}'", out var describeInputError))
+            if (!UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
+                    describeContract,
+                    UcliOperationKindCodec.ToValue(kind),
+                    OperationPolicyCodec.ToValue(policy),
+                    $"Describe contract for operation '{operationName}'",
+                    out var describeInputError))
             {
                 throw new ArgumentException(describeInputError, nameof(describeContract));
             }
@@ -354,7 +361,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 source.MayDirty,
                 source.MayPersist,
                 CopyStrings(source.TouchedKinds),
-                source.PlanMode);
+                source.PlanMode,
+                source.PlanSemantics,
+                source.CallSemantics,
+                source.TouchedContract,
+                source.ReadPostconditionContract,
+                source.FailureSemantics,
+                CopyStrings(source.DangerousNotes));
         }
 
         private static UcliOperationCodeContract? CopyCodeContract (UcliOperationCodeContract? source)

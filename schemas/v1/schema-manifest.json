@@ -150,6 +150,12 @@
       "command": "ops.list"
     },
     {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/ops.describe.schema.json",
+      "path": "cli-output/payload/ops.describe.schema.json",
+      "kind": "cli-output-payload",
+      "command": "ops.describe"
+    },
+    {
       "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/codes.list.schema.json",
       "path": "cli-output/payload/codes.list.schema.json",
       "kind": "cli-output-payload",

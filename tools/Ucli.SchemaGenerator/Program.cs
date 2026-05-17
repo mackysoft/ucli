@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Xml.Linq;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.SchemaGenerator;
@@ -99,6 +100,7 @@ internal static class Program
             CreatePayloadSchema(UcliCommandIds.QueryCompSchema.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: true, includePlanToken: false, includePlan: false)),
             CreatePayloadSchema(UcliCommandIds.QueryAssetSchema.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: true, includePlanToken: false, includePlan: false)),
             CreatePayloadSchema(UcliCommandIds.OpsList.Name, CreateOpsListPayloadSchema()),
+            CreatePayloadSchema(UcliCommandIds.OpsDescribe.Name, CreateOpsDescribePayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.CodesList.Name, CreateCodesListPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.CodesDescribe.Name, CreateCodesDescribePayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.DaemonStart.Name, CreateDaemonStartPayloadSchema()),
@@ -531,6 +533,144 @@ internal static class Program
                 Required("policy", StringSchema()),
                 Required("description", StringSchema())))),
             Optional("readIndex", ReferenceSchema("../defs/read-index.schema.json")));
+    }
+
+    private static Dictionary<string, object?> CreateOpsDescribePayloadSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Optional("operation", CreateOpsDescribeOperationSchema()),
+            Optional("readIndex", ReferenceSchema("../defs/read-index.schema.json")));
+    }
+
+    private static Dictionary<string, object?> CreateOpsDescribeOperationSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("name", StringSchema()),
+            Required(
+                "kind",
+                EnumSchema(
+                    UcliOperationKindValues.Query,
+                    UcliOperationKindValues.Command,
+                    UcliOperationKindValues.Mutation)),
+            Required(
+                "policy",
+                EnumSchema(
+                    OperationPolicyValues.Safe,
+                    OperationPolicyValues.Advanced,
+                    OperationPolicyValues.Dangerous)),
+            Required("description", StringSchema()),
+            Required("inputs", ArraySchema(ObjectSchema(
+                additionalProperties: false,
+                Required("name", StringSchema()),
+                Required("description", StringSchema()),
+                Required("valueType", StringSchema()),
+                Required("constraints", ArraySchema(ObjectSchema(additionalProperties: true)))))),
+            Required("resultContract", ObjectSchema(
+                additionalProperties: false,
+                Required("emitted", BooleanSchema()),
+                Required("resultType", StringSchema()),
+                Required("description", StringSchema()))),
+            Required("assurance", CreateOpsDescribeAssuranceSchema()),
+            Optional("codeContract", CreateOpsDescribeCodeContractSchema()),
+            Required("argsSchema", ObjectSchema(additionalProperties: true)),
+            Required("resultSchema", NullableObjectSchema()));
+    }
+
+    private static Dictionary<string, object?> CreateOpsDescribeAssuranceSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("sideEffects", ArraySchema(EnumSchema(
+                UcliOperationSideEffectValues.OpensSceneInEditor,
+                UcliOperationSideEffectValues.OpensPrefabStage,
+                UcliOperationSideEffectValues.RefreshesAssetDatabase,
+                UcliOperationSideEffectValues.WritesAsset,
+                UcliOperationSideEffectValues.WritesScene,
+                UcliOperationSideEffectValues.WritesPrefab,
+                UcliOperationSideEffectValues.WritesProjectSettings))),
+            Required("mayDirty", BooleanSchema()),
+            Required("mayPersist", BooleanSchema()),
+            Required("touchedKinds", ArraySchema(EnumSchema(
+                IpcExecuteTouchedResourceKindNames.Scene,
+                IpcExecuteTouchedResourceKindNames.Prefab,
+                IpcExecuteTouchedResourceKindNames.Asset,
+                IpcExecuteTouchedResourceKindNames.ProjectSettings))),
+            Required("planMode", EnumSchema(
+                UcliOperationPlanModeValues.ValidationOnly,
+                UcliOperationPlanModeValues.ObservesLiveUnity,
+                UcliOperationPlanModeValues.MayCreatePreviewState)),
+            Required("planSemantics", StringSchema()),
+            Required("callSemantics", StringSchema()),
+            Required("touchedContract", StringSchema()),
+            Required("readPostconditionContract", StringSchema()),
+            Required("failureSemantics", StringSchema()),
+            Required("dangerousNotes", ArraySchema(StringSchema())));
+    }
+
+    private static Dictionary<string, object?> CreateOpsDescribeCodeContractSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("language", StringSchema()),
+            Required("entryPoint", CreateOpsDescribeCodeEntryPointSchema()),
+            Required("sourceForms", ArraySchema(CreateOpsDescribeCodeSourceFormSchema())),
+            Required("apiTypes", ArraySchema(CreateOpsDescribeCodeApiTypeSchema())));
+    }
+
+    private static Dictionary<string, object?> CreateOpsDescribeCodeEntryPointSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("signature", StringSchema()),
+            Required("matchRule", StringSchema()),
+            Required("requiredStatic", BooleanSchema()),
+            Required("parameterTypes", ArraySchema(StringSchema())),
+            Required("returnValue", StringSchema()));
+    }
+
+    private static Dictionary<string, object?> CreateOpsDescribeCodeSourceFormSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("kind", EnumSchema(
+                CsEvalSourceKindValues.CompilationUnit,
+                CsEvalSourceKindValues.Snippet)),
+            Required("description", StringSchema()));
+    }
+
+    private static Dictionary<string, object?> CreateOpsDescribeCodeApiTypeSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("name", StringSchema()),
+            Required("fullName", StringSchema()),
+            Required("description", StringSchema()),
+            Required("members", ArraySchema(CreateOpsDescribeCodeApiMemberSchema())));
+    }
+
+    private static Dictionary<string, object?> CreateOpsDescribeCodeApiMemberSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("kind", EnumSchema(
+                UcliCodeApiMemberKindValues.Property,
+                UcliCodeApiMemberKindValues.Method)),
+            Required("name", StringSchema()),
+            Required("description", StringSchema()),
+            Required("type", NullableStringSchema()),
+            Required("returnType", NullableStringSchema()),
+            Required("parameters", ArraySchema(CreateOpsDescribeCodeApiParameterSchema())));
+    }
+
+    private static Dictionary<string, object?> CreateOpsDescribeCodeApiParameterSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("name", StringSchema()),
+            Required("type", StringSchema()),
+            Required("description", StringSchema()));
     }
 
     private static Dictionary<string, object?> CreateCodesListPayloadSchema ()

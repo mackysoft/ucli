@@ -149,12 +149,7 @@ public sealed class OpsCliOutputContractTests
                     resultSchemaJson: null,
                     describe: UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
                         "Saves a Unity scene asset.",
-                        new UcliOperationAssuranceContract(
-                            Array.Empty<UcliOperationSideEffect>(),
-                            mayDirty: false,
-                            mayPersist: true,
-                            Array.Empty<string>(),
-                            UcliOperationPlanMode.ObservesLiveUnity))),
+                        CreateAssurance("mutation", "advanced"))),
             ]);
 
         var result = await CliProcessRunner.RunCommandAsync(
@@ -357,12 +352,7 @@ public sealed class OpsCliOutputContractTests
                     resultSchemaJson: null,
                     describe: UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
                         "Opens a Unity scene asset in the editor.",
-                        new UcliOperationAssuranceContract(
-                            Array.Empty<UcliOperationSideEffect>(),
-                            mayDirty: false,
-                            mayPersist: false,
-                            Array.Empty<string>(),
-                            UcliOperationPlanMode.ObservesLiveUnity))),
+                        CreateAssurance("command", "safe"))),
             ]);
 
         var result = await CliProcessRunner.RunCommandAsync(
@@ -383,6 +373,119 @@ public sealed class OpsCliOutputContractTests
                         .HasBoolean("emitted", false)
                         .HasString("resultType", nameof(UcliNoResult)))
                     .IsNull("resultSchema")));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task OpsDescribe_WithQueryOperation_MatchesGolden ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "describe-query-golden");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        SeedOpsCatalog(
+            unityProjectPath,
+            [
+                CreateDescribedEntry(
+                    name: UcliPrimitiveOperationNames.Resolve,
+                    kind: "query",
+                    policy: "safe",
+                    argsSchemaJson: """{"type":"object"}""",
+                    resultSchemaJson: """{"type":"object"}""",
+                    describe: new UcliOperationDescribeContract(
+                        "Resolves a Unity object reference.",
+                        Array.Empty<UcliOperationInputContract>(),
+                        new UcliOperationResultContract(
+                            emitted: true,
+                            resultType: "QueryResult",
+                            description: "Query result."),
+                        CreateAssurance("query", "safe"))),
+            ]);
+
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Ops,
+            UcliCommandNames.DescribeSubcommand,
+            UcliPrimitiveOperationNames.Resolve,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath,
+            UcliContractConstants.CliOption.ReadIndexMode,
+            UcliContractConstants.Config.ReadIndexModeAllowStale);
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        JsonGoldenFileAssert.Matches(
+            CliOutputGoldenFiles.GetPath("ops", "describe-query-success.json"),
+            result.StdOut,
+            CliOutputGoldenFiles.NormalizeGeneratedAtUtc());
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task OpsDescribe_WithNoResultOperation_MatchesGolden ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "describe-no-result-golden");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        SeedOpsCatalog(
+            unityProjectPath,
+            [
+                CreateDescribedEntry(
+                    name: UcliPrimitiveOperationNames.SceneOpen,
+                    kind: "command",
+                    policy: "safe",
+                    argsSchemaJson: """{"type":"object"}""",
+                    resultSchemaJson: null,
+                    describe: new UcliOperationDescribeContract(
+                        "Opens a Unity scene asset in the editor.",
+                        Array.Empty<UcliOperationInputContract>(),
+                        UcliOperationResultContract.NoResult("No operation-specific result is emitted."),
+                        CreateAssurance("command", "safe"))),
+            ]);
+
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Ops,
+            UcliCommandNames.DescribeSubcommand,
+            UcliPrimitiveOperationNames.SceneOpen,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath,
+            UcliContractConstants.CliOption.ReadIndexMode,
+            UcliContractConstants.Config.ReadIndexModeAllowStale);
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        JsonGoldenFileAssert.Matches(
+            CliOutputGoldenFiles.GetPath("ops", "describe-no-result-success.json"),
+            result.StdOut,
+            CliOutputGoldenFiles.NormalizeGeneratedAtUtc());
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task OpsDescribe_WithCsEvalCodeContract_MatchesGolden ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "describe-cs-eval-golden");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        SeedOpsCatalog(
+            unityProjectPath,
+            [
+                CreateDescribedEntry(
+                    name: UcliPrimitiveOperationNames.CsEval,
+                    kind: "mutation",
+                    policy: "dangerous",
+                    argsSchemaJson: """{"type":"object","properties":{"source":{"type":"string"}}}""",
+                    resultSchemaJson: """{"type":"object"}""",
+                    describe: CreateCsEvalDescribeContract()),
+            ]);
+
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Ops,
+            UcliCommandNames.DescribeSubcommand,
+            UcliPrimitiveOperationNames.CsEval,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath,
+            UcliContractConstants.CliOption.ReadIndexMode,
+            UcliContractConstants.Config.ReadIndexModeAllowStale);
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        JsonGoldenFileAssert.Matches(
+            CliOutputGoldenFiles.GetPath("ops", "describe-cs-eval-success.json"),
+            result.StdOut,
+            CliOutputGoldenFiles.NormalizeGeneratedAtUtc());
     }
 
     [Fact]
@@ -557,6 +660,7 @@ public sealed class OpsCliOutputContractTests
         string? resultSchemaJson = null,
         UcliOperationDescribeContract? describe = null)
     {
+        var useDefaultDescribe = describe == null;
         describe ??= CreateGoDescribeContract();
         return new IndexOpEntryJsonContract(
             name,
@@ -568,7 +672,8 @@ public sealed class OpsCliOutputContractTests
             Description = describe.Description,
             Inputs = describe.Inputs,
             ResultContract = describe.ResultContract,
-            Assurance = describe.Assurance,
+            Assurance = useDefaultDescribe ? CreateAssurance(kind, policy) : describe.Assurance,
+            CodeContract = describe.CodeContract,
         };
     }
 
@@ -624,11 +729,193 @@ public sealed class OpsCliOutputContractTests
         return UcliOperationDescribeContractBuilder.Create<GoDescribeArgs, GameObjectDescriptionResult>(
             "Returns a GameObject description including components and child hierarchy.",
             new UcliOperationAssuranceContract(
-                Array.Empty<UcliOperationSideEffect>(),
+                sideEffects: Array.Empty<UcliOperationSideEffect>(),
                 mayDirty: false,
                 mayPersist: false,
-                Array.Empty<string>(),
-                UcliOperationPlanMode.ObservesLiveUnity));
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate arguments and observe Unity state without applying mutation.",
+                callSemantics: "Read Unity state without applying mutation.",
+                touchedContract: "Returns no touched resources.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Failure means the observation was not fully produced.",
+                dangerousNotes: Array.Empty<string>()));
+    }
+
+    private static UcliOperationDescribeContract CreateCsEvalDescribeContract ()
+    {
+        return new UcliOperationDescribeContract(
+            "Compiles and executes C# source in the Unity Editor process.",
+            [
+                new UcliOperationInputContract(
+                    "source",
+                    "string",
+                    "C# source text.",
+                    Array.Empty<UcliOperationInputConstraintContract>()),
+            ],
+            new UcliOperationResultContract(
+                emitted: true,
+                resultType: "CsEvalResult",
+                description: "C# eval result."),
+            CreateCsEvalAssurance(),
+            CreateCsEvalCodeContract());
+    }
+
+    private static UcliOperationAssuranceContract CreateCsEvalAssurance ()
+    {
+        return new UcliOperationAssuranceContract(
+            sideEffects:
+            [
+                UcliOperationSideEffect.WritesAsset,
+                UcliOperationSideEffect.WritesScene,
+                UcliOperationSideEffect.WritesPrefab,
+                UcliOperationSideEffect.WritesProjectSettings,
+            ],
+            mayDirty: true,
+            mayPersist: true,
+            touchedKinds:
+            [
+                IpcExecuteTouchedResourceKindNames.Scene,
+                IpcExecuteTouchedResourceKindNames.Prefab,
+                IpcExecuteTouchedResourceKindNames.Asset,
+                IpcExecuteTouchedResourceKindNames.ProjectSettings,
+            ],
+            planMode: UcliOperationPlanMode.ObservesLiveUnity,
+            planSemantics: "Compile the supplied C# source and validate the required entry point without invoking user code.",
+            callSemantics: "Compile, emit, load, and execute the user C# entry point inside the Unity Editor process.",
+            touchedContract: "Reports touched resources declared by user code through the eval context; declarations are caller-controlled and are not a complete guarantee of all Unity state changes.",
+            readPostconditionContract: "Scene, prefab, asset, ProjectSettings, and readIndex surfaces may be stale after eval execution regardless of declared touched resources.",
+            failureSemantics: "Compilation and entry-point failures occur before user code runs; once synchronous user code is invoked it cannot be forcibly stopped until it returns or throws.",
+            dangerousNotes:
+            [
+                "Executes user C# inside the Unity Editor process and can mutate project state outside declared touched resources.",
+                "Synchronous user code cannot be forcibly stopped while it is executing.",
+            ]);
+    }
+
+    private static UcliOperationCodeContract CreateCsEvalCodeContract ()
+    {
+        return new UcliOperationCodeContract(
+            "csharp",
+            new UcliCodeEntryPointContract(
+                "public static object? Run(UcliCsEvalContext context)",
+                "Compiled source must contain exactly one public static object? Run(UcliCsEvalContext context) method.",
+                requiredStatic: true,
+                new[] { "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext" },
+                "Return null or a JSON-serializable object value; a snippet without return yields null. DTO and anonymous object serialization may execute public getters. Task, Task<T>, ValueTask, and ValueTask<T> are rejected."),
+            [
+                new UcliCodeSourceFormContract(
+                    CsEvalSourceKindValues.CompilationUnit,
+                    "Complete C# compilation unit containing using directives, namespace or type declarations, and exactly one public static object? Run(UcliCsEvalContext context) method."),
+                new UcliCodeSourceFormContract(
+                    CsEvalSourceKindValues.Snippet,
+                    "Run method body snippet. Leading using directives, statements, explicit return, no return, and one expression are accepted; snippets without return produce null."),
+            ],
+            [
+                new UcliCodeApiTypeContract(
+                    "UcliCsEvalContext",
+                    "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext",
+                    "Execution context passed to ucli.cs.eval entry points.",
+                    [
+                        new UcliCodeApiMemberContract(
+                            UcliCodeApiMemberKindValues.Method,
+                            "DeclareNoTouchedResources",
+                            "Declares that the eval call did not touch Unity resources.",
+                            type: null,
+                            returnType: "void",
+                            parameters: Array.Empty<UcliCodeApiParameterContract>()),
+                        new UcliCodeApiMemberContract(
+                            UcliCodeApiMemberKindValues.Method,
+                            "DeclareTouchedAsset",
+                            "Declares that the eval call touched a project asset.",
+                            type: null,
+                            returnType: "void",
+                            parameters:
+                            [
+                                new UcliCodeApiParameterContract("path", "System.String", "Project-relative asset path."),
+                            ]),
+                        new UcliCodeApiMemberContract(
+                            UcliCodeApiMemberKindValues.Method,
+                            "DeclareTouchedPrefab",
+                            "Declares that the eval call touched a prefab asset.",
+                            type: null,
+                            returnType: "void",
+                            parameters:
+                            [
+                                new UcliCodeApiParameterContract("path", "System.String", "Project-relative prefab asset path."),
+                            ]),
+                        new UcliCodeApiMemberContract(
+                            UcliCodeApiMemberKindValues.Method,
+                            "DeclareTouchedProjectSettings",
+                            "Declares that the eval call touched a ProjectSettings asset.",
+                            type: null,
+                            returnType: "void",
+                            parameters:
+                            [
+                                new UcliCodeApiParameterContract("path", "System.String", "Project-relative ProjectSettings path."),
+                            ]),
+                        new UcliCodeApiMemberContract(
+                            UcliCodeApiMemberKindValues.Method,
+                            "DeclareTouchedScene",
+                            "Declares that the eval call touched a scene asset.",
+                            type: null,
+                            returnType: "void",
+                            parameters:
+                            [
+                                new UcliCodeApiParameterContract("path", "System.String", "Project-relative scene asset path."),
+                            ]),
+                        new UcliCodeApiMemberContract(
+                            UcliCodeApiMemberKindValues.Method,
+                            "Log",
+                            "Records an informational eval log entry.",
+                            type: null,
+                            returnType: "void",
+                            parameters:
+                            [
+                                new UcliCodeApiParameterContract("message", "System.String", "Log message text."),
+                            ]),
+                        new UcliCodeApiMemberContract(
+                            UcliCodeApiMemberKindValues.Method,
+                            "LogError",
+                            "Records an error eval log entry.",
+                            type: null,
+                            returnType: "void",
+                            parameters:
+                            [
+                                new UcliCodeApiParameterContract("message", "System.String", "Log message text."),
+                            ]),
+                        new UcliCodeApiMemberContract(
+                            UcliCodeApiMemberKindValues.Method,
+                            "LogWarning",
+                            "Records a warning eval log entry.",
+                            type: null,
+                            returnType: "void",
+                            parameters:
+                            [
+                                new UcliCodeApiParameterContract("message", "System.String", "Log message text."),
+                            ]),
+                    ]),
+            ]);
+    }
+
+    private static UcliOperationAssuranceContract CreateAssurance (
+        string kind,
+        string policy)
+    {
+        var isMutation = string.Equals(kind, "mutation", StringComparison.Ordinal);
+        var isRiskyPolicy = !string.Equals(policy, "safe", StringComparison.Ordinal);
+        return new UcliOperationAssuranceContract(
+            sideEffects: isMutation ? [UcliOperationSideEffect.WritesScene] : Array.Empty<UcliOperationSideEffect>(),
+            mayDirty: false,
+            mayPersist: isMutation,
+            touchedKinds: isMutation ? [IpcExecuteTouchedResourceKindNames.Scene] : Array.Empty<string>(),
+            planMode: UcliOperationPlanMode.ObservesLiveUnity,
+            planSemantics: "Validate arguments and observe Unity state without applying mutation.",
+            callSemantics: isMutation ? "Persist save-relevant Unity state." : "Read Unity state without applying mutation.",
+            touchedContract: isMutation ? "Reports the saved scene resource." : "Returns no touched resources.",
+            readPostconditionContract: isMutation ? "Saved scene read surfaces may be stale after a successful call." : "Does not stale read surfaces by itself.",
+            failureSemantics: isMutation ? "Save failure may leave partial or indeterminate scene file changes." : "Failure means the observation was not fully produced.",
+            dangerousNotes: isRiskyPolicy ? ["Fixture operation has policy-specific risk metadata for contract validation."] : Array.Empty<string>());
     }
 
 }

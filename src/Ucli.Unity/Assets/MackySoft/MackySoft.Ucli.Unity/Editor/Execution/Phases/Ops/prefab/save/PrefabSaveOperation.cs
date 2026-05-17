@@ -21,11 +21,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             policy: OperationPolicy.Advanced,
             description: "Saves an opened or previewed prefab asset.",
             assurance: new UcliOperationAssuranceContract(
-                new[] { UcliOperationSideEffect.WritesPrefab },
+                sideEffects: new[] { UcliOperationSideEffect.WritesPrefab },
                 mayDirty: false,
                 mayPersist: true,
-                new[] { IpcExecuteTouchedResourceKindNames.Prefab },
-                UcliOperationPlanMode.ObservesLiveUnity));
+                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Prefab },
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate the prefab path and observe whether the opened or previewed prefab has save-relevant changes.",
+                callSemantics: "Persist the opened or previewed prefab asset when dirty or request-attributed changes exist.",
+                touchedContract: "Reports the prefab resource when the operation saves or confirms request-attributed prefab changes.",
+                readPostconditionContract: "Prefab, asset search, GUID path, and readIndex surfaces covering the saved prefab may be stale after a successful call.",
+                failureSemantics: "Prefab save is not transactional; timeout, cancellation, or Unity failure can leave partial or indeterminate prefab file changes.",
+                dangerousNotes: new[] { "This operation can persist a prefab file and is not transactional across Unity save/import steps." }));
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
