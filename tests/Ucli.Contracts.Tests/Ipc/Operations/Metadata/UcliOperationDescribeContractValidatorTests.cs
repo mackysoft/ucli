@@ -276,6 +276,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
     {
         var describe = CreateValidDescribeContract();
         describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.ArbitrarySourceExecution];
+        describe.Assurance.DangerousNotes = ["Arbitrary source execution requires dangerous policy."];
         describe.CodeContract = CreateValidCodeContract();
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
@@ -446,6 +447,22 @@ public sealed class UcliOperationDescribeContractValidatorTests
         Assert.Equal("Test contract must declare dangerousNotes for advanced or dangerous policy.", errorMessage);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(UcliOperationSideEffectValues.EditorStateChange)]
+    [InlineData(UcliOperationSideEffectValues.ExternalProcess)]
+    public void TryValidatePublicRawOpDescribeContract_WhenDerivedRiskyPolicyHasNoDangerousNotes_ReturnsFalse (
+        string sideEffect)
+    {
+        var describe = CreateValidDescribeContract();
+        describe.Assurance!.SideEffects = [sideEffect];
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Test contract must declare dangerousNotes for advanced or dangerous policy.", errorMessage);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void TryValidatePublicRawOpDescribeContract_WhenDeclaredPolicyDoesNotMatchDerivedPolicy_ReturnsFalse ()
@@ -497,6 +514,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
     {
         var describe = CreateValidDescribeContract();
         describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.ArbitrarySourceExecution];
+        describe.Assurance.DangerousNotes = ["Arbitrary source execution requires dangerous policy."];
         describe.CodeContract = new UcliOperationCodeContract(
             "csharp",
             new UcliCodeEntryPointContract(
@@ -546,6 +564,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
     {
         var describe = CreateValidDescribeContract();
         describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.ArbitrarySourceExecution];
+        describe.Assurance.DangerousNotes = ["Arbitrary source execution requires dangerous policy."];
         describe.CodeContract = CreateValidCodeContract();
         describe.CodeContract.EntryPoint!.MatchRule = matchRule;
 
@@ -561,6 +580,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
     {
         var describe = CreateValidDescribeContract();
         describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.ArbitrarySourceExecution];
+        describe.Assurance.DangerousNotes = ["Arbitrary source execution requires dangerous policy."];
         describe.CodeContract = CreateValidCodeContract();
         describe.CodeContract.Language = "python";
 
@@ -576,6 +596,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
     {
         var describe = CreateValidDescribeContract();
         describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.ArbitrarySourceExecution];
+        describe.Assurance.DangerousNotes = ["Arbitrary source execution requires dangerous policy."];
         describe.CodeContract = CreateValidCodeContract();
         describe.CodeContract.SourceForms =
         [

@@ -469,12 +469,12 @@ internal static class UcliOperationDescribeContractValidator
                 errorMessage = $"{ownerName} policy '{operationPolicy}' does not match derived policy '{OperationPolicyCodec.ToValue(derivedPolicy)}'.";
                 return false;
             }
+        }
 
-            if (parsedPolicy != OperationPolicy.Safe && assurance.DangerousNotes!.Count == 0)
-            {
-                errorMessage = $"{ownerName} must declare dangerousNotes for advanced or dangerous policy.";
-                return false;
-            }
+        if (derivedPolicy != OperationPolicy.Safe && assurance.DangerousNotes!.Count == 0)
+        {
+            errorMessage = $"{ownerName} must declare dangerousNotes for advanced or dangerous policy.";
+            return false;
         }
 
         errorMessage = string.Empty;
@@ -485,7 +485,7 @@ internal static class UcliOperationDescribeContractValidator
     {
         for (var i = 0; i < sideEffects.Count; i++)
         {
-            if (!string.Equals(sideEffects[i], UcliOperationSideEffectValues.ObservesUnityState, StringComparison.Ordinal))
+            if (!UcliOperationSideEffectPolicyMatrix.IsAllowedForQuery(sideEffects[i]))
             {
                 return false;
             }

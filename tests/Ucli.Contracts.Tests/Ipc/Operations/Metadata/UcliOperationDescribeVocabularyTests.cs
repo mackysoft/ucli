@@ -210,28 +210,20 @@ public sealed class UcliOperationDescribeVocabularyTests
         Assert.Equal(enumLiterals, UcliOperationSideEffectPolicyMatrix.SupportedValues);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void SideEffectPolicyMatrix_MinimumPolicyFixturesCoverSupportedValues ()
+    {
+        var fixtureLiterals = SideEffectMinimumPolicyCases
+            .Select(values => Assert.IsType<string>(values[0]))
+            .ToArray();
+
+        Assert.Equal(UcliOperationSideEffectPolicyMatrix.SupportedValues, fixtureLiterals);
+    }
+
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(UcliOperationSideEffectValues.ObservesUnityState, OperationPolicy.Safe)]
-    [InlineData(UcliOperationSideEffectValues.EditorStateChange, OperationPolicy.Advanced)]
-    [InlineData(UcliOperationSideEffectValues.OpensSceneInEditor, OperationPolicy.Advanced)]
-    [InlineData(UcliOperationSideEffectValues.OpensPrefabStage, OperationPolicy.Advanced)]
-    [InlineData(UcliOperationSideEffectValues.AssetDatabaseRefresh, OperationPolicy.Advanced)]
-    [InlineData(UcliOperationSideEffectValues.AssetImport, OperationPolicy.Advanced)]
-    [InlineData(UcliOperationSideEffectValues.ScriptCompilation, OperationPolicy.Advanced)]
-    [InlineData(UcliOperationSideEffectValues.DomainReload, OperationPolicy.Advanced)]
-    [InlineData(UcliOperationSideEffectValues.SceneContentMutation, OperationPolicy.Advanced)]
-    [InlineData(UcliOperationSideEffectValues.PrefabContentMutation, OperationPolicy.Advanced)]
-    [InlineData(UcliOperationSideEffectValues.AssetContentMutation, OperationPolicy.Advanced)]
-    [InlineData(UcliOperationSideEffectValues.ProjectSettingsMutation, OperationPolicy.Advanced)]
-    [InlineData(UcliOperationSideEffectValues.SceneSave, OperationPolicy.Advanced)]
-    [InlineData(UcliOperationSideEffectValues.PrefabSave, OperationPolicy.Advanced)]
-    [InlineData(UcliOperationSideEffectValues.AssetSave, OperationPolicy.Advanced)]
-    [InlineData(UcliOperationSideEffectValues.ProjectSave, OperationPolicy.Advanced)]
-    [InlineData(UcliOperationSideEffectValues.ExternalProcess, OperationPolicy.Dangerous)]
-    [InlineData(UcliOperationSideEffectValues.FilesystemWrite, OperationPolicy.Dangerous)]
-    [InlineData(UcliOperationSideEffectValues.ArbitrarySourceExecution, OperationPolicy.Dangerous)]
-    [InlineData(UcliOperationSideEffectValues.DestructiveScope, OperationPolicy.Dangerous)]
+    [MemberData(nameof(SideEffectMinimumPolicyCases))]
     public void SideEffectPolicyMatrix_DeclaresMinimumPolicy (
         string sideEffect,
         OperationPolicy expectedPolicy)
@@ -240,5 +232,94 @@ public sealed class UcliOperationDescribeVocabularyTests
 
         Assert.True(isSupported);
         Assert.Equal(expectedPolicy, policy);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [MemberData(nameof(SideEffectMinimumPolicyCases))]
+    public void SideEffectPolicyMatrix_DangerousDerivationMatchesMinimumPolicy (
+        string sideEffect,
+        OperationPolicy expectedPolicy)
+    {
+        var isDangerousSource = UcliOperationSideEffectPolicyMatrix.IsDangerousDerivationSource(sideEffect);
+
+        Assert.Equal(expectedPolicy == OperationPolicy.Dangerous, isDangerousSource);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void SideEffectPolicyMatrix_QueryAllowanceFixturesCoverSupportedValues ()
+    {
+        var fixtureLiterals = SideEffectQueryAllowanceCases
+            .Select(values => Assert.IsType<string>(values[0]))
+            .ToArray();
+
+        Assert.Equal(UcliOperationSideEffectPolicyMatrix.SupportedValues, fixtureLiterals);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [MemberData(nameof(SideEffectQueryAllowanceCases))]
+    public void SideEffectPolicyMatrix_DeclaresQueryAllowance (
+        string sideEffect,
+        bool expectedAllowed)
+    {
+        var isAllowed = UcliOperationSideEffectPolicyMatrix.IsAllowedForQuery(sideEffect);
+
+        Assert.Equal(expectedAllowed, isAllowed);
+    }
+
+    public static IEnumerable<object[]> SideEffectMinimumPolicyCases
+    {
+        get
+        {
+            yield return new object[] { UcliOperationSideEffectValues.ObservesUnityState, OperationPolicy.Safe };
+            yield return new object[] { UcliOperationSideEffectValues.EditorStateChange, OperationPolicy.Advanced };
+            yield return new object[] { UcliOperationSideEffectValues.OpensSceneInEditor, OperationPolicy.Advanced };
+            yield return new object[] { UcliOperationSideEffectValues.OpensPrefabStage, OperationPolicy.Advanced };
+            yield return new object[] { UcliOperationSideEffectValues.AssetDatabaseRefresh, OperationPolicy.Advanced };
+            yield return new object[] { UcliOperationSideEffectValues.AssetImport, OperationPolicy.Advanced };
+            yield return new object[] { UcliOperationSideEffectValues.ScriptCompilation, OperationPolicy.Advanced };
+            yield return new object[] { UcliOperationSideEffectValues.DomainReload, OperationPolicy.Advanced };
+            yield return new object[] { UcliOperationSideEffectValues.SceneContentMutation, OperationPolicy.Advanced };
+            yield return new object[] { UcliOperationSideEffectValues.PrefabContentMutation, OperationPolicy.Advanced };
+            yield return new object[] { UcliOperationSideEffectValues.AssetContentMutation, OperationPolicy.Advanced };
+            yield return new object[] { UcliOperationSideEffectValues.ProjectSettingsMutation, OperationPolicy.Advanced };
+            yield return new object[] { UcliOperationSideEffectValues.SceneSave, OperationPolicy.Advanced };
+            yield return new object[] { UcliOperationSideEffectValues.PrefabSave, OperationPolicy.Advanced };
+            yield return new object[] { UcliOperationSideEffectValues.AssetSave, OperationPolicy.Advanced };
+            yield return new object[] { UcliOperationSideEffectValues.ProjectSave, OperationPolicy.Advanced };
+            yield return new object[] { UcliOperationSideEffectValues.ExternalProcess, OperationPolicy.Dangerous };
+            yield return new object[] { UcliOperationSideEffectValues.FilesystemWrite, OperationPolicy.Dangerous };
+            yield return new object[] { UcliOperationSideEffectValues.ArbitrarySourceExecution, OperationPolicy.Dangerous };
+            yield return new object[] { UcliOperationSideEffectValues.DestructiveScope, OperationPolicy.Dangerous };
+        }
+    }
+
+    public static IEnumerable<object[]> SideEffectQueryAllowanceCases
+    {
+        get
+        {
+            yield return new object[] { UcliOperationSideEffectValues.ObservesUnityState, true };
+            yield return new object[] { UcliOperationSideEffectValues.EditorStateChange, false };
+            yield return new object[] { UcliOperationSideEffectValues.OpensSceneInEditor, false };
+            yield return new object[] { UcliOperationSideEffectValues.OpensPrefabStage, false };
+            yield return new object[] { UcliOperationSideEffectValues.AssetDatabaseRefresh, false };
+            yield return new object[] { UcliOperationSideEffectValues.AssetImport, false };
+            yield return new object[] { UcliOperationSideEffectValues.ScriptCompilation, false };
+            yield return new object[] { UcliOperationSideEffectValues.DomainReload, false };
+            yield return new object[] { UcliOperationSideEffectValues.SceneContentMutation, false };
+            yield return new object[] { UcliOperationSideEffectValues.PrefabContentMutation, false };
+            yield return new object[] { UcliOperationSideEffectValues.AssetContentMutation, false };
+            yield return new object[] { UcliOperationSideEffectValues.ProjectSettingsMutation, false };
+            yield return new object[] { UcliOperationSideEffectValues.SceneSave, false };
+            yield return new object[] { UcliOperationSideEffectValues.PrefabSave, false };
+            yield return new object[] { UcliOperationSideEffectValues.AssetSave, false };
+            yield return new object[] { UcliOperationSideEffectValues.ProjectSave, false };
+            yield return new object[] { UcliOperationSideEffectValues.ExternalProcess, false };
+            yield return new object[] { UcliOperationSideEffectValues.FilesystemWrite, false };
+            yield return new object[] { UcliOperationSideEffectValues.ArbitrarySourceExecution, false };
+            yield return new object[] { UcliOperationSideEffectValues.DestructiveScope, false };
+        }
     }
 }

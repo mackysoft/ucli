@@ -5,29 +5,31 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <summary> Defines the minimum operation policy for each operation side-effect literal. </summary>
 public static class UcliOperationSideEffectPolicyMatrix
 {
-    private static readonly IReadOnlyList<string> SupportedValuesCore = Array.AsReadOnly(new[]
+    private static readonly SideEffectPolicyDefinition[] Definitions =
     {
-        UcliOperationSideEffectValues.ObservesUnityState,
-        UcliOperationSideEffectValues.EditorStateChange,
-        UcliOperationSideEffectValues.OpensSceneInEditor,
-        UcliOperationSideEffectValues.OpensPrefabStage,
-        UcliOperationSideEffectValues.AssetDatabaseRefresh,
-        UcliOperationSideEffectValues.AssetImport,
-        UcliOperationSideEffectValues.ScriptCompilation,
-        UcliOperationSideEffectValues.DomainReload,
-        UcliOperationSideEffectValues.SceneContentMutation,
-        UcliOperationSideEffectValues.PrefabContentMutation,
-        UcliOperationSideEffectValues.AssetContentMutation,
-        UcliOperationSideEffectValues.ProjectSettingsMutation,
-        UcliOperationSideEffectValues.SceneSave,
-        UcliOperationSideEffectValues.PrefabSave,
-        UcliOperationSideEffectValues.AssetSave,
-        UcliOperationSideEffectValues.ProjectSave,
-        UcliOperationSideEffectValues.ExternalProcess,
-        UcliOperationSideEffectValues.FilesystemWrite,
-        UcliOperationSideEffectValues.ArbitrarySourceExecution,
-        UcliOperationSideEffectValues.DestructiveScope,
-    });
+        Define(UcliOperationSideEffectValues.ObservesUnityState, OperationPolicy.Safe, queryAllowed: true),
+        Define(UcliOperationSideEffectValues.EditorStateChange, OperationPolicy.Advanced),
+        Define(UcliOperationSideEffectValues.OpensSceneInEditor, OperationPolicy.Advanced),
+        Define(UcliOperationSideEffectValues.OpensPrefabStage, OperationPolicy.Advanced),
+        Define(UcliOperationSideEffectValues.AssetDatabaseRefresh, OperationPolicy.Advanced),
+        Define(UcliOperationSideEffectValues.AssetImport, OperationPolicy.Advanced),
+        Define(UcliOperationSideEffectValues.ScriptCompilation, OperationPolicy.Advanced),
+        Define(UcliOperationSideEffectValues.DomainReload, OperationPolicy.Advanced),
+        Define(UcliOperationSideEffectValues.SceneContentMutation, OperationPolicy.Advanced),
+        Define(UcliOperationSideEffectValues.PrefabContentMutation, OperationPolicy.Advanced),
+        Define(UcliOperationSideEffectValues.AssetContentMutation, OperationPolicy.Advanced),
+        Define(UcliOperationSideEffectValues.ProjectSettingsMutation, OperationPolicy.Advanced),
+        Define(UcliOperationSideEffectValues.SceneSave, OperationPolicy.Advanced),
+        Define(UcliOperationSideEffectValues.PrefabSave, OperationPolicy.Advanced),
+        Define(UcliOperationSideEffectValues.AssetSave, OperationPolicy.Advanced),
+        Define(UcliOperationSideEffectValues.ProjectSave, OperationPolicy.Advanced),
+        Define(UcliOperationSideEffectValues.ExternalProcess, OperationPolicy.Dangerous),
+        Define(UcliOperationSideEffectValues.FilesystemWrite, OperationPolicy.Dangerous),
+        Define(UcliOperationSideEffectValues.ArbitrarySourceExecution, OperationPolicy.Dangerous),
+        Define(UcliOperationSideEffectValues.DestructiveScope, OperationPolicy.Dangerous),
+    };
+
+    private static readonly IReadOnlyList<string> SupportedValuesCore = Array.AsReadOnly(CreateSupportedValues());
 
     /// <summary> Gets all supported side-effect literals in canonical schema order. </summary>
     public static IReadOnlyList<string> SupportedValues => SupportedValuesCore;
@@ -40,41 +42,14 @@ public static class UcliOperationSideEffectPolicyMatrix
         string? sideEffect,
         out OperationPolicy minimumPolicy)
     {
-        switch (sideEffect)
+        if (TryGetDefinition(sideEffect, out var definition))
         {
-            case UcliOperationSideEffectValues.ObservesUnityState:
-                minimumPolicy = OperationPolicy.Safe;
-                return true;
-
-            case UcliOperationSideEffectValues.EditorStateChange:
-            case UcliOperationSideEffectValues.OpensSceneInEditor:
-            case UcliOperationSideEffectValues.OpensPrefabStage:
-            case UcliOperationSideEffectValues.AssetDatabaseRefresh:
-            case UcliOperationSideEffectValues.AssetImport:
-            case UcliOperationSideEffectValues.ScriptCompilation:
-            case UcliOperationSideEffectValues.DomainReload:
-            case UcliOperationSideEffectValues.SceneContentMutation:
-            case UcliOperationSideEffectValues.PrefabContentMutation:
-            case UcliOperationSideEffectValues.AssetContentMutation:
-            case UcliOperationSideEffectValues.ProjectSettingsMutation:
-            case UcliOperationSideEffectValues.SceneSave:
-            case UcliOperationSideEffectValues.PrefabSave:
-            case UcliOperationSideEffectValues.AssetSave:
-            case UcliOperationSideEffectValues.ProjectSave:
-                minimumPolicy = OperationPolicy.Advanced;
-                return true;
-
-            case UcliOperationSideEffectValues.ExternalProcess:
-            case UcliOperationSideEffectValues.FilesystemWrite:
-            case UcliOperationSideEffectValues.ArbitrarySourceExecution:
-            case UcliOperationSideEffectValues.DestructiveScope:
-                minimumPolicy = OperationPolicy.Dangerous;
-                return true;
-
-            default:
-                minimumPolicy = OperationPolicy.Safe;
-                return false;
+            minimumPolicy = definition.MinimumPolicy;
+            return true;
         }
+
+        minimumPolicy = OperationPolicy.Safe;
+        return false;
     }
 
     /// <summary> Gets a value indicating whether the side effect directly derives <see cref="OperationPolicy.Dangerous" />. </summary>
@@ -82,16 +57,74 @@ public static class UcliOperationSideEffectPolicyMatrix
     /// <returns> <see langword="true" /> when the side effect is a dangerous derivation source; otherwise <see langword="false" />. </returns>
     public static bool IsDangerousDerivationSource (string? sideEffect)
     {
-        switch (sideEffect)
-        {
-            case UcliOperationSideEffectValues.ExternalProcess:
-            case UcliOperationSideEffectValues.FilesystemWrite:
-            case UcliOperationSideEffectValues.ArbitrarySourceExecution:
-            case UcliOperationSideEffectValues.DestructiveScope:
-                return true;
+        return TryGetDefinition(sideEffect, out var definition)
+            && definition.MinimumPolicy == OperationPolicy.Dangerous;
+    }
 
-            default:
-                return false;
+    /// <summary> Gets a value indicating whether the side effect can be declared by a query operation. </summary>
+    /// <param name="sideEffect"> The side-effect literal. </param>
+    /// <returns> <see langword="true" /> when the side effect is query-compatible; otherwise <see langword="false" />. </returns>
+    public static bool IsAllowedForQuery (string? sideEffect)
+    {
+        return TryGetDefinition(sideEffect, out var definition)
+            && definition.QueryAllowed;
+    }
+
+    private static SideEffectPolicyDefinition Define (
+        string value,
+        OperationPolicy minimumPolicy,
+        bool queryAllowed = false)
+    {
+        return new SideEffectPolicyDefinition(
+            value,
+            minimumPolicy,
+            queryAllowed);
+    }
+
+    private static string[] CreateSupportedValues ()
+    {
+        var values = new string[Definitions.Length];
+        for (var i = 0; i < Definitions.Length; i++)
+        {
+            values[i] = Definitions[i].Value;
         }
+
+        return values;
+    }
+
+    private static bool TryGetDefinition (
+        string? sideEffect,
+        out SideEffectPolicyDefinition definition)
+    {
+        for (var i = 0; i < Definitions.Length; i++)
+        {
+            if (string.Equals(Definitions[i].Value, sideEffect, StringComparison.Ordinal))
+            {
+                definition = Definitions[i];
+                return true;
+            }
+        }
+
+        definition = default;
+        return false;
+    }
+
+    private readonly struct SideEffectPolicyDefinition
+    {
+        public SideEffectPolicyDefinition (
+            string value,
+            OperationPolicy minimumPolicy,
+            bool queryAllowed)
+        {
+            Value = value;
+            MinimumPolicy = minimumPolicy;
+            QueryAllowed = queryAllowed;
+        }
+
+        public string Value { get; }
+
+        public OperationPolicy MinimumPolicy { get; }
+
+        public bool QueryAllowed { get; }
     }
 }
