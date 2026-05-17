@@ -45,7 +45,7 @@ public sealed class UnityIpcFailureClassifierTests
         Assert.Equal("Plugin marker is missing.", failure.Message);
     }
 
-    public static TheoryData<UcliErrorCode> PlanTokenValidationCodeValues => new()
+    public static TheoryData<UcliCodeValue> PlanTokenValidationCodeValues => new()
     {
         PlanTokenErrorCodes.PlanTokenRequired,
         PlanTokenErrorCodes.PlanTokenInvalid,
@@ -57,7 +57,7 @@ public sealed class UnityIpcFailureClassifierTests
     [Theory]
     [MemberData(nameof(PlanTokenValidationCodeValues))]
     [Trait("Size", "Small")]
-    public void FromCodeAndMessage_WithPlanTokenValidationCode_ReturnsCode (UcliErrorCode code)
+    public void FromCodeAndMessage_WithPlanTokenValidationCode_ReturnsCode (UcliCodeValue code)
     {
         var failure = UnityIpcFailureClassifier.FromCodeAndMessage(
             code,

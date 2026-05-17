@@ -7,7 +7,7 @@ namespace MackySoft.Ucli.Application.Shared.Foundation;
 internal sealed record ExecutionError (
     ExecutionErrorKind Kind,
     string Message,
-    UcliErrorCode? Code = null)
+    UcliCodeValue? Code = null)
 {
     /// <summary> Creates an invalid-argument execution error. </summary>
     /// <param name="message"> The user-facing error message. </param>
@@ -15,7 +15,7 @@ internal sealed record ExecutionError (
     /// <returns> The invalid-argument execution error. </returns>
     public static ExecutionError InvalidArgument (
         string message,
-        UcliErrorCode? code = null)
+        UcliCodeValue? code = null)
     {
         return new ExecutionError(ExecutionErrorKind.InvalidArgument, message, code);
     }
@@ -26,7 +26,7 @@ internal sealed record ExecutionError (
     /// <returns> The timeout execution error. </returns>
     public static ExecutionError Timeout (
         string message,
-        UcliErrorCode? code = null)
+        UcliCodeValue? code = null)
     {
         return new ExecutionError(ExecutionErrorKind.Timeout, message, code);
     }
@@ -37,7 +37,7 @@ internal sealed record ExecutionError (
     /// <returns> The internal execution error. </returns>
     public static ExecutionError InternalError (
         string message,
-        UcliErrorCode? code = null)
+        UcliCodeValue? code = null)
     {
         return new ExecutionError(ExecutionErrorKind.InternalError, message, code);
     }

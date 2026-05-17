@@ -2,9 +2,9 @@ namespace MackySoft.Ucli.Contracts;
 
 internal static class PlayModeErrorCodeDescriptors
 {
-    public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
+    public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: PlayModeErrorCodes.PlayModeNotActive,
             category: "playMode",
             summary: "A Play Mode mutation was requested while Play Mode is not active.",
@@ -23,7 +23,7 @@ internal static class PlayModeErrorCodeDescriptors
             ],
             relatedCodes: [PlayModeErrorCodes.PlayModeRequiresGuiEditor]),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: PlayModeErrorCodes.PlayModeRequiresGuiEditor,
             category: "playMode",
             summary: "A Play Mode mutation requires a GUI Editor session.",
@@ -46,7 +46,7 @@ internal static class PlayModeErrorCodeDescriptors
                 DaemonErrorCodes.DaemonEditorModeMismatch,
             ]),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: PlayModeErrorCodes.PlayModePersistenceForbidden,
             category: "playMode",
             summary: "A Play Mode mutation attempted forbidden persistence.",

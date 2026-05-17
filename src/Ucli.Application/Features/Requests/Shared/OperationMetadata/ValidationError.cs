@@ -5,6 +5,6 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 /// <param name="Message"> The validation detail message. </param>
 /// <param name="OpId"> The operation identifier related to this error, or <see langword="null" /> when not associated. </param>
 internal sealed record ValidationError (
-    UcliErrorCode Code,
+    UcliCodeValue Code,
     string Message,
     string? OpId);

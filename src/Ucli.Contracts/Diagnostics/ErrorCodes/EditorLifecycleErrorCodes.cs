@@ -4,38 +4,38 @@ namespace MackySoft.Ucli.Contracts;
 public static class EditorLifecycleErrorCodes
 {
     /// <summary> Gets the error code emitted when Unity editor startup is still in progress. </summary>
-    public static readonly UcliErrorCode EditorStarting = new("EDITOR_STARTING");
+    public static readonly UcliCodeValue EditorStarting = new("EDITOR_STARTING");
 
     /// <summary> Gets the error code emitted when Unity editor is busy with internal work. </summary>
-    public static readonly UcliErrorCode EditorBusy = new("EDITOR_BUSY");
+    public static readonly UcliCodeValue EditorBusy = new("EDITOR_BUSY");
 
     /// <summary> Gets the error code emitted when Unity editor is compiling scripts. </summary>
-    public static readonly UcliErrorCode EditorCompiling = new("EDITOR_COMPILING");
+    public static readonly UcliCodeValue EditorCompiling = new("EDITOR_COMPILING");
 
     /// <summary> Gets the error code emitted when Unity editor has script compilation failures. </summary>
-    public static readonly UcliErrorCode EditorCompileFailed = new("EDITOR_COMPILE_FAILED");
+    public static readonly UcliCodeValue EditorCompileFailed = new("EDITOR_COMPILE_FAILED");
 
     /// <summary> Gets the error code emitted when Unity editor is reloading the AppDomain. </summary>
-    public static readonly UcliErrorCode EditorDomainReloading = new("EDITOR_DOMAIN_RELOADING");
+    public static readonly UcliCodeValue EditorDomainReloading = new("EDITOR_DOMAIN_RELOADING");
 
     /// <summary> Gets the error code emitted when Unity editor is recovering after daemon endpoint loss. </summary>
-    public static readonly UcliErrorCode EditorRecovering = new("EDITOR_RECOVERING");
+    public static readonly UcliCodeValue EditorRecovering = new("EDITOR_RECOVERING");
 
     /// <summary> Gets the error code emitted when Unity editor is refreshing or reimporting assets. </summary>
-    public static readonly UcliErrorCode EditorReimporting = new("EDITOR_REIMPORTING");
+    public static readonly UcliCodeValue EditorReimporting = new("EDITOR_REIMPORTING");
 
     /// <summary> Gets the error code emitted when Unity editor is in Play Mode. </summary>
-    public static readonly UcliErrorCode EditorPlaymode = new("EDITOR_PLAYMODE");
+    public static readonly UcliCodeValue EditorPlaymode = new("EDITOR_PLAYMODE");
 
     /// <summary> Gets the error code emitted when a modal dialog blocks Unity editor execution. </summary>
-    public static readonly UcliErrorCode EditorModalBlocked = new("EDITOR_MODAL_BLOCKED");
+    public static readonly UcliCodeValue EditorModalBlocked = new("EDITOR_MODAL_BLOCKED");
 
     /// <summary> Gets the error code emitted when Unity editor is in Safe Mode. </summary>
-    public static readonly UcliErrorCode EditorSafeMode = new("EDITOR_SAFE_MODE");
+    public static readonly UcliCodeValue EditorSafeMode = new("EDITOR_SAFE_MODE");
 
     /// <summary> Gets the error code emitted when Unity editor shutdown is in progress. </summary>
-    public static readonly UcliErrorCode EditorShuttingDown = new("EDITOR_SHUTTING_DOWN");
+    public static readonly UcliCodeValue EditorShuttingDown = new("EDITOR_SHUTTING_DOWN");
 
     /// <summary> Gets the error code emitted when Unity editor lifecycle cannot be observed. </summary>
-    public static readonly UcliErrorCode EditorUnavailable = new("EDITOR_UNAVAILABLE");
+    public static readonly UcliCodeValue EditorUnavailable = new("EDITOR_UNAVAILABLE");
 }

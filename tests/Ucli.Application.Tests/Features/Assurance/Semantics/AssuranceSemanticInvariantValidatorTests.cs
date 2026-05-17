@@ -728,7 +728,7 @@ public sealed class AssuranceSemanticInvariantValidatorTests
         string kind)
     {
         return new CodeCatalogDescriptor(
-            code,
+            new UcliCodeValue(code),
             kind,
             Category: "test",
             Summary: code,
@@ -756,21 +756,21 @@ public sealed class AssuranceSemanticInvariantValidatorTests
         public StubCodeCatalog (IEnumerable<CodeCatalogDescriptor> descriptors)
         {
             descriptorsByCode = descriptors.ToDictionary(
-                static descriptor => descriptor.Code,
+                static descriptor => descriptor.Code.Value,
                 static descriptor => descriptor,
                 StringComparer.Ordinal);
             Descriptors = descriptorsByCode.Values
-                .OrderBy(static descriptor => descriptor.Code, StringComparer.Ordinal)
+                .OrderBy(static descriptor => descriptor.Code.Value, StringComparer.Ordinal)
                 .ToArray();
         }
 
         public IReadOnlyList<CodeCatalogDescriptor> Descriptors { get; }
 
         public bool TryFind (
-            string? code,
+            UcliCodeValue code,
             out CodeCatalogDescriptor descriptor)
         {
-            if (code != null && descriptorsByCode.TryGetValue(code, out descriptor!))
+            if (code.IsValid && descriptorsByCode.TryGetValue(code.Value, out descriptor!))
             {
                 return true;
             }

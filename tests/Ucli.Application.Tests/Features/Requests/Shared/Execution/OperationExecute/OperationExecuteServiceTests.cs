@@ -428,7 +428,7 @@ public sealed class OperationExecuteServiceTests
         Assert.Equal(0, ipcRequestExecutor.CallCount);
     }
 
-    public static TheoryData<UcliErrorCode, UcliErrorCode, int> TransportFailureErrorCodeCases => new()
+    public static TheoryData<UcliCodeValue, UcliCodeValue, int> TransportFailureErrorCodeCases => new()
     {
         { UcliCoreErrorCodes.InvalidArgument, UcliCoreErrorCodes.InvalidArgument, (int)ApplicationOutcome.InvalidArgument },
         { PlanTokenErrorCodes.PlanTokenInvalid, PlanTokenErrorCodes.PlanTokenInvalid, (int)ApplicationOutcome.InvalidArgument },
@@ -439,8 +439,8 @@ public sealed class OperationExecuteServiceTests
     [Trait("Size", "Small")]
     [MemberData(nameof(TransportFailureErrorCodeCases))]
     public async Task Execute_WhenTransportExecutionFails_MapsExitCodeFromErrorCode (
-        UcliErrorCode errorCode,
-        UcliErrorCode expectedErrorCode,
+        UcliCodeValue errorCode,
+        UcliCodeValue expectedErrorCode,
         int expectedOutcome)
     {
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));

@@ -10,7 +10,7 @@ namespace MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
 internal sealed record OpsDescribeServiceResult (
     OpsDescribeExecutionOutput? Output,
     string Message,
-    UcliErrorCode? ErrorCode,
+    UcliCodeValue? ErrorCode,
     StartupFailureDetail? StartupFailure = null)
 {
     /// <summary> Gets a value indicating whether the service execution succeeded. </summary>
@@ -34,7 +34,7 @@ internal sealed record OpsDescribeServiceResult (
     /// <returns> The failed result. </returns>
     public static OpsDescribeServiceResult Failure (
         string message,
-        UcliErrorCode errorCode,
+        UcliCodeValue errorCode,
         StartupFailureDetail? startupFailure = null)
     {
         return new OpsDescribeServiceResult(null, message, errorCode, startupFailure);

@@ -2,7 +2,7 @@ namespace MackySoft.Ucli.Contracts;
 
 internal static class PlanTokenErrorCodeDescriptors
 {
-    public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
+    public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
         CreatePlanTokenDescriptor(
             PlanTokenErrorCodes.PlanTokenRequired,
@@ -35,13 +35,13 @@ internal static class PlanTokenErrorCodeDescriptors
             ["planTokenValidation", "stateValidation"]),
     ];
 
-    private static UcliErrorCodeDescriptor CreatePlanTokenDescriptor (
-        UcliErrorCode code,
+    private static UcliErrorDescriptor CreatePlanTokenDescriptor (
+        UcliCodeValue code,
         string summary,
         string meaning,
         IReadOnlyList<string> possiblePhases)
     {
-        return UcliErrorCodeDescriptorFactory.Create(
+        return UcliErrorDescriptorFactory.Create(
             code: code,
             category: "planToken",
             summary: summary,

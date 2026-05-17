@@ -11,7 +11,7 @@ namespace MackySoft.Ucli.Application.Tests.Ops.Access;
 
 public sealed class OpsCatalogAccessServiceTests
 {
-    public static TheoryData<string, UcliErrorCode, string> SourceFallbackFailures =>
+    public static TheoryData<string, UcliCodeValue, string> SourceFallbackFailures =>
         new()
         {
             {
@@ -90,7 +90,7 @@ public sealed class OpsCatalogAccessServiceTests
     [MemberData(nameof(SourceFallbackFailures))]
     public async Task Read_WhenPersistedReadReturnsFallbackFailure_FallsBackToSource (
         string failureKindName,
-        UcliErrorCode errorCode,
+        UcliCodeValue errorCode,
         string failureMessage)
     {
         var failureKind = Enum.Parse<PersistedOpsCatalogReadFailureKind>(failureKindName);

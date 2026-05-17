@@ -4,7 +4,7 @@ namespace MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 internal sealed class DaemonPingResponseException : Exception
 {
     /// <summary> Gets the daemon error code when one was provided by response payload; otherwise <see langword="null" />. </summary>
-    public UcliErrorCode? ErrorCode { get; }
+    public UcliCodeValue? ErrorCode { get; }
 
     /// <summary> Initializes a new instance of the <see cref="DaemonPingResponseException" /> class. </summary>
     /// <param name="message"> The exception message that explains why ping response is treated as failure. </param>
@@ -12,7 +12,7 @@ internal sealed class DaemonPingResponseException : Exception
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="message" /> is <see langword="null" />. </exception>
     public DaemonPingResponseException (
         string message,
-        UcliErrorCode? errorCode = null)
+        UcliCodeValue? errorCode = null)
         : base(message ?? throw new ArgumentNullException(nameof(message)))
     {
         ErrorCode = errorCode;

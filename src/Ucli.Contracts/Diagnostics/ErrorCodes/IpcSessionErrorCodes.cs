@@ -4,8 +4,8 @@ namespace MackySoft.Ucli.Contracts;
 public static class IpcSessionErrorCodes
 {
     /// <summary> Gets the error code emitted when a request omits <c>sessionToken</c>. </summary>
-    public static readonly UcliErrorCode SessionTokenRequired = new("SESSION_TOKEN_REQUIRED");
+    public static readonly UcliCodeValue SessionTokenRequired = new("SESSION_TOKEN_REQUIRED");
 
     /// <summary> Gets the error code emitted when a request contains an invalid <c>sessionToken</c>. </summary>
-    public static readonly UcliErrorCode SessionTokenInvalid = new("SESSION_TOKEN_INVALID");
+    public static readonly UcliCodeValue SessionTokenInvalid = new("SESSION_TOKEN_INVALID");
 }

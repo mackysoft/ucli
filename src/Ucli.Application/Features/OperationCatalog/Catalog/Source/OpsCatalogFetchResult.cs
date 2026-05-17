@@ -10,7 +10,7 @@ namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 internal sealed record OpsCatalogFetchResult (
     OpsCatalogSnapshot? Snapshot,
     string Message,
-    UcliErrorCode? ErrorCode,
+    UcliCodeValue? ErrorCode,
     StartupFailureDetail? StartupFailure = null)
 {
     /// <summary> Gets a value indicating whether fetch succeeded. </summary>
@@ -34,7 +34,7 @@ internal sealed record OpsCatalogFetchResult (
     /// <returns> The failed result. </returns>
     public static OpsCatalogFetchResult Failure (
         string message,
-        UcliErrorCode errorCode,
+        UcliCodeValue errorCode,
         StartupFailureDetail? startupFailure = null)
     {
         return new OpsCatalogFetchResult(

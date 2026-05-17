@@ -11,6 +11,6 @@ internal interface ICodeCatalog
     /// <param name="descriptor"> The descriptor registered for <paramref name="code" /> when the method returns <see langword="true" />. </param>
     /// <returns> <see langword="true" /> when the catalog contains <paramref name="code" />; otherwise <see langword="false" />. </returns>
     bool TryFind (
-        string? code,
+        UcliCodeValue code,
         out CodeCatalogDescriptor descriptor);
 }

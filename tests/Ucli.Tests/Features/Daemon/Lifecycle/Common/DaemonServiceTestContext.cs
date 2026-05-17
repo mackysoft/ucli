@@ -143,7 +143,7 @@ internal static class DaemonServiceTestContext
 
     public static IpcResponse CreateErrorResponse (
         IpcRequest request,
-        UcliErrorCode code,
+        UcliCodeValue code,
         string message)
     {
         return new IpcResponse(

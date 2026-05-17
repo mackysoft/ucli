@@ -22,7 +22,7 @@ internal static class CodeCatalogPayloadProjector
             Source,
             CodeCatalogKindValues.KnownKinds,
             result.Descriptors!.Select(static descriptor => new CodeListItemPayload(
-                descriptor.Code,
+                descriptor.Code.Value,
                 descriptor.Kind,
                 descriptor.Category,
                 descriptor.Summary)).ToArray());
@@ -37,7 +37,7 @@ internal static class CodeCatalogPayloadProjector
 
         var descriptor = result.Descriptor!;
         return new DescribePayload(
-            descriptor.Code,
+            descriptor.Code.Value,
             result.Known,
             descriptor.Kind,
             descriptor.Category,
@@ -49,7 +49,7 @@ internal static class CodeCatalogPayloadProjector
             descriptor.VerdictSemantics,
             descriptor.ExecutionSemantics,
             NullIfEmpty(descriptor.Inspect),
-            NullIfEmpty(descriptor.RelatedCodes));
+            NullIfEmpty(descriptor.RelatedCodes.Select(static code => code.Value).ToArray()));
     }
 
     private static IReadOnlyList<string>? NullIfEmpty (IReadOnlyList<string> values)

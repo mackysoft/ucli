@@ -2,9 +2,9 @@ namespace MackySoft.Ucli.Contracts;
 
 internal static class ExecuteRequestErrorCodeDescriptors
 {
-    public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
+    public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: ExecuteRequestErrorCodes.RequestIdConflict,
             category: "request",
             summary: "A request-id was reused with different request content.",
@@ -30,7 +30,7 @@ internal static class ExecuteRequestErrorCodeDescriptors
             ],
             relatedCodes: [UcliCoreErrorCodes.InvalidArgument]),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects,
             category: "diagnostic",
             summary: "Some GameObjects could not be represented by hierarchyPath selectors.",

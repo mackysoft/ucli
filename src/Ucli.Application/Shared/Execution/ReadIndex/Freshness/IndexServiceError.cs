@@ -4,5 +4,5 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 /// <param name="Code"> The error code. </param>
 /// <param name="Message"> The user-facing error message. </param>
 internal sealed record IndexServiceError (
-    UcliErrorCode Code,
+    UcliCodeValue Code,
     string Message);

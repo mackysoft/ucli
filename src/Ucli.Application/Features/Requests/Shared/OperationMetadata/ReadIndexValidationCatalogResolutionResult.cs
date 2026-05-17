@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 internal sealed record ReadIndexValidationCatalogResolutionResult (
     RequestStaticValidationCatalog Catalog,
     ReadIndexInfo ReadIndex,
-    UcliErrorCode? ErrorCode,
+    UcliCodeValue? ErrorCode,
     string? ErrorMessage)
 {
     /// <summary> Gets a value indicating whether metadata resolution succeeded. </summary>
@@ -34,7 +34,7 @@ internal sealed record ReadIndexValidationCatalogResolutionResult (
     /// <returns> The failed result. </returns>
     public static ReadIndexValidationCatalogResolutionResult Failure (
         ReadIndexInfo readIndex,
-        UcliErrorCode errorCode,
+        UcliCodeValue errorCode,
         string errorMessage)
     {
         ArgumentNullException.ThrowIfNull(readIndex);

@@ -286,7 +286,7 @@ internal static class SkillsCommandResultFactory
         var errors = errorDiagnostics.Length == 0
             ? [ApplicationFailure.InternalError("uCLI skills doctor reported an unknown error.")]
             : errorDiagnostics
-                .Select(static diagnostic => ApplicationFailure.InternalError(diagnostic.Message, new UcliErrorCode(diagnostic.Code)))
+                .Select(static diagnostic => ApplicationFailure.InternalError(diagnostic.Message, new UcliCodeValue(diagnostic.Code)))
                 .ToArray();
 
         return CommandFailureProjector.Create(

@@ -13,9 +13,9 @@ internal static class UnityProcessErrorCodeDescriptors
         UcliCommandIds.TestRun,
     ];
 
-    public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
+    public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: UnityProcessErrorCodes.UnityProjectAlreadyOpen,
             category: "unityProcess",
             summary: "The Unity project is already open or locked by another process.",
@@ -39,7 +39,7 @@ internal static class UnityProcessErrorCodeDescriptors
                 DaemonErrorCodes.DaemonEditorModeMismatch,
             ]),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: UnityProcessErrorCodes.UnityProjectLockAmbiguous,
             category: "unityProcess",
             summary: "Unity project lock-file ownership could not be determined safely.",
@@ -62,7 +62,7 @@ internal static class UnityProcessErrorCodeDescriptors
                 UnityProcessErrorCodes.UnityProjectLockCleanupFailed,
             ]),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: UnityProcessErrorCodes.UnityProjectLockCleanupFailed,
             category: "unityProcess",
             summary: "Stale Unity project lock-file cleanup failed.",

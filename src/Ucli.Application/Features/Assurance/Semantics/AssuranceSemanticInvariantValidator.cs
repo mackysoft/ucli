@@ -355,7 +355,13 @@ internal sealed class AssuranceSemanticInvariantValidator
             return;
         }
 
-        if (!codeCatalog.TryFind(code, out var descriptor))
+        if (!UcliCodeValue.TryCreate(code, out var codeValue))
+        {
+            AddViolation(violations, path, UcliCodeValue.InvalidValueMessage);
+            return;
+        }
+
+        if (!codeCatalog.TryFind(codeValue, out var descriptor))
         {
             AddViolation(violations, path, $"Code '{code}' is not registered in the code catalog.");
             return;

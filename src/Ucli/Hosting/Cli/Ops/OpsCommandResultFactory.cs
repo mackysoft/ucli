@@ -64,7 +64,7 @@ internal static class OpsCommandResultFactory
     private static CommandResult CreateFailure (
         string command,
         string message,
-        UcliErrorCode? errorCode,
+        UcliCodeValue? errorCode,
         StartupFailureDetail? startupFailure)
     {
         var payload = new Dictionary<string, object?>();

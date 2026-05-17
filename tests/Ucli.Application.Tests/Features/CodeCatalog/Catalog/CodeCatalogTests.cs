@@ -16,7 +16,7 @@ public sealed class CodeCatalogTests
     {
         var catalog = CreateCatalog();
         var actualCodes = catalog.Descriptors
-            .Select(static descriptor => descriptor.Code)
+            .Select(static descriptor => descriptor.Code.Value)
             .ToArray();
         var expectedCodes = actualCodes
             .Order(StringComparer.Ordinal)
@@ -33,9 +33,9 @@ public sealed class CodeCatalogTests
     {
         var catalog = CreateCatalog();
         var actualCodes = catalog.Descriptors
-            .Select(static descriptor => new UcliErrorCode(descriptor.Code))
+            .Select(static descriptor => descriptor.Code)
             .ToHashSet();
-        var expectedCodes = StaticFieldValueReader.ReadFromStaticClasses<UcliErrorCode>(
+        var expectedCodes = StaticFieldValueReader.ReadFromStaticClasses<UcliCodeValue>(
             typeof(ApplicationErrorCodeDescriptors).Assembly,
             "ErrorCodes");
 
@@ -89,7 +89,7 @@ public sealed class CodeCatalogTests
         Assert.Equal(CodeCatalogKindValues.Claim, readyDescriptor.Kind);
         Assert.Contains(UcliCommandIds.Ready, readyDescriptor.AppliesTo);
 
-        Assert.True(catalog.TryFind(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning.Value, out var daemonNotRunningDescriptor));
+        Assert.True(catalog.TryFind(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, out var daemonNotRunningDescriptor));
         Assert.Contains(UcliCommandIds.Ready, daemonNotRunningDescriptor.AppliesTo);
         Assert.Equal(
             daemonNotRunningDescriptor.AppliesTo.Count,
@@ -123,7 +123,7 @@ public sealed class CodeCatalogTests
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Descriptors);
         var actualCodes = result.Descriptors!
-            .Select(static descriptor => descriptor.Code)
+            .Select(static descriptor => descriptor.Code.Value)
             .ToArray();
         var expectedCodes = actualCodes
             .Order(StringComparer.Ordinal)
@@ -143,7 +143,7 @@ public sealed class CodeCatalogTests
         Assert.NotNull(result.Descriptors);
         Assert.NotEmpty(result.Descriptors);
         Assert.All(result.Descriptors!, static descriptor => Assert.Equal(CodeCatalogKindValues.Error, descriptor.Kind));
-        Assert.Contains(IpcTransportErrorCodes.IpcTimeout.Value, result.Descriptors!.Select(static descriptor => descriptor.Code));
+        Assert.Contains(IpcTransportErrorCodes.IpcTimeout.Value, result.Descriptors!.Select(static descriptor => descriptor.Code.Value));
     }
 
     [Fact]
@@ -169,8 +169,8 @@ public sealed class CodeCatalogTests
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Descriptors);
-        Assert.Contains(IpcTransportErrorCodes.IpcTimeout.Value, result.Descriptors!.Select(static descriptor => descriptor.Code));
-        Assert.Contains(UcliCoreErrorCodes.InvalidArgument.Value, result.Descriptors.Select(static descriptor => descriptor.Code));
+        Assert.Contains(IpcTransportErrorCodes.IpcTimeout.Value, result.Descriptors!.Select(static descriptor => descriptor.Code.Value));
+        Assert.Contains(UcliCoreErrorCodes.InvalidArgument.Value, result.Descriptors.Select(static descriptor => descriptor.Code.Value));
     }
 
     [Fact]
@@ -235,13 +235,13 @@ public sealed class CodeCatalogTests
         var service = new CodeCatalogService(CreateCatalog());
 
         var result = service.Describe(
-            new CodeCatalogCodeReference(IpcTransportErrorCodes.IpcTimeout.Value, CodeCatalogKindValues.Error),
+            new CodeCatalogCodeReference(IpcTransportErrorCodes.IpcTimeout, CodeCatalogKindValues.Error),
             requireKnown: true);
 
         Assert.True(result.IsSuccess);
         Assert.True(result.Known);
         Assert.NotNull(result.Descriptor);
-        Assert.Equal(IpcTransportErrorCodes.IpcTimeout.Value, result.Descriptor!.Code);
+        Assert.Equal(IpcTransportErrorCodes.IpcTimeout, result.Descriptor!.Code);
         Assert.Equal(CodeCatalogKindValues.Error, result.Descriptor.Kind);
         Assert.Contains("errors[].code", result.Descriptor.AppearsIn);
     }
@@ -253,7 +253,7 @@ public sealed class CodeCatalogTests
         var service = new CodeCatalogService(CreateCatalog());
 
         var result = service.Describe(
-            new CodeCatalogCodeReference(IpcTransportErrorCodes.IpcTimeout.Value, CodeCatalogKindValues.Claim),
+            new CodeCatalogCodeReference(IpcTransportErrorCodes.IpcTimeout, CodeCatalogKindValues.Claim),
             requireKnown: true);
 
         Assert.False(result.IsSuccess);
@@ -271,7 +271,7 @@ public sealed class CodeCatalogTests
         var service = new CodeCatalogService(CreateCatalog());
 
         var result = service.Describe(
-            new CodeCatalogCodeReference(IpcTransportErrorCodes.IpcTimeout.Value, "future-kind"),
+            new CodeCatalogCodeReference(IpcTransportErrorCodes.IpcTimeout, "future-kind"),
             requireKnown: false);
 
         Assert.False(result.IsSuccess);
@@ -287,7 +287,7 @@ public sealed class CodeCatalogTests
     public void Describe_WithUnknownCodeAndExpectedKind_ReturnsUnknownFallback ()
     {
         var service = new CodeCatalogService(CreateCatalog());
-        var futureCode = "SOME_FUTURE_CODE";
+        var futureCode = new UcliCodeValue("SOME_FUTURE_CODE");
 
         var result = service.Describe(
             new CodeCatalogCodeReference(futureCode, CodeCatalogKindValues.Error),
@@ -307,7 +307,7 @@ public sealed class CodeCatalogTests
     public void Describe_WithUnknownCodeAndFutureExpectedKind_ReturnsUnknownFallback ()
     {
         var service = new CodeCatalogService(CreateCatalog());
-        var futureCode = "SOME_FUTURE_CODE";
+        var futureCode = new UcliCodeValue("SOME_FUTURE_CODE");
 
         var result = service.Describe(
             new CodeCatalogCodeReference(futureCode, "future-kind"),
@@ -326,7 +326,7 @@ public sealed class CodeCatalogTests
     {
         var service = new CodeCatalogService(CreateCatalog());
 
-        var result = service.Describe(new CodeCatalogCodeReference("SOME_FUTURE_CODE", ExpectedKind: null), requireKnown: true);
+        var result = service.Describe(new CodeCatalogCodeReference(new UcliCodeValue("SOME_FUTURE_CODE"), ExpectedKind: null), requireKnown: true);
 
         Assert.False(result.IsSuccess);
         Assert.False(result.Known);
@@ -336,17 +336,13 @@ public sealed class CodeCatalogTests
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.Error.Code);
     }
 
-    [Theory]
-    [InlineData("lowercase_code")]
-    [InlineData("CODE-WITH-HYPHEN")]
-    [InlineData("1_CODE")]
-    [InlineData("CODE.")]
+    [Fact]
     [Trait("Size", "Small")]
-    public void Describe_WithInvalidCodeValue_ReturnsInvalidArgument (string code)
+    public void Describe_WithDefaultCodeValue_ReturnsInvalidArgument ()
     {
         var service = new CodeCatalogService(CreateCatalog());
 
-        var result = service.Describe(new CodeCatalogCodeReference(code, ExpectedKind: null), requireKnown: false);
+        var result = service.Describe(new CodeCatalogCodeReference(default, ExpectedKind: null), requireKnown: false);
 
         Assert.False(result.IsSuccess);
         Assert.False(result.Known);
@@ -372,15 +368,14 @@ public sealed class CodeCatalogTests
             ]));
     }
 
-    [Theory]
-    [InlineData("lowercase_code")]
-    [InlineData("CODE-WITH-HYPHEN")]
-    [InlineData("1_CODE")]
-    [InlineData("CODE.")]
+    [Fact]
     [Trait("Size", "Small")]
-    public void Constructor_WithInvalidCodeValue_Throws (string code)
+    public void Constructor_WithDefaultCodeValue_Throws ()
     {
-        var descriptor = CreateDescriptor(code);
+        var descriptor = CreateDescriptor("DEFAULT_CODE") with
+        {
+            Code = default,
+        };
 
         Assert.Throws<InvalidOperationException>(() => new CodeCatalogModel(
             [
@@ -454,7 +449,7 @@ public sealed class CodeCatalogTests
     {
         var descriptor = CreateDescriptor("UNKNOWN_RELATED_CODE") with
         {
-            RelatedCodes = ["MISSING_RELATED_CODE"],
+            RelatedCodes = [new UcliCodeValue("MISSING_RELATED_CODE")],
         };
 
         Assert.Throws<InvalidOperationException>(() => new CodeCatalogModel(
@@ -484,7 +479,7 @@ public sealed class CodeCatalogTests
     private static CodeCatalogDescriptor CreateDescriptor (string code)
     {
         return new CodeCatalogDescriptor(
-            Code: code,
+            Code: new UcliCodeValue(code),
             Kind: CodeCatalogKindValues.Error,
             Category: "test",
             Summary: "Test descriptor.",

@@ -82,7 +82,7 @@ internal sealed record TestRunServiceResult
     public StartupFailureDetail? StartupFailure { get; }
 
     /// <summary> Gets the machine-readable error code when execution fails. </summary>
-    public UcliErrorCode? ErrorCode => Failure?.Code;
+    public UcliCodeValue? ErrorCode => Failure?.Code;
 
     /// <summary> Gets the serialized result value used by command payload mapping. </summary>
     public string? ResultValue => Result switch
@@ -156,7 +156,7 @@ internal sealed record TestRunServiceResult
     /// <returns> The invalid-input error result. </returns>
     public static TestRunServiceResult InvalidInput (
         string message,
-        UcliErrorCode errorCode,
+        UcliCodeValue errorCode,
         string? runId = null,
         string? artifactsDir = null,
         string? summaryJsonPath = null,
@@ -182,7 +182,7 @@ internal sealed record TestRunServiceResult
     /// <returns> The infrastructure error result. </returns>
     public static TestRunServiceResult InfraError (
         string message,
-        UcliErrorCode errorCode,
+        UcliCodeValue errorCode,
         string? runId = null,
         string? artifactsDir = null,
         string? summaryJsonPath = null,
@@ -212,7 +212,7 @@ internal sealed record TestRunServiceResult
     /// <returns> The tool-error result. </returns>
     public static TestRunServiceResult ToolError (
         string message,
-        UcliErrorCode errorCode,
+        UcliCodeValue errorCode,
         string? runId = null,
         string? artifactsDir = null,
         string? summaryJsonPath = null,
@@ -231,7 +231,7 @@ internal sealed record TestRunServiceResult
 
     private static ApplicationFailure CreateToolFailure (
         string message,
-        UcliErrorCode errorCode,
+        UcliCodeValue errorCode,
         StartupFailureDetail? startupFailure)
     {
         if (errorCode == ExecutionErrorCodes.IpcTimeout || errorCode == TestRunErrorCodes.UnityTestExecutionTimeout)

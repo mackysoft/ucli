@@ -26,7 +26,7 @@ internal static class CommandResultAssert
             .HasArrayLength("errors", 0);
     }
 
-    public static void HasSingleError (JsonElement root, UcliErrorCode expectedCode)
+    public static void HasSingleError (JsonElement root, UcliCodeValue expectedCode)
     {
         HasSingleError(root, expectedCode.Value);
     }

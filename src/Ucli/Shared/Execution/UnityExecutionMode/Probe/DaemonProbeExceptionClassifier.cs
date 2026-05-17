@@ -24,7 +24,7 @@ internal static class DaemonProbeExceptionClassifier
     /// <summary> Determines whether one daemon error code indicates session authentication rejection. </summary>
     /// <param name="errorCode"> The daemon error code to classify. </param>
     /// <returns> <see langword="true" /> when the code rejects daemon session authentication; otherwise <see langword="false" />. </returns>
-    public static bool IsSessionAuthenticationRejected (UcliErrorCode? errorCode)
+    public static bool IsSessionAuthenticationRejected (UcliCodeValue? errorCode)
     {
         return errorCode == IpcSessionErrorCodes.SessionTokenRequired
             || errorCode == IpcSessionErrorCodes.SessionTokenInvalid;

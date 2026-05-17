@@ -7,7 +7,7 @@ internal sealed record SceneTreeLiteRefreshResult (
     IpcIndexSceneTreeLiteReadResponse? Response,
     string? FallbackReason,
     string Message,
-    UcliErrorCode? ErrorCode)
+    UcliCodeValue? ErrorCode)
 {
     /// <summary> Gets a value indicating whether the refresh succeeded. </summary>
     public bool IsSuccess => Response is not null && ErrorCode is null;
@@ -24,7 +24,7 @@ internal sealed record SceneTreeLiteRefreshResult (
     /// <summary> Creates a failed refresh result. </summary>
     public static SceneTreeLiteRefreshResult Failure (
         string message,
-        UcliErrorCode errorCode)
+        UcliCodeValue errorCode)
     {
         return new SceneTreeLiteRefreshResult(null, null, message, errorCode);
     }

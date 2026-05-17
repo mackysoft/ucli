@@ -12,7 +12,7 @@ internal static class ValidationErrorCodeDescriptors
         UcliCommandIds.Refresh,
     ];
 
-    public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
+    public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
         CreateValidationDescriptor(
             ValidationErrorCodes.RequestIdInvalid,
@@ -75,13 +75,13 @@ internal static class ValidationErrorCodeDescriptors
             ["requestParsing", "staticValidation"]),
     ];
 
-    private static UcliErrorCodeDescriptor CreateValidationDescriptor (
-        UcliErrorCode code,
+    private static UcliErrorDescriptor CreateValidationDescriptor (
+        UcliCodeValue code,
         string summary,
         string meaning,
         IReadOnlyList<string> possiblePhases)
     {
-        return UcliErrorCodeDescriptorFactory.Create(
+        return UcliErrorDescriptorFactory.Create(
             code: code,
             category: "requestValidation",
             summary: summary,

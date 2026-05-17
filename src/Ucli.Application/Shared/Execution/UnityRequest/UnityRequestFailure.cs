@@ -8,7 +8,7 @@ internal sealed record UnityRequestFailure
     /// <param name="message"> The user-facing failure message. </param>
     /// <param name="startupFailure"> The structured startup failure detail when Unity did not accept the request. </param>
     public UnityRequestFailure (
-        UcliErrorCode code,
+        UcliCodeValue code,
         string message,
         StartupFailureDetail? startupFailure = null)
     {
@@ -25,7 +25,7 @@ internal sealed record UnityRequestFailure
     }
 
     /// <summary> Gets the machine-readable failure code. </summary>
-    public UcliErrorCode Code { get; }
+    public UcliCodeValue Code { get; }
 
     /// <summary> Gets the user-facing failure message. </summary>
     public string Message { get; }

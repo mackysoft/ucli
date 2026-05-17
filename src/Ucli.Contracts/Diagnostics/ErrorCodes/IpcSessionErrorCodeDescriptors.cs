@@ -2,9 +2,9 @@ namespace MackySoft.Ucli.Contracts;
 
 internal static class IpcSessionErrorCodeDescriptors
 {
-    public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
+    public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: IpcSessionErrorCodes.SessionTokenRequired,
             category: "session",
             summary: "The IPC request omitted the required session token.",
@@ -33,7 +33,7 @@ internal static class IpcSessionErrorCodeDescriptors
             ],
             relatedCodes: [IpcSessionErrorCodes.SessionTokenInvalid]),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: IpcSessionErrorCodes.SessionTokenInvalid,
             category: "session",
             summary: "The IPC request contained an invalid session token.",

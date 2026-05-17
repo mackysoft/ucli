@@ -11,7 +11,7 @@ internal static class SkillFailureApplicationFailureMapper
     {
         ArgumentNullException.ThrowIfNull(failure);
 
-        var code = new UcliErrorCode(failure.Code.Value);
+        var code = new UcliCodeValue(failure.Code.Value);
         return IsInvalidArgumentFailureCode(failure.Code)
             ? ApplicationFailure.InvalidInput(failure.Message, code)
             : ApplicationFailure.InternalError(failure.Message, code);

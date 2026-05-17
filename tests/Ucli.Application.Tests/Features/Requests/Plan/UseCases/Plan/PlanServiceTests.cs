@@ -267,7 +267,7 @@ public sealed class PlanServiceTests
         Assert.Contains("planToken", error.Message, StringComparison.Ordinal);
     }
 
-    public static TheoryData<UcliErrorCode> UnityExecutionToolErrorCodes => new()
+    public static TheoryData<UcliCodeValue> UnityExecutionToolErrorCodes => new()
     {
         EditorLifecycleErrorCodes.EditorPlaymode,
         ExecutionErrorCodes.IpcTimeout,
@@ -276,7 +276,7 @@ public sealed class PlanServiceTests
     [Theory]
     [Trait("Size", "Small")]
     [MemberData(nameof(UnityExecutionToolErrorCodes))]
-    public async Task Execute_WhenUnityExecutionFailsWithToolErrorCode_ReturnsToolErrorAndPreservesPayload (UcliErrorCode errorCode)
+    public async Task Execute_WhenUnityExecutionFailsWithToolErrorCode_ReturnsToolErrorAndPreservesPayload (UcliCodeValue errorCode)
     {
         var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResultTestFactory.Failure(
             "Unity execution failed.",

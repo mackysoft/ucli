@@ -2,13 +2,13 @@ using MackySoft.Tests;
 
 namespace MackySoft.Ucli.Contracts.Tests.Diagnostics;
 
-public sealed class UcliErrorCodeDescriptorTests
+public sealed class UcliErrorDescriptorTests
 {
     [Fact]
     [Trait("Size", "Small")]
     public void KnownDescriptors_HaveUniqueCodes ()
     {
-        var duplicateCodes = UcliKnownErrorCodeDescriptors.All
+        var duplicateCodes = UcliKnownErrorDescriptors.All
             .GroupBy(static descriptor => descriptor.Code)
             .Where(static group => group.Count() > 1)
             .Select(static group => group.Key.Value)
@@ -21,10 +21,10 @@ public sealed class UcliErrorCodeDescriptorTests
     [Trait("Size", "Small")]
     public void KnownDescriptors_IncludeEveryContractsErrorCodeDefinition ()
     {
-        var expectedCodes = StaticFieldValueReader.ReadFromStaticClasses<UcliErrorCode>(
-            typeof(UcliErrorCode).Assembly,
+        var expectedCodes = StaticFieldValueReader.ReadFromStaticClasses<UcliCodeValue>(
+            typeof(UcliCodeValue).Assembly,
             "ErrorCodes");
-        var actualCodes = UcliKnownErrorCodeDescriptors.All
+        var actualCodes = UcliKnownErrorDescriptors.All
             .Select(static descriptor => descriptor.Code)
             .ToHashSet();
 
@@ -38,11 +38,11 @@ public sealed class UcliErrorCodeDescriptorTests
     [Trait("Size", "Small")]
     public void KnownDescriptors_HaveValidRequiredMetadata ()
     {
-        var knownCodes = UcliKnownErrorCodeDescriptors.All
+        var knownCodes = UcliKnownErrorDescriptors.All
             .Select(static descriptor => descriptor.Code)
             .ToHashSet();
 
-        foreach (var descriptor in UcliKnownErrorCodeDescriptors.All)
+        foreach (var descriptor in UcliKnownErrorDescriptors.All)
         {
             Assert.False(string.IsNullOrWhiteSpace(descriptor.Code.Value));
             Assert.False(string.IsNullOrWhiteSpace(descriptor.Category));
@@ -120,9 +120,9 @@ public sealed class UcliErrorCodeDescriptorTests
         Assert.Contains("payload.readPostcondition", descriptor.Inspect);
     }
 
-    private static UcliErrorCodeDescriptor FindDescriptor (UcliErrorCode code)
+    private static UcliErrorDescriptor FindDescriptor (UcliCodeValue code)
     {
-        return UcliKnownErrorCodeDescriptors.All.Single(descriptor => descriptor.Code == code);
+        return UcliKnownErrorDescriptors.All.Single(descriptor => descriptor.Code == code);
     }
 
 }

@@ -14,7 +14,7 @@ namespace MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 /// <param name="Inspect"> Response fields or diagnostic commands callers should inspect. </param>
 /// <param name="RelatedCodes"> Adjacent globally unique code values. </param>
 internal sealed record CodeCatalogDescriptor (
-    string Code,
+    UcliCodeValue Code,
     string Kind,
     string Category,
     string Summary,
@@ -25,4 +25,4 @@ internal sealed record CodeCatalogDescriptor (
     object? VerdictSemantics,
     UcliErrorExecutionSemantics? ExecutionSemantics,
     IReadOnlyList<string> Inspect,
-    IReadOnlyList<string> RelatedCodes);
+    IReadOnlyList<UcliCodeValue> RelatedCodes);

@@ -13,6 +13,8 @@ internal sealed class CodeCatalogService : ICodeCatalogService
 
     private static readonly IReadOnlyList<string> EmptyStrings = Array.Empty<string>();
 
+    private static readonly IReadOnlyList<UcliCodeValue> EmptyCodeValues = Array.Empty<UcliCodeValue>();
+
     private readonly ICodeCatalog catalog;
 
     /// <summary> Initializes a new instance of the <see cref="CodeCatalogService" /> class. </summary>
@@ -88,19 +90,11 @@ internal sealed class CodeCatalogService : ICodeCatalogService
     {
         ArgumentNullException.ThrowIfNull(reference);
 
-        if (string.IsNullOrWhiteSpace(reference.Code))
+        if (!reference.Code.IsValid)
         {
             return CodeCatalogDescribeResult.Failure(
                 ExecutionError.InvalidArgument(
                     "Code must not be empty.",
-                    UcliCoreErrorCodes.InvalidArgument));
-        }
-
-        if (!UcliCodeValue.IsValidValue(reference.Code))
-        {
-            return CodeCatalogDescribeResult.Failure(
-                ExecutionError.InvalidArgument(
-                    UcliCodeValue.InvalidValueMessage,
                     UcliCoreErrorCodes.InvalidArgument));
         }
 
@@ -137,7 +131,7 @@ internal sealed class CodeCatalogService : ICodeCatalogService
         return CodeCatalogDescribeResult.Success(CreateUnknownDescriptor(reference.Code), known: false);
     }
 
-    private static CodeCatalogDescriptor CreateUnknownDescriptor (string code)
+    private static CodeCatalogDescriptor CreateUnknownDescriptor (UcliCodeValue code)
     {
         return new CodeCatalogDescriptor(
             Code: code,
@@ -151,7 +145,7 @@ internal sealed class CodeCatalogService : ICodeCatalogService
             VerdictSemantics: null,
             ExecutionSemantics: null,
             Inspect: EmptyStrings,
-            RelatedCodes: EmptyStrings);
+            RelatedCodes: EmptyCodeValues);
     }
 
     private static bool MatchesCommandFilter (

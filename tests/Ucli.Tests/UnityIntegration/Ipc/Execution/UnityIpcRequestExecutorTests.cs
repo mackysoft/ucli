@@ -604,7 +604,7 @@ public sealed class UnityIpcRequestExecutorTests
 
     private static IpcResponse CreateErrorResponse (
         string requestId,
-        UcliErrorCode errorCode,
+        UcliCodeValue errorCode,
         string message)
     {
         return new IpcResponse(

@@ -61,7 +61,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="context" /> or <paramref name="serializerOptions" /> is <see langword="null" />. </exception>
         public static IpcResponse CreateErrorResponse (
             ExecuteDispatchContext context,
-            UcliErrorCode code,
+            UcliCodeValue code,
             string message,
             string? opId,
             JsonSerializerOptions serializerOptions)

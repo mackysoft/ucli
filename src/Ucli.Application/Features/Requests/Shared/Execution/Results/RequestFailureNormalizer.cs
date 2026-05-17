@@ -28,7 +28,7 @@ internal static class RequestFailureNormalizer
 
     /// <summary> Creates one application failure from a transport failure. </summary>
     public static ApplicationFailure FromTransportFailure (
-        UcliErrorCode? errorCode,
+        UcliCodeValue? errorCode,
         string? message,
         string? opId = null,
         string? fallbackMessage = null)

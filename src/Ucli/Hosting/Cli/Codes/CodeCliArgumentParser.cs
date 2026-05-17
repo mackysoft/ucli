@@ -65,7 +65,7 @@ internal static class CodeCliArgumentParser
             return false;
         }
 
-        reference = new CodeCatalogCodeReference(code, expectedKind);
+        reference = new CodeCatalogCodeReference(new UcliCodeValue(code), expectedKind);
         errorMessage = string.Empty;
         return true;
     }

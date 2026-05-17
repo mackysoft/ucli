@@ -4,8 +4,8 @@ namespace MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decisio
 internal static class UnityExecutionModeDecisionErrorCodes
 {
     /// <summary> Gets the error code emitted when daemon mode is requested but daemon is not reachable. </summary>
-    public static readonly UcliErrorCode DaemonNotRunning = new UcliErrorCode("DAEMON_NOT_RUNNING");
+    public static readonly UcliCodeValue DaemonNotRunning = new UcliCodeValue("DAEMON_NOT_RUNNING");
 
     /// <summary> Gets the error code emitted when oneshot mode is requested while daemon is reachable. </summary>
-    public static readonly UcliErrorCode DaemonRunningOneshotForbidden = new UcliErrorCode("DAEMON_RUNNING_ONESHOT_FORBIDDEN");
+    public static readonly UcliCodeValue DaemonRunningOneshotForbidden = new UcliCodeValue("DAEMON_RUNNING_ONESHOT_FORBIDDEN");
 }

@@ -67,7 +67,7 @@ internal static class TestRunServiceErrorMapper
             : TestRunServiceResult.InvalidInput(message, errorCode);
     }
 
-    private static UcliErrorCode ResolveConfigurationErrorCode (
+    private static UcliCodeValue ResolveConfigurationErrorCode (
         IReadOnlyList<ExecutionError> errors,
         bool hasInternalError)
     {

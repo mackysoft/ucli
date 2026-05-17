@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 /// <param name="CoverageImpact"> The diagnostic coverage-impact literal. </param>
 /// <param name="Message"> The human-readable diagnostic message. </param>
 internal sealed record OperationExecutionDiagnostic (
-    UcliErrorCode Code,
+    UcliCodeValue Code,
     string Severity,
     string CoverageImpact,
     string Message);

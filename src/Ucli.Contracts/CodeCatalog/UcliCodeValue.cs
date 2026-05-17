@@ -1,6 +1,9 @@
+using System.Text.Json.Serialization;
+
 namespace MackySoft.Ucli.Contracts;
 
 /// <summary> Represents one machine-readable code value from the shared uCLI open code set. </summary>
+[JsonConverter(typeof(UcliCodeValueJsonConverter))]
 public readonly record struct UcliCodeValue
 {
     /// <summary> Gets the maximum supported code value length. </summary>

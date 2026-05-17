@@ -78,7 +78,7 @@ internal sealed record ValidateServiceResult
     /// <returns> The failed result. </returns>
     public static ValidateServiceResult Failure (
         string message,
-        UcliErrorCode errorCode,
+        UcliCodeValue errorCode,
         ValidateExecutionOutput? output = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);

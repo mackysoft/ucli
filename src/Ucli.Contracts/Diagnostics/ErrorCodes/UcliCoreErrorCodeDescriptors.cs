@@ -4,9 +4,9 @@ internal static class UcliCoreErrorCodeDescriptors
 {
     private static readonly UcliCommand[] AllCommands = UcliPublicCommandCatalog.KnownCommands.ToArray();
 
-    public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
+    public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: UcliCoreErrorCodes.InvalidArgument,
             category: "input",
             summary: "The command or request arguments are invalid.",
@@ -25,7 +25,7 @@ internal static class UcliCoreErrorCodeDescriptors
             ],
             relatedCodes: null),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: UcliCoreErrorCodes.NotInitialized,
             category: "workspace",
             summary: "Required uCLI workspace initialization has not been completed.",
@@ -44,7 +44,7 @@ internal static class UcliCoreErrorCodeDescriptors
             ],
             relatedCodes: [UcliCoreErrorCodes.InvalidArgument]),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: UcliCoreErrorCodes.CommandNotImplemented,
             category: "command",
             summary: "The selected command is recognized but not implemented.",
@@ -63,7 +63,7 @@ internal static class UcliCoreErrorCodeDescriptors
             ],
             relatedCodes: [UcliCoreErrorCodes.InternalError]),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: UcliCoreErrorCodes.InternalError,
             category: "internal",
             summary: "An unexpected internal failure occurred.",
