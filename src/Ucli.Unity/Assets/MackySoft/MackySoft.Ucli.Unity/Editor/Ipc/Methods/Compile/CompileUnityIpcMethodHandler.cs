@@ -22,8 +22,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private const string RefreshOriginAssetDatabaseRefresh = "assetDatabaseRefresh";
         private const long MaxCompileRequestBytes = 1024 * 1024;
-
-        private static readonly TimeSpan MinimumSettledObservationDuration = TimeSpan.FromMilliseconds(500);
+        private const int RequiredStableLifecycleObservations = 2;
 
         private readonly IUnityEditorReadinessGate readinessGate;
 
@@ -654,35 +653,69 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             private int stableUpdates;
 
-            private DateTimeOffset stableStartedAtUtc = DateTimeOffset.MinValue;
+            private bool hasStableSnapshot;
+
+            private string stableLifecycleState;
+
+            private string stableBlockingReason;
+
+            private string stableCompileState;
 
             private string stableCompileGeneration;
 
             private string stableDomainReloadGeneration;
 
+            private bool stableCanAcceptExecutionRequests;
+
             public bool Observe (UnityEditorLifecycleSnapshot snapshot)
             {
                 if (!IsLifecycleSettled(snapshot))
                 {
-                    stableUpdates = 0;
-                    stableCompileGeneration = null;
-                    stableDomainReloadGeneration = null;
+                    Reset();
                     return false;
                 }
 
-                if (stableUpdates == 0
-                    || !string.Equals(stableCompileGeneration, snapshot.CompileGeneration, StringComparison.Ordinal)
-                    || !string.Equals(stableDomainReloadGeneration, snapshot.DomainReloadGeneration, StringComparison.Ordinal))
+                if (!hasStableSnapshot || !MatchesStableSnapshot(snapshot))
                 {
                     stableUpdates = 0;
-                    stableStartedAtUtc = DateTimeOffset.UtcNow;
-                    stableCompileGeneration = snapshot.CompileGeneration;
-                    stableDomainReloadGeneration = snapshot.DomainReloadGeneration;
+                    CaptureStableSnapshot(snapshot);
                 }
 
                 stableUpdates++;
-                return stableUpdates >= 2
-                    && DateTimeOffset.UtcNow - stableStartedAtUtc >= MinimumSettledObservationDuration;
+                return stableUpdates >= RequiredStableLifecycleObservations;
+            }
+
+            private bool MatchesStableSnapshot (UnityEditorLifecycleSnapshot snapshot)
+            {
+                return string.Equals(stableLifecycleState, snapshot.LifecycleState, StringComparison.Ordinal)
+                    && string.Equals(stableBlockingReason, snapshot.BlockingReason, StringComparison.Ordinal)
+                    && string.Equals(stableCompileState, snapshot.CompileState, StringComparison.Ordinal)
+                    && string.Equals(stableCompileGeneration, snapshot.CompileGeneration, StringComparison.Ordinal)
+                    && string.Equals(stableDomainReloadGeneration, snapshot.DomainReloadGeneration, StringComparison.Ordinal)
+                    && stableCanAcceptExecutionRequests == snapshot.CanAcceptExecutionRequests;
+            }
+
+            private void CaptureStableSnapshot (UnityEditorLifecycleSnapshot snapshot)
+            {
+                hasStableSnapshot = true;
+                stableLifecycleState = snapshot.LifecycleState;
+                stableBlockingReason = snapshot.BlockingReason;
+                stableCompileState = snapshot.CompileState;
+                stableCompileGeneration = snapshot.CompileGeneration;
+                stableDomainReloadGeneration = snapshot.DomainReloadGeneration;
+                stableCanAcceptExecutionRequests = snapshot.CanAcceptExecutionRequests;
+            }
+
+            private void Reset ()
+            {
+                stableUpdates = 0;
+                hasStableSnapshot = false;
+                stableLifecycleState = null;
+                stableBlockingReason = null;
+                stableCompileState = null;
+                stableCompileGeneration = null;
+                stableDomainReloadGeneration = null;
+                stableCanAcceptExecutionRequests = false;
             }
         }
 
