@@ -40,6 +40,19 @@ public sealed class UnityIpcRequestBuilderTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Build_WithCompile_CreatesCompilePayload ()
+    {
+        var builder = new UnityIpcRequestBuilder();
+
+        var request = builder.Build(new UnityRequestPayload.Compile("run-1"));
+
+        Assert.Equal(IpcMethodNames.Compile, request.Method);
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcCompileRequest payload, out _));
+        Assert.Equal("run-1", payload.RunId);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Build_WithExecuteJson_CreatesExecutePayload ()
     {
         var executeArguments = JsonSerializer.SerializeToElement(new

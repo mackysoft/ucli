@@ -67,6 +67,7 @@ public sealed class UcliCommandCatalogTests
     [InlineData(UcliCommandNames.Init)]
     [InlineData(UcliCommandNames.Status)]
     [InlineData(UcliCommandNames.Ready)]
+    [InlineData(UcliCommandNames.Compile)]
     [InlineData(UcliCommandNames.Refresh)]
     [InlineData(UcliCommandNames.Resolve)]
     [InlineData(UcliCommandNames.Query)]
