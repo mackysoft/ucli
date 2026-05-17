@@ -19,10 +19,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AssetCreateArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.AssetCreate,
             kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced,
             description: "Creates a Unity asset at a project-relative path.",
             assurance: new UcliOperationAssuranceContract(
-                sideEffects: new[] { UcliOperationSideEffect.WritesAsset },
+                sideEffects: new[] { UcliOperationSideEffect.AssetContentMutation, UcliOperationSideEffect.AssetSave },
                 mayDirty: false,
                 mayPersist: true,
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Asset },

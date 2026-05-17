@@ -18,10 +18,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<SceneQueryArgs, SceneQueryResult>(
             operationName: UcliPrimitiveOperationNames.SceneQuery,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
             description: "Finds objects or components in a scene by hierarchy path prefix and component type.",
             assurance: new UcliOperationAssuranceContract(
-                sideEffects: Array.Empty<UcliOperationSideEffect>(),
+                sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
                 mayDirty: false,
                 mayPersist: false,
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene },

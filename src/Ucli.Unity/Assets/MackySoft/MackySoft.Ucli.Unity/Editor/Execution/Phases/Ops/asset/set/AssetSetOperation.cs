@@ -18,10 +18,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AssetSetArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.AssetSet,
             kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced,
             description: "Assigns serialized property values on an asset or project asset target.",
             assurance: new UcliOperationAssuranceContract(
-                sideEffects: new[] { UcliOperationSideEffect.WritesAsset, UcliOperationSideEffect.WritesProjectSettings },
+                sideEffects: new[] { UcliOperationSideEffect.AssetContentMutation, UcliOperationSideEffect.ProjectSettingsMutation },
                 mayDirty: true,
                 mayPersist: false,
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Asset, IpcExecuteTouchedResourceKindNames.ProjectSettings },

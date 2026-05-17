@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 
@@ -18,10 +18,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<SceneTreeArgs, SceneTreeResult>(
             operationName: UcliPrimitiveOperationNames.SceneTree,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
             description: "Returns the hierarchy tree for a Unity scene.",
             assurance: new UcliOperationAssuranceContract(
-                sideEffects: Array.Empty<UcliOperationSideEffect>(),
+                sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
                 mayDirty: false,
                 mayPersist: false,
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene },

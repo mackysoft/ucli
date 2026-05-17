@@ -18,10 +18,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AssetsFindArgs, AssetsFindResult>(
             operationName: UcliPrimitiveOperationNames.AssetsFind,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
             description: "Finds project assets by type, path prefix, or name substring.",
             assurance: new UcliOperationAssuranceContract(
-                sideEffects: Array.Empty<UcliOperationSideEffect>(),
+                sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
                 mayDirty: false,
                 mayPersist: false,
                 touchedKinds: Array.Empty<string>(),

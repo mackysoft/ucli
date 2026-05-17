@@ -15,18 +15,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <summary> Initializes a new instance of the <see cref="UcliOperationMetadata" /> class. </summary>
         /// <param name="operationName"> The operation name. </param>
         /// <param name="kind"> The operation kind metadata. </param>
-        /// <param name="policy"> The operation policy metadata. </param>
         /// <param name="describeContract"> The agent-facing operation describe contract. </param>
         /// <exception cref="ArgumentException"> Thrown when <paramref name="operationName" /> is invalid. </exception>
         public UcliOperationMetadata (
             string operationName,
             UcliOperationKind kind,
-            OperationPolicy policy,
             UcliOperationDescribeContract describeContract)
             : this(
                 operationName,
                 kind,
-                policy,
                 describeContract,
                 typeof(UcliEmptyArgs),
                 typeof(UcliNoResult),
@@ -37,7 +34,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <summary> Initializes a new instance of the <see cref="UcliOperationMetadata" /> class. </summary>
         /// <param name="operationName"> The operation name. </param>
         /// <param name="kind"> The operation kind metadata. </param>
-        /// <param name="policy"> The operation policy metadata. </param>
         /// <param name="describeContract"> The agent-facing operation describe contract. </param>
         /// <param name="argsType"> The operation args contract type. </param>
         /// <param name="resultType"> The operation result contract type. </param>
@@ -46,18 +42,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public UcliOperationMetadata (
             string operationName,
             UcliOperationKind kind,
-            OperationPolicy policy,
             UcliOperationDescribeContract describeContract,
             Type argsType,
             Type resultType)
-            : this(operationName, kind, policy, describeContract, argsType, resultType, requiresPreCallPlanReplay: false)
+            : this(operationName, kind, describeContract, argsType, resultType, requiresPreCallPlanReplay: false)
         {
         }
 
         /// <summary> Initializes a new instance of the <see cref="UcliOperationMetadata" /> class. </summary>
         /// <param name="operationName"> The operation name. </param>
         /// <param name="kind"> The operation kind metadata. </param>
-        /// <param name="policy"> The operation policy metadata. </param>
         /// <param name="describeContract"> The agent-facing operation describe contract. </param>
         /// <param name="argsType"> The operation args contract type. </param>
         /// <param name="resultType"> The operation result contract type. </param>
@@ -67,7 +61,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public UcliOperationMetadata (
             string operationName,
             UcliOperationKind kind,
-            OperationPolicy policy,
             UcliOperationDescribeContract describeContract,
             Type argsType,
             Type resultType,
@@ -117,7 +110,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 ValidateSchemaJson(resultSchemaJson, nameof(resultSchemaJson), "Result schema JSON");
             }
 
-            ValidateDescribeContract(operationName, kind, policy, describeContract, resultType);
+            var policy = ValidateDescribeContract(operationName, kind, describeContract, resultType);
             var ownedDescribeContract = CopyDescribeContract(describeContract);
 
             OperationName = operationName;
@@ -136,21 +129,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <typeparam name="TResult"> The operation result contract type. </typeparam>
         /// <param name="operationName"> The operation name. </param>
         /// <param name="kind"> The operation kind metadata. </param>
-        /// <param name="policy"> The operation policy metadata. </param>
         /// <param name="describeContract"> The agent-facing operation describe contract. </param>
         /// <param name="requiresPreCallPlanReplay"> Whether call execution must replay plan immediately beforehand. </param>
         /// <returns> The created operation metadata. </returns>
         public static UcliOperationMetadata Create<TArgs, TResult> (
             string operationName,
             UcliOperationKind kind,
-            OperationPolicy policy,
             UcliOperationDescribeContract describeContract,
             bool requiresPreCallPlanReplay = false)
         {
             return new UcliOperationMetadata(
                 operationName,
                 kind,
-                policy,
                 describeContract,
                 typeof(TArgs),
                 typeof(TResult),
@@ -162,7 +152,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <typeparam name="TResult"> The operation result contract type. </typeparam>
         /// <param name="operationName"> The operation name. </param>
         /// <param name="kind"> The operation kind metadata. </param>
-        /// <param name="policy"> The operation policy metadata. </param>
         /// <param name="description"> The operation purpose description. </param>
         /// <param name="assurance"> The agent-facing assurance metadata. </param>
         /// <param name="requiresPreCallPlanReplay"> Whether call execution must replay plan immediately beforehand. </param>
@@ -170,7 +159,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public static UcliOperationMetadata Create<TArgs, TResult> (
             string operationName,
             UcliOperationKind kind,
-            OperationPolicy policy,
             string description,
             UcliOperationAssuranceContract assurance,
             bool requiresPreCallPlanReplay = false)
@@ -178,7 +166,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Create<TArgs, TResult>(
                 operationName,
                 kind,
-                policy,
                 UcliOperationDescribeContractBuilder.Create<TArgs, TResult>(description, assurance),
                 requiresPreCallPlanReplay);
         }
@@ -210,13 +197,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <summary> Gets a value indicating whether call execution must replay plan immediately beforehand. </summary>
         public bool RequiresPreCallPlanReplay { get; }
 
-        private static void ValidateDescribeContract (
+        private static OperationPolicy ValidateDescribeContract (
             string operationName,
             UcliOperationKind kind,
-            OperationPolicy policy,
             UcliOperationDescribeContract describeContract,
             Type resultType)
         {
+            if (!UcliOperationPolicyDeriver.TryDerive(describeContract.Assurance, describeContract.CodeContract, out var policy, out var policyDerivationError))
+            {
+                throw new ArgumentException(policyDerivationError, nameof(describeContract));
+            }
+
             if (!UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
                     describeContract,
                     UcliOperationKindCodec.ToValue(kind),
@@ -230,10 +221,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (resultType == typeof(UcliNoResult))
             {
                 ValidateNoResultContract(describeContract.ResultContract);
-                return;
+                return policy;
             }
 
             ValidateEmittedResultContract(describeContract.ResultContract, resultType);
+            return policy;
         }
 
         private static UcliOperationDescribeContract CopyDescribeContract (UcliOperationDescribeContract source)

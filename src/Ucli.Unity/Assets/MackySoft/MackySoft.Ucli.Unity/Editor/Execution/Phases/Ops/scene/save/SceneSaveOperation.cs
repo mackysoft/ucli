@@ -17,10 +17,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<ScenePathArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.SceneSave,
             kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced,
             description: "Saves a loaded or previewed Unity scene asset.",
             assurance: new UcliOperationAssuranceContract(
-                sideEffects: new[] { UcliOperationSideEffect.WritesScene },
+                sideEffects: new[] { UcliOperationSideEffect.SceneSave },
                 mayDirty: false,
                 mayPersist: true,
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene },

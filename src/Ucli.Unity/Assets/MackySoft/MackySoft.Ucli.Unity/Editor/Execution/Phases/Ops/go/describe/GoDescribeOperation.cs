@@ -17,10 +17,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<GoDescribeArgs, GameObjectDescriptionResult>(
             operationName: UcliPrimitiveOperationNames.GoDescribe,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
             description: "Returns a GameObject description including components and child hierarchy.",
             assurance: new UcliOperationAssuranceContract(
-                sideEffects: Array.Empty<UcliOperationSideEffect>(),
+                sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
                 mayDirty: false,
                 mayPersist: false,
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },

@@ -18,10 +18,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<PrefabPathArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.PrefabOpen,
             kind: UcliOperationKind.Command,
-            policy: OperationPolicy.Safe,
             description: "Opens a prefab asset in the Unity editor.",
             assurance: new UcliOperationAssuranceContract(
-                sideEffects: new[] { UcliOperationSideEffect.OpensPrefabStage },
+                sideEffects: new[] { UcliOperationSideEffect.EditorStateChange, UcliOperationSideEffect.OpensPrefabStage },
                 mayDirty: false,
                 mayPersist: false,
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Prefab },
@@ -31,7 +30,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 touchedContract: "Reports the prefab resource as an observed editor context, not as a persisted mutation.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Timeout, cancellation, or domain reload may leave the open prefab stage indeterminate.",
-                dangerousNotes: Array.Empty<string>()));
+                dangerousNotes: new[] { "This operation changes the active editor prefab stage without mutating prefab content." }));
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,

@@ -16,10 +16,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<ResolveSelectorArgs, IpcResolveOperationResult>(
             operationName: UcliPrimitiveOperationNames.Resolve,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
             description: "Resolves an asset, scene object, prefab object, or component reference to a Unity GlobalObjectId.",
             assurance: new UcliOperationAssuranceContract(
-                sideEffects: Array.Empty<UcliOperationSideEffect>(),
+                sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
                 mayDirty: false,
                 mayPersist: false,
                 touchedKinds: Array.Empty<string>(),

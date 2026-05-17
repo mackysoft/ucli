@@ -17,10 +17,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<ScenePathArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.SceneOpen,
             kind: UcliOperationKind.Command,
-            policy: OperationPolicy.Safe,
             description: "Opens a Unity scene asset in the editor.",
             assurance: new UcliOperationAssuranceContract(
-                sideEffects: new[] { UcliOperationSideEffect.OpensSceneInEditor },
+                sideEffects: new[] { UcliOperationSideEffect.EditorStateChange, UcliOperationSideEffect.OpensSceneInEditor },
                 mayDirty: false,
                 mayPersist: false,
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene },
@@ -30,7 +29,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 touchedContract: "Reports the scene resource as an observed editor context, not as a persisted mutation.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Timeout, cancellation, or domain reload may leave the open editor state indeterminate.",
-                dangerousNotes: Array.Empty<string>()));
+                dangerousNotes: new[] { "This operation changes the active editor scene context without mutating scene content." }));
 
         /// <summary> Executes validate phase for <c>ucli.scene.open</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

@@ -20,16 +20,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.ProjectRefresh,
             kind: UcliOperationKind.Command,
-            policy: OperationPolicy.Advanced,
             description: "Refreshes Unity AssetDatabase and reports resources changed by import.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[]
                 {
-                    UcliOperationSideEffect.RefreshesAssetDatabase,
-                    UcliOperationSideEffect.WritesAsset,
-                    UcliOperationSideEffect.WritesScene,
-                    UcliOperationSideEffect.WritesPrefab,
-                    UcliOperationSideEffect.WritesProjectSettings,
+                    UcliOperationSideEffect.AssetDatabaseRefresh,
+                    UcliOperationSideEffect.AssetImport,
+                    UcliOperationSideEffect.ScriptCompilation,
+                    UcliOperationSideEffect.DomainReload,
+                    UcliOperationSideEffect.SceneContentMutation,
+                    UcliOperationSideEffect.PrefabContentMutation,
+                    UcliOperationSideEffect.AssetContentMutation,
+                    UcliOperationSideEffect.ProjectSettingsMutation,
+                    UcliOperationSideEffect.AssetSave,
                 },
                 mayDirty: true,
                 mayPersist: true,

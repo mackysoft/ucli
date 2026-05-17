@@ -2,8 +2,8 @@ using System;
 using MackySoft.Ucli.Contracts;
 using System.Threading;
 using System.Threading.Tasks;
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using MackySoft.Ucli.Unity.Index;
@@ -24,10 +24,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AssetSchemaArgs, IndexSchemaEntryJsonContract>(
             operationName: UcliPrimitiveOperationNames.AssetSchema,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
             description: "Returns the serialized schema for an asset type or existing asset target.",
             assurance: new UcliOperationAssuranceContract(
-                sideEffects: Array.Empty<UcliOperationSideEffect>(),
+                sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
                 mayDirty: false,
                 mayPersist: false,
                 touchedKinds: Array.Empty<string>(),

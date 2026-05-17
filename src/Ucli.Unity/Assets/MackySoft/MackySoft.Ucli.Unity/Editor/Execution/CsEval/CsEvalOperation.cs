@@ -164,10 +164,18 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             var assurance = new UcliOperationAssuranceContract(
                 sideEffects: new[]
                 {
-                    UcliOperationSideEffect.WritesAsset,
-                    UcliOperationSideEffect.WritesScene,
-                    UcliOperationSideEffect.WritesPrefab,
-                    UcliOperationSideEffect.WritesProjectSettings,
+                    UcliOperationSideEffect.SceneContentMutation,
+                    UcliOperationSideEffect.PrefabContentMutation,
+                    UcliOperationSideEffect.AssetContentMutation,
+                    UcliOperationSideEffect.ProjectSettingsMutation,
+                    UcliOperationSideEffect.SceneSave,
+                    UcliOperationSideEffect.PrefabSave,
+                    UcliOperationSideEffect.AssetSave,
+                    UcliOperationSideEffect.ProjectSave,
+                    UcliOperationSideEffect.ExternalProcess,
+                    UcliOperationSideEffect.FilesystemWrite,
+                    UcliOperationSideEffect.ArbitrarySourceExecution,
+                    UcliOperationSideEffect.DestructiveScope,
                 },
                 mayDirty: true,
                 mayPersist: true,
@@ -212,7 +220,6 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             return UcliOperationMetadata.Create<CsEvalArgs, CsEvalResult>(
                 operationName: UcliPrimitiveOperationNames.CsEval,
                 kind: UcliOperationKind.Mutation,
-                policy: OperationPolicy.Dangerous,
                 describeContract: describe,
                 requiresPreCallPlanReplay: true);
         }
