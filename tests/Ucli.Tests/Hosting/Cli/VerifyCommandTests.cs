@@ -109,6 +109,50 @@ public sealed class VerifyCommandTests
     }
 
     [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Verify_WithProfilePathCamelCaseAlias_IsAcceptedByParser ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Verify_WithProfilePathCamelCaseAlias_IsAcceptedByParser));
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var profilePath = Path.Combine(unityProjectPath, "verify-profile.json");
+        await File.WriteAllTextAsync(
+            profilePath,
+            "{\"schemaVersion\":1,\"steps\":[]}",
+            CancellationToken.None);
+
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Verify,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath,
+            UcliContractConstants.CliOption.Profile,
+            "built-in:default",
+            UcliContractConstants.CliOption.ProfilePath,
+            profilePath);
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        Assert.True(string.IsNullOrEmpty(result.StdErr), result.StdErr);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Verify,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Verify_WithHelpOutput_IncludesProfilePathCamelCaseOption ()
+    {
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Verify,
+            "--help");
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.Contains(UcliContractConstants.CliOption.ProfilePath, result.StdOut, StringComparison.Ordinal);
+    }
+
+    [Fact]
     [Trait("Size", "Small")]
     public async Task Verify_WithPassOutput_MatchesGolden ()
     {

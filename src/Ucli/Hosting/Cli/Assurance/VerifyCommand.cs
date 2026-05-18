@@ -24,7 +24,7 @@ internal sealed class VerifyCommand
 
     /// <summary> Executes the verify command and emits the JSON result contract. </summary>
     /// <param name="profile"> Built-in verify profile name. </param>
-    /// <param name="profilePath"> Repository-local JSON verify profile path. </param>
+    /// <param name="profilePath">--profilePath, Repository-local JSON verify profile path. </param>
     /// <param name="from"> Public uCLI result JSON used as post-read input. </param>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="mode"> Unity execution mode (auto|daemon|oneshot). </param>
