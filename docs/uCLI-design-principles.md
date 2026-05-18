@@ -139,7 +139,7 @@ operation ごとの Args/Result contract 型と operation metadata を公開 con
 `policy` は説明用分類ではなく、`ops list --maxPolicy`、operation allowlist、`--allowDangerous` の判断に使う入場制御である。
 そのため author が `safe` / `advanced` / `dangerous` を任意に選べる仕様にしない。
 
-catalog builder は `assurance.sideEffects`、`mayDirty`、`mayPersist`、`touchedKinds`、`planMode`、`codeContract`、`exposure`、destructive scope、arbitrary execution、external process / filesystem access から `operation.policy` を導出する。author が `policy` を直接指定する API や、主観的に policy を厳しくする上書き指定は持たない。
+catalog builder は `assurance.sideEffects` descriptor、そこから生成される `mayDirty` / `mayPersist` projection、`touchedKinds`、`planMode`、`codeContract`、`exposure`、destructive scope、arbitrary execution、external process / filesystem access から `operation.policy` を導出する。author が `policy` や `mayDirty` / `mayPersist` を直接指定する API は持たない。
 
 v1 public raw catalog は `planMode=validationOnly` または `observesLiveUnity` だけを許可する。Plan が preview state を作る operation は review gate 前に状態を作るため、internal / experimental に限定し、public raw operation として扱わない。
 

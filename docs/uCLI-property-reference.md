@@ -992,8 +992,8 @@ kind ごとの parameter 規則:
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
 | `sideEffects` | string[] | yes | `call` で起こり得る副作用の分類 |
-| `mayDirty` | boolean | yes | `call` が Unity object や project state を dirty にし得るか |
-| `mayPersist` | boolean | yes | `call` が project file へ永続化し得るか |
+| `mayDirty` | boolean | yes | `sideEffects` descriptor から導出された、`call` が Unity object や project state を dirty にし得るかの projection |
+| `mayPersist` | boolean | yes | `sideEffects` descriptor から導出された、Unity save または direct filesystem write による永続化が起こり得るかの projection |
 | `touchedKinds` | string[] | yes | dirty / persist / post-read safety の責任対象として `touched[]` に出現し得る resource kind |
 | `planMode` | string | yes | public v1 catalog では `validationOnly` または `observesLiveUnity` |
 | `planSemantics` | string | yes | `plan` が検証・観測する内容と、実行しない内容 |
@@ -1003,7 +1003,7 @@ kind ごとの parameter 規則:
 | `failureSemantics` | string | yes | timeout、cancel、partial apply、indeterminate の扱い |
 | `dangerousNotes` | string[] | yes | dangerous / advanced operation の保証外領域。該当なしは空配列 |
 
-`sideEffects` は閉じた語彙で表す。副作用がない operation は `sideEffects: []` とする。
+`sideEffects` は `Ucli.Contracts` 内の descriptor-backed closed vocabulary で表す。public JSON では string tag として出るが、policy、`mayDirty`、`mayPersist`、query 許可、required touchedKinds の判定は descriptor table から行う。
 
 | sideEffects value | Meaning |
 | --- | --- |
@@ -1051,8 +1051,8 @@ public v1 catalog の `planMode` は次のいずれかに限定する。
 | kind | Assurance rule | Examples |
 | --- | --- | --- |
 | `query` | 観測のみ。`mayDirty:false`、`mayPersist:false`、`touchedKinds:[]` とする。実行結果は `applied=false`、`changed=false`、`touched=[]` でなければならない。読み取り対象は `inputs[]`、semantic constraints、`description` で表し、Editor 状態や永続化単位への変更を残してはならない | `ucli.scene.tree`, `ucli.assets.find` |
-| `command` | Editor 状態や AssetDatabase 状態を変え得る。永続化対象の内容変更を主目的にしないが、import や AssetDatabase refresh によって dirty / persist が起こり得る場合は `mayDirty` / `mayPersist` を `true` にし、副作用は `sideEffects` で表す | `ucli.scene.open`, `ucli.prefab.open`, `ucli.project.refresh` |
-| `mutation` | Scene / Prefab / Asset / ProjectSettings を dirty または保存し得る。対象種別は `touchedKinds`、永続化可能性は `mayPersist` で表す | `ucli.comp.set`, `ucli.scene.save` |
+| `command` | Editor 状態や AssetDatabase 状態を変え得る。永続化対象の内容変更を主目的にしないが、import や AssetDatabase refresh などの broader effect は `sideEffects` で表す | `ucli.scene.open`, `ucli.prefab.open`, `ucli.project.refresh` |
+| `mutation` | Scene / Prefab / Asset / ProjectSettings を dirty または保存し得る。対象種別は `touchedKinds`、dirty / persist projection は `sideEffects` descriptor から導出する | `ucli.comp.set`, `ucli.scene.save` |
 
 policy 導出では、write は一律 `dangerous` ではない。Unity Editor API 経由で context-bound に実行でき、typed args、touched boundary、save boundary を保証できる deterministic write は `advanced` とする。任意 source 実行、任意 shell / process / filesystem write、unbounded destructive operation、または touched / save boundary を十分に保証できない escape hatch は `dangerous` とする。
 
@@ -1101,11 +1101,14 @@ subset で使用できる語彙は `type`、`properties`、`required`、`additio
     },
     "assurance": {
       "sideEffects": [
+        "editorStateChange",
         "opensSceneInEditor"
       ],
       "mayDirty": false,
       "mayPersist": false,
-      "touchedKinds": [],
+      "touchedKinds": [
+        "scene"
+      ],
       "planMode": "observesLiveUnity",
       "planSemantics": "Validate the scene path and observe whether the scene can be opened.",
       "callSemantics": "Open the requested scene in the Unity Editor without saving project data.",
@@ -1190,7 +1193,9 @@ subset で使用できる語彙は `type`、`properties`、`required`、`additio
       "description": "Scene hierarchy tree for the requested scene."
     },
     "assurance": {
-      "sideEffects": [],
+      "sideEffects": [
+        "observesUnityState"
+      ],
       "mayDirty": false,
       "mayPersist": false,
       "touchedKinds": [],
