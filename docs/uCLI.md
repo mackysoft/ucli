@@ -556,7 +556,7 @@ Play Mode 変更専用エラーは次とする。
 - `UNITY_PROJECT_LOCK_CLEANUP_FAILED`: stale lock と判定できたが、`Temp/UnityLockfile` の削除に失敗した
 
 ### Operation contract エラーコード
-operation 実行結果が `ops describe` の `assurance` facts と矛盾した場合は、`OPERATION_CONTRACT_VIOLATION` を返す。代表例は、`mayDirty=false` なのに `changed=true`、`mayPersist=false` なのに永続化効果がある、`touched[].kind` が `assurance.touchedKinds` に含まれない、`kind=query` なのに `applied=true`、`changed=true`、または `touched[]` が non-empty になる場合である。この code は operation 実装または metadata の不整合を表し、未適用を意味しない。request 系 command では `payload.contractViolations[]` に `opId`、`operation`、`expectedFact`、`observedResult`、`applicationState` を返す。
+operation 実行結果が `ops describe` の `assurance` facts と矛盾した場合は、`OPERATION_CONTRACT_VIOLATION` を返す。代表例は、`mayDirty=false` なのに `changed=true`、`mayPersist=false` なのに内部 execution trace が永続化を観測した、`touched[].kind` が `assurance.touchedKinds` に含まれない、`kind=query` なのに `applied=true`、`changed=true`、または `touched[]` が non-empty になる場合である。この code は operation 実装または metadata の不整合を表し、未適用を意味しない。request 系 command では `payload.contractViolations[]` に `opId`、`operation`、`expectedFact`、`observedResult`、`applicationState` を返す。
 
 ### レスポンス例
 非 `ready` の `ucli status` 成功レスポンス例:

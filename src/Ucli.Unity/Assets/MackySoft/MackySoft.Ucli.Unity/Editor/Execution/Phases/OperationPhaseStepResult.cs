@@ -27,6 +27,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <summary> Gets non-fatal diagnostics emitted by this step. </summary>
         public IReadOnlyList<OperationDiagnostic> Diagnostics { get; init; } = Array.Empty<OperationDiagnostic>();
 
+        /// <summary> Gets a value indicating whether this step observed successful persistence. </summary>
+        internal bool Persisted { get; init; }
+
         /// <summary> Gets a value indicating whether this step succeeded. </summary>
         public bool IsSuccess => Failure is null;
 
@@ -131,6 +134,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return this with
             {
                 Diagnostics = diagnostics ?? Array.Empty<OperationDiagnostic>(),
+            };
+        }
+
+        /// <summary> Returns a copy that carries successful persistence evidence. </summary>
+        /// <returns> One copied step result with persistence evidence set. </returns>
+        internal OperationPhaseStepResult WithPersistence ()
+        {
+            return this with
+            {
+                Persisted = true,
             };
         }
 

@@ -42,6 +42,15 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                         observedResult: "opResults[].changed=true");
                 }
 
+                if (trace.Persisted && !contracts.MayPersist)
+                {
+                    AddContractViolation(
+                        violations,
+                        trace,
+                        expectedFact: "assurance.mayPersist=false",
+                        observedResult: "executionTrace.persisted=true");
+                }
+
                 AddTouchedKindViolations(violations, trace, contracts);
                 AddQueryKindViolations(violations, trace, contracts);
             }
@@ -120,7 +129,22 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 Operation: trace.Op,
                 ExpectedFact: expectedFact,
                 ObservedResult: observedResult,
-                ApplicationState: IpcExecuteApplicationStateNames.Indeterminate));
+                ApplicationState: ResolveApplicationState(trace)));
+        }
+
+        private static string ResolveApplicationState (OperationPhaseTrace trace)
+        {
+            if (trace.Persisted || trace.Applied)
+            {
+                return IpcExecuteApplicationStateNames.Applied;
+            }
+
+            if (trace.Changed)
+            {
+                return IpcExecuteApplicationStateNames.Indeterminate;
+            }
+
+            return IpcExecuteApplicationStateNames.NotApplied;
         }
     }
 }

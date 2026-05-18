@@ -134,6 +134,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     {
                         OperationResourceUtilities.CreateTouch(resource),
                     })
+                .WithPersistence()
                 .WithReadInvalidations(OperationReadInvalidationUtilities.CreateAssetSearchOnly()));
         }
 

@@ -80,6 +80,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             var touched = new List<OperationTouch>();
             var diagnostics = new List<OperationDiagnostic>();
+            var persisted = false;
             var validateStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStepAsync(
                 operation,
                 OperationPhase.Validate,
@@ -87,6 +88,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 cancellationToken).ConfigureAwait(false);
             OperationPhaseExecutionUtilities.MergeTouched(touched, validateStepResult.Touched);
             OperationPhaseExecutionUtilities.MergeDiagnostics(diagnostics, validateStepResult.Diagnostics);
+            persisted |= validateStepResult.Persisted;
             if (!validateStepResult.IsSuccess)
             {
                 return new OperationPlanStepOutcome(
@@ -101,6 +103,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     {
                         Result = validateStepResult.Result,
                         Diagnostics = diagnostics.ToArray(),
+                        Persisted = persisted,
                         Contracts = contractFacts,
                     },
                     Error: validateStepResult.Failure,
@@ -114,6 +117,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 cancellationToken).ConfigureAwait(false);
             OperationPhaseExecutionUtilities.MergeTouched(touched, planStepResult.Touched);
             OperationPhaseExecutionUtilities.MergeDiagnostics(diagnostics, planStepResult.Diagnostics);
+            persisted |= planStepResult.Persisted;
             if (!planStepResult.IsSuccess)
             {
                 return new OperationPlanStepOutcome(
@@ -128,6 +132,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     {
                         Result = planStepResult.Result,
                         Diagnostics = diagnostics.ToArray(),
+                        Persisted = persisted,
                         Contracts = contractFacts,
                     },
                     Error: planStepResult.Failure,
@@ -148,6 +153,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 {
                     Result = planStepResult.Result,
                     Diagnostics = successfulDiagnostics,
+                    Persisted = persisted,
                     Contracts = contractFacts,
                 },
                 Error: null,
@@ -155,6 +161,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     Operation: operation,
                     PhaseOperation: phaseOperation,
                     PlanTouched: successfulTouched,
+                    PlanPersisted: persisted,
                     RequiresPreCallPlanReplay: phaseOperation.Metadata.RequiresPreCallPlanReplay));
         }
     }

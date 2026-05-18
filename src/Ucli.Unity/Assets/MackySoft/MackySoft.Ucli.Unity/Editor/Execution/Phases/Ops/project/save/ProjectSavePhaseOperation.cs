@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -91,19 +92,20 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             cancellationToken.ThrowIfCancellationRequested();
             var touched = new List<OperationTouch>();
+            var observedPersistence = false;
             // NOTE:
             // Unity project saves are not transactional across scenes, prefab stages, and project assets.
             // When project-scoped persistence is requested, request-attributed live scene/prefab changes
             // must be flushed before File/Save Project so opened editor state stays consistent with the
             // serialized project data that follows.
-            if (!TrySaveRequestAttributedLoadedScenes(operation, executionContext, touched, out var sceneFailure))
+            if (!TrySaveRequestAttributedLoadedScenes(operation, executionContext, touched, ref observedPersistence, out var sceneFailure))
             {
-                return Task.FromResult(sceneFailure!);
+                return Task.FromResult(WithObservedProjectSaveEvidence(sceneFailure!, touched, observedPersistence));
             }
 
-            if (!TrySaveRequestAttributedOpenedPrefabStage(operation, executionContext, touched, out var prefabFailure))
+            if (!TrySaveRequestAttributedOpenedPrefabStage(operation, executionContext, touched, ref observedPersistence, out var prefabFailure))
             {
-                return Task.FromResult(prefabFailure!);
+                return Task.FromResult(WithObservedProjectSaveEvidence(prefabFailure!, touched, observedPersistence));
             }
 
             var projectRoot = UnityProjectPathResolver.ResolveProjectRootPath();
@@ -122,9 +124,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (!executed)
             {
-                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                var failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
                     operation.Id,
-                    "Project could not be saved."));
+                    "Project could not be saved.");
+                return Task.FromResult(WithObservedProjectSaveEvidence(failure, touched, observedPersistence));
             }
 
             var afterSnapshot = ProjectOperationUtilities.CaptureProjectSettingsSnapshot(projectRoot);
@@ -136,12 +139,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 executionContext.UnmarkRequestAttributedChange(new OperationResource(projectTouched[i].Kind, projectTouched[i].Path));
             }
 
+            var result = OperationPhaseStepResult.Success(
+                applied: true,
+                changed: touched.Count != 0,
+                touched: touched);
+            if (touched.Count != 0)
+            {
+                result = result.WithPersistence();
+            }
+
             return Task.FromResult(
-                OperationPhaseStepResult.Success(
-                    applied: true,
-                    changed: touched.Count != 0,
-                    touched: touched)
-                .WithReadInvalidations(touched.Count == 0 ? null : OperationReadInvalidationUtilities.CreateForProjectSave(touched)));
+                result.WithReadInvalidations(touched.Count == 0 ? null : OperationReadInvalidationUtilities.CreateForProjectSave(touched)));
         }
 
         private static IReadOnlyList<OperationTouch> CollectKnownPlannedTouchedResources (OperationExecutionContext executionContext)
@@ -223,10 +231,47 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             touched.Add(OperationResourceUtilities.CreateTouch(resource));
         }
 
+        /// <summary> Returns a failure result carrying project-save evidence already observed before the failure. </summary>
+        /// <param name="failure"> The failed project-save result. </param>
+        /// <param name="touched"> The project resources already saved or observed before the failure. </param>
+        /// <param name="observedPersistence"> Whether a save API succeeded before the failure. </param>
+        /// <returns> The failure result with observed project-save evidence attached. </returns>
+        internal static OperationPhaseStepResult WithObservedProjectSaveEvidence (
+            OperationPhaseStepResult failure,
+            IReadOnlyList<OperationTouch> touched,
+            bool observedPersistence)
+        {
+            if (failure == null)
+            {
+                throw new ArgumentNullException(nameof(failure));
+            }
+
+            if (touched == null)
+            {
+                throw new ArgumentNullException(nameof(touched));
+            }
+
+            if (failure.IsSuccess || touched.Count == 0 || !observedPersistence)
+            {
+                return failure;
+            }
+
+            return OperationPhaseStepResult.Failed(
+                    failure.Failure!,
+                    applied: true,
+                    changed: true,
+                    touched: touched,
+                    result: failure.Result)
+                .WithDiagnostics(failure.Diagnostics)
+                .WithPersistence()
+                .WithReadInvalidations(OperationReadInvalidationUtilities.CreateForProjectSave(touched));
+        }
+
         private static bool TrySaveRequestAttributedLoadedScenes (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
             ICollection<OperationTouch> touched,
+            ref bool observedPersistence,
             out OperationPhaseStepResult? failure)
         {
             failure = null;
@@ -247,13 +292,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     continue;
                 }
 
-                if (scene.isDirty
-                    && !EditorSceneManager.SaveScene(scene, scene.path))
+                if (scene.isDirty)
                 {
-                    failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
-                        operation.Id,
-                        $"Scene could not be saved: {scene.path}.");
-                    return false;
+                    if (!EditorSceneManager.SaveScene(scene, scene.path))
+                    {
+                        failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                            operation.Id,
+                            $"Scene could not be saved: {scene.path}.");
+                        return false;
+                    }
+
+                    observedPersistence = true;
                 }
 
                 executionContext.UnmarkRequestAttributedChange(resource);
@@ -267,6 +316,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
             ICollection<OperationTouch> touched,
+            ref bool observedPersistence,
             out OperationPhaseStepResult? failure)
         {
             failure = null;
@@ -295,6 +345,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return false;
                 }
 
+                observedPersistence = true;
                 prefabStage.ClearDirtiness();
             }
 
