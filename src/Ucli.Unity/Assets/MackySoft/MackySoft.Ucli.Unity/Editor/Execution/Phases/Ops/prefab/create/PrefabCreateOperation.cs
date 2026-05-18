@@ -116,6 +116,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     touched: OperationResourceUtilities.CreateTouches(
                         validationState.SourceResource,
                         new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath)))
+                .WithPersistence()
                 .WithReadInvalidations(OperationReadInvalidationUtilities.CreateAssetSearchAndGuidPath()));
         }
 

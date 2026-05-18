@@ -126,12 +126,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var deduplicatedTouched = DeduplicateTouched(touched);
             MarkRequestAttributedChanges(deduplicatedTouched, executionContext);
             var callbackTouched = ProjectOperationUtilities.CreateTouchedResources(callbackPaths, System.Array.Empty<string>());
+            var result = OperationPhaseStepResult.Success(
+                applied: true,
+                changed: deduplicatedTouched.Count != 0,
+                touched: deduplicatedTouched);
+            if (deduplicatedTouched.Count != 0)
+            {
+                result = result.WithPersistence();
+            }
+
             return Task.FromResult(
-                OperationPhaseStepResult.Success(
-                    applied: true,
-                    changed: deduplicatedTouched.Count != 0,
-                    touched: deduplicatedTouched)
-                .WithReadInvalidations(
+                result.WithReadInvalidations(
                     deduplicatedTouched.Count == 0
                         ? null
                         : OperationReadInvalidationUtilities.CreateForProjectRefresh(callbackTouched, deduplicatedTouched)));

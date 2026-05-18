@@ -33,6 +33,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <summary> Gets non-fatal diagnostics emitted by this primitive trace. </summary>
         public IReadOnlyList<OperationDiagnostic> Diagnostics { get; init; } = System.Array.Empty<OperationDiagnostic>();
 
+        /// <summary> Gets a value indicating whether this trace observed successful persistence. </summary>
+        public bool Persisted { get; init; }
+
         /// <summary> Gets the operation metadata facts used to validate runtime results against declared assurance. </summary>
         public ContractFacts? Contracts { get; init; }
 
