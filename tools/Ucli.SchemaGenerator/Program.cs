@@ -81,7 +81,6 @@ internal static class Program
             CreateSchema("cli-output/defs/contract-violation.schema.json", "cli-output-def", null, CreateContractViolationSchema()),
             CreateSchema("cli-output/defs/diagnostic.schema.json", "cli-output-def", null, CreateDiagnosticSchema()),
             CreateSchema("cli-output/defs/touched.schema.json", "cli-output-def", null, CreateTouchedSchema()),
-            CreateSchema("cli-output/defs/contract-violation.schema.json", "cli-output-def", null, CreateContractViolationSchema()),
             CreateSchema("cli-output/defs/window.schema.json", "cli-output-def", null, CreateWindowSchema()),
             CreateSchema("cli-output/defs/verifier.schema.json", "cli-output-def", null, CreateVerifierSchema()),
             CreateSchema("cli-output/defs/assurance-claim.schema.json", "cli-output-def", null, CreateAssuranceClaimSchema()),
@@ -231,21 +230,6 @@ internal static class Program
             Required("diagnostics", ArraySchema(ReferenceSchema("../defs/diagnostic.schema.json"))),
             Optional("result", AnySchema()),
             Optional("errors", ArraySchema(ObjectSchema(additionalProperties: true))));
-    }
-
-    private static Dictionary<string, object?> CreateContractViolationSchema ()
-    {
-        return ObjectSchema(
-            additionalProperties: false,
-            Required("opId", StringSchema()),
-            Required("operation", StringSchema()),
-            Required("expectedFact", StringSchema()),
-            Required("observedResult", StringSchema()),
-            Required("applicationState", EnumSchema(
-                "applied",
-                "notApplied",
-                "indeterminate",
-                "unknown")));
     }
 
     private static Dictionary<string, object?> CreateDiagnosticSchema ()
