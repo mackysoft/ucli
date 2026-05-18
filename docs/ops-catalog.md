@@ -252,3 +252,5 @@ catalog validation、golden、contract tests は、少なくとも次の matrix 
 | `ucli.scene.query` | query | safe | mvp-core | scene context 内で selection candidate を列挙する。`/` を含む GameObject 名は `hierarchyPath` で表現できないため candidate に含めない。 | `SceneQueryArgs` | `SceneQueryResult` | `scene` と `matches[]` を返し、match は `kind`, `hierarchyPath`, `componentType` を持つ |
 | `ucli.scene.save` | mutation | advanced | mvp-core | loaded Scene に dirty または request-attributed change があるとき保存する。loaded scene 必須。`Plan` は request-local plan state と計画時に観測できる dirty を基に評価し、`Call` は保存時点の live dirty も保存し得る。 | `ScenePathArgs` | `UcliNoResult` | result は返さない |
 | `ucli.scene.tree` | query | safe | mvp-support | Sceneの階層構造を取得する。loaded dirty scene があれば作業途中の階層を読み、未ロードなら保存済み asset を preview scene として読む。raw op でも `limit` / `cursor` を受け付け、既定 `limit=100`、最大 `10000` とする。 | `SceneTreeArgs` | `SceneTreeResult` | `path`、`childrenState` 付き root GameObject tree の `roots[]`、読み取り元の `sourceState`、bounded window の `window` を返す |
+
+- `ucli.scene.query` の `result.matches[]` は hierarchy traversal order で並ぶ。root は Unity の scene root order、子は `Transform.GetChild(index)` 昇順の深さ優先 pre-order とする

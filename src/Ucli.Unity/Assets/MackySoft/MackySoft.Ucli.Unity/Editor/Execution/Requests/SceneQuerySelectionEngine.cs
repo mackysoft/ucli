@@ -11,7 +11,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 {
     /// <summary>
     /// <para> Resolves scene-scoped query selections into deterministic query matches. </para>
-    /// <para> The produced match list is deduplicated by canonical selector identity and sorted in ascending canonical-key order. </para>
+    /// <para> The produced match list follows scene hierarchy traversal order and is deduplicated by canonical selector identity. </para>
     /// </summary>
     internal static class SceneQuerySelectionEngine
     {
@@ -119,7 +119,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         /// <param name="queryArguments"> The parsed scene-query arguments. </param>
         /// <param name="executionContext"> The request execution context. </param>
         /// <param name="allowTemporaryState"> <see langword="true" /> to observe request-local preview-scene state during plan execution without creating new tracked preview state. </param>
-        /// <param name="matches"> The deduplicated matches in ascending canonical-key order when the query succeeds. </param>
+        /// <param name="matches"> The deduplicated matches in scene hierarchy traversal order when the query succeeds. </param>
         /// <param name="diagnostics"> The non-fatal diagnostics emitted while collecting matches. </param>
         /// <param name="errorMessage"> The validation or query error message when the query fails. </param>
         /// <returns> <see langword="true" /> when the scene can be queried successfully; otherwise <see langword="false" />. </returns>
@@ -175,11 +175,21 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             out string errorMessage)
         {
             var collectedDiagnostics = new List<OperationDiagnostic>();
-            var orderedMatches = new SortedDictionary<string, QueryMatch>(StringComparer.Ordinal);
+            var matchesInTraversalOrder = new List<QueryMatch>();
+            var seenCanonicalKeys = new HashSet<string>(StringComparer.Ordinal);
             var roots = scene.GetRootGameObjects();
             for (var i = 0; i < roots.Length; i++)
             {
-                if (!TryCollectMatchesRecursive(scenePath, roots[i].transform, queryArguments, executionContext, allowTemporaryState, orderedMatches, collectedDiagnostics, out errorMessage))
+                if (!TryCollectMatchesRecursive(
+                    scenePath,
+                    roots[i].transform,
+                    queryArguments,
+                    executionContext,
+                    allowTemporaryState,
+                    matchesInTraversalOrder,
+                    seenCanonicalKeys,
+                    collectedDiagnostics,
+                    out errorMessage))
                 {
                     matches = new List<QueryMatch>();
                     diagnostics = collectedDiagnostics.ToArray();
@@ -187,7 +197,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 }
             }
 
-            matches = new List<QueryMatch>(orderedMatches.Values);
+            matches = matchesInTraversalOrder;
             diagnostics = collectedDiagnostics.ToArray();
             errorMessage = string.Empty;
             return true;
@@ -199,7 +209,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             QueryArguments queryArguments,
             OperationExecutionContext? executionContext,
             bool allowTemporaryState,
-            SortedDictionary<string, QueryMatch> orderedMatches,
+            List<QueryMatch> matchesInTraversalOrder,
+            HashSet<string> seenCanonicalKeys,
             List<OperationDiagnostic> diagnostics,
             out string errorMessage)
         {
@@ -225,7 +236,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 if (queryArguments.ComponentType == null)
                 {
                     if (!RegisterMatch(
-                            orderedMatches,
+                            matchesInTraversalOrder,
+                            seenCanonicalKeys,
                             new QueryMatch(
                                 QueryTargetKind.GameObject,
                                 hierarchyPath,
@@ -253,7 +265,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
                     if (componentMatch != null)
                     {
-                        if (!RegisterMatch(orderedMatches, componentMatch.Value, out errorMessage))
+                        if (!RegisterMatch(matchesInTraversalOrder, seenCanonicalKeys, componentMatch.Value, out errorMessage))
                         {
                             return false;
                         }
@@ -263,7 +275,16 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
             for (var childIndex = 0; childIndex < transform.childCount; childIndex++)
             {
-                if (!TryCollectMatchesRecursive(scenePath, transform.GetChild(childIndex), queryArguments, executionContext, allowTemporaryState, orderedMatches, diagnostics, out errorMessage))
+                if (!TryCollectMatchesRecursive(
+                    scenePath,
+                    transform.GetChild(childIndex),
+                    queryArguments,
+                    executionContext,
+                    allowTemporaryState,
+                    matchesInTraversalOrder,
+                    seenCanonicalKeys,
+                    diagnostics,
+                    out errorMessage))
                 {
                     return false;
                 }
@@ -326,17 +347,18 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         }
 
         private static bool RegisterMatch (
-            IDictionary<string, QueryMatch> orderedMatches,
+            ICollection<QueryMatch> matchesInTraversalOrder,
+            ISet<string> seenCanonicalKeys,
             QueryMatch match,
             out string errorMessage)
         {
-            if (orderedMatches.ContainsKey(match.CanonicalKey))
+            if (!seenCanonicalKeys.Add(match.CanonicalKey))
             {
                 errorMessage = $"Scene query resolved duplicate canonical target at '{match.HierarchyPath}'.";
                 return false;
             }
 
-            orderedMatches.Add(match.CanonicalKey, match);
+            matchesInTraversalOrder.Add(match);
             errorMessage = string.Empty;
             return true;
         }
@@ -424,7 +446,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         /// <param name="TargetKind"> The compiled target category produced by the match. </param>
         /// <param name="HierarchyPath"> The matched hierarchy path relative to the scene root. </param>
         /// <param name="ComponentType"> The matched component type. <see langword="null" /> for GameObject matches. </param>
-        /// <param name="CanonicalKey"> The canonical identity key used for deduplication and ordering. </param>
+        /// <param name="CanonicalKey"> The canonical identity key used for deduplication. </param>
         internal readonly struct QueryMatch
         {
             public QueryMatch (

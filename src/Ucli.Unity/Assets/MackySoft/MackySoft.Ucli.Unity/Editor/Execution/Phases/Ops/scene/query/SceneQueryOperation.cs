@@ -85,7 +85,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 out var diagnostics,
                 out var errorMessage))
             {
-                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage));
+                return Task.FromResult(OperationPhaseExecutionUtilities
+                    .CreateInvalidArgumentFailure(operation.Id, errorMessage)
+                    .WithDiagnostics(diagnostics));
             }
 
             var payload = new SceneQueryResult(

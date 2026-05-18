@@ -94,6 +94,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         /// <param name="executionContext"> The current request execution context used for dynamic selection resolution. </param>
         /// <param name="compiledStep"> The compiled public step metadata when compilation succeeds. </param>
         /// <param name="operations"> The compiled primitive operations in execution order when compilation succeeds. </param>
+        /// <param name="diagnostics"> Non-fatal diagnostics emitted before compilation succeeds or fails. </param>
         /// <param name="error"> The structured normalization error when compilation fails. </param>
         /// <returns> <see langword="true" /> when the source step can be compiled for the current execution state; otherwise <see langword="false" />. </returns>
         public bool TryCompileExecutionStep (
@@ -101,10 +102,12 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             OperationExecutionContext executionContext,
             out NormalizedRequestStep compiledStep,
             out IReadOnlyList<NormalizedOperation> operations,
+            out IReadOnlyList<OperationDiagnostic> diagnostics,
             out ExecuteRequestNormalizationError error)
         {
             compiledStep = default!;
             operations = Array.Empty<NormalizedOperation>();
+            diagnostics = Array.Empty<OperationDiagnostic>();
 
             if (step.Kind == IpcRequestStepKind.Op)
             {
@@ -113,7 +116,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
             if (step.Kind == IpcRequestStepKind.Edit)
             {
-                return TryCompileEditStep(step, executionContext, out compiledStep, out operations, out error);
+                return TryCompileEditStep(step, executionContext, out compiledStep, out operations, out diagnostics, out error);
             }
 
             error = ExecuteRequestNormalizationError.InvalidArgument(
@@ -207,10 +210,12 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             OperationExecutionContext executionContext,
             out NormalizedRequestStep compiledStep,
             out IReadOnlyList<NormalizedOperation> operations,
+            out IReadOnlyList<OperationDiagnostic> diagnostics,
             out ExecuteRequestNormalizationError error)
         {
             compiledStep = default!;
             operations = Array.Empty<NormalizedOperation>();
+            diagnostics = Array.Empty<OperationDiagnostic>();
             if (!IpcEditStepContractReader.TryRead(step.Element, out var editStep, out var editErrorMessage))
             {
                 error = ExecuteRequestNormalizationError.InvalidArgument(
@@ -227,7 +232,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 return false;
             }
 
-            if (!TryResolveSelection(editStep, executionContext, out var selectedTargets, out var diagnostics, out error))
+            if (!TryResolveSelection(editStep, executionContext, out var selectedTargets, out diagnostics, out error))
             {
                 return false;
             }

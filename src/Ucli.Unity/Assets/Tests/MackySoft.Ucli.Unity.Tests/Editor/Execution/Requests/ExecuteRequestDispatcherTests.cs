@@ -10,12 +10,15 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
+using MackySoft.Ucli.Unity.Execution;
 using MackySoft.Ucli.Unity.Execution.Dispatch;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
+using UnityEditor.SceneManagement;
+using UnityEngine;
 using UnityEngine.TestTools;
 
 #nullable enable
@@ -402,6 +405,101 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(diagnostic.GetProperty("severity").GetString(), Is.EqualTo(IpcExecuteDiagnosticSeverityNames.Warning));
             Assert.That(diagnostic.GetProperty("coverageImpact").GetString(), Is.EqualTo(IpcExecuteDiagnosticCoverageImpactNames.Partial));
             Assert.That(diagnostic.GetProperty("message").GetString(), Does.Contain("Scene edit selection skipped"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenEditSelectFromSkipsSlashNamedGameObject_PreservesRequestDiagnostics () => UniTask.ToCoroutine(async () =>
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestDispatcherTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("GoodRoot");
+            _ = new GameObject("Bad/Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var dispatcher = new ExecuteRequestDispatcher(new ExecuteRequestNormalizer(), CreateCatalogPhaseExecutor());
+            var context = new ExecuteDispatchContext("req-291-diagnostics", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "deleteGoodRootDirectly",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                gameObject = "GoodRoot",
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "delete",
+                                },
+                            },
+                            commit = "none",
+                        },
+                        new
+                        {
+                            kind = "edit",
+                            id = "deleteMissingFirst",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                from = new
+                                {
+                                    op = UcliPrimitiveOperationNames.SceneQuery,
+                                    args = new
+                                    {
+                                        pathPrefix = "Missing",
+                                    },
+                                },
+                                cardinality = "first",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "delete",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+
+            var response = await DispatchAsync(dispatcher, request, context, "Request diagnostics from edit select.from");
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].OpId, Is.EqualTo("deleteMissingFirst"));
+            var opResults = response.Payload.GetProperty("opResults");
+            Assert.That(opResults.GetArrayLength(), Is.EqualTo(2));
+            var cleanResult = opResults[0];
+            Assert.That(cleanResult.GetProperty("opId").GetString(), Is.EqualTo("deleteGoodRootDirectly"));
+            Assert.That(cleanResult.GetProperty("diagnostics").GetArrayLength(), Is.EqualTo(0));
+            var failedResult = opResults[1];
+            Assert.That(failedResult.GetProperty("opId").GetString(), Is.EqualTo("deleteMissingFirst"));
+            Assert.That(failedResult.GetProperty("op").GetString(), Is.EqualTo("edit"));
+            var diagnostic = GetSingleArrayElement(failedResult.GetProperty("diagnostics"));
+            Assert.That(diagnostic.GetProperty("code").GetString(), Is.EqualTo(ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects.Value));
+            Assert.That(diagnostic.GetProperty("severity").GetString(), Is.EqualTo(IpcExecuteDiagnosticSeverityNames.Warning));
+            Assert.That(diagnostic.GetProperty("coverageImpact").GetString(), Is.EqualTo(IpcExecuteDiagnosticCoverageImpactNames.Partial));
+            Assert.That(diagnostic.GetProperty("message").GetString(), Does.Contain("hierarchyPath cannot represent"));
         });
 
         [UnityTest]
@@ -1047,6 +1145,19 @@ namespace MackySoft.Ucli.Unity.Tests
                 FailFast = failFast,
                 PlanToken = planToken,
             };
+        }
+
+        private static IpcExecuteRequest CreateExecuteRequest (
+            string commandName,
+            object arguments)
+        {
+            return new IpcExecuteRequest(commandName, JsonSerializer.SerializeToElement(arguments));
+        }
+
+        private static OperationPhaseExecutor CreateCatalogPhaseExecutor ()
+        {
+            var snapshot = UcliOperationCatalogSnapshotBuilder.Build();
+            return new OperationPhaseExecutor(new InMemoryPhaseOperationRegistry(snapshot.Registrations));
         }
 
         private static NormalizedExecuteRequest CreateNormalizedRequest (string operationName = MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve)
