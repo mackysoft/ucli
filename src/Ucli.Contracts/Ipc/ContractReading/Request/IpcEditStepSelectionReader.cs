@@ -112,6 +112,13 @@ internal static class IpcEditStepSelectionReader
             return false;
         }
 
+        if (cardinality == IpcEditStepContract.CardinalityKind.First
+            && !SupportsDeterministicFirstSelection(sourceOperation!))
+        {
+            errorMessage = "Edit step property 'step.select.cardinality' value 'first' requires a deterministic candidate-source order.";
+            return false;
+        }
+
         if (!IpcEditStepContractReadHelpers.TryReadRequiredObject(
             fromElement,
             "args",
@@ -139,6 +146,11 @@ internal static class IpcEditStepSelectionReader
         return true;
     }
 
+    private static bool SupportsDeterministicFirstSelection (string sourceOperation)
+    {
+        return string.Equals(sourceOperation, UcliPrimitiveOperationNames.SceneQuery, StringComparison.Ordinal);
+    }
+
     private static bool TryReadDirectSelection (
         JsonElement selectElement,
         IpcEditStepContract.ContextKind contextKind,
@@ -156,6 +168,12 @@ internal static class IpcEditStepSelectionReader
         var hasComponent = false;
         var hasSelf = false;
         var hasProjectAsset = false;
+
+        if (cardinality == IpcEditStepContract.CardinalityKind.First)
+        {
+            errorMessage = "Edit step property 'step.select.cardinality' value 'first' is supported only for candidate-source selections.";
+            return false;
+        }
 
         foreach (var property in selectElement.EnumerateObject())
         {
