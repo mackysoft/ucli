@@ -146,8 +146,6 @@ public sealed class OpsCommandTests
                 "Returns a GameObject description including components and child hierarchy.",
                 new UcliOperationAssuranceContract(
                     sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                    mayDirty: false,
-                    mayPersist: false,
                     touchedKinds: Array.Empty<string>(),
                     planMode: UcliOperationPlanMode.ObservesLiveUnity,
                     planSemantics: "Validate arguments and observe Unity state without applying mutation.",

@@ -84,7 +84,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 _ = UcliOperationMetadata.Create<GenericDiscoverableArgs, GenericDiscoverableResult>(
                     operationName: "ucli.tests.result-contract-mismatch",
                     kind: UcliOperationKind.Query,
-                    policy: OperationPolicy.Safe,
                     describeContract: new UcliOperationDescribeContract(
                         "Result contract mismatch operation.",
                         Array.Empty<UcliOperationInputContract>(),
@@ -105,7 +104,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 _ = UcliOperationMetadata.Create<ReservedVarArgs, UcliNoResult>(
                     operationName: "ucli.tests.reserved-var",
                     kind: UcliOperationKind.Query,
-                    policy: OperationPolicy.Safe,
                     description: "Reserved var property operation.",
                     assurance: CreateValidationOnlyAssurance());
             });
@@ -120,7 +118,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 _ = UcliOperationMetadata.Create<ReservedAliasTypeArgs, UcliNoResult>(
                     operationName: "ucli.tests.reserved-alias-type",
                     kind: UcliOperationKind.Query,
-                    policy: OperationPolicy.Safe,
                     description: "Reserved alias type operation.",
                     assurance: CreateValidationOnlyAssurance());
             });
@@ -135,7 +132,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 _ = UcliOperationMetadata.Create<GenericDiscoverableArgs, UcliNoResult>(
                     operationName: "ucli.tests.describe-alias-path",
                     kind: UcliOperationKind.Query,
-                    policy: OperationPolicy.Safe,
                     describeContract: new UcliOperationDescribeContract(
                         "Describe alias path operation.",
                         new[]
@@ -196,7 +192,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var metadata = UcliOperationMetadata.Create<GenericDiscoverableArgs, UcliNoResult>(
                 operationName: "ucli.tests.describe-defensive-copy",
                 kind: UcliOperationKind.Query,
-                policy: OperationPolicy.Safe,
                 describeContract: describeContract);
 
             input.ArgsPath = "$.target.var";
@@ -420,31 +415,37 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void BuildCatalog_WhenCsEvalOperationIsExported_IncludesDangerousCodeContract ()
+        public void BuildCatalog_WhenCsEvalOperationIsDiscovered_ExcludesFromPublicCatalogAndKeepsRegistration ()
         {
             var operations = UcliOperationDiscoverer.Discover();
+            var metadata = FindMetadata(operations, UcliPrimitiveOperationNames.CsEval);
 
             var snapshot = UcliOperationCatalogSnapshotBuilder.Build(operations);
 
-            var entry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.CsEval);
-            Assert.That(entry.Kind, Is.EqualTo(UcliOperationKindValues.Mutation));
-            Assert.That(entry.Policy, Is.EqualTo(OperationPolicyValues.Dangerous));
-            Assert.That(entry.ArgsSchemaJson, Does.Contain("\"source\""));
-            Assert.That(entry.ResultSchemaJson, Does.Contain("\"sourceKind\""));
-            Assert.That(entry.CodeContract, Is.Not.Null);
-            Assert.That(entry.CodeContract!.Language, Is.EqualTo("csharp"));
-            Assert.That(entry.CodeContract.EntryPoint!.MatchRule, Does.Contain("exactly one"));
-            Assert.That(entry.CodeContract.SourceForms!.Count, Is.EqualTo(2));
-            Assert.That(entry.CodeContract.SourceForms![0].Kind, Is.EqualTo(CsEvalSourceKindValues.CompilationUnit));
-            Assert.That(entry.CodeContract.SourceForms[1].Kind, Is.EqualTo(CsEvalSourceKindValues.Snippet));
-            Assert.That(entry.CodeContract.ApiTypes!.Count, Is.EqualTo(1));
-            Assert.That(entry.Assurance, Is.Not.Null);
-            Assert.That(entry.Assurance!.PlanSemantics, Does.Contain("without invoking user code"));
-            Assert.That(entry.Assurance.CallSemantics, Does.Contain("execute the user C# entry point"));
-            Assert.That(entry.Assurance.TouchedContract, Does.Contain("caller-controlled"));
-            Assert.That(entry.Assurance.FailureSemantics, Does.Contain("cannot be forcibly stopped"));
-            Assert.That(entry.Assurance.DangerousNotes!.Count, Is.EqualTo(2));
-            var apiType = entry.CodeContract.ApiTypes[0];
+            Assert.That(snapshot.Registrations, Has.Some.Matches<UcliOperationRegistration>(
+                registration => registration.Metadata.OperationName == UcliPrimitiveOperationNames.CsEval));
+            Assert.That(
+                snapshot.Catalog.Operations!.Any(operation => operation.Name == UcliPrimitiveOperationNames.CsEval),
+                Is.False);
+            Assert.That(metadata.Kind, Is.EqualTo(UcliOperationKind.Mutation));
+            Assert.That(metadata.Policy, Is.EqualTo(OperationPolicy.Dangerous));
+            Assert.That(metadata.ArgsSchemaJson, Does.Contain("\"source\""));
+            Assert.That(metadata.ResultSchemaJson, Does.Contain("\"sourceKind\""));
+            var describeContract = metadata.DescribeContract;
+            Assert.That(describeContract.CodeContract, Is.Not.Null);
+            Assert.That(describeContract.CodeContract!.Language, Is.EqualTo("csharp"));
+            Assert.That(describeContract.CodeContract.EntryPoint!.MatchRule, Does.Contain("exactly one"));
+            Assert.That(describeContract.CodeContract.SourceForms!.Count, Is.EqualTo(2));
+            Assert.That(describeContract.CodeContract.SourceForms![0].Kind, Is.EqualTo(CsEvalSourceKindValues.CompilationUnit));
+            Assert.That(describeContract.CodeContract.SourceForms[1].Kind, Is.EqualTo(CsEvalSourceKindValues.Snippet));
+            Assert.That(describeContract.CodeContract.ApiTypes!.Count, Is.EqualTo(1));
+            Assert.That(describeContract.Assurance, Is.Not.Null);
+            Assert.That(describeContract.Assurance!.PlanSemantics, Does.Contain("without invoking user code"));
+            Assert.That(describeContract.Assurance.CallSemantics, Does.Contain("execute the user C# entry point"));
+            Assert.That(describeContract.Assurance.TouchedContract, Does.Contain("caller-controlled"));
+            Assert.That(describeContract.Assurance.FailureSemantics, Does.Contain("cannot be forcibly stopped"));
+            Assert.That(describeContract.Assurance.DangerousNotes!.Count, Is.EqualTo(2));
+            var apiType = describeContract.CodeContract.ApiTypes[0];
             Assert.That(apiType.Members!.Count, Is.EqualTo(8));
             Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "DeclareNoTouchedResources"));
             Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "DeclareTouchedAsset"));
@@ -466,24 +467,28 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var sceneOpenEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.SceneOpen);
             Assert.That(sceneOpenEntry.Kind, Is.EqualTo(UcliOperationKindValues.Command));
+            Assert.That(sceneOpenEntry.Policy, Is.EqualTo(OperationPolicyValues.Advanced));
             Assert.That(sceneOpenEntry.Description, Is.Not.Null.And.Not.Empty);
             Assert.That(sceneOpenEntry.ResultContract, Is.Not.Null);
             Assert.That(sceneOpenEntry.ResultContract!.Emitted, Is.False);
             Assert.That(sceneOpenEntry.Assurance, Is.Not.Null);
+            Assert.That(sceneOpenEntry.Assurance!.SideEffects, Does.Contain(UcliOperationSideEffectValues.EditorStateChange));
+            Assert.That(sceneOpenEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.OpensSceneInEditor));
             Assert.That(sceneOpenEntry.Assurance!.PlanMode, Is.EqualTo(UcliOperationPlanModeValues.MayCreatePreviewState));
             Assert.That(sceneOpenEntry.Assurance.PlanSemantics, Does.Contain("scene path"));
             Assert.That(sceneOpenEntry.Assurance.CallSemantics, Does.Contain("Open the requested scene"));
             Assert.That(sceneOpenEntry.Assurance.TouchedContract, Does.Contain("observed editor context"));
-            Assert.That(sceneOpenEntry.Assurance.DangerousNotes, Is.Empty);
+            Assert.That(sceneOpenEntry.Assurance.DangerousNotes, Is.Not.Empty);
 
             var projectRefreshEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.ProjectRefresh);
             Assert.That(projectRefreshEntry.Kind, Is.EqualTo(UcliOperationKindValues.Command));
             Assert.That(projectRefreshEntry.Assurance, Is.Not.Null);
-            Assert.That(projectRefreshEntry.Assurance!.SideEffects, Does.Contain(UcliOperationSideEffectValues.RefreshesAssetDatabase));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.WritesAsset));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.WritesScene));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.WritesPrefab));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.WritesProjectSettings));
+            Assert.That(projectRefreshEntry.Assurance!.SideEffects, Does.Contain(UcliOperationSideEffectValues.AssetDatabaseRefresh));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.AssetImport));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.ScriptCompilation));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.DomainReload));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.AssetContentMutation));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.AssetSave));
             Assert.That(projectRefreshEntry.Assurance.MayDirty, Is.True);
             Assert.That(projectRefreshEntry.Assurance.MayPersist, Is.True);
             Assert.That(projectRefreshEntry.Assurance.ReadPostconditionContract, Does.Contain("readIndex"));
@@ -491,8 +496,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var prefabCreateEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.PrefabCreate);
             Assert.That(prefabCreateEntry.Assurance, Is.Not.Null);
-            Assert.That(prefabCreateEntry.Assurance!.SideEffects, Does.Contain(UcliOperationSideEffectValues.WritesPrefab));
-            Assert.That(prefabCreateEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.WritesScene));
+            Assert.That(prefabCreateEntry.Assurance!.SideEffects, Does.Contain(UcliOperationSideEffectValues.PrefabContentMutation));
+            Assert.That(prefabCreateEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.SceneContentMutation));
+            Assert.That(prefabCreateEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.PrefabSave));
             Assert.That(prefabCreateEntry.Assurance.MayDirty, Is.True);
             Assert.That(prefabCreateEntry.Assurance.MayPersist, Is.True);
             Assert.That(prefabCreateEntry.Assurance.TouchedKinds, Does.Contain(IpcExecuteTouchedResourceKindNames.Scene));
@@ -500,8 +506,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var assetSetEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.AssetSet);
             Assert.That(assetSetEntry.Assurance, Is.Not.Null);
-            Assert.That(assetSetEntry.Assurance!.SideEffects, Does.Contain(UcliOperationSideEffectValues.WritesAsset));
-            Assert.That(assetSetEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.WritesProjectSettings));
+            Assert.That(assetSetEntry.Assurance!.SideEffects, Does.Contain(UcliOperationSideEffectValues.AssetContentMutation));
+            Assert.That(assetSetEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.ProjectSettingsMutation));
             Assert.That(assetSetEntry.Assurance.PlanSemantics, Does.Contain("preview"));
             Assert.That(assetSetEntry.Assurance.CallSemantics, Does.Contain("live asset"));
             Assert.That(assetSetEntry.Assurance.DangerousNotes, Is.Not.Empty);
@@ -562,7 +568,6 @@ namespace MackySoft.Ucli.Unity.Tests
             public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
                 operationName: "ucli.tests.discover",
                 kind: UcliOperationKind.Query,
-                policy: OperationPolicy.Safe,
                 describeContract: CreateDescribeContract("ucli.tests.discover"));
 
             public Task<OperationPhaseStepResult> ValidateAsync (
@@ -596,7 +601,6 @@ namespace MackySoft.Ucli.Unity.Tests
             public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<GenericDiscoverableArgs, UcliNoResult>(
                 operationName: "ucli.tests.generic-discover",
                 kind: UcliOperationKind.Query,
-                policy: OperationPolicy.Safe,
                 description: "Generic operation used to verify custom operation authoring.",
                 assurance: CreateValidationOnlyAssurance());
 
@@ -634,7 +638,6 @@ namespace MackySoft.Ucli.Unity.Tests
             public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
                 operationName: "ucli.tests.args-mismatch",
                 kind: UcliOperationKind.Query,
-                policy: OperationPolicy.Safe,
                 description: "Metadata args mismatch operation.",
                 assurance: CreateValidationOnlyAssurance());
 
@@ -672,7 +675,6 @@ namespace MackySoft.Ucli.Unity.Tests
             public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<GenericDiscoverableArgs, UcliNoResult>(
                 operationName: "ucli.tests.result-mismatch",
                 kind: UcliOperationKind.Query,
-                policy: OperationPolicy.Safe,
                 description: "Metadata result mismatch operation.",
                 assurance: CreateValidationOnlyAssurance());
 
@@ -897,8 +899,6 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
                 touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanMode.ValidationOnly,
                 planSemantics: "Validate arguments without applying mutation.",

@@ -17,12 +17,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<PrefabCreateArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.PrefabCreate,
             kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced,
             description: "Creates a prefab asset from a scene GameObject.",
             assurance: new UcliOperationAssuranceContract(
-                sideEffects: new[] { UcliOperationSideEffect.WritesPrefab, UcliOperationSideEffect.WritesScene },
-                mayDirty: true,
-                mayPersist: true,
+                sideEffects: new[]
+                {
+                    UcliOperationSideEffect.SceneContentMutation,
+                    UcliOperationSideEffect.PrefabContentMutation,
+                    UcliOperationSideEffect.PrefabSave,
+                },
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Validate the source GameObject and prefab path, then compute preview creation state without persisting project data.",

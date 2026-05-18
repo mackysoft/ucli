@@ -18,17 +18,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<SceneQueryArgs, SceneQueryResult>(
             operationName: UcliPrimitiveOperationNames.SceneQuery,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
             description: "Finds objects or components in a scene by hierarchy path prefix and component type.",
             assurance: new UcliOperationAssuranceContract(
-                sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
+                sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
                 touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the scene query and observe the selected scene context without applying mutation.",
                 callSemantics: "Read selection candidates from the scene hierarchy without applying mutation.",
-                touchedContract: "Returns no touched resources because query matches are observational result data.",
+                touchedContract: "Returns no touched resources because scene query results are observations, not dirty or persisted resources.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Timeout, cancellation, or source read failure means the candidate set was not fully produced.",
                 dangerousNotes: Array.Empty<string>()));

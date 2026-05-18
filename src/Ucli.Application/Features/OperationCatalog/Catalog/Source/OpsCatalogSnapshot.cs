@@ -10,7 +10,7 @@ internal sealed record OpsCatalogSnapshot
         ArgumentNullException.ThrowIfNull(operations);
 
         GeneratedAtUtc = generatedAtUtc;
-        Operations = operations.ToArray();
+        Operations = PublicRawOperationCatalogFilter.Filter(operations).ToArray();
     }
 
     /// <summary> Gets the catalog generation timestamp. </summary>

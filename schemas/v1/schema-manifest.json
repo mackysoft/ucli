@@ -89,6 +89,12 @@
       "command": "compile"
     },
     {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/verify.schema.json",
+      "path": "cli-output/payload/verify.schema.json",
+      "kind": "cli-output-payload",
+      "command": "verify"
+    },
+    {
       "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/init.schema.json",
       "path": "cli-output/payload/init.schema.json",
       "kind": "cli-output-payload",

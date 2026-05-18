@@ -17,17 +17,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<GoDescribeArgs, GameObjectDescriptionResult>(
             operationName: UcliPrimitiveOperationNames.GoDescribe,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
             description: "Returns a GameObject description including components and child hierarchy.",
             assurance: new UcliOperationAssuranceContract(
-                sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
+                sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
                 touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the GameObject selector and observe the selected scene or prefab context without applying mutation.",
                 callSemantics: "Read the selected GameObject structure and component data without applying mutation.",
-                touchedContract: "Returns no touched resources because GameObject description is observational result data.",
+                touchedContract: "Returns no touched resources because GameObject description data is observational, not dirty or persisted state.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Timeout, cancellation, or unresolved selector failure means the GameObject description was not fully produced.",
                 dangerousNotes: Array.Empty<string>()));

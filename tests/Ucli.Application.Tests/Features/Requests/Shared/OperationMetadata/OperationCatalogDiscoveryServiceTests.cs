@@ -149,8 +149,6 @@ public sealed class OperationCatalogDiscoveryServiceTests
                 "Opens a Unity scene asset in the editor.",
                 new UcliOperationAssuranceContract(
                     sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                    mayDirty: false,
-                    mayPersist: false,
                     touchedKinds: Array.Empty<string>(),
                     planMode: UcliOperationPlanMode.ObservesLiveUnity,
                     planSemantics: "Validate arguments and observe Unity state without applying mutation.",

@@ -30,7 +30,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             var generatedAtUtc = DateTimeOffset.UtcNow;
-            var operations = IndexJsonOrderingPolicy.OrderOpsEntries(registrations.Select(static registration =>
+            var operations = IndexJsonOrderingPolicy.OrderOpsEntries(registrations
+                .Where(static registration => IsPublicRawCatalogOperation(registration.Metadata.DescribeContract))
+                .Select(static registration =>
                 {
                     var describeContract = registration.Metadata.DescribeContract;
                     return new IndexOpEntryJsonContract(
@@ -53,6 +55,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 Catalog: new IpcOpsReadResponse(
                     GeneratedAtUtc: generatedAtUtc,
                     Operations: operations));
+        }
+
+        private static bool IsPublicRawCatalogOperation (UcliOperationDescribeContract describeContract)
+        {
+            var sideEffects = describeContract.Assurance?.SideEffects;
+            if (sideEffects == null)
+            {
+                return false;
+            }
+
+            return !UcliOperationPublicCatalogRules.HasPublicRawCatalogExclusionMarker(sideEffects);
         }
     }
 }

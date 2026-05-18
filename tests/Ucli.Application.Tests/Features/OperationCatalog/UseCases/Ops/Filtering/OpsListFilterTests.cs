@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Filtering;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Helpers.OperationCatalog.OperationCatalogTestFixtures;
 
 namespace MackySoft.Ucli.Application.Tests.Ops.Filtering;
@@ -27,8 +28,8 @@ public sealed class OpsListFilterTests
         var snapshot = CreateListSnapshot(
             CreateSceneSaveEntry(),
             CreateSceneSaveEntry() with { Name = "custom.scene.query", Kind = "query", Policy = "safe", Assurance = CreateGoDescribeEntry().Assurance },
-            CreateSceneSaveEntry() with { Name = "custom.asset.mutation", Kind = "mutation", Policy = "safe" },
-            CreateSceneSaveEntry() with { Name = "custom.scene.dangerous", Kind = "mutation", Policy = "dangerous" });
+            CreateSceneSaveEntry() with { Name = "custom.asset.mutation", Kind = "mutation", Policy = "advanced" },
+            CreateSceneSaveEntry() with { Name = "custom.scene.dangerous", Kind = "mutation", Policy = "dangerous", Assurance = CreateDangerousMutationAssurance() });
 
         var result = filter!.Apply(snapshot.Operations);
 
@@ -77,5 +78,19 @@ public sealed class OpsListFilterTests
     private static OpsCatalogListSnapshot CreateListSnapshot (params IndexOpEntryJsonContract[] operations)
     {
         return OpsCatalogListSnapshotFactory.FromCatalog(CreateSnapshot(DateTimeOffset.UtcNow, operations));
+    }
+
+    private static UcliOperationAssuranceContract CreateDangerousMutationAssurance ()
+    {
+        return new UcliOperationAssuranceContract(
+            sideEffects: [UcliOperationSideEffectValues.ExternalProcess],
+            touchedKinds: Array.Empty<string>(),
+            planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
+            planSemantics: "Observe mutation inputs without applying them.",
+            callSemantics: "Execute an unbounded mutation fixture.",
+            touchedContract: "Reports resources known to be touched.",
+            readPostconditionContract: "Read surfaces may be stale after a successful call.",
+            failureSemantics: "Failure may leave partial or indeterminate state.",
+            dangerousNotes: ["Test fixture represents a dangerous mutation."]);
     }
 }
