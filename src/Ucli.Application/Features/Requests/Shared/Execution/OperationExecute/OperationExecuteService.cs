@@ -188,8 +188,9 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             convertedResponse.OpResults,
             RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, definition.FailureMessage),
             definition.FailureMessage,
-            convertedResponse.ReadPostcondition,
-            responseProject);
+            contractViolations: convertedResponse.ContractViolations,
+            readPostcondition: convertedResponse.ReadPostcondition,
+            project: responseProject);
     }
 
     /// <summary> Executes one internal <c>plan</c> pass and returns the issued plan token. </summary>
@@ -259,6 +260,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                     convertedResponse.OpResults,
                     RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, definition.FailureMessage),
                     definition.FailureMessage,
+                    contractViolations: convertedResponse.ContractViolations,
                     project: project));
         }
 

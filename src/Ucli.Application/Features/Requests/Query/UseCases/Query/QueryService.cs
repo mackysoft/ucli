@@ -274,7 +274,8 @@ internal sealed class QueryService : IQueryService
                 requestId,
                 convertedResponse.OpResults,
                 readIndex,
-                responseProject);
+                responseProject,
+                convertedResponse.ContractViolations);
         }
 
         var failures = RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, "uCLI query failed.");
@@ -285,7 +286,8 @@ internal sealed class QueryService : IQueryService
             failures,
             RequestFailureNormalizer.ResolveMessage(failures, "uCLI query failed."),
             readIndex,
-            responseProject);
+            responseProject,
+            convertedResponse.ContractViolations);
     }
 
     private static OperationExecutionOperationResult CreatePlanOperationResult (

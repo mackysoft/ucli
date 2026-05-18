@@ -8,4 +8,7 @@ public static class ExecuteRequestErrorCodes
 
     /// <summary> Gets the diagnostic code emitted when hierarchy paths cannot represent GameObject names containing slashes. </summary>
     public static readonly UcliCode HierarchyPathUnrepresentableObjects = new("HIERARCHY_PATH_UNREPRESENTABLE_OBJECTS");
+
+    /// <summary> Gets the error code emitted when runtime operation results violate declared assurance facts. </summary>
+    public static readonly UcliCode OperationContractViolation = new("OPERATION_CONTRACT_VIOLATION");
 }

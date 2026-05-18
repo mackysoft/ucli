@@ -16,6 +16,12 @@
         "$ref": "../defs/op-result.schema.json"
       }
     },
+    "contractViolations": {
+      "type": "array",
+      "items": {
+        "$ref": "../defs/contract-violation.schema.json"
+      }
+    },
     "readPostcondition": {
       "type": "object"
     }

@@ -95,6 +95,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="operation"> The normalized operation. </param>
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="applied"> The applied flag for successful phase result. </param>
+        /// <param name="allowTemporaryState"> Whether temporary plan aliases may satisfy target resolution. </param>
         /// <returns> The phase-step result. </returns>
         private static Task<OperationPhaseStepResult> ExecuteResolveAsync (
             NormalizedOperation operation,

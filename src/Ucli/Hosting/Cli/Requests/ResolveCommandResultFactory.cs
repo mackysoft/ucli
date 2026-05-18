@@ -25,6 +25,11 @@ internal static class ResolveCommandResultFactory
 
         payload["opResults"] = serviceResult.OpResults;
         payload["readIndex"] = ReadIndexInfoPayloadProjector.Create(serviceResult.ReadIndex);
+        if (serviceResult.ContractViolations.Count != 0)
+        {
+            payload["contractViolations"] = serviceResult.ContractViolations;
+        }
+
         if (!serviceResult.IsSuccess)
         {
             StartupFailurePayloadProjector.AppendFromFailures(payload, serviceResult.Errors);

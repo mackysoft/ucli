@@ -13,6 +13,8 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class RefreshCommandTests
 {
+    private const string ContractViolationMessage = "Operation result violated declared assurance facts.";
+
     private static readonly OperationExecuteResult SuccessResult = OperationExecuteResultFactory.Success(
         "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
         [
@@ -120,6 +122,41 @@ public sealed class RefreshCommandTests
                 .HasString("code", UcliCoreErrorCodes.InternalError.Value)
                 .HasString("message", "Unity execution failed.")
                 .HasString("opId", "refresh"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Refresh_WhenContractViolationExists_MatchesGolden ()
+    {
+        var failureResult = OperationExecuteResultFactory.Failure(
+            "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+            [
+                CreateViolationOperationResult(),
+            ],
+            [
+                ApplicationFailure.FromCode(
+                    ExecuteRequestErrorCodes.OperationContractViolation,
+                    ContractViolationMessage,
+                    "refresh"),
+            ],
+            ContractViolationMessage,
+            contractViolations:
+            [
+                CreateContractViolation(),
+            ],
+            project: ProjectIdentityInfoTestFactory.Create());
+        var service = new StubRefreshService((_, _) => ValueTask.FromResult(failureResult));
+        var command = new RefreshCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.RefreshAsync(
+            projectPath: "/repo/UnityProject",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.ToolError, exitCode);
+        JsonGoldenFileAssert.Matches(
+            CliOutputGoldenFiles.GetPath("refresh", "contract-violation.json"),
+            standardOutput,
+            CliOutputGoldenFiles.NormalizeRequestIds());
     }
 
     [Fact]
@@ -239,5 +276,32 @@ public sealed class RefreshCommandTests
         Assert.True(Guid.TryParseExact(requestId, "D", out _));
         JsonAssert.For(payload)
             .HasArrayLength("opResults", 0);
+    }
+
+    private static OperationExecutionOperationResult CreateViolationOperationResult ()
+    {
+        return new OperationExecutionOperationResult(
+            OpId: "refresh",
+            Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+            Phase: IpcExecuteOperationPhaseNames.Call,
+            Applied: true,
+            Changed: true,
+            Touched:
+            [
+                new OperationExecutionTouchedResource(
+                    Kind: IpcExecuteTouchedResourceKindNames.Asset,
+                    Path: "Assets/Example.txt",
+                    Guid: null),
+            ]);
+    }
+
+    private static OperationExecutionContractViolation CreateContractViolation ()
+    {
+        return new OperationExecutionContractViolation(
+            OpId: "refresh",
+            Operation: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+            ExpectedFact: "assurance.mayDirty=false",
+            ObservedResult: "opResults[].changed=true",
+            ApplicationState: IpcExecuteApplicationStateNames.Indeterminate);
     }
 }

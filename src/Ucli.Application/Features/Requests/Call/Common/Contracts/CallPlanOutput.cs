@@ -11,4 +11,8 @@ internal sealed record CallPlanOutput (
     string RequestId,
     ProjectIdentityInfo Project,
     IReadOnlyList<OperationExecutionOperationResult> OpResults,
-    string? PlanToken);
+    string? PlanToken)
+{
+    /// <summary> Gets runtime operation-result violations against published assurance facts. </summary>
+    public IReadOnlyList<OperationExecutionContractViolation> ContractViolations { get; init; } = [];
+}

@@ -31,6 +31,11 @@ internal static class RefreshCommandResultFactory
             payload["readPostcondition"] = executionResult.ReadPostcondition;
         }
 
+        if (executionResult.ContractViolations.Count != 0)
+        {
+            payload["contractViolations"] = executionResult.ContractViolations;
+        }
+
         if (!executionResult.IsSuccess)
         {
             StartupFailurePayloadProjector.AppendFromFailures(payload, executionResult.Errors);

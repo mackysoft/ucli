@@ -80,6 +80,7 @@ internal static class Program
             CreateSchema("cli-output/defs/op-result.schema.json", "cli-output-def", null, CreateOperationResultSchema()),
             CreateSchema("cli-output/defs/diagnostic.schema.json", "cli-output-def", null, CreateDiagnosticSchema()),
             CreateSchema("cli-output/defs/touched.schema.json", "cli-output-def", null, CreateTouchedSchema()),
+            CreateSchema("cli-output/defs/contract-violation.schema.json", "cli-output-def", null, CreateContractViolationSchema()),
             CreateSchema("cli-output/defs/window.schema.json", "cli-output-def", null, CreateWindowSchema()),
             CreateSchema("cli-output/defs/verifier.schema.json", "cli-output-def", null, CreateVerifierSchema()),
             CreateSchema("cli-output/defs/assurance-claim.schema.json", "cli-output-def", null, CreateAssuranceClaimSchema()),
@@ -248,6 +249,23 @@ internal static class Program
             Optional("path", NullableStringSchema()),
             Optional("uri", NullableStringSchema()),
             Optional("state", NullableStringSchema()));
+    }
+
+    private static Dictionary<string, object?> CreateContractViolationSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("opId", StringSchema()),
+            Required("operation", StringSchema()),
+            Required("expectedFact", StringSchema()),
+            Required("observedResult", StringSchema()),
+            Required(
+                "applicationState",
+                EnumSchema(
+                    IpcExecuteApplicationStateNames.NotApplied,
+                    IpcExecuteApplicationStateNames.Applied,
+                    IpcExecuteApplicationStateNames.Indeterminate,
+                    IpcExecuteApplicationStateNames.Unknown)));
     }
 
     private static Dictionary<string, object?> CreateWindowSchema ()
@@ -645,6 +663,7 @@ internal static class Program
             Optional("requestId", StringSchema()),
             Optional("project", ReferenceSchema("../defs/project.schema.json")),
             Optional("opResults", ArraySchema(ReferenceSchema("../defs/op-result.schema.json"))),
+            Optional("contractViolations", ArraySchema(ReferenceSchema("../defs/contract-violation.schema.json"))),
             Optional("readPostcondition", ObjectSchema(additionalProperties: true)),
         };
 
@@ -660,10 +679,21 @@ internal static class Program
 
         if (includePlan)
         {
-            properties.Add(Optional("plan", ObjectSchema(additionalProperties: true)));
+            properties.Add(Optional("plan", CreateCallPlanPayloadSchema()));
         }
 
         return ObjectSchema(additionalProperties: false, properties.ToArray());
+    }
+
+    private static Dictionary<string, object?> CreateCallPlanPayloadSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Optional("requestId", StringSchema()),
+            Optional("project", ReferenceSchema("../defs/project.schema.json")),
+            Optional("opResults", ArraySchema(ReferenceSchema("../defs/op-result.schema.json"))),
+            Optional("contractViolations", ArraySchema(ReferenceSchema("../defs/contract-violation.schema.json"))),
+            Optional("planToken", StringSchema()));
     }
 
     private static Dictionary<string, object?> CreateOpsListPayloadSchema ()

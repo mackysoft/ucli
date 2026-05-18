@@ -55,29 +55,35 @@ internal static class CallCommandResultFactory
             payload["readPostcondition"] = output.ReadPostcondition;
         }
 
+        if (output.ContractViolations.Count != 0)
+        {
+            payload["contractViolations"] = output.ContractViolations;
+        }
+
         if (output.Plan == null)
         {
             return payload;
         }
 
+        var planPayload = new Dictionary<string, object?>
+        {
+            ["requestId"] = output.Plan.RequestId,
+            ["project"] = ProjectIdentityPayloadProjector.Create(output.Plan.Project),
+            ["opResults"] = output.Plan.OpResults,
+        };
+        if (output.Plan.ContractViolations.Count != 0)
+        {
+            planPayload["contractViolations"] = output.Plan.ContractViolations;
+        }
+
         if (string.IsNullOrWhiteSpace(output.Plan.PlanToken))
         {
-            payload["plan"] = new
-            {
-                requestId = output.Plan.RequestId,
-                project = ProjectIdentityPayloadProjector.Create(output.Plan.Project),
-                opResults = output.Plan.OpResults,
-            };
+            payload["plan"] = planPayload;
             return payload;
         }
 
-        payload["plan"] = new
-        {
-            requestId = output.Plan.RequestId,
-            project = ProjectIdentityPayloadProjector.Create(output.Plan.Project),
-            opResults = output.Plan.OpResults,
-            planToken = output.Plan.PlanToken,
-        };
+        planPayload["planToken"] = output.Plan.PlanToken;
+        payload["plan"] = planPayload;
         return payload;
     }
 }

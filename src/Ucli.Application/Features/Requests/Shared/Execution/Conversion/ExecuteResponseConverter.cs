@@ -40,11 +40,17 @@ internal static class ExecuteResponseConverter
             return CreateInvalidPayloadFailure(errorsValidationError);
         }
 
+        if (!TryValidateContractViolationErrorPair(payload, response.Errors, response.HasFailureStatus, out var contractViolationPairError))
+        {
+            return CreateInvalidPayloadFailure(contractViolationPairError);
+        }
+
         var normalizedErrors = NormalizeErrors(response.HasFailureStatus, response.FailureStatus, response.Errors);
         var validatedPayload = payload!;
         return new ExecuteResponseConversionResult(
             OpResults: OperationExecutionModelMapper.MapOpResults(validatedPayload.OpResults),
             Errors: normalizedErrors,
+            ContractViolations: OperationExecutionModelMapper.MapContractViolations(validatedPayload.ContractViolations),
             PlanToken: validatedPayload.PlanToken,
             ReadPostcondition: OperationExecutionModelMapper.MapReadPostcondition(validatedPayload.ReadPostcondition),
             Project: MapProject(validatedPayload.Project));
@@ -289,6 +295,55 @@ internal static class ExecuteResponseConverter
             }
         }
 
+        if (payload.ContractViolations != null)
+        {
+            for (var violationIndex = 0; violationIndex < payload.ContractViolations.Count; violationIndex++)
+            {
+                var violation = payload.ContractViolations[violationIndex];
+                if (violation == null)
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'contractViolations[{violationIndex}]' item is missing.";
+                    return false;
+                }
+
+                if (IsMissingRequiredString(violation.OpId))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'contractViolations[{violationIndex}].opId' field is missing.";
+                    return false;
+                }
+
+                if (IsMissingRequiredString(violation.Operation))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'contractViolations[{violationIndex}].operation' field is missing.";
+                    return false;
+                }
+
+                if (IsMissingRequiredString(violation.ExpectedFact))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'contractViolations[{violationIndex}].expectedFact' field is missing.";
+                    return false;
+                }
+
+                if (IsMissingRequiredString(violation.ObservedResult))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'contractViolations[{violationIndex}].observedResult' field is missing.";
+                    return false;
+                }
+
+                if (IsMissingRequiredString(violation.ApplicationState))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'contractViolations[{violationIndex}].applicationState' field is missing.";
+                    return false;
+                }
+
+                if (!IsKnownApplicationState(violation.ApplicationState))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'contractViolations[{violationIndex}].applicationState' value is unsupported. Actual: {violation.ApplicationState}";
+                    return false;
+                }
+            }
+        }
+
         if (payload.ReadPostcondition == null)
         {
             return true;
@@ -317,6 +372,86 @@ internal static class ExecuteResponseConverter
             if (!IsKnownReadPostconditionSurface(payload.ReadPostcondition.Requirements[requirementIndex].Surface))
             {
                 errorMessage = $"Execute response payload is invalid. The 'readPostcondition.requirements[{requirementIndex}].surface' value is unsupported. Actual: {payload.ReadPostcondition.Requirements[requirementIndex].Surface}";
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool TryValidateContractViolationErrorPair (
+        IpcExecuteResponse? payload,
+        IReadOnlyList<OperationExecutionError> errors,
+        bool hasFailureStatus,
+        out string errorMessage)
+    {
+        ArgumentNullException.ThrowIfNull(errors);
+
+        errorMessage = string.Empty;
+        var violationOpIds = new HashSet<string>(StringComparer.Ordinal);
+        if (payload?.ContractViolations != null)
+        {
+            for (var violationIndex = 0; violationIndex < payload.ContractViolations.Count; violationIndex++)
+            {
+                violationOpIds.Add(payload.ContractViolations[violationIndex].OpId);
+            }
+        }
+
+        var errorOpIds = new HashSet<string>(StringComparer.Ordinal);
+        for (var errorIndex = 0; errorIndex < errors.Count; errorIndex++)
+        {
+            var error = errors[errorIndex];
+            if (error.Code != ExecuteRequestErrorCodes.OperationContractViolation)
+            {
+                continue;
+            }
+
+            if (IsMissingRequiredString(error.OpId))
+            {
+                errorMessage = $"Execute response envelope is invalid. The 'errors[{errorIndex}].opId' field must match a contract violation operation.";
+                return false;
+            }
+
+            errorOpIds.Add(error.OpId!);
+        }
+
+        if (violationOpIds.Count == 0 && errorOpIds.Count == 0)
+        {
+            return true;
+        }
+
+        if (violationOpIds.Count == 0)
+        {
+            errorMessage = "Execute response payload is invalid. The 'contractViolations' field must contain at least one item when OPERATION_CONTRACT_VIOLATION is reported.";
+            return false;
+        }
+
+        if (errorOpIds.Count == 0)
+        {
+            errorMessage = "Execute response envelope is invalid. OPERATION_CONTRACT_VIOLATION must be reported when 'contractViolations' contains items.";
+            return false;
+        }
+
+        if (!hasFailureStatus)
+        {
+            errorMessage = "Execute response envelope is invalid. The response status must be failed when 'contractViolations' contains items.";
+            return false;
+        }
+
+        foreach (var violationOpId in violationOpIds)
+        {
+            if (!errorOpIds.Contains(violationOpId))
+            {
+                errorMessage = $"Execute response envelope is invalid. OPERATION_CONTRACT_VIOLATION is missing for contract violation opId '{violationOpId}'.";
+                return false;
+            }
+        }
+
+        foreach (var errorOpId in errorOpIds)
+        {
+            if (!violationOpIds.Contains(errorOpId))
+            {
+                errorMessage = $"Execute response payload is invalid. The 'contractViolations' field is missing an item for OPERATION_CONTRACT_VIOLATION opId '{errorOpId}'.";
                 return false;
             }
         }
@@ -401,6 +536,14 @@ internal static class ExecuteResponseConverter
             or IpcExecuteDiagnosticCoverageImpactNames.Indeterminate;
     }
 
+    private static bool IsKnownApplicationState (string applicationState)
+    {
+        return applicationState is IpcExecuteApplicationStateNames.NotApplied
+            or IpcExecuteApplicationStateNames.Applied
+            or IpcExecuteApplicationStateNames.Indeterminate
+            or IpcExecuteApplicationStateNames.Unknown;
+    }
+
     private static ProjectIdentityInfo MapProject (IpcProjectIdentity project)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -431,6 +574,7 @@ internal static class ExecuteResponseConverter
         return new ExecuteResponseConversionResult(
             OpResults: [],
             Errors: errors,
+            ContractViolations: [],
             PlanToken: null,
             ReadPostcondition: null,
             Project: null);

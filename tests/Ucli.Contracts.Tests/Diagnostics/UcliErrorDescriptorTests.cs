@@ -107,6 +107,24 @@ public sealed class UcliErrorDescriptorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void OperationContractViolationDescriptor_DoesNotImplyNotApplied ()
+    {
+        var descriptor = FindDescriptor(ExecuteRequestErrorCodes.OperationContractViolation);
+
+        Assert.Equal("operationContract", descriptor.Category);
+        Assert.Contains(UcliCommandIds.Call, descriptor.AppliesTo);
+        Assert.Contains(UcliCommandIds.Plan, descriptor.AppliesTo);
+        Assert.Contains(UcliCommandIds.Query, descriptor.AppliesTo);
+        Assert.Contains(UcliCommandIds.Refresh, descriptor.AppliesTo);
+        Assert.Contains(UcliCommandIds.Resolve, descriptor.AppliesTo);
+        Assert.Null(descriptor.ExecutionSemantics.ImpliesNotApplied);
+        Assert.True(descriptor.ExecutionSemantics.MayBeIndeterminate);
+        Assert.Equal(UcliErrorRetryClassValues.ContextDependent, descriptor.ExecutionSemantics.SafeToRetry);
+        Assert.Contains("payload.contractViolations[]", descriptor.Inspect);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcTimeoutDescriptor_MatchesPublishedTimeoutContract ()
     {
         var descriptor = FindDescriptor(IpcTransportErrorCodes.IpcTimeout);

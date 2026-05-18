@@ -1,0 +1,83 @@
+{
+  "protocolVersion": 1,
+  "command": "call",
+  "status": "error",
+  "exitCode": 4,
+  "message": "Operation result violated declared assurance facts.",
+  "payload": {
+    "requestId": "<requestId>",
+    "project": {
+      "projectPath": "<projectPath>",
+      "projectFingerprint": "<projectFingerprint>",
+      "unityVersion": "<unityVersion>"
+    },
+    "opResults": [
+      {
+        "opId": "step-1",
+        "op": "ucli.project.refresh",
+        "phase": "call",
+        "applied": true,
+        "changed": true,
+        "touched": [
+          {
+            "kind": "asset",
+            "path": "Assets/Example.txt",
+            "guid": null
+          }
+        ],
+        "diagnostics": []
+      }
+    ],
+    "contractViolations": [
+      {
+        "opId": "step-1",
+        "operation": "ucli.project.refresh",
+        "expectedFact": "assurance.mayDirty=false",
+        "observedResult": "opResults[].changed=true",
+        "applicationState": "indeterminate"
+      }
+    ],
+    "plan": {
+      "requestId": "<requestId>",
+      "project": {
+        "projectPath": "<projectPath>",
+        "projectFingerprint": "<projectFingerprint>",
+        "unityVersion": "<unityVersion>"
+      },
+      "opResults": [
+        {
+          "opId": "step-1",
+          "op": "ucli.project.refresh",
+          "phase": "plan",
+          "applied": false,
+          "changed": true,
+          "touched": [
+            {
+              "kind": "asset",
+              "path": "Assets/Example.txt",
+              "guid": null
+            }
+          ],
+          "diagnostics": []
+        }
+      ],
+      "contractViolations": [
+        {
+          "opId": "step-1",
+          "operation": "ucli.project.refresh",
+          "expectedFact": "assurance.mayDirty=false",
+          "observedResult": "opResults[].changed=true",
+          "applicationState": "indeterminate"
+        }
+      ],
+      "planToken": "plan-token-1"
+    }
+  },
+  "errors": [
+    {
+      "code": "OPERATION_CONTRACT_VIOLATION",
+      "message": "Operation result violated declared assurance facts.",
+      "opId": "step-1"
+    }
+  ]
+}

@@ -51,6 +51,11 @@ internal static class PlanCommandResultFactory
             ["readIndex"] = ReadIndexInfoPayloadProjector.Create(output.ReadIndex),
         };
 
+        if (output.ContractViolations.Count != 0)
+        {
+            payload["contractViolations"] = output.ContractViolations;
+        }
+
         if (string.IsNullOrWhiteSpace(output.PlanToken))
         {
             return payload;

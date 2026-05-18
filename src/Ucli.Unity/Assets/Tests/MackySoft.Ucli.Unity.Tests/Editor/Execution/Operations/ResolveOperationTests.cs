@@ -1115,7 +1115,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Call_WhenResolutionSucceeds_ReturnsAppliedTrueAndChangedFalse () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Call_WhenResolutionSucceeds_ReturnsAppliedFalseAndChangedFalse () => UniTask.ToCoroutine(async () =>
         {
             var operation = new ResolveOperation();
             using var scope = new EditorTestScope();
