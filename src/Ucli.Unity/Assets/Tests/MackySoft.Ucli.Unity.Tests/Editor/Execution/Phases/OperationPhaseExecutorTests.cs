@@ -236,6 +236,24 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Execute_WhenPlanStepPersists_PreservesPersistenceEvidence () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false).WithPersistence(),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: false));
+            var executor = CreateExecutor(operation);
+            var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Plan, request, "Plan persistence evidence execution");
+
+            Assert.That(trace.IsSuccess, Is.True);
+            Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Plan));
+            Assert.That(trace.OperationTraces[0].Persisted, Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Execute_WhenCommandIsCall_ExecutesValidatePlanAndCall () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
@@ -256,6 +274,67 @@ namespace MackySoft.Ucli.Unity.Tests
             CollectionAssert.AreEqual(
                 new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
                 trace.OperationTraces[0].Contracts!.TouchedKinds);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhenCallStepPersists_PreservesPersistenceEvidence () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: false).WithPersistence());
+            var executor = CreateExecutor(operation);
+            var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Call persistence evidence execution");
+
+            Assert.That(trace.IsSuccess, Is.True);
+            Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Call));
+            Assert.That(trace.OperationTraces[0].Persisted, Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhenReplayPlanStepPersists_PreservesPersistenceEvidence () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false).WithPersistence(),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: false),
+                requiresPreCallPlanReplay: true);
+            var executor = CreateExecutor(operation);
+            var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Replay persistence evidence execution");
+
+            Assert.That(trace.IsSuccess, Is.True);
+            Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Call));
+            Assert.That(trace.OperationTraces[0].Persisted, Is.True);
+            CollectionAssert.AreEqual(
+                new[] { OperationPhase.Validate, OperationPhase.Plan, OperationPhase.Plan, OperationPhase.Call },
+                operation.CalledPhases);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhenFailingCallStepPersists_PreservesPersistenceEvidence () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(),
+                callResult: OperationPhaseStepResult.Failed(
+                    new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "call failed", "op-1"),
+                    applied: true,
+                    changed: true).WithPersistence());
+            var executor = CreateExecutor(operation);
+            var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Failing call persistence evidence execution");
+
+            Assert.That(trace.IsSuccess, Is.False);
+            Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Call));
+            Assert.That(trace.OperationTraces[0].Persisted, Is.True);
         });
 
         [UnityTest]
@@ -1582,7 +1661,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationPolicy policy = OperationPolicy.Safe,
                 UcliOperationKind kind = UcliOperationKind.Mutation,
                 UcliOperationAssuranceContract? assurance = null,
-                IReadOnlyList<UcliOperationSideEffect>? sideEffects = null)
+                IReadOnlyList<UcliOperationSideEffect>? sideEffects = null,
+                bool requiresPreCallPlanReplay = false)
             {
                 this.validateResult = validateResult;
                 this.planResult = planResult;
@@ -1608,7 +1688,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     describeContract: CreateDescribeContract(
                         "ucli.tests.recording",
                         policy,
-                        effectiveAssurance));
+                        effectiveAssurance),
+                    argsType: typeof(UcliEmptyArgs),
+                    resultType: typeof(UcliNoResult),
+                    requiresPreCallPlanReplay: requiresPreCallPlanReplay);
             }
 
             public UcliOperationMetadata Metadata { get; }

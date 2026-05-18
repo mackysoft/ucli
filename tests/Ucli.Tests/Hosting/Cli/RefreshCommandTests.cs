@@ -302,6 +302,6 @@ public sealed class RefreshCommandTests
             Operation: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
             ExpectedFact: "assurance.mayDirty=false",
             ObservedResult: "opResults[].changed=true",
-            ApplicationState: IpcExecuteApplicationStateNames.Indeterminate);
+            ApplicationState: IpcExecuteApplicationStateNames.Applied);
     }
 }

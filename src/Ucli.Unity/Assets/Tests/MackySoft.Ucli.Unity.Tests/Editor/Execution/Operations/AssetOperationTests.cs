@@ -43,6 +43,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await createOperation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertAssetSuccess(result, applied: false, changed: true, assetPath);
+            Assert.That(result.Persisted, Is.False);
             Assert.That(context.TryGetTemporaryAliasState("created", out var aliasState), Is.True);
             Assert.That(aliasState.Resource.Kind, Is.EqualTo(OperationTouchKind.Asset));
             Assert.That(aliasState.Resource.Path, Is.EqualTo(assetPath));
@@ -70,6 +71,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
             AssertAssetSuccess(result, applied: true, changed: true, assetPath);
+            Assert.That(result.Persisted, Is.True);
             Assert.That(AssetDatabase.LoadAssetAtPath<AssetOperationTestAsset>(assetPath), Is.Not.Null);
             Assert.That(context.AliasStore.TryGet("created", out var resolvedReference), Is.True);
             Assert.That(resolvedReference, Is.Not.Null);

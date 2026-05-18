@@ -206,6 +206,89 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(violation.GetProperty("operation").GetString(), Is.EqualTo(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh));
             Assert.That(violation.GetProperty("expectedFact").GetString(), Is.EqualTo("assurance.mayDirty=false"));
             Assert.That(violation.GetProperty("observedResult").GetString(), Is.EqualTo("opResults[].changed=true"));
+            Assert.That(violation.GetProperty("applicationState").GetString(), Is.EqualTo(IpcExecuteApplicationStateNames.Applied));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenMayPersistFalseButPersistedTrue_ReportsContractViolation () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest(
+                ("step-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh));
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: normalizedRequest.ProtocolVersion,
+                requestId: normalizedRequest.RequestId,
+                steps: CreateTraceSteps(normalizedRequest),
+                operationTraces: new[]
+                {
+                    new OperationPhaseTrace(
+                        "step-1",
+                        MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                        OperationPhase.Call,
+                        false,
+                        false,
+                        System.Array.Empty<OperationTouch>(),
+                        null)
+                    {
+                        Persisted = true,
+                        Contracts = CreateContractFacts(UcliOperationKind.Mutation, mayDirty: true, mayPersist: false),
+                    },
+                }));
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Call,
+                operationId: "step-1",
+                operationName: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh);
+
+            var response = await DispatchAsync(dispatcher, request, context, "mayPersist contract violation response");
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(ExecuteRequestErrorCodes.OperationContractViolation));
+            var violation = GetSingleArrayElement(response.Payload.GetProperty("contractViolations"));
+            Assert.That(violation.GetProperty("expectedFact").GetString(), Is.EqualTo("assurance.mayPersist=false"));
+            Assert.That(violation.GetProperty("observedResult").GetString(), Is.EqualTo("executionTrace.persisted=true"));
+            Assert.That(violation.GetProperty("applicationState").GetString(), Is.EqualTo(IpcExecuteApplicationStateNames.Applied));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenChangedViolationHasNoApply_ReportsIndeterminateApplicationState () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest(
+                ("step-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh));
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: normalizedRequest.ProtocolVersion,
+                requestId: normalizedRequest.RequestId,
+                steps: CreateTraceSteps(normalizedRequest),
+                operationTraces: new[]
+                {
+                    new OperationPhaseTrace(
+                        "step-1",
+                        MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                        OperationPhase.Plan,
+                        false,
+                        true,
+                        System.Array.Empty<OperationTouch>(),
+                        null)
+                    {
+                        Contracts = CreateContractFacts(UcliOperationKind.Mutation, mayDirty: false),
+                    },
+                }));
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                operationId: "step-1",
+                operationName: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh);
+
+            var response = await DispatchAsync(dispatcher, request, context, "indeterminate contract violation response");
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            var violation = GetSingleArrayElement(response.Payload.GetProperty("contractViolations"));
             Assert.That(violation.GetProperty("applicationState").GetString(), Is.EqualTo(IpcExecuteApplicationStateNames.Indeterminate));
         });
 
@@ -258,7 +341,7 @@ namespace MackySoft.Ucli.Unity.Tests
             foreach (var violation in violations.EnumerateArray())
             {
                 Assert.That(violation.GetProperty("expectedFact").GetString(), Is.EqualTo("operation.kind=query"));
-                Assert.That(violation.GetProperty("applicationState").GetString(), Is.EqualTo(IpcExecuteApplicationStateNames.Indeterminate));
+                Assert.That(violation.GetProperty("applicationState").GetString(), Is.EqualTo(IpcExecuteApplicationStateNames.Applied));
                 observedResults.Add(violation.GetProperty("observedResult").GetString()!);
             }
 
@@ -315,6 +398,51 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenTouchedKindViolationHasNoApplyOrChange_ReportsNotAppliedApplicationState () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest(
+                ("step-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh));
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: normalizedRequest.ProtocolVersion,
+                requestId: normalizedRequest.RequestId,
+                steps: CreateTraceSteps(normalizedRequest),
+                operationTraces: new[]
+                {
+                    new OperationPhaseTrace(
+                        "step-1",
+                        MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                        OperationPhase.Plan,
+                        false,
+                        false,
+                        new[]
+                        {
+                            new OperationTouch(OperationTouchKind.Asset, "Assets/Example.txt", null),
+                        },
+                        null)
+                    {
+                        Contracts = CreateContractFacts(
+                            UcliOperationKind.Mutation,
+                            mayDirty: true,
+                            IpcExecuteTouchedResourceKindNames.Scene),
+                    },
+                }));
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                operationId: "step-1",
+                operationName: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh);
+
+            var response = await DispatchAsync(dispatcher, request, context, "not-applied contract violation response");
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            var violation = GetSingleArrayElement(response.Payload.GetProperty("contractViolations"));
+            Assert.That(violation.GetProperty("applicationState").GetString(), Is.EqualTo(IpcExecuteApplicationStateNames.NotApplied));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Dispatch_WhenAllowedMutationReportsTouchedKind_DoesNotReportContractViolation () => UniTask.ToCoroutine(async () =>
         {
             var normalizedRequest = CreateNormalizedRequest(
@@ -352,6 +480,46 @@ namespace MackySoft.Ucli.Unity.Tests
                 operationName: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh);
 
             var response = await DispatchAsync(dispatcher, request, context, "allowed mutation response");
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(response.Payload.TryGetProperty("contractViolations", out _), Is.False);
+            Assert.That(response.Errors.Count, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenPersistedTrueAndMayPersistTrue_DoesNotReportContractViolation () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest(
+                ("step-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh));
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: normalizedRequest.ProtocolVersion,
+                requestId: normalizedRequest.RequestId,
+                steps: CreateTraceSteps(normalizedRequest),
+                operationTraces: new[]
+                {
+                    new OperationPhaseTrace(
+                        "step-1",
+                        MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                        OperationPhase.Call,
+                        true,
+                        false,
+                        System.Array.Empty<OperationTouch>(),
+                        null)
+                    {
+                        Persisted = true,
+                        Contracts = CreateContractFacts(UcliOperationKind.Mutation, mayDirty: true, mayPersist: true),
+                    },
+                }));
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Call,
+                operationId: "step-1",
+                operationName: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh);
+
+            var response = await DispatchAsync(dispatcher, request, context, "allowed persistence response");
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(response.Payload.TryGetProperty("contractViolations", out _), Is.False);
@@ -1300,10 +1468,23 @@ namespace MackySoft.Ucli.Unity.Tests
             bool mayDirty,
             params string[] touchedKinds)
         {
+            return CreateContractFacts(
+                operationKind,
+                mayDirty,
+                mayPersist: false,
+                touchedKinds);
+        }
+
+        private static OperationPhaseTrace.ContractFacts CreateContractFacts (
+            UcliOperationKind operationKind,
+            bool mayDirty,
+            bool mayPersist,
+            params string[] touchedKinds)
+        {
             return new OperationPhaseTrace.ContractFacts(
                 operationKind,
                 MayDirty: mayDirty,
-                MayPersist: false,
+                MayPersist: mayPersist,
                 TouchedKinds: touchedKinds);
         }
 
