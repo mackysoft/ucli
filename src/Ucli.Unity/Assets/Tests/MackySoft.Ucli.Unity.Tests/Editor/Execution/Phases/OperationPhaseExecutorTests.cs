@@ -391,6 +391,33 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Execute_WhenOperationHasPublicRawCatalogExclusionMarker_DoesNotExecuteValidatePlanOrCallPhase () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
+                policy: OperationPolicy.Dangerous,
+                sideEffects: new[] { UcliOperationSideEffect.ArbitrarySourceExecution });
+            var executor = new OperationPhaseExecutor(CreateRegistry(("ucli.tests.internal", operation)));
+            var request = CreateRequest(
+                operations: new[] { ("op-1", "ucli.tests.internal") },
+                planToken: null,
+                canonicalPayloadJson: "{}",
+                allowDangerous: true);
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Public raw exclusion denied execution");
+
+            Assert.That(trace.IsSuccess, Is.False);
+            Assert.That(trace.Errors.Count, Is.EqualTo(1));
+            Assert.That(trace.Errors[0].Code, Is.EqualTo(OperationAuthorizationErrorCodes.OperationNotAllowed));
+            Assert.That(trace.Errors[0].Message, Does.Contain("not available as a public raw operation"));
+            Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Validate));
+            CollectionAssert.IsEmpty(operation.CalledPhases);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Execute_WhenDangerousAllowFlagSetButConfigPolicyBlocks_DoesNotExecuteCallPhase () => UniTask.ToCoroutine(async () =>
         {
             using var scope = new PlanTokenTestScope();
@@ -1080,19 +1107,22 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static UcliOperationDescribeContract CreateDescribeContract (
             string operationName,
-            OperationPolicy policy = OperationPolicy.Safe)
+            OperationPolicy policy = OperationPolicy.Safe,
+            IReadOnlyList<UcliOperationSideEffect>? sideEffects = null)
         {
             return new UcliOperationDescribeContract(
                 $"{operationName} test operation.",
                 Array.Empty<UcliOperationInputContract>(),
                 UcliOperationResultContract.NoResult("This test operation does not emit operation-specific result data."),
-                CreateValidationOnlyAssurance(policy));
+                CreateValidationOnlyAssurance(policy, sideEffects));
         }
 
-        private static UcliOperationAssuranceContract CreateValidationOnlyAssurance (OperationPolicy policy = OperationPolicy.Safe)
+        private static UcliOperationAssuranceContract CreateValidationOnlyAssurance (
+            OperationPolicy policy = OperationPolicy.Safe,
+            IReadOnlyList<UcliOperationSideEffect>? sideEffects = null)
         {
             return new UcliOperationAssuranceContract(
-                sideEffects: CreateSideEffects(policy),
+                sideEffects: sideEffects ?? CreateSideEffects(policy),
                 touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanMode.ValidationOnly,
                 planSemantics: "Validate arguments without applying mutation.",
@@ -1515,7 +1545,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationPhaseStepResult validateResult,
                 OperationPhaseStepResult planResult,
                 OperationPhaseStepResult callResult,
-                OperationPolicy policy = OperationPolicy.Safe)
+                OperationPolicy policy = OperationPolicy.Safe,
+                IReadOnlyList<UcliOperationSideEffect>? sideEffects = null)
             {
                 this.validateResult = validateResult;
                 this.planResult = planResult;
@@ -1523,7 +1554,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Metadata = new UcliOperationMetadata(
                     operationName: "ucli.tests.recording",
                     kind: policy == OperationPolicy.Safe ? UcliOperationKind.Query : UcliOperationKind.Command,
-                    describeContract: CreateDescribeContract("ucli.tests.recording", policy));
+                    describeContract: CreateDescribeContract("ucli.tests.recording", policy, sideEffects));
             }
 
             public UcliOperationMetadata Metadata { get; }
