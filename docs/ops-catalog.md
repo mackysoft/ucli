@@ -125,7 +125,7 @@ catalog validation、golden、contract tests は、少なくとも次の matrix 
 - `assetDatabaseRefresh`、`assetImport`、`scriptCompilation`、`domainReload` は `advanced`
 - derived `mayDirty=true` または derived `mayPersist=true` の Unity Editor API write は `advanced`
 - arbitrary source execution、external process、filesystem write、unbounded destructive scope は `dangerous`
-- public raw operation の `planMode=mayCreatePreviewState` は catalog validation failure
+- `planMode=mayCreatePreviewState` は最低 `advanced` に導出し、planMode 単体では public raw catalog から除外しない
 - `declaredKind=query` かつ `touchedKinds` が空でない場合は catalog validation failure
 - Query operation の golden は `applied=false`、`changed=false`、`touched=[]` を固定する
 - `changed=true` かつ `mayDirty=false` は `OPERATION_CONTRACT_VIOLATION`

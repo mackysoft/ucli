@@ -1037,14 +1037,15 @@ kind ごとの parameter 規則:
 | `asset` | AssetDatabase 管理下の project asset |
 | `projectSettings` | ProjectSettings 配下の project setting |
 
-public v1 catalog の `planMode` は次のいずれかに限定する。
+public v1 catalog の `planMode` は次の値を使う。
 
 | planMode value | Meaning |
 | --- | --- |
 | `validationOnly` | Plan は typed args と静的 contract の検証だけを行う |
 | `observesLiveUnity` | Plan は live Unity state または readIndex を観測して結果を作る |
+| `mayCreatePreviewState` | Plan は review gate 前に一時 Scene / Prefab Stage などの preview state を作り得る |
 
-`mayCreatePreviewState` は public v1 catalog に含めない予約値である。internal / experimental catalog で扱う場合でも、最低 `advanced`、cleanup evidence と residual risk が不十分な場合は `dangerous` とする。
+`mayCreatePreviewState` は最低 `advanced` に導出する。v1 の public raw catalog 除外 marker は `arbitrarySourceExecution` であり、planMode 単体では除外しない。cleanup evidence と residual risk が不十分な場合は `dangerous` とする。
 
 `kind` と `assurance` の整合は次を満たす。
 
