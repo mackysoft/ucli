@@ -82,7 +82,9 @@ public static class UcliOperationSideEffectDescriptors
 
     private static readonly IReadOnlyList<UcliOperationSideEffectDescriptor> AllCore = Array.AsReadOnly(DescriptorsCore);
 
-    private static readonly IReadOnlyList<string> SupportedValuesCore = Array.AsReadOnly(CreateSupportedValues());
+    private static readonly IReadOnlyList<string> SupportedValuesCore = Array.AsReadOnly(DescriptorsCore
+        .Select(static descriptor => descriptor.Value)
+        .ToArray());
 
     /// <summary> Gets all side-effect descriptors in canonical schema order. </summary>
     internal static IReadOnlyList<UcliOperationSideEffectDescriptor> All => AllCore;
@@ -168,17 +170,6 @@ public static class UcliOperationSideEffectDescriptors
             minimumPolicy,
             queryAllowed: true,
             Array.Empty<UcliOperationSideEffectRequiredAssuranceFact>());
-    }
-
-    private static string[] CreateSupportedValues ()
-    {
-        var values = new string[DescriptorsCore.Length];
-        for (var i = 0; i < DescriptorsCore.Length; i++)
-        {
-            values[i] = DescriptorsCore[i].Value;
-        }
-
-        return values;
     }
 
 }
