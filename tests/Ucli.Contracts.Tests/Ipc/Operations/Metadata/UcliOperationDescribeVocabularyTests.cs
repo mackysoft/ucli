@@ -200,35 +200,50 @@ public sealed class UcliOperationDescribeVocabularyTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void SideEffectPolicyMatrix_CoversAllSideEffectLiterals ()
+    public void SideEffectDescriptors_CoverAllSideEffectLiterals ()
     {
         var enumLiterals = Enum
             .GetValues<UcliOperationSideEffect>()
             .Select(UcliOperationSideEffectCodec.ToValue)
             .ToArray();
 
-        Assert.Equal(enumLiterals, UcliOperationSideEffectPolicyMatrix.SupportedValues);
+        Assert.Equal(enumLiterals, UcliOperationSideEffectDescriptors.SupportedValues);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void SideEffectPolicyMatrix_MinimumPolicyFixturesCoverSupportedValues ()
+    public void SideEffectDescriptors_ExposeDescriptorsForSupportedValues ()
+    {
+        var descriptorLiterals = UcliOperationSideEffectDescriptors.All
+            .Select(descriptor => descriptor.Value)
+            .ToArray();
+        var descriptorCodecLiterals = UcliOperationSideEffectDescriptors.All
+            .Select(descriptor => UcliOperationSideEffectCodec.ToValue(descriptor.SideEffect))
+            .ToArray();
+
+        Assert.Equal(UcliOperationSideEffectDescriptors.SupportedValues, descriptorLiterals);
+        Assert.Equal(UcliOperationSideEffectDescriptors.SupportedValues, descriptorCodecLiterals);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void SideEffectDescriptors_MinimumPolicyFixturesCoverSupportedValues ()
     {
         var fixtureLiterals = SideEffectMinimumPolicyCases
             .Select(values => Assert.IsType<string>(values[0]))
             .ToArray();
 
-        Assert.Equal(UcliOperationSideEffectPolicyMatrix.SupportedValues, fixtureLiterals);
+        Assert.Equal(UcliOperationSideEffectDescriptors.SupportedValues, fixtureLiterals);
     }
 
     [Theory]
     [Trait("Size", "Small")]
     [MemberData(nameof(SideEffectMinimumPolicyCases))]
-    public void SideEffectPolicyMatrix_DeclaresMinimumPolicy (
+    public void SideEffectDescriptors_DeclareMinimumPolicy (
         string sideEffect,
         OperationPolicy expectedPolicy)
     {
-        var isSupported = UcliOperationSideEffectPolicyMatrix.TryGetMinimumPolicy(sideEffect, out var policy);
+        var isSupported = UcliOperationSideEffectDescriptors.TryGetMinimumPolicy(sideEffect, out var policy);
 
         Assert.True(isSupported);
         Assert.Equal(expectedPolicy, policy);
@@ -237,36 +252,65 @@ public sealed class UcliOperationDescribeVocabularyTests
     [Theory]
     [Trait("Size", "Small")]
     [MemberData(nameof(SideEffectMinimumPolicyCases))]
-    public void SideEffectPolicyMatrix_DangerousDerivationMatchesMinimumPolicy (
+    public void SideEffectDescriptors_DangerousDerivationMatchesMinimumPolicy (
         string sideEffect,
         OperationPolicy expectedPolicy)
     {
-        var isDangerousSource = UcliOperationSideEffectPolicyMatrix.IsDangerousDerivationSource(sideEffect);
+        var isDangerousSource = UcliOperationSideEffectDescriptors.IsDangerousDerivationSource(sideEffect);
 
         Assert.Equal(expectedPolicy == OperationPolicy.Dangerous, isDangerousSource);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void SideEffectPolicyMatrix_QueryAllowanceFixturesCoverSupportedValues ()
+    public void SideEffectDescriptors_QueryAllowanceFixturesCoverSupportedValues ()
     {
         var fixtureLiterals = SideEffectQueryAllowanceCases
             .Select(values => Assert.IsType<string>(values[0]))
             .ToArray();
 
-        Assert.Equal(UcliOperationSideEffectPolicyMatrix.SupportedValues, fixtureLiterals);
+        Assert.Equal(UcliOperationSideEffectDescriptors.SupportedValues, fixtureLiterals);
     }
 
     [Theory]
     [Trait("Size", "Small")]
     [MemberData(nameof(SideEffectQueryAllowanceCases))]
-    public void SideEffectPolicyMatrix_DeclaresQueryAllowance (
+    public void SideEffectDescriptors_DeclareQueryAllowance (
         string sideEffect,
         bool expectedAllowed)
     {
-        var isAllowed = UcliOperationSideEffectPolicyMatrix.IsAllowedForQuery(sideEffect);
+        var isAllowed = UcliOperationSideEffectDescriptors.IsAllowedForQuery(sideEffect);
 
         Assert.Equal(expectedAllowed, isAllowed);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void SideEffectDescriptors_RequiredAssuranceFactFixturesCoverSupportedValues ()
+    {
+        var fixtureLiterals = SideEffectRequiredAssuranceFactCases
+            .Select(values => Assert.IsType<string>(values[0]))
+            .ToArray();
+
+        Assert.Equal(UcliOperationSideEffectDescriptors.SupportedValues, fixtureLiterals);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [MemberData(nameof(SideEffectRequiredAssuranceFactCases))]
+    public void SideEffectDescriptors_DeclareRequiredAssuranceFacts (
+        string sideEffect,
+        string[] expectedFacts)
+    {
+        var isSupported = UcliOperationSideEffectDescriptors.TryGetDescriptor(sideEffect, out var descriptor);
+
+        Assert.True(isSupported);
+
+        var actualFacts = descriptor!.RequiredAssuranceFacts
+            .Select(FormatRequiredAssuranceFact)
+            .ToArray();
+
+        Assert.Equal(expectedFacts, actualFacts);
     }
 
     public static IEnumerable<object[]> SideEffectMinimumPolicyCases
@@ -320,6 +364,62 @@ public sealed class UcliOperationDescribeVocabularyTests
             yield return new object[] { UcliOperationSideEffectValues.FilesystemWrite, false };
             yield return new object[] { UcliOperationSideEffectValues.ArbitrarySourceExecution, false };
             yield return new object[] { UcliOperationSideEffectValues.DestructiveScope, false };
+        }
+    }
+
+    public static IEnumerable<object[]> SideEffectRequiredAssuranceFactCases
+    {
+        get
+        {
+            yield return new object[] { UcliOperationSideEffectValues.ObservesUnityState, Array.Empty<string>() };
+            yield return new object[] { UcliOperationSideEffectValues.EditorStateChange, Array.Empty<string>() };
+            yield return new object[] { UcliOperationSideEffectValues.OpensSceneInEditor, new[] { "touchedKinds:scene" } };
+            yield return new object[] { UcliOperationSideEffectValues.OpensPrefabStage, new[] { "touchedKinds:prefab" } };
+            yield return new object[] { UcliOperationSideEffectValues.AssetDatabaseRefresh, new[] { "touchedKinds:asset" } };
+            yield return new object[] { UcliOperationSideEffectValues.AssetImport, new[] { "touchedKinds:asset" } };
+            yield return new object[] { UcliOperationSideEffectValues.ScriptCompilation, Array.Empty<string>() };
+            yield return new object[] { UcliOperationSideEffectValues.DomainReload, Array.Empty<string>() };
+            yield return new object[] { UcliOperationSideEffectValues.SceneContentMutation, new[] { "mayDirty=true", "touchedKinds:scene" } };
+            yield return new object[] { UcliOperationSideEffectValues.PrefabContentMutation, new[] { "mayDirty=true", "touchedKinds:prefab" } };
+            yield return new object[] { UcliOperationSideEffectValues.AssetContentMutation, new[] { "mayDirty=true", "touchedKinds:asset" } };
+            yield return new object[] { UcliOperationSideEffectValues.ProjectSettingsMutation, new[] { "mayDirty=true", "touchedKinds:projectSettings" } };
+            yield return new object[] { UcliOperationSideEffectValues.SceneSave, new[] { "mayPersist=true", "touchedKinds:scene" } };
+            yield return new object[] { UcliOperationSideEffectValues.PrefabSave, new[] { "mayPersist=true", "touchedKinds:prefab" } };
+            yield return new object[] { UcliOperationSideEffectValues.AssetSave, new[] { "mayPersist=true", "touchedKinds:asset" } };
+            yield return new object[]
+            {
+                UcliOperationSideEffectValues.ProjectSave,
+                new[]
+                {
+                    "mayPersist=true",
+                    "touchedKinds:scene",
+                    "touchedKinds:prefab",
+                    "touchedKinds:asset",
+                    "touchedKinds:projectSettings",
+                },
+            };
+            yield return new object[] { UcliOperationSideEffectValues.ExternalProcess, Array.Empty<string>() };
+            yield return new object[] { UcliOperationSideEffectValues.FilesystemWrite, new[] { "mayPersist=true" } };
+            yield return new object[] { UcliOperationSideEffectValues.ArbitrarySourceExecution, Array.Empty<string>() };
+            yield return new object[] { UcliOperationSideEffectValues.DestructiveScope, Array.Empty<string>() };
+        }
+    }
+
+    private static string FormatRequiredAssuranceFact (UcliOperationSideEffectRequiredAssuranceFact fact)
+    {
+        switch (fact.Kind)
+        {
+            case UcliOperationSideEffectRequiredAssuranceFactKind.MayDirtyTrue:
+                return "mayDirty=true";
+
+            case UcliOperationSideEffectRequiredAssuranceFactKind.MayPersistTrue:
+                return "mayPersist=true";
+
+            case UcliOperationSideEffectRequiredAssuranceFactKind.TouchedKindIncludes:
+                return $"touchedKinds:{fact.Value}";
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(fact), fact.Kind, "Unsupported required assurance fact kind.");
         }
     }
 }

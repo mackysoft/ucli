@@ -87,7 +87,7 @@ public sealed class UcliOperationPolicyDeriverTests
         Assert.True(result);
         Assert.Equal(OperationPolicy.Dangerous, policy);
         Assert.Empty(errorMessage);
-        Assert.True(UcliOperationSideEffectPolicyMatrix.IsDangerousDerivationSource(sideEffect));
+        Assert.True(UcliOperationSideEffectDescriptors.IsDangerousDerivationSource(sideEffect));
     }
 
     [Fact]

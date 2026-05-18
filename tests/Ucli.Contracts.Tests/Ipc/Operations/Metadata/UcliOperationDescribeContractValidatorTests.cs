@@ -347,6 +347,28 @@ public sealed class UcliOperationDescribeContractValidatorTests
         Assert.Equal("Test contract has an unsupported touched kind 'not-supported'.", errorMessage);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [MemberData(nameof(RequiredAssuranceFactFailureCases))]
+    public void TryValidatePublicRawOpDescribeContract_WhenSideEffectRequiredAssuranceFactIsMissing_ReturnsFalse (
+        string sideEffect,
+        bool mayDirty,
+        bool mayPersist,
+        string[] touchedKinds,
+        string expectedErrorMessage)
+    {
+        var describe = CreateValidDescribeContract();
+        describe.Assurance!.SideEffects = [sideEffect];
+        describe.Assurance.MayDirty = mayDirty;
+        describe.Assurance.MayPersist = mayPersist;
+        describe.Assurance.TouchedKinds = touchedKinds;
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal(expectedErrorMessage, errorMessage);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void TryValidatePublicRawOpDescribeContract_WhenAssurancePlanModeIsUnsupported_ReturnsFalse ()
@@ -625,6 +647,74 @@ public sealed class UcliOperationDescribeContractValidatorTests
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Failure means the observation was not fully produced.",
                 dangerousNotes: Array.Empty<string>()));
+    }
+
+    public static IEnumerable<object[]> RequiredAssuranceFactFailureCases
+    {
+        get
+        {
+            yield return new object[]
+            {
+                UcliOperationSideEffectValues.AssetContentMutation,
+                false,
+                false,
+                new[] { IpcExecuteTouchedResourceKindNames.Asset },
+                "Test contract side effect 'assetContentMutation' requires assurance.mayDirty=true.",
+            };
+            yield return new object[]
+            {
+                UcliOperationSideEffectValues.AssetContentMutation,
+                true,
+                false,
+                Array.Empty<string>(),
+                "Test contract side effect 'assetContentMutation' requires assurance.touchedKinds to include 'asset'.",
+            };
+            yield return new object[]
+            {
+                UcliOperationSideEffectValues.AssetSave,
+                false,
+                false,
+                new[] { IpcExecuteTouchedResourceKindNames.Asset },
+                "Test contract side effect 'assetSave' requires assurance.mayPersist=true.",
+            };
+            yield return new object[]
+            {
+                UcliOperationSideEffectValues.AssetSave,
+                false,
+                true,
+                Array.Empty<string>(),
+                "Test contract side effect 'assetSave' requires assurance.touchedKinds to include 'asset'.",
+            };
+            yield return new object[]
+            {
+                UcliOperationSideEffectValues.FilesystemWrite,
+                false,
+                false,
+                Array.Empty<string>(),
+                "Test contract side effect 'filesystemWrite' requires assurance.mayPersist=true.",
+            };
+            yield return new object[]
+            {
+                UcliOperationSideEffectValues.OpensSceneInEditor,
+                false,
+                false,
+                Array.Empty<string>(),
+                "Test contract side effect 'opensSceneInEditor' requires assurance.touchedKinds to include 'scene'.",
+            };
+            yield return new object[]
+            {
+                UcliOperationSideEffectValues.ProjectSave,
+                false,
+                true,
+                new[]
+                {
+                    IpcExecuteTouchedResourceKindNames.Scene,
+                    IpcExecuteTouchedResourceKindNames.Prefab,
+                    IpcExecuteTouchedResourceKindNames.Asset,
+                },
+                "Test contract side effect 'projectSave' requires assurance.touchedKinds to include 'projectSettings'.",
+            };
+        }
     }
 
     private static UcliOperationCodeContract CreateValidCodeContract ()

@@ -58,7 +58,7 @@ public static class UcliOperationPolicyDeriver
         for (var i = 0; i < assurance.SideEffects.Count; i++)
         {
             var sideEffect = assurance.SideEffects[i];
-            if (!UcliOperationSideEffectPolicyMatrix.TryGetMinimumPolicy(sideEffect, out var sideEffectPolicy))
+            if (!UcliOperationSideEffectDescriptors.TryGetMinimumPolicy(sideEffect, out var sideEffectPolicy))
             {
                 errorMessage = $"Unsupported operation side effect '{sideEffect}'.";
                 return false;

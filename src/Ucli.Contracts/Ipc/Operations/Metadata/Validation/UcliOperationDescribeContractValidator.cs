@@ -450,6 +450,11 @@ internal static class UcliOperationDescribeContractValidator
             }
         }
 
+        if (!TryValidateRequiredAssuranceFacts(assurance, ownerName, out errorMessage))
+        {
+            return false;
+        }
+
         if (!UcliOperationPolicyDeriver.TryDerive(assurance, codeContract, out var derivedPolicy, out var derivationError))
         {
             errorMessage = $"{ownerName} has invalid policy derivation metadata. {derivationError}";
@@ -485,13 +490,85 @@ internal static class UcliOperationDescribeContractValidator
     {
         for (var i = 0; i < sideEffects.Count; i++)
         {
-            if (!UcliOperationSideEffectPolicyMatrix.IsAllowedForQuery(sideEffects[i]))
+            if (!UcliOperationSideEffectDescriptors.IsAllowedForQuery(sideEffects[i]))
             {
                 return false;
             }
         }
 
         return true;
+    }
+
+    private static bool TryValidateRequiredAssuranceFacts (
+        UcliOperationAssuranceContract assurance,
+        string ownerName,
+        out string errorMessage)
+    {
+        for (var i = 0; i < assurance.SideEffects!.Count; i++)
+        {
+            var sideEffect = assurance.SideEffects[i];
+            if (!UcliOperationSideEffectDescriptors.TryGetDescriptor(sideEffect, out var descriptor))
+            {
+                errorMessage = $"{ownerName} has an unsupported side effect '{sideEffect}'.";
+                return false;
+            }
+
+            for (var j = 0; j < descriptor.RequiredAssuranceFacts.Count; j++)
+            {
+                var requiredFact = descriptor.RequiredAssuranceFacts[j];
+                switch (requiredFact.Kind)
+                {
+                    case UcliOperationSideEffectRequiredAssuranceFactKind.MayDirtyTrue:
+                        if (!assurance.MayDirty)
+                        {
+                            errorMessage = $"{ownerName} side effect '{sideEffect}' requires assurance.mayDirty=true.";
+                            return false;
+                        }
+
+                        break;
+
+                    case UcliOperationSideEffectRequiredAssuranceFactKind.MayPersistTrue:
+                        if (!assurance.MayPersist)
+                        {
+                            errorMessage = $"{ownerName} side effect '{sideEffect}' requires assurance.mayPersist=true.";
+                            return false;
+                        }
+
+                        break;
+
+                    case UcliOperationSideEffectRequiredAssuranceFactKind.TouchedKindIncludes:
+                        if (!ContainsTouchedKind(assurance.TouchedKinds!, requiredFact.Value!))
+                        {
+                            errorMessage = $"{ownerName} side effect '{sideEffect}' requires assurance.touchedKinds to include '{requiredFact.Value}'.";
+                            return false;
+                        }
+
+                        break;
+
+                    default:
+                        errorMessage = $"{ownerName} side effect '{sideEffect}' has an unsupported required assurance fact.";
+                        return false;
+                }
+            }
+        }
+
+        errorMessage = string.Empty;
+        return true;
+    }
+
+    private static bool ContainsTouchedKind (
+        IReadOnlyList<string> touchedKinds,
+        string requiredTouchedKind)
+    {
+        for (var i = 0; i < touchedKinds.Count; i++)
+        {
+            if (string.Equals(touchedKinds[i], requiredTouchedKind, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool TryValidateCodeContract (
@@ -934,7 +1011,7 @@ internal static class UcliOperationDescribeContractValidator
 
     private static bool IsSupportedSideEffect (string? sideEffect)
     {
-        return UcliOperationSideEffectPolicyMatrix.TryGetMinimumPolicy(sideEffect, out _);
+        return UcliOperationSideEffectDescriptors.TryGetMinimumPolicy(sideEffect, out _);
     }
 
     private static bool IsSupportedTouchedKind (string? touchedKind)

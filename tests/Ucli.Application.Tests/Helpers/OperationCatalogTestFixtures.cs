@@ -68,7 +68,7 @@ internal static class OperationCatalogTestFixtures
                 sideEffects: [UcliOperationSideEffectValues.SceneSave],
                 mayDirty: false,
                 mayPersist: true,
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds: [IpcExecuteTouchedResourceKindNames.Scene],
                 planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
                 planSemantics: "Observe save-relevant project state without writing project files.",
                 callSemantics: "Persist save-relevant Unity state.",

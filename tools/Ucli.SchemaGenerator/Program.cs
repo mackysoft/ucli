@@ -662,7 +662,7 @@ internal static class Program
         return ObjectSchema(
             additionalProperties: false,
             Required("sideEffects", ArraySchema(EnumSchema(
-                UcliOperationSideEffectPolicyMatrix.SupportedValues.ToArray()))),
+                UcliOperationSideEffectDescriptors.SupportedValues.ToArray()))),
             Required("mayDirty", BooleanSchema()),
             Required("mayPersist", BooleanSchema()),
             Required("touchedKinds", ArraySchema(EnumSchema(
