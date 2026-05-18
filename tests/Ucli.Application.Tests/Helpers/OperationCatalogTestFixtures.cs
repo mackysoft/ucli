@@ -65,10 +65,8 @@ internal static class OperationCatalogTestFixtures
             Inputs = Array.Empty<UcliOperationInputContract>(),
             ResultContract = UcliOperationResultContract.NoResult("No operation-specific result is emitted."),
             Assurance = new UcliOperationAssuranceContract(
-                sideEffects: Array.Empty<string>(),
-                mayDirty: false,
-                mayPersist: true,
-                touchedKinds: Array.Empty<string>(),
+                sideEffects: [UcliOperationSideEffectValues.SceneSave],
+                touchedKinds: [IpcExecuteTouchedResourceKindNames.Scene],
                 planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
                 planSemantics: "Observe save-relevant project state without writing project files.",
                 callSemantics: "Persist save-relevant Unity state.",
@@ -79,12 +77,41 @@ internal static class OperationCatalogTestFixtures
         };
     }
 
+    public static IndexOpEntryJsonContract CreateCsEvalEntry (string? name = null)
+    {
+        return new IndexOpEntryJsonContract(
+            Name: name ?? UcliPrimitiveOperationNames.CsEval,
+            Kind: "mutation",
+            Policy: "dangerous",
+            ArgsSchemaJson: """{"type":"object"}""",
+            ResultSchemaJson: """{"type":"object"}""")
+        {
+            Description = "Executes arbitrary C# source inside the Unity Editor process.",
+            Inputs = Array.Empty<UcliOperationInputContract>(),
+            ResultContract = UcliOperationResultContract.One<object>("C# evaluation result."),
+            Assurance = new UcliOperationAssuranceContract(
+                sideEffects:
+                [
+                    UcliOperationSideEffectValues.ArbitrarySourceExecution,
+                    UcliOperationSideEffectValues.ExternalProcess,
+                    UcliOperationSideEffectValues.FilesystemWrite,
+                    UcliOperationSideEffectValues.DestructiveScope,
+                ],
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanModeValues.ValidationOnly,
+                planSemantics: "Validate source shape without executing user code.",
+                callSemantics: "Compile and execute caller-provided C# source.",
+                touchedContract: "Touched resources are reported only when declared by the executed source.",
+                readPostconditionContract: "Arbitrary source execution can affect read surfaces outside the public raw contract.",
+                failureSemantics: "Execution failure may leave effects caused by arbitrary source before the failure.",
+                dangerousNotes: ["This operation permits arbitrary source execution."]),
+        };
+    }
+
     private static UcliOperationAssuranceContract CreateSafeQueryAssurance ()
     {
         return new UcliOperationAssuranceContract(
-            sideEffects: Array.Empty<string>(),
-            mayDirty: false,
-            mayPersist: false,
+            sideEffects: [UcliOperationSideEffectValues.ObservesUnityState],
             touchedKinds: Array.Empty<string>(),
             planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
             planSemantics: "Validate arguments and observe Unity state without applying mutation.",

@@ -20,18 +20,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.ProjectSave,
             kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced,
             description: "Saves dirty project assets, scenes, and prefab stages known to uCLI.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[]
                 {
-                    UcliOperationSideEffect.WritesAsset,
-                    UcliOperationSideEffect.WritesScene,
-                    UcliOperationSideEffect.WritesPrefab,
-                    UcliOperationSideEffect.WritesProjectSettings,
+                    UcliOperationSideEffect.SceneSave,
+                    UcliOperationSideEffect.PrefabSave,
+                    UcliOperationSideEffect.AssetSave,
+                    UcliOperationSideEffect.ProjectSave,
                 },
-                mayDirty: false,
-                mayPersist: true,
                 touchedKinds: new[]
                 {
                     IpcExecuteTouchedResourceKindNames.Scene,

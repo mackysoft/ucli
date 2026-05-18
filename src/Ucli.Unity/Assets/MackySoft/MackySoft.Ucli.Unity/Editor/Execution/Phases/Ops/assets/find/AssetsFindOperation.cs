@@ -18,12 +18,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AssetsFindArgs, AssetsFindResult>(
             operationName: UcliPrimitiveOperationNames.AssetsFind,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
             description: "Finds project assets by type, path prefix, or name substring.",
             assurance: new UcliOperationAssuranceContract(
-                sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
+                sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
                 touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate asset query arguments and observe matching project assets without applying mutation.",
@@ -62,7 +59,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(Execute(operation, args, executionContext, applied: true, includeTemporaryState: false));
+            return Task.FromResult(Execute(operation, args, executionContext, applied: false, includeTemporaryState: false));
         }
 
         private static OperationPhaseStepResult Execute (

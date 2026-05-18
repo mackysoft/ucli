@@ -164,8 +164,15 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
                     context,
                     operationName,
                     describeResult.ReadFailure!.Message,
-                    cancellationToken)
+                cancellationToken)
                 .ConfigureAwait(false);
+        }
+
+        if (!PublicRawOperationCatalogFilter.Includes(describeResult.Operation!))
+        {
+            return OpsDescribeReadResult.Failure(
+                $"Operation '{operationName}' is not available.",
+                UcliCoreErrorCodes.InvalidArgument);
         }
 
         return OpsDescribeReadResult.Success(
