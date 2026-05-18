@@ -143,10 +143,10 @@ public static class UcliOperationSideEffectDescriptors
     /// <summary> Gets a value indicating whether the side effect can be declared by a query operation. </summary>
     /// <param name="sideEffect"> The side-effect literal. </param>
     /// <returns> <see langword="true" /> when the side effect is query-compatible; otherwise <see langword="false" />. </returns>
-    internal static bool IsAllowedForQuery (string? sideEffect)
+    internal static bool IsAllowedForQueryOperation (string? sideEffect)
     {
         return TryGetDescriptor(sideEffect, out var descriptor)
-            && descriptor.QueryAllowed;
+            && descriptor.AllowedForQueryOperation;
     }
 
     private static UcliOperationSideEffectDescriptor Define (
@@ -157,7 +157,7 @@ public static class UcliOperationSideEffectDescriptors
         return new UcliOperationSideEffectDescriptor(
             sideEffect,
             minimumPolicy,
-            queryAllowed: false,
+            allowedForQueryOperation: false,
             requiredAssuranceFacts);
     }
 
@@ -168,7 +168,7 @@ public static class UcliOperationSideEffectDescriptors
         return new UcliOperationSideEffectDescriptor(
             sideEffect,
             minimumPolicy,
-            queryAllowed: true,
+            allowedForQueryOperation: true,
             Array.Empty<UcliOperationSideEffectRequiredAssuranceFact>());
     }
 

@@ -521,7 +521,7 @@ internal static class UcliOperationDescribeContractValidator
     {
         for (var i = 0; i < sideEffects.Count; i++)
         {
-            if (!UcliOperationSideEffectDescriptors.IsAllowedForQuery(sideEffects[i]))
+            if (!UcliOperationSideEffectDescriptors.IsAllowedForQueryOperation(sideEffects[i]))
             {
                 return false;
             }

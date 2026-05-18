@@ -8,18 +8,18 @@ internal sealed class UcliOperationSideEffectDescriptor
     /// <summary> Initializes a new instance of the <see cref="UcliOperationSideEffectDescriptor" /> class. </summary>
     /// <param name="sideEffect"> The side-effect enum value. </param>
     /// <param name="minimumPolicy"> The minimum operation policy required by the side effect. </param>
-    /// <param name="queryAllowed"> Whether a query operation can declare the side effect. </param>
+    /// <param name="allowedForQueryOperation"> Whether a query operation can declare the side effect. </param>
     /// <param name="requiredAssuranceFacts"> The assurance facts required when this side effect is declared. </param>
     internal UcliOperationSideEffectDescriptor (
         UcliOperationSideEffect sideEffect,
         OperationPolicy minimumPolicy,
-        bool queryAllowed,
+        bool allowedForQueryOperation,
         IReadOnlyList<UcliOperationSideEffectRequiredAssuranceFact> requiredAssuranceFacts)
     {
         SideEffect = sideEffect;
         Value = UcliOperationSideEffectCodec.ToValue(sideEffect);
         MinimumPolicy = minimumPolicy;
-        QueryAllowed = queryAllowed;
+        AllowedForQueryOperation = allowedForQueryOperation;
         RequiredAssuranceFacts = Array.AsReadOnly(CopyRequiredAssuranceFacts(requiredAssuranceFacts));
     }
 
@@ -33,7 +33,7 @@ internal sealed class UcliOperationSideEffectDescriptor
     public OperationPolicy MinimumPolicy { get; }
 
     /// <summary> Gets a value indicating whether a query operation can declare the side effect. </summary>
-    public bool QueryAllowed { get; }
+    public bool AllowedForQueryOperation { get; }
 
     /// <summary> Gets the assurance facts required when this side effect is declared. </summary>
     public IReadOnlyList<UcliOperationSideEffectRequiredAssuranceFact> RequiredAssuranceFacts { get; }

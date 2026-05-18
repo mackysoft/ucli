@@ -292,7 +292,7 @@ public sealed class UcliOperationDescribeVocabularyTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void SideEffectDescriptors_QueryAllowanceFixturesCoverSupportedValues ()
+    public void SideEffectDescriptors_QueryOperationAllowanceFixturesCoverSupportedValues ()
     {
         var fixtureLiterals = SideEffectQueryAllowanceCases
             .Select(values => Assert.IsType<string>(values[0]))
@@ -304,11 +304,11 @@ public sealed class UcliOperationDescribeVocabularyTests
     [Theory]
     [Trait("Size", "Small")]
     [MemberData(nameof(SideEffectQueryAllowanceCases))]
-    public void SideEffectDescriptors_DeclareQueryAllowance (
+    public void SideEffectDescriptors_DeclareQueryOperationAllowance (
         string sideEffect,
         bool expectedAllowed)
     {
-        var isAllowed = UcliOperationSideEffectDescriptors.IsAllowedForQuery(sideEffect);
+        var isAllowed = UcliOperationSideEffectDescriptors.IsAllowedForQueryOperation(sideEffect);
 
         Assert.Equal(expectedAllowed, isAllowed);
     }
