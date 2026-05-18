@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Common.Projection;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -49,6 +50,11 @@ internal static class PlanCommandResultFactory
             ["opResults"] = output.OpResults,
             ["readIndex"] = ReadIndexInfoPayloadProjector.Create(output.ReadIndex),
         };
+
+        if (output.ContractViolations.Count != 0)
+        {
+            payload["contractViolations"] = output.ContractViolations;
+        }
 
         if (string.IsNullOrWhiteSpace(output.PlanToken))
         {

@@ -40,9 +40,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var preparedOperation = preparedOperations[i];
+                var contractFacts = OperationPhaseTrace.ContractFacts.FromMetadata(preparedOperation.PhaseOperation.Metadata);
                 if (hasFailed)
                 {
-                    operationTraces.Add(OperationPhaseExecutionUtilities.CreateSkippedTrace(preparedOperation.Operation));
+                    operationTraces.Add(OperationPhaseExecutionUtilities.CreateSkippedTrace(preparedOperation.Operation) with
+                    {
+                        Contracts = contractFacts,
+                    });
                     continue;
                 }
 
@@ -79,6 +83,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                             Result = replayedPlanStepResult.Result,
                             ReadInvalidations = replayedPlanStepResult.ReadInvalidations,
                             Diagnostics = diagnostics.ToArray(),
+                            Contracts = contractFacts,
                         });
                         errors.Add(replayedPlanStepResult.Failure!);
                         hasFailed = true;
@@ -111,6 +116,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         Result = callStepResult.Result,
                         ReadInvalidations = callStepResult.ReadInvalidations,
                         Diagnostics = diagnosticsSnapshot,
+                        Contracts = contractFacts,
                     });
                     errors.Add(callStepResult.Failure!);
                     hasFailed = true;
@@ -129,6 +135,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     Result = callStepResult.Result,
                     ReadInvalidations = callStepResult.ReadInvalidations,
                     Diagnostics = diagnosticsSnapshot,
+                    Contracts = contractFacts,
                 });
             }
 

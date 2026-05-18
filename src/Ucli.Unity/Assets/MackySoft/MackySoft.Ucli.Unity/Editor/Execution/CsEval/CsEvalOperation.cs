@@ -162,23 +162,39 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         private static UcliOperationMetadata CreateMetadata ()
         {
             var assurance = new UcliOperationAssuranceContract(
-                new[]
+                sideEffects: new[]
                 {
-                    UcliOperationSideEffect.WritesAsset,
-                    UcliOperationSideEffect.WritesScene,
-                    UcliOperationSideEffect.WritesPrefab,
-                    UcliOperationSideEffect.WritesProjectSettings,
+                    UcliOperationSideEffect.SceneContentMutation,
+                    UcliOperationSideEffect.PrefabContentMutation,
+                    UcliOperationSideEffect.AssetContentMutation,
+                    UcliOperationSideEffect.ProjectSettingsMutation,
+                    UcliOperationSideEffect.SceneSave,
+                    UcliOperationSideEffect.PrefabSave,
+                    UcliOperationSideEffect.AssetSave,
+                    UcliOperationSideEffect.ProjectSave,
+                    UcliOperationSideEffect.ExternalProcess,
+                    UcliOperationSideEffect.FilesystemWrite,
+                    UcliOperationSideEffect.ArbitrarySourceExecution,
+                    UcliOperationSideEffect.DestructiveScope,
                 },
-                mayDirty: true,
-                mayPersist: true,
-                new[]
+                touchedKinds: new[]
                 {
                     IpcExecuteTouchedResourceKindNames.Scene,
                     IpcExecuteTouchedResourceKindNames.Prefab,
                     IpcExecuteTouchedResourceKindNames.Asset,
                     IpcExecuteTouchedResourceKindNames.ProjectSettings,
                 },
-                UcliOperationPlanMode.ObservesLiveUnity);
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Compile the supplied C# source and validate the required entry point without invoking user code.",
+                callSemantics: "Compile, emit, load, and execute the user C# entry point inside the Unity Editor process.",
+                touchedContract: "Reports touched resources declared by user code through the eval context; declarations are caller-controlled and are not a complete guarantee of all Unity state changes.",
+                readPostconditionContract: "Scene, prefab, asset, ProjectSettings, and readIndex surfaces may be stale after eval execution regardless of declared touched resources.",
+                failureSemantics: "Compilation and entry-point failures occur before user code runs; once synchronous user code is invoked it cannot be forcibly stopped until it returns or throws.",
+                dangerousNotes: new[]
+                {
+                    "Executes user C# inside the Unity Editor process and can mutate project state outside declared touched resources.",
+                    "Synchronous user code cannot be forcibly stopped while it is executing.",
+                });
             var describe = UcliOperationDescribeContractBuilder.Create<CsEvalArgs, CsEvalResult>(
                 "Compiles and executes a C# source unit in the Unity editor process as a dangerous eval operation.",
                 assurance);
@@ -202,7 +218,6 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             return UcliOperationMetadata.Create<CsEvalArgs, CsEvalResult>(
                 operationName: UcliPrimitiveOperationNames.CsEval,
                 kind: UcliOperationKind.Mutation,
-                policy: OperationPolicy.Dangerous,
                 describeContract: describe,
                 requiresPreCallPlanReplay: true);
         }

@@ -161,7 +161,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var callResult = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
             AssertQuerySuccess(planResult, applied: false);
-            AssertQuerySuccess(callResult, applied: true);
+            AssertQuerySuccess(callResult, applied: false);
             var plannedMatches = GetMatches(planResult);
             var liveMatches = GetMatches(callResult);
             Assert.That(plannedMatches.Count, Is.EqualTo(2));
@@ -232,7 +232,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
-            AssertQuerySuccess(result, applied: true);
+            AssertQuerySuccess(result, applied: false);
             var matches = GetMatches(result);
             Assert.That(matches.Count, Is.EqualTo(1));
             Assert.That(matches[0].AssetPath, Is.EqualTo(assetPath));
@@ -258,7 +258,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
-            AssertQuerySuccess(result, applied: true);
+            AssertQuerySuccess(result, applied: false);
             var matches = GetMatches(result);
             Assert.That(matches.Count, Is.EqualTo(1));
             Assert.That(matches[0].AssetPath, Is.EqualTo(assetPath));
@@ -325,7 +325,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var callResult = await findOperation.CallAsync(findRequest, context, CancellationToken.None);
 
             Assert.That(createResult.IsSuccess, Is.True, createResult.Failure?.Message);
-            AssertQuerySuccess(callResult, applied: true);
+            AssertQuerySuccess(callResult, applied: false);
             Assert.That(GetMatches(callResult), Is.Empty);
         });
 
@@ -406,7 +406,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var callResult = await findOperation.CallAsync(findRequest, context, CancellationToken.None);
 
             Assert.That(setResult.IsSuccess, Is.True, setResult.Failure?.Message);
-            AssertQuerySuccess(callResult, applied: true);
+            AssertQuerySuccess(callResult, applied: false);
             Assert.That(asset.name, Is.EqualTo($"Before-{token}"));
             Assert.That(GetMatches(callResult), Is.Empty);
         });
@@ -510,7 +510,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
-            AssertQuerySuccess(result, applied: true);
+            AssertQuerySuccess(result, applied: false);
             var matches = GetMatches(result);
             Assert.That(matches.Count, Is.EqualTo(2));
             Assert.That(matches[0].AssetPath, Is.EqualTo(prefabPath));

@@ -15,7 +15,7 @@ internal static class EditorLifecycleErrorCodeDescriptors
         UcliCommandIds.TestRun,
     ];
 
-    public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
+    public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
         CreateTransient(
             EditorLifecycleErrorCodes.EditorStarting,
@@ -53,7 +53,7 @@ internal static class EditorLifecycleErrorCodeDescriptors
             "Asset refresh or reimport work is active, so Unity cannot reliably accept execution requests until the Editor returns to a ready state.",
             "readinessWait"),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: EditorLifecycleErrorCodes.EditorCompileFailed,
             category: "lifecycle",
             summary: "Unity script compilation failed.",
@@ -76,7 +76,7 @@ internal static class EditorLifecycleErrorCodeDescriptors
                 EditorLifecycleErrorCodes.EditorSafeMode,
             ]),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: EditorLifecycleErrorCodes.EditorPlaymode,
             category: "lifecycle",
             summary: "Unity Editor is in Play Mode.",
@@ -102,7 +102,7 @@ internal static class EditorLifecycleErrorCodeDescriptors
                 PlayModeErrorCodes.PlayModePersistenceForbidden,
             ]),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: EditorLifecycleErrorCodes.EditorModalBlocked,
             category: "lifecycle",
             summary: "A modal dialog blocks Unity Editor execution.",
@@ -121,7 +121,7 @@ internal static class EditorLifecycleErrorCodeDescriptors
             ],
             relatedCodes: [EditorLifecycleErrorCodes.EditorBusy]),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: EditorLifecycleErrorCodes.EditorSafeMode,
             category: "lifecycle",
             summary: "Unity Editor is in Safe Mode.",
@@ -140,7 +140,7 @@ internal static class EditorLifecycleErrorCodeDescriptors
             ],
             relatedCodes: [EditorLifecycleErrorCodes.EditorCompiling]),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: EditorLifecycleErrorCodes.EditorShuttingDown,
             category: "lifecycle",
             summary: "Unity Editor shutdown is in progress.",
@@ -159,7 +159,7 @@ internal static class EditorLifecycleErrorCodeDescriptors
             ],
             relatedCodes: null),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: EditorLifecycleErrorCodes.EditorUnavailable,
             category: "lifecycle",
             summary: "Unity Editor lifecycle state is unavailable.",
@@ -184,13 +184,13 @@ internal static class EditorLifecycleErrorCodeDescriptors
             ]),
     ];
 
-    private static UcliErrorCodeDescriptor CreateTransient (
-        UcliErrorCode code,
+    private static UcliErrorDescriptor CreateTransient (
+        UcliCode code,
         string summary,
         string meaning,
         string phase)
     {
-        return UcliErrorCodeDescriptorFactory.Create(
+        return UcliErrorDescriptorFactory.Create(
             code: code,
             category: "lifecycle",
             summary: summary,

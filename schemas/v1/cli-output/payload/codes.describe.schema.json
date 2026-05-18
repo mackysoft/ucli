@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/codes.describe.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "type": "string"
+    },
+    "known": {
+      "type": "boolean"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "meaning": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "appearsIn": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "appliesTo": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "coverageImpact": {
+      "type": "object"
+    },
+    "verdictSemantics": {
+      "type": "object"
+    },
+    "executionSemantics": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "inspect": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "relatedCodes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "code",
+    "known",
+    "kind",
+    "category",
+    "summary",
+    "meaning",
+    "appearsIn",
+    "appliesTo",
+    "executionSemantics",
+    "inspect",
+    "relatedCodes"
+  ]
+}

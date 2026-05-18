@@ -150,7 +150,12 @@ internal static class IndexCatalogContractValidator
             entry.ResultContract,
             entry.Assurance,
             entry.CodeContract);
-        if (!UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describeContract, $"Operation entry '{entry.Name}'", out var inputError))
+        if (!UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
+                describeContract,
+                entry.Kind,
+                entry.Policy,
+                $"Operation entry '{entry.Name}'",
+                out var inputError))
         {
             error = inputError;
             return false;

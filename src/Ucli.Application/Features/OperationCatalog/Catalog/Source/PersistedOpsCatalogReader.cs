@@ -158,7 +158,7 @@ internal sealed class PersistedOpsCatalogReader : IPersistedOpsCatalogReader
             error.Message);
     }
 
-    private static PersistedOpsCatalogReadFailureKind ClassifyArtifactFailure (UcliErrorCode errorCode)
+    private static PersistedOpsCatalogReadFailureKind ClassifyArtifactFailure (UcliCode errorCode)
     {
         if (errorCode == UcliCoreErrorCodes.InvalidArgument)
         {

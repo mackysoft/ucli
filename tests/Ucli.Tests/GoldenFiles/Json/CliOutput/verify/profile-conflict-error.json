@@ -1,0 +1,21 @@
+{
+  "protocolVersion": 1,
+  "command": "verify",
+  "status": "error",
+  "exitCode": 3,
+  "message": "--profile and --profilePath cannot be specified together.",
+  "payload": {
+    "project": {
+      "projectPath": "<projectPath>",
+      "projectFingerprint": "<projectFingerprint>",
+      "unityVersion": "<unityVersion>"
+    }
+  },
+  "errors": [
+    {
+      "code": "INVALID_ARGUMENT",
+      "message": "--profile and --profilePath cannot be specified together.",
+      "opId": null
+    }
+  ]
+}

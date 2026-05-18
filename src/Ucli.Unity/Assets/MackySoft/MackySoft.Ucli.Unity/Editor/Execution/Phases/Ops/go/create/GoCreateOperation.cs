@@ -18,14 +18,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<GoCreateArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.GoCreate,
             kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced,
             description: "Creates a GameObject in a scene or under an existing parent.",
             assurance: new UcliOperationAssuranceContract(
-                new[] { UcliOperationSideEffect.WritesScene, UcliOperationSideEffect.WritesPrefab },
-                mayDirty: true,
-                mayPersist: false,
-                new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
-                UcliOperationPlanMode.MayCreatePreviewState));
+                sideEffects: new[] { UcliOperationSideEffect.SceneContentMutation, UcliOperationSideEffect.PrefabContentMutation },
+                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                planMode: UcliOperationPlanMode.MayCreatePreviewState,
+                planSemantics: "Validate the parent target and compute preview hierarchy changes without persisting project data.",
+                callSemantics: "Create the GameObject in live Unity state and leave saving to explicit save operations.",
+                touchedContract: "Reports the scene or prefab resource dirtied by the hierarchy mutation when the target can be resolved.",
+                readPostconditionContract: "Scene, prefab, and hierarchy read surfaces covering touched resources may be stale until refreshed.",
+                failureSemantics: "Failure before apply leaves no requested mutation; failure during apply may leave live Unity state partially changed.",
+                dangerousNotes: new[] { "This operation can dirty scene or prefab hierarchy state without persisting it; callers must save or discard changes explicitly." }));
 
         /// <summary> Executes validate phase for <c>ucli.go.create</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

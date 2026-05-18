@@ -151,7 +151,13 @@ internal sealed class OpsDescribeResultMapper : IOpsDescribeResultMapper
         if (operation.Assurance == null
             || operation.Assurance.SideEffects == null
             || operation.Assurance.TouchedKinds == null
-            || string.IsNullOrWhiteSpace(operation.Assurance.PlanMode))
+            || operation.Assurance.DangerousNotes == null
+            || string.IsNullOrWhiteSpace(operation.Assurance.PlanMode)
+            || string.IsNullOrWhiteSpace(operation.Assurance.PlanSemantics)
+            || string.IsNullOrWhiteSpace(operation.Assurance.CallSemantics)
+            || string.IsNullOrWhiteSpace(operation.Assurance.TouchedContract)
+            || string.IsNullOrWhiteSpace(operation.Assurance.ReadPostconditionContract)
+            || string.IsNullOrWhiteSpace(operation.Assurance.FailureSemantics))
         {
             error = "assurance is incomplete.";
             return false;
@@ -163,7 +169,12 @@ internal sealed class OpsDescribeResultMapper : IOpsDescribeResultMapper
             operation.ResultContract,
             operation.Assurance,
             operation.CodeContract);
-        if (!UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describeContract, "operation", out var describeError))
+        if (!UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
+                describeContract,
+                operation.Kind,
+                operation.Policy,
+                "operation",
+                out var describeError))
         {
             error = describeError;
             return false;

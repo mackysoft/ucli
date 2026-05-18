@@ -1,3 +1,13 @@
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Artifacts;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Catalog;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Execution;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Semantics;
+using MackySoft.Ucli.Application.Features.Assurance.Ready;
+using MackySoft.Ucli.Application.Features.Assurance.Semantics;
+using MackySoft.Ucli.Application.Features.Assurance.Verify.Catalog;
+using MackySoft.Ucli.Application.Features.Assurance.Verify.Contracts;
+using MackySoft.Ucli.Application.Features.Assurance.Verify.Execution;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
@@ -64,6 +74,7 @@ public static class UcliApplicationServiceCollectionExtensions
 
         services.AddUcliApplicationSharedServices();
         services.AddUcliApplicationCodeCatalogServices();
+        services.AddUcliApplicationAssuranceServices();
         services.AddUcliApplicationRequestServices();
         services.AddUcliApplicationOperationCatalogServices();
         services.AddUcliApplicationDaemonServices();
@@ -89,8 +100,23 @@ public static class UcliApplicationServiceCollectionExtensions
     {
         services.AddSingleton<ICodeCatalogContributor, ContractsCodeCatalogContributor>();
         services.AddSingleton<ICodeCatalogContributor, ApplicationCodeCatalogContributor>();
+        services.AddSingleton<ICodeCatalogContributor, ReadyCodeCatalogContributor>();
+        services.AddSingleton<ICodeCatalogContributor, CompileCodeCatalogContributor>();
+        services.AddSingleton<ICodeCatalogContributor, VerifyCodeCatalogContributor>();
         services.AddSingleton<ICodeCatalog, CodeCatalog>();
         services.AddSingleton<ICodeCatalogService, CodeCatalogService>();
+        return services;
+    }
+
+    private static IServiceCollection AddUcliApplicationAssuranceServices (this IServiceCollection services)
+    {
+        services.AddSingleton<IAssuranceSemanticInvariantRule, ReadyAssuranceSemanticInvariantRule>();
+        services.AddSingleton<IAssuranceSemanticInvariantRule, CompileAssuranceSemanticInvariantRule>();
+        services.AddSingleton<AssuranceSemanticInvariantValidator>();
+        services.AddSingleton<ICompileRunIdFactory, CompileRunIdFactory>();
+        services.AddSingleton<ICompileService, CompileService>();
+        services.AddSingleton<IReadyService, ReadyService>();
+        services.AddSingleton<IVerifyService, VerifyService>();
         return services;
     }
 

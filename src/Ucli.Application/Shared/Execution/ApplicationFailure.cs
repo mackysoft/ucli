@@ -15,7 +15,7 @@ internal sealed record ApplicationFailure
     public ApplicationFailure (
         ApplicationFailureKind kind,
         ApplicationOutcome outcome,
-        UcliErrorCode code,
+        UcliCode code,
         string message,
         string? opId = null,
         StartupFailureDetail? startupFailure = null)
@@ -48,7 +48,7 @@ internal sealed record ApplicationFailure
     public ApplicationOutcome Outcome { get; }
 
     /// <summary> Gets the machine-readable failure code. </summary>
-    public UcliErrorCode Code { get; }
+    public UcliCode Code { get; }
 
     /// <summary> Gets the user-facing failure message. </summary>
     public string Message { get; }
@@ -63,7 +63,7 @@ internal sealed record ApplicationFailure
     public static ApplicationFailure Create (
         ApplicationFailureKind kind,
         string message,
-        UcliErrorCode? code = null,
+        UcliCode? code = null,
         string? opId = null,
         ApplicationOutcome? outcome = null,
         StartupFailureDetail? startupFailure = null)
@@ -81,7 +81,7 @@ internal sealed record ApplicationFailure
     /// <summary> Creates an invalid-input failure. </summary>
     public static ApplicationFailure InvalidInput (
         string message,
-        UcliErrorCode? code = null,
+        UcliCode? code = null,
         string? opId = null,
         StartupFailureDetail? startupFailure = null)
     {
@@ -91,7 +91,7 @@ internal sealed record ApplicationFailure
     /// <summary> Creates a configuration failure. </summary>
     public static ApplicationFailure ConfigurationError (
         string message,
-        UcliErrorCode? code = null,
+        UcliCode? code = null,
         string? opId = null)
     {
         return Create(ApplicationFailureKind.ConfigurationError, message, code, opId);
@@ -100,7 +100,7 @@ internal sealed record ApplicationFailure
     /// <summary> Creates an environment failure. </summary>
     public static ApplicationFailure EnvironmentError (
         string message,
-        UcliErrorCode? code = null,
+        UcliCode? code = null,
         string? opId = null)
     {
         return Create(ApplicationFailureKind.EnvironmentError, message, code, opId);
@@ -109,7 +109,7 @@ internal sealed record ApplicationFailure
     /// <summary> Creates a Unity IPC failure. </summary>
     public static ApplicationFailure UnityIpcFailure (
         string message,
-        UcliErrorCode? code = null,
+        UcliCode? code = null,
         string? opId = null,
         StartupFailureDetail? startupFailure = null)
     {
@@ -119,7 +119,7 @@ internal sealed record ApplicationFailure
     /// <summary> Creates an external-process failure. </summary>
     public static ApplicationFailure ExternalProcessFailure (
         string message,
-        UcliErrorCode? code = null,
+        UcliCode? code = null,
         string? opId = null,
         ApplicationOutcome? outcome = null,
         StartupFailureDetail? startupFailure = null)
@@ -130,7 +130,7 @@ internal sealed record ApplicationFailure
     /// <summary> Creates a contract-violation failure. </summary>
     public static ApplicationFailure ContractViolation (
         string message,
-        UcliErrorCode? code = null,
+        UcliCode? code = null,
         string? opId = null,
         StartupFailureDetail? startupFailure = null)
     {
@@ -140,7 +140,7 @@ internal sealed record ApplicationFailure
     /// <summary> Creates a timeout failure. </summary>
     public static ApplicationFailure Timeout (
         string message,
-        UcliErrorCode? code = null,
+        UcliCode? code = null,
         string? opId = null,
         StartupFailureDetail? startupFailure = null)
     {
@@ -150,7 +150,7 @@ internal sealed record ApplicationFailure
     /// <summary> Creates a canceled failure. </summary>
     public static ApplicationFailure Canceled (
         string message,
-        UcliErrorCode? code = null,
+        UcliCode? code = null,
         string? opId = null)
     {
         return Create(ApplicationFailureKind.Canceled, message, code, opId);
@@ -159,7 +159,7 @@ internal sealed record ApplicationFailure
     /// <summary> Creates an internal failure. </summary>
     public static ApplicationFailure InternalError (
         string message,
-        UcliErrorCode? code = null,
+        UcliCode? code = null,
         string? opId = null,
         StartupFailureDetail? startupFailure = null)
     {
@@ -169,7 +169,7 @@ internal sealed record ApplicationFailure
     /// <summary> Creates a failure from a structured execution error. </summary>
     public static ApplicationFailure FromExecutionError (
         ExecutionError error,
-        UcliErrorCode? code = null,
+        UcliCode? code = null,
         string? opId = null,
         StartupFailureDetail? startupFailure = null)
     {
@@ -191,7 +191,7 @@ internal sealed record ApplicationFailure
 
     /// <summary> Creates a failure by classifying an existing machine-readable code. </summary>
     public static ApplicationFailure FromCode (
-        UcliErrorCode? code,
+        UcliCode? code,
         string message,
         string? opId = null,
         StartupFailureDetail? startupFailure = null)
@@ -223,9 +223,9 @@ internal sealed record ApplicationFailure
         return ContractViolation(message, resolvedCode, opId, startupFailure);
     }
 
-    private static UcliErrorCode ResolveCode (
+    private static UcliCode ResolveCode (
         ApplicationFailureKind kind,
-        UcliErrorCode? code)
+        UcliCode? code)
     {
         if (code.HasValue && code.Value.IsValid)
         {

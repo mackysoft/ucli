@@ -1,4 +1,5 @@
 using ConsoleAppFramework;
+using MackySoft.Ucli.Hosting.Cli.Assurance;
 using MackySoft.Ucli.Hosting.Cli.Codes;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Tokens;
@@ -20,6 +21,9 @@ internal static class UcliCommandCatalog
     [
         UcliCommandNames.Init,
         UcliCommandNames.Status,
+        UcliCommandNames.Ready,
+        UcliCommandNames.Compile,
+        UcliCommandNames.Verify,
         UcliCommandNames.Refresh,
         UcliCommandNames.Resolve,
         UcliCommandNames.Validate,
@@ -149,6 +153,9 @@ internal static class UcliCommandCatalog
 
         app.Add<InitCommand>();
         app.Add<StatusCommand>();
+        app.Add<ReadyCommand>();
+        app.Add<CompileCommand>();
+        app.Add<VerifyCommand>();
         app.Add<RefreshCommand>();
         app.Add<ResolveCommand>();
         app.Add<QueryAssetsFindCommand>("query assets");

@@ -123,7 +123,7 @@ internal static class UnityIpcFailureClassifier
     /// <param name="message"> The user-facing failure message. </param>
     /// <returns> The classified Unity request failure. </returns>
     public static UnityRequestFailure FromCodeAndMessage (
-        UcliErrorCode code,
+        UcliCode code,
         string message,
         StartupFailureDetail? startupFailure = null)
     {

@@ -18,14 +18,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<SceneQueryArgs, SceneQueryResult>(
             operationName: UcliPrimitiveOperationNames.SceneQuery,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
             description: "Finds objects or components in a scene by hierarchy path prefix and component type.",
             assurance: new UcliOperationAssuranceContract(
-                Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
-                new[] { IpcExecuteTouchedResourceKindNames.Scene },
-                UcliOperationPlanMode.ObservesLiveUnity));
+                sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate the scene query and observe the selected scene context without applying mutation.",
+                callSemantics: "Read selection candidates from the scene hierarchy without applying mutation.",
+                touchedContract: "Returns no touched resources because scene query results are observations, not dirty or persisted resources.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Timeout, cancellation, or source read failure means the candidate set was not fully produced.",
+                dangerousNotes: Array.Empty<string>()));
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
@@ -49,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteAsync(operation, args, executionContext, applied: false);
+            return ExecuteAsync(operation, args, executionContext, allowTemporaryState: true);
         }
 
         protected override Task<OperationPhaseStepResult> CallAsync (
@@ -59,14 +62,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteAsync(operation, args, executionContext, applied: true);
+            return ExecuteAsync(operation, args, executionContext, allowTemporaryState: false);
         }
 
         private static Task<OperationPhaseStepResult> ExecuteAsync (
             NormalizedOperation operation,
             SceneQueryArgs args,
             OperationExecutionContext executionContext,
-            bool applied)
+            bool allowTemporaryState)
         {
             if (!TryValidate(operation, args, out var scenePath, out var queryArguments, out var failure))
             {
@@ -77,7 +80,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 scenePath,
                 queryArguments,
                 executionContext,
-                allowTemporaryState: !applied,
+                allowTemporaryState: allowTemporaryState,
                 out var matches,
                 out var diagnostics,
                 out var errorMessage))
@@ -91,12 +94,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 scene: scenePath,
                 matches: CreatePayloadMatches(matches));
             return Task.FromResult(OperationPhaseStepResult.Success(
-                applied: applied,
+                applied: false,
                 changed: false,
-                touched: new[]
-                {
-                    OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Scene, scenePath)),
-                },
                 result: IpcPayloadCodec.SerializeToElement(payload)).WithDiagnostics(diagnostics));
         }
 

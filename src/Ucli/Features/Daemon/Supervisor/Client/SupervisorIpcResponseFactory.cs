@@ -30,7 +30,7 @@ internal static class SupervisorIpcResponseFactory
     /// <returns> The serialized error response. </returns>
     public static IpcResponse CreateErrorResponse (
         IpcRequest request,
-        UcliErrorCode code,
+        UcliCode code,
         string message)
     {
         return CreateErrorResponse(request, code, message, new { });
@@ -45,7 +45,7 @@ internal static class SupervisorIpcResponseFactory
     /// <returns> The serialized error response. </returns>
     public static IpcResponse CreateErrorResponse<TPayload> (
         IpcRequest request,
-        UcliErrorCode code,
+        UcliCode code,
         string message,
         TPayload payload)
     {

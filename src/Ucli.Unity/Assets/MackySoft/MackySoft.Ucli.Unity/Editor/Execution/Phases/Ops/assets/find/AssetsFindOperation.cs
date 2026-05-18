@@ -18,14 +18,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AssetsFindArgs, AssetsFindResult>(
             operationName: UcliPrimitiveOperationNames.AssetsFind,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
             description: "Finds project assets by type, path prefix, or name substring.",
             assurance: new UcliOperationAssuranceContract(
-                Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
-                Array.Empty<string>(),
-                UcliOperationPlanMode.ObservesLiveUnity));
+                sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate asset query arguments and observe matching project assets without applying mutation.",
+                callSemantics: "Read matching project assets and emit bounded result data without applying mutation.",
+                touchedContract: "Returns no touched resources because asset search results are data, not mutation targets.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Timeout, cancellation, or source read failure means the asset search was not fully produced.",
+                dangerousNotes: Array.Empty<string>()));
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
@@ -46,7 +49,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(Execute(operation, args, executionContext, applied: false, includeTemporaryState: true));
+            return Task.FromResult(Execute(operation, args, executionContext, includeTemporaryState: true));
         }
 
         protected override Task<OperationPhaseStepResult> CallAsync (
@@ -56,14 +59,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(Execute(operation, args, executionContext, applied: true, includeTemporaryState: false));
+            return Task.FromResult(Execute(operation, args, executionContext, includeTemporaryState: false));
         }
 
         private static OperationPhaseStepResult Execute (
             NormalizedOperation operation,
             AssetsFindArgs args,
             OperationExecutionContext executionContext,
-            bool applied,
             bool includeTemporaryState)
         {
             if (!TryValidate(operation, args, out var validationState, out var failure))
@@ -86,7 +88,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return OperationPhaseStepResult.Success(
-                applied: applied,
+                applied: false,
                 changed: false,
                 result: IpcPayloadCodec.SerializeToElement(new AssetsFindResult(payloadMatches, windowedMatches.Window)));
         }

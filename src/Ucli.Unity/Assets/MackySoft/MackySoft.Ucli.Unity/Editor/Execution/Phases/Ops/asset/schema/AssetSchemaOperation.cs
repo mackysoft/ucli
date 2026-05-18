@@ -2,8 +2,8 @@ using System;
 using MackySoft.Ucli.Contracts;
 using System.Threading;
 using System.Threading.Tasks;
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using MackySoft.Ucli.Unity.Index;
@@ -24,14 +24,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AssetSchemaArgs, IndexSchemaEntryJsonContract>(
             operationName: UcliPrimitiveOperationNames.AssetSchema,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
             description: "Returns the serialized schema for an asset type or existing asset target.",
             assurance: new UcliOperationAssuranceContract(
-                Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
-                Array.Empty<string>(),
-                UcliOperationPlanMode.ObservesLiveUnity));
+                sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate the asset schema target and observe serialized property metadata without applying mutation.",
+                callSemantics: "Read serialized schema metadata for the requested asset target without applying mutation.",
+                touchedContract: "Returns no touched resources because schema metadata is observational data.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Timeout, cancellation, or schema extraction failure means the schema was not fully produced.",
+                dangerousNotes: Array.Empty<string>()));
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
@@ -56,7 +59,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 operation,
                 args,
                 executionContext,
-                applied: false,
                 allowTemporaryState: true,
                 cancellationToken).ConfigureAwait(false);
         }
@@ -72,7 +74,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 operation,
                 args,
                 executionContext,
-                applied: true,
                 allowTemporaryState: false,
                 cancellationToken).ConfigureAwait(false);
         }
@@ -81,7 +82,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             NormalizedOperation operation,
             AssetSchemaArgs args,
             OperationExecutionContext executionContext,
-            bool applied,
             bool allowTemporaryState,
             CancellationToken cancellationToken)
         {
@@ -104,13 +104,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
 
                 return OperationPhaseStepResult.Success(
-                    applied: applied,
+                    applied: false,
                     changed: false,
                     result: IpcPayloadCodec.SerializeToElement(extractionResult.Entries[0]));
             }
 
             return OperationPhaseStepResult.Success(
-                applied: applied,
+                applied: false,
                 changed: false,
                 result: IpcPayloadCodec.SerializeToElement(validationState.TargetSchemaEntry));
         }

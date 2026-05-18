@@ -180,7 +180,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 convertedResponse.OpResults,
                 definition.SuccessMessage,
                 convertedResponse.ReadPostcondition,
-                responseProject);
+                responseProject,
+                convertedResponse.ContractViolations);
         }
 
         return OperationExecuteResultFactory.Failure(
@@ -188,8 +189,9 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             convertedResponse.OpResults,
             RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, definition.FailureMessage),
             definition.FailureMessage,
-            convertedResponse.ReadPostcondition,
-            responseProject);
+            contractViolations: convertedResponse.ContractViolations,
+            readPostcondition: convertedResponse.ReadPostcondition,
+            project: responseProject);
     }
 
     /// <summary> Executes one internal <c>plan</c> pass and returns the issued plan token. </summary>
@@ -259,6 +261,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                     convertedResponse.OpResults,
                     RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, definition.FailureMessage),
                     definition.FailureMessage,
+                    contractViolations: convertedResponse.ContractViolations,
                     project: project));
         }
 
@@ -275,7 +278,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                             "Execute response payload is invalid. The 'planToken' field is missing."),
                     ],
                     definition.FailureMessage,
-                    project: project));
+                    project: project,
+                    contractViolations: convertedResponse.ContractViolations));
         }
 
         return (convertedResponse.PlanToken, null);

@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Common.Projection;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -49,6 +50,11 @@ internal static class CallCommandResultFactory
             ["opResults"] = output.OpResults,
         };
 
+        if (output.ContractViolations.Count != 0)
+        {
+            payload["contractViolations"] = output.ContractViolations;
+        }
+
         if (output.ReadPostcondition != null)
         {
             payload["readPostcondition"] = output.ReadPostcondition;
@@ -59,24 +65,25 @@ internal static class CallCommandResultFactory
             return payload;
         }
 
+        var planPayload = new Dictionary<string, object?>
+        {
+            ["requestId"] = output.Plan.RequestId,
+            ["project"] = ProjectIdentityPayloadProjector.Create(output.Plan.Project),
+            ["opResults"] = output.Plan.OpResults,
+        };
+        if (output.Plan.ContractViolations.Count != 0)
+        {
+            planPayload["contractViolations"] = output.Plan.ContractViolations;
+        }
+
         if (string.IsNullOrWhiteSpace(output.Plan.PlanToken))
         {
-            payload["plan"] = new
-            {
-                requestId = output.Plan.RequestId,
-                project = ProjectIdentityPayloadProjector.Create(output.Plan.Project),
-                opResults = output.Plan.OpResults,
-            };
+            payload["plan"] = planPayload;
             return payload;
         }
 
-        payload["plan"] = new
-        {
-            requestId = output.Plan.RequestId,
-            project = ProjectIdentityPayloadProjector.Create(output.Plan.Project),
-            opResults = output.Plan.OpResults,
-            planToken = output.Plan.PlanToken,
-        };
+        planPayload["planToken"] = output.Plan.PlanToken;
+        payload["plan"] = planPayload;
         return payload;
     }
 }

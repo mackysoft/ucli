@@ -7,7 +7,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
-    /// <summary> Decorates one shared IPC connection handler and signals oneshot completion after the first handled non-ping request. </summary>
+    /// <summary> Decorates one shared IPC connection handler and signals oneshot completion after a terminal request. </summary>
     internal sealed class UnityOneshotConnectionHandler : IUnityIpcConnectionHandler
     {
         private readonly UnityIpcConnectionHandler innerConnectionHandler;
@@ -41,10 +41,12 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static bool ShouldSignalCompletion (UnityIpcConnectionHandleResult result)
         {
-            return result.Request != null
-                && result.Response != null
-                && !string.Equals(result.Request.Method, IpcMethodNames.Ping, StringComparison.Ordinal)
-                && !HasPreDispatchFailure(result.Response);
+            if (result.Request == null || result.Response == null || HasPreDispatchFailure(result.Response))
+            {
+                return false;
+            }
+
+            return !string.Equals(result.Request.Method, IpcMethodNames.Ping, StringComparison.Ordinal);
         }
 
         private static bool HasPreDispatchFailure (IpcResponse response)
@@ -60,7 +62,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             return false;
         }
 
-        private static bool IsPreDispatchErrorCode (UcliErrorCode errorCode)
+        private static bool IsPreDispatchErrorCode (UcliCode errorCode)
         {
             return errorCode == IpcSessionErrorCodes.SessionTokenRequired
                 || errorCode == IpcSessionErrorCodes.SessionTokenInvalid

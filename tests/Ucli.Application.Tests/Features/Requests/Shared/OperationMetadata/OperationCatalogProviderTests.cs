@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Application.Tests;
 
 public sealed class OperationCatalogProviderTests
 {
-    private static readonly UcliErrorCode CustomOperationMetadataErrorCode = new("OPERATION_METADATA_CUSTOM_ERROR");
+    private static readonly UcliCode CustomOperationMetadataErrorCode = new("OPERATION_METADATA_CUSTOM_ERROR");
 
     [Fact]
     [Trait("Size", "Small")]
@@ -77,7 +77,7 @@ public sealed class OperationCatalogProviderTests
         Assert.Single(result);
     }
 
-    public static TheoryData<int, UcliErrorCode> ContextResolutionErrorCases => new()
+    public static TheoryData<int, UcliCode> ContextResolutionErrorCases => new()
     {
         { (int)ExecutionErrorKind.InvalidArgument, ProjectContextErrorCodes.UnityProjectMarkerMissing },
         { (int)ExecutionErrorKind.Timeout, ExecutionErrorCodes.IpcTimeout },
@@ -89,7 +89,7 @@ public sealed class OperationCatalogProviderTests
     [MemberData(nameof(ContextResolutionErrorCases))]
     public async Task GetOperations_WhenCurrentDirectoryContextCannotBeResolved_ThrowsTypedLoadException (
         int errorKindValue,
-        UcliErrorCode errorCode)
+        UcliCode errorCode)
     {
         var errorKind = (ExecutionErrorKind)errorKindValue;
         var provider = new OperationCatalogProvider(
@@ -188,7 +188,7 @@ public sealed class OperationCatalogProviderTests
     private static ExecutionError CreateError (
         ExecutionErrorKind errorKind,
         string message,
-        UcliErrorCode errorCode)
+        UcliCode errorCode)
     {
         return errorKind switch
         {

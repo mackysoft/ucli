@@ -1,0 +1,51 @@
+{
+  "protocolVersion": 1,
+  "command": "ops.describe",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "uCLI ops describe completed for \u0027ucli.resolve\u0027.",
+  "payload": {
+    "operation": {
+      "name": "ucli.resolve",
+      "kind": "query",
+      "policy": "safe",
+      "description": "Resolves a Unity object reference.",
+      "inputs": [],
+      "resultContract": {
+        "emitted": true,
+        "resultType": "QueryResult",
+        "description": "Query result."
+      },
+      "assurance": {
+        "sideEffects": [
+          "observesUnityState"
+        ],
+        "mayDirty": false,
+        "mayPersist": false,
+        "touchedKinds": [],
+        "planMode": "observesLiveUnity",
+        "planSemantics": "Validate arguments and observe Unity state without applying mutation.",
+        "callSemantics": "Read Unity state without applying mutation.",
+        "touchedContract": "Returns no touched resources.",
+        "readPostconditionContract": "Does not stale read surfaces by itself.",
+        "failureSemantics": "Failure means the observation was not fully produced.",
+        "dangerousNotes": []
+      },
+      "argsSchema": {
+        "type": "object"
+      },
+      "resultSchema": {
+        "type": "object"
+      }
+    },
+    "readIndex": {
+      "used": true,
+      "hit": true,
+      "source": "index",
+      "freshness": "probable",
+      "generatedAtUtc": "<generatedAtUtc>",
+      "fallbackReason": null
+    }
+  },
+  "errors": []
+}

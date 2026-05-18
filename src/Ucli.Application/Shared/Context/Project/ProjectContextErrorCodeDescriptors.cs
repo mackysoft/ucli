@@ -25,7 +25,7 @@ internal static class ProjectContextErrorCodeDescriptors
         UcliCommandIds.TestProfileInit,
     ];
 
-    public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
+    public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
         CreateProjectContextDescriptor(
             ProjectContextErrorCodes.ProjectPathInvalidFormat,
@@ -46,13 +46,13 @@ internal static class ProjectContextErrorCodeDescriptors
             "projectValidation"),
     ];
 
-    private static UcliErrorCodeDescriptor CreateProjectContextDescriptor (
-        UcliErrorCode code,
+    private static UcliErrorDescriptor CreateProjectContextDescriptor (
+        UcliCode code,
         string summary,
         string meaning,
         string phase)
     {
-        return UcliErrorCodeDescriptorFactory.Create(
+        return UcliErrorDescriptorFactory.Create(
             code: code,
             category: "projectContext",
             summary: summary,

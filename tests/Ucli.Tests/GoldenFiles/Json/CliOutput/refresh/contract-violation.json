@@ -1,0 +1,48 @@
+{
+  "protocolVersion": 1,
+  "command": "refresh",
+  "status": "error",
+  "exitCode": 4,
+  "message": "Operation result violated declared assurance facts.",
+  "payload": {
+    "requestId": "<requestId>",
+    "project": {
+      "projectPath": "<projectPath>",
+      "projectFingerprint": "<projectFingerprint>",
+      "unityVersion": "<unityVersion>"
+    },
+    "opResults": [
+      {
+        "opId": "refresh",
+        "op": "ucli.project.refresh",
+        "phase": "call",
+        "applied": true,
+        "changed": true,
+        "touched": [
+          {
+            "kind": "asset",
+            "path": "Assets/Example.txt",
+            "guid": null
+          }
+        ],
+        "diagnostics": []
+      }
+    ],
+    "contractViolations": [
+      {
+        "opId": "refresh",
+        "operation": "ucli.project.refresh",
+        "expectedFact": "assurance.mayDirty=false",
+        "observedResult": "opResults[].changed=true",
+        "applicationState": "indeterminate"
+      }
+    ]
+  },
+  "errors": [
+    {
+      "code": "OPERATION_CONTRACT_VIOLATION",
+      "message": "Operation result violated declared assurance facts.",
+      "opId": "refresh"
+    }
+  ]
+}

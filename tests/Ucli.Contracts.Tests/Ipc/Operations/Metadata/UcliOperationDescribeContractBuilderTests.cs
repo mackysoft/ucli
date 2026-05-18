@@ -10,12 +10,7 @@ public sealed class UcliOperationDescribeContractBuilderTests
     {
         var describe = UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
             "Opens a Unity scene asset in the editor.",
-            new UcliOperationAssuranceContract(
-                Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
-                Array.Empty<string>(),
-                UcliOperationPlanMode.ObservesLiveUnity));
+            CreateSafeAssurance());
 
         Assert.NotNull(describe.ResultContract);
         Assert.False(describe.ResultContract!.Emitted);
@@ -28,12 +23,7 @@ public sealed class UcliOperationDescribeContractBuilderTests
     {
         var describe = UcliOperationDescribeContractBuilder.Create<AssetsFindArgs, AssetsFindResult>(
             "Finds project assets by type, path prefix, or name substring.",
-            new UcliOperationAssuranceContract(
-                Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
-                Array.Empty<string>(),
-                UcliOperationPlanMode.ObservesLiveUnity));
+            CreateSafeAssurance());
 
         Assert.NotNull(describe.ResultContract);
         Assert.True(describe.ResultContract!.Emitted);
@@ -47,12 +37,7 @@ public sealed class UcliOperationDescribeContractBuilderTests
     {
         var describe = UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
             "Opens a Unity scene asset in the editor.",
-            new UcliOperationAssuranceContract(
-                Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
-                Array.Empty<string>(),
-                UcliOperationPlanMode.ObservesLiveUnity));
+            CreateSafeAssurance());
 
         var input = Assert.Single(describe.Inputs!);
         Assert.Equal("path", input.Name);
@@ -70,12 +55,7 @@ public sealed class UcliOperationDescribeContractBuilderTests
     {
         var describe = UcliOperationDescribeContractBuilder.Create<GoDescribeArgs, GameObjectDescriptionResult>(
             "Returns a GameObject description including components and child hierarchy.",
-            new UcliOperationAssuranceContract(
-                Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
-                Array.Empty<string>(),
-                UcliOperationPlanMode.ObservesLiveUnity));
+            CreateSafeAssurance());
 
         var input = Assert.Single(describe.Inputs!, candidate => candidate.Name == "target");
         Assert.NotNull(input.Variants);
@@ -109,12 +89,7 @@ public sealed class UcliOperationDescribeContractBuilderTests
     {
         var describe = UcliOperationDescribeContractBuilder.Create<AssetSchemaArgs, UcliNoResult>(
             "Returns serialized property schema for a Unity asset.",
-            new UcliOperationAssuranceContract(
-                Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
-                Array.Empty<string>(),
-                UcliOperationPlanMode.ObservesLiveUnity));
+            CreateSafeAssurance());
 
         var input = Assert.Single(describe.Inputs!, candidate => candidate.Name == "target");
         var variant = Assert.Single(input.Variants!, candidate => candidate.Name == "byAssetGuid");
@@ -123,6 +98,20 @@ public sealed class UcliOperationDescribeContractBuilderTests
         Assert.Equal("$.target.assetGuid", field.ArgsPath);
         Assert.Equal("Asset GUID selector.", field.Description);
         Assert.Contains(field.Constraints!, constraint => constraint.Kind == UcliOperationInputConstraintKindValues.AssetGuid);
+    }
+
+    private static UcliOperationAssuranceContract CreateSafeAssurance ()
+    {
+        return new UcliOperationAssuranceContract(
+            sideEffects: Array.Empty<UcliOperationSideEffect>(),
+            touchedKinds: Array.Empty<string>(),
+            planMode: UcliOperationPlanMode.ObservesLiveUnity,
+            planSemantics: "Validate arguments and observe Unity state without applying mutation.",
+            callSemantics: "Read Unity state without applying mutation.",
+            touchedContract: "Returns no touched resources.",
+            readPostconditionContract: "Does not stale read surfaces by itself.",
+            failureSemantics: "Failure means the observation was not fully produced.",
+            dangerousNotes: Array.Empty<string>());
     }
 
 }

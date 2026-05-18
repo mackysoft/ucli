@@ -6,7 +6,7 @@ internal sealed class ContractsCodeCatalogContributor : ICodeCatalogContributor
     /// <inheritdoc />
     public IReadOnlyList<CodeCatalogDescriptor> GetDescriptors ()
     {
-        return UcliKnownErrorCodeDescriptors.All
+        return UcliKnownErrorDescriptors.All
             .Select(CodeCatalogDescriptorFactory.FromErrorDescriptor)
             .ToArray();
     }

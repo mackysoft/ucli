@@ -29,12 +29,7 @@ internal static class OperationCatalogTestFixtures
             Description = "Returns a GameObject description including components and child hierarchy.",
             Inputs = Array.Empty<UcliOperationInputContract>(),
             ResultContract = UcliOperationResultContract.One<GameObjectDescriptionResult>("GameObject description result."),
-            Assurance = new UcliOperationAssuranceContract(
-                Array.Empty<string>(),
-                mayDirty: false,
-                mayPersist: false,
-                Array.Empty<string>(),
-                UcliOperationPlanModeValues.ObservesLiveUnity),
+            Assurance = CreateSafeQueryAssurance(),
         };
     }
 
@@ -50,11 +45,29 @@ internal static class OperationCatalogTestFixtures
             Inputs = Array.Empty<UcliOperationInputContract>(),
             ResultContract = UcliOperationResultContract.NoResult("No operation-specific result is emitted."),
             Assurance = new UcliOperationAssuranceContract(
-                Array.Empty<string>(),
-                mayDirty: false,
-                mayPersist: true,
-                Array.Empty<string>(),
-                UcliOperationPlanModeValues.ObservesLiveUnity),
+                sideEffects: [UcliOperationSideEffectValues.SceneSave],
+                touchedKinds: [IpcExecuteTouchedResourceKindNames.Scene],
+                planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
+                planSemantics: "Observe save-relevant project state without writing project files.",
+                callSemantics: "Persist save-relevant Unity state.",
+                touchedContract: "Reports resources known to be saved.",
+                readPostconditionContract: "Saved resource read surfaces may be stale after a successful call.",
+                failureSemantics: "Save failure may leave partial or indeterminate project file changes.",
+                dangerousNotes: ["This operation can persist Unity project files without transactional rollback."]),
         };
+    }
+
+    private static UcliOperationAssuranceContract CreateSafeQueryAssurance ()
+    {
+        return new UcliOperationAssuranceContract(
+            sideEffects: [UcliOperationSideEffectValues.ObservesUnityState],
+            touchedKinds: Array.Empty<string>(),
+            planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
+            planSemantics: "Validate arguments and observe Unity state without applying mutation.",
+            callSemantics: "Read Unity state without applying mutation.",
+            touchedContract: "Returns no touched resources.",
+            readPostconditionContract: "Does not stale read surfaces by itself.",
+            failureSemantics: "Failure means the observation was not fully produced.",
+            dangerousNotes: Array.Empty<string>());
     }
 }

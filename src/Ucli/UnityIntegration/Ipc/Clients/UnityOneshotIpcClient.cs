@@ -23,7 +23,6 @@ namespace MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 /// <summary> Executes one IPC request through Unity oneshot batchmode startup and shared IPC transport. </summary>
 internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 {
-    private const string StartupProbeClientVersion = "ucli-oneshot-startup";
     private const string CleanupShutdownRequestedBy = "ucli-oneshot-cleanup";
 
     private static readonly TimeSpan StartupRetryDelay = TimeSpan.FromMilliseconds(50);
@@ -196,6 +195,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 var startupProbeFailure = await WaitUntilReachableAsync(
                         unityProject,
                         sessionToken,
+                        dispatchRequest,
                         ResolveStartupProbeFailFast(dispatchRequest),
                         deadline,
                         processHandle,
@@ -218,12 +218,23 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                             UnityIpcRequestFactory.Create(
                                 sessionToken,
                                 dispatchRequest.Method,
-                                dispatchRequest.Payload),
+                                dispatchRequest.Payload,
+                                requestTimeout),
                             requestTimeout,
                             cancellationToken)
                         .ConfigureAwait(false);
-                    var exitWaitError = await WaitForExitAsync(processHandle, cleanupTimeout, cancellationToken).ConfigureAwait(false);
-                    if (exitWaitError != null)
+                    var terminalPingShutdownError = await RequestTerminalPingShutdownAsync(
+                            unityProject,
+                            sessionToken,
+                            dispatchRequest,
+                            processHandle)
+                        .ConfigureAwait(false);
+                    if (terminalPingShutdownError != null)
+                    {
+                        result = UnityRequestExecutionResult.Failure(
+                            UnityIpcFailureClassifier.FromExecutionError(terminalPingShutdownError));
+                    }
+                    else if (await WaitForExitAsync(processHandle, cleanupTimeout, cancellationToken).ConfigureAwait(false) is { } exitWaitError)
                     {
                         result = UnityRequestExecutionResult.Failure(
                             UnityIpcFailureClassifier.FromExecutionError(exitWaitError));
@@ -267,6 +278,34 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             return UnityRequestExecutionResult.Failure(
                 UnityIpcFailureClassifier.FromOneshotDispatchException(exception, timeout));
         }
+    }
+
+    private async ValueTask<ExecutionError?> RequestTerminalPingShutdownAsync (
+        ResolvedUnityProjectContext unityProject,
+        string sessionToken,
+        UnityIpcDispatchRequest dispatchRequest,
+        IUnityBatchmodeProcessHandle processHandle)
+    {
+        if (!string.Equals(dispatchRequest.Method, IpcMethodNames.Ping, StringComparison.Ordinal)
+            || processHandle.HasExited)
+        {
+            return null;
+        }
+
+        var cleanupDeadline = ExecutionDeadline.Start(cleanupTimeout);
+        if (await TryRequestShutdownUntilCleanupDeadlineAsync(
+                unityProject,
+                sessionToken,
+                processHandle,
+                cleanupDeadline)
+            .ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        return ExecutionError.Timeout(
+            $"Unity oneshot ping shutdown did not complete within {cleanupTimeout.TotalMilliseconds:0} milliseconds.",
+            ExecutionErrorCodes.IpcTimeout);
     }
 
     private async ValueTask<ProcessTerminationResult> CleanupLaunchedProcessAsync (
@@ -356,12 +395,15 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     private async ValueTask<UnityRequestFailure?> WaitUntilReachableAsync (
         ResolvedUnityProjectContext unityProject,
         string sessionToken,
+        UnityIpcDispatchRequest dispatchRequest,
         bool failFast,
         ExecutionDeadline deadline,
         IUnityBatchmodeProcessHandle processHandle,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(dispatchRequest);
+
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -417,6 +459,11 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
                 var readinessDecision = UnityDaemonReadinessPolicy.Evaluate(payload!, failFast);
                 if (readinessDecision.IsReady)
+                {
+                    return null;
+                }
+
+                if (IsStartupLifecycleDispatchAllowed(dispatchRequest, payload!))
                 {
                     return null;
                 }
@@ -693,8 +740,21 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 static request => request.RequireReadinessGate && request.FailFast),
             IpcMethodNames.IndexAssetsRead => TryReadFailFast<IpcIndexAssetsReadRequest>(dispatchRequest.Payload, static request => request.FailFast),
             IpcMethodNames.IndexSceneTreeLiteRead => TryReadFailFast<IpcIndexSceneTreeLiteReadRequest>(dispatchRequest.Payload, static request => request.FailFast),
+            IpcMethodNames.Ping => TryReadFailFast<IpcPingRequest>(dispatchRequest.Payload, static request => request.FailFast),
             _ => false,
         };
+    }
+
+    private static bool IsStartupLifecycleDispatchAllowed (
+        UnityIpcDispatchRequest dispatchRequest,
+        IpcPingResponse pingResponse)
+    {
+        ArgumentNullException.ThrowIfNull(dispatchRequest);
+        ArgumentNullException.ThrowIfNull(pingResponse);
+
+        return dispatchRequest.AllowedStartupLifecycleStates.Contains(
+            pingResponse.LifecycleState,
+            StringComparer.Ordinal);
     }
 
     private static bool TryReadFailFast<TRequest> (
@@ -719,7 +779,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     /// <returns> The IPC ping request used to verify startup readiness. </returns>
     private static IpcRequest CreateStartupProbeRequest (string sessionToken)
     {
-        var payload = IpcPayloadCodec.SerializeToElement(new IpcPingRequest(StartupProbeClientVersion));
+        var payload = IpcPayloadCodec.SerializeToElement(new IpcPingRequest(IpcPingClientVersions.OneshotStartup));
         return UnityIpcRequestFactory.Create(sessionToken, IpcMethodNames.Ping, payload);
     }
 

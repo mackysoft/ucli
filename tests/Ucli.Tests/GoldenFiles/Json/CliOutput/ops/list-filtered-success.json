@@ -7,16 +7,10 @@
   "payload": {
     "operations": [
       {
-        "name": "ucli.comp.schema",
-        "kind": "query",
+        "name": "ucli.scene.open",
+        "kind": "command",
         "policy": "advanced",
-        "description": "Returns a GameObject description including components and child hierarchy."
-      },
-      {
-        "name": "ucli.go.describe",
-        "kind": "query",
-        "policy": "safe",
-        "description": "Returns a GameObject description including components and child hierarchy."
+        "description": "Opens a Unity scene asset in the editor."
       }
     ],
     "readIndex": {

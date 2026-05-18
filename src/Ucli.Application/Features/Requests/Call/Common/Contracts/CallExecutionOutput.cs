@@ -12,4 +12,8 @@ internal sealed record CallExecutionOutput (
     ProjectIdentityInfo Project,
     IReadOnlyList<OperationExecutionOperationResult> OpResults,
     CallPlanOutput? Plan,
-    OperationExecutionReadPostcondition? ReadPostcondition);
+    OperationExecutionReadPostcondition? ReadPostcondition)
+{
+    /// <summary> Gets runtime operation-result violations against published assurance facts. </summary>
+    public IReadOnlyList<OperationExecutionContractViolation> ContractViolations { get; init; } = [];
+}

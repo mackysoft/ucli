@@ -10,6 +10,15 @@ internal abstract record UnityRequestPayload
         string Method,
         JsonElement Payload) : UnityRequestPayload;
 
+    /// <summary> Represents a lifecycle ping request prepared by application orchestration. </summary>
+    internal sealed record Ping (
+        string ClientVersion,
+        bool FailFast = false) : UnityRequestPayload;
+
+    /// <summary> Represents a compile assurance request prepared by application orchestration. </summary>
+    internal sealed record Compile (
+        string RunId) : UnityRequestPayload;
+
     /// <summary> Represents an execute request whose execute-arguments JSON was already prepared. </summary>
     internal sealed record ExecuteJson (
         UcliCommand Command,

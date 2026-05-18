@@ -2,9 +2,9 @@ namespace MackySoft.Ucli.Contracts;
 
 internal static class IpcTransportErrorCodeDescriptors
 {
-    public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
+    public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: IpcTransportErrorCodes.IpcTimeout,
             category: "transport",
             summary: "The command timeout budget was exhausted.",
@@ -12,6 +12,7 @@ internal static class IpcTransportErrorCodeDescriptors
             appliesTo:
             [
                 UcliCommandIds.Status,
+                UcliCommandIds.Ready,
                 UcliCommandIds.Validate,
                 UcliCommandIds.DaemonStart,
                 UcliCommandIds.DaemonStop,

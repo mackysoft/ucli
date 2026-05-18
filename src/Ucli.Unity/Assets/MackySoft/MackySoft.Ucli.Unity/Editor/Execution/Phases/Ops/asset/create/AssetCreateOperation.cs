@@ -19,14 +19,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AssetCreateArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.AssetCreate,
             kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced,
             description: "Creates a Unity asset at a project-relative path.",
             assurance: new UcliOperationAssuranceContract(
-                new[] { UcliOperationSideEffect.WritesAsset },
-                mayDirty: false,
-                mayPersist: true,
-                new[] { IpcExecuteTouchedResourceKindNames.Asset },
-                UcliOperationPlanMode.MayCreatePreviewState));
+                sideEffects: new[] { UcliOperationSideEffect.AssetContentMutation, UcliOperationSideEffect.AssetSave },
+                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Asset },
+                planMode: UcliOperationPlanMode.MayCreatePreviewState,
+                planSemantics: "Validate the asset creation target and compute preview creation state without persisting project data.",
+                callSemantics: "Create and persist the requested asset at the project-relative path.",
+                touchedContract: "Reports the created asset resource when Unity returns a persisted asset path.",
+                readPostconditionContract: "Asset search, GUID path, schema, and readIndex surfaces covering the created asset may be stale after a successful call.",
+                failureSemantics: "Asset creation is not transactional; timeout, cancellation, or Unity failure can leave partial or indeterminate asset file changes.",
+                dangerousNotes: new[] { "This operation can create project files and is not transactional across Unity asset creation/import steps." }));
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,

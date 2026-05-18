@@ -84,6 +84,10 @@ public sealed class ProjectReferenceBoundaryTests
     {
         var expectedReferencesByProject = new Dictionary<string, string[]>(StringComparer.Ordinal)
         {
+            ["tools/Ucli.SchemaGenerator/Ucli.SchemaGenerator.csproj"] =
+            [
+                "src/Ucli.Contracts/Ucli.Contracts.csproj",
+            ],
             ["tools/Ucli.SkillGenerator/Ucli.SkillGenerator.csproj"] =
             [
                 "src/Ucli.Skills/Ucli.Skills.csproj",

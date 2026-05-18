@@ -226,6 +226,12 @@ namespace MackySoft.Ucli.Unity.Tests
             CollectionAssert.AreEqual(new[] { OperationPhase.Validate, OperationPhase.Plan }, operation.CalledPhases);
             Assert.That(trace.IsSuccess, Is.True);
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Plan));
+            Assert.That(trace.OperationTraces[0].Contracts, Is.Not.Null);
+            Assert.That(trace.OperationTraces[0].Contracts!.OperationKind, Is.EqualTo(UcliOperationKind.Mutation));
+            Assert.That(trace.OperationTraces[0].Contracts!.MayDirty, Is.True);
+            CollectionAssert.AreEqual(
+                new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                trace.OperationTraces[0].Contracts!.TouchedKinds);
         });
 
         [UnityTest]
@@ -244,6 +250,12 @@ namespace MackySoft.Ucli.Unity.Tests
             CollectionAssert.AreEqual(new[] { OperationPhase.Validate, OperationPhase.Plan, OperationPhase.Call }, operation.CalledPhases);
             Assert.That(trace.IsSuccess, Is.True);
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Call));
+            Assert.That(trace.OperationTraces[0].Contracts, Is.Not.Null);
+            Assert.That(trace.OperationTraces[0].Contracts!.OperationKind, Is.EqualTo(UcliOperationKind.Mutation));
+            Assert.That(trace.OperationTraces[0].Contracts!.MayDirty, Is.True);
+            CollectionAssert.AreEqual(
+                new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                trace.OperationTraces[0].Contracts!.TouchedKinds);
         });
 
         [UnityTest]
@@ -387,6 +399,33 @@ namespace MackySoft.Ucli.Unity.Tests
             CollectionAssert.AreEqual(
                 new[] { OperationPhase.Validate, OperationPhase.Plan, OperationPhase.Call },
                 operation.CalledPhases);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhenOperationHasPublicRawCatalogExclusionMarker_DoesNotExecuteValidatePlanOrCallPhase () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
+                policy: OperationPolicy.Dangerous,
+                sideEffects: new[] { UcliOperationSideEffect.ArbitrarySourceExecution });
+            var executor = new OperationPhaseExecutor(CreateRegistry(("ucli.tests.internal", operation)));
+            var request = CreateRequest(
+                operations: new[] { ("op-1", "ucli.tests.internal") },
+                planToken: null,
+                canonicalPayloadJson: "{}",
+                allowDangerous: true);
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Public raw exclusion denied execution");
+
+            Assert.That(trace.IsSuccess, Is.False);
+            Assert.That(trace.Errors.Count, Is.EqualTo(1));
+            Assert.That(trace.Errors[0].Code, Is.EqualTo(OperationAuthorizationErrorCodes.OperationNotAllowed));
+            Assert.That(trace.Errors[0].Message, Does.Contain("not available as a public raw operation"));
+            Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Validate));
+            CollectionAssert.IsEmpty(operation.CalledPhases);
         });
 
         [UnityTest]
@@ -1068,7 +1107,6 @@ namespace MackySoft.Ucli.Unity.Tests
                     new UcliOperationMetadata(
                         operationName: operations[i].Name,
                         kind: operations[i].Operation.Metadata.Kind,
-                        policy: operations[i].Operation.Metadata.Policy,
                         describeContract: operations[i].Operation.Metadata.DescribeContract,
                         argsType: operations[i].Operation.Metadata.ArgsType,
                         resultType: operations[i].Operation.Metadata.ResultType,
@@ -1079,18 +1117,67 @@ namespace MackySoft.Ucli.Unity.Tests
             return new InMemoryPhaseOperationRegistry(registrations);
         }
 
-        private static UcliOperationDescribeContract CreateDescribeContract (string operationName)
+        private static UcliOperationDescribeContract CreateDescribeContract (
+            string operationName,
+            OperationPolicy policy = OperationPolicy.Safe,
+            UcliOperationAssuranceContract? assurance = null,
+            IReadOnlyList<UcliOperationSideEffect>? sideEffects = null)
         {
             return new UcliOperationDescribeContract(
                 $"{operationName} test operation.",
                 Array.Empty<UcliOperationInputContract>(),
                 UcliOperationResultContract.NoResult("This test operation does not emit operation-specific result data."),
-                new UcliOperationAssuranceContract(
-                    Array.Empty<UcliOperationSideEffect>(),
-                    mayDirty: false,
-                    mayPersist: false,
-                    Array.Empty<string>(),
-                    UcliOperationPlanMode.ValidationOnly));
+                assurance ?? CreateValidationOnlyAssurance(policy, sideEffects));
+        }
+
+        private static UcliOperationAssuranceContract CreateValidationOnlyAssurance (
+            OperationPolicy policy = OperationPolicy.Safe,
+            IReadOnlyList<UcliOperationSideEffect>? sideEffects = null)
+        {
+            return new UcliOperationAssuranceContract(
+                sideEffects: sideEffects ?? CreateSideEffects(policy),
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanMode.ValidationOnly,
+                planSemantics: "Validate arguments without applying mutation.",
+                callSemantics: "Read Unity state without applying mutation.",
+                touchedContract: "Returns no touched resources.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Failure means the observation was not fully produced.",
+                dangerousNotes: policy == OperationPolicy.Safe
+                    ? Array.Empty<string>()
+                    : new[] { "Test fixture uses a non-safe policy to exercise policy gating." });
+        }
+
+        private static UcliOperationAssuranceContract CreateMutableAssurance (OperationPolicy policy = OperationPolicy.Safe)
+        {
+            return new UcliOperationAssuranceContract(
+                sideEffects: CreateMutableSideEffects(policy),
+                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate arguments and prepare mutation without applying it.",
+                callSemantics: "Apply test mutation state.",
+                touchedContract: "Reports scene or prefab resources touched by the test mutation.",
+                readPostconditionContract: "May stale read surfaces associated with touched test resources.",
+                failureSemantics: "Failure means the mutation did not fully complete.",
+                dangerousNotes: new[] { "Test fixture uses mutation side effects to exercise runtime contract validation." });
+        }
+
+        private static IReadOnlyList<UcliOperationSideEffect> CreateMutableSideEffects (OperationPolicy policy)
+        {
+            return policy == OperationPolicy.Dangerous
+                ? new[] { UcliOperationSideEffect.SceneContentMutation, UcliOperationSideEffect.ExternalProcess }
+                : new[] { UcliOperationSideEffect.SceneContentMutation, UcliOperationSideEffect.PrefabContentMutation };
+        }
+
+        private static IReadOnlyList<UcliOperationSideEffect> CreateSideEffects (OperationPolicy policy)
+        {
+            return policy switch
+            {
+                OperationPolicy.Safe => Array.Empty<UcliOperationSideEffect>(),
+                OperationPolicy.Advanced => new[] { UcliOperationSideEffect.EditorStateChange },
+                OperationPolicy.Dangerous => new[] { UcliOperationSideEffect.ExternalProcess },
+                _ => throw new ArgumentOutOfRangeException(nameof(policy), policy, "Unsupported operation policy."),
+            };
         }
 
         private static NormalizedExecuteRequest CreateRequest (
@@ -1387,14 +1474,8 @@ namespace MackySoft.Ucli.Unity.Tests
             public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<RequiredTypedArgs, UcliNoResult>(
                 operationName: "ucli.tests.required",
                 kind: UcliOperationKind.Query,
-                policy: OperationPolicy.Safe,
                 description: "Test operation requiring one typed arg.",
-                assurance: new UcliOperationAssuranceContract(
-                    Array.Empty<UcliOperationSideEffect>(),
-                    mayDirty: false,
-                    mayPersist: false,
-                    Array.Empty<string>(),
-                    UcliOperationPlanMode.ValidationOnly));
+                assurance: CreateValidationOnlyAssurance());
 
             public bool ValidateBodyCalled { get; private set; }
 
@@ -1446,14 +1527,8 @@ namespace MackySoft.Ucli.Unity.Tests
             public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AliasReferenceTypedArgs, UcliNoResult>(
                 operationName: "ucli.tests.alias-reference",
                 kind: UcliOperationKind.Query,
-                policy: OperationPolicy.Safe,
                 description: "Test operation accepting one object reference.",
-                assurance: new UcliOperationAssuranceContract(
-                    Array.Empty<UcliOperationSideEffect>(),
-                    mayDirty: false,
-                    mayPersist: false,
-                    Array.Empty<string>(),
-                    UcliOperationPlanMode.ValidationOnly));
+                assurance: CreateValidationOnlyAssurance());
 
             public bool ValidateBodyCalled { get; private set; }
 
@@ -1504,16 +1579,36 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationPhaseStepResult validateResult,
                 OperationPhaseStepResult planResult,
                 OperationPhaseStepResult callResult,
-                OperationPolicy policy = OperationPolicy.Safe)
+                OperationPolicy policy = OperationPolicy.Safe,
+                UcliOperationKind kind = UcliOperationKind.Mutation,
+                UcliOperationAssuranceContract? assurance = null,
+                IReadOnlyList<UcliOperationSideEffect>? sideEffects = null)
             {
                 this.validateResult = validateResult;
                 this.planResult = planResult;
                 this.callResult = callResult;
+                var effectiveAssurance = assurance;
+                if (effectiveAssurance == null)
+                {
+                    if (sideEffects != null)
+                    {
+                        effectiveAssurance = CreateValidationOnlyAssurance(policy, sideEffects);
+                    }
+                    else
+                    {
+                        effectiveAssurance = kind == UcliOperationKind.Query
+                            ? CreateValidationOnlyAssurance(policy)
+                            : CreateMutableAssurance(policy);
+                    }
+                }
+
                 Metadata = new UcliOperationMetadata(
                     operationName: "ucli.tests.recording",
-                    kind: UcliOperationKind.Query,
-                    policy: policy,
-                    describeContract: CreateDescribeContract("ucli.tests.recording"));
+                    kind: kind,
+                    describeContract: CreateDescribeContract(
+                        "ucli.tests.recording",
+                        policy,
+                        effectiveAssurance));
             }
 
             public UcliOperationMetadata Metadata { get; }
@@ -1558,7 +1653,6 @@ namespace MackySoft.Ucli.Unity.Tests
             public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
                 operationName: "ucli.tests.stateful",
                 kind: UcliOperationKind.Query,
-                policy: OperationPolicy.Safe,
                 describeContract: CreateDescribeContract("ucli.tests.stateful"),
                 argsType: typeof(UcliEmptyArgs),
                 resultType: typeof(UcliNoResult),
@@ -1608,8 +1702,10 @@ namespace MackySoft.Ucli.Unity.Tests
             public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
                 operationName: "ucli.tests.replay-failing",
                 kind: UcliOperationKind.Mutation,
-                policy: OperationPolicy.Advanced,
-                describeContract: CreateDescribeContract("ucli.tests.replay-failing"),
+                describeContract: CreateDescribeContract(
+                    "ucli.tests.replay-failing",
+                    OperationPolicy.Advanced,
+                    CreateMutableAssurance(OperationPolicy.Advanced)),
                 argsType: typeof(UcliEmptyArgs),
                 resultType: typeof(UcliNoResult),
                 requiresPreCallPlanReplay: true);
@@ -1661,7 +1757,6 @@ namespace MackySoft.Ucli.Unity.Tests
             public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
                 operationName: "ucli.tests.context",
                 kind: UcliOperationKind.Query,
-                policy: OperationPolicy.Safe,
                 describeContract: CreateDescribeContract("ucli.tests.context"));
 
             public OperationExecutionContext? ValidateContext { get; private set; }
@@ -1697,7 +1792,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 CallContext = executionContext;
-                return Task.FromResult(OperationPhaseStepResult.Success(applied: true, changed: false));
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
             }
         }
     }

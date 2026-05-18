@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/test.profile.init.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "profilePath": {
+      "type": "string"
+    }
+  }
+}

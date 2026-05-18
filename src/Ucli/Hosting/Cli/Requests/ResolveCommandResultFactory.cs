@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Common.Projection;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -23,7 +24,13 @@ internal static class ResolveCommandResultFactory
         }
 
         payload["opResults"] = serviceResult.OpResults;
+        if (serviceResult.ContractViolations.Count != 0)
+        {
+            payload["contractViolations"] = serviceResult.ContractViolations;
+        }
+
         payload["readIndex"] = ReadIndexInfoPayloadProjector.Create(serviceResult.ReadIndex);
+
         if (!serviceResult.IsSuccess)
         {
             StartupFailurePayloadProjector.AppendFromFailures(payload, serviceResult.Errors);

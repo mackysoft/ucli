@@ -1225,7 +1225,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             StringComparison.Ordinal);
     }
 
-    private static UcliErrorCode ResolveGuiStartupBlockedErrorCode (DaemonGuiStartupBlocker blocker)
+    private static UcliCode ResolveGuiStartupBlockedErrorCode (DaemonGuiStartupBlocker blocker)
     {
         ArgumentNullException.ThrowIfNull(blocker);
         return IsProcessExitBlocker(blocker)

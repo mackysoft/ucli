@@ -11,6 +11,7 @@ internal sealed record OperationExecuteResult
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         string message,
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations,
         OperationExecutionReadPostcondition? readPostcondition,
         ProjectIdentityInfo? project)
     {
@@ -18,6 +19,7 @@ internal sealed record OperationExecuteResult
         OpResults = opResults;
         Errors = errors;
         Message = message;
+        ContractViolations = contractViolations ?? [];
         ReadPostcondition = readPostcondition;
         Project = project;
     }
@@ -39,6 +41,9 @@ internal sealed record OperationExecuteResult
     /// <summary> Gets the user-facing result message. </summary>
     public string Message { get; }
 
+    /// <summary> Gets runtime operation-result violations against published assurance facts. </summary>
+    public IReadOnlyList<OperationExecutionContractViolation> ContractViolations { get; }
+
     /// <summary> Gets the read postcondition emitted by mutation execution, when available. </summary>
     public OperationExecutionReadPostcondition? ReadPostcondition { get; }
 
@@ -54,7 +59,8 @@ internal sealed record OperationExecuteResult
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         string message,
         OperationExecutionReadPostcondition? readPostcondition,
-        ProjectIdentityInfo project)
+        ProjectIdentityInfo project,
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
@@ -66,6 +72,7 @@ internal sealed record OperationExecuteResult
             opResults,
             RequestServiceResultInvariants.EmptyErrors,
             message,
+            contractViolations,
             readPostcondition,
             project);
     }
@@ -76,6 +83,7 @@ internal sealed record OperationExecuteResult
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         string message,
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null,
         OperationExecutionReadPostcondition? readPostcondition = null,
         ProjectIdentityInfo? project = null)
     {
@@ -89,6 +97,7 @@ internal sealed record OperationExecuteResult
             opResults,
             failureErrors,
             message,
+            contractViolations,
             readPostcondition,
             project);
     }

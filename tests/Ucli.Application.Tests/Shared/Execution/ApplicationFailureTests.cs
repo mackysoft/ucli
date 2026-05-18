@@ -23,7 +23,7 @@ public sealed class ApplicationFailureTests
     [Trait("Size", "Small")]
     public void FromCode_WithUnknownCode_PreservesCodeAndOpId ()
     {
-        var futureCode = new UcliErrorCode("FUTURE_TRANSPORT_FAILURE");
+        var futureCode = new UcliCode("FUTURE_TRANSPORT_FAILURE");
 
         var failure = ApplicationFailure.FromCode(futureCode, "Future transport failed.", "step-1");
 

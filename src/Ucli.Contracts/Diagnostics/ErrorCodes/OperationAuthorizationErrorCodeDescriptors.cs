@@ -2,9 +2,9 @@ namespace MackySoft.Ucli.Contracts;
 
 internal static class OperationAuthorizationErrorCodeDescriptors
 {
-    public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
+    public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: OperationAuthorizationErrorCodes.OperationNotAllowed,
             category: "authorization",
             summary: "An operation is blocked by policy or explicit CLI guards.",

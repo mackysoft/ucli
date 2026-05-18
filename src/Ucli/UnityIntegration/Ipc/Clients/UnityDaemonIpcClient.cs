@@ -58,7 +58,8 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                     UnityIpcRequestFactory.Create(
                         sessionTokenResult.Token!,
                         dispatchRequest.Method,
-                        dispatchRequest.Payload),
+                        dispatchRequest.Payload,
+                        timeout),
                     timeout,
                     cancellationToken)
                 .ConfigureAwait(false);

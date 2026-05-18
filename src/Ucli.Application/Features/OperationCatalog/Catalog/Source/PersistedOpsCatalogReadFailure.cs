@@ -9,7 +9,7 @@ internal sealed record PersistedOpsCatalogReadFailure
     /// <param name="message"> The user-facing failure message. </param>
     public PersistedOpsCatalogReadFailure (
         PersistedOpsCatalogReadFailureKind kind,
-        UcliErrorCode errorCode,
+        UcliCode errorCode,
         string message)
     {
         if (!errorCode.IsValid)
@@ -28,7 +28,7 @@ internal sealed record PersistedOpsCatalogReadFailure
     public PersistedOpsCatalogReadFailureKind Kind { get; }
 
     /// <summary> Gets the machine-readable failure code. </summary>
-    public UcliErrorCode ErrorCode { get; }
+    public UcliCode ErrorCode { get; }
 
     /// <summary> Gets the user-facing failure message. </summary>
     public string Message { get; }

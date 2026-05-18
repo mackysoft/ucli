@@ -2,9 +2,9 @@ namespace MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decisio
 
 internal static class UnityExecutionModeDecisionErrorCodeDescriptors
 {
-    public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
+    public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
             category: "daemon",
             summary: "Daemon mode was requested but no reachable daemon is running.",
@@ -12,6 +12,7 @@ internal static class UnityExecutionModeDecisionErrorCodeDescriptors
             appliesTo:
             [
                 UcliCommandIds.Status,
+                UcliCommandIds.Ready,
                 UcliCommandIds.DaemonStatus,
                 UcliCommandIds.Plan,
                 UcliCommandIds.Call,
@@ -33,13 +34,14 @@ internal static class UnityExecutionModeDecisionErrorCodeDescriptors
             ],
             relatedCodes: [DaemonErrorCodes.DaemonEditorModeMismatch]),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: UnityExecutionModeDecisionErrorCodes.DaemonRunningOneshotForbidden,
             category: "daemon",
             summary: "Oneshot mode was requested while a daemon is reachable.",
             meaning: "The command policy forbids starting a separate oneshot Unity process when an active daemon session already owns the project.",
             appliesTo:
             [
+                UcliCommandIds.Ready,
                 UcliCommandIds.Plan,
                 UcliCommandIds.Call,
                 UcliCommandIds.Resolve,

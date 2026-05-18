@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Assurance.Verify.Catalog;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 
@@ -7,14 +8,15 @@ namespace MackySoft.Ucli.Application.Diagnostics;
 internal static class ApplicationErrorCodeDescriptors
 {
     /// <summary> Gets application-owned descriptors sorted by error code value. </summary>
-    public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } = CreateAll();
+    public static IReadOnlyList<UcliErrorDescriptor> All { get; } = CreateAll();
 
-    private static UcliErrorCodeDescriptor[] CreateAll ()
+    private static UcliErrorDescriptor[] CreateAll ()
     {
         return ExecutionErrorCodeDescriptors.All
             .Concat(UnityProcessErrorCodeDescriptors.All)
             .Concat(UnityExecutionModeDecisionErrorCodeDescriptors.All)
             .Concat(ProjectContextErrorCodeDescriptors.All)
+            .Concat(VerifyErrorCodeDescriptors.All)
             .Concat(ValidationErrorCodeDescriptors.All)
             .Concat(TestRunErrorCodeDescriptors.All)
             .OrderBy(static descriptor => descriptor.Code.Value, StringComparer.Ordinal)

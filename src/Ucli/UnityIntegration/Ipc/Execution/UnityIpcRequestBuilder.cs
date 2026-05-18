@@ -8,6 +8,12 @@ namespace MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 /// <summary> Converts application Unity request payloads into IPC method dispatch requests. </summary>
 internal sealed class UnityIpcRequestBuilder
 {
+    private static readonly IReadOnlyList<string> CompileAllowedStartupLifecycleStates =
+    [
+        IpcEditorLifecycleStateCodec.CompileFailed,
+        IpcEditorLifecycleStateCodec.SafeMode,
+    ];
+
     /// <summary> Converts one application request into the IPC method and serialized payload. </summary>
     /// <param name="request"> The application request payload. </param>
     /// <returns> The IPC dispatch request. </returns>
@@ -19,6 +25,13 @@ internal sealed class UnityIpcRequestBuilder
         return request switch
         {
             UnityRequestPayload.Raw raw => new UnityIpcDispatchRequest(raw.Method, raw.Payload),
+            UnityRequestPayload.Ping ping => new UnityIpcDispatchRequest(
+                IpcMethodNames.Ping,
+                IpcPayloadCodec.SerializeToElement(new IpcPingRequest(ping.ClientVersion, ping.FailFast))),
+            UnityRequestPayload.Compile compile => new UnityIpcDispatchRequest(
+                IpcMethodNames.Compile,
+                IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(compile.RunId)),
+                CompileAllowedStartupLifecycleStates),
             UnityRequestPayload.ExecuteJson executeJson => new UnityIpcDispatchRequest(
                 IpcMethodNames.Execute,
                 CreateExecutePayload(

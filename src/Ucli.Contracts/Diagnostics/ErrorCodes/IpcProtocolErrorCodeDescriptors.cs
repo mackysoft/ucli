@@ -29,9 +29,9 @@ internal static class IpcProtocolErrorCodeDescriptors
         UcliCommandIds.TestRun,
     ];
 
-    public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
+    public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: IpcProtocolErrorCodes.ProtocolVersionMismatch,
             category: "ipc",
             summary: "The IPC protocol versions are incompatible.",
@@ -50,7 +50,7 @@ internal static class IpcProtocolErrorCodeDescriptors
             ],
             relatedCodes: null),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: IpcProtocolErrorCodes.IpcMethodNotSupported,
             category: "ipc",
             summary: "The requested IPC method is not supported.",
@@ -69,7 +69,7 @@ internal static class IpcProtocolErrorCodeDescriptors
             ],
             relatedCodes: [IpcProtocolErrorCodes.ProtocolVersionMismatch]),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: IpcProtocolErrorCodes.IpcFrameTooLarge,
             category: "ipc",
             summary: "The IPC frame exceeds the configured size limit.",

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/query.asset.schema.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "requestId": {
+      "type": "string"
+    },
+    "project": {
+      "$ref": "../defs/project.schema.json"
+    },
+    "opResults": {
+      "type": "array",
+      "items": {
+        "$ref": "../defs/op-result.schema.json"
+      }
+    },
+    "contractViolations": {
+      "type": "array",
+      "items": {
+        "$ref": "../defs/contract-violation.schema.json"
+      }
+    },
+    "readPostcondition": {
+      "type": "object"
+    },
+    "readIndex": {
+      "$ref": "../defs/read-index.schema.json"
+    }
+  }
+}

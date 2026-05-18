@@ -92,6 +92,35 @@ public sealed class IndexCatalogContractValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IsValidOpsCatalog_ReturnsFalse_WhenQueryDescribeDeclaresTouchedKinds ()
+    {
+        var entry = CreateValidOpsEntry() with
+        {
+            Kind = UcliOperationKindValues.Query,
+            Assurance = new UcliOperationAssuranceContract(
+                sideEffects: Array.Empty<string>(),
+                touchedKinds: [IpcExecuteTouchedResourceKindNames.Scene],
+                planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
+                planSemantics: "Observe scene hierarchy without applying mutation.",
+                callSemantics: "Read scene hierarchy without applying mutation.",
+                touchedContract: "Invalid query touched resource declaration.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Failure means the observation did not complete.",
+                dangerousNotes: Array.Empty<string>()),
+        };
+        var contract = new IndexOpsDescribeJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "source-hash",
+            Operation: entry);
+
+        var result = IndexCatalogContractValidator.IsValidOpsDescribe(contract);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IsValidOpsCatalog_ReturnsTrue_WhenDescribeContractHasMultiFieldVariant ()
     {
         var contract = new IndexOpsDescribeJsonContract(
@@ -148,6 +177,17 @@ public sealed class IndexCatalogContractValidatorTests
         var entry = CreateValidOpsEntry();
         entry = entry with
         {
+            Policy = OperationPolicyValues.Dangerous,
+            Assurance = new UcliOperationAssuranceContract(
+                sideEffects: [UcliOperationSideEffectValues.ArbitrarySourceExecution],
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanModeValues.ValidationOnly,
+                planSemantics: "Validate code without applying mutation.",
+                callSemantics: "Execute caller-provided source code.",
+                touchedContract: "Returns no touched resources.",
+                readPostconditionContract: "Source execution may stale read surfaces.",
+                failureSemantics: "Execution failure may leave indeterminate process state.",
+                dangerousNotes: ["Executes caller-provided source code."]),
             CodeContract = new UcliOperationCodeContract(
                 "csharp",
                 new UcliCodeEntryPointContract(
@@ -722,11 +762,15 @@ public sealed class IndexCatalogContractValidatorTests
             ],
             ResultContract = UcliOperationResultContract.NoResult("No operation-specific result is emitted."),
             Assurance = new UcliOperationAssuranceContract(
-                Array.Empty<string>(),
-                mayDirty: false,
-                mayPersist: false,
-                Array.Empty<string>(),
-                UcliOperationPlanModeValues.ValidationOnly),
+                sideEffects: Array.Empty<string>(),
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanModeValues.ValidationOnly,
+                planSemantics: "Validate arguments without applying mutation.",
+                callSemantics: "Open an editor context without persisting project data.",
+                touchedContract: "Reports no mutation resources.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Failure means the operation did not complete.",
+                dangerousNotes: Array.Empty<string>()),
         };
     }
 

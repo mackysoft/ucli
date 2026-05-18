@@ -10,7 +10,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <param name="CoverageImpact"> The diagnostic coverage-impact literal. </param>
     /// <param name="Message"> The human-readable diagnostic message. </param>
     public sealed record OperationDiagnostic (
-        UcliErrorCode Code,
+        UcliCode Code,
         string Severity,
         string CoverageImpact,
         string Message);

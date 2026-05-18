@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/verify.schema.json",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "source": {
+              "type": "string",
+              "enum": [
+                "builtIn",
+                "file"
+              ]
+            },
+            "name": {
+              "type": "string"
+            },
+            "path": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "digest": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "source",
+            "name",
+            "path",
+            "digest"
+          ]
+        },
+        "profileDigest": {
+          "type": "string"
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "fail",
+            "incomplete"
+          ]
+        },
+        "project": {
+          "$ref": "../defs/project.schema.json"
+        },
+        "verifiers": {
+          "type": "array",
+          "items": {
+            "$ref": "../defs/verifier.schema.json"
+          }
+        },
+        "claims": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "passed",
+                  "failed",
+                  "indeterminate",
+                  "unverified",
+                  "outOfScope"
+                ]
+              },
+              "coverage": {
+                "type": "string",
+                "enum": [
+                  "full",
+                  "partial",
+                  "none"
+                ]
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "verifierRef": {
+                "type": "string"
+              },
+              "statement": {
+                "type": "string"
+              },
+              "subject": {
+                "type": "object"
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "$ref": "../defs/evidence.schema.json"
+                }
+              },
+              "residualRisks": {
+                "type": "array",
+                "items": {
+                  "$ref": "../defs/residual-risk.schema.json"
+                }
+              },
+              "validity": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "id",
+              "status",
+              "coverage",
+              "required",
+              "verifierRef",
+              "statement",
+              "subject",
+              "evidence",
+              "residualRisks"
+            ]
+          }
+        },
+        "reports": {
+          "type": "object"
+        },
+        "residualRisks": {
+          "type": "array",
+          "items": {
+            "$ref": "../defs/residual-risk.schema.json"
+          }
+        },
+        "timeoutMilliseconds": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "profile",
+        "profileDigest",
+        "verdict",
+        "project",
+        "verifiers",
+        "claims",
+        "reports",
+        "residualRisks",
+        "timeoutMilliseconds"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "project": {
+          "$ref": "../defs/project.schema.json"
+        },
+        "startup": {
+          "type": "object"
+        },
+        "diagnosis": {
+          "type": "object"
+        },
+        "retryDisposition": {
+          "type": "string"
+        },
+        "safeToRetryImmediately": {
+          "type": "boolean"
+        }
+      }
+    }
+  ]
+}

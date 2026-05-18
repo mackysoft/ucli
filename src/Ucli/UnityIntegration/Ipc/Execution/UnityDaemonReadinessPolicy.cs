@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -14,68 +15,20 @@ internal static class UnityDaemonReadinessPolicy
         IpcPingResponse pingResponse,
         bool failFast)
     {
-        ArgumentNullException.ThrowIfNull(pingResponse);
-
-        if (!IpcEditorLifecycleStateCodec.TryParse(pingResponse.LifecycleState, out var lifecycleState))
-        {
-            return UnityDaemonReadinessDecision.Failure(
-                UcliCoreErrorCodes.InternalError,
-                $"Unity editor lifecycle gate returned unsupported state '{pingResponse.LifecycleState}'.");
-        }
-
-        if (pingResponse.CanAcceptExecutionRequests
-            && string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal))
+        var decision = UnityEditorReadinessPolicy.Evaluate(pingResponse, failFast);
+        if (decision.IsReady)
         {
             return UnityDaemonReadinessDecision.Ready();
         }
 
-        if (!failFast && IsWaitableLifecycleState(lifecycleState!))
+        if (decision.IsFailure)
         {
-            return UnityDaemonReadinessDecision.Wait();
+            return UnityDaemonReadinessDecision.Failure(
+                decision.ErrorCode!.Value,
+                decision.ErrorMessage!);
         }
 
-        return lifecycleState switch
-        {
-            IpcEditorLifecycleStateCodec.Starting => UnityDaemonReadinessDecision.Failure(
-                EditorLifecycleErrorCodes.EditorStarting,
-                "Unity editor startup is still in progress. Retry without --failFast or wait until lifecycleState=ready before executing request."),
-            IpcEditorLifecycleStateCodec.Recovering => UnityDaemonReadinessDecision.Failure(
-                EditorLifecycleErrorCodes.EditorRecovering,
-                "Unity editor daemon endpoint is recovering. Retry without --failFast or wait until lifecycleState=ready before executing request."),
-            IpcEditorLifecycleStateCodec.Busy => UnityDaemonReadinessDecision.Failure(
-                EditorLifecycleErrorCodes.EditorBusy,
-                "Unity editor is busy with internal work. Retry without --failFast or wait until lifecycleState=ready before executing request."),
-            IpcEditorLifecycleStateCodec.Compiling => UnityDaemonReadinessDecision.Failure(
-                EditorLifecycleErrorCodes.EditorCompiling,
-                "Unity editor is compiling scripts. Retry without --failFast or wait until lifecycleState=ready before executing request."),
-            IpcEditorLifecycleStateCodec.CompileFailed => UnityDaemonReadinessDecision.Failure(
-                EditorLifecycleErrorCodes.EditorCompileFailed,
-                "Unity editor has script compilation errors. Fix compiler errors and wait until lifecycleState=ready before executing request."),
-            IpcEditorLifecycleStateCodec.DomainReloading => UnityDaemonReadinessDecision.Failure(
-                EditorLifecycleErrorCodes.EditorDomainReloading,
-                "Unity editor is reloading the AppDomain. Retry after lifecycleState=ready before executing request."),
-            IpcEditorLifecycleStateCodec.Reimporting => UnityDaemonReadinessDecision.Failure(
-                EditorLifecycleErrorCodes.EditorReimporting,
-                "Unity editor is refreshing or reimporting assets. Retry without --failFast or wait until lifecycleState=ready before executing request."),
-            IpcEditorLifecycleStateCodec.Playmode => UnityDaemonReadinessDecision.Failure(
-                EditorLifecycleErrorCodes.EditorPlaymode,
-                "Unity editor is in Play Mode. Exit Play Mode and wait until lifecycleState=ready before executing request."),
-            IpcEditorLifecycleStateCodec.ModalBlocked => UnityDaemonReadinessDecision.Failure(
-                EditorLifecycleErrorCodes.EditorModalBlocked,
-                "Unity editor is blocked by a modal dialog. Resolve the dialog and wait until lifecycleState=ready before executing request."),
-            IpcEditorLifecycleStateCodec.SafeMode => UnityDaemonReadinessDecision.Failure(
-                EditorLifecycleErrorCodes.EditorSafeMode,
-                "Unity editor is in Safe Mode. Resolve compiler errors and wait until lifecycleState=ready before executing request."),
-            IpcEditorLifecycleStateCodec.ShuttingDown => UnityDaemonReadinessDecision.Failure(
-                EditorLifecycleErrorCodes.EditorShuttingDown,
-                "Unity editor is shutting down and cannot accept execution requests."),
-            IpcEditorLifecycleStateCodec.Unavailable => UnityDaemonReadinessDecision.Failure(
-                EditorLifecycleErrorCodes.EditorUnavailable,
-                "Unity editor lifecycle is unavailable because the daemon endpoint cannot be observed."),
-            _ => UnityDaemonReadinessDecision.Failure(
-                UcliCoreErrorCodes.InternalError,
-                $"Unity editor lifecycle gate returned unsupported state '{lifecycleState}'."),
-        };
+        return UnityDaemonReadinessDecision.Wait();
     }
 
     /// <summary> Determines whether a readiness-gated daemon response should be retried after a late waitable lifecycle regression. </summary>
@@ -99,21 +52,6 @@ internal static class UnityDaemonReadinessPolicy
             return false;
         }
 
-        return firstError.Code == EditorLifecycleErrorCodes.EditorStarting
-            || firstError.Code == EditorLifecycleErrorCodes.EditorBusy
-            || firstError.Code == EditorLifecycleErrorCodes.EditorCompiling
-            || firstError.Code == EditorLifecycleErrorCodes.EditorDomainReloading
-            || firstError.Code == EditorLifecycleErrorCodes.EditorRecovering
-            || firstError.Code == EditorLifecycleErrorCodes.EditorReimporting;
-    }
-
-    private static bool IsWaitableLifecycleState (string lifecycleState)
-    {
-        return string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Starting, StringComparison.Ordinal)
-            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Recovering, StringComparison.Ordinal)
-            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Busy, StringComparison.Ordinal)
-            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Compiling, StringComparison.Ordinal)
-            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.DomainReloading, StringComparison.Ordinal)
-            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Reimporting, StringComparison.Ordinal);
+        return UnityEditorReadinessPolicy.IsWaitableRegressionError(firstError.Code);
     }
 }

@@ -16,6 +16,7 @@
     <Project Path="tests/Ucli.Tests/Ucli.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
+    <Project Path="tools/Ucli.SchemaGenerator/Ucli.SchemaGenerator.csproj" />
     <Project Path="tools/Ucli.SkillGenerator/Ucli.SkillGenerator.csproj" />
   </Folder>
 </Solution>

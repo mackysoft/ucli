@@ -79,6 +79,7 @@ if [ "$restore" = true ]; then
 fi
 
 bash scripts/verify-skills.sh
+bash scripts/verify-schemas.sh
 bash scripts/code-quality.sh --no-restore --solution "$solution" verify
 dotnet build "$solution" --configuration "$configuration" --no-restore
 test_dotnet_args=(

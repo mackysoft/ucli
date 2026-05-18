@@ -10,7 +10,7 @@ using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
 public sealed class RequestStaticValidatorTests
 {
-    public static TheoryData<string, UcliErrorCode> InvalidRequestCases => new()
+    public static TheoryData<string, UcliCode> InvalidRequestCases => new()
     {
         { "protocol-version-mismatch", IpcProtocolErrorCodes.ProtocolVersionMismatch },
         { "request-id-invalid", ValidationErrorCodes.RequestIdInvalid },
@@ -27,7 +27,7 @@ public sealed class RequestStaticValidatorTests
     [MemberData(nameof(InvalidRequestCases))]
     public async Task Validate_AddsExpectedError_WhenRequestIsInvalid (
         string scenario,
-        UcliErrorCode expectedErrorCode)
+        UcliCode expectedErrorCode)
     {
         var validator = CreateValidator();
         var request = CreateInvalidRequest(scenario);
@@ -1270,7 +1270,7 @@ public sealed class RequestStaticValidatorTests
             PathSource: UnityProjectPathSource.CommandOption);
     }
 
-    private static void AssertContainsError (ValidationResult result, UcliErrorCode errorCode)
+    private static void AssertContainsError (ValidationResult result, UcliCode errorCode)
     {
         Assert.Contains(
             result.Errors,

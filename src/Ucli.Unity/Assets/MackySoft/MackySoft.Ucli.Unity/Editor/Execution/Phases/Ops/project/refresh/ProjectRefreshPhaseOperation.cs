@@ -20,27 +20,34 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.ProjectRefresh,
             kind: UcliOperationKind.Command,
-            policy: OperationPolicy.Advanced,
             description: "Refreshes Unity AssetDatabase and reports resources changed by import.",
             assurance: new UcliOperationAssuranceContract(
-                new[]
+                sideEffects: new[]
                 {
-                    UcliOperationSideEffect.RefreshesAssetDatabase,
-                    UcliOperationSideEffect.WritesAsset,
-                    UcliOperationSideEffect.WritesScene,
-                    UcliOperationSideEffect.WritesPrefab,
-                    UcliOperationSideEffect.WritesProjectSettings,
+                    UcliOperationSideEffect.AssetDatabaseRefresh,
+                    UcliOperationSideEffect.AssetImport,
+                    UcliOperationSideEffect.ScriptCompilation,
+                    UcliOperationSideEffect.DomainReload,
+                    UcliOperationSideEffect.SceneContentMutation,
+                    UcliOperationSideEffect.PrefabContentMutation,
+                    UcliOperationSideEffect.AssetContentMutation,
+                    UcliOperationSideEffect.ProjectSettingsMutation,
+                    UcliOperationSideEffect.AssetSave,
                 },
-                mayDirty: true,
-                mayPersist: true,
-                new[]
+                touchedKinds: new[]
                 {
                     IpcExecuteTouchedResourceKindNames.Scene,
                     IpcExecuteTouchedResourceKindNames.Prefab,
                     IpcExecuteTouchedResourceKindNames.Asset,
                     IpcExecuteTouchedResourceKindNames.ProjectSettings,
                 },
-                UcliOperationPlanMode.ValidationOnly));
+                planMode: UcliOperationPlanMode.ValidationOnly,
+                planSemantics: "Validate that AssetDatabase refresh can be requested; plan does not run import or observe refreshed project state.",
+                callSemantics: "Run Unity AssetDatabase refresh/import and report resources Unity exposes as changed by the import pass.",
+                touchedContract: "Reports assets, scenes, prefabs, or ProjectSettings observed through Unity refresh callbacks and dirty-state deltas; the set is best-effort and depends on Unity import observation.",
+                readPostconditionContract: "Asset, GUID path, schema, scene, prefab, ProjectSettings, and readIndex surfaces may be stale after refresh/import.",
+                failureSemantics: "AssetDatabase refresh is not transactional; timeout, cancellation, domain reload, or import failure can leave partially imported or indeterminate project state.",
+                dangerousNotes: new[] { "This operation can run Unity import code and persist importer side effects outside the requested operation set." }));
 
         /// <summary> Executes validate phase for <c>ucli.project.refresh</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

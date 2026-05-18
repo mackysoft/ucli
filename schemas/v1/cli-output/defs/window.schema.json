@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/window.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "limit": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "cursor": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "nextCursor": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "isComplete": {
+      "type": "boolean"
+    },
+    "totalCount": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "limit",
+    "cursor",
+    "nextCursor",
+    "isComplete",
+    "totalCount"
+  ]
+}

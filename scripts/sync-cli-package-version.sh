@@ -16,3 +16,4 @@ package_version="$(parse_package_version_arg usage "$@")"
 props_path="Directory.Build.props"
 
 update_xml_element_value "${props_path}" "Version" "${package_version}" "central package version"
+bash "${script_dir}/generate-schemas.sh" --package-version "${package_version}"

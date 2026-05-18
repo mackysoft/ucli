@@ -2,8 +2,8 @@ using System;
 using MackySoft.Ucli.Contracts;
 using System.Threading;
 using System.Threading.Tasks;
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using MackySoft.Ucli.Unity.Index;
@@ -22,14 +22,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<ComponentTypeArgs, IndexSchemaEntryJsonContract>(
             operationName: UcliPrimitiveOperationNames.CompSchema,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
             description: "Returns the serialized schema for a component type.",
             assurance: new UcliOperationAssuranceContract(
-                Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
-                Array.Empty<string>(),
-                UcliOperationPlanMode.ObservesLiveUnity));
+                sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate the component type and observe serialized property metadata without applying mutation.",
+                callSemantics: "Read serialized schema metadata for the requested component type without applying mutation.",
+                touchedContract: "Returns no touched resources because schema metadata is observational data.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Timeout, cancellation, or schema extraction failure means the schema was not fully produced.",
+                dangerousNotes: Array.Empty<string>()));
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
@@ -53,7 +56,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await ExecuteAsync(operation, args, applied: false, cancellationToken).ConfigureAwait(false);
+            return await ExecuteAsync(operation, args, cancellationToken).ConfigureAwait(false);
         }
 
         protected override async Task<OperationPhaseStepResult> CallAsync (
@@ -63,13 +66,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await ExecuteAsync(operation, args, applied: true, cancellationToken).ConfigureAwait(false);
+            return await ExecuteAsync(operation, args, cancellationToken).ConfigureAwait(false);
         }
 
         private async Task<OperationPhaseStepResult> ExecuteAsync (
             NormalizedOperation operation,
             ComponentTypeArgs args,
-            bool applied,
             CancellationToken cancellationToken)
         {
             if (!TryValidateArguments(operation, args, out var validationState, out var failure))
@@ -89,7 +91,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return OperationPhaseStepResult.Success(
-                applied: applied,
+                applied: false,
                 changed: false,
                 result: IpcPayloadCodec.SerializeToElement(extractionResult.Entries[0]));
         }

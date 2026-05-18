@@ -11,9 +11,9 @@ internal static class ReadIndexErrorCodeDescriptors
         UcliCommandIds.Ops,
     ];
 
-    public static IReadOnlyList<UcliErrorCodeDescriptor> All { get; } =
+    public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: ReadIndexErrorCodes.ReadIndexBootstrapFailed,
             category: "readIndex",
             summary: "Read-index bootstrap cannot be completed.",
@@ -36,7 +36,7 @@ internal static class ReadIndexErrorCodeDescriptors
                 ReadIndexErrorCodes.ReadIndexFreshRequired,
             ]),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: ReadIndexErrorCodes.ReadIndexFormatInvalid,
             category: "readIndex",
             summary: "Read-index files are malformed.",
@@ -55,7 +55,7 @@ internal static class ReadIndexErrorCodeDescriptors
             ],
             relatedCodes: [ReadIndexErrorCodes.ReadIndexBootstrapFailed]),
 
-        UcliErrorCodeDescriptorFactory.Create(
+        UcliErrorDescriptorFactory.Create(
             code: ReadIndexErrorCodes.ReadIndexFreshRequired,
             category: "readIndex",
             summary: "The request requires a fresh read-index.",

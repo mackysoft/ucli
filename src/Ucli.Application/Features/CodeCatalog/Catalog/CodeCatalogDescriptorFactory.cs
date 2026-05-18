@@ -8,12 +8,12 @@ internal static class CodeCatalogDescriptorFactory
     /// <summary> Converts one error-code descriptor to the generic code catalog descriptor shape. </summary>
     /// <param name="descriptor"> The existing error-code descriptor. </param>
     /// <returns> A code catalog descriptor with <c>kind=error</c>. </returns>
-    public static CodeCatalogDescriptor FromErrorDescriptor (UcliErrorCodeDescriptor descriptor)
+    public static CodeCatalogDescriptor FromErrorDescriptor (UcliErrorDescriptor descriptor)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
 
         return new CodeCatalogDescriptor(
-            Code: descriptor.Code.Value,
+            Code: descriptor.Code,
             Kind: CodeCatalogKindValues.Error,
             Category: descriptor.Category,
             Summary: descriptor.Summary,
@@ -24,6 +24,6 @@ internal static class CodeCatalogDescriptorFactory
             VerdictSemantics: null,
             ExecutionSemantics: descriptor.ExecutionSemantics,
             Inspect: descriptor.Inspect,
-            RelatedCodes: descriptor.RelatedCodes.Select(static code => code.Value).ToArray());
+            RelatedCodes: descriptor.RelatedCodes);
     }
 }

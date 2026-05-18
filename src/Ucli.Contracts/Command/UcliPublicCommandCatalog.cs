@@ -8,6 +8,9 @@ public static class UcliPublicCommandCatalog
     [
         UcliCommandIds.Init,
         UcliCommandIds.Status,
+        UcliCommandIds.Ready,
+        UcliCommandIds.Compile,
+        UcliCommandIds.Verify,
         UcliCommandIds.Refresh,
         UcliCommandIds.Resolve,
         UcliCommandIds.Query,

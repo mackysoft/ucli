@@ -19,14 +19,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<ComponentSetArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.CompSet,
             kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced,
             description: "Assigns serialized property values on a component target.",
             assurance: new UcliOperationAssuranceContract(
-                new[] { UcliOperationSideEffect.WritesScene, UcliOperationSideEffect.WritesPrefab },
-                mayDirty: true,
-                mayPersist: false,
-                new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
-                UcliOperationPlanMode.MayCreatePreviewState));
+                sideEffects: new[] { UcliOperationSideEffect.SceneContentMutation, UcliOperationSideEffect.PrefabContentMutation },
+                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                planMode: UcliOperationPlanMode.MayCreatePreviewState,
+                planSemantics: "Validate the component target and serialized property values, then compute preview changes without persisting project data.",
+                callSemantics: "Apply serialized property values to the live component and leave saving to explicit save operations.",
+                touchedContract: "Reports the scene or prefab resource dirtied by the component mutation when the target can be resolved.",
+                readPostconditionContract: "Scene, prefab, component, and object read surfaces covering touched resources may be stale until refreshed.",
+                failureSemantics: "Failure before apply leaves no requested mutation; failure during apply may leave live Unity state partially changed.",
+                dangerousNotes: new[] { "This operation can dirty scene or prefab state without persisting it; callers must save or discard changes explicitly." }));
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
