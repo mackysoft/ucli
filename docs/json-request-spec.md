@@ -258,7 +258,7 @@ no-op request は envelope、pipeline、smoke check のために有効な reques
 - query 起点でも selection set に正規化する
 - raw JSON を直接 mutation target にしない
 - 件数制約は `select.cardinality` に集約する
-- `cardinality: "first"` は deterministic order が定義された candidate set にだけ許可する。scene hierarchy は hierarchy traversal order、asset search は `assetPath` ordinal 昇順など、candidate source ごとの順序契約を正本にする
+- `cardinality: "first"` は deterministic order が定義された candidate set にだけ許可する。直接 selector は candidate set ではないため `first` を使わない。scene hierarchy は hierarchy traversal order、asset search は `assetPath` ordinal 昇順など、candidate source ごとの順序契約を正本にする
 - `select.from` の公開対応は #141 では scene context のみ
 - `gameObject` と `hierarchyPath` は `/` 区切りの hierarchy path として解釈するため、各 segment の GameObject 名に `/` は含めない
 - `/` を含む GameObject 名は hierarchyPath で表現できないため、`scene.query` と `select.from` の candidate にも含めない。この除外が発生した場合は silently clean pass にせず、request response の `opResults[].diagnostics[]` に `HIERARCHY_PATH_UNREPRESENTABLE_OBJECTS`、`severity=warning`、`coverageImpact=partial` を返す。assurance command で同じ不足を扱う場合は、該当 claim の `coverage=partial` または residual risk にも反映する
