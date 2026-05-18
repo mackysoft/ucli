@@ -184,6 +184,43 @@ public sealed class RequestStaticValidatorTests
         AssertContainsError(result, ValidationErrorCodes.EditStepInvalid);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Validate_WhenDirectEditSelectionUsesFirst_AddsEditStepInvalidError ()
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            steps:
+            [
+                CreateEditStep(
+                    stepId: "edit-direct-first",
+                    """
+                    {
+                      "kind": "edit",
+                      "id": "edit-direct-first",
+                      "on": {
+                        "scene": "Assets/Scenes/Main.unity"
+                      },
+                      "select": {
+                        "gameObject": "Root",
+                        "cardinality": "first"
+                      },
+                      "actions": [
+                        {
+                          "kind": "delete"
+                        }
+                      ],
+                      "commit": "none"
+                    }
+                    """),
+            ]);
+
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        AssertContainsError(result, ValidationErrorCodes.EditStepInvalid);
+    }
+
     [Theory]
     [Trait("Size", "Small")]
     [InlineData("""{}""")]
@@ -751,6 +788,50 @@ public sealed class RequestStaticValidatorTests
                         }
                       ],
                       "commit": "context"
+                    }
+                    """
+                        .Replace("__SCENE_QUERY_OP__", UcliPrimitiveOperationNames.SceneQuery, StringComparison.Ordinal)),
+            ]);
+
+        var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Errors);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Validate_ReturnsValidResult_WhenEditRequestUsesSceneQueryFirstSelection ()
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            steps:
+            [
+                CreateEditStep(
+                    stepId: "edit-query-first",
+                    """
+                    {
+                      "kind": "edit",
+                      "id": "edit-query-first",
+                      "on": {
+                        "scene": "Assets/Scenes/Main.unity"
+                      },
+                      "select": {
+                        "from": {
+                          "op": "__SCENE_QUERY_OP__",
+                          "args": {
+                            "pathPrefix": "Root/Enemies"
+                          }
+                        },
+                        "cardinality": "first"
+                      },
+                      "actions": [
+                        {
+                          "kind": "delete"
+                        }
+                      ],
+                      "commit": "none"
                     }
                     """
                         .Replace("__SCENE_QUERY_OP__", UcliPrimitiveOperationNames.SceneQuery, StringComparison.Ordinal)),

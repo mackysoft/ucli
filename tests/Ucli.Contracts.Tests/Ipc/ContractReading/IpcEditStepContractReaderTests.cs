@@ -58,6 +58,45 @@ public sealed class IpcEditStepContractReaderTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void TryRead_WhenSceneSelectFromUsesFirst_ReturnsParsedContract ()
+    {
+        using var document = JsonDocument.Parse(
+            """
+            {
+              "kind": "edit",
+              "id": "edit-first-query",
+              "on": {
+                "scene": "Assets/Scenes/Main.unity"
+              },
+              "select": {
+                "from": {
+                  "op": "__SCENE_QUERY_OP__",
+                  "args": {
+                    "pathPrefix": "Root"
+                  }
+                },
+                "cardinality": "first"
+              },
+              "actions": [
+                {
+                  "kind": "delete"
+                }
+              ],
+              "commit": "none"
+            }
+            """
+                .Replace("__SCENE_QUERY_OP__", UcliPrimitiveOperationNames.SceneQuery, StringComparison.Ordinal));
+
+        var result = IpcEditStepContractReader.TryRead(document.RootElement, out var contract, out var errorMessage);
+
+        Assert.True(result, errorMessage);
+        Assert.Equal(IpcEditStepContract.SelectionKind.From, contract.Selection.Kind);
+        Assert.Equal(IpcEditStepContract.CardinalityKind.First, contract.Selection.Cardinality);
+        Assert.Equal(UcliPrimitiveOperationNames.SceneQuery, contract.Selection.SourceOperation);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void TryRead_WhenProjectAssetSelectionIsValid_ReturnsParsedContract ()
     {
         using var document = JsonDocument.Parse(
@@ -99,6 +138,37 @@ public sealed class IpcEditStepContractReaderTests
         Assert.Equal(IpcEditStepContract.ActionKind.Set, action.Kind);
         Assert.Equal(JsonValueKind.Object, action.Values.ValueKind);
         Assert.Equal(IpcEditStepContract.CommitKind.Project, contract.Commit);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryRead_WhenDirectSelectionUsesFirst_ReturnsFalse ()
+    {
+        using var document = JsonDocument.Parse(
+            """
+            {
+              "kind": "edit",
+              "id": "edit-direct-first",
+              "on": {
+                "scene": "Assets/Scenes/Main.unity"
+              },
+              "select": {
+                "gameObject": "Root",
+                "cardinality": "first"
+              },
+              "actions": [
+                {
+                  "kind": "delete"
+                }
+              ],
+              "commit": "none"
+            }
+            """);
+
+        var result = IpcEditStepContractReader.TryRead(document.RootElement, out _, out var errorMessage);
+
+        Assert.False(result);
+        Assert.Equal("Edit step property 'step.select.cardinality' value 'first' is supported only for candidate-source selections.", errorMessage);
     }
 
     [Fact]

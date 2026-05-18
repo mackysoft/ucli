@@ -147,6 +147,69 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void Normalize_WhenSelectFromUsesFirst_SelectsFirstHierarchyTraversalMatch ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var zRoot = new GameObject("ZRoot");
+            var zChild = new GameObject("ZChild");
+            zChild.transform.SetParent(zRoot.transform, worldPositionStays: false);
+            _ = new GameObject("ARoot");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "deleteFirst",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                from = new
+                                {
+                                    op = UcliPrimitiveOperationNames.SceneQuery,
+                                    args = new
+                                    {
+                                    },
+                                },
+                                cardinality = "first",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "delete",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit", UcliPrimitiveOperationNames.GoDelete)
+                .AllHavePublicId("deleteFirst")
+                .HaveDistinctInternalExecutionKeys();
+            var target = compiledOperations[0].Args.GetProperty("target");
+            Assert.That(target.GetProperty("hierarchyPath").GetString(), Is.EqualTo("ZRoot"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void Normalize_WhenEditContainsDuplicateCreateAssetActions_AssignsDistinctInternalExecutionKeys ()
         {
             var assetPath = "Assets/Generated/Spawner.asset";

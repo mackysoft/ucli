@@ -755,6 +755,38 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Query_Plan_ReturnsMatchesInHierarchyTraversalOrder () => UniTask.ToCoroutine(async () =>
+        {
+            var queryOperation = new SceneQueryOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var zRoot = new GameObject("ZRoot");
+            var zChild = new GameObject("ZChild");
+            zChild.transform.SetParent(zRoot.transform, worldPositionStays: false);
+            _ = new GameObject("ARoot");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var queryRequest = CreateOperation(
+                opId: "op-query",
+                opName: UcliPrimitiveOperationNames.SceneQuery,
+                args: new
+                {
+                    scene = scenePath,
+                });
+
+            var queryResult = await queryOperation.PlanAsync(queryRequest, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertSuccess(queryResult, applied: false, changed: false);
+            Assert.That(queryResult.Result.HasValue, Is.True);
+            var matches = queryResult.Result!.Value.GetProperty("matches");
+            Assert.That(matches.GetArrayLength(), Is.EqualTo(3));
+            Assert.That(matches[0].GetProperty("hierarchyPath").GetString(), Is.EqualTo("ZRoot"));
+            Assert.That(matches[1].GetProperty("hierarchyPath").GetString(), Is.EqualTo("ZRoot/ZChild"));
+            Assert.That(matches[2].GetProperty("hierarchyPath").GetString(), Is.EqualTo("ARoot"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Query_Plan_WhenPreviewSceneHasPlannedChanges_UsesPreviewSceneState () => UniTask.ToCoroutine(async () =>
         {
             var openOperation = new SceneOpenOperation();
