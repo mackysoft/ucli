@@ -199,8 +199,6 @@ public sealed class OpsDescribeResultMapperTests
             "Resolves an asset, scene object, prefab object, or component reference to a Unity GlobalObjectId.",
             new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
                 touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate arguments and observe Unity state without applying mutation.",
@@ -234,8 +232,6 @@ public sealed class OpsDescribeResultMapperTests
             sideEffects: isDangerousPolicy
                 ? [UcliOperationSideEffect.AssetSave, UcliOperationSideEffect.ArbitrarySourceExecution]
                 : isMutation ? [UcliOperationSideEffect.AssetSave] : [UcliOperationSideEffect.ObservesUnityState],
-            mayDirty: isMutation,
-            mayPersist: isMutation,
             touchedKinds: isMutation ? [IpcExecuteTouchedResourceKindNames.Asset] : Array.Empty<string>(),
             planMode: UcliOperationPlanMode.ObservesLiveUnity,
             planSemantics: "Validate arguments and observe Unity state without applying mutation.",

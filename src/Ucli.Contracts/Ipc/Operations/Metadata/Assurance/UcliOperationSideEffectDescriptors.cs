@@ -13,69 +13,72 @@ public static class UcliOperationSideEffectDescriptors
         Define(
             UcliOperationSideEffect.OpensSceneInEditor,
             OperationPolicy.Advanced,
-            UcliOperationSideEffectRequiredAssuranceFact.TouchedKindIncludes(IpcExecuteTouchedResourceKindNames.Scene)),
+            requiredTouchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene }),
         Define(
             UcliOperationSideEffect.OpensPrefabStage,
             OperationPolicy.Advanced,
-            UcliOperationSideEffectRequiredAssuranceFact.TouchedKindIncludes(IpcExecuteTouchedResourceKindNames.Prefab)),
+            requiredTouchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Prefab }),
         Define(
             UcliOperationSideEffect.AssetDatabaseRefresh,
             OperationPolicy.Advanced,
-            UcliOperationSideEffectRequiredAssuranceFact.TouchedKindIncludes(IpcExecuteTouchedResourceKindNames.Asset)),
+            requiredTouchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Asset }),
         Define(
             UcliOperationSideEffect.AssetImport,
             OperationPolicy.Advanced,
-            UcliOperationSideEffectRequiredAssuranceFact.TouchedKindIncludes(IpcExecuteTouchedResourceKindNames.Asset)),
+            requiredTouchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Asset }),
         Define(UcliOperationSideEffect.ScriptCompilation, OperationPolicy.Advanced),
         Define(UcliOperationSideEffect.DomainReload, OperationPolicy.Advanced),
         Define(
             UcliOperationSideEffect.SceneContentMutation,
             OperationPolicy.Advanced,
-            UcliOperationSideEffectRequiredAssuranceFact.MayDirtyTrue(),
-            UcliOperationSideEffectRequiredAssuranceFact.TouchedKindIncludes(IpcExecuteTouchedResourceKindNames.Scene)),
+            derivesMayDirty: true,
+            requiredTouchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene }),
         Define(
             UcliOperationSideEffect.PrefabContentMutation,
             OperationPolicy.Advanced,
-            UcliOperationSideEffectRequiredAssuranceFact.MayDirtyTrue(),
-            UcliOperationSideEffectRequiredAssuranceFact.TouchedKindIncludes(IpcExecuteTouchedResourceKindNames.Prefab)),
+            derivesMayDirty: true,
+            requiredTouchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Prefab }),
         Define(
             UcliOperationSideEffect.AssetContentMutation,
             OperationPolicy.Advanced,
-            UcliOperationSideEffectRequiredAssuranceFact.MayDirtyTrue(),
-            UcliOperationSideEffectRequiredAssuranceFact.TouchedKindIncludes(IpcExecuteTouchedResourceKindNames.Asset)),
+            derivesMayDirty: true,
+            requiredTouchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Asset }),
         Define(
             UcliOperationSideEffect.ProjectSettingsMutation,
             OperationPolicy.Advanced,
-            UcliOperationSideEffectRequiredAssuranceFact.MayDirtyTrue(),
-            UcliOperationSideEffectRequiredAssuranceFact.TouchedKindIncludes(IpcExecuteTouchedResourceKindNames.ProjectSettings)),
+            derivesMayDirty: true,
+            requiredTouchedKinds: new[] { IpcExecuteTouchedResourceKindNames.ProjectSettings }),
         Define(
             UcliOperationSideEffect.SceneSave,
             OperationPolicy.Advanced,
-            UcliOperationSideEffectRequiredAssuranceFact.MayPersistTrue(),
-            UcliOperationSideEffectRequiredAssuranceFact.TouchedKindIncludes(IpcExecuteTouchedResourceKindNames.Scene)),
+            derivesMayPersist: true,
+            requiredTouchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene }),
         Define(
             UcliOperationSideEffect.PrefabSave,
             OperationPolicy.Advanced,
-            UcliOperationSideEffectRequiredAssuranceFact.MayPersistTrue(),
-            UcliOperationSideEffectRequiredAssuranceFact.TouchedKindIncludes(IpcExecuteTouchedResourceKindNames.Prefab)),
+            derivesMayPersist: true,
+            requiredTouchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Prefab }),
         Define(
             UcliOperationSideEffect.AssetSave,
             OperationPolicy.Advanced,
-            UcliOperationSideEffectRequiredAssuranceFact.MayPersistTrue(),
-            UcliOperationSideEffectRequiredAssuranceFact.TouchedKindIncludes(IpcExecuteTouchedResourceKindNames.Asset)),
+            derivesMayPersist: true,
+            requiredTouchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Asset }),
         Define(
             UcliOperationSideEffect.ProjectSave,
             OperationPolicy.Advanced,
-            UcliOperationSideEffectRequiredAssuranceFact.MayPersistTrue(),
-            UcliOperationSideEffectRequiredAssuranceFact.TouchedKindIncludes(IpcExecuteTouchedResourceKindNames.Scene),
-            UcliOperationSideEffectRequiredAssuranceFact.TouchedKindIncludes(IpcExecuteTouchedResourceKindNames.Prefab),
-            UcliOperationSideEffectRequiredAssuranceFact.TouchedKindIncludes(IpcExecuteTouchedResourceKindNames.Asset),
-            UcliOperationSideEffectRequiredAssuranceFact.TouchedKindIncludes(IpcExecuteTouchedResourceKindNames.ProjectSettings)),
+            derivesMayPersist: true,
+            requiredTouchedKinds: new[]
+            {
+                IpcExecuteTouchedResourceKindNames.Scene,
+                IpcExecuteTouchedResourceKindNames.Prefab,
+                IpcExecuteTouchedResourceKindNames.Asset,
+                IpcExecuteTouchedResourceKindNames.ProjectSettings,
+            }),
         Define(UcliOperationSideEffect.ExternalProcess, OperationPolicy.Dangerous),
         Define(
             UcliOperationSideEffect.FilesystemWrite,
             OperationPolicy.Dangerous,
-            UcliOperationSideEffectRequiredAssuranceFact.MayPersistTrue()),
+            derivesMayPersist: true),
         Define(UcliOperationSideEffect.ArbitrarySourceExecution, OperationPolicy.Dangerous),
         Define(UcliOperationSideEffect.DestructiveScope, OperationPolicy.Dangerous),
     };
@@ -149,16 +152,88 @@ public static class UcliOperationSideEffectDescriptors
             && descriptor.AllowedForQueryOperation;
     }
 
+    /// <summary> Tries to derive <c>assurance.mayDirty</c> and <c>assurance.mayPersist</c> from side-effect literals. </summary>
+    /// <param name="sideEffects"> The side-effect literals. </param>
+    /// <param name="mayDirty"> The derived dirty-state projection. </param>
+    /// <param name="mayPersist"> The derived persistence projection. </param>
+    /// <returns> <see langword="true" /> when all side effects are supported; otherwise <see langword="false" />. </returns>
+    internal static bool TryDeriveAssuranceProjection (
+        IReadOnlyList<string>? sideEffects,
+        out bool mayDirty,
+        out bool mayPersist)
+    {
+        mayDirty = false;
+        mayPersist = false;
+
+        if (sideEffects == null)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < sideEffects.Count; i++)
+        {
+            if (!TryGetDescriptor(sideEffects[i], out var descriptor))
+            {
+                mayDirty = false;
+                mayPersist = false;
+                return false;
+            }
+
+            mayDirty |= descriptor.DerivesMayDirty;
+            mayPersist |= descriptor.DerivesMayPersist;
+        }
+
+        return true;
+    }
+
+    /// <summary> Tries to derive <c>assurance.mayDirty</c> and <c>assurance.mayPersist</c> from side-effect enum values. </summary>
+    /// <param name="sideEffects"> The side-effect enum values. </param>
+    /// <param name="mayDirty"> The derived dirty-state projection. </param>
+    /// <param name="mayPersist"> The derived persistence projection. </param>
+    /// <returns> <see langword="true" /> when <paramref name="sideEffects" /> is not <see langword="null" />; otherwise <see langword="false" />. </returns>
+    internal static bool TryDeriveAssuranceProjection (
+        IReadOnlyList<UcliOperationSideEffect>? sideEffects,
+        out bool mayDirty,
+        out bool mayPersist)
+    {
+        mayDirty = false;
+        mayPersist = false;
+
+        if (sideEffects == null)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < sideEffects.Count; i++)
+        {
+            if (!TryGetDescriptor(UcliOperationSideEffectCodec.ToValue(sideEffects[i]), out var descriptor))
+            {
+                mayDirty = false;
+                mayPersist = false;
+                return false;
+            }
+
+            mayDirty |= descriptor.DerivesMayDirty;
+            mayPersist |= descriptor.DerivesMayPersist;
+        }
+
+        return true;
+    }
+
     private static UcliOperationSideEffectDescriptor Define (
         UcliOperationSideEffect sideEffect,
         OperationPolicy minimumPolicy,
-        params UcliOperationSideEffectRequiredAssuranceFact[] requiredAssuranceFacts)
+        bool derivesMayDirty = false,
+        bool derivesMayPersist = false,
+        string[]? requiredTouchedKinds = null)
     {
         return new UcliOperationSideEffectDescriptor(
             sideEffect,
             minimumPolicy,
+            derivesMayDirty,
+            derivesMayPersist,
             allowedForQueryOperation: false,
-            requiredAssuranceFacts);
+            requiredTouchedKinds ?? Array.Empty<string>());
     }
 
     private static UcliOperationSideEffectDescriptor DefineQuery (
@@ -168,8 +243,10 @@ public static class UcliOperationSideEffectDescriptors
         return new UcliOperationSideEffectDescriptor(
             sideEffect,
             minimumPolicy,
+            derivesMayDirty: false,
+            derivesMayPersist: false,
             allowedForQueryOperation: true,
-            Array.Empty<UcliOperationSideEffectRequiredAssuranceFact>());
+            Array.Empty<string>());
     }
 
 }

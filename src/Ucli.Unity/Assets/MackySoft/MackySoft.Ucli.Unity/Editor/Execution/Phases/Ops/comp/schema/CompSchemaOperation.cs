@@ -25,8 +25,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Returns the serialized schema for a component type.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
-                mayDirty: false,
-                mayPersist: false,
                 touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the component type and observe serialized property metadata without applying mutation.",

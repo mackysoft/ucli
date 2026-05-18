@@ -21,8 +21,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Moves a GameObject under a new parent GameObject.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.SceneContentMutation, UcliOperationSideEffect.PrefabContentMutation },
-                mayDirty: true,
-                mayPersist: false,
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Validate source and parent targets, then compute preview hierarchy changes without persisting project data.",

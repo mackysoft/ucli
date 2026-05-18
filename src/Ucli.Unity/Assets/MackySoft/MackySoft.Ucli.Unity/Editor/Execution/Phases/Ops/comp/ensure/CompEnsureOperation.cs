@@ -21,8 +21,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Ensures that a GameObject has a component of the requested type.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.SceneContentMutation, UcliOperationSideEffect.PrefabContentMutation },
-                mayDirty: true,
-                mayPersist: false,
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Validate the target GameObject and component type, then compute preview changes without persisting project data.",

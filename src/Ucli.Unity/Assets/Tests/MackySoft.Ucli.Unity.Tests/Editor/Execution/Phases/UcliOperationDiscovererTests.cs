@@ -415,31 +415,37 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void BuildCatalog_WhenCsEvalOperationIsExported_IncludesDangerousCodeContract ()
+        public void BuildCatalog_WhenCsEvalOperationIsDiscovered_ExcludesFromPublicCatalogAndKeepsRegistration ()
         {
             var operations = UcliOperationDiscoverer.Discover();
+            var metadata = FindMetadata(operations, UcliPrimitiveOperationNames.CsEval);
 
             var snapshot = UcliOperationCatalogSnapshotBuilder.Build(operations);
 
-            var entry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.CsEval);
-            Assert.That(entry.Kind, Is.EqualTo(UcliOperationKindValues.Mutation));
-            Assert.That(entry.Policy, Is.EqualTo(OperationPolicyValues.Dangerous));
-            Assert.That(entry.ArgsSchemaJson, Does.Contain("\"source\""));
-            Assert.That(entry.ResultSchemaJson, Does.Contain("\"sourceKind\""));
-            Assert.That(entry.CodeContract, Is.Not.Null);
-            Assert.That(entry.CodeContract!.Language, Is.EqualTo("csharp"));
-            Assert.That(entry.CodeContract.EntryPoint!.MatchRule, Does.Contain("exactly one"));
-            Assert.That(entry.CodeContract.SourceForms!.Count, Is.EqualTo(2));
-            Assert.That(entry.CodeContract.SourceForms![0].Kind, Is.EqualTo(CsEvalSourceKindValues.CompilationUnit));
-            Assert.That(entry.CodeContract.SourceForms[1].Kind, Is.EqualTo(CsEvalSourceKindValues.Snippet));
-            Assert.That(entry.CodeContract.ApiTypes!.Count, Is.EqualTo(1));
-            Assert.That(entry.Assurance, Is.Not.Null);
-            Assert.That(entry.Assurance!.PlanSemantics, Does.Contain("without invoking user code"));
-            Assert.That(entry.Assurance.CallSemantics, Does.Contain("execute the user C# entry point"));
-            Assert.That(entry.Assurance.TouchedContract, Does.Contain("caller-controlled"));
-            Assert.That(entry.Assurance.FailureSemantics, Does.Contain("cannot be forcibly stopped"));
-            Assert.That(entry.Assurance.DangerousNotes!.Count, Is.EqualTo(2));
-            var apiType = entry.CodeContract.ApiTypes[0];
+            Assert.That(snapshot.Registrations, Has.Some.Matches<UcliOperationRegistration>(
+                registration => registration.Metadata.OperationName == UcliPrimitiveOperationNames.CsEval));
+            Assert.That(
+                snapshot.Catalog.Operations!.Any(operation => operation.Name == UcliPrimitiveOperationNames.CsEval),
+                Is.False);
+            Assert.That(metadata.Kind, Is.EqualTo(UcliOperationKind.Mutation));
+            Assert.That(metadata.Policy, Is.EqualTo(OperationPolicy.Dangerous));
+            Assert.That(metadata.ArgsSchemaJson, Does.Contain("\"source\""));
+            Assert.That(metadata.ResultSchemaJson, Does.Contain("\"sourceKind\""));
+            var describeContract = metadata.DescribeContract;
+            Assert.That(describeContract.CodeContract, Is.Not.Null);
+            Assert.That(describeContract.CodeContract!.Language, Is.EqualTo("csharp"));
+            Assert.That(describeContract.CodeContract.EntryPoint!.MatchRule, Does.Contain("exactly one"));
+            Assert.That(describeContract.CodeContract.SourceForms!.Count, Is.EqualTo(2));
+            Assert.That(describeContract.CodeContract.SourceForms![0].Kind, Is.EqualTo(CsEvalSourceKindValues.CompilationUnit));
+            Assert.That(describeContract.CodeContract.SourceForms[1].Kind, Is.EqualTo(CsEvalSourceKindValues.Snippet));
+            Assert.That(describeContract.CodeContract.ApiTypes!.Count, Is.EqualTo(1));
+            Assert.That(describeContract.Assurance, Is.Not.Null);
+            Assert.That(describeContract.Assurance!.PlanSemantics, Does.Contain("without invoking user code"));
+            Assert.That(describeContract.Assurance.CallSemantics, Does.Contain("execute the user C# entry point"));
+            Assert.That(describeContract.Assurance.TouchedContract, Does.Contain("caller-controlled"));
+            Assert.That(describeContract.Assurance.FailureSemantics, Does.Contain("cannot be forcibly stopped"));
+            Assert.That(describeContract.Assurance.DangerousNotes!.Count, Is.EqualTo(2));
+            var apiType = describeContract.CodeContract.ApiTypes[0];
             Assert.That(apiType.Members!.Count, Is.EqualTo(8));
             Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "DeclareNoTouchedResources"));
             Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "DeclareTouchedAsset"));
@@ -893,8 +899,6 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
                 touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanMode.ValidationOnly,
                 planSemantics: "Validate arguments without applying mutation.",

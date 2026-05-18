@@ -20,8 +20,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Opens a Unity scene asset in the editor.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.EditorStateChange, UcliOperationSideEffect.OpensSceneInEditor },
-                mayDirty: false,
-                mayPersist: false,
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene },
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Validate the scene path and observe whether the scene can be opened without saving project data.",

@@ -84,8 +84,6 @@ public sealed class OpsListFilterTests
     {
         return new UcliOperationAssuranceContract(
             sideEffects: [UcliOperationSideEffectValues.ExternalProcess],
-            mayDirty: false,
-            mayPersist: true,
             touchedKinds: Array.Empty<string>(),
             planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
             planSemantics: "Observe mutation inputs without applying them.",

@@ -21,8 +21,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Opens a prefab asset in the Unity editor.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.EditorStateChange, UcliOperationSideEffect.OpensPrefabStage },
-                mayDirty: false,
-                mayPersist: false,
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Prefab },
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Validate the prefab path and observe whether the prefab stage can be opened without saving project data.",

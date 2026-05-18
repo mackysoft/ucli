@@ -20,8 +20,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Deletes a GameObject from a scene or prefab hierarchy.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.SceneContentMutation, UcliOperationSideEffect.PrefabContentMutation },
-                mayDirty: true,
-                mayPersist: false,
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Validate the GameObject target and compute preview hierarchy changes without persisting project data.",

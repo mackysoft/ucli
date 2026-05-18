@@ -22,8 +22,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Creates a Unity asset at a project-relative path.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.AssetContentMutation, UcliOperationSideEffect.AssetSave },
-                mayDirty: true,
-                mayPersist: true,
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Asset },
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Validate the asset creation target and compute preview creation state without persisting project data.",

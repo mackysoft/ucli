@@ -20,8 +20,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Saves a loaded or previewed Unity scene asset.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.SceneSave },
-                mayDirty: false,
-                mayPersist: true,
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the scene path and observe whether the loaded or previewed scene has save-relevant changes.",

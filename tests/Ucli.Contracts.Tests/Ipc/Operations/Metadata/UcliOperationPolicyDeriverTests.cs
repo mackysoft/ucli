@@ -26,27 +26,7 @@ public sealed class UcliOperationPolicyDeriverTests
             UcliOperationSideEffectValues.ObservesUnityState,
             UcliOperationSideEffectValues.SceneSave,
         ],
-        mayPersist: true,
         touchedKinds: [IpcExecuteTouchedResourceKindNames.Scene]);
-
-        var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
-
-        Assert.True(result);
-        Assert.Equal(OperationPolicy.Advanced, policy);
-    }
-
-    [Theory]
-    [Trait("Size", "Small")]
-    [InlineData(true, false)]
-    [InlineData(false, true)]
-    public void TryDerive_WhenDirtyOrPersistFactsAreDeclared_ReturnsAdvanced (
-        bool mayDirty,
-        bool mayPersist)
-    {
-        var assurance = CreateAssurance(
-            Array.Empty<string>(),
-            mayDirty,
-            mayPersist);
 
         var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
 
@@ -60,8 +40,6 @@ public sealed class UcliOperationPolicyDeriverTests
     {
         var assurance = CreateAssurance(
             Array.Empty<string>(),
-            mayDirty: false,
-            mayPersist: false,
             planMode: UcliOperationPlanModeValues.MayCreatePreviewState);
 
         var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
@@ -78,9 +56,7 @@ public sealed class UcliOperationPolicyDeriverTests
     [InlineData(UcliOperationSideEffectValues.DestructiveScope)]
     public void TryDerive_WhenDangerousSideEffectIsDeclared_ReturnsDangerous (string sideEffect)
     {
-        var assurance = string.Equals(sideEffect, UcliOperationSideEffectValues.FilesystemWrite, StringComparison.Ordinal)
-            ? CreateAssurance([sideEffect], mayPersist: true)
-            : CreateAssurance([sideEffect]);
+        var assurance = CreateAssurance([sideEffect]);
 
         var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
 
@@ -112,17 +88,26 @@ public sealed class UcliOperationPolicyDeriverTests
         Assert.Equal(OperationPolicy.Dangerous, policy);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryDerive_WhenStoredProjectionIsCorrupted_UsesDescriptorProjection ()
+    {
+        var assurance = CreateAssurance([UcliOperationSideEffectValues.ObservesUnityState]);
+        assurance.MayPersist = true;
+
+        var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
+
+        Assert.True(result);
+        Assert.Equal(OperationPolicy.Safe, policy);
+    }
+
     private static UcliOperationAssuranceContract CreateAssurance (
         IReadOnlyList<string> sideEffects,
-        bool mayDirty = false,
-        bool mayPersist = false,
         IReadOnlyList<string>? touchedKinds = null,
         string? planMode = UcliOperationPlanModeValues.ValidationOnly)
     {
         return new UcliOperationAssuranceContract(
             sideEffects,
-            mayDirty,
-            mayPersist,
             touchedKinds ?? Array.Empty<string>(),
             planMode,
             planSemantics: "Validate arguments without applying mutation.",

@@ -25,8 +25,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     UcliOperationSideEffect.PrefabContentMutation,
                     UcliOperationSideEffect.PrefabSave,
                 },
-                mayDirty: true,
-                mayPersist: true,
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Validate the source GameObject and prefab path, then compute preview creation state without persisting project data.",

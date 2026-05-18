@@ -21,13 +21,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Returns the hierarchy tree for a Unity scene.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
-                mayDirty: false,
-                mayPersist: false,
-                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene },
+                touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the scene path and observe the selected hierarchy source without applying mutation.",
                 callSemantics: "Read the scene hierarchy without applying mutation.",
-                touchedContract: "Reports the scene resource as the observed hierarchy context.",
+                touchedContract: "Returns no touched resources because scene hierarchy data is observational, not dirty or persisted state.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Timeout, cancellation, or source fallback failure means the hierarchy was not fully observed.",
                 dangerousNotes: Array.Empty<string>()));
@@ -111,10 +109,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(OperationPhaseStepResult.Success(
                     applied: applied,
                     changed: false,
-                    touched: new[]
-                    {
-                        OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Scene, validationState.ScenePath)),
-                    },
                     result: IpcPayloadCodec.SerializeToElement(tree)));
             }
         }

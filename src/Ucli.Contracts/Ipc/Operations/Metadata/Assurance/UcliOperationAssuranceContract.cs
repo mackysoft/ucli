@@ -10,8 +10,6 @@ public sealed class UcliOperationAssuranceContract
 
     /// <summary> Initializes a new instance of the <see cref="UcliOperationAssuranceContract" /> class. </summary>
     /// <param name="sideEffects"> The side-effect literals that can happen during <c>call</c>. </param>
-    /// <param name="mayDirty"> Whether <c>call</c> can dirty Unity objects or project state. </param>
-    /// <param name="mayPersist"> Whether <c>call</c> can persist data to project files. </param>
     /// <param name="touchedKinds"> The touched-resource kind literals that can be reported. </param>
     /// <param name="planMode"> The plan behavior literal. </param>
     /// <param name="planSemantics"> The plan-phase semantic contract. </param>
@@ -22,8 +20,6 @@ public sealed class UcliOperationAssuranceContract
     /// <param name="dangerousNotes"> Notes that describe out-of-contract or dangerous areas. </param>
     public UcliOperationAssuranceContract (
         IReadOnlyList<string>? sideEffects,
-        bool mayDirty,
-        bool mayPersist,
         IReadOnlyList<string>? touchedKinds,
         string? planMode,
         string? planSemantics,
@@ -34,8 +30,7 @@ public sealed class UcliOperationAssuranceContract
         IReadOnlyList<string>? dangerousNotes)
     {
         SideEffects = sideEffects;
-        MayDirty = mayDirty;
-        MayPersist = mayPersist;
+        ApplyDerivedPersistenceProjection(sideEffects);
         TouchedKinds = touchedKinds;
         PlanMode = planMode;
         PlanSemantics = planSemantics;
@@ -48,8 +43,6 @@ public sealed class UcliOperationAssuranceContract
 
     /// <summary> Initializes a new instance of the <see cref="UcliOperationAssuranceContract" /> class. </summary>
     /// <param name="sideEffects"> The side-effect enum values that can happen during <c>call</c>. </param>
-    /// <param name="mayDirty"> Whether <c>call</c> can dirty Unity objects or project state. </param>
-    /// <param name="mayPersist"> Whether <c>call</c> can persist data to project files. </param>
     /// <param name="touchedKinds"> The touched-resource kind literals that can be reported. </param>
     /// <param name="planMode"> The plan behavior enum value. </param>
     /// <param name="planSemantics"> The plan-phase semantic contract. </param>
@@ -60,8 +53,6 @@ public sealed class UcliOperationAssuranceContract
     /// <param name="dangerousNotes"> Notes that describe out-of-contract or dangerous areas. </param>
     public UcliOperationAssuranceContract (
         IReadOnlyList<UcliOperationSideEffect>? sideEffects,
-        bool mayDirty,
-        bool mayPersist,
         IReadOnlyList<string>? touchedKinds,
         UcliOperationPlanMode planMode,
         string? planSemantics,
@@ -72,8 +63,6 @@ public sealed class UcliOperationAssuranceContract
         IReadOnlyList<string>? dangerousNotes)
         : this(
             ConvertSideEffects(sideEffects),
-            mayDirty,
-            mayPersist,
             touchedKinds,
             UcliOperationPlanModeCodec.ToValue(planMode),
             planSemantics,
@@ -88,10 +77,10 @@ public sealed class UcliOperationAssuranceContract
     /// <summary> Gets or sets side-effect literals that can happen during <c>call</c>. </summary>
     public IReadOnlyList<string>? SideEffects { get; set; }
 
-    /// <summary> Gets or sets a value indicating whether <c>call</c> can dirty Unity objects or project state. </summary>
+    /// <summary> Gets or sets the derived projection indicating whether <c>call</c> can dirty Unity objects or project state. </summary>
     public bool MayDirty { get; set; }
 
-    /// <summary> Gets or sets a value indicating whether <c>call</c> can persist data to project files. </summary>
+    /// <summary> Gets or sets the derived broad persistence projection for Unity saves and direct filesystem writes. </summary>
     public bool MayPersist { get; set; }
 
     /// <summary> Gets or sets touched-resource kind literals that can be reported. </summary>
@@ -132,5 +121,18 @@ public sealed class UcliOperationAssuranceContract
         }
 
         return values;
+    }
+
+    private void ApplyDerivedPersistenceProjection (IReadOnlyList<string>? sideEffects)
+    {
+        if (UcliOperationSideEffectDescriptors.TryDeriveAssuranceProjection(sideEffects, out var mayDirty, out var mayPersist))
+        {
+            MayDirty = mayDirty;
+            MayPersist = mayPersist;
+            return;
+        }
+
+        MayDirty = false;
+        MayPersist = false;
     }
 }

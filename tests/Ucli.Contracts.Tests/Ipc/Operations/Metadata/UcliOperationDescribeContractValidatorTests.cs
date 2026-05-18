@@ -350,8 +350,8 @@ public sealed class UcliOperationDescribeContractValidatorTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [MemberData(nameof(RequiredAssuranceFactFailureCases))]
-    public void TryValidatePublicRawOpDescribeContract_WhenSideEffectRequiredAssuranceFactIsMissing_ReturnsFalse (
+    [MemberData(nameof(AssuranceProjectionAndConstraintFailureCases))]
+    public void TryValidatePublicRawOpDescribeContract_WhenAssuranceProjectionOrConstraintIsInvalid_ReturnsFalse (
         string sideEffect,
         bool mayDirty,
         bool mayPersist,
@@ -418,6 +418,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
     [Trait("Size", "Small")]
     [InlineData("mayDirty")]
     [InlineData("mayPersist")]
+    [InlineData("touchedKinds")]
     [InlineData("sideEffects")]
     public void TryValidatePublicRawOpDescribeContract_WhenQueryAssuranceHasMutationRisk_ReturnsFalse (
         string mutationRisk)
@@ -430,6 +431,9 @@ public sealed class UcliOperationDescribeContractValidatorTests
                 break;
             case "mayPersist":
                 describe.Assurance!.MayPersist = true;
+                break;
+            case "touchedKinds":
+                describe.Assurance!.TouchedKinds = [IpcExecuteTouchedResourceKindNames.Scene];
                 break;
             case "sideEffects":
                 describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.SceneContentMutation];
@@ -507,20 +511,20 @@ public sealed class UcliOperationDescribeContractValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryValidatePublicRawOpDescribeContract_WhenCodeContractLacksArbitrarySourceExecution_ReturnsFalse ()
+    public void TryValidatePublicRawOpDescribeContract_WhenCodeContractLacksArbitrarySourceExecution_ReturnsTrue ()
     {
         var describe = CreateValidDescribeContract();
         describe.CodeContract = CreateValidCodeContract();
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
 
-        Assert.False(isValid);
-        Assert.Equal("Test contract operations with codeContract must declare sideEffects value 'arbitrarySourceExecution'.", errorMessage);
+        Assert.True(isValid, errorMessage);
+        Assert.Equal(string.Empty, errorMessage);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryValidatePublicRawOpDescribeContractAndDerivePolicy_WhenCodeContractLacksArbitrarySourceExecution_ReturnsFalse ()
+    public void TryValidatePublicRawOpDescribeContractAndDerivePolicy_WhenCodeContractLacksArbitrarySourceExecution_ReturnsSafePolicy ()
     {
         var describe = CreateValidDescribeContract();
         describe.CodeContract = CreateValidCodeContract();
@@ -529,11 +533,12 @@ public sealed class UcliOperationDescribeContractValidatorTests
             describe,
             operationKind: UcliOperationKindValues.Command,
             ownerName: "Test contract",
-            out _,
+            out var derivedPolicy,
             out var errorMessage);
 
-        Assert.False(isValid);
-        Assert.Equal("Test contract operations with codeContract must declare sideEffects value 'arbitrarySourceExecution'.", errorMessage);
+        Assert.True(isValid, errorMessage);
+        Assert.Equal(OperationPolicy.Safe, derivedPolicy);
+        Assert.Equal(string.Empty, errorMessage);
     }
 
     [Fact]
@@ -676,8 +681,6 @@ public sealed class UcliOperationDescribeContractValidatorTests
             "Opens a Unity scene asset in the editor.",
             new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
                 touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate arguments and observe Unity state without applying mutation.",
@@ -688,7 +691,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
                 dangerousNotes: Array.Empty<string>()));
     }
 
-    public static IEnumerable<object[]> RequiredAssuranceFactFailureCases
+    public static IEnumerable<object[]> AssuranceProjectionAndConstraintFailureCases
     {
         get
         {
@@ -698,7 +701,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
                 false,
                 false,
                 new[] { IpcExecuteTouchedResourceKindNames.Asset },
-                "Test contract side effect 'assetContentMutation' requires assurance.mayDirty=true.",
+                "Test contract assurance.mayDirty does not match derived projection 'true'.",
             };
             yield return new object[]
             {
@@ -714,7 +717,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
                 false,
                 false,
                 new[] { IpcExecuteTouchedResourceKindNames.Asset },
-                "Test contract side effect 'assetSave' requires assurance.mayPersist=true.",
+                "Test contract assurance.mayPersist does not match derived projection 'true'.",
             };
             yield return new object[]
             {
@@ -730,7 +733,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
                 false,
                 false,
                 Array.Empty<string>(),
-                "Test contract side effect 'filesystemWrite' requires assurance.mayPersist=true.",
+                "Test contract assurance.mayPersist does not match derived projection 'true'.",
             };
             yield return new object[]
             {

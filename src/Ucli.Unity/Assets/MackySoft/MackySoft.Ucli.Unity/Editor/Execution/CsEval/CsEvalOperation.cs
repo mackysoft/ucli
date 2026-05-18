@@ -177,8 +177,6 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     UcliOperationSideEffect.ArbitrarySourceExecution,
                     UcliOperationSideEffect.DestructiveScope,
                 },
-                mayDirty: true,
-                mayPersist: true,
                 touchedKinds: new[]
                 {
                     IpcExecuteTouchedResourceKindNames.Scene,

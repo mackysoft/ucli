@@ -22,8 +22,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Assigns serialized property values on a component target.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.SceneContentMutation, UcliOperationSideEffect.PrefabContentMutation },
-                mayDirty: true,
-                mayPersist: false,
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Validate the component target and serialized property values, then compute preview changes without persisting project data.",

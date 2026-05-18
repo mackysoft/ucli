@@ -29,8 +29,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     UcliOperationSideEffect.AssetSave,
                     UcliOperationSideEffect.ProjectSave,
                 },
-                mayDirty: false,
-                mayPersist: true,
                 touchedKinds: new[]
                 {
                     IpcExecuteTouchedResourceKindNames.Scene,

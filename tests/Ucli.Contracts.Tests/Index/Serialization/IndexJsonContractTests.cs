@@ -757,10 +757,9 @@ public sealed class IndexJsonContractTests
                     sideEffects:
                     [
                         UcliOperationSideEffectValues.AssetContentMutation,
+                        UcliOperationSideEffectValues.AssetSave,
                         UcliOperationSideEffectValues.ArbitrarySourceExecution,
                     ],
-                    mayDirty: true,
-                    mayPersist: true,
                     touchedKinds:
                     [
                         IpcExecuteTouchedResourceKindNames.Asset,
@@ -885,6 +884,7 @@ public sealed class IndexJsonContractTests
                     "assurance": {
                       "sideEffects": [
                         "assetContentMutation",
+                        "assetSave",
                         "arbitrarySourceExecution"
                       ],
                       "mayDirty": true,
@@ -1172,8 +1172,6 @@ public sealed class IndexJsonContractTests
             "Returns a GameObject description including components and child hierarchy.",
             new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
                 touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate arguments and observe Unity state without applying mutation.",

@@ -21,8 +21,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Saves an opened or previewed prefab asset.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.PrefabSave },
-                mayDirty: false,
-                mayPersist: true,
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Prefab },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the prefab path and observe whether the opened or previewed prefab has save-relevant changes.",

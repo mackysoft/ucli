@@ -20,13 +20,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Returns a GameObject description including components and child hierarchy.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
-                mayDirty: false,
-                mayPersist: false,
-                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the GameObject selector and observe the selected scene or prefab context without applying mutation.",
                 callSemantics: "Read the selected GameObject structure and component data without applying mutation.",
-                touchedContract: "Reports the scene or prefab resource that contains the observed GameObject.",
+                touchedContract: "Returns no touched resources because GameObject description data is observational, not dirty or persisted state.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Timeout, cancellation, or unresolved selector failure means the GameObject description was not fully produced.",
                 dangerousNotes: Array.Empty<string>()));
@@ -113,10 +111,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: applied,
                 changed: false,
-                touched: new[]
-                {
-                    OperationResourceUtilities.CreateTouch(validationState.Resource),
-                },
                 result: IpcPayloadCodec.SerializeToElement(description)));
         }
 

@@ -151,8 +151,6 @@ public sealed class IndexCatalogContractValidatorTests
             Policy = OperationPolicyValues.Dangerous,
             Assurance = new UcliOperationAssuranceContract(
                 sideEffects: [UcliOperationSideEffectValues.ArbitrarySourceExecution],
-                mayDirty: false,
-                mayPersist: false,
                 touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanModeValues.ValidationOnly,
                 planSemantics: "Validate code without applying mutation.",
@@ -736,8 +734,6 @@ public sealed class IndexCatalogContractValidatorTests
             ResultContract = UcliOperationResultContract.NoResult("No operation-specific result is emitted."),
             Assurance = new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<string>(),
-                mayDirty: false,
-                mayPersist: false,
                 touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanModeValues.ValidationOnly,
                 planSemantics: "Validate arguments without applying mutation.",

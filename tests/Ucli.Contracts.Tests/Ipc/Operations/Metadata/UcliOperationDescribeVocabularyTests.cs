@@ -311,13 +311,22 @@ public sealed class UcliOperationDescribeVocabularyTests
         var isAllowed = UcliOperationSideEffectDescriptors.IsAllowedForQueryOperation(sideEffect);
 
         Assert.Equal(expectedAllowed, isAllowed);
+
+        if (expectedAllowed)
+        {
+            Assert.True(UcliOperationSideEffectDescriptors.TryGetDescriptor(sideEffect, out var descriptor));
+            Assert.Equal(OperationPolicy.Safe, descriptor!.MinimumPolicy);
+            Assert.False(descriptor.DerivesMayDirty);
+            Assert.False(descriptor.DerivesMayPersist);
+            Assert.Empty(descriptor.RequiredTouchedKinds);
+        }
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void SideEffectDescriptors_RequiredAssuranceFactFixturesCoverSupportedValues ()
+    public void SideEffectDescriptors_AssuranceProjectionFixturesCoverSupportedValues ()
     {
-        var fixtureLiterals = SideEffectRequiredAssuranceFactCases
+        var fixtureLiterals = SideEffectAssuranceProjectionCases
             .Select(values => Assert.IsType<string>(values[0]))
             .ToArray();
 
@@ -326,20 +335,57 @@ public sealed class UcliOperationDescribeVocabularyTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [MemberData(nameof(SideEffectRequiredAssuranceFactCases))]
-    public void SideEffectDescriptors_DeclareRequiredAssuranceFacts (
+    [MemberData(nameof(SideEffectAssuranceProjectionCases))]
+    public void SideEffectDescriptors_DeclareAssuranceProjectionAndTouchedKindConstraints (
         string sideEffect,
-        string[] expectedFacts)
+        bool expectedMayDirty,
+        bool expectedMayPersist,
+        string[] expectedRequiredTouchedKinds)
     {
         var isSupported = UcliOperationSideEffectDescriptors.TryGetDescriptor(sideEffect, out var descriptor);
 
         Assert.True(isSupported);
+        Assert.Equal(expectedMayDirty, descriptor!.DerivesMayDirty);
+        Assert.Equal(expectedMayPersist, descriptor.DerivesMayPersist);
+        Assert.Equal(expectedRequiredTouchedKinds, descriptor.RequiredTouchedKinds);
+    }
 
-        var actualFacts = descriptor!.RequiredAssuranceFacts
-            .Select(FormatRequiredAssuranceFact)
-            .ToArray();
+    [Theory]
+    [Trait("Size", "Small")]
+    [MemberData(nameof(SideEffectAssuranceProjectionCases))]
+    public void SideEffectDescriptors_DeriveAssuranceProjection (
+        string sideEffect,
+        bool expectedMayDirty,
+        bool expectedMayPersist,
+        string[] _)
+    {
+        var isSupported = UcliOperationSideEffectDescriptors.TryDeriveAssuranceProjection([sideEffect], out var mayDirty, out var mayPersist);
 
-        Assert.Equal(expectedFacts, actualFacts);
+        Assert.True(isSupported);
+        Assert.Equal(expectedMayDirty, mayDirty);
+        Assert.Equal(expectedMayPersist, mayPersist);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void SideEffectDescriptors_TryDeriveAssuranceProjection_WhenSideEffectIsUnsupported_ReturnsFalse ()
+    {
+        var isSupported = UcliOperationSideEffectDescriptors.TryDeriveAssuranceProjection(["not-supported"], out var mayDirty, out var mayPersist);
+
+        Assert.False(isSupported);
+        Assert.False(mayDirty);
+        Assert.False(mayPersist);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void PublicCatalogRules_HasPublicRawCatalogExclusionMarker_ReturnsTrueOnlyForArbitrarySourceExecution ()
+    {
+        Assert.True(UcliOperationPublicCatalogRules.HasPublicRawCatalogExclusionMarker(
+            [UcliOperationSideEffectValues.ArbitrarySourceExecution]));
+        Assert.False(UcliOperationPublicCatalogRules.HasPublicRawCatalogExclusionMarker(
+            [UcliOperationSideEffectValues.FilesystemWrite]));
+        Assert.False(UcliOperationPublicCatalogRules.HasPublicRawCatalogExclusionMarker(Array.Empty<string>()));
     }
 
     public static IEnumerable<object[]> SideEffectMinimumPolicyCases
@@ -396,59 +442,42 @@ public sealed class UcliOperationDescribeVocabularyTests
         }
     }
 
-    public static IEnumerable<object[]> SideEffectRequiredAssuranceFactCases
+    public static IEnumerable<object[]> SideEffectAssuranceProjectionCases
     {
         get
         {
-            yield return new object[] { UcliOperationSideEffectValues.ObservesUnityState, Array.Empty<string>() };
-            yield return new object[] { UcliOperationSideEffectValues.EditorStateChange, Array.Empty<string>() };
-            yield return new object[] { UcliOperationSideEffectValues.OpensSceneInEditor, new[] { "touchedKinds:scene" } };
-            yield return new object[] { UcliOperationSideEffectValues.OpensPrefabStage, new[] { "touchedKinds:prefab" } };
-            yield return new object[] { UcliOperationSideEffectValues.AssetDatabaseRefresh, new[] { "touchedKinds:asset" } };
-            yield return new object[] { UcliOperationSideEffectValues.AssetImport, new[] { "touchedKinds:asset" } };
-            yield return new object[] { UcliOperationSideEffectValues.ScriptCompilation, Array.Empty<string>() };
-            yield return new object[] { UcliOperationSideEffectValues.DomainReload, Array.Empty<string>() };
-            yield return new object[] { UcliOperationSideEffectValues.SceneContentMutation, new[] { "mayDirty=true", "touchedKinds:scene" } };
-            yield return new object[] { UcliOperationSideEffectValues.PrefabContentMutation, new[] { "mayDirty=true", "touchedKinds:prefab" } };
-            yield return new object[] { UcliOperationSideEffectValues.AssetContentMutation, new[] { "mayDirty=true", "touchedKinds:asset" } };
-            yield return new object[] { UcliOperationSideEffectValues.ProjectSettingsMutation, new[] { "mayDirty=true", "touchedKinds:projectSettings" } };
-            yield return new object[] { UcliOperationSideEffectValues.SceneSave, new[] { "mayPersist=true", "touchedKinds:scene" } };
-            yield return new object[] { UcliOperationSideEffectValues.PrefabSave, new[] { "mayPersist=true", "touchedKinds:prefab" } };
-            yield return new object[] { UcliOperationSideEffectValues.AssetSave, new[] { "mayPersist=true", "touchedKinds:asset" } };
+            yield return new object[] { UcliOperationSideEffectValues.ObservesUnityState, false, false, Array.Empty<string>() };
+            yield return new object[] { UcliOperationSideEffectValues.EditorStateChange, false, false, Array.Empty<string>() };
+            yield return new object[] { UcliOperationSideEffectValues.OpensSceneInEditor, false, false, new[] { IpcExecuteTouchedResourceKindNames.Scene } };
+            yield return new object[] { UcliOperationSideEffectValues.OpensPrefabStage, false, false, new[] { IpcExecuteTouchedResourceKindNames.Prefab } };
+            yield return new object[] { UcliOperationSideEffectValues.AssetDatabaseRefresh, false, false, new[] { IpcExecuteTouchedResourceKindNames.Asset } };
+            yield return new object[] { UcliOperationSideEffectValues.AssetImport, false, false, new[] { IpcExecuteTouchedResourceKindNames.Asset } };
+            yield return new object[] { UcliOperationSideEffectValues.ScriptCompilation, false, false, Array.Empty<string>() };
+            yield return new object[] { UcliOperationSideEffectValues.DomainReload, false, false, Array.Empty<string>() };
+            yield return new object[] { UcliOperationSideEffectValues.SceneContentMutation, true, false, new[] { IpcExecuteTouchedResourceKindNames.Scene } };
+            yield return new object[] { UcliOperationSideEffectValues.PrefabContentMutation, true, false, new[] { IpcExecuteTouchedResourceKindNames.Prefab } };
+            yield return new object[] { UcliOperationSideEffectValues.AssetContentMutation, true, false, new[] { IpcExecuteTouchedResourceKindNames.Asset } };
+            yield return new object[] { UcliOperationSideEffectValues.ProjectSettingsMutation, true, false, new[] { IpcExecuteTouchedResourceKindNames.ProjectSettings } };
+            yield return new object[] { UcliOperationSideEffectValues.SceneSave, false, true, new[] { IpcExecuteTouchedResourceKindNames.Scene } };
+            yield return new object[] { UcliOperationSideEffectValues.PrefabSave, false, true, new[] { IpcExecuteTouchedResourceKindNames.Prefab } };
+            yield return new object[] { UcliOperationSideEffectValues.AssetSave, false, true, new[] { IpcExecuteTouchedResourceKindNames.Asset } };
             yield return new object[]
             {
                 UcliOperationSideEffectValues.ProjectSave,
+                false,
+                true,
                 new[]
                 {
-                    "mayPersist=true",
-                    "touchedKinds:scene",
-                    "touchedKinds:prefab",
-                    "touchedKinds:asset",
-                    "touchedKinds:projectSettings",
+                    IpcExecuteTouchedResourceKindNames.Scene,
+                    IpcExecuteTouchedResourceKindNames.Prefab,
+                    IpcExecuteTouchedResourceKindNames.Asset,
+                    IpcExecuteTouchedResourceKindNames.ProjectSettings,
                 },
             };
-            yield return new object[] { UcliOperationSideEffectValues.ExternalProcess, Array.Empty<string>() };
-            yield return new object[] { UcliOperationSideEffectValues.FilesystemWrite, new[] { "mayPersist=true" } };
-            yield return new object[] { UcliOperationSideEffectValues.ArbitrarySourceExecution, Array.Empty<string>() };
-            yield return new object[] { UcliOperationSideEffectValues.DestructiveScope, Array.Empty<string>() };
-        }
-    }
-
-    private static string FormatRequiredAssuranceFact (UcliOperationSideEffectRequiredAssuranceFact fact)
-    {
-        switch (fact.Kind)
-        {
-            case UcliOperationSideEffectRequiredAssuranceFactKind.MayDirtyTrue:
-                return "mayDirty=true";
-
-            case UcliOperationSideEffectRequiredAssuranceFactKind.MayPersistTrue:
-                return "mayPersist=true";
-
-            case UcliOperationSideEffectRequiredAssuranceFactKind.TouchedKindIncludes:
-                return $"touchedKinds:{fact.Value}";
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(fact), fact.Kind, "Unsupported required assurance fact kind.");
+            yield return new object[] { UcliOperationSideEffectValues.ExternalProcess, false, false, Array.Empty<string>() };
+            yield return new object[] { UcliOperationSideEffectValues.FilesystemWrite, false, true, Array.Empty<string>() };
+            yield return new object[] { UcliOperationSideEffectValues.ArbitrarySourceExecution, false, false, Array.Empty<string>() };
+            yield return new object[] { UcliOperationSideEffectValues.DestructiveScope, false, false, Array.Empty<string>() };
         }
     }
 }

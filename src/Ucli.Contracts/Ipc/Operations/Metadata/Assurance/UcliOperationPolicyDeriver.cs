@@ -45,6 +45,11 @@ internal static class UcliOperationPolicyDeriver
             return false;
         }
 
+        if (!UcliOperationSideEffectDescriptors.TryDeriveAssuranceProjection(assurance.SideEffects, out var mayDirty, out var mayPersist))
+        {
+            return false;
+        }
+
         for (var i = 0; i < assurance.SideEffects.Count; i++)
         {
             var sideEffect = assurance.SideEffects[i];
@@ -56,7 +61,7 @@ internal static class UcliOperationPolicyDeriver
             policy = Max(policy, sideEffectPolicy);
         }
 
-        if (assurance.MayDirty || assurance.MayPersist)
+        if (mayDirty || mayPersist)
         {
             policy = Max(policy, OperationPolicy.Advanced);
         }

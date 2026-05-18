@@ -308,8 +308,6 @@ public sealed class FileReadIndexArtifactWriterTests
             ResultContract = UcliOperationResultContract.One<GameObjectDescriptionResult>("GameObject description result."),
             Assurance = new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<string>(),
-                mayDirty: false,
-                mayPersist: false,
                 touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
                 planSemantics: "Validate arguments and observe Unity state without applying mutation.",

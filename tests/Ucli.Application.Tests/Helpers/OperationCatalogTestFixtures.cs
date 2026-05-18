@@ -66,8 +66,6 @@ internal static class OperationCatalogTestFixtures
             ResultContract = UcliOperationResultContract.NoResult("No operation-specific result is emitted."),
             Assurance = new UcliOperationAssuranceContract(
                 sideEffects: [UcliOperationSideEffectValues.SceneSave],
-                mayDirty: false,
-                mayPersist: true,
                 touchedKinds: [IpcExecuteTouchedResourceKindNames.Scene],
                 planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
                 planSemantics: "Observe save-relevant project state without writing project files.",
@@ -83,8 +81,6 @@ internal static class OperationCatalogTestFixtures
     {
         return new UcliOperationAssuranceContract(
             sideEffects: [UcliOperationSideEffectValues.ObservesUnityState],
-            mayDirty: false,
-            mayPersist: false,
             touchedKinds: Array.Empty<string>(),
             planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
             planSemantics: "Validate arguments and observe Unity state without applying mutation.",

@@ -21,13 +21,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Finds objects or components in a scene by hierarchy path prefix and component type.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
-                mayDirty: false,
-                mayPersist: false,
-                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene },
+                touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the scene query and observe the selected scene context without applying mutation.",
                 callSemantics: "Read selection candidates from the scene hierarchy without applying mutation.",
-                touchedContract: "Reports the scene resource used as the observed query context.",
+                touchedContract: "Returns no touched resources because scene query results are observations, not dirty or persisted resources.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Timeout, cancellation, or source read failure means the candidate set was not fully produced.",
                 dangerousNotes: Array.Empty<string>()));
@@ -96,10 +94,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: applied,
                 changed: false,
-                touched: new[]
-                {
-                    OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Scene, scenePath)),
-                },
                 result: IpcPayloadCodec.SerializeToElement(payload)).WithDiagnostics(diagnostics));
         }
 

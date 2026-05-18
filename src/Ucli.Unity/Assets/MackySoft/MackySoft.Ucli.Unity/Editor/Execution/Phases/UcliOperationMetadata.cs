@@ -345,8 +345,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             return new UcliOperationAssuranceContract(
                 CopyStrings(source.SideEffects),
-                source.MayDirty,
-                source.MayPersist,
                 CopyStrings(source.TouchedKinds),
                 source.PlanMode,
                 source.PlanSemantics,
