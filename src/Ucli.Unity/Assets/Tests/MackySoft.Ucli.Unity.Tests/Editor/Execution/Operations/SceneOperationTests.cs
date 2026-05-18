@@ -778,7 +778,10 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var queryResult = await queryOperation.PlanAsync(queryRequest, scope.CreateExecutionContext(), CancellationToken.None);
 
-            AssertSuccess(queryResult, applied: false, changed: false);
+            Assert.That(queryResult.IsSuccess, Is.True);
+            Assert.That(queryResult.Applied, Is.False);
+            Assert.That(queryResult.Changed, Is.False);
+            Assert.That(queryResult.Failure, Is.Null);
             Assert.That(queryResult.Result.HasValue, Is.True);
             var matches = queryResult.Result!.Value.GetProperty("matches");
             Assert.That(matches.GetArrayLength(), Is.EqualTo(4));
