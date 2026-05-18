@@ -5,7 +5,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <summary> Derives operation admission policy from operation contract facts. </summary>
 internal static class UcliOperationPolicyDeriver
 {
-    /// <summary> Derives operation policy from assurance and code contract metadata. </summary>
+    /// <summary> Derives operation policy from assurance metadata. </summary>
     /// <param name="assurance"> The assurance metadata. </param>
     /// <returns> The derived operation policy. </returns>
     /// <exception cref="ArgumentException"> Thrown when policy cannot be derived from invalid contract facts. </exception>

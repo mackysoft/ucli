@@ -731,7 +731,7 @@ request-local alias の `var` selector branch は予約済み property である
 
 `policy` は author が任意に選ぶ安全ラベルではなく、operation contract facts から導出される入場制御レベルである。catalog builder は `assurance.sideEffects` descriptor、そこから生成される `mayDirty` / `mayPersist` projection、`touchedKinds`、`planMode`、`codeContract`、`exposure`、destructive scope、arbitrary execution、external process / filesystem access から `operation.policy` を導出する。author が `policy` や `mayDirty` / `mayPersist` を直接指定する API は持たない。実行結果が assurance facts に反する場合は `OPERATION_CONTRACT_VIOLATION` とする。
 
-v1 public raw operation の `planMode` は `validationOnly` と `observesLiveUnity` だけである。Plan が preview state を作る `mayCreatePreviewState` は public raw catalog に出さない。internal / experimental operation で使う場合でも最低 `advanced` とし、cleanup evidence と residual risk を明示できない場合は `dangerous` とする。
+`mayCreatePreviewState` は Plan が review gate 前に preview state を作るため、`policy` を最低 `advanced` に導出する。public raw catalog からの planMode ベース除外は exposure field 導入時に扱う。v1 では `arbitrarySourceExecution` を持つ operation だけを機械的な public raw catalog 除外 marker として扱う。
 
 ### 実行フェーズ
 各opは内部的に次の3フェーズを持つ。
