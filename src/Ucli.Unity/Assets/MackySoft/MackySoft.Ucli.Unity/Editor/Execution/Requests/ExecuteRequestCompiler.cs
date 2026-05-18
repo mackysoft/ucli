@@ -171,7 +171,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                     Args: step.Element.GetProperty("args").Clone(),
                     As: null,
                     Expect: null,
-                    AllowRequestLocalAliases: false),
+                    AllowRequestLocalAliases: false,
+                    SourceKind: NormalizedOperation.SourceStepKind.Op),
             };
             compiledStep = new NormalizedRequestStep(
                 Id: step.Id!,
@@ -729,7 +730,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 Args: CreateSetArgs(target.Reference, action.Values),
                 As: null,
                 Expect: null,
-                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count)));
+                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
+                SourceKind: NormalizedOperation.SourceStepKind.Edit));
             error = default!;
             return true;
         }
@@ -769,7 +771,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 Args: CreateEnsureComponentArgs(target.Reference, action.Type!),
                 As: internalAlias,
                 Expect: null,
-                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count)));
+                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
+                SourceKind: NormalizedOperation.SourceStepKind.Edit));
 
             if (action.Alias != null)
             {
@@ -810,7 +813,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 Args: CreateGoCreateArgs(action.Name!, branchTarget.Reference),
                 As: internalAlias,
                 Expect: null,
-                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count)));
+                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
+                SourceKind: NormalizedOperation.SourceStepKind.Edit));
 
             if (action.Alias != null)
             {
@@ -847,7 +851,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 Args: CreateAssetCreateArgs(action.Type!, action.Path!),
                 As: null,
                 Expect: null,
-                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count)));
+                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
+                SourceKind: NormalizedOperation.SourceStepKind.Edit));
             error = default!;
             return true;
         }
@@ -885,7 +890,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 Args: CreatePrefabCreateArgs(target.Reference, action.Path!),
                 As: null,
                 Expect: null,
-                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count)));
+                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
+                SourceKind: NormalizedOperation.SourceStepKind.Edit));
             error = default!;
             return true;
         }
@@ -923,7 +929,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 Args: CreateDeleteArgs(target.Reference),
                 As: null,
                 Expect: null,
-                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count)));
+                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
+                SourceKind: NormalizedOperation.SourceStepKind.Edit));
             error = default!;
             return true;
         }
@@ -966,7 +973,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 Args: CreateReparentArgs(target.Reference, parent.Reference),
                 As: null,
                 Expect: null,
-                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count)));
+                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
+                SourceKind: NormalizedOperation.SourceStepKind.Edit));
             error = default!;
             return true;
         }
@@ -992,7 +1000,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 Args: args,
                 As: null,
                 Expect: null,
-                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count)));
+                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
+                SourceKind: NormalizedOperation.SourceStepKind.Edit));
             error = default!;
             return true;
         }

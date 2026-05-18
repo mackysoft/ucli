@@ -215,13 +215,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             return (operation, phaseOperation) =>
             {
-                if (UcliOperationPublicCatalogRules.HasPublicRawCatalogExclusionMarker(
-                        phaseOperation.Metadata.DescribeContract.Assurance?.SideEffects))
+                if (TryCreateExposureFailure(operation, phaseOperation.Metadata.Exposure, out var exposureFailure))
                 {
-                    return new OperationFailure(
-                        Code: OperationAuthorizationErrorCodes.OperationNotAllowed,
-                        Message: $"Operation '{operation.Op}' is not available as a public raw operation.",
-                        OpId: operation.Id);
+                    return exposureFailure;
                 }
 
                 if (command == PhaseExecutionCommand.Call
@@ -233,6 +229,34 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                 return null;
             };
+        }
+
+        private static bool TryCreateExposureFailure (
+            NormalizedOperation operation,
+            UcliOperationExposure exposure,
+            out OperationFailure? failure)
+        {
+            if (exposure == UcliOperationExposure.Public)
+            {
+                failure = null;
+                return false;
+            }
+
+            if (exposure == UcliOperationExposure.EditLoweringOnly
+                && operation.SourceKind == NormalizedOperation.SourceStepKind.Edit)
+            {
+                failure = null;
+                return false;
+            }
+
+            var message = exposure == UcliOperationExposure.EditLoweringOnly
+                ? $"Operation '{operation.Op}' is available only through edit lowering."
+                : $"Operation '{operation.Op}' is internal and is not available through public requests.";
+            failure = new OperationFailure(
+                Code: UcliCoreErrorCodes.InvalidArgument,
+                Message: message,
+                OpId: operation.Id);
+            return true;
         }
 
         private static IReadOnlyList<NormalizedRequestStep> CreateUncompiledSteps (IReadOnlyList<IpcRequestContractStep> sourceSteps)

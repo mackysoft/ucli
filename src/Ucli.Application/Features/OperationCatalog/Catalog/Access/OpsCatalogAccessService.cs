@@ -168,13 +168,6 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
                 .ConfigureAwait(false);
         }
 
-        if (!PublicRawOperationCatalogFilter.Includes(describeResult.Operation!))
-        {
-            return OpsDescribeReadResult.Failure(
-                $"Operation '{operationName}' is not available.",
-                UcliCoreErrorCodes.InvalidArgument);
-        }
-
         return OpsDescribeReadResult.Success(
             new OpsDescribeReadOutput(
                 Operation: describeResult.Operation!,
