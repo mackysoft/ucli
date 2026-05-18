@@ -15,6 +15,9 @@ public static class UcliCommandIds
     /// <summary> Gets command identifier for <c>compile</c>. </summary>
     public static UcliCommand Compile { get; } = new("compile");
 
+    /// <summary> Gets command identifier for <c>verify</c>. </summary>
+    public static UcliCommand Verify { get; } = new("verify");
+
     /// <summary> Gets command identifier for <c>daemon</c>. </summary>
     public static UcliCommand Daemon { get; } = new("daemon");
 

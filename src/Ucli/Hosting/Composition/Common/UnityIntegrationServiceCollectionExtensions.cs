@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Assurance.Compile.Artifacts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Preflight;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
@@ -7,7 +6,6 @@ using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Application.Shared.Unity.Resolution;
-using MackySoft.Ucli.Features.Assurance.Compile;
 using MackySoft.Ucli.Infrastructure.Index;
 using MackySoft.Ucli.UnityIntegration.Indexing.Assets;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
@@ -46,9 +44,6 @@ internal static class UnityIntegrationServiceCollectionExtensions
         services.AddSingleton<IUnityVersionResolver, UnityVersionResolver>();
         services.AddSingleton<IUnityEditorSearchRootProvider, DefaultUnityEditorSearchRootProvider>();
         services.AddSingleton<IUnityEditorPathResolver, UnityEditorPathResolver>();
-        services.AddSingleton<FileCompileRunArtifactReader>();
-        services.AddSingleton<ICompileRunArtifactReader>(static serviceProvider => serviceProvider.GetRequiredService<FileCompileRunArtifactReader>());
-        services.AddSingleton<ICompileRunArtifactStore>(static serviceProvider => serviceProvider.GetRequiredService<FileCompileRunArtifactReader>());
         services.AddSingleton<IReadIndexArtifactReader, FileReadIndexArtifactReader>();
         services.AddSingleton<IReadIndexArtifactWriter, FileReadIndexArtifactWriter>();
         services.AddSingleton<IMutationReadPostconditionStore, MutationReadPostconditionStore>();
