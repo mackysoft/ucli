@@ -408,8 +408,13 @@ internal sealed class VerifyService : IVerifyService
             return VerifyStepExecutionResult.Success();
         }
 
-        var claims = CreatePostReadClaims(fromInput, step.Required);
-        if (claims.Count == 0)
+        var claimSet = CreatePostReadClaims(fromInput, step.Required);
+        foreach (var residualRisk in claimSet.ResidualRisks)
+        {
+            builder.AddResidualRisk(residualRisk);
+        }
+
+        if (claimSet.Claims.Count == 0)
         {
             return VerifyStepExecutionResult.Success();
         }
@@ -418,10 +423,10 @@ internal sealed class VerifyService : IVerifyService
             PostReadVerifierId,
             VerifyStepKindValues.PostRead,
             Deterministic: true,
-            Required: claims.Any(static claim => claim.Required),
-            PrimaryClaims: claims.Select(static claim => claim.Id).ToArray(),
+            Required: claimSet.Claims.Any(static claim => claim.Required),
+            PrimaryClaims: claimSet.Claims.Select(static claim => claim.Id).ToArray(),
             Effects: step.Effects));
-        foreach (var claim in claims)
+        foreach (var claim in claimSet.Claims)
         {
             builder.AddClaim(claim);
         }
@@ -579,35 +584,34 @@ internal sealed class VerifyService : IVerifyService
             && !builder.HasNonPassingClaim;
     }
 
-    private static IReadOnlyList<VerifyClaimOutput> CreatePostReadClaims (
+    private static PostReadClaimSet CreatePostReadClaims (
         VerifyFromInput fromInput,
         bool profileRequired)
     {
         var claims = new List<VerifyClaimOutput>();
+        var residualRisks = new List<VerifyResidualRiskOutput>();
         var diagnostics = fromInput.OpResults.SelectMany(static result => result.Diagnostics).ToArray();
         var status = ResolveDiagnosticStatus(diagnostics);
         var coverage = ResolveDiagnosticCoverage(diagnostics);
-        var evidence = new[]
-        {
-            new VerifyEvidenceOutput("fromResultSummary")
-            {
-                Data = new Dictionary<string, object?>(StringComparer.Ordinal)
-                {
-                    ["command"] = fromInput.Command,
-                    ["opResultCount"] = fromInput.OpResults.Count,
-                    ["changedCount"] = fromInput.OpResults.Count(static result => result.Changed),
-                    ["touchedCount"] = fromInput.OpResults.Sum(static result => result.TouchedCount),
-                    ["diagnosticCount"] = diagnostics.Length,
-                },
-            },
-        };
+        var diagnosticImpact = ResolveDiagnosticImpact(diagnostics);
+        var diagnosticEvidence = CreatePostReadEvidence(fromInput, diagnostics.Length, diagnosticImpact);
+        var neutralEvidence = CreatePostReadEvidence(fromInput, diagnostics.Length, IpcExecuteDiagnosticCoverageImpactNames.None);
+        var diagnosticBoundClaimCount = 0;
 
-        if (fromInput.OpResults.Any(static result => result.Changed))
+        var persistenceResults = fromInput.OpResults
+            .Where(static result => result.Changed
+                && result.PostReadSource.PersistenceExpected
+                && !result.PostReadSource.PlayModeMutation)
+            .ToArray();
+        if (persistenceResults.Length != 0)
         {
-            var touchedCount = fromInput.OpResults.Sum(static result => result.TouchedCount);
+            diagnosticBoundClaimCount++;
+            var touchedCount = persistenceResults.Sum(static result => result.TouchedCount);
             claims.Add(CreatePostReadClaim(
                 VerifyClaimCodes.PersistenceUnitTouched.Value,
-                touchedCount > 0 ? status : VerifyClaimStatusValues.Indeterminate,
+                touchedCount > 0 || string.Equals(status, VerifyClaimStatusValues.Failed, StringComparison.Ordinal)
+                    ? status
+                    : VerifyClaimStatusValues.Indeterminate,
                 touchedCount > 0 ? coverage : VerifyCoverageValues.None,
                 required: profileRequired,
                 touchedCount > 0
@@ -616,14 +620,15 @@ internal sealed class VerifyService : IVerifyService
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
                     ["kind"] = "postRead",
-                    ["changedCount"] = fromInput.OpResults.Count(static result => result.Changed),
+                    ["changedCount"] = persistenceResults.Length,
                     ["touchedCount"] = touchedCount,
                 },
-                evidence));
+                diagnosticEvidence));
         }
 
         if (fromInput.ReadPostconditionRequirementCount > 0)
         {
+            diagnosticBoundClaimCount++;
             claims.Add(CreatePostReadClaim(
                 VerifyClaimCodes.ReadSurfaceSafe.Value,
                 status,
@@ -635,10 +640,29 @@ internal sealed class VerifyService : IVerifyService
                     ["kind"] = "postRead",
                     ["requirementCount"] = fromInput.ReadPostconditionRequirementCount,
                 },
-                evidence));
+                diagnosticEvidence));
         }
 
-        if (fromInput.OpResults.Any(static result => result.Applied || result.Changed))
+        var deterministicMutationCount = fromInput.OpResults.Count(static result =>
+            (result.Applied || result.Changed)
+            && string.Equals(result.PostReadSource.ExpectedPostState, IpcExecuteExpectedPostStateNames.Deterministic, StringComparison.Ordinal));
+        if (deterministicMutationCount > 0)
+        {
+            diagnosticBoundClaimCount++;
+            claims.Add(CreatePostReadClaim(
+                VerifyClaimCodes.PostMutationObserved.Value,
+                status,
+                coverage,
+                required: profileRequired,
+                "Deterministic post-mutation state was observed from the input result.",
+                new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["kind"] = "postRead",
+                    ["observedMutationCount"] = deterministicMutationCount,
+                },
+                diagnosticEvidence));
+        }
+        else if (fromInput.OpResults.Any(static result => result.Applied || result.Changed))
         {
             claims.Add(CreatePostReadClaim(
                 VerifyClaimCodes.PostMutationObserved.Value,
@@ -651,10 +675,59 @@ internal sealed class VerifyService : IVerifyService
                     ["kind"] = "postRead",
                     ["reason"] = "expectedPostStateUnavailable",
                 },
-                evidence));
+                neutralEvidence));
         }
 
-        return claims;
+        if (!string.Equals(diagnosticImpact, IpcExecuteDiagnosticCoverageImpactNames.None, StringComparison.Ordinal)
+            && diagnosticBoundClaimCount == 0)
+        {
+            residualRisks.Add(new VerifyResidualRiskOutput(
+                VerifyRiskCodes.FromDiagnosticCoverageUnbound.Value,
+                Blocking: true)
+            {
+                Message = "Input diagnostics affected coverage but no generated post-read claim could carry that diagnostic impact.",
+            });
+        }
+
+        if (claims.Count == 0 && profileRequired)
+        {
+            claims.Add(CreatePostReadClaim(
+                VerifyClaimCodes.PostMutationObserved.Value,
+                VerifyClaimStatusValues.Unverified,
+                VerifyCoverageValues.None,
+                required: true,
+                "No mutation completion evidence was available in the input result.",
+                new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["kind"] = "postRead",
+                    ["reason"] = "noMutationEvidence",
+                },
+                neutralEvidence));
+        }
+
+        return new PostReadClaimSet(claims, residualRisks);
+    }
+
+    private static VerifyEvidenceOutput[] CreatePostReadEvidence (
+        VerifyFromInput fromInput,
+        int diagnosticCount,
+        string diagnosticImpact)
+    {
+        return
+        [
+            new VerifyEvidenceOutput("fromResultSummary")
+            {
+                Data = new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["command"] = fromInput.Command,
+                    ["opResultCount"] = fromInput.OpResults.Count,
+                    ["changedCount"] = fromInput.OpResults.Count(static result => result.Changed),
+                    ["touchedCount"] = fromInput.OpResults.Sum(static result => result.TouchedCount),
+                    ["diagnosticCount"] = diagnosticCount,
+                    ["diagnosticImpact"] = diagnosticImpact,
+                },
+            },
+        ];
     }
 
     private static VerifyClaimOutput CreatePostReadClaim (
@@ -712,6 +785,32 @@ internal sealed class VerifyService : IVerifyService
                 StringComparison.Ordinal))
             ? VerifyCoverageValues.Partial
             : VerifyCoverageValues.Full;
+    }
+
+    private static string ResolveDiagnosticImpact (IReadOnlyList<VerifyFromDiagnostic> diagnostics)
+    {
+        if (diagnostics.Any(static diagnostic => string.Equals(
+                diagnostic.Severity,
+                IpcExecuteDiagnosticSeverityNames.Error,
+                StringComparison.Ordinal)))
+        {
+            return IpcExecuteDiagnosticSeverityNames.Error;
+        }
+
+        if (diagnostics.Any(static diagnostic => string.Equals(
+                diagnostic.CoverageImpact,
+                IpcExecuteDiagnosticCoverageImpactNames.Indeterminate,
+                StringComparison.Ordinal)))
+        {
+            return IpcExecuteDiagnosticCoverageImpactNames.Indeterminate;
+        }
+
+        return diagnostics.Any(static diagnostic => string.Equals(
+                diagnostic.CoverageImpact,
+                IpcExecuteDiagnosticCoverageImpactNames.Partial,
+                StringComparison.Ordinal))
+            ? IpcExecuteDiagnosticCoverageImpactNames.Partial
+            : IpcExecuteDiagnosticCoverageImpactNames.None;
     }
 
     private static VerifyClaimOutput ProjectCompileClaim (
@@ -812,6 +911,12 @@ internal sealed class VerifyService : IVerifyService
             claims.Add(claim);
         }
 
+        public void AddResidualRisk (VerifyResidualRiskOutput residualRisk)
+        {
+            ArgumentNullException.ThrowIfNull(residualRisk);
+            residualRisks.Add(residualRisk);
+        }
+
         public void AddReport (
             string key,
             VerifyReportOutput report)
@@ -837,4 +942,8 @@ internal sealed class VerifyService : IVerifyService
             return new VerifyStepExecutionResult(failure);
         }
     }
+
+    private sealed record PostReadClaimSet (
+        IReadOnlyList<VerifyClaimOutput> Claims,
+        IReadOnlyList<VerifyResidualRiskOutput> ResidualRisks);
 }

@@ -8,6 +8,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Catalog;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Execution;
+using MackySoft.Ucli.Application.Features.Assurance.Verify.Semantics;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
@@ -112,6 +113,7 @@ public static class UcliApplicationServiceCollectionExtensions
     {
         services.AddSingleton<IAssuranceSemanticInvariantRule, ReadyAssuranceSemanticInvariantRule>();
         services.AddSingleton<IAssuranceSemanticInvariantRule, CompileAssuranceSemanticInvariantRule>();
+        services.AddSingleton<IAssuranceSemanticInvariantRule, VerifyAssuranceSemanticInvariantRule>();
         services.AddSingleton<AssuranceSemanticInvariantValidator>();
         services.AddSingleton<ICompileRunIdFactory, CompileRunIdFactory>();
         services.AddSingleton<ICompileService, CompileService>();

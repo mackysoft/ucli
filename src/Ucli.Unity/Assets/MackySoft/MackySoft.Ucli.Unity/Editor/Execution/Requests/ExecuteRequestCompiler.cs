@@ -177,7 +177,10 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 Id: step.Id!,
                 Kind: IpcRequestStepKind.Op,
                 OperationName: step.OperationName!,
-                PrimitiveCount: operations.Count);
+                PrimitiveCount: operations.Count)
+            {
+                PostReadSourceStep = CreateOperationPostReadSourceStep(step.Id!, step.OperationName!),
+            };
             error = default!;
             return true;
         }
@@ -280,10 +283,76 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 PrimitiveCount: stepOperations.Count)
             {
                 Diagnostics = diagnostics,
+                PostReadSourceStep = CreateEditPostReadSourceStep(editStep),
             };
             operations = stepOperations;
             error = default!;
             return true;
+        }
+
+        private static IpcExecutePostReadSourceStep CreateOperationPostReadSourceStep (
+            string opId,
+            string operationName)
+        {
+            var sourceKind = string.Equals(operationName, UcliPrimitiveOperationNames.ProjectRefresh, StringComparison.Ordinal)
+                ? IpcExecutePostReadSourceKindNames.Refresh
+                : IpcExecutePostReadSourceKindNames.Operation;
+            return new IpcExecutePostReadSourceStep(
+                OpId: opId,
+                SourceKind: sourceKind,
+                PlayModeMutation: false,
+                Commit: null,
+                PersistenceExpected: string.Equals(sourceKind, IpcExecutePostReadSourceKindNames.Refresh, StringComparison.Ordinal),
+                ExpectedPostState: IpcExecuteExpectedPostStateNames.Unavailable);
+        }
+
+        private static IpcExecutePostReadSourceStep CreateEditPostReadSourceStep (IpcEditStepContract editStep)
+        {
+            return new IpcExecutePostReadSourceStep(
+                OpId: editStep.Id,
+                SourceKind: IpcExecutePostReadSourceKindNames.Edit,
+                PlayModeMutation: false,
+                Commit: ToPostReadCommitName(editStep.Commit),
+                PersistenceExpected: IsPersistenceExpected(editStep),
+                ExpectedPostState: IpcExecuteExpectedPostStateNames.Deterministic);
+        }
+
+        private static bool IsPersistenceExpected (IpcEditStepContract editStep)
+        {
+            if (editStep.Commit != IpcEditStepContract.CommitKind.None)
+            {
+                return true;
+            }
+
+            for (var actionIndex = 0; actionIndex < editStep.Actions.Count; actionIndex++)
+            {
+                var actionKind = editStep.Actions[actionIndex].Kind;
+                if (actionKind == IpcEditStepContract.ActionKind.CreateAsset
+                    || actionKind == IpcEditStepContract.ActionKind.CreatePrefab)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static string ToPostReadCommitName (IpcEditStepContract.CommitKind commit)
+        {
+            switch (commit)
+            {
+                case IpcEditStepContract.CommitKind.None:
+                    return IpcExecutePostReadCommitNames.None;
+
+                case IpcEditStepContract.CommitKind.Context:
+                    return IpcExecutePostReadCommitNames.Context;
+
+                case IpcEditStepContract.CommitKind.Project:
+                    return IpcExecutePostReadCommitNames.Project;
+
+                default:
+                    return IpcExecutePostReadCommitNames.None;
+            }
         }
 
         private static bool TryValidateLiveEditContextAvailability (

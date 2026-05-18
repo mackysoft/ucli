@@ -18,5 +18,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
     {
         /// <summary> Gets diagnostics emitted while compiling this public step. </summary>
         public IReadOnlyList<OperationDiagnostic> Diagnostics { get; init; } = System.Array.Empty<OperationDiagnostic>();
+
+        /// <summary> Gets source facts needed by portable post-read verification. </summary>
+        public IpcExecutePostReadSourceStep? PostReadSourceStep { get; init; }
     }
 }

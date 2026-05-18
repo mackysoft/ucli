@@ -60,6 +60,11 @@ internal static class CallCommandResultFactory
             payload["readPostcondition"] = output.ReadPostcondition;
         }
 
+        if (output.PostReadSource != null)
+        {
+            payload["postReadSource"] = output.PostReadSource;
+        }
+
         if (output.Plan == null)
         {
             return payload;

@@ -78,6 +78,7 @@ internal static class Program
             CreateSchema("cli-output/defs/project.schema.json", "cli-output-def", null, CreateProjectSchema()),
             CreateSchema("cli-output/defs/read-index.schema.json", "cli-output-def", null, CreateReadIndexSchema()),
             CreateSchema("cli-output/defs/op-result.schema.json", "cli-output-def", null, CreateOperationResultSchema()),
+            CreateSchema("cli-output/defs/post-read-source.schema.json", "cli-output-def", null, CreatePostReadSourceSchema()),
             CreateSchema("cli-output/defs/contract-violation.schema.json", "cli-output-def", null, CreateContractViolationSchema()),
             CreateSchema("cli-output/defs/diagnostic.schema.json", "cli-output-def", null, CreateDiagnosticSchema()),
             CreateSchema("cli-output/defs/touched.schema.json", "cli-output-def", null, CreateTouchedSchema()),
@@ -93,15 +94,15 @@ internal static class Program
             CreatePayloadSchema(UcliCommandIds.Verify.Name, CreateVerifyPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.Init.Name, CreateInitPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.Validate.Name, CreateValidatePayloadSchema()),
-            CreatePayloadSchema(UcliCommandIds.Plan.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: true, includePlanToken: true, includePlan: false)),
-            CreatePayloadSchema(UcliCommandIds.Call.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: false, includePlanToken: false, includePlan: true)),
-            CreatePayloadSchema(UcliCommandIds.Refresh.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: false, includePlanToken: false, includePlan: false)),
-            CreatePayloadSchema(UcliCommandIds.Resolve.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: true, includePlanToken: false, includePlan: false)),
-            CreatePayloadSchema(UcliCommandIds.QueryAssetsFind.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: true, includePlanToken: false, includePlan: false)),
-            CreatePayloadSchema(UcliCommandIds.QuerySceneTree.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: true, includePlanToken: false, includePlan: false)),
-            CreatePayloadSchema(UcliCommandIds.QueryGoDescribe.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: true, includePlanToken: false, includePlan: false)),
-            CreatePayloadSchema(UcliCommandIds.QueryCompSchema.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: true, includePlanToken: false, includePlan: false)),
-            CreatePayloadSchema(UcliCommandIds.QueryAssetSchema.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: true, includePlanToken: false, includePlan: false)),
+            CreatePayloadSchema(UcliCommandIds.Plan.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: true, includePlanToken: true, includePlan: false, includePostReadSource: false)),
+            CreatePayloadSchema(UcliCommandIds.Call.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: false, includePlanToken: false, includePlan: true, includePostReadSource: true)),
+            CreatePayloadSchema(UcliCommandIds.Refresh.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: false, includePlanToken: false, includePlan: false, includePostReadSource: true)),
+            CreatePayloadSchema(UcliCommandIds.Resolve.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: true, includePlanToken: false, includePlan: false, includePostReadSource: false)),
+            CreatePayloadSchema(UcliCommandIds.QueryAssetsFind.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: true, includePlanToken: false, includePlan: false, includePostReadSource: false)),
+            CreatePayloadSchema(UcliCommandIds.QuerySceneTree.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: true, includePlanToken: false, includePlan: false, includePostReadSource: false)),
+            CreatePayloadSchema(UcliCommandIds.QueryGoDescribe.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: true, includePlanToken: false, includePlan: false, includePostReadSource: false)),
+            CreatePayloadSchema(UcliCommandIds.QueryCompSchema.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: true, includePlanToken: false, includePlan: false, includePostReadSource: false)),
+            CreatePayloadSchema(UcliCommandIds.QueryAssetSchema.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: true, includePlanToken: false, includePlan: false, includePostReadSource: false)),
             CreatePayloadSchema(UcliCommandIds.OpsList.Name, CreateOpsListPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.OpsDescribe.Name, CreateOpsDescribePayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.CodesList.Name, CreateCodesListPayloadSchema()),
@@ -230,6 +231,36 @@ internal static class Program
             Required("diagnostics", ArraySchema(ReferenceSchema("../defs/diagnostic.schema.json"))),
             Optional("result", AnySchema()),
             Optional("errors", ArraySchema(ObjectSchema(additionalProperties: true))));
+    }
+
+    private static Dictionary<string, object?> CreatePostReadSourceSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("schemaVersion", ConstInteger(1)),
+            Required("steps", ArraySchema(ObjectSchema(
+                additionalProperties: false,
+                Required("opId", StringSchema()),
+                Required(
+                    "sourceKind",
+                    EnumSchema(
+                        IpcExecutePostReadSourceKindNames.Edit,
+                        IpcExecutePostReadSourceKindNames.Operation,
+                        IpcExecutePostReadSourceKindNames.Refresh)),
+                Required("playModeMutation", BooleanSchema()),
+                Required(
+                    "commit",
+                    EnumValueSchema(
+                        IpcExecutePostReadCommitNames.None,
+                        IpcExecutePostReadCommitNames.Context,
+                        IpcExecutePostReadCommitNames.Project,
+                        null)),
+                Required("persistenceExpected", BooleanSchema()),
+                Required(
+                    "expectedPostState",
+                    EnumSchema(
+                        IpcExecuteExpectedPostStateNames.Deterministic,
+                        IpcExecuteExpectedPostStateNames.Unavailable))))));
     }
 
     private static Dictionary<string, object?> CreateDiagnosticSchema ()
@@ -656,7 +687,8 @@ internal static class Program
     private static Dictionary<string, object?> CreateRequestExecutionPayloadSchema (
         bool includeReadIndex,
         bool includePlanToken,
-        bool includePlan)
+        bool includePlan,
+        bool includePostReadSource)
     {
         var properties = new List<SchemaProperty>
         {
@@ -680,6 +712,11 @@ internal static class Program
         if (includePlan)
         {
             properties.Add(Optional("plan", CreateCallPlanPayloadSchema()));
+        }
+
+        if (includePostReadSource)
+        {
+            properties.Add(Optional("postReadSource", ReferenceSchema("../defs/post-read-source.schema.json")));
         }
 
         return ObjectSchema(additionalProperties: false, properties.ToArray());
@@ -1086,6 +1123,14 @@ internal static class Program
         return new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["type"] = "string",
+            ["enum"] = values,
+        };
+    }
+
+    private static Dictionary<string, object?> EnumValueSchema (params object?[] values)
+    {
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
             ["enum"] = values,
         };
     }

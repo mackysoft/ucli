@@ -13,6 +13,7 @@ internal sealed record OperationExecuteResult
         string message,
         IReadOnlyList<OperationExecutionContractViolation>? contractViolations,
         OperationExecutionReadPostcondition? readPostcondition,
+        OperationExecutionPostReadSource? postReadSource,
         ProjectIdentityInfo? project)
     {
         RequestId = requestId;
@@ -21,6 +22,7 @@ internal sealed record OperationExecuteResult
         Message = message;
         ContractViolations = contractViolations ?? [];
         ReadPostcondition = readPostcondition;
+        PostReadSource = postReadSource;
         Project = project;
     }
 
@@ -47,6 +49,9 @@ internal sealed record OperationExecuteResult
     /// <summary> Gets the read postcondition emitted by mutation execution, when available. </summary>
     public OperationExecutionReadPostcondition? ReadPostcondition { get; }
 
+    /// <summary> Gets source facts used by post-read verification, when available. </summary>
+    public OperationExecutionPostReadSource? PostReadSource { get; }
+
     /// <summary> Gets the resolved Unity project identity when project resolution succeeded. </summary>
     public ProjectIdentityInfo? Project { get; }
 
@@ -60,7 +65,8 @@ internal sealed record OperationExecuteResult
         string message,
         OperationExecutionReadPostcondition? readPostcondition,
         ProjectIdentityInfo project,
-        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null,
+        OperationExecutionPostReadSource? postReadSource = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
@@ -74,6 +80,7 @@ internal sealed record OperationExecuteResult
             message,
             contractViolations,
             readPostcondition,
+            postReadSource,
             project);
     }
 
@@ -85,7 +92,8 @@ internal sealed record OperationExecuteResult
         string message,
         IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null,
         OperationExecutionReadPostcondition? readPostcondition = null,
-        ProjectIdentityInfo? project = null)
+        ProjectIdentityInfo? project = null,
+        OperationExecutionPostReadSource? postReadSource = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
@@ -99,6 +107,7 @@ internal sealed record OperationExecuteResult
             message,
             contractViolations,
             readPostcondition,
+            postReadSource,
             project);
     }
 }

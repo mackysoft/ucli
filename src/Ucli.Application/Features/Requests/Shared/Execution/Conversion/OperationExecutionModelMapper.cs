@@ -112,6 +112,31 @@ internal static class OperationExecutionModelMapper
         return new OperationExecutionReadPostcondition(mappedRequirements);
     }
 
+    /// <summary> Maps one optional post-read source contract. </summary>
+    public static OperationExecutionPostReadSource? MapPostReadSource (IpcExecutePostReadSource? postReadSource)
+    {
+        if (postReadSource == null)
+        {
+            return null;
+        }
+
+        var steps = postReadSource.Steps;
+        var mappedSteps = new OperationExecutionPostReadSourceStep[steps.Count];
+        for (var i = 0; i < steps.Count; i++)
+        {
+            var step = steps[i];
+            mappedSteps[i] = new OperationExecutionPostReadSourceStep(
+                OpId: step.OpId,
+                SourceKind: step.SourceKind,
+                PlayModeMutation: step.PlayModeMutation,
+                Commit: step.Commit,
+                PersistenceExpected: step.PersistenceExpected,
+                ExpectedPostState: step.ExpectedPostState);
+        }
+
+        return new OperationExecutionPostReadSource(postReadSource.SchemaVersion, mappedSteps);
+    }
+
     /// <summary> Creates one plan-phase operation result without exposing IPC DTOs from service results. </summary>
     public static OperationExecutionOperationResult CreatePlanResult (
         string opId,
