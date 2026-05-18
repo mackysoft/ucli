@@ -314,6 +314,22 @@ public sealed class ExecuteResponseConverterTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Convert_WhenPostReadSourceIsEmpty_PropagatesSourceFacts ()
+    {
+        var response = CreateResponse(new IpcExecuteResponse([])
+        {
+            PostReadSource = new IpcExecutePostReadSource(IpcExecutePostReadSource.CurrentSchemaVersion, []),
+        });
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.PostReadSource);
+        Assert.Empty(result.PostReadSource!.Steps);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Convert_WhenPostReadSourceKindIsUnsupported_ReturnsInternalError ()
     {
         var response = CreateResponse("""
@@ -356,6 +372,72 @@ public sealed class ExecuteResponseConverterTests
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("postReadSource.steps[0].sourceKind", error.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [MemberData(nameof(GetMissingPostReadSourceFieldCases))]
+    [Trait("Size", "Small")]
+    public void Convert_WhenPostReadSourceRequiredFieldIsMissing_ReturnsInternalError (
+        string stepJson,
+        string expectedFieldName)
+    {
+        var response = CreateResponse(CreatePostReadSourcePayload(stepJson));
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains(expectedFieldName, error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Convert_WhenPostReadSourceCombinationIsInvalid_ReturnsInternalError ()
+    {
+        var response = CreateResponse(CreatePostReadSourcePayload(
+            """
+            {
+              "opId": "edit-1",
+              "sourceKind": "operation",
+              "playModeMutation": false,
+              "commit": null,
+              "persistenceExpected": false,
+              "expectedPostState": "deterministic"
+            }
+            """,
+            UcliPrimitiveOperationNames.SceneOpen));
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("postReadSource.steps[0]", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Convert_WhenEditCommitPersistenceCombinationIsInvalid_ReturnsInternalError ()
+    {
+        var response = CreateResponse(CreatePostReadSourcePayload(
+            """
+            {
+              "opId": "edit-1",
+              "sourceKind": "edit",
+              "playModeMutation": false,
+              "commit": "context",
+              "persistenceExpected": false,
+              "expectedPostState": "deterministic"
+            }
+            """));
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("postReadSource.steps[0]", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -966,6 +1048,81 @@ public sealed class ExecuteResponseConverterTests
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("'contractViolations' field", error.Message, StringComparison.Ordinal);
+    }
+
+    public static IEnumerable<object[]> GetMissingPostReadSourceFieldCases ()
+    {
+        yield return
+        [
+            """
+            {
+              "opId": "edit-1",
+              "sourceKind": "edit",
+              "commit": "context",
+              "persistenceExpected": true,
+              "expectedPostState": "deterministic"
+            }
+            """,
+            "playModeMutation",
+        ];
+        yield return
+        [
+            """
+            {
+              "opId": "edit-1",
+              "sourceKind": "edit",
+              "playModeMutation": false,
+              "persistenceExpected": true,
+              "expectedPostState": "deterministic"
+            }
+            """,
+            "commit",
+        ];
+        yield return
+        [
+            """
+            {
+              "opId": "edit-1",
+              "sourceKind": "edit",
+              "playModeMutation": false,
+              "commit": "context",
+              "expectedPostState": "deterministic"
+            }
+            """,
+            "persistenceExpected",
+        ];
+    }
+
+    private static string CreatePostReadSourcePayload (
+        string stepJson,
+        string op = "edit")
+    {
+        return $$"""
+        {
+          "project": {
+            "projectPath": "/repo/UnityProject",
+            "projectFingerprint": "project-fingerprint",
+            "unityVersion": "6000.1.4f1"
+          },
+          "opResults": [
+            {
+              "opId": "edit-1",
+              "op": "{{op}}",
+              "phase": "call",
+              "applied": true,
+              "changed": true,
+              "touched": [],
+              "diagnostics": []
+            }
+          ],
+          "postReadSource": {
+            "schemaVersion": 1,
+            "steps": [
+              {{stepJson}}
+            ]
+          }
+        }
+        """;
     }
 
     private static UnityRequestResponse CreateResponse (IpcExecuteResponse payload)

@@ -30,7 +30,7 @@ internal static class ExecuteResponseConverter
             return CreateInvalidPayloadFailure(requiredPayloadPropertyError);
         }
 
-        if (!TryValidatePayload(payload, out var payloadValidationError))
+        if (!TryValidatePayload(response.Payload, payload, out var payloadValidationError))
         {
             return CreateInvalidPayloadFailure(payloadValidationError);
         }
@@ -143,6 +143,7 @@ internal static class ExecuteResponseConverter
     }
 
     private static bool TryValidatePayload (
+        JsonElement payloadElement,
         IpcExecuteResponse? payload,
         out string errorMessage)
     {
@@ -345,7 +346,7 @@ internal static class ExecuteResponseConverter
             }
         }
 
-        if (!TryValidatePostReadSource(payload, out errorMessage))
+        if (!TryValidatePostReadSource(payloadElement, payload, out errorMessage))
         {
             return false;
         }
@@ -386,13 +387,26 @@ internal static class ExecuteResponseConverter
     }
 
     private static bool TryValidatePostReadSource (
+        JsonElement payloadElement,
         IpcExecuteResponse payload,
         out string errorMessage)
     {
         errorMessage = string.Empty;
-        if (payload.PostReadSource == null)
+        if (!TryGetProperty(payloadElement, "postReadSource", out var postReadSourceElement))
         {
             return true;
+        }
+
+        if (postReadSourceElement.ValueKind != JsonValueKind.Object)
+        {
+            errorMessage = "Execute response payload is invalid. The 'postReadSource' field must be an object.";
+            return false;
+        }
+
+        if (payload.PostReadSource == null)
+        {
+            errorMessage = "Execute response payload is invalid. The 'postReadSource' field is malformed.";
+            return false;
         }
 
         if (payload.PostReadSource.SchemaVersion != IpcExecutePostReadSource.CurrentSchemaVersion)
@@ -407,14 +421,45 @@ internal static class ExecuteResponseConverter
             return false;
         }
 
-        var opIds = new HashSet<string>(payload.OpResults.Select(static result => result.OpId), StringComparer.Ordinal);
+        if (!TryGetProperty(postReadSourceElement, "steps", out var postReadSourceStepsElement)
+            || postReadSourceStepsElement.ValueKind != JsonValueKind.Array)
+        {
+            errorMessage = "Execute response payload is invalid. The 'postReadSource.steps' field is missing.";
+            return false;
+        }
+
+        if (postReadSourceStepsElement.GetArrayLength() != payload.PostReadSource.Steps.Count)
+        {
+            errorMessage = "Execute response payload is invalid. The 'postReadSource.steps' entries are malformed.";
+            return false;
+        }
+
+        var opById = new Dictionary<string, string>(payload.OpResults.Count, StringComparer.Ordinal);
+        for (var opResultIndex = 0; opResultIndex < payload.OpResults.Count; opResultIndex++)
+        {
+            var opResult = payload.OpResults[opResultIndex];
+            if (!opById.TryAdd(opResult.OpId, opResult.Op))
+            {
+                errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].opId' value is duplicated.";
+                return false;
+            }
+        }
+
         var sourceOpIds = new HashSet<string>(StringComparer.Ordinal);
+        using var rawStepEnumerator = postReadSourceStepsElement.EnumerateArray();
         for (var stepIndex = 0; stepIndex < payload.PostReadSource.Steps.Count; stepIndex++)
         {
             var step = payload.PostReadSource.Steps[stepIndex];
+            rawStepEnumerator.MoveNext();
+            var stepElement = rawStepEnumerator.Current;
             if (step == null)
             {
                 errorMessage = $"Execute response payload is invalid. The 'postReadSource.steps[{stepIndex}]' item is missing.";
+                return false;
+            }
+
+            if (!TryValidateRequiredPostReadSourceStepProperties(stepElement, stepIndex, out errorMessage))
+            {
                 return false;
             }
 
@@ -424,7 +469,7 @@ internal static class ExecuteResponseConverter
                 return false;
             }
 
-            if (!opIds.Contains(step.OpId))
+            if (!opById.TryGetValue(step.OpId, out var operationName))
             {
                 errorMessage = $"Execute response payload is invalid. The 'postReadSource.steps[{stepIndex}].opId' value does not match opResults.";
                 return false;
@@ -453,11 +498,59 @@ internal static class ExecuteResponseConverter
                 errorMessage = $"Execute response payload is invalid. The 'postReadSource.steps[{stepIndex}].expectedPostState' value is unsupported. Actual: {step.ExpectedPostState}";
                 return false;
             }
+
+            if (!IpcExecutePostReadSourceRules.IsCompatibleWithOperation(
+                    operationName,
+                    step.SourceKind,
+                    step.PlayModeMutation,
+                    step.Commit,
+                    step.PersistenceExpected,
+                    step.ExpectedPostState))
+            {
+                errorMessage = $"Execute response payload is invalid. The 'postReadSource.steps[{stepIndex}]' source facts do not match opResults.";
+                return false;
+            }
         }
 
-        if (sourceOpIds.Count != opIds.Count)
+        if (sourceOpIds.Count != opById.Count)
         {
             errorMessage = "Execute response payload is invalid. The 'postReadSource.steps' entries must match opResults.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool TryValidateRequiredPostReadSourceStepProperties (
+        JsonElement stepElement,
+        int stepIndex,
+        out string errorMessage)
+    {
+        errorMessage = string.Empty;
+        if (stepElement.ValueKind != JsonValueKind.Object)
+        {
+            errorMessage = $"Execute response payload is invalid. The 'postReadSource.steps[{stepIndex}]' item is missing.";
+            return false;
+        }
+
+        if (!TryGetProperty(stepElement, "playModeMutation", out var playModeMutationElement)
+            || playModeMutationElement.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+        {
+            errorMessage = $"Execute response payload is invalid. The 'postReadSource.steps[{stepIndex}].playModeMutation' field is missing.";
+            return false;
+        }
+
+        if (!TryGetProperty(stepElement, "commit", out var commitElement)
+            || commitElement.ValueKind is not (JsonValueKind.String or JsonValueKind.Null))
+        {
+            errorMessage = $"Execute response payload is invalid. The 'postReadSource.steps[{stepIndex}].commit' field is missing.";
+            return false;
+        }
+
+        if (!TryGetProperty(stepElement, "persistenceExpected", out var persistenceExpectedElement)
+            || persistenceExpectedElement.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+        {
+            errorMessage = $"Execute response payload is invalid. The 'postReadSource.steps[{stepIndex}].persistenceExpected' field is missing.";
             return false;
         }
 

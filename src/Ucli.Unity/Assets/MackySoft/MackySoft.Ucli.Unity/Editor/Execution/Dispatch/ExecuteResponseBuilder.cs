@@ -188,9 +188,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 sourceSteps.Add(sourceStep);
             }
 
-            return sourceSteps.Count == 0
-                ? null
-                : new IpcExecutePostReadSource(IpcExecutePostReadSource.CurrentSchemaVersion, sourceSteps.ToArray());
+            return new IpcExecutePostReadSource(IpcExecutePostReadSource.CurrentSchemaVersion, sourceSteps.ToArray());
         }
 
         /// <summary>

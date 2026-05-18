@@ -200,7 +200,17 @@ public sealed class CliOutputSchemaArtifactTests
                 "projectFingerprint": "project-fingerprint",
                 "unityVersion": "6000.1.4f1"
               },
-              "opResults": [],
+              "opResults": [
+                {
+                  "opId": "edit-1",
+                  "op": "edit",
+                  "phase": "call",
+                  "applied": true,
+                  "changed": true,
+                  "touched": [],
+                  "diagnostics": []
+                }
+              ],
               "postReadSource": {
                 "schemaVersion": 1,
                 "steps": [

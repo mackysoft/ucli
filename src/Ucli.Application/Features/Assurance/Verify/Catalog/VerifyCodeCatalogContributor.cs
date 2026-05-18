@@ -31,6 +31,14 @@ internal sealed class VerifyCodeCatalogContributor : ICodeCatalogContributor
         "payload.claims[]",
     ];
 
+    private static readonly IReadOnlyList<string> RiskInspect =
+    [
+        "payload.verdict",
+        "payload.profile",
+        "payload.residualRisks[]",
+        "payload.claims[].residualRisks[]",
+    ];
+
     /// <inheritdoc />
     public IReadOnlyList<CodeCatalogDescriptor> GetDescriptors ()
     {
@@ -78,7 +86,7 @@ internal sealed class VerifyCodeCatalogContributor : ICodeCatalogContributor
             CoverageImpact: "blocking",
             VerdictSemantics: "blocking residual risk fails the verify verdict",
             ExecutionSemantics: null,
-            Inspect: Inspect,
+            Inspect: RiskInspect,
             RelatedCodes: []);
     }
 }

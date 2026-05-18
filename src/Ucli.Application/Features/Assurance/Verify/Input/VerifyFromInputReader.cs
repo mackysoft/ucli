@@ -247,6 +247,17 @@ internal static class VerifyFromInputReader
                 return false;
             }
 
+            if (!IpcExecutePostReadSourceRules.IsCompatibleWithOperation(
+                    opResult.Op,
+                    sourceStep.SourceKind,
+                    sourceStep.PlayModeMutation,
+                    sourceStep.Commit,
+                    sourceStep.PersistenceExpected,
+                    sourceStep.ExpectedPostState))
+            {
+                return false;
+            }
+
             normalizedResults[i] = opResult with { PostReadSource = sourceStep };
         }
 

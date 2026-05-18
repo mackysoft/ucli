@@ -3,7 +3,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Catalog;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Semantics;
 
-namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Verify;
+namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Verify.Semantics;
 
 public sealed class VerifyAssuranceSemanticInvariantRuleTests
 {

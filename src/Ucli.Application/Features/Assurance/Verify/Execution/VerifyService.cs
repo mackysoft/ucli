@@ -591,12 +591,7 @@ internal sealed class VerifyService : IVerifyService
         var claims = new List<VerifyClaimOutput>();
         var residualRisks = new List<VerifyResidualRiskOutput>();
         var diagnostics = fromInput.OpResults.SelectMany(static result => result.Diagnostics).ToArray();
-        var status = ResolveDiagnosticStatus(diagnostics);
-        var coverage = ResolveDiagnosticCoverage(diagnostics);
-        var diagnosticImpact = ResolveDiagnosticImpact(diagnostics);
-        var diagnosticEvidence = CreatePostReadEvidence(fromInput, diagnostics.Length, diagnosticImpact);
         var neutralEvidence = CreatePostReadEvidence(fromInput, diagnostics.Length, IpcExecuteDiagnosticCoverageImpactNames.None);
-        var diagnosticBoundClaimCount = 0;
 
         var persistenceResults = fromInput.OpResults
             .Where(static result => result.Changed
@@ -605,14 +600,17 @@ internal sealed class VerifyService : IVerifyService
             .ToArray();
         if (persistenceResults.Length != 0)
         {
-            diagnosticBoundClaimCount++;
+            var persistenceDiagnostics = SelectDiagnostics(persistenceResults);
+            var persistenceStatus = ResolveDiagnosticStatus(persistenceDiagnostics);
+            var persistenceCoverage = ResolveDiagnosticCoverage(persistenceDiagnostics);
+            var persistenceEvidence = CreatePostReadEvidence(fromInput, persistenceDiagnostics.Count, ResolveDiagnosticImpact(persistenceDiagnostics));
             var touchedCount = persistenceResults.Sum(static result => result.TouchedCount);
             claims.Add(CreatePostReadClaim(
                 VerifyClaimCodes.PersistenceUnitTouched.Value,
-                touchedCount > 0 || string.Equals(status, VerifyClaimStatusValues.Failed, StringComparison.Ordinal)
-                    ? status
+                touchedCount > 0 || string.Equals(persistenceStatus, VerifyClaimStatusValues.Failed, StringComparison.Ordinal)
+                    ? persistenceStatus
                     : VerifyClaimStatusValues.Indeterminate,
-                touchedCount > 0 ? coverage : VerifyCoverageValues.None,
+                touchedCount > 0 ? persistenceCoverage : VerifyCoverageValues.None,
                 required: profileRequired,
                 touchedCount > 0
                     ? "Touched persistence units were observed from the input result."
@@ -623,16 +621,20 @@ internal sealed class VerifyService : IVerifyService
                     ["changedCount"] = persistenceResults.Length,
                     ["touchedCount"] = touchedCount,
                 },
-                diagnosticEvidence));
+                persistenceEvidence));
         }
 
-        if (fromInput.ReadPostconditionRequirementCount > 0)
+        var hasReadSurfaceClaim = fromInput.ReadPostconditionRequirementCount > 0;
+        if (hasReadSurfaceClaim)
         {
-            diagnosticBoundClaimCount++;
+            var readDiagnostics = diagnostics;
+            var readStatus = ResolveDiagnosticStatus(readDiagnostics);
+            var readCoverage = ResolveDiagnosticCoverage(readDiagnostics);
+            var readEvidence = CreatePostReadEvidence(fromInput, readDiagnostics.Length, ResolveDiagnosticImpact(readDiagnostics));
             claims.Add(CreatePostReadClaim(
                 VerifyClaimCodes.ReadSurfaceSafe.Value,
-                status,
-                coverage,
+                readStatus,
+                readCoverage,
                 required: profileRequired,
                 "Read-postcondition requirements were observed for affected read surfaces.",
                 new Dictionary<string, object?>(StringComparer.Ordinal)
@@ -640,19 +642,27 @@ internal sealed class VerifyService : IVerifyService
                     ["kind"] = "postRead",
                     ["requirementCount"] = fromInput.ReadPostconditionRequirementCount,
                 },
-                diagnosticEvidence));
+                readEvidence));
         }
 
-        var deterministicMutationCount = fromInput.OpResults.Count(static result =>
-            (result.Applied || result.Changed)
-            && string.Equals(result.PostReadSource.ExpectedPostState, IpcExecuteExpectedPostStateNames.Deterministic, StringComparison.Ordinal));
+        var deterministicMutationResults = fromInput.OpResults
+            .Where(static result =>
+                (result.Applied || result.Changed)
+                && IpcExecutePostReadSourceRules.IsDeterministicMutationSource(
+                    result.PostReadSource.SourceKind,
+                    result.PostReadSource.ExpectedPostState))
+            .ToArray();
+        var deterministicMutationCount = deterministicMutationResults.Length;
         if (deterministicMutationCount > 0)
         {
-            diagnosticBoundClaimCount++;
+            var deterministicDiagnostics = SelectDiagnostics(deterministicMutationResults);
+            var deterministicStatus = ResolveDiagnosticStatus(deterministicDiagnostics);
+            var deterministicCoverage = ResolveDiagnosticCoverage(deterministicDiagnostics);
+            var deterministicEvidence = CreatePostReadEvidence(fromInput, deterministicDiagnostics.Count, ResolveDiagnosticImpact(deterministicDiagnostics));
             claims.Add(CreatePostReadClaim(
                 VerifyClaimCodes.PostMutationObserved.Value,
-                status,
-                coverage,
+                deterministicStatus,
+                deterministicCoverage,
                 required: profileRequired,
                 "Deterministic post-mutation state was observed from the input result.",
                 new Dictionary<string, object?>(StringComparer.Ordinal)
@@ -660,7 +670,7 @@ internal sealed class VerifyService : IVerifyService
                     ["kind"] = "postRead",
                     ["observedMutationCount"] = deterministicMutationCount,
                 },
-                diagnosticEvidence));
+                deterministicEvidence));
         }
         else if (fromInput.OpResults.Any(static result => result.Applied || result.Changed))
         {
@@ -678,8 +688,7 @@ internal sealed class VerifyService : IVerifyService
                 neutralEvidence));
         }
 
-        if (!string.Equals(diagnosticImpact, IpcExecuteDiagnosticCoverageImpactNames.None, StringComparison.Ordinal)
-            && diagnosticBoundClaimCount == 0)
+        if (HasUnboundDiagnosticImpact(fromInput.OpResults, persistenceResults, deterministicMutationResults, hasReadSurfaceClaim))
         {
             residualRisks.Add(new VerifyResidualRiskOutput(
                 VerifyRiskCodes.FromDiagnosticCoverageUnbound.Value,
@@ -706,6 +715,38 @@ internal sealed class VerifyService : IVerifyService
         }
 
         return new PostReadClaimSet(claims, residualRisks);
+    }
+
+    private static IReadOnlyList<VerifyFromDiagnostic> SelectDiagnostics (IReadOnlyList<VerifyFromOperationResult> results)
+    {
+        return results.SelectMany(static result => result.Diagnostics).ToArray();
+    }
+
+    private static bool HasUnboundDiagnosticImpact (
+        IReadOnlyList<VerifyFromOperationResult> opResults,
+        IReadOnlyList<VerifyFromOperationResult> persistenceResults,
+        IReadOnlyList<VerifyFromOperationResult> deterministicMutationResults,
+        bool hasReadSurfaceClaim)
+    {
+        if (hasReadSurfaceClaim)
+        {
+            return false;
+        }
+
+        var boundOpIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var result in persistenceResults)
+        {
+            boundOpIds.Add(result.OpId);
+        }
+
+        foreach (var result in deterministicMutationResults)
+        {
+            boundOpIds.Add(result.OpId);
+        }
+
+        return opResults.Any(result =>
+            !boundOpIds.Contains(result.OpId)
+            && !string.Equals(ResolveDiagnosticImpact(result.Diagnostics), IpcExecuteDiagnosticCoverageImpactNames.None, StringComparison.Ordinal));
     }
 
     private static VerifyEvidenceOutput[] CreatePostReadEvidence (

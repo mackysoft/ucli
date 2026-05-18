@@ -1,16 +1,17 @@
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Input;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Verify;
 
 public sealed class VerifyFromInputReaderTests
 {
-    [Theory]
-    [InlineData("call")]
-    [InlineData("refresh")]
+    [Fact]
     [Trait("Size", "Small")]
-    public void Read_WithValidInput_ReturnsNormalizedInput (string command)
+    public void Read_WithValidCallInput_ReturnsNormalizedInput ()
     {
+        const string command = "call";
+
         var result = VerifyFromInputReader.Read(
             CreateValidInputJson(
                 CreateDefaultOpResultJson(
@@ -45,7 +46,7 @@ public sealed class VerifyFromInputReaderTests
         Assert.Equal(1, input.ReadPostconditionRequirementCount);
         var opResult = Assert.Single(input.OpResults);
         Assert.Equal("op-1", opResult.OpId);
-        Assert.Equal("Scene.Touch", opResult.Op);
+        Assert.Equal("edit", opResult.Op);
         Assert.True(opResult.Applied);
         Assert.True(opResult.Changed);
         Assert.Equal(1, opResult.TouchedCount);
@@ -59,6 +60,75 @@ public sealed class VerifyFromInputReaderTests
         Assert.Equal("partial", diagnostic.CoverageImpact);
         Assert.Equal("Read surface coverage is partial.", diagnostic.Message);
         Assert.True(input.NeedsPostRead);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Read_WithValidRefreshInput_ReturnsNormalizedInput ()
+    {
+        var result = VerifyFromInputReader.Read(
+            CreateValidInputJson(
+                CreateDefaultOpResultJson(op: UcliPrimitiveOperationNames.ProjectRefresh),
+                command: "refresh",
+                postReadSourceJson:
+                """
+                {
+                  "schemaVersion": 1,
+                  "steps": [
+                    {
+                      "opId": "op-1",
+                      "sourceKind": "refresh",
+                      "playModeMutation": false,
+                      "commit": null,
+                      "persistenceExpected": true,
+                      "expectedPostState": "unavailable"
+                    }
+                  ]
+                }
+                """),
+            "project-fingerprint");
+
+        Assert.True(result.IsSuccess);
+        var input = result.Input!;
+        Assert.Equal("refresh", input.Command);
+        var opResult = Assert.Single(input.OpResults);
+        Assert.Equal(UcliPrimitiveOperationNames.ProjectRefresh, opResult.Op);
+        Assert.Equal("refresh", opResult.PostReadSource.SourceKind);
+        Assert.Null(opResult.PostReadSource.Commit);
+        Assert.True(opResult.PostReadSource.PersistenceExpected);
+        Assert.Equal("unavailable", opResult.PostReadSource.ExpectedPostState);
+        Assert.True(input.NeedsPostRead);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Read_WithNoOpInput_ReturnsNormalizedInput ()
+    {
+        var result = VerifyFromInputReader.Read(
+            """
+            {
+              "protocolVersion": 1,
+              "status": "ok",
+              "exitCode": 0,
+              "command": "call",
+              "payload": {
+                "project": {
+                  "projectFingerprint": "project-fingerprint"
+                },
+                "opResults": [],
+                "postReadSource": {
+                  "schemaVersion": 1,
+                  "steps": []
+                }
+              },
+              "errors": []
+            }
+            """,
+            "project-fingerprint");
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.Input!.OpResults);
+        Assert.False(result.Input.NeedsPostRead);
     }
 
     [Theory]
@@ -478,6 +548,72 @@ public sealed class VerifyFromInputReaderTests
         yield return
         [
             CreateValidInputJson(
+                CreateDefaultOpResultJson(op: UcliPrimitiveOperationNames.SceneOpen),
+                postReadSourceJson:
+                """
+                {
+                  "schemaVersion": 1,
+                  "steps": [
+                    {
+                      "opId": "op-1",
+                      "sourceKind": "operation",
+                      "playModeMutation": false,
+                      "commit": null,
+                      "persistenceExpected": false,
+                      "expectedPostState": "deterministic"
+                    }
+                  ]
+                }
+                """),
+            VerifyErrorCodes.VerifyInputPayloadInvalid,
+        ];
+        yield return
+        [
+            CreateValidInputJson(
+                CreateDefaultOpResultJson(),
+                postReadSourceJson:
+                """
+                {
+                  "schemaVersion": 1,
+                  "steps": [
+                    {
+                      "opId": "op-1",
+                      "sourceKind": "edit",
+                      "playModeMutation": false,
+                      "commit": "context",
+                      "persistenceExpected": false,
+                      "expectedPostState": "deterministic"
+                    }
+                  ]
+                }
+                """),
+            VerifyErrorCodes.VerifyInputPayloadInvalid,
+        ];
+        yield return
+        [
+            CreateValidInputJson(
+                CreateDefaultOpResultJson(op: UcliPrimitiveOperationNames.SceneOpen),
+                postReadSourceJson:
+                """
+                {
+                  "schemaVersion": 1,
+                  "steps": [
+                    {
+                      "opId": "op-1",
+                      "sourceKind": "edit",
+                      "playModeMutation": false,
+                      "commit": "context",
+                      "persistenceExpected": true,
+                      "expectedPostState": "deterministic"
+                    }
+                  ]
+                }
+                """),
+            VerifyErrorCodes.VerifyInputPayloadInvalid,
+        ];
+        yield return
+        [
+            CreateValidInputJson(
                 CreateDefaultOpResultJson(),
                 postReadSourceJson:
                 """
@@ -521,12 +657,14 @@ public sealed class VerifyFromInputReaderTests
         ];
     }
 
-    private static string CreateDefaultOpResultJson (string diagnosticsJson = "[]")
+    private static string CreateDefaultOpResultJson (
+        string diagnosticsJson = "[]",
+        string op = "edit")
     {
         return $$"""
         {
           "opId": "op-1",
-          "op": "Scene.Touch",
+          "op": "{{op}}",
           "phase": "call",
           "applied": true,
           "changed": true,
