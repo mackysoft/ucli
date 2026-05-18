@@ -49,6 +49,10 @@ public sealed class VerifyFromInputReaderTests
         Assert.True(opResult.Applied);
         Assert.True(opResult.Changed);
         Assert.Equal(1, opResult.TouchedCount);
+        Assert.Equal("edit", opResult.PostReadSource.SourceKind);
+        Assert.Equal("context", opResult.PostReadSource.Commit);
+        Assert.True(opResult.PostReadSource.PersistenceExpected);
+        Assert.Equal("deterministic", opResult.PostReadSource.ExpectedPostState);
         var diagnostic = Assert.Single(opResult.Diagnostics);
         Assert.Equal("READ_SURFACE_PARTIAL", diagnostic.Code);
         Assert.Equal("warning", diagnostic.Severity);
@@ -420,6 +424,101 @@ public sealed class VerifyFromInputReaderTests
             """),
             VerifyErrorCodes.VerifyInputPayloadInvalid,
         ];
+        yield return
+        [
+            """
+            {
+              "protocolVersion": 1,
+              "status": "ok",
+              "exitCode": 0,
+              "command": "call",
+              "payload": {
+                "project": {
+                  "projectFingerprint": "project-fingerprint"
+                },
+                "opResults": [
+                  {
+                    "opId": "op-1",
+                    "op": "Scene.Touch",
+                    "phase": "call",
+                    "applied": true,
+                    "changed": true,
+                    "touched": [],
+                    "diagnostics": []
+                  }
+                ]
+              },
+              "errors": []
+            }
+            """,
+            VerifyErrorCodes.VerifyInputPayloadInvalid,
+        ];
+        yield return
+        [
+            CreateValidInputJson(
+                CreateDefaultOpResultJson(),
+                postReadSourceJson:
+                """
+                {
+                  "schemaVersion": 1,
+                  "steps": [
+                    {
+                      "opId": "op-1",
+                      "sourceKind": "edit",
+                      "playModeMutation": false,
+                      "commit": "invalid",
+                      "persistenceExpected": true,
+                      "expectedPostState": "deterministic"
+                    }
+                  ]
+                }
+                """),
+            VerifyErrorCodes.VerifyInputPayloadInvalid,
+        ];
+        yield return
+        [
+            CreateValidInputJson(
+                CreateDefaultOpResultJson(),
+                postReadSourceJson:
+                """
+                {
+                  "schemaVersion": 1,
+                  "steps": [
+                    {
+                      "opId": "op-1",
+                      "sourceKind": "unknown",
+                      "playModeMutation": false,
+                      "commit": null,
+                      "persistenceExpected": false,
+                      "expectedPostState": "unavailable"
+                    }
+                  ]
+                }
+                """),
+            VerifyErrorCodes.VerifyInputPayloadInvalid,
+        ];
+        yield return
+        [
+            CreateValidInputJson(
+                CreateDefaultOpResultJson(),
+                postReadSourceJson:
+                """
+                {
+                  "schemaVersion": 1,
+                  "steps": [
+                    {
+                      "opId": "other-op",
+                      "sourceKind": "operation",
+                      "playModeMutation": false,
+                      "commit": null,
+                      "persistenceExpected": false,
+                      "expectedPostState": "unavailable"
+                    }
+                  ]
+                }
+                """),
+            VerifyErrorCodes.VerifyInputPayloadInvalid,
+        ];
     }
 
     private static string CreateDefaultOpResultJson (string diagnosticsJson = "[]")
@@ -445,13 +544,29 @@ public sealed class VerifyFromInputReaderTests
     private static string CreateValidInputJson (
         string opResultJson,
         string? readPostconditionJson = null,
-        string command = "call")
+        string command = "call",
+        string? postReadSourceJson = null)
     {
         var readPostconditionProperty = string.IsNullOrWhiteSpace(readPostconditionJson)
             ? string.Empty
             : $"""
               ,
               "readPostcondition": {readPostconditionJson}
+            """;
+        var normalizedPostReadSourceJson = postReadSourceJson ?? """
+            {
+              "schemaVersion": 1,
+              "steps": [
+                {
+                  "opId": "op-1",
+                  "sourceKind": "edit",
+                  "playModeMutation": false,
+                  "commit": "context",
+                  "persistenceExpected": true,
+                  "expectedPostState": "deterministic"
+                }
+              ]
+            }
             """;
         return $$"""
         {
@@ -465,7 +580,8 @@ public sealed class VerifyFromInputReaderTests
             },
             "opResults": [
               {{opResultJson}}
-            ]{{readPostconditionProperty}}
+            ],
+            "postReadSource": {{normalizedPostReadSourceJson}}{{readPostconditionProperty}}
           },
           "errors": []
         }

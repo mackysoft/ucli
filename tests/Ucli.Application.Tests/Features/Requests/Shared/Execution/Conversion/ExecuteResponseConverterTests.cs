@@ -273,6 +273,130 @@ public sealed class ExecuteResponseConverterTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Convert_WhenPostReadSourceIsPresent_PropagatesSourceFacts ()
+    {
+        var response = CreateResponse(new IpcExecuteResponse(
+        [
+            new IpcExecuteOperationResult(
+                OpId: "edit-1",
+                Op: "edit",
+                Phase: IpcExecuteOperationPhaseNames.Call,
+                Applied: true,
+                Changed: true,
+                Touched: []),
+        ])
+        {
+            PostReadSource = new IpcExecutePostReadSource(
+                IpcExecutePostReadSource.CurrentSchemaVersion,
+                [
+                    new IpcExecutePostReadSourceStep(
+                        OpId: "edit-1",
+                        SourceKind: IpcExecutePostReadSourceKindNames.Edit,
+                        PlayModeMutation: false,
+                        Commit: IpcExecutePostReadCommitNames.Project,
+                        PersistenceExpected: true,
+                        ExpectedPostState: IpcExecuteExpectedPostStateNames.Deterministic),
+                ]),
+        });
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.PostReadSource);
+        Assert.Equal(1, result.PostReadSource!.SchemaVersion);
+        var sourceStep = Assert.Single(result.PostReadSource.Steps);
+        Assert.Equal("edit-1", sourceStep.OpId);
+        Assert.Equal(IpcExecutePostReadSourceKindNames.Edit, sourceStep.SourceKind);
+        Assert.Equal(IpcExecutePostReadCommitNames.Project, sourceStep.Commit);
+        Assert.True(sourceStep.PersistenceExpected);
+        Assert.Equal(IpcExecuteExpectedPostStateNames.Deterministic, sourceStep.ExpectedPostState);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Convert_WhenPostReadSourceKindIsUnsupported_ReturnsInternalError ()
+    {
+        var response = CreateResponse("""
+            {
+              "project": {
+                "projectPath": "/repo/UnityProject",
+                "projectFingerprint": "project-fingerprint",
+                "unityVersion": "6000.1.4f1"
+              },
+              "opResults": [
+                {
+                  "opId": "edit-1",
+                  "op": "edit",
+                  "phase": "call",
+                  "applied": true,
+                  "changed": true,
+                  "touched": [],
+                  "diagnostics": []
+                }
+              ],
+              "postReadSource": {
+                "schemaVersion": 1,
+                "steps": [
+                  {
+                    "opId": "edit-1",
+                    "sourceKind": "unsupported",
+                    "playModeMutation": false,
+                    "commit": "context",
+                    "persistenceExpected": true,
+                    "expectedPostState": "deterministic"
+                  }
+                ]
+              }
+            }
+            """);
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("postReadSource.steps[0].sourceKind", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Convert_WhenPostReadSourceStepIsMissingForOpResult_ReturnsInternalError ()
+    {
+        var response = CreateResponse("""
+            {
+              "project": {
+                "projectPath": "/repo/UnityProject",
+                "projectFingerprint": "project-fingerprint",
+                "unityVersion": "6000.1.4f1"
+              },
+              "opResults": [
+                {
+                  "opId": "edit-1",
+                  "op": "edit",
+                  "phase": "call",
+                  "applied": true,
+                  "changed": true,
+                  "touched": [],
+                  "diagnostics": []
+                }
+              ],
+              "postReadSource": {
+                "schemaVersion": 1,
+                "steps": []
+              }
+            }
+            """);
+
+        var result = ExecuteResponseConverter.Convert(response);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("postReadSource.steps", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Convert_WhenTouchedResourcesAreMissing_ReturnsInternalError ()
     {
         var response = CreateResponse(new IpcExecuteResponse(

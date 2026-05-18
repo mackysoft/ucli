@@ -73,7 +73,8 @@
               "opResultCount": 1,
               "changedCount": 1,
               "touchedCount": 1,
-              "diagnosticCount": 0
+              "diagnosticCount": 0,
+              "diagnosticImpact": "none"
             }
           }
         ],
@@ -98,7 +99,8 @@
               "opResultCount": 1,
               "changedCount": 1,
               "touchedCount": 1,
-              "diagnosticCount": 0
+              "diagnosticCount": 0,
+              "diagnosticImpact": "none"
             }
           }
         ],
@@ -106,14 +108,14 @@
       },
       {
         "id": "POST_MUTATION_OBSERVED",
-        "status": "outOfScope",
-        "coverage": "none",
+        "status": "passed",
+        "coverage": "full",
         "required": false,
         "verifierRef": "postRead",
-        "statement": "Expected post-mutation state is not deterministic from the input result alone.",
+        "statement": "Deterministic post-mutation state was observed from the input result.",
         "subject": {
           "kind": "postRead",
-          "reason": "expectedPostStateUnavailable"
+          "observedMutationCount": 1
         },
         "evidence": [
           {
@@ -123,7 +125,8 @@
               "opResultCount": 1,
               "changedCount": 1,
               "touchedCount": 1,
-              "diagnosticCount": 0
+              "diagnosticCount": 0,
+              "diagnosticImpact": "none"
             }
           }
         ],
