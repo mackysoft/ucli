@@ -16,12 +16,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<ResolveSelectorArgs, IpcResolveOperationResult>(
             operationName: UcliPrimitiveOperationNames.Resolve,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
             description: "Resolves an asset, scene object, prefab object, or component reference to a Unity GlobalObjectId.",
             assurance: new UcliOperationAssuranceContract(
-                sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
+                sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
                 touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate selector structure and resolve the referenced Unity object without applying mutation.",
@@ -76,7 +73,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteResolveAsync(operation, args, executionContext, allowTemporaryState: true);
+            return ExecuteResolveAsync(operation, args, executionContext, applied: false);
         }
 
         /// <summary> Executes call phase for <c>ucli.resolve</c>. </summary>
@@ -91,19 +88,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteResolveAsync(operation, args, executionContext, allowTemporaryState: false);
+            return ExecuteResolveAsync(operation, args, executionContext, applied: false, allowTemporaryState: false);
         }
 
         /// <summary> Executes selector parse/resolve flow shared by plan and call phases. </summary>
         /// <param name="operation"> The normalized operation. </param>
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
+        /// <param name="applied"> The applied flag for successful phase result. </param>
         /// <param name="allowTemporaryState"> Whether temporary plan aliases may satisfy target resolution. </param>
         /// <returns> The phase-step result. </returns>
         private static Task<OperationPhaseStepResult> ExecuteResolveAsync (
             NormalizedOperation operation,
             ResolveSelectorArgs args,
             OperationExecutionContext executionContext,
-            bool allowTemporaryState)
+            bool applied,
+            bool allowTemporaryState = true)
         {
             if (!UnityObjectReferenceContractMapper.TryMap(args, out var selector, out var parseErrorMessage))
             {
@@ -122,7 +121,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             StoreAliasIfNeeded(operation.As, executionContext, resolvedReference!);
             return Task.FromResult(OperationPhaseStepResult.Success(
-                applied: false,
+                applied,
                 changed: false,
                 result: IpcPayloadCodec.SerializeToElement(new IpcResolveOperationResult(resolvedReference!.GlobalObjectId))));
         }

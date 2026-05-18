@@ -89,13 +89,26 @@
               "items": {
                 "type": "string",
                 "enum": [
+                  "observesUnityState",
+                  "editorStateChange",
                   "opensSceneInEditor",
                   "opensPrefabStage",
-                  "refreshesAssetDatabase",
-                  "writesAsset",
-                  "writesScene",
-                  "writesPrefab",
-                  "writesProjectSettings"
+                  "assetDatabaseRefresh",
+                  "assetImport",
+                  "scriptCompilation",
+                  "domainReload",
+                  "sceneContentMutation",
+                  "prefabContentMutation",
+                  "assetContentMutation",
+                  "projectSettingsMutation",
+                  "sceneSave",
+                  "prefabSave",
+                  "assetSave",
+                  "projectSave",
+                  "externalProcess",
+                  "filesystemWrite",
+                  "arbitrarySourceExecution",
+                  "destructiveScope"
                 ]
               }
             },

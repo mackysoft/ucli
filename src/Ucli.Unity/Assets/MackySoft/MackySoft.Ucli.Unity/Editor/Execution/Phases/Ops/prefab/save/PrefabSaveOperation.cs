@@ -18,12 +18,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<PrefabPathArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.PrefabSave,
             kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced,
             description: "Saves an opened or previewed prefab asset.",
             assurance: new UcliOperationAssuranceContract(
-                sideEffects: new[] { UcliOperationSideEffect.WritesPrefab },
-                mayDirty: false,
-                mayPersist: true,
+                sideEffects: new[] { UcliOperationSideEffect.PrefabSave },
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Prefab },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the prefab path and observe whether the opened or previewed prefab has save-relevant changes.",

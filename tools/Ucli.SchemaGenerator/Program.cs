@@ -90,6 +90,7 @@ internal static class Program
             CreatePayloadSchema(UcliCommandIds.Status.Name, CreateStatusPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.Ready.Name, CreateReadyPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.Compile.Name, CreateCompilePayloadSchema()),
+            CreatePayloadSchema(UcliCommandIds.Verify.Name, CreateVerifyPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.Init.Name, CreateInitPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.Validate.Name, CreateValidatePayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.Plan.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: true, includePlanToken: true, includePlan: false)),
@@ -287,7 +288,7 @@ internal static class Program
             Required("deterministic", BooleanSchema()),
             Required("required", BooleanSchema()),
             Required("primaryClaims", ArraySchema(StringSchema())),
-            Optional("effects", ArraySchema(StringSchema())),
+            Required("effects", ArraySchema(StringSchema())),
             Optional("reportRef", StringSchema()));
     }
 
@@ -572,6 +573,70 @@ internal static class Program
                 Required("primaryDiagnostic", CreateReadyPrimaryDiagnosticSchema()))));
     }
 
+    private static Dictionary<string, object?> CreateVerifyPayloadSchema ()
+    {
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["oneOf"] = new object?[]
+            {
+                CreateVerifySuccessPayloadSchema(),
+                CreateVerifyErrorPayloadSchema(),
+            },
+        };
+    }
+
+    private static Dictionary<string, object?> CreateVerifySuccessPayloadSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("profile", CreateVerifyProfileSchema()),
+            Required("profileDigest", StringSchema()),
+            Required("verdict", EnumSchema("pass", "fail", "incomplete")),
+            Required("project", ReferenceSchema("../defs/project.schema.json")),
+            Required("verifiers", ArraySchema(ReferenceSchema("../defs/verifier.schema.json"))),
+            Required("claims", ArraySchema(CreateVerifyClaimSchema())),
+            Required("reports", ObjectSchema(additionalProperties: true)),
+            Required("residualRisks", ArraySchema(ReferenceSchema("../defs/residual-risk.schema.json"))),
+            Required("timeoutMilliseconds", IntegerSchema()));
+    }
+
+    private static Dictionary<string, object?> CreateVerifyErrorPayloadSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Optional("project", ReferenceSchema("../defs/project.schema.json")),
+            Optional("startup", ObjectSchema(additionalProperties: true)),
+            Optional("diagnosis", ObjectSchema(additionalProperties: true)),
+            Optional("retryDisposition", StringSchema()),
+            Optional("safeToRetryImmediately", BooleanSchema()));
+    }
+
+    private static Dictionary<string, object?> CreateVerifyProfileSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("source", EnumSchema("builtIn", "file")),
+            Required("name", StringSchema()),
+            Required("path", NullableStringSchema()),
+            Required("digest", StringSchema()));
+    }
+
+    private static Dictionary<string, object?> CreateVerifyClaimSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: true,
+            Required("id", StringSchema()),
+            Required("status", EnumSchema("passed", "failed", "indeterminate", "unverified", "outOfScope")),
+            Required("coverage", EnumSchema("full", "partial", "none")),
+            Required("required", BooleanSchema()),
+            Required("verifierRef", StringSchema()),
+            Required("statement", StringSchema()),
+            Required("subject", ObjectSchema(additionalProperties: true)),
+            Required("evidence", ArraySchema(ReferenceSchema("../defs/evidence.schema.json"))),
+            Required("residualRisks", ArraySchema(ReferenceSchema("../defs/residual-risk.schema.json"))),
+            Optional("validity", ObjectSchema(additionalProperties: true)));
+    }
+
     private static Dictionary<string, object?> CreateInitPayloadSchema ()
     {
         return ObjectSchema(
@@ -692,13 +757,7 @@ internal static class Program
         return ObjectSchema(
             additionalProperties: false,
             Required("sideEffects", ArraySchema(EnumSchema(
-                UcliOperationSideEffectValues.OpensSceneInEditor,
-                UcliOperationSideEffectValues.OpensPrefabStage,
-                UcliOperationSideEffectValues.RefreshesAssetDatabase,
-                UcliOperationSideEffectValues.WritesAsset,
-                UcliOperationSideEffectValues.WritesScene,
-                UcliOperationSideEffectValues.WritesPrefab,
-                UcliOperationSideEffectValues.WritesProjectSettings))),
+                UcliOperationSideEffectDescriptors.SupportedValues.ToArray()))),
             Required("mayDirty", BooleanSchema()),
             Required("mayPersist", BooleanSchema()),
             Required("touchedKinds", ArraySchema(EnumSchema(

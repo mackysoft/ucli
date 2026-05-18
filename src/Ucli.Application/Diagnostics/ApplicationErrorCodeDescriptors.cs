@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Assurance.Verify.Catalog;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 
@@ -15,6 +16,7 @@ internal static class ApplicationErrorCodeDescriptors
             .Concat(UnityProcessErrorCodeDescriptors.All)
             .Concat(UnityExecutionModeDecisionErrorCodeDescriptors.All)
             .Concat(ProjectContextErrorCodeDescriptors.All)
+            .Concat(VerifyErrorCodeDescriptors.All)
             .Concat(ValidationErrorCodeDescriptors.All)
             .Concat(TestRunErrorCodeDescriptors.All)
             .OrderBy(static descriptor => descriptor.Code.Value, StringComparer.Ordinal)

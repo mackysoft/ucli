@@ -10,6 +10,10 @@ internal static class UcliContractConstants
 
         public const string ProjectPath = "--projectPath";
 
+        public const string Profile = "--profile";
+
+        public const string ProfilePath = "--profilePath";
+
         public const string Timeout = "--timeout";
 
         public const string Mode = "--mode";
@@ -65,6 +69,8 @@ internal static class UcliContractConstants
 
         public const int IpcTimeoutDefaultReadyMilliseconds = 10000;
 
+        public const int IpcTimeoutDefaultVerifyMilliseconds = 120000;
+
         public const int IpcTimeoutDefaultStatusMilliseconds = 5000;
 
         public const int IpcTimeoutDefaultValidateMilliseconds = 10000;
@@ -100,6 +106,8 @@ internal static class UcliContractConstants
         public const string IpcTimeoutCommandTest = "test";
 
         public const string IpcTimeoutCommandReady = "ready";
+
+        public const string IpcTimeoutCommandVerify = "verify";
 
         public const string IpcTimeoutCommandStatus = "status";
 

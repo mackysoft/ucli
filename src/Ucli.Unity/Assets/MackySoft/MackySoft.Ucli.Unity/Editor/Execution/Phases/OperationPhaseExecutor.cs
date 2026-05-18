@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Unity.Execution.PlanToken;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -107,9 +109,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             using var executionContext = new OperationExecutionContext();
-            var operationPreflight = command == PhaseExecutionCommand.Call && !request.AllowDangerous
-                ? CreateDangerousCallPreflight()
-                : null;
+            var operationPreflight = CreateOperationPreflight(command, request.AllowDangerous);
             var planPassResult = await planPassExecutor.ExecuteAsync(request, executionContext, operationPreflight, cancellationToken).ConfigureAwait(false);
             if (!planPassResult.IsSuccess)
             {
@@ -209,13 +209,29 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 : PhaseExecutionTrace.Failure(request.ProtocolVersion, request.RequestId, planPassResult.CompiledSteps, callPassResult.OperationTraces, callPassResult.Errors);
         }
 
-        private static Func<NormalizedOperation, IUcliOperation, OperationFailure?> CreateDangerousCallPreflight ()
+        private static Func<NormalizedOperation, IUcliOperation, OperationFailure?> CreateOperationPreflight (
+            PhaseExecutionCommand command,
+            bool allowDangerous)
         {
-            return static (operation, phaseOperation) =>
+            return (operation, phaseOperation) =>
             {
-                return phaseOperation.Metadata.Policy == OperationPolicy.Dangerous
-                    ? DangerousOperationCallAuthorizer.CreateAllowDangerousFailure(operation)
-                    : null;
+                if (UcliOperationPublicCatalogRules.HasPublicRawCatalogExclusionMarker(
+                        phaseOperation.Metadata.DescribeContract.Assurance?.SideEffects))
+                {
+                    return new OperationFailure(
+                        Code: OperationAuthorizationErrorCodes.OperationNotAllowed,
+                        Message: $"Operation '{operation.Op}' is not available as a public raw operation.",
+                        OpId: operation.Id);
+                }
+
+                if (command == PhaseExecutionCommand.Call
+                    && !allowDangerous
+                    && phaseOperation.Metadata.Policy == OperationPolicy.Dangerous)
+                {
+                    return DangerousOperationCallAuthorizer.CreateAllowDangerousFailure(operation);
+                }
+
+                return null;
             };
         }
 

@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 
@@ -18,17 +18,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<SceneTreeArgs, SceneTreeResult>(
             operationName: UcliPrimitiveOperationNames.SceneTree,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
             description: "Returns the hierarchy tree for a Unity scene.",
             assurance: new UcliOperationAssuranceContract(
-                sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
+                sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
                 touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the scene path and observe the selected hierarchy source without applying mutation.",
                 callSemantics: "Read the scene hierarchy without applying mutation.",
-                touchedContract: "Returns no touched resources because scene hierarchy data is observational data.",
+                touchedContract: "Returns no touched resources because scene hierarchy data is observational, not dirty or persisted state.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Timeout, cancellation, or source fallback failure means the hierarchy was not fully observed.",
                 dangerousNotes: Array.Empty<string>()));
@@ -66,7 +63,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecutePhaseAsync(operation, args, executionContext, allowTemporaryState: true);
+            return ExecutePhaseAsync(operation, args, executionContext, applied: false);
         }
 
         /// <summary> Executes call phase for <c>ucli.scene.tree</c>. </summary>
@@ -81,19 +78,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecutePhaseAsync(operation, args, executionContext, allowTemporaryState: false);
+            return ExecutePhaseAsync(operation, args, executionContext, applied: false, allowTemporaryState: false);
         }
 
         /// <summary> Executes shared plan/call flow. </summary>
         /// <param name="operation"> The normalized operation. </param>
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
+        /// <param name="applied"> The applied flag for the successful phase result. </param>
         /// <param name="allowTemporaryState"> Whether temporary plan state should be included in the result. </param>
         /// <returns> The phase-step result. </returns>
         private static Task<OperationPhaseStepResult> ExecutePhaseAsync (
             NormalizedOperation operation,
             SceneTreeArgs args,
             OperationExecutionContext executionContext,
-            bool allowTemporaryState)
+            bool applied,
+            bool allowTemporaryState = true)
         {
             if (!TryValidateArguments(operation, args, executionContext, allowTemporaryState, out var validationState, out var failure))
             {
@@ -110,7 +109,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     validationState.SceneLease.CreateSourceState(),
                     windowedRoots.Window);
                 return Task.FromResult(OperationPhaseStepResult.Success(
-                    applied: false,
+                    applied: applied,
                     changed: false,
                     result: IpcPayloadCodec.SerializeToElement(tree)));
             }

@@ -15,11 +15,12 @@ internal static class UcliOperationDescribeContractValidator
         string ownerName,
         out string errorMessage)
     {
-        return TryValidatePublicRawOpDescribeContract(
+        return TryValidatePublicRawOpDescribeContractCore(
             describeContract,
             operationKind: null,
             operationPolicy: null,
             ownerName,
+            out _,
             out errorMessage);
     }
 
@@ -30,6 +31,41 @@ internal static class UcliOperationDescribeContractValidator
         string ownerName,
         out string errorMessage)
     {
+        return TryValidatePublicRawOpDescribeContractCore(
+            describeContract,
+            operationKind,
+            operationPolicy,
+            ownerName,
+            out _,
+            out errorMessage);
+    }
+
+    public static bool TryValidatePublicRawOpDescribeContractAndDerivePolicy (
+        UcliOperationDescribeContract? describeContract,
+        string? operationKind,
+        string ownerName,
+        out OperationPolicy derivedPolicy,
+        out string errorMessage)
+    {
+        return TryValidatePublicRawOpDescribeContractCore(
+            describeContract,
+            operationKind,
+            operationPolicy: null,
+            ownerName,
+            out derivedPolicy,
+            out errorMessage);
+    }
+
+    private static bool TryValidatePublicRawOpDescribeContractCore (
+        UcliOperationDescribeContract? describeContract,
+        string? operationKind,
+        string? operationPolicy,
+        string ownerName,
+        out OperationPolicy derivedPolicy,
+        out string errorMessage)
+    {
+        derivedPolicy = OperationPolicy.Safe;
+
         if (describeContract == null
             || string.IsNullOrWhiteSpace(describeContract.Description))
         {
@@ -39,7 +75,7 @@ internal static class UcliOperationDescribeContractValidator
 
         if (!TryValidatePublicRawOpInputs(describeContract.Inputs, ownerName, out errorMessage)
             || !TryValidateResultContract(describeContract.ResultContract, ownerName, out errorMessage)
-            || !TryValidateAssurance(describeContract.Assurance, operationKind, operationPolicy, ownerName, out errorMessage)
+            || !TryValidateAssurance(describeContract.Assurance, operationKind, operationPolicy, ownerName, out derivedPolicy, out errorMessage)
             || !TryValidateCodeContract(describeContract.CodeContract, ownerName, out errorMessage))
         {
             return false;
@@ -352,8 +388,11 @@ internal static class UcliOperationDescribeContractValidator
         string? operationKind,
         string? operationPolicy,
         string ownerName,
+        out OperationPolicy derivedPolicy,
         out string errorMessage)
     {
+        derivedPolicy = OperationPolicy.Safe;
+
         if (assurance == null
             || assurance.SideEffects == null
             || assurance.TouchedKinds == null
@@ -372,7 +411,7 @@ internal static class UcliOperationDescribeContractValidator
         for (var i = 0; i < assurance.SideEffects.Count; i++)
         {
             var sideEffect = assurance.SideEffects[i];
-            if (!IsSupportedSideEffect(sideEffect))
+            if (!UcliOperationSideEffectDescriptors.TryGetMinimumPolicy(sideEffect, out _))
             {
                 errorMessage = $"{ownerName} has an unsupported side effect '{sideEffect}'.";
                 return false;
@@ -398,7 +437,7 @@ internal static class UcliOperationDescribeContractValidator
             }
         }
 
-        if (!TryValidateAssuranceConsistency(assurance, operationKind, operationPolicy, ownerName, out errorMessage))
+        if (!TryValidateAssuranceConsistency(assurance, operationKind, operationPolicy, ownerName, out derivedPolicy, out errorMessage))
         {
             return false;
         }
@@ -412,8 +451,11 @@ internal static class UcliOperationDescribeContractValidator
         string? operationKind,
         string? operationPolicy,
         string ownerName,
+        out OperationPolicy derivedPolicy,
         out string errorMessage)
     {
+        derivedPolicy = OperationPolicy.Safe;
+
         if (operationKind != null)
         {
             if (!UcliOperationKindCodec.TryParse(operationKind, out var parsedKind))
@@ -423,11 +465,22 @@ internal static class UcliOperationDescribeContractValidator
             }
 
             if (parsedKind == UcliOperationKind.Query
-                && (assurance.MayDirty || assurance.MayPersist || assurance.SideEffects!.Count != 0))
+                && (assurance.MayDirty || assurance.MayPersist || assurance.TouchedKinds!.Count != 0 || !HasOnlyQuerySideEffects(assurance.SideEffects!)))
             {
                 errorMessage = $"{ownerName} has query assurance metadata with mutation or side-effect risk.";
                 return false;
             }
+        }
+
+        if (!TryValidateAssuranceProjectionAndConstraints(assurance, ownerName, out errorMessage))
+        {
+            return false;
+        }
+
+        if (!UcliOperationPolicyDeriver.TryDerive(assurance, out derivedPolicy))
+        {
+            errorMessage = $"{ownerName} has invalid policy derivation metadata.";
+            return false;
         }
 
         if (operationPolicy != null)
@@ -438,15 +491,101 @@ internal static class UcliOperationDescribeContractValidator
                 return false;
             }
 
-            if (parsedPolicy != OperationPolicy.Safe && assurance.DangerousNotes!.Count == 0)
+            if (parsedPolicy != derivedPolicy)
             {
-                errorMessage = $"{ownerName} must declare dangerousNotes for advanced or dangerous policy.";
+                errorMessage = $"{ownerName} policy '{operationPolicy}' does not match derived policy '{OperationPolicyCodec.ToValue(derivedPolicy)}'.";
                 return false;
+            }
+        }
+
+        if (derivedPolicy != OperationPolicy.Safe && assurance.DangerousNotes!.Count == 0)
+        {
+            errorMessage = $"{ownerName} must declare dangerousNotes for advanced or dangerous policy.";
+            return false;
+        }
+
+        errorMessage = string.Empty;
+        return true;
+    }
+
+    private static bool HasOnlyQuerySideEffects (IReadOnlyList<string> sideEffects)
+    {
+        for (var i = 0; i < sideEffects.Count; i++)
+        {
+            if (!UcliOperationSideEffectDescriptors.IsAllowedForQueryOperation(sideEffects[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool TryValidateAssuranceProjectionAndConstraints (
+        UcliOperationAssuranceContract assurance,
+        string ownerName,
+        out string errorMessage)
+    {
+        if (!UcliOperationSideEffectDescriptors.TryDeriveAssuranceProjection(assurance.SideEffects, out var derivedMayDirty, out var derivedMayPersist))
+        {
+            errorMessage = $"{ownerName} has invalid side-effect projection metadata.";
+            return false;
+        }
+
+        if (assurance.MayDirty != derivedMayDirty)
+        {
+            errorMessage = $"{ownerName} assurance.mayDirty does not match derived projection '{FormatBoolean(derivedMayDirty)}'.";
+            return false;
+        }
+
+        if (assurance.MayPersist != derivedMayPersist)
+        {
+            errorMessage = $"{ownerName} assurance.mayPersist does not match derived projection '{FormatBoolean(derivedMayPersist)}'.";
+            return false;
+        }
+
+        for (var i = 0; i < assurance.SideEffects!.Count; i++)
+        {
+            var sideEffect = assurance.SideEffects[i];
+            if (!UcliOperationSideEffectDescriptors.TryGetDescriptor(sideEffect, out var descriptor))
+            {
+                errorMessage = $"{ownerName} has an unsupported side effect '{sideEffect}'.";
+                return false;
+            }
+
+            for (var j = 0; j < descriptor.RequiredTouchedKinds.Count; j++)
+            {
+                var requiredTouchedKind = descriptor.RequiredTouchedKinds[j];
+                if (!ContainsTouchedKind(assurance.TouchedKinds!, requiredTouchedKind))
+                {
+                    errorMessage = $"{ownerName} side effect '{sideEffect}' requires assurance.touchedKinds to include '{requiredTouchedKind}'.";
+                    return false;
+                }
             }
         }
 
         errorMessage = string.Empty;
         return true;
+    }
+
+    private static string FormatBoolean (bool value)
+    {
+        return value ? "true" : "false";
+    }
+
+    private static bool ContainsTouchedKind (
+        IReadOnlyList<string> touchedKinds,
+        string requiredTouchedKind)
+    {
+        for (var i = 0; i < touchedKinds.Count; i++)
+        {
+            if (string.Equals(touchedKinds[i], requiredTouchedKind, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool TryValidateCodeContract (
@@ -880,24 +1019,6 @@ internal static class UcliOperationDescribeContractValidator
             case UcliOperationPlanModeValues.ValidationOnly:
             case UcliOperationPlanModeValues.ObservesLiveUnity:
             case UcliOperationPlanModeValues.MayCreatePreviewState:
-                return true;
-
-            default:
-                return false;
-        }
-    }
-
-    private static bool IsSupportedSideEffect (string? sideEffect)
-    {
-        switch (sideEffect)
-        {
-            case UcliOperationSideEffectValues.OpensSceneInEditor:
-            case UcliOperationSideEffectValues.OpensPrefabStage:
-            case UcliOperationSideEffectValues.RefreshesAssetDatabase:
-            case UcliOperationSideEffectValues.WritesAsset:
-            case UcliOperationSideEffectValues.WritesScene:
-            case UcliOperationSideEffectValues.WritesPrefab:
-            case UcliOperationSideEffectValues.WritesProjectSettings:
                 return true;
 
             default:

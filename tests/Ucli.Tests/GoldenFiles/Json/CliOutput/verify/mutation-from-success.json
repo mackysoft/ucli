@@ -1,0 +1,145 @@
+{
+  "protocolVersion": 1,
+  "command": "verify",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "Verify assurance completed.",
+  "payload": {
+    "verdict": "pass",
+    "project": {
+      "projectPath": "<projectPath>",
+      "projectFingerprint": "<projectFingerprint>",
+      "unityVersion": "<unityVersion>"
+    },
+    "verifiers": [
+      {
+        "id": "ready.lifecycle",
+        "kind": "ready",
+        "deterministic": false,
+        "required": true,
+        "primaryClaims": [
+          "UNITY_READY_MUTATION"
+        ],
+        "effects": []
+      },
+      {
+        "id": "postRead",
+        "kind": "postRead",
+        "deterministic": true,
+        "required": false,
+        "primaryClaims": [
+          "PERSISTENCE_UNIT_TOUCHED",
+          "READ_SURFACE_SAFE",
+          "POST_MUTATION_OBSERVED"
+        ],
+        "effects": []
+      }
+    ],
+    "claims": [
+      {
+        "id": "UNITY_READY_MUTATION",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "ready.lifecycle",
+        "statement": "Unity is ready for mutation.",
+        "subject": {
+          "target": "mutation"
+        },
+        "evidence": [],
+        "residualRisks": [],
+        "validity": {
+          "kind": "probeOnly",
+          "guaranteesReusableSession": false
+        }
+      },
+      {
+        "id": "PERSISTENCE_UNIT_TOUCHED",
+        "status": "passed",
+        "coverage": "full",
+        "required": false,
+        "verifierRef": "postRead",
+        "statement": "Touched persistence units were observed from the input result.",
+        "subject": {
+          "kind": "postRead",
+          "changedCount": 1,
+          "touchedCount": 1
+        },
+        "evidence": [
+          {
+            "kind": "fromResultSummary",
+            "data": {
+              "command": "call",
+              "opResultCount": 1,
+              "changedCount": 1,
+              "touchedCount": 1,
+              "diagnosticCount": 0
+            }
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "READ_SURFACE_SAFE",
+        "status": "passed",
+        "coverage": "full",
+        "required": false,
+        "verifierRef": "postRead",
+        "statement": "Read-postcondition requirements were observed for affected read surfaces.",
+        "subject": {
+          "kind": "postRead",
+          "requirementCount": 1
+        },
+        "evidence": [
+          {
+            "kind": "fromResultSummary",
+            "data": {
+              "command": "call",
+              "opResultCount": 1,
+              "changedCount": 1,
+              "touchedCount": 1,
+              "diagnosticCount": 0
+            }
+          }
+        ],
+        "residualRisks": []
+      },
+      {
+        "id": "POST_MUTATION_OBSERVED",
+        "status": "outOfScope",
+        "coverage": "none",
+        "required": false,
+        "verifierRef": "postRead",
+        "statement": "Expected post-mutation state is not deterministic from the input result alone.",
+        "subject": {
+          "kind": "postRead",
+          "reason": "expectedPostStateUnavailable"
+        },
+        "evidence": [
+          {
+            "kind": "fromResultSummary",
+            "data": {
+              "command": "call",
+              "opResultCount": 1,
+              "changedCount": 1,
+              "touchedCount": 1,
+              "diagnosticCount": 0
+            }
+          }
+        ],
+        "residualRisks": []
+      }
+    ],
+    "reports": {},
+    "residualRisks": [],
+    "profile": {
+      "source": "builtIn",
+      "name": "built-in:mutation",
+      "path": null,
+      "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    "profileDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "timeoutMilliseconds": 120000
+  },
+  "errors": []
+}

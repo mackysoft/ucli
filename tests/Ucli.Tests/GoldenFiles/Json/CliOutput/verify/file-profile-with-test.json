@@ -1,0 +1,67 @@
+{
+  "protocolVersion": 1,
+  "command": "verify",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "Verify assurance completed.",
+  "payload": {
+    "verdict": "pass",
+    "project": {
+      "projectPath": "<projectPath>",
+      "projectFingerprint": "<projectFingerprint>",
+      "unityVersion": "<unityVersion>"
+    },
+    "verifiers": [
+      {
+        "id": "test",
+        "kind": "test",
+        "deterministic": false,
+        "required": true,
+        "primaryClaims": [
+          "UNITY_TESTS_PASSED"
+        ],
+        "effects": [
+          "unityTestRunner"
+        ],
+        "reportRef": "test.summary"
+      }
+    ],
+    "claims": [
+      {
+        "id": "UNITY_TESTS_PASSED",
+        "status": "passed",
+        "coverage": "full",
+        "required": true,
+        "verifierRef": "test",
+        "statement": "Unity Test Runner execution passed.",
+        "subject": {
+          "kind": "unityTests",
+          "runId": "test-run-1"
+        },
+        "evidence": [
+          {
+            "kind": "testSummary",
+            "evidenceRef": "test.summary"
+          }
+        ],
+        "residualRisks": []
+      }
+    ],
+    "reports": {
+      "test.summary": {
+        "kind": "test.summary",
+        "path": ".ucli/local/test/test-run-1/summary.json"
+      }
+    },
+    "residualRisks": [],
+    "profile": {
+      "source": "file",
+      "name": "test-profile",
+      "path": "profiles/verify-tests.json",
+      "digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+    },
+    "profileDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "timeoutMilliseconds": 120000
+  },
+  "errors": []
+}

@@ -183,14 +183,17 @@ public sealed class OpsCliOutputContractTests
                     argsSchemaJson: """{"type":"object"}""",
                     resultSchemaJson: """{"type":"object"}"""),
                 CreateDescribedEntry(
-                    name: UcliPrimitiveOperationNames.CompSchema,
-                    kind: "query",
+                    name: UcliPrimitiveOperationNames.SceneOpen,
+                    kind: "command",
                     policy: "advanced",
                     argsSchemaJson: """{"type":"object"}""",
-                    resultSchemaJson: """{"type":"object"}"""),
+                    resultSchemaJson: null,
+                    describe: UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
+                        "Opens a Unity scene asset in the editor.",
+                        CreateAssurance("command", "advanced"))),
                 CreateDescribedEntry(
                     name: UcliPrimitiveOperationNames.AssetsFind,
-                    kind: "query",
+                    kind: "command",
                     policy: "dangerous",
                     argsSchemaJson: """{"type":"object"}""",
                     resultSchemaJson: """{"type":"object"}"""),
@@ -218,7 +221,7 @@ public sealed class OpsCliOutputContractTests
             UcliContractConstants.CliOption.NameRegex,
             "^ucli\\.",
             UcliContractConstants.CliOption.Kind,
-            "query",
+            "command",
             UcliContractConstants.CliOption.MaxPolicy,
             "advanced");
 
@@ -316,7 +319,7 @@ public sealed class OpsCliOutputContractTests
                         .HasBoolean("emitted", true)
                         .HasString("resultType", "GameObjectDescriptionResult"))
                     .HasProperty("assurance", assurance => assurance
-                        .HasArrayLength("sideEffects", 0)
+                        .HasArrayLength("sideEffects", 1)
                         .HasBoolean("mayDirty", false)
                         .HasBoolean("mayPersist", false)
                         .HasString("planMode", "observesLiveUnity"))
@@ -456,9 +459,48 @@ public sealed class OpsCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task OpsDescribe_WithCsEvalCodeContract_MatchesGolden ()
+    public async Task OpsList_WithCsEvalCodeContract_ExcludesOperation ()
     {
-        using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "describe-cs-eval-golden");
+        using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "list-cs-eval-excluded");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        SeedOpsCatalog(
+            unityProjectPath,
+            [
+                CreateDescribedEntry(
+                    name: UcliPrimitiveOperationNames.GoDescribe,
+                    kind: "query",
+                    policy: "safe",
+                    argsSchemaJson: """{"type":"object"}""",
+                    resultSchemaJson: """{"type":"object"}"""),
+                CreateDescribedEntry(
+                    name: UcliPrimitiveOperationNames.CsEval,
+                    kind: "mutation",
+                    policy: "dangerous",
+                    argsSchemaJson: """{"type":"object","properties":{"source":{"type":"string"}}}""",
+                    resultSchemaJson: """{"type":"object"}""",
+                    describe: CreateCsEvalDescribeContract()),
+            ]);
+
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Ops,
+            UcliCommandNames.ListSubcommand,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath,
+            UcliContractConstants.CliOption.ReadIndexMode,
+            UcliContractConstants.Config.ReadIndexModeAllowStale);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        var operations = outputJson.RootElement.GetProperty("payload").GetProperty("operations").EnumerateArray().ToArray();
+        Assert.Single(operations);
+        Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, operations[0].GetProperty("name").GetString());
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task OpsDescribe_WithCsEvalCodeContract_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "describe-cs-eval-excluded");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         SeedOpsCatalog(
             unityProjectPath,
@@ -481,11 +523,17 @@ public sealed class OpsCliOutputContractTests
             UcliContractConstants.CliOption.ReadIndexMode,
             UcliContractConstants.Config.ReadIndexModeAllowStale);
 
-        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        JsonGoldenFileAssert.Matches(
-            CliOutputGoldenFiles.GetPath("ops", "describe-cs-eval-success.json"),
-            result.StdOut,
-            CliOutputGoldenFiles.NormalizeGeneratedAtUtc());
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.OpsDescribe,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(
+            outputJson.RootElement,
+            expectedCode: "INVALID_ARGUMENT");
+        Assert.Contains("not available", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -729,9 +777,7 @@ public sealed class OpsCliOutputContractTests
         return UcliOperationDescribeContractBuilder.Create<GoDescribeArgs, GameObjectDescriptionResult>(
             "Returns a GameObject description including components and child hierarchy.",
             new UcliOperationAssuranceContract(
-                sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
+                sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
                 touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate arguments and observe Unity state without applying mutation.",
@@ -766,13 +812,19 @@ public sealed class OpsCliOutputContractTests
         return new UcliOperationAssuranceContract(
             sideEffects:
             [
-                UcliOperationSideEffect.WritesAsset,
-                UcliOperationSideEffect.WritesScene,
-                UcliOperationSideEffect.WritesPrefab,
-                UcliOperationSideEffect.WritesProjectSettings,
+                UcliOperationSideEffect.SceneContentMutation,
+                UcliOperationSideEffect.PrefabContentMutation,
+                UcliOperationSideEffect.AssetContentMutation,
+                UcliOperationSideEffect.ProjectSettingsMutation,
+                UcliOperationSideEffect.SceneSave,
+                UcliOperationSideEffect.PrefabSave,
+                UcliOperationSideEffect.AssetSave,
+                UcliOperationSideEffect.ProjectSave,
+                UcliOperationSideEffect.ExternalProcess,
+                UcliOperationSideEffect.FilesystemWrite,
+                UcliOperationSideEffect.ArbitrarySourceExecution,
+                UcliOperationSideEffect.DestructiveScope,
             ],
-            mayDirty: true,
-            mayPersist: true,
             touchedKinds:
             [
                 IpcExecuteTouchedResourceKindNames.Scene,
@@ -903,11 +955,16 @@ public sealed class OpsCliOutputContractTests
         string policy)
     {
         var isMutation = string.Equals(kind, "mutation", StringComparison.Ordinal);
+        var isAdvancedCommand = string.Equals(kind, "command", StringComparison.Ordinal)
+            && string.Equals(policy, "advanced", StringComparison.Ordinal);
+        var isDangerousPolicy = string.Equals(policy, "dangerous", StringComparison.Ordinal);
         var isRiskyPolicy = !string.Equals(policy, "safe", StringComparison.Ordinal);
         return new UcliOperationAssuranceContract(
-            sideEffects: isMutation ? [UcliOperationSideEffect.WritesScene] : Array.Empty<UcliOperationSideEffect>(),
-            mayDirty: false,
-            mayPersist: isMutation,
+            sideEffects: isDangerousPolicy
+                ? [UcliOperationSideEffect.ExternalProcess]
+                : isMutation ? [UcliOperationSideEffect.SceneSave]
+                : isAdvancedCommand ? [UcliOperationSideEffect.EditorStateChange]
+                : [UcliOperationSideEffect.ObservesUnityState],
             touchedKinds: isMutation ? [IpcExecuteTouchedResourceKindNames.Scene] : Array.Empty<string>(),
             planMode: UcliOperationPlanMode.ObservesLiveUnity,
             planSemantics: "Validate arguments and observe Unity state without applying mutation.",
