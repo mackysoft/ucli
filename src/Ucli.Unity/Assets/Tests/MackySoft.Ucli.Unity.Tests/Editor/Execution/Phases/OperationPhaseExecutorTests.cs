@@ -226,6 +226,12 @@ namespace MackySoft.Ucli.Unity.Tests
             CollectionAssert.AreEqual(new[] { OperationPhase.Validate, OperationPhase.Plan }, operation.CalledPhases);
             Assert.That(trace.IsSuccess, Is.True);
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Plan));
+            Assert.That(trace.OperationTraces[0].Contracts, Is.Not.Null);
+            Assert.That(trace.OperationTraces[0].Contracts!.OperationKind, Is.EqualTo(UcliOperationKind.Mutation));
+            Assert.That(trace.OperationTraces[0].Contracts!.MayDirty, Is.True);
+            CollectionAssert.AreEqual(
+                new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                trace.OperationTraces[0].Contracts!.TouchedKinds);
         });
 
         [UnityTest]
@@ -244,152 +250,12 @@ namespace MackySoft.Ucli.Unity.Tests
             CollectionAssert.AreEqual(new[] { OperationPhase.Validate, OperationPhase.Plan, OperationPhase.Call }, operation.CalledPhases);
             Assert.That(trace.IsSuccess, Is.True);
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Call));
-        });
-
-        [UnityTest]
-        [Category("Size.Small")]
-        public IEnumerator Execute_WhenQueryPlanResultReportsMutationEvidence_ReturnsContractViolation () => UniTask.ToCoroutine(async () =>
-        {
-            var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(
-                    applied: true,
-                    changed: true,
-                    touched: new[]
-                    {
-                        new OperationTouch(OperationTouchKind.Scene, "Assets/Scenes/Main.unity", null),
-                    }),
-                callResult: OperationPhaseStepResult.Success(),
-                kind: UcliOperationKind.Query);
-            var executor = CreateExecutor(operation);
-            var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
-
-            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Plan, request, "Query contract violation execution");
-
-            Assert.That(trace.IsSuccess, Is.False);
-            Assert.That(trace.Errors.Count, Is.EqualTo(1));
-            Assert.That(trace.Errors[0].Code, Is.EqualTo(ExecuteRequestErrorCodes.OperationContractViolation));
-            Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Plan));
-            Assert.That(trace.OperationTraces[0].Applied, Is.True);
-            Assert.That(trace.OperationTraces[0].Changed, Is.True);
-            Assert.That(trace.OperationTraces[0].Touched.Count, Is.EqualTo(1));
-            Assert.That(trace.OperationTraces[0].ContractViolations.Count, Is.EqualTo(3));
-        });
-
-        [UnityTest]
-        [Category("Size.Small")]
-        public IEnumerator Execute_WhenQueryFailedPlanResultReportsMutationEvidence_ReturnsContractViolation () => UniTask.ToCoroutine(async () =>
-        {
-            var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Failed(
-                    new OperationFailure(
-                        UcliCoreErrorCodes.InvalidArgument,
-                        "Query failed after reporting mutation evidence.",
-                        "op-1"),
-                    applied: false,
-                    changed: true),
-                callResult: OperationPhaseStepResult.Success(),
-                kind: UcliOperationKind.Query);
-            var executor = CreateExecutor(operation);
-            var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
-
-            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Plan, request, "Failed query contract violation execution");
-
-            Assert.That(trace.IsSuccess, Is.False);
-            Assert.That(trace.Errors.Count, Is.EqualTo(1));
-            Assert.That(trace.Errors[0].Code, Is.EqualTo(ExecuteRequestErrorCodes.OperationContractViolation));
-            Assert.That(trace.OperationTraces[0].Failure!.Code, Is.EqualTo(ExecuteRequestErrorCodes.OperationContractViolation));
-            Assert.That(trace.OperationTraces[0].ContractViolations.Count, Is.EqualTo(1));
-            var violation = trace.OperationTraces[0].ContractViolations[0];
-            Assert.That(violation.ExpectedFact, Is.EqualTo("operation.kind=query"));
-            Assert.That(violation.ObservedResult, Is.EqualTo("opResults[].changed=true"));
-            Assert.That(violation.ApplicationState, Is.EqualTo(IpcExecuteContractViolationApplicationStateNames.Indeterminate));
-        });
-
-        [UnityTest]
-        [Category("Size.Small")]
-        public IEnumerator Execute_WhenQueryFailedCallResultReportsMutationEvidence_ReturnsContractViolation () => UniTask.ToCoroutine(async () =>
-        {
-            var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Failed(
-                    new OperationFailure(
-                        UcliCoreErrorCodes.InvalidArgument,
-                        "Query call failed after reporting mutation evidence.",
-                        "op-1"),
-                    applied: true,
-                    changed: false),
-                kind: UcliOperationKind.Query);
-            var executor = CreateExecutor(operation);
-            var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
-
-            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Failed query call contract violation execution");
-
-            Assert.That(trace.IsSuccess, Is.False);
-            Assert.That(trace.Errors.Count, Is.EqualTo(1));
-            Assert.That(trace.Errors[0].Code, Is.EqualTo(ExecuteRequestErrorCodes.OperationContractViolation));
-            Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Call));
-            Assert.That(trace.OperationTraces[0].ContractViolations.Count, Is.EqualTo(1));
-            var violation = trace.OperationTraces[0].ContractViolations[0];
-            Assert.That(violation.ExpectedFact, Is.EqualTo("operation.kind=query"));
-            Assert.That(violation.ObservedResult, Is.EqualTo("opResults[].applied=true"));
-            Assert.That(violation.ApplicationState, Is.EqualTo(IpcExecuteContractViolationApplicationStateNames.Applied));
-        });
-
-        [UnityTest]
-        [Category("Size.Small")]
-        public IEnumerator Execute_WhenMutationTouchesUndeclaredKind_ReturnsContractViolation () => UniTask.ToCoroutine(async () =>
-        {
-            var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success(
-                    applied: true,
-                    changed: false,
-                    touched: new[]
-                    {
-                        new OperationTouch(OperationTouchKind.Asset, "Assets/Example.asset", "11111111111111111111111111111111"),
-                    }));
-            var executor = CreateExecutor(operation);
-            var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
-
-            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Mutation touched kind contract violation execution");
-
-            Assert.That(trace.IsSuccess, Is.False);
-            Assert.That(trace.Errors.Count, Is.EqualTo(1));
-            Assert.That(trace.Errors[0].Code, Is.EqualTo(ExecuteRequestErrorCodes.OperationContractViolation));
-            Assert.That(trace.OperationTraces[0].ContractViolations.Count, Is.EqualTo(1));
-            var violation = trace.OperationTraces[0].ContractViolations[0];
-            Assert.That(violation.ExpectedFact, Is.EqualTo("assurance.touchedKinds contains 'asset'"));
-            Assert.That(violation.ObservedResult, Is.EqualTo("opResults[].touched[].kind=asset"));
-            Assert.That(violation.ApplicationState, Is.EqualTo(IpcExecuteContractViolationApplicationStateNames.Applied));
-        });
-
-        [UnityTest]
-        [Category("Size.Small")]
-        public IEnumerator Execute_WhenMutationChangesDespiteMayDirtyFalse_ReturnsContractViolation () => UniTask.ToCoroutine(async () =>
-        {
-            var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
-                kind: UcliOperationKind.Mutation,
-                assurance: CreateValidationOnlyAssurance());
-            var executor = CreateExecutor(operation);
-            var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
-
-            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "MayDirty contract violation execution");
-
-            Assert.That(trace.IsSuccess, Is.False);
-            Assert.That(trace.Errors.Count, Is.EqualTo(1));
-            Assert.That(trace.Errors[0].Code, Is.EqualTo(ExecuteRequestErrorCodes.OperationContractViolation));
-            Assert.That(trace.OperationTraces[0].ContractViolations.Count, Is.EqualTo(1));
-            var violation = trace.OperationTraces[0].ContractViolations[0];
-            Assert.That(violation.ExpectedFact, Is.EqualTo("assurance.mayDirty=false"));
-            Assert.That(violation.ObservedResult, Is.EqualTo("opResults[].changed=true"));
-            Assert.That(violation.ApplicationState, Is.EqualTo(IpcExecuteContractViolationApplicationStateNames.Applied));
+            Assert.That(trace.OperationTraces[0].Contracts, Is.Not.Null);
+            Assert.That(trace.OperationTraces[0].Contracts!.OperationKind, Is.EqualTo(UcliOperationKind.Mutation));
+            Assert.That(trace.OperationTraces[0].Contracts!.MayDirty, Is.True);
+            CollectionAssert.AreEqual(
+                new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                trace.OperationTraces[0].Contracts!.TouchedKinds);
         });
 
         [UnityTest]
@@ -681,18 +547,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         Applied: false,
                         Changed: false,
                         Touched: Array.Empty<OperationTouch>(),
-                        Failure: new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "selection no longer resolves.", "edit-1"))
-                    {
-                        ContractViolations = new[]
-                        {
-                            new OperationContractViolation(
-                                OpId: "edit-1",
-                                Operation: "edit",
-                                ExpectedFact: "operation.kind=query",
-                                ObservedResult: "opResults[].changed=true",
-                                ApplicationState: OperationContractViolationApplicationStateNames.Indeterminate),
-                        },
-                    },
+                        Failure: new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "selection no longer resolves.", "edit-1")),
                 },
                 Errors: new[]
                 {
@@ -721,7 +576,6 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(trace.OperationTraces[0].Failure, Is.Not.Null);
             Assert.That(trace.OperationTraces[0].Failure!.Code, Is.EqualTo(PlanTokenErrorCodes.StateChangedSincePlan));
             Assert.That(trace.OperationTraces[0].Failure!.Message, Is.EqualTo("Compiled execution changed since plan token issuance."));
-            Assert.That(trace.OperationTraces[0].ContractViolations.Count, Is.EqualTo(0));
         });
 
         [UnityTest]

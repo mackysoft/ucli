@@ -1,11 +1,11 @@
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Represents one runtime violation of an operation's declared execution contract. </summary>
-/// <param name="OpId"> The public step identifier associated with the violation. </param>
-/// <param name="Operation"> The public operation name associated with the violation. </param>
-/// <param name="ExpectedFact"> The declared contract fact that should have held. </param>
-/// <param name="ObservedResult"> The observed execution result that violated the fact. </param>
-/// <param name="ApplicationState"> The best-known application state after observing the violation. </param>
+/// <summary> Represents one runtime operation-result violation against published assurance facts. </summary>
+/// <param name="OpId"> The public operation identifier associated with the violation. </param>
+/// <param name="Operation"> The operation name whose runtime result violated its contract. </param>
+/// <param name="ExpectedFact"> The assurance fact expected by the operation metadata. </param>
+/// <param name="ObservedResult"> The observed result fact that contradicted the expected fact. </param>
+/// <param name="ApplicationState"> The application-state literal used to decide retry safety. </param>
 public sealed record IpcExecuteContractViolation (
     string OpId,
     string Operation,

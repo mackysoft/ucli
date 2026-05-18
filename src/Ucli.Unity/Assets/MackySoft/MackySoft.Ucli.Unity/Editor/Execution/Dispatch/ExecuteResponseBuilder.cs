@@ -14,6 +14,8 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
     /// <summary> Builds execute-dispatch response envelopes from internal execution models. </summary>
     internal static class ExecuteResponseBuilder
     {
+        private const string ContractViolationMessage = "Operation result violated declared assurance facts.";
+
         /// <summary> Creates one execution response from phase execution trace. </summary>
         /// <param name="context"> The request-level dispatch context. </param>
         /// <param name="trace"> The phase execution trace. </param>
@@ -41,8 +43,9 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             }
 
             var issuedAtUtc = DateTimeOffset.UtcNow;
-            var payloadModel = CreateExecutePayload(context.Project, trace.Steps, trace.OperationTraces, trace.PlanToken, issuedAtUtc);
-            var errors = CreateErrors(trace.Errors);
+            var contractViolations = OperationContractViolationDetector.Detect(trace.OperationTraces);
+            var payloadModel = CreateExecutePayload(context.Project, trace.Steps, trace.OperationTraces, trace.PlanToken, issuedAtUtc, contractViolations);
+            var errors = CreateErrors(trace.Errors, contractViolations);
             return new IpcResponse(
                 ProtocolVersion: context.ProtocolVersion,
                 RequestId: context.RequestId,
@@ -102,7 +105,8 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             IReadOnlyList<Execution.Requests.NormalizedRequestStep> steps,
             IReadOnlyList<OperationPhaseTrace> operationTraces,
             string? planToken,
-            DateTimeOffset issuedAtUtc)
+            DateTimeOffset issuedAtUtc,
+            IReadOnlyList<IpcExecuteContractViolation> contractViolations)
         {
             if (steps == null)
             {
@@ -112,6 +116,11 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             if (operationTraces == null)
             {
                 throw new ArgumentNullException(nameof(operationTraces));
+            }
+
+            if (contractViolations == null)
+            {
+                throw new ArgumentNullException(nameof(contractViolations));
             }
 
             var opResults = new IpcExecuteOperationResult[steps.Count];
@@ -160,7 +169,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 Project = project,
                 PlanToken = planToken,
                 ReadPostcondition = CreateReadPostcondition(operationTraces, issuedAtUtc),
-                ContractViolations = CreateContractViolations(operationTraces),
+                ContractViolations = contractViolations.Count == 0 ? null : contractViolations,
             };
         }
 
@@ -208,7 +217,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     }
 
                     touchedResources.Add(new IpcExecuteTouchedResource(
-                        Kind: ToTouchedResourceKindName(touchedResource.Kind),
+                        Kind: IpcExecuteTouchedResourceKindMapper.ToName(touchedResource.Kind),
                         Path: touchedResource.Path,
                         Guid: touchedResource.Guid));
                 }
@@ -318,53 +327,61 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 : new IpcExecuteReadPostcondition(requirements.ToArray());
         }
 
-        private static IReadOnlyList<IpcExecuteContractViolation>? CreateContractViolations (
-            IReadOnlyList<OperationPhaseTrace> operationTraces)
-        {
-            var violations = new List<IpcExecuteContractViolation>();
-            for (var traceIndex = 0; traceIndex < operationTraces.Count; traceIndex++)
-            {
-                var operationTrace = operationTraces[traceIndex];
-                for (var violationIndex = 0; violationIndex < operationTrace.ContractViolations.Count; violationIndex++)
-                {
-                    violations.Add(MapContractViolation(operationTrace.ContractViolations[violationIndex]));
-                }
-            }
-
-            return violations.Count == 0
-                ? null
-                : violations.ToArray();
-        }
-
-        private static IpcExecuteContractViolation MapContractViolation (OperationContractViolation violation)
-        {
-            return new IpcExecuteContractViolation(
-                OpId: violation.OpId,
-                Operation: violation.Operation,
-                ExpectedFact: violation.ExpectedFact,
-                ObservedResult: violation.ObservedResult,
-                ApplicationState: violation.ApplicationState);
-        }
-
         /// <summary> Creates IPC errors from operation failures. </summary>
         /// <param name="failures"> The operation failures to map. </param>
         /// <returns> The mapped IPC errors. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="failures" /> is <see langword="null" />. </exception>
-        private static IpcError[] CreateErrors (IReadOnlyList<OperationFailure> failures)
+        private static IpcError[] CreateErrors (
+            IReadOnlyList<OperationFailure> failures,
+            IReadOnlyList<IpcExecuteContractViolation> contractViolations)
         {
             if (failures == null)
             {
                 throw new ArgumentNullException(nameof(failures));
             }
 
-            var errors = new IpcError[failures.Count];
+            if (contractViolations == null)
+            {
+                throw new ArgumentNullException(nameof(contractViolations));
+            }
+
+            var violationErrorCount = CountUniqueViolationOperations(contractViolations);
+            var errors = new IpcError[failures.Count + violationErrorCount];
             for (var i = 0; i < failures.Count; i++)
             {
                 var failure = failures[i];
                 errors[i] = new IpcError(failure.Code, failure.Message, failure.OpId);
             }
 
+            var errorIndex = failures.Count;
+            var seenViolationOpIds = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < contractViolations.Count; i++)
+            {
+                var violation = contractViolations[i];
+                if (!seenViolationOpIds.Add(violation.OpId))
+                {
+                    continue;
+                }
+
+                errors[errorIndex] = new IpcError(
+                    ExecuteRequestErrorCodes.OperationContractViolation,
+                    ContractViolationMessage,
+                    violation.OpId);
+                errorIndex++;
+            }
+
             return errors;
+        }
+
+        private static int CountUniqueViolationOperations (IReadOnlyList<IpcExecuteContractViolation> contractViolations)
+        {
+            var opIds = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < contractViolations.Count; i++)
+            {
+                opIds.Add(contractViolations[i].OpId);
+            }
+
+            return opIds.Count;
         }
 
         /// <summary> Converts one operation phase to protocol literal. </summary>
@@ -389,31 +406,6 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
 
                 default:
                     throw new InvalidOperationException($"Unsupported operation phase '{phase}'.");
-            }
-        }
-
-        /// <summary> Converts one touched resource kind to protocol literal. </summary>
-        /// <param name="kind"> The touched resource kind. </param>
-        /// <returns> The protocol touched kind literal. </returns>
-        /// <exception cref="InvalidOperationException"> Thrown when kind has unsupported value. </exception>
-        private static string ToTouchedResourceKindName (OperationTouchKind kind)
-        {
-            switch (kind)
-            {
-                case OperationTouchKind.Scene:
-                    return IpcExecuteTouchedResourceKindNames.Scene;
-
-                case OperationTouchKind.Prefab:
-                    return IpcExecuteTouchedResourceKindNames.Prefab;
-
-                case OperationTouchKind.Asset:
-                    return IpcExecuteTouchedResourceKindNames.Asset;
-
-                case OperationTouchKind.ProjectSettings:
-                    return IpcExecuteTouchedResourceKindNames.ProjectSettings;
-
-                default:
-                    throw new InvalidOperationException($"Unsupported touched resource kind '{kind}'.");
             }
         }
 

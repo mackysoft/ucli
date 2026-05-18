@@ -16,6 +16,8 @@ public sealed class CallCommandTests
 {
     private const string DefaultRequestJson = """{"steps":[]}""";
 
+    private const string ContractViolationMessage = "Operation result violated declared assurance facts.";
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Call_UsesCallServiceAndWritesCommandResult ()
@@ -34,7 +36,6 @@ public sealed class CallCommandTests
                         Changed: false,
                         Touched: []),
                 ],
-                ContractViolations: [],
                 Plan: new CallPlanOutput(
                     RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                     Project: ProjectIdentityInfoTestFactory.Create(),
@@ -48,7 +49,6 @@ public sealed class CallCommandTests
                         Changed: false,
                         Touched: []),
                     ],
-                    ContractViolations: [],
                     PlanToken: "plan-token-1"),
                 ReadPostcondition: null),
             "uCLI call completed.")));
@@ -92,6 +92,59 @@ public sealed class CallCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Call_WhenContractViolationExists_MatchesGolden ()
+    {
+        var contractViolations = new[]
+        {
+            CreateContractViolation(),
+        };
+        var service = new StubCallService((_, _) => ValueTask.FromResult(CallServiceResult.Failure(
+            ContractViolationMessage,
+            [
+                ApplicationFailure.FromCode(
+                    ExecuteRequestErrorCodes.OperationContractViolation,
+                    ContractViolationMessage,
+                    "step-1"),
+            ],
+            new CallExecutionOutput(
+                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                Project: ProjectIdentityInfoTestFactory.Create(),
+                OpResults:
+                [
+                    CreateViolationOperationResult(IpcExecuteOperationPhaseNames.Call, applied: true),
+                ],
+                Plan: new CallPlanOutput(
+                    RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                    Project: ProjectIdentityInfoTestFactory.Create(),
+                    OpResults:
+                    [
+                        CreateViolationOperationResult(IpcExecuteOperationPhaseNames.Plan, applied: false),
+                    ],
+                    PlanToken: "plan-token-1")
+                {
+                    ContractViolations = contractViolations,
+                },
+                ReadPostcondition: null)
+            {
+                ContractViolations = contractViolations,
+            })));
+        var preflightService = new StubCallCommandPreflightService((_, _, _) => throw new InvalidOperationException("Preflight should not be called."));
+        var command = new CallCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.CallAsync(
+            projectPath: "/repo/UnityProject",
+            withPlan: true,
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.ToolError, exitCode);
+        JsonGoldenFileAssert.Matches(
+            CliOutputGoldenFiles.GetPath("call", "contract-violation.json"),
+            standardOutput,
+            CliOutputGoldenFiles.NormalizeRequestIds());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Call_WhenModeIsInvalid_UsesFeatureFailurePathWithoutExecutingCall ()
     {
         var service = new StubCallService((_, _) => throw new InvalidOperationException("Execute should not be called."));
@@ -100,7 +153,6 @@ public sealed class CallCommandTests
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 Project: ProjectIdentityInfoTestFactory.Create(),
                 OpResults: [],
-                ContractViolations: [],
                 Plan: null,
                 ReadPostcondition: null))));
         var command = new CallCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
@@ -146,6 +198,35 @@ public sealed class CallCommandTests
             CapturedCancellationToken = cancellationToken;
             return handler(input, cancellationToken);
         }
+    }
+
+    private static OperationExecutionOperationResult CreateViolationOperationResult (
+        string phase,
+        bool applied)
+    {
+        return new OperationExecutionOperationResult(
+            OpId: "step-1",
+            Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+            Phase: phase,
+            Applied: applied,
+            Changed: true,
+            Touched:
+            [
+                new OperationExecutionTouchedResource(
+                    Kind: IpcExecuteTouchedResourceKindNames.Asset,
+                    Path: "Assets/Example.txt",
+                    Guid: null),
+            ]);
+    }
+
+    private static OperationExecutionContractViolation CreateContractViolation ()
+    {
+        return new OperationExecutionContractViolation(
+            OpId: "step-1",
+            Operation: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+            ExpectedFact: "assurance.mayDirty=false",
+            ObservedResult: "opResults[].changed=true",
+            ApplicationState: IpcExecuteApplicationStateNames.Indeterminate);
     }
 
     private sealed class StubCallCommandPreflightService : ICallCommandPreflightService

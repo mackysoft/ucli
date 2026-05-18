@@ -18,7 +18,7 @@ public sealed record IpcExecuteResponse (
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IpcExecuteReadPostcondition? ReadPostcondition { get; init; }
 
-    /// <summary> Gets runtime violations of declared operation contract facts. </summary>
+    /// <summary> Gets runtime result violations against published operation assurance facts. </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<IpcExecuteContractViolation>? ContractViolations { get; init; }
 }

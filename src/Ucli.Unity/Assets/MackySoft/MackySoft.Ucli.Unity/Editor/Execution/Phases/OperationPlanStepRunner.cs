@@ -57,6 +57,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     PreparedOperation: null);
             }
 
+            var contractFacts = OperationPhaseTrace.ContractFacts.FromMetadata(phaseOperation.Metadata);
             var preflightFailure = operationPreflight?.Invoke(operation, phaseOperation);
             if (preflightFailure != null)
             {
@@ -71,6 +72,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         Failure: preflightFailure)
                     {
                         Result = null,
+                        Contracts = contractFacts,
                     },
                     Error: preflightFailure,
                     PreparedOperation: null);
@@ -85,31 +87,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 cancellationToken).ConfigureAwait(false);
             OperationPhaseExecutionUtilities.MergeTouched(touched, validateStepResult.Touched);
             OperationPhaseExecutionUtilities.MergeDiagnostics(diagnostics, validateStepResult.Diagnostics);
-            var validateContractViolations = OperationPhaseResultContractValidator.Validate(
-                operation,
-                phaseOperation.Metadata,
-                validateStepResult);
-            if (validateContractViolations.Count != 0)
-            {
-                var failure = OperationPhaseExecutionUtilities.CreateOperationContractViolationFailure(operation.Id);
-                return new OperationPlanStepOutcome(
-                    OperationTrace: new OperationPhaseTrace(
-                        OpId: operation.Id,
-                        Op: operation.Op,
-                        Phase: OperationPhase.Validate,
-                        Applied: validateStepResult.Applied,
-                        Changed: validateStepResult.Changed,
-                        Touched: touched.ToArray(),
-                        Failure: failure)
-                    {
-                        Result = validateStepResult.Result,
-                        Diagnostics = diagnostics.ToArray(),
-                        ContractViolations = validateContractViolations,
-                    },
-                    Error: failure,
-                    PreparedOperation: null);
-            }
-
             if (!validateStepResult.IsSuccess)
             {
                 return new OperationPlanStepOutcome(
@@ -124,6 +101,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     {
                         Result = validateStepResult.Result,
                         Diagnostics = diagnostics.ToArray(),
+                        Contracts = contractFacts,
                     },
                     Error: validateStepResult.Failure,
                     PreparedOperation: null);
@@ -136,31 +114,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 cancellationToken).ConfigureAwait(false);
             OperationPhaseExecutionUtilities.MergeTouched(touched, planStepResult.Touched);
             OperationPhaseExecutionUtilities.MergeDiagnostics(diagnostics, planStepResult.Diagnostics);
-            var planContractViolations = OperationPhaseResultContractValidator.Validate(
-                operation,
-                phaseOperation.Metadata,
-                planStepResult);
-            if (planContractViolations.Count != 0)
-            {
-                var failure = OperationPhaseExecutionUtilities.CreateOperationContractViolationFailure(operation.Id);
-                return new OperationPlanStepOutcome(
-                    OperationTrace: new OperationPhaseTrace(
-                        OpId: operation.Id,
-                        Op: operation.Op,
-                        Phase: OperationPhase.Plan,
-                        Applied: planStepResult.Applied,
-                        Changed: planStepResult.Changed,
-                        Touched: touched.ToArray(),
-                        Failure: failure)
-                    {
-                        Result = planStepResult.Result,
-                        Diagnostics = diagnostics.ToArray(),
-                        ContractViolations = planContractViolations,
-                    },
-                    Error: failure,
-                    PreparedOperation: null);
-            }
-
             if (!planStepResult.IsSuccess)
             {
                 return new OperationPlanStepOutcome(
@@ -175,6 +128,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     {
                         Result = planStepResult.Result,
                         Diagnostics = diagnostics.ToArray(),
+                        Contracts = contractFacts,
                     },
                     Error: planStepResult.Failure,
                     PreparedOperation: null);
@@ -194,6 +148,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 {
                     Result = planStepResult.Result,
                     Diagnostics = successfulDiagnostics,
+                    Contracts = contractFacts,
                 },
                 Error: null,
                 PreparedOperation: new PreparedOperation(

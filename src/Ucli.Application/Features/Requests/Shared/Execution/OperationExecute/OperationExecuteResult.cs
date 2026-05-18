@@ -9,17 +9,17 @@ internal sealed record OperationExecuteResult
     private OperationExecuteResult (
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
-        IReadOnlyList<OperationExecutionContractViolation> contractViolations,
         IReadOnlyList<ApplicationFailure> errors,
         string message,
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations,
         OperationExecutionReadPostcondition? readPostcondition,
         ProjectIdentityInfo? project)
     {
         RequestId = requestId;
         OpResults = opResults;
-        ContractViolations = contractViolations;
         Errors = errors;
         Message = message;
+        ContractViolations = contractViolations ?? [];
         ReadPostcondition = readPostcondition;
         Project = project;
     }
@@ -29,9 +29,6 @@ internal sealed record OperationExecuteResult
 
     /// <summary> Gets the per-step execution results. </summary>
     public IReadOnlyList<OperationExecutionOperationResult> OpResults { get; }
-
-    /// <summary> Gets runtime contract violations reported by Unity. </summary>
-    public IReadOnlyList<OperationExecutionContractViolation> ContractViolations { get; }
 
     /// <summary> Gets the machine-readable error list. </summary>
     public IReadOnlyList<ApplicationFailure> Errors { get; }
@@ -43,6 +40,9 @@ internal sealed record OperationExecuteResult
 
     /// <summary> Gets the user-facing result message. </summary>
     public string Message { get; }
+
+    /// <summary> Gets runtime operation-result violations against published assurance facts. </summary>
+    public IReadOnlyList<OperationExecutionContractViolation> ContractViolations { get; }
 
     /// <summary> Gets the read postcondition emitted by mutation execution, when available. </summary>
     public OperationExecutionReadPostcondition? ReadPostcondition { get; }
@@ -70,9 +70,9 @@ internal sealed record OperationExecuteResult
         return new OperationExecuteResult(
             requestId,
             opResults,
-            contractViolations ?? [],
             RequestServiceResultInvariants.EmptyErrors,
             message,
+            contractViolations,
             readPostcondition,
             project);
     }
@@ -83,9 +83,9 @@ internal sealed record OperationExecuteResult
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         string message,
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null,
         OperationExecutionReadPostcondition? readPostcondition = null,
-        ProjectIdentityInfo? project = null,
-        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
+        ProjectIdentityInfo? project = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
@@ -95,9 +95,9 @@ internal sealed record OperationExecuteResult
         return new OperationExecuteResult(
             requestId,
             opResults,
-            contractViolations ?? [],
             failureErrors,
             message,
+            contractViolations,
             readPostcondition,
             project);
     }

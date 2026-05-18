@@ -184,6 +184,7 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("PLAN_TOKEN_REQUEST_MISMATCH", PlanTokenErrorCodes.PlanTokenRequestMismatch.Value);
         Assert.Equal("STATE_CHANGED_SINCE_PLAN", PlanTokenErrorCodes.StateChangedSincePlan.Value);
         Assert.Equal("REQUEST_ID_CONFLICT", ExecuteRequestErrorCodes.RequestIdConflict.Value);
+        Assert.Equal("OPERATION_CONTRACT_VIOLATION", ExecuteRequestErrorCodes.OperationContractViolation.Value);
         Assert.Equal("EDITOR_STARTING", EditorLifecycleErrorCodes.EditorStarting.Value);
         Assert.Equal("EDITOR_BUSY", EditorLifecycleErrorCodes.EditorBusy.Value);
         Assert.Equal("EDITOR_COMPILING", EditorLifecycleErrorCodes.EditorCompiling.Value);
@@ -787,6 +788,45 @@ public sealed class IpcContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IpcExecuteResponse_RoundTripsContractViolations ()
+    {
+        var response = new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>())
+        {
+            ContractViolations =
+            [
+                new IpcExecuteContractViolation(
+                    OpId: "step-1",
+                    Operation: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                    ExpectedFact: "assurance.mayDirty=false",
+                    ObservedResult: "opResults[].changed=true",
+                    ApplicationState: IpcExecuteApplicationStateNames.Indeterminate),
+            ],
+        };
+
+        var json = JsonSerializer.Serialize(response, SerializerOptions);
+        using var jsonDocument = JsonDocument.Parse(json);
+        JsonAssert.For(jsonDocument.RootElement)
+            .HasArrayLength("contractViolations", 1)
+            .HasProperty("contractViolations", 0, violation => violation
+                .HasString("opId", "step-1")
+                .HasString("operation", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh)
+                .HasString("expectedFact", "assurance.mayDirty=false")
+                .HasString("observedResult", "opResults[].changed=true")
+                .HasString("applicationState", IpcExecuteApplicationStateNames.Indeterminate));
+
+        var roundTrip = JsonSerializer.Deserialize<IpcExecuteResponse>(json, SerializerOptions);
+
+        Assert.NotNull(roundTrip);
+        var violationResult = Assert.Single(roundTrip.ContractViolations!);
+        Assert.Equal("step-1", violationResult.OpId);
+        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh, violationResult.Operation);
+        Assert.Equal("assurance.mayDirty=false", violationResult.ExpectedFact);
+        Assert.Equal("opResults[].changed=true", violationResult.ObservedResult);
+        Assert.Equal(IpcExecuteApplicationStateNames.Indeterminate, violationResult.ApplicationState);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcExecuteOperationResultFactory_CreatePlanResult_CreatesSharedEnvelopeContract ()
     {
         var payload = JsonSerializer.SerializeToElement(
@@ -903,7 +943,7 @@ public sealed class IpcContractSerializationTests
                     Operation: UcliPrimitiveOperationNames.SceneQuery,
                     ExpectedFact: "operation.kind=query",
                     ObservedResult: "opResults[].applied=true",
-                    ApplicationState: IpcExecuteContractViolationApplicationStateNames.Applied),
+                    ApplicationState: IpcExecuteApplicationStateNames.Applied),
             ],
         };
 
@@ -915,7 +955,7 @@ public sealed class IpcContractSerializationTests
                 .HasString("operation", UcliPrimitiveOperationNames.SceneQuery)
                 .HasString("expectedFact", "operation.kind=query")
                 .HasString("observedResult", "opResults[].applied=true")
-                .HasString("applicationState", IpcExecuteContractViolationApplicationStateNames.Applied));
+                .HasString("applicationState", IpcExecuteApplicationStateNames.Applied));
     }
 
     [Fact]
@@ -938,6 +978,16 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("assetSearch", IpcExecuteReadPostconditionSurfaceNames.AssetSearch);
         Assert.Equal("guidPath", IpcExecuteReadPostconditionSurfaceNames.GuidPath);
         Assert.Equal("sceneTreeLite", IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcExecuteApplicationStateNames_ExposeExpectedLiterals ()
+    {
+        Assert.Equal("notApplied", IpcExecuteApplicationStateNames.NotApplied);
+        Assert.Equal("applied", IpcExecuteApplicationStateNames.Applied);
+        Assert.Equal("indeterminate", IpcExecuteApplicationStateNames.Indeterminate);
+        Assert.Equal("unknown", IpcExecuteApplicationStateNames.Unknown);
     }
 
     [Fact]

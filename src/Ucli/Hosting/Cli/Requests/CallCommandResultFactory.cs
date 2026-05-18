@@ -71,17 +71,18 @@ internal static class CallCommandResultFactory
             ["project"] = ProjectIdentityPayloadProjector.Create(output.Plan.Project),
             ["opResults"] = output.Plan.OpResults,
         };
-
         if (output.Plan.ContractViolations.Count != 0)
         {
             planPayload["contractViolations"] = output.Plan.ContractViolations;
         }
 
-        if (!string.IsNullOrWhiteSpace(output.Plan.PlanToken))
+        if (string.IsNullOrWhiteSpace(output.Plan.PlanToken))
         {
-            planPayload["planToken"] = output.Plan.PlanToken;
+            payload["plan"] = planPayload;
+            return payload;
         }
 
+        planPayload["planToken"] = output.Plan.PlanToken;
         payload["plan"] = planPayload;
         return payload;
     }

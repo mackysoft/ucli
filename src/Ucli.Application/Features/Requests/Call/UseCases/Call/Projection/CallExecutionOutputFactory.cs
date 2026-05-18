@@ -18,7 +18,6 @@ internal static class CallExecutionOutputFactory
             RequestId: preparedRequest.Request.RequestId,
             Project: ProjectIdentityInfo.From(preparedRequest.ProjectContext.UnityProject),
             OpResults: [],
-            ContractViolations: [],
             Plan: null,
             ReadPostcondition: null);
     }

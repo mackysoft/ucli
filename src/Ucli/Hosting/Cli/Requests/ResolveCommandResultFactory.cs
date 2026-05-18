@@ -30,6 +30,7 @@ internal static class ResolveCommandResultFactory
         }
 
         payload["readIndex"] = ReadIndexInfoPayloadProjector.Create(serviceResult.ReadIndex);
+
         if (!serviceResult.IsSuccess)
         {
             StartupFailurePayloadProjector.AppendFromFailures(payload, serviceResult.Errors);

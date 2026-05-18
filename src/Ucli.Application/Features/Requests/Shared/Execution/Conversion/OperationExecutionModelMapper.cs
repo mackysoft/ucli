@@ -53,22 +53,11 @@ internal static class OperationExecutionModelMapper
         return mappedErrors;
     }
 
-    /// <summary> Maps one machine-readable execute error. </summary>
-    public static OperationExecutionError MapError (IpcError error)
-    {
-        ArgumentNullException.ThrowIfNull(error);
-
-        return new OperationExecutionError(
-            Code: error.Code,
-            Message: error.Message,
-            OpId: error.OpId);
-    }
-
-    /// <summary> Maps runtime operation contract violations. </summary>
+    /// <summary> Maps runtime operation-result contract violations. </summary>
     public static IReadOnlyList<OperationExecutionContractViolation> MapContractViolations (
         IReadOnlyList<IpcExecuteContractViolation>? contractViolations)
     {
-        if (contractViolations == null)
+        if (contractViolations == null || contractViolations.Count == 0)
         {
             return [];
         }
@@ -86,6 +75,17 @@ internal static class OperationExecutionModelMapper
         }
 
         return mappedViolations;
+    }
+
+    /// <summary> Maps one machine-readable execute error. </summary>
+    public static OperationExecutionError MapError (IpcError error)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+
+        return new OperationExecutionError(
+            Code: error.Code,
+            Message: error.Message,
+            OpId: error.OpId);
     }
 
     /// <summary> Maps one optional read-postcondition contract. </summary>

@@ -29,12 +29,10 @@ public sealed class CallCommandResultFactoryTests
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 Project: ProjectIdentityInfoTestFactory.Create(),
                 OpResults: [],
-                ContractViolations: [],
                 Plan: new CallPlanOutput(
                     RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                     Project: ProjectIdentityInfoTestFactory.Create(),
                     OpResults: [],
-                    ContractViolations: [],
                     PlanToken: null),
                 ReadPostcondition: null)));
 
@@ -108,12 +106,10 @@ public sealed class CallCommandResultFactoryTests
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 Project: ProjectIdentityInfoTestFactory.Create(),
                 OpResults: [],
-                ContractViolations: [],
                 Plan: new CallPlanOutput(
                     RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                     Project: ProjectIdentityInfoTestFactory.Create(),
                     OpResults: [],
-                    ContractViolations: [],
                     PlanToken: "plan-token-1"),
                 ReadPostcondition: readPostcondition),
             "uCLI call completed."));

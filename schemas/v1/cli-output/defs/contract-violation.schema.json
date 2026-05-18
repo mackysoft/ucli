@@ -19,8 +19,8 @@
     "applicationState": {
       "type": "string",
       "enum": [
-        "applied",
         "notApplied",
+        "applied",
         "indeterminate",
         "unknown"
       ]

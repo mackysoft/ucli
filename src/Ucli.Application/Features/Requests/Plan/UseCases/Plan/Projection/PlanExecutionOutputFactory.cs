@@ -22,7 +22,6 @@ internal static class PlanExecutionOutputFactory
             RequestId: preparedRequest.Request.RequestId,
             Project: ProjectIdentityInfo.From(preparedRequest.ProjectContext.UnityProject),
             OpResults: [],
-            ContractViolations: [],
             ReadIndex: readIndex,
             PlanToken: null);
     }

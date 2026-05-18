@@ -10,19 +10,19 @@ internal sealed record QueryServiceResult
         string commandName,
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
-        IReadOnlyList<OperationExecutionContractViolation> contractViolations,
         IReadOnlyList<ApplicationFailure> errors,
         string message,
         ReadIndexInfo readIndex,
-        ProjectIdentityInfo? project = null)
+        ProjectIdentityInfo? project = null,
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
         CommandName = commandName;
         RequestId = requestId;
         OpResults = opResults;
-        ContractViolations = contractViolations;
         Errors = errors;
         Message = message;
         ReadIndex = readIndex;
+        ContractViolations = contractViolations ?? [];
         Project = project;
     }
 
@@ -34,9 +34,6 @@ internal sealed record QueryServiceResult
 
     /// <summary> Gets the per-step execution results. </summary>
     public IReadOnlyList<OperationExecutionOperationResult> OpResults { get; }
-
-    /// <summary> Gets runtime contract violations reported by Unity. </summary>
-    public IReadOnlyList<OperationExecutionContractViolation> ContractViolations { get; }
 
     /// <summary> Gets the machine-readable error list. </summary>
     public IReadOnlyList<ApplicationFailure> Errors { get; }
@@ -51,6 +48,9 @@ internal sealed record QueryServiceResult
 
     /// <summary> Gets the read-index metadata associated with this result. </summary>
     public ReadIndexInfo ReadIndex { get; }
+
+    /// <summary> Gets runtime operation-result violations against published assurance facts. </summary>
+    public IReadOnlyList<OperationExecutionContractViolation> ContractViolations { get; }
 
     /// <summary> Gets the resolved Unity project identity when project resolution succeeded. </summary>
     public ProjectIdentityInfo? Project { get; }
@@ -79,11 +79,11 @@ internal sealed record QueryServiceResult
             commandName,
             requestId,
             opResults,
-            contractViolations ?? [],
             RequestServiceResultInvariants.EmptyErrors,
             message,
             readIndex,
-            project);
+            contractViolations: contractViolations,
+            project: project);
     }
 
     /// <summary> Creates one failed typed-query result. </summary>
@@ -108,10 +108,10 @@ internal sealed record QueryServiceResult
             commandName,
             requestId,
             opResults,
-            contractViolations ?? [],
             failureErrors,
             message,
             readIndex,
-            project);
+            contractViolations: contractViolations,
+            project: project);
     }
 }

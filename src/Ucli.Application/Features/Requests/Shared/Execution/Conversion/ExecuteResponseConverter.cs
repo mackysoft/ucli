@@ -40,17 +40,17 @@ internal static class ExecuteResponseConverter
             return CreateInvalidPayloadFailure(errorsValidationError);
         }
 
-        if (!TryValidateContractViolationErrors(payload!.ContractViolations, response.Errors, out var contractViolationError))
+        if (!TryValidateContractViolationErrorPair(payload, response.Errors, response.HasFailureStatus, out var contractViolationPairError))
         {
-            return CreateInvalidPayloadFailure(contractViolationError);
+            return CreateInvalidPayloadFailure(contractViolationPairError);
         }
 
         var normalizedErrors = NormalizeErrors(response.HasFailureStatus, response.FailureStatus, response.Errors);
         var validatedPayload = payload!;
         return new ExecuteResponseConversionResult(
             OpResults: OperationExecutionModelMapper.MapOpResults(validatedPayload.OpResults),
-            ContractViolations: OperationExecutionModelMapper.MapContractViolations(validatedPayload.ContractViolations),
             Errors: normalizedErrors,
+            ContractViolations: OperationExecutionModelMapper.MapContractViolations(validatedPayload.ContractViolations),
             PlanToken: validatedPayload.PlanToken,
             ReadPostcondition: OperationExecutionModelMapper.MapReadPostcondition(validatedPayload.ReadPostcondition),
             Project: MapProject(validatedPayload.Project));
@@ -336,7 +336,7 @@ internal static class ExecuteResponseConverter
                     return false;
                 }
 
-                if (!IsKnownContractViolationApplicationState(violation.ApplicationState))
+                if (!IsKnownApplicationState(violation.ApplicationState))
                 {
                     errorMessage = $"Execute response payload is invalid. The 'contractViolations[{violationIndex}].applicationState' value is unsupported. Actual: {violation.ApplicationState}";
                     return false;
@@ -379,6 +379,86 @@ internal static class ExecuteResponseConverter
         return true;
     }
 
+    private static bool TryValidateContractViolationErrorPair (
+        IpcExecuteResponse? payload,
+        IReadOnlyList<OperationExecutionError> errors,
+        bool hasFailureStatus,
+        out string errorMessage)
+    {
+        ArgumentNullException.ThrowIfNull(errors);
+
+        errorMessage = string.Empty;
+        var violationOpIds = new HashSet<string>(StringComparer.Ordinal);
+        if (payload?.ContractViolations != null)
+        {
+            for (var violationIndex = 0; violationIndex < payload.ContractViolations.Count; violationIndex++)
+            {
+                violationOpIds.Add(payload.ContractViolations[violationIndex].OpId);
+            }
+        }
+
+        var errorOpIds = new HashSet<string>(StringComparer.Ordinal);
+        for (var errorIndex = 0; errorIndex < errors.Count; errorIndex++)
+        {
+            var error = errors[errorIndex];
+            if (error.Code != ExecuteRequestErrorCodes.OperationContractViolation)
+            {
+                continue;
+            }
+
+            if (IsMissingRequiredString(error.OpId))
+            {
+                errorMessage = $"Execute response envelope is invalid. The 'errors[{errorIndex}].opId' field must match a contract violation operation.";
+                return false;
+            }
+
+            errorOpIds.Add(error.OpId!);
+        }
+
+        if (violationOpIds.Count == 0 && errorOpIds.Count == 0)
+        {
+            return true;
+        }
+
+        if (violationOpIds.Count == 0)
+        {
+            errorMessage = "Execute response payload is invalid. The 'contractViolations' field must contain at least one item when OPERATION_CONTRACT_VIOLATION is reported.";
+            return false;
+        }
+
+        if (errorOpIds.Count == 0)
+        {
+            errorMessage = "Execute response envelope is invalid. OPERATION_CONTRACT_VIOLATION must be reported when 'contractViolations' contains items.";
+            return false;
+        }
+
+        if (!hasFailureStatus)
+        {
+            errorMessage = "Execute response envelope is invalid. The response status must be failed when 'contractViolations' contains items.";
+            return false;
+        }
+
+        foreach (var violationOpId in violationOpIds)
+        {
+            if (!errorOpIds.Contains(violationOpId))
+            {
+                errorMessage = $"Execute response envelope is invalid. OPERATION_CONTRACT_VIOLATION is missing for contract violation opId '{violationOpId}'.";
+                return false;
+            }
+        }
+
+        foreach (var errorOpId in errorOpIds)
+        {
+            if (!violationOpIds.Contains(errorOpId))
+            {
+                errorMessage = $"Execute response payload is invalid. The 'contractViolations' field is missing an item for OPERATION_CONTRACT_VIOLATION opId '{errorOpId}'.";
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private static bool TryValidateErrors (
         IReadOnlyList<OperationExecutionError>? errors,
         out string errorMessage)
@@ -412,113 +492,6 @@ internal static class ExecuteResponseConverter
         }
 
         return true;
-    }
-
-    private static bool TryValidateContractViolationErrors (
-        IReadOnlyList<IpcExecuteContractViolation>? contractViolations,
-        IReadOnlyList<OperationExecutionError> errors,
-        out string errorMessage)
-    {
-        errorMessage = string.Empty;
-        var hasContractViolationError = HasOperationContractViolationError(errors);
-        if (contractViolations is null || contractViolations.Count == 0)
-        {
-            if (hasContractViolationError)
-            {
-                errorMessage = "Execute response payload is invalid. OPERATION_CONTRACT_VIOLATION errors require payload.contractViolations[].";
-                return false;
-            }
-
-            return true;
-        }
-
-        if (!hasContractViolationError)
-        {
-            errorMessage = "Execute response payload is invalid. payload.contractViolations[] requires an OPERATION_CONTRACT_VIOLATION error.";
-            return false;
-        }
-
-        for (var violationIndex = 0; violationIndex < contractViolations.Count; violationIndex++)
-        {
-            var violation = contractViolations[violationIndex];
-            if (HasMatchingOperationContractViolationError(errors, violation.OpId))
-            {
-                continue;
-            }
-
-            errorMessage = $"Execute response payload is invalid. The 'contractViolations[{violationIndex}]' item requires a matching OPERATION_CONTRACT_VIOLATION error.";
-            return false;
-        }
-
-        for (var errorIndex = 0; errorIndex < errors.Count; errorIndex++)
-        {
-            var error = errors[errorIndex];
-            if (error.Code != ExecuteRequestErrorCodes.OperationContractViolation)
-            {
-                continue;
-            }
-
-            if (IsMissingRequiredString(error.OpId))
-            {
-                errorMessage = $"Execute response envelope is invalid. The 'errors[{errorIndex}].opId' field is required for OPERATION_CONTRACT_VIOLATION errors.";
-                return false;
-            }
-
-            if (HasMatchingContractViolation(contractViolations, error.OpId!))
-            {
-                continue;
-            }
-
-            errorMessage = $"Execute response envelope is invalid. The 'errors[{errorIndex}]' OPERATION_CONTRACT_VIOLATION error requires a matching payload.contractViolations[] item.";
-            return false;
-        }
-
-        return true;
-    }
-
-    private static bool HasOperationContractViolationError (IReadOnlyList<OperationExecutionError> errors)
-    {
-        for (var errorIndex = 0; errorIndex < errors.Count; errorIndex++)
-        {
-            if (errors[errorIndex].Code == ExecuteRequestErrorCodes.OperationContractViolation)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool HasMatchingOperationContractViolationError (
-        IReadOnlyList<OperationExecutionError> errors,
-        string opId)
-    {
-        for (var errorIndex = 0; errorIndex < errors.Count; errorIndex++)
-        {
-            var error = errors[errorIndex];
-            if (error.Code == ExecuteRequestErrorCodes.OperationContractViolation
-                && string.Equals(error.OpId, opId, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool HasMatchingContractViolation (
-        IReadOnlyList<IpcExecuteContractViolation> contractViolations,
-        string opId)
-    {
-        for (var violationIndex = 0; violationIndex < contractViolations.Count; violationIndex++)
-        {
-            if (string.Equals(contractViolations[violationIndex].OpId, opId, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static bool IsMissingRequiredString (string? value)
@@ -563,12 +536,12 @@ internal static class ExecuteResponseConverter
             or IpcExecuteDiagnosticCoverageImpactNames.Indeterminate;
     }
 
-    private static bool IsKnownContractViolationApplicationState (string applicationState)
+    private static bool IsKnownApplicationState (string applicationState)
     {
-        return applicationState is IpcExecuteContractViolationApplicationStateNames.Applied
-            or IpcExecuteContractViolationApplicationStateNames.NotApplied
-            or IpcExecuteContractViolationApplicationStateNames.Indeterminate
-            or IpcExecuteContractViolationApplicationStateNames.Unknown;
+        return applicationState is IpcExecuteApplicationStateNames.NotApplied
+            or IpcExecuteApplicationStateNames.Applied
+            or IpcExecuteApplicationStateNames.Indeterminate
+            or IpcExecuteApplicationStateNames.Unknown;
     }
 
     private static ProjectIdentityInfo MapProject (IpcProjectIdentity project)
@@ -600,8 +573,8 @@ internal static class ExecuteResponseConverter
 
         return new ExecuteResponseConversionResult(
             OpResults: [],
-            ContractViolations: [],
             Errors: errors,
+            ContractViolations: [],
             PlanToken: null,
             ReadPostcondition: null,
             Project: null);

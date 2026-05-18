@@ -192,8 +192,8 @@
       {
         "code": "OPERATION_CONTRACT_VIOLATION",
         "kind": "error",
-        "category": "contract",
-        "summary": "An operation result violated the operation\u0027s declared execution contract."
+        "category": "operationContract",
+        "summary": "An operation result violated declared assurance facts."
       },
       {
         "code": "OPERATION_NAME_REQUIRED",

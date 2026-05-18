@@ -30,9 +30,11 @@ public sealed class RequestCommandResultFactoryContractViolationTests
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 Project: ProjectIdentityInfoTestFactory.Create(),
                 OpResults: [CreateOpResult()],
-                ContractViolations: [CreateContractViolation()],
                 ReadIndex: CreateReadIndexInfo(),
-                PlanToken: null)));
+                PlanToken: null)
+            {
+                ContractViolations = [CreateContractViolation()],
+            }));
 
         AssertContractViolationPayload(result, UcliCommandNames.Plan);
     }
@@ -48,9 +50,11 @@ public sealed class RequestCommandResultFactoryContractViolationTests
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 Project: ProjectIdentityInfoTestFactory.Create(),
                 OpResults: [CreateOpResult()],
-                ContractViolations: [CreateContractViolation()],
                 Plan: null,
-                ReadPostcondition: null)));
+                ReadPostcondition: null)
+            {
+                ContractViolations = [CreateContractViolation()],
+            }));
 
         AssertContractViolationPayload(result, UcliCommandNames.Call);
     }
@@ -127,7 +131,7 @@ public sealed class RequestCommandResultFactoryContractViolationTests
                     .HasString("operation", UcliPrimitiveOperationNames.AssetsFind)
                     .HasString("expectedFact", "operation.kind=query")
                     .HasString("observedResult", "opResults[].applied=true")
-                    .HasString("applicationState", IpcExecuteContractViolationApplicationStateNames.Applied)));
+                    .HasString("applicationState", IpcExecuteApplicationStateNames.Applied)));
     }
 
     private static ApplicationFailure CreateContractViolationFailure ()
@@ -145,7 +149,7 @@ public sealed class RequestCommandResultFactoryContractViolationTests
             Operation: UcliPrimitiveOperationNames.AssetsFind,
             ExpectedFact: "operation.kind=query",
             ObservedResult: "opResults[].applied=true",
-            ApplicationState: IpcExecuteContractViolationApplicationStateNames.Applied);
+            ApplicationState: IpcExecuteApplicationStateNames.Applied);
     }
 
     private static OperationExecutionOperationResult CreateOpResult ()

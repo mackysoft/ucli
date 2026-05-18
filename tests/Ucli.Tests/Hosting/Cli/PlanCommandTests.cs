@@ -18,6 +18,8 @@ public sealed class PlanCommandTests
 {
     private const string DefaultRequestJson = """{"steps":[]}""";
 
+    private const string ContractViolationMessage = "Operation result violated declared assurance facts.";
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Plan_UsesPlanServiceAndWritesCommandResult ()
@@ -36,7 +38,6 @@ public sealed class PlanCommandTests
                         Changed: false,
                         Touched: []),
                 ],
-                ContractViolations: [],
                 ReadIndex: CreateReadIndexInfo(
                     used: false,
                     hit: false,
@@ -77,6 +78,51 @@ public sealed class PlanCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Plan_WhenContractViolationExists_MatchesGolden ()
+    {
+        var contractViolations = new[]
+        {
+            CreateContractViolation(),
+        };
+        var service = new StubPlanService((_, _) => ValueTask.FromResult(PlanServiceResult.Failure(
+            ContractViolationMessage,
+            [
+                ApplicationFailure.FromCode(
+                    ExecuteRequestErrorCodes.OperationContractViolation,
+                    ContractViolationMessage,
+                    "step-1"),
+            ],
+            new PlanExecutionOutput(
+                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                Project: ProjectIdentityInfoTestFactory.Create(),
+                OpResults:
+                [
+                    CreateViolationOperationResult(),
+                ],
+                ReadIndex: CreateReadIndexInfo(
+                    used: false,
+                    hit: false,
+                    fallbackReason: "readIndex disabled by mode."),
+                PlanToken: null)
+            {
+                ContractViolations = contractViolations,
+            })));
+        var preflightService = new StubPlanCommandPreflightService((_, _, _, _) => throw new InvalidOperationException("Preflight should not be called."));
+        var command = new PlanCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.PlanAsync(
+            projectPath: "/repo/UnityProject",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.ToolError, exitCode);
+        JsonGoldenFileAssert.Matches(
+            CliOutputGoldenFiles.GetPath("plan", "contract-violation.json"),
+            standardOutput,
+            CliOutputGoldenFiles.NormalizeRequestIds());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Plan_WhenServiceFailsWithoutPlanToken_OmitsPlanTokenFromPayload ()
     {
         var service = new StubPlanService((_, _) => ValueTask.FromResult(PlanServiceResult.Failure(
@@ -91,7 +137,6 @@ public sealed class PlanCommandTests
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 Project: ProjectIdentityInfoTestFactory.Create(),
                 OpResults: [],
-                ContractViolations: [],
                 ReadIndex: CreateReadIndexInfo(
                     used: true,
                     hit: true,
@@ -149,7 +194,6 @@ public sealed class PlanCommandTests
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 Project: ProjectIdentityInfoTestFactory.Create(),
                 OpResults: [],
-                ContractViolations: [],
                 ReadIndex: CreateReadIndexInfo(
                     used: false,
                     hit: false,
@@ -192,6 +236,33 @@ public sealed class PlanCommandTests
                 ? DateTimeOffset.Parse("2026-03-06T00:00:00+00:00")
                 : null,
             FallbackReason: fallbackReason);
+    }
+
+    private static OperationExecutionOperationResult CreateViolationOperationResult ()
+    {
+        return new OperationExecutionOperationResult(
+            OpId: "step-1",
+            Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+            Phase: IpcExecuteOperationPhaseNames.Plan,
+            Applied: false,
+            Changed: true,
+            Touched:
+            [
+                new OperationExecutionTouchedResource(
+                    Kind: IpcExecuteTouchedResourceKindNames.Asset,
+                    Path: "Assets/Example.txt",
+                    Guid: null),
+            ]);
+    }
+
+    private static OperationExecutionContractViolation CreateContractViolation ()
+    {
+        return new OperationExecutionContractViolation(
+            OpId: "step-1",
+            Operation: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+            ExpectedFact: "assurance.mayDirty=false",
+            ObservedResult: "opResults[].changed=true",
+            ApplicationState: IpcExecuteApplicationStateNames.Indeterminate);
     }
 
     private sealed class StubPlanService : IPlanService

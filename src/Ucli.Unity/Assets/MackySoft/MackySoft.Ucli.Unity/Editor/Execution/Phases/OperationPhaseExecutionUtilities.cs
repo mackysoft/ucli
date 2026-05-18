@@ -27,17 +27,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 OpId: operationId));
         }
 
-        /// <summary> Creates one standardized OPERATION_CONTRACT_VIOLATION failure. </summary>
-        /// <param name="operationId"> The operation identifier. </param>
-        /// <returns> The operation failure. </returns>
-        public static OperationFailure CreateOperationContractViolationFailure (string operationId)
-        {
-            return new OperationFailure(
-                Code: ExecuteRequestErrorCodes.OperationContractViolation,
-                Message: "Operation result violated declared assurance facts.",
-                OpId: operationId);
-        }
-
         /// <summary> Executes one phase step with exception-to-failure translation. </summary>
         /// <param name="operation"> The normalized operation. </param>
         /// <param name="phase"> The phase being executed. </param>

@@ -80,11 +80,14 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                 RequestId: preparedRequest.Request.RequestId!,
                 Project: planProject,
                 OpResults: convertedPlanResponse.OpResults,
-                ContractViolations: convertedPlanResponse.ContractViolations,
-                PlanToken: convertedPlanResponse.PlanToken);
+                PlanToken: convertedPlanResponse.PlanToken)
+            {
+                ContractViolations = convertedPlanResponse.ContractViolations,
+            };
             baseOutput = baseOutput with
             {
                 Project = planProject,
+                ContractViolations = convertedPlanResponse.ContractViolations,
                 Plan = planOutput,
             };
 
