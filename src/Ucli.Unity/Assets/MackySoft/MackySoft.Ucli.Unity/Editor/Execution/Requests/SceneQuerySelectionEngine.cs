@@ -446,7 +446,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         /// <param name="TargetKind"> The compiled target category produced by the match. </param>
         /// <param name="HierarchyPath"> The matched hierarchy path relative to the scene root. </param>
         /// <param name="ComponentType"> The matched component type. <see langword="null" /> for GameObject matches. </param>
-        /// <param name="CanonicalKey"> The canonical identity key used for deduplication and ordering. </param>
+        /// <param name="CanonicalKey"> The canonical identity key used for deduplication. </param>
         internal readonly struct QueryMatch
         {
             public QueryMatch (

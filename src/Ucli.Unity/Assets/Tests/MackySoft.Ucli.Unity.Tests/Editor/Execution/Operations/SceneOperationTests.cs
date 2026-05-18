@@ -764,6 +764,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var zRoot = new GameObject("ZRoot");
             var zChild = new GameObject("ZChild");
             zChild.transform.SetParent(zRoot.transform, worldPositionStays: false);
+            var aChild = new GameObject("AChild");
+            aChild.transform.SetParent(zRoot.transform, worldPositionStays: false);
             _ = new GameObject("ARoot");
             EditorSceneManager.SaveScene(scene, scenePath);
             var queryRequest = CreateOperation(
@@ -779,10 +781,11 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(queryResult, applied: false, changed: false);
             Assert.That(queryResult.Result.HasValue, Is.True);
             var matches = queryResult.Result!.Value.GetProperty("matches");
-            Assert.That(matches.GetArrayLength(), Is.EqualTo(3));
+            Assert.That(matches.GetArrayLength(), Is.EqualTo(4));
             Assert.That(matches[0].GetProperty("hierarchyPath").GetString(), Is.EqualTo("ZRoot"));
             Assert.That(matches[1].GetProperty("hierarchyPath").GetString(), Is.EqualTo("ZRoot/ZChild"));
-            Assert.That(matches[2].GetProperty("hierarchyPath").GetString(), Is.EqualTo("ARoot"));
+            Assert.That(matches[2].GetProperty("hierarchyPath").GetString(), Is.EqualTo("ZRoot/AChild"));
+            Assert.That(matches[3].GetProperty("hierarchyPath").GetString(), Is.EqualTo("ARoot"));
         });
 
         [UnityTest]
@@ -1004,6 +1007,39 @@ namespace MackySoft.Ucli.Unity.Tests
             var queryResult = await queryOperation.PlanAsync(queryRequest, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(queryResult, "op-query");
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Query_Plan_WhenSlashNameDiagnosticPrecedesFailure_PreservesDiagnostic () => UniTask.ToCoroutine(async () =>
+        {
+            var queryOperation = new SceneQueryOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Bad/Root");
+            var root = new GameObject("Root");
+            var duplicateA = new GameObject("Dup");
+            duplicateA.transform.SetParent(root.transform, worldPositionStays: false);
+            var duplicateB = new GameObject("Dup");
+            duplicateB.transform.SetParent(root.transform, worldPositionStays: false);
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var queryRequest = CreateOperation(
+                opId: "op-query",
+                opName: UcliPrimitiveOperationNames.SceneQuery,
+                args: new
+                {
+                    scene = scenePath,
+                    pathPrefix = "Root/Dup",
+                });
+
+            var queryResult = await queryOperation.PlanAsync(queryRequest, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertInvalidArgument(queryResult, "op-query");
+            var diagnostic = AssertSingleHierarchyPathDiagnostic(queryResult.Diagnostics);
+            Assert.That(diagnostic.Severity, Is.EqualTo(IpcExecuteDiagnosticSeverityNames.Warning));
+            Assert.That(diagnostic.CoverageImpact, Is.EqualTo(IpcExecuteDiagnosticCoverageImpactNames.Partial));
         });
 
         [UnityTest]

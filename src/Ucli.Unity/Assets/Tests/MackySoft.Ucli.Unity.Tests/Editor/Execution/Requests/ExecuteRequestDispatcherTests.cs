@@ -233,7 +233,29 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "deleteFirstGoodRoot",
+                            id = "deleteGoodRootDirectly",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                gameObject = "GoodRoot",
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "delete",
+                                },
+                            },
+                            commit = "none",
+                        },
+                        new
+                        {
+                            kind = "edit",
+                            id = "deleteMissingFirst",
                             on = new
                             {
                                 scene = scenePath,
@@ -245,7 +267,7 @@ namespace MackySoft.Ucli.Unity.Tests
                                     op = UcliPrimitiveOperationNames.SceneQuery,
                                     args = new
                                     {
-                                        pathPrefix = "GoodRoot",
+                                        pathPrefix = "Missing",
                                     },
                                 },
                                 cardinality = "first",
@@ -264,10 +286,19 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var response = await DispatchAsync(dispatcher, request, context, "Request diagnostics from edit select.from");
 
-            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
-            var opResult = GetSingleArrayElement(response.Payload.GetProperty("opResults"));
-            Assert.That(opResult.GetProperty("op").GetString(), Is.EqualTo("edit"));
-            var diagnostic = GetSingleArrayElement(opResult.GetProperty("diagnostics"));
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].OpId, Is.EqualTo("deleteMissingFirst"));
+            var opResults = response.Payload.GetProperty("opResults");
+            Assert.That(opResults.GetArrayLength(), Is.EqualTo(2));
+            var cleanResult = opResults[0];
+            Assert.That(cleanResult.GetProperty("opId").GetString(), Is.EqualTo("deleteGoodRootDirectly"));
+            Assert.That(cleanResult.GetProperty("diagnostics").GetArrayLength(), Is.EqualTo(0));
+            var failedResult = opResults[1];
+            Assert.That(failedResult.GetProperty("opId").GetString(), Is.EqualTo("deleteMissingFirst"));
+            Assert.That(failedResult.GetProperty("op").GetString(), Is.EqualTo("edit"));
+            var diagnostic = GetSingleArrayElement(failedResult.GetProperty("diagnostics"));
             Assert.That(diagnostic.GetProperty("code").GetString(), Is.EqualTo(ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects.Value));
             Assert.That(diagnostic.GetProperty("severity").GetString(), Is.EqualTo(IpcExecuteDiagnosticSeverityNames.Warning));
             Assert.That(diagnostic.GetProperty("coverageImpact").GetString(), Is.EqualTo(IpcExecuteDiagnosticCoverageImpactNames.Partial));

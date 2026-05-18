@@ -61,16 +61,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <summary> Adds one runtime-compile failure for one public step. </summary>
         /// <param name="sourceStep"> The failed source step. </param>
         /// <param name="error"> The compile failure. </param>
+        /// <param name="diagnostics"> Non-fatal diagnostics emitted before the compile failure. </param>
         public void AddCompileFailure (
             IpcRequestContractStep sourceStep,
-            ExecuteRequestNormalizationError error)
+            ExecuteRequestNormalizationError error,
+            IReadOnlyList<OperationDiagnostic> diagnostics)
         {
             var operationName = sourceStep.Kind == IpcRequestStepKind.Op ? sourceStep.OperationName! : "edit";
             compiledSteps.Add(new NormalizedRequestStep(
                 Id: sourceStep.Id!,
                 Kind: sourceStep.Kind!.Value,
                 OperationName: operationName,
-                PrimitiveCount: 1));
+                PrimitiveCount: 1)
+            {
+                Diagnostics = diagnostics,
+            });
 
             var failure = new OperationFailure(error.Code, error.Message, error.OpId);
             operationTraces.Add(new OperationPhaseTrace(

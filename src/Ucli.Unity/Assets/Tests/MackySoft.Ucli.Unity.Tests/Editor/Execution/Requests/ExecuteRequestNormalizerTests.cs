@@ -874,7 +874,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var compiler = new ExecuteRequestCompiler();
             var executionContext = scope.CreateExecutionContext();
             Assert.That(
-                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out var openError),
+                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out _, out var openError),
                 Is.True,
                 openError?.Message);
             var openOperation = new SceneOpenOperation();
@@ -1229,7 +1229,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var compiler = new ExecuteRequestCompiler();
             var executionContext = scope.CreateExecutionContext();
             Assert.That(
-                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out var openError),
+                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out _, out var openError),
                 Is.True,
                 openError?.Message);
             var openOperation = new PrefabOpenOperation();
@@ -1303,7 +1303,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var compiler = new ExecuteRequestCompiler();
             var executionContext = scope.CreateExecutionContext();
             Assert.That(
-                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out var openError),
+                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out _, out var openError),
                 Is.True,
                 openError?.Message);
             var openPlanResult = await new PrefabOpenOperation().PlanAsync(openOperations[0], executionContext, CancellationToken.None);
@@ -1378,7 +1378,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var compiler = new ExecuteRequestCompiler();
             var executionContext = scope.CreateExecutionContext();
             Assert.That(
-                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out var openError),
+                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out _, out var openError),
                 Is.True,
                 openError?.Message);
             var openPlanResult = await new PrefabOpenOperation().PlanAsync(openOperations[0], executionContext, CancellationToken.None);
@@ -2203,7 +2203,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var compiler = new ExecuteRequestCompiler();
             var sourceStep = request.SourceSteps[stepIndex];
             Assert.That(
-                compiler.TryCompileExecutionStep(sourceStep, executionContext, out var compiledStep, out var compiledOperations, out var error),
+                compiler.TryCompileExecutionStep(sourceStep, executionContext, out var compiledStep, out var compiledOperations, out _, out var error),
                 Is.True,
                 error?.Message);
 
@@ -2218,7 +2218,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var compiler = new ExecuteRequestCompiler();
             var sourceStep = request.SourceSteps[stepIndex];
             Assert.That(
-                compiler.TryCompileExecutionStep(sourceStep, executionContext, out _, out _, out var error),
+                compiler.TryCompileExecutionStep(sourceStep, executionContext, out _, out _, out _, out var error),
                 Is.False);
             Assert.That(error, Is.Not.Null);
             return error;

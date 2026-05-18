@@ -73,9 +73,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         executionContext,
                         out var compiledStep,
                         out var compiledOperations,
+                        out var compileDiagnostics,
                         out var compileError))
                 {
-                    accumulator.AddCompileFailure(sourceStep, compileError);
+                    accumulator.AddCompileFailure(sourceStep, compileError, compileDiagnostics);
                     continue;
                 }
 
