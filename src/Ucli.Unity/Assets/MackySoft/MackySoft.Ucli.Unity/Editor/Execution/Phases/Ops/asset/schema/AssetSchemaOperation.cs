@@ -75,7 +75,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 operation,
                 args,
                 executionContext,
-                applied: true,
+                applied: false,
                 allowTemporaryState: false,
                 cancellationToken).ConfigureAwait(false);
         }

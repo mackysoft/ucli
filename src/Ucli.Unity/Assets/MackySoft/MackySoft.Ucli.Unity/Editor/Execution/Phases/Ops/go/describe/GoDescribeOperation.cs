@@ -76,7 +76,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteAsync(operation, args, executionContext, applied: true);
+            return ExecuteAsync(operation, args, executionContext, applied: false, includeTemporaryState: false);
         }
 
         /// <summary> Executes the shared plan/call flow. </summary>
@@ -88,26 +88,27 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             NormalizedOperation operation,
             GoDescribeArgs args,
             OperationExecutionContext executionContext,
-            bool applied)
+            bool applied,
+            bool includeTemporaryState = true)
         {
             if (!TryValidateArguments(
                 operation,
                 args,
                 executionContext,
-                allowTemporaryState: !applied,
+                allowTemporaryState: includeTemporaryState,
                 out var validationState,
                 out var failure))
             {
                 return Task.FromResult(failure!);
             }
 
-            var description = applied
-                ? GameObjectDescriptionBuilder.Build(validationState.Target, validationState.Depth)
-                : GameObjectDescriptionBuilder.Build(
+            var description = includeTemporaryState
+                ? GameObjectDescriptionBuilder.Build(
                     validationState.Target,
                     validationState.Depth,
                     executionContext,
-                    includeTemporaryState: true);
+                    includeTemporaryState: true)
+                : GameObjectDescriptionBuilder.Build(validationState.Target, validationState.Depth);
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: applied,
                 changed: false,

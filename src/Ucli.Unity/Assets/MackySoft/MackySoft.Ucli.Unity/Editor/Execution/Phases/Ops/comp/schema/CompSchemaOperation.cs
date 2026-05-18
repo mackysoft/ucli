@@ -66,7 +66,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await ExecuteAsync(operation, args, applied: true, cancellationToken).ConfigureAwait(false);
+            return await ExecuteAsync(operation, args, applied: false, cancellationToken).ConfigureAwait(false);
         }
 
         private async Task<OperationPhaseStepResult> ExecuteAsync (

@@ -1131,7 +1131,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
-            AssertSuccess(result, applied: true, changed: false);
+            AssertSuccess(result, applied: false, changed: false);
             Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
             Assert.That(resolvedReference, Is.Not.Null);
         });

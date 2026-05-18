@@ -62,14 +62,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteAsync(operation, args, executionContext, applied: true);
+            return ExecuteAsync(operation, args, executionContext, applied: false, allowTemporaryState: false);
         }
 
         private static Task<OperationPhaseStepResult> ExecuteAsync (
             NormalizedOperation operation,
             SceneQueryArgs args,
             OperationExecutionContext executionContext,
-            bool applied)
+            bool applied,
+            bool allowTemporaryState = true)
         {
             if (!TryValidate(operation, args, out var scenePath, out var queryArguments, out var failure))
             {
@@ -80,7 +81,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 scenePath,
                 queryArguments,
                 executionContext,
-                allowTemporaryState: !applied,
+                allowTemporaryState,
                 out var matches,
                 out var diagnostics,
                 out var errorMessage))

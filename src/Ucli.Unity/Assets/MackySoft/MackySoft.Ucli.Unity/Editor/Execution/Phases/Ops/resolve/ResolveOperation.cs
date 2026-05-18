@@ -88,7 +88,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteResolveAsync(operation, args, executionContext, applied: true);
+            return ExecuteResolveAsync(operation, args, executionContext, applied: false, allowTemporaryState: false);
         }
 
         /// <summary> Executes selector parse/resolve flow shared by plan and call phases. </summary>
@@ -100,7 +100,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             NormalizedOperation operation,
             ResolveSelectorArgs args,
             OperationExecutionContext executionContext,
-            bool applied)
+            bool applied,
+            bool allowTemporaryState = true)
         {
             if (!UnityObjectReferenceContractMapper.TryMap(args, out var selector, out var parseErrorMessage))
             {
@@ -112,7 +113,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(unsupportedSelectorResult!);
             }
 
-            if (!ResolveReferenceResolver.TryResolveStableReference(selector, executionContext, allowTemporaryState: !applied, out var resolvedReference, out var resolveErrorMessage))
+            if (!ResolveReferenceResolver.TryResolveStableReference(selector, executionContext, allowTemporaryState, out var resolvedReference, out var resolveErrorMessage))
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, resolveErrorMessage));
             }

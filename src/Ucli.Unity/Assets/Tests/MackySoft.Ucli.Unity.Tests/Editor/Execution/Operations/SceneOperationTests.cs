@@ -651,7 +651,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
-            AssertSuccess(result, applied: true, changed: false, expectedTouchKind: null);
+            AssertSuccess(result, applied: false, changed: false, expectedTouchKind: null);
             Assert.That(result.Result.HasValue, Is.True);
             var roots = result.Result!.Value.GetProperty("roots");
             Assert.That(roots.EnumerateArray().Select(static root => root.GetProperty("name").GetString()), Is.EquivalentTo(new[] { "SavedRoot", "UnsavedRoot" }));
@@ -680,7 +680,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
-            AssertSuccess(result, applied: true, changed: false, expectedTouchKind: null);
+            AssertSuccess(result, applied: false, changed: false, expectedTouchKind: null);
             Assert.That(result.Result.HasValue, Is.True);
             var roots = result.Result!.Value.GetProperty("roots");
             Assert.That(roots.GetArrayLength(), Is.EqualTo(1));
@@ -935,7 +935,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var callResult = await queryOperation.CallAsync(queryRequest, context, CancellationToken.None);
 
             AssertSuccess(planResult, applied: false, changed: false, expectedTouchKind: null);
-            AssertSuccess(callResult, applied: true, changed: false, expectedTouchKind: null);
+            AssertSuccess(callResult, applied: false, changed: false, expectedTouchKind: null);
             Assert.That(context.TryGetTemporaryScene(scenePath, out _), Is.False);
             Assert.That(planResult.Result.HasValue, Is.True);
             Assert.That(callResult.Result.HasValue, Is.True);

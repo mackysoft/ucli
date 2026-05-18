@@ -78,7 +78,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecutePhaseAsync(operation, args, executionContext, applied: true);
+            return ExecutePhaseAsync(operation, args, executionContext, applied: false, allowTemporaryState: false);
         }
 
         /// <summary> Executes shared plan/call flow. </summary>
@@ -90,9 +90,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             NormalizedOperation operation,
             SceneTreeArgs args,
             OperationExecutionContext executionContext,
-            bool applied)
+            bool applied,
+            bool allowTemporaryState = true)
         {
-            if (!TryValidateArguments(operation, args, executionContext, allowTemporaryState: !applied, out var validationState, out var failure))
+            if (!TryValidateArguments(operation, args, executionContext, allowTemporaryState, out var validationState, out var failure))
             {
                 return Task.FromResult(failure!);
             }
