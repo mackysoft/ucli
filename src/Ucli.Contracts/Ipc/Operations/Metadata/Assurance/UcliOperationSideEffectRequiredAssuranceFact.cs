@@ -1,7 +1,7 @@
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Defines an assurance fact required by a side-effect descriptor. </summary>
-public sealed class UcliOperationSideEffectRequiredAssuranceFact
+internal sealed class UcliOperationSideEffectRequiredAssuranceFact
 {
     private UcliOperationSideEffectRequiredAssuranceFact (
         UcliOperationSideEffectRequiredAssuranceFactKind kind,

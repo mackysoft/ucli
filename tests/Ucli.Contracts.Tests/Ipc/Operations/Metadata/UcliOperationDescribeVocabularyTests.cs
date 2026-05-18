@@ -1,3 +1,4 @@
+using System.Reflection;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -223,6 +224,34 @@ public sealed class UcliOperationDescribeVocabularyTests
 
         Assert.Equal(UcliOperationSideEffectDescriptors.SupportedValues, descriptorLiterals);
         Assert.Equal(UcliOperationSideEffectDescriptors.SupportedValues, descriptorCodecLiterals);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void SideEffectDescriptorImplementationSurface_IsNotPublicApi ()
+    {
+        var exportedTypeNames = typeof(UcliOperationSideEffect).Assembly
+            .GetExportedTypes()
+            .Select(type => type.FullName)
+            .ToArray();
+
+        Assert.DoesNotContain("MackySoft.Ucli.Contracts.Ipc.UcliOperationPolicyDeriver", exportedTypeNames);
+        Assert.DoesNotContain("MackySoft.Ucli.Contracts.Ipc.UcliOperationSideEffectDescriptor", exportedTypeNames);
+        Assert.DoesNotContain("MackySoft.Ucli.Contracts.Ipc.UcliOperationSideEffectRequiredAssuranceFact", exportedTypeNames);
+        Assert.DoesNotContain("MackySoft.Ucli.Contracts.Ipc.UcliOperationSideEffectRequiredAssuranceFactKind", exportedTypeNames);
+
+        var publicStaticProperties = typeof(UcliOperationSideEffectDescriptors)
+            .GetProperties(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)
+            .Select(property => property.Name)
+            .ToArray();
+        var publicStaticMethods = typeof(UcliOperationSideEffectDescriptors)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)
+            .Where(method => !method.IsSpecialName)
+            .Select(method => method.Name)
+            .ToArray();
+
+        Assert.Equal(new[] { nameof(UcliOperationSideEffectDescriptors.SupportedValues) }, publicStaticProperties);
+        Assert.Empty(publicStaticMethods);
     }
 
     [Fact]

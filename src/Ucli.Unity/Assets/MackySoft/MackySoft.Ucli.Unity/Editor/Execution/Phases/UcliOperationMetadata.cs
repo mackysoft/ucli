@@ -203,16 +203,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             UcliOperationDescribeContract describeContract,
             Type resultType)
         {
-            if (!UcliOperationPolicyDeriver.TryDerive(describeContract.Assurance, describeContract.CodeContract, out var policy, out var policyDerivationError))
-            {
-                throw new ArgumentException(policyDerivationError, nameof(describeContract));
-            }
-
-            if (!UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
+            if (!UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContractAndDerivePolicy(
                     describeContract,
                     UcliOperationKindCodec.ToValue(kind),
-                    OperationPolicyCodec.ToValue(policy),
                     $"Describe contract for operation '{operationName}'",
+                    out var policy,
                     out var describeInputError))
             {
                 throw new ArgumentException(describeInputError, nameof(describeContract));

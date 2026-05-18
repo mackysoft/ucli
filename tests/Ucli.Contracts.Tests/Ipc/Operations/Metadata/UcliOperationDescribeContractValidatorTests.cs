@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc;
@@ -514,7 +515,45 @@ public sealed class UcliOperationDescribeContractValidatorTests
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
 
         Assert.False(isValid);
-        Assert.Equal("Test contract has invalid policy derivation metadata. Operations with codeContract must declare sideEffects value 'arbitrarySourceExecution'.", errorMessage);
+        Assert.Equal("Test contract operations with codeContract must declare sideEffects value 'arbitrarySourceExecution'.", errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpDescribeContractAndDerivePolicy_WhenCodeContractLacksArbitrarySourceExecution_ReturnsFalse ()
+    {
+        var describe = CreateValidDescribeContract();
+        describe.CodeContract = CreateValidCodeContract();
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContractAndDerivePolicy(
+            describe,
+            operationKind: UcliOperationKindValues.Command,
+            ownerName: "Test contract",
+            out _,
+            out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Test contract operations with codeContract must declare sideEffects value 'arbitrarySourceExecution'.", errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpDescribeContractAndDerivePolicy_WhenAssuranceIsValid_ReturnsDerivedPolicy ()
+    {
+        var describe = CreateValidDescribeContract();
+        describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.EditorStateChange];
+        describe.Assurance.DangerousNotes = ["Editor state changes require advanced policy."];
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContractAndDerivePolicy(
+            describe,
+            operationKind: UcliOperationKindValues.Command,
+            ownerName: "Test contract",
+            out var derivedPolicy,
+            out var errorMessage);
+
+        Assert.True(isValid, errorMessage);
+        Assert.Equal(OperationPolicy.Advanced, derivedPolicy);
+        Assert.Empty(errorMessage);
     }
 
     [Fact]

@@ -3,7 +3,7 @@ using MackySoft.Ucli.Contracts.Configuration;
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Defines the contract facts attached to an operation side-effect value. </summary>
-public sealed class UcliOperationSideEffectDescriptor
+internal sealed class UcliOperationSideEffectDescriptor
 {
     /// <summary> Initializes a new instance of the <see cref="UcliOperationSideEffectDescriptor" /> class. </summary>
     /// <param name="sideEffect"> The side-effect enum value. </param>

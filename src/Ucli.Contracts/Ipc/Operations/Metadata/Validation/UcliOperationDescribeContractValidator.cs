@@ -15,12 +15,12 @@ internal static class UcliOperationDescribeContractValidator
         string ownerName,
         out string errorMessage)
     {
-        return TryValidatePublicRawOpDescribeContract(
+        return TryValidatePublicRawOpDescribeContractCore(
             describeContract,
             operationKind: null,
             operationPolicy: null,
-            codeContract: describeContract?.CodeContract,
             ownerName,
+            out _,
             out errorMessage);
     }
 
@@ -31,23 +31,41 @@ internal static class UcliOperationDescribeContractValidator
         string ownerName,
         out string errorMessage)
     {
-        return TryValidatePublicRawOpDescribeContract(
+        return TryValidatePublicRawOpDescribeContractCore(
             describeContract,
             operationKind,
             operationPolicy,
-            describeContract?.CodeContract,
             ownerName,
+            out _,
             out errorMessage);
     }
 
-    public static bool TryValidatePublicRawOpDescribeContract (
+    public static bool TryValidatePublicRawOpDescribeContractAndDerivePolicy (
+        UcliOperationDescribeContract? describeContract,
+        string? operationKind,
+        string ownerName,
+        out OperationPolicy derivedPolicy,
+        out string errorMessage)
+    {
+        return TryValidatePublicRawOpDescribeContractCore(
+            describeContract,
+            operationKind,
+            operationPolicy: null,
+            ownerName,
+            out derivedPolicy,
+            out errorMessage);
+    }
+
+    private static bool TryValidatePublicRawOpDescribeContractCore (
         UcliOperationDescribeContract? describeContract,
         string? operationKind,
         string? operationPolicy,
-        UcliOperationCodeContract? codeContract,
         string ownerName,
+        out OperationPolicy derivedPolicy,
         out string errorMessage)
     {
+        derivedPolicy = OperationPolicy.Safe;
+
         if (describeContract == null
             || string.IsNullOrWhiteSpace(describeContract.Description))
         {
@@ -57,7 +75,7 @@ internal static class UcliOperationDescribeContractValidator
 
         if (!TryValidatePublicRawOpInputs(describeContract.Inputs, ownerName, out errorMessage)
             || !TryValidateResultContract(describeContract.ResultContract, ownerName, out errorMessage)
-            || !TryValidateAssurance(describeContract.Assurance, operationKind, operationPolicy, codeContract, ownerName, out errorMessage)
+            || !TryValidateAssurance(describeContract.Assurance, operationKind, operationPolicy, describeContract.CodeContract, ownerName, out derivedPolicy, out errorMessage)
             || !TryValidateCodeContract(describeContract.CodeContract, ownerName, out errorMessage))
         {
             return false;
@@ -371,8 +389,11 @@ internal static class UcliOperationDescribeContractValidator
         string? operationPolicy,
         UcliOperationCodeContract? codeContract,
         string ownerName,
+        out OperationPolicy derivedPolicy,
         out string errorMessage)
     {
+        derivedPolicy = OperationPolicy.Safe;
+
         if (assurance == null
             || assurance.SideEffects == null
             || assurance.TouchedKinds == null
@@ -417,7 +438,7 @@ internal static class UcliOperationDescribeContractValidator
             }
         }
 
-        if (!TryValidateAssuranceConsistency(assurance, operationKind, operationPolicy, codeContract, ownerName, out errorMessage))
+        if (!TryValidateAssuranceConsistency(assurance, operationKind, operationPolicy, codeContract, ownerName, out derivedPolicy, out errorMessage))
         {
             return false;
         }
@@ -432,8 +453,11 @@ internal static class UcliOperationDescribeContractValidator
         string? operationPolicy,
         UcliOperationCodeContract? codeContract,
         string ownerName,
+        out OperationPolicy derivedPolicy,
         out string errorMessage)
     {
+        derivedPolicy = OperationPolicy.Safe;
+
         if (operationKind != null)
         {
             if (!UcliOperationKindCodec.TryParse(operationKind, out var parsedKind))
@@ -455,9 +479,16 @@ internal static class UcliOperationDescribeContractValidator
             return false;
         }
 
-        if (!UcliOperationPolicyDeriver.TryDerive(assurance, codeContract, out var derivedPolicy, out var derivationError))
+        if (codeContract != null
+            && !ContainsSideEffect(assurance.SideEffects!, UcliOperationSideEffectValues.ArbitrarySourceExecution))
         {
-            errorMessage = $"{ownerName} has invalid policy derivation metadata. {derivationError}";
+            errorMessage = $"{ownerName} operations with codeContract must declare sideEffects value '{UcliOperationSideEffectValues.ArbitrarySourceExecution}'.";
+            return false;
+        }
+
+        if (!UcliOperationPolicyDeriver.TryDerive(assurance, out derivedPolicy))
+        {
+            errorMessage = $"{ownerName} has invalid policy derivation metadata.";
             return false;
         }
 
@@ -554,6 +585,21 @@ internal static class UcliOperationDescribeContractValidator
 
         errorMessage = string.Empty;
         return true;
+    }
+
+    private static bool ContainsSideEffect (
+        IReadOnlyList<string> sideEffects,
+        string requiredSideEffect)
+    {
+        for (var i = 0; i < sideEffects.Count; i++)
+        {
+            if (string.Equals(sideEffects[i], requiredSideEffect, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool ContainsTouchedKind (

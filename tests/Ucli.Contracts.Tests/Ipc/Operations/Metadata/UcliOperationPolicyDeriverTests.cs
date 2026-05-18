@@ -11,11 +11,10 @@ public sealed class UcliOperationPolicyDeriverTests
     {
         var assurance = CreateAssurance(Array.Empty<string>());
 
-        var result = UcliOperationPolicyDeriver.TryDerive(assurance, codeContract: null, out var policy, out var errorMessage);
+        var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
 
         Assert.True(result);
         Assert.Equal(OperationPolicy.Safe, policy);
-        Assert.Empty(errorMessage);
     }
 
     [Fact]
@@ -26,13 +25,14 @@ public sealed class UcliOperationPolicyDeriverTests
         [
             UcliOperationSideEffectValues.ObservesUnityState,
             UcliOperationSideEffectValues.SceneSave,
-        ]);
+        ],
+        mayPersist: true,
+        touchedKinds: [IpcExecuteTouchedResourceKindNames.Scene]);
 
-        var result = UcliOperationPolicyDeriver.TryDerive(assurance, codeContract: null, out var policy, out var errorMessage);
+        var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
 
         Assert.True(result);
         Assert.Equal(OperationPolicy.Advanced, policy);
-        Assert.Empty(errorMessage);
     }
 
     [Theory]
@@ -48,11 +48,10 @@ public sealed class UcliOperationPolicyDeriverTests
             mayDirty,
             mayPersist);
 
-        var result = UcliOperationPolicyDeriver.TryDerive(assurance, codeContract: null, out var policy, out var errorMessage);
+        var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
 
         Assert.True(result);
         Assert.Equal(OperationPolicy.Advanced, policy);
-        Assert.Empty(errorMessage);
     }
 
     [Fact]
@@ -65,11 +64,10 @@ public sealed class UcliOperationPolicyDeriverTests
             mayPersist: false,
             planMode: UcliOperationPlanModeValues.MayCreatePreviewState);
 
-        var result = UcliOperationPolicyDeriver.TryDerive(assurance, codeContract: null, out var policy, out var errorMessage);
+        var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
 
         Assert.True(result);
         Assert.Equal(OperationPolicy.Advanced, policy);
-        Assert.Empty(errorMessage);
     }
 
     [Theory]
@@ -80,52 +78,52 @@ public sealed class UcliOperationPolicyDeriverTests
     [InlineData(UcliOperationSideEffectValues.DestructiveScope)]
     public void TryDerive_WhenDangerousSideEffectIsDeclared_ReturnsDangerous (string sideEffect)
     {
-        var assurance = CreateAssurance([sideEffect]);
+        var assurance = string.Equals(sideEffect, UcliOperationSideEffectValues.FilesystemWrite, StringComparison.Ordinal)
+            ? CreateAssurance([sideEffect], mayPersist: true)
+            : CreateAssurance([sideEffect]);
 
-        var result = UcliOperationPolicyDeriver.TryDerive(assurance, codeContract: null, out var policy, out var errorMessage);
+        var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
 
         Assert.True(result);
         Assert.Equal(OperationPolicy.Dangerous, policy);
-        Assert.Empty(errorMessage);
         Assert.True(UcliOperationSideEffectDescriptors.IsDangerousDerivationSource(sideEffect));
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryDerive_WhenCodeContractLacksArbitrarySourceExecution_ReturnsFalse ()
+    public void TryDerive_WhenSideEffectIsUnsupported_ReturnsFalse ()
     {
-        var assurance = CreateAssurance(Array.Empty<string>());
+        var assurance = CreateAssurance(["not-supported"]);
 
-        var result = UcliOperationPolicyDeriver.TryDerive(assurance, new UcliOperationCodeContract(), out _, out var errorMessage);
+        var result = UcliOperationPolicyDeriver.TryDerive(assurance, out _);
 
         Assert.False(result);
-        Assert.Equal("Operations with codeContract must declare sideEffects value 'arbitrarySourceExecution'.", errorMessage);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryDerive_WhenCodeContractDeclaresArbitrarySourceExecution_ReturnsDangerous ()
+    public void TryDerive_WhenArbitrarySourceExecutionIsDeclared_ReturnsDangerous ()
     {
         var assurance = CreateAssurance([UcliOperationSideEffectValues.ArbitrarySourceExecution]);
 
-        var result = UcliOperationPolicyDeriver.TryDerive(assurance, new UcliOperationCodeContract(), out var policy, out var errorMessage);
+        var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
 
         Assert.True(result);
         Assert.Equal(OperationPolicy.Dangerous, policy);
-        Assert.Empty(errorMessage);
     }
 
     private static UcliOperationAssuranceContract CreateAssurance (
         IReadOnlyList<string> sideEffects,
         bool mayDirty = false,
         bool mayPersist = false,
+        IReadOnlyList<string>? touchedKinds = null,
         string? planMode = UcliOperationPlanModeValues.ValidationOnly)
     {
         return new UcliOperationAssuranceContract(
             sideEffects,
             mayDirty,
             mayPersist,
-            touchedKinds: Array.Empty<string>(),
+            touchedKinds ?? Array.Empty<string>(),
             planMode,
             planSemantics: "Validate arguments without applying mutation.",
             callSemantics: "Execute the operation contract.",

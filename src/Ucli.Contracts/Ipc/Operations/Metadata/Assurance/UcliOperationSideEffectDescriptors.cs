@@ -85,7 +85,7 @@ public static class UcliOperationSideEffectDescriptors
     private static readonly IReadOnlyList<string> SupportedValuesCore = Array.AsReadOnly(CreateSupportedValues());
 
     /// <summary> Gets all side-effect descriptors in canonical schema order. </summary>
-    public static IReadOnlyList<UcliOperationSideEffectDescriptor> All => AllCore;
+    internal static IReadOnlyList<UcliOperationSideEffectDescriptor> All => AllCore;
 
     /// <summary> Gets all supported side-effect literals in canonical schema order. </summary>
     public static IReadOnlyList<string> SupportedValues => SupportedValuesCore;
@@ -94,7 +94,7 @@ public static class UcliOperationSideEffectDescriptors
     /// <param name="sideEffect"> The side-effect literal. </param>
     /// <param name="descriptor"> The resolved descriptor. </param>
     /// <returns> <see langword="true" /> when <paramref name="sideEffect" /> is supported; otherwise <see langword="false" />. </returns>
-    public static bool TryGetDescriptor (
+    internal static bool TryGetDescriptor (
         string? sideEffect,
         [NotNullWhen(true)] out UcliOperationSideEffectDescriptor? descriptor)
     {
@@ -115,7 +115,7 @@ public static class UcliOperationSideEffectDescriptors
     /// <param name="sideEffect"> The side-effect literal. </param>
     /// <param name="minimumPolicy"> The resolved minimum policy. </param>
     /// <returns> <see langword="true" /> when <paramref name="sideEffect" /> is supported; otherwise <see langword="false" />. </returns>
-    public static bool TryGetMinimumPolicy (
+    internal static bool TryGetMinimumPolicy (
         string? sideEffect,
         out OperationPolicy minimumPolicy)
     {
@@ -132,7 +132,7 @@ public static class UcliOperationSideEffectDescriptors
     /// <summary> Gets a value indicating whether the side effect directly derives <see cref="OperationPolicy.Dangerous" />. </summary>
     /// <param name="sideEffect"> The side-effect literal. </param>
     /// <returns> <see langword="true" /> when the side effect is a dangerous derivation source; otherwise <see langword="false" />. </returns>
-    public static bool IsDangerousDerivationSource (string? sideEffect)
+    internal static bool IsDangerousDerivationSource (string? sideEffect)
     {
         return TryGetDescriptor(sideEffect, out var descriptor)
             && descriptor.MinimumPolicy == OperationPolicy.Dangerous;
@@ -141,7 +141,7 @@ public static class UcliOperationSideEffectDescriptors
     /// <summary> Gets a value indicating whether the side effect can be declared by a query operation. </summary>
     /// <param name="sideEffect"> The side-effect literal. </param>
     /// <returns> <see langword="true" /> when the side effect is query-compatible; otherwise <see langword="false" />. </returns>
-    public static bool IsAllowedForQuery (string? sideEffect)
+    internal static bool IsAllowedForQuery (string? sideEffect)
     {
         return TryGetDescriptor(sideEffect, out var descriptor)
             && descriptor.QueryAllowed;
@@ -180,4 +180,5 @@ public static class UcliOperationSideEffectDescriptors
 
         return values;
     }
+
 }
