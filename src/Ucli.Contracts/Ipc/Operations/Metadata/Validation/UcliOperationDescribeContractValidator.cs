@@ -412,7 +412,7 @@ internal static class UcliOperationDescribeContractValidator
         for (var i = 0; i < assurance.SideEffects.Count; i++)
         {
             var sideEffect = assurance.SideEffects[i];
-            if (!IsSupportedSideEffect(sideEffect))
+            if (!UcliOperationSideEffectDescriptors.TryGetMinimumPolicy(sideEffect, out _))
             {
                 errorMessage = $"{ownerName} has an unsupported side effect '{sideEffect}'.";
                 return false;
@@ -1053,11 +1053,6 @@ internal static class UcliOperationDescribeContractValidator
             default:
                 return false;
         }
-    }
-
-    private static bool IsSupportedSideEffect (string? sideEffect)
-    {
-        return UcliOperationSideEffectDescriptors.TryGetMinimumPolicy(sideEffect, out _);
     }
 
     private static bool IsSupportedTouchedKind (string? touchedKind)
