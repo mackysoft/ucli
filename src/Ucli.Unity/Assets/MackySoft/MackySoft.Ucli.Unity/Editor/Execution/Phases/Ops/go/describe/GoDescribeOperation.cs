@@ -17,17 +17,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<GoDescribeArgs, GameObjectDescriptionResult>(
             operationName: UcliPrimitiveOperationNames.GoDescribe,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
             description: "Returns a GameObject description including components and child hierarchy.",
             assurance: new UcliOperationAssuranceContract(
-                sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
-                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
+                touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the GameObject selector and observe the selected scene or prefab context without applying mutation.",
                 callSemantics: "Read the selected GameObject structure and component data without applying mutation.",
-                touchedContract: "Reports the scene or prefab resource that contains the observed GameObject.",
+                touchedContract: "Returns no touched resources because GameObject description data is observational, not dirty or persisted state.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Timeout, cancellation, or unresolved selector failure means the GameObject description was not fully produced.",
                 dangerousNotes: Array.Empty<string>()));
@@ -79,7 +76,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteAsync(operation, args, executionContext, applied: true);
+            return ExecuteAsync(operation, args, executionContext, applied: false, includeTemporaryState: false);
         }
 
         /// <summary> Executes the shared plan/call flow. </summary>
@@ -91,33 +88,30 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             NormalizedOperation operation,
             GoDescribeArgs args,
             OperationExecutionContext executionContext,
-            bool applied)
+            bool applied,
+            bool includeTemporaryState = true)
         {
             if (!TryValidateArguments(
                 operation,
                 args,
                 executionContext,
-                allowTemporaryState: !applied,
+                allowTemporaryState: includeTemporaryState,
                 out var validationState,
                 out var failure))
             {
                 return Task.FromResult(failure!);
             }
 
-            var description = applied
-                ? GameObjectDescriptionBuilder.Build(validationState.Target, validationState.Depth)
-                : GameObjectDescriptionBuilder.Build(
+            var description = includeTemporaryState
+                ? GameObjectDescriptionBuilder.Build(
                     validationState.Target,
                     validationState.Depth,
                     executionContext,
-                    includeTemporaryState: true);
+                    includeTemporaryState: true)
+                : GameObjectDescriptionBuilder.Build(validationState.Target, validationState.Depth);
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: applied,
                 changed: false,
-                touched: new[]
-                {
-                    OperationResourceUtilities.CreateTouch(validationState.Resource),
-                },
                 result: IpcPayloadCodec.SerializeToElement(description)));
         }
 

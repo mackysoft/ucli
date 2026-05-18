@@ -45,10 +45,8 @@ internal static class OperationCatalogTestFixtures
             Inputs = Array.Empty<UcliOperationInputContract>(),
             ResultContract = UcliOperationResultContract.NoResult("No operation-specific result is emitted."),
             Assurance = new UcliOperationAssuranceContract(
-                sideEffects: Array.Empty<string>(),
-                mayDirty: false,
-                mayPersist: true,
-                touchedKinds: Array.Empty<string>(),
+                sideEffects: [UcliOperationSideEffectValues.SceneSave],
+                touchedKinds: [IpcExecuteTouchedResourceKindNames.Scene],
                 planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
                 planSemantics: "Observe save-relevant project state without writing project files.",
                 callSemantics: "Persist save-relevant Unity state.",
@@ -62,9 +60,7 @@ internal static class OperationCatalogTestFixtures
     private static UcliOperationAssuranceContract CreateSafeQueryAssurance ()
     {
         return new UcliOperationAssuranceContract(
-            sideEffects: Array.Empty<string>(),
-            mayDirty: false,
-            mayPersist: false,
+            sideEffects: [UcliOperationSideEffectValues.ObservesUnityState],
             touchedKinds: Array.Empty<string>(),
             planMode: UcliOperationPlanModeValues.ObservesLiveUnity,
             planSemantics: "Validate arguments and observe Unity state without applying mutation.",

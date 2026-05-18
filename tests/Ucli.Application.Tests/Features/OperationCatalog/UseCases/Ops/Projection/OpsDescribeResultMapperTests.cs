@@ -199,8 +199,6 @@ public sealed class OpsDescribeResultMapperTests
             "Resolves an asset, scene object, prefab object, or component reference to a Unity GlobalObjectId.",
             new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
                 touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate arguments and observe Unity state without applying mutation.",
@@ -228,11 +226,12 @@ public sealed class OpsDescribeResultMapperTests
         string policy)
     {
         var isMutation = string.Equals(kind, "mutation", StringComparison.Ordinal);
+        var isDangerousPolicy = string.Equals(policy, "dangerous", StringComparison.Ordinal);
         var isRiskyPolicy = !string.Equals(policy, "safe", StringComparison.Ordinal);
         return new UcliOperationAssuranceContract(
-            sideEffects: isMutation ? [UcliOperationSideEffect.WritesAsset] : Array.Empty<UcliOperationSideEffect>(),
-            mayDirty: isMutation,
-            mayPersist: isMutation,
+            sideEffects: isDangerousPolicy
+                ? [UcliOperationSideEffect.AssetSave, UcliOperationSideEffect.ArbitrarySourceExecution]
+                : isMutation ? [UcliOperationSideEffect.AssetSave] : [UcliOperationSideEffect.ObservesUnityState],
             touchedKinds: isMutation ? [IpcExecuteTouchedResourceKindNames.Asset] : Array.Empty<string>(),
             planMode: UcliOperationPlanMode.ObservesLiveUnity,
             planSemantics: "Validate arguments and observe Unity state without applying mutation.",

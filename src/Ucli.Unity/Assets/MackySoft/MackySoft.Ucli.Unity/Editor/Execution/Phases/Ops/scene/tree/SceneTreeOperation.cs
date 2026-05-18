@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 
@@ -18,17 +18,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<SceneTreeArgs, SceneTreeResult>(
             operationName: UcliPrimitiveOperationNames.SceneTree,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
             description: "Returns the hierarchy tree for a Unity scene.",
             assurance: new UcliOperationAssuranceContract(
-                sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
-                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene },
+                sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
+                touchedKinds: Array.Empty<string>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the scene path and observe the selected hierarchy source without applying mutation.",
                 callSemantics: "Read the scene hierarchy without applying mutation.",
-                touchedContract: "Reports the scene resource as the observed hierarchy context.",
+                touchedContract: "Returns no touched resources because scene hierarchy data is observational, not dirty or persisted state.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Timeout, cancellation, or source fallback failure means the hierarchy was not fully observed.",
                 dangerousNotes: Array.Empty<string>()));
@@ -81,7 +78,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecutePhaseAsync(operation, args, executionContext, applied: true);
+            return ExecutePhaseAsync(operation, args, executionContext, applied: false, allowTemporaryState: false);
         }
 
         /// <summary> Executes shared plan/call flow. </summary>
@@ -93,9 +90,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             NormalizedOperation operation,
             SceneTreeArgs args,
             OperationExecutionContext executionContext,
-            bool applied)
+            bool applied,
+            bool allowTemporaryState = true)
         {
-            if (!TryValidateArguments(operation, args, executionContext, allowTemporaryState: !applied, out var validationState, out var failure))
+            if (!TryValidateArguments(operation, args, executionContext, allowTemporaryState, out var validationState, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -112,10 +110,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(OperationPhaseStepResult.Success(
                     applied: applied,
                     changed: false,
-                    touched: new[]
-                    {
-                        OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Scene, validationState.ScenePath)),
-                    },
                     result: IpcPayloadCodec.SerializeToElement(tree)));
             }
         }

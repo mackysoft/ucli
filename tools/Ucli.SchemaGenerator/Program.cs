@@ -662,13 +662,7 @@ internal static class Program
         return ObjectSchema(
             additionalProperties: false,
             Required("sideEffects", ArraySchema(EnumSchema(
-                UcliOperationSideEffectValues.OpensSceneInEditor,
-                UcliOperationSideEffectValues.OpensPrefabStage,
-                UcliOperationSideEffectValues.RefreshesAssetDatabase,
-                UcliOperationSideEffectValues.WritesAsset,
-                UcliOperationSideEffectValues.WritesScene,
-                UcliOperationSideEffectValues.WritesPrefab,
-                UcliOperationSideEffectValues.WritesProjectSettings))),
+                UcliOperationSideEffectDescriptors.SupportedValues.ToArray()))),
             Required("mayDirty", BooleanSchema()),
             Required("mayPersist", BooleanSchema()),
             Required("touchedKinds", ArraySchema(EnumSchema(

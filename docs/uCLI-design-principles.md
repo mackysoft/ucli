@@ -139,9 +139,9 @@ operation ごとの Args/Result contract 型と operation metadata を公開 con
 `policy` は説明用分類ではなく、`ops list --maxPolicy`、operation allowlist、`--allowDangerous` の判断に使う入場制御である。
 そのため author が `safe` / `advanced` / `dangerous` を任意に選べる仕様にしない。
 
-catalog builder は `assurance.sideEffects`、`mayDirty`、`mayPersist`、`touchedKinds`、`planMode`、`codeContract`、`exposure`、destructive scope、arbitrary execution、external process / filesystem access から `operation.policy` を導出する。author が `policy` を直接指定する API や、主観的に policy を厳しくする上書き指定は持たない。
+catalog builder は `assurance.sideEffects` descriptor、そこから生成される `mayDirty` / `mayPersist` projection、`touchedKinds`、`planMode`、`codeContract`、`exposure`、destructive scope、arbitrary execution、external process / filesystem access から `operation.policy` を導出する。author が `policy` や `mayDirty` / `mayPersist` を直接指定する API は持たない。
 
-v1 public raw catalog は `planMode=validationOnly` または `observesLiveUnity` だけを許可する。Plan が preview state を作る operation は review gate 前に状態を作るため、internal / experimental に限定し、public raw operation として扱わない。
+`planMode=mayCreatePreviewState` は Plan が review gate 前に状態を作るため、最低 `advanced` に導出する。v1 の public raw catalog 除外 marker は `arbitrarySourceExecution` であり、planMode 単体では除外しない。
 
 公開 `operation.policy` は導出済みの唯一の final admission policy である。`ops describe` は policy の別表現や導出履歴を公開せず、runner は `operation.policy` と `assurance` の contract facts を使って admission を判断する。
 ### Operation は1つのユーザー意図を表す
