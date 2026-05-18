@@ -59,7 +59,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 operation,
                 args,
                 executionContext,
-                applied: false,
                 allowTemporaryState: true,
                 cancellationToken).ConfigureAwait(false);
         }
@@ -75,7 +74,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 operation,
                 args,
                 executionContext,
-                applied: false,
                 allowTemporaryState: false,
                 cancellationToken).ConfigureAwait(false);
         }
@@ -84,7 +82,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             NormalizedOperation operation,
             AssetSchemaArgs args,
             OperationExecutionContext executionContext,
-            bool applied,
             bool allowTemporaryState,
             CancellationToken cancellationToken)
         {
@@ -107,13 +104,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
 
                 return OperationPhaseStepResult.Success(
-                    applied: applied,
+                    applied: false,
                     changed: false,
                     result: IpcPayloadCodec.SerializeToElement(extractionResult.Entries[0]));
             }
 
             return OperationPhaseStepResult.Success(
-                applied: applied,
+                applied: false,
                 changed: false,
                 result: IpcPayloadCodec.SerializeToElement(validationState.TargetSchemaEntry));
         }

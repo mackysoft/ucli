@@ -59,7 +59,8 @@ internal sealed record OperationExecuteResult
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         string message,
         OperationExecutionReadPostcondition? readPostcondition,
-        ProjectIdentityInfo project)
+        ProjectIdentityInfo project,
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
@@ -71,7 +72,7 @@ internal sealed record OperationExecuteResult
             opResults,
             RequestServiceResultInvariants.EmptyErrors,
             message,
-            contractViolations: [],
+            contractViolations,
             readPostcondition,
             project);
     }

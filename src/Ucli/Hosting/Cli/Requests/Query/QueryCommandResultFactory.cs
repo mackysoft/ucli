@@ -24,11 +24,12 @@ internal static class QueryCommandResultFactory
         }
 
         payload["opResults"] = serviceResult.OpResults;
-        payload["readIndex"] = ReadIndexInfoPayloadProjector.Create(serviceResult.ReadIndex);
         if (serviceResult.ContractViolations.Count != 0)
         {
             payload["contractViolations"] = serviceResult.ContractViolations;
         }
+
+        payload["readIndex"] = ReadIndexInfoPayloadProjector.Create(serviceResult.ReadIndex);
 
         if (!serviceResult.IsSuccess)
         {

@@ -26,14 +26,14 @@ internal static class RefreshCommandResultFactory
         }
 
         payload["opResults"] = executionResult.OpResults;
-        if (executionResult.ReadPostcondition != null)
-        {
-            payload["readPostcondition"] = executionResult.ReadPostcondition;
-        }
-
         if (executionResult.ContractViolations.Count != 0)
         {
             payload["contractViolations"] = executionResult.ContractViolations;
+        }
+
+        if (executionResult.ReadPostcondition != null)
+        {
+            payload["readPostcondition"] = executionResult.ReadPostcondition;
         }
 
         if (!executionResult.IsSuccess)

@@ -227,9 +227,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(trace.IsSuccess, Is.True);
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Plan));
             Assert.That(trace.OperationTraces[0].Contracts, Is.Not.Null);
-            Assert.That(trace.OperationTraces[0].Contracts!.OperationKind, Is.EqualTo(UcliOperationKind.Query));
-            Assert.That(trace.OperationTraces[0].Contracts!.MayDirty, Is.False);
-            Assert.That(trace.OperationTraces[0].Contracts!.TouchedKinds, Is.Empty);
+            Assert.That(trace.OperationTraces[0].Contracts!.OperationKind, Is.EqualTo(UcliOperationKind.Mutation));
+            Assert.That(trace.OperationTraces[0].Contracts!.MayDirty, Is.True);
+            CollectionAssert.AreEqual(
+                new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                trace.OperationTraces[0].Contracts!.TouchedKinds);
         });
 
         [UnityTest]
@@ -249,9 +251,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(trace.IsSuccess, Is.True);
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Call));
             Assert.That(trace.OperationTraces[0].Contracts, Is.Not.Null);
-            Assert.That(trace.OperationTraces[0].Contracts!.OperationKind, Is.EqualTo(UcliOperationKind.Query));
-            Assert.That(trace.OperationTraces[0].Contracts!.MayDirty, Is.False);
-            Assert.That(trace.OperationTraces[0].Contracts!.TouchedKinds, Is.Empty);
+            Assert.That(trace.OperationTraces[0].Contracts!.OperationKind, Is.EqualTo(UcliOperationKind.Mutation));
+            Assert.That(trace.OperationTraces[0].Contracts!.MayDirty, Is.True);
+            CollectionAssert.AreEqual(
+                new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                trace.OperationTraces[0].Contracts!.TouchedKinds);
         });
 
         [UnityTest]
@@ -1116,13 +1120,14 @@ namespace MackySoft.Ucli.Unity.Tests
         private static UcliOperationDescribeContract CreateDescribeContract (
             string operationName,
             OperationPolicy policy = OperationPolicy.Safe,
+            UcliOperationAssuranceContract? assurance = null,
             IReadOnlyList<UcliOperationSideEffect>? sideEffects = null)
         {
             return new UcliOperationDescribeContract(
                 $"{operationName} test operation.",
                 Array.Empty<UcliOperationInputContract>(),
                 UcliOperationResultContract.NoResult("This test operation does not emit operation-specific result data."),
-                CreateValidationOnlyAssurance(policy, sideEffects));
+                assurance ?? CreateValidationOnlyAssurance(policy, sideEffects));
         }
 
         private static UcliOperationAssuranceContract CreateValidationOnlyAssurance (
@@ -1141,6 +1146,27 @@ namespace MackySoft.Ucli.Unity.Tests
                 dangerousNotes: policy == OperationPolicy.Safe
                     ? Array.Empty<string>()
                     : new[] { "Test fixture uses a non-safe policy to exercise policy gating." });
+        }
+
+        private static UcliOperationAssuranceContract CreateMutableAssurance (OperationPolicy policy = OperationPolicy.Safe)
+        {
+            return new UcliOperationAssuranceContract(
+                sideEffects: CreateMutableSideEffects(policy),
+                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate arguments and prepare mutation without applying it.",
+                callSemantics: "Apply test mutation state.",
+                touchedContract: "Reports scene or prefab resources touched by the test mutation.",
+                readPostconditionContract: "May stale read surfaces associated with touched test resources.",
+                failureSemantics: "Failure means the mutation did not fully complete.",
+                dangerousNotes: new[] { "Test fixture uses mutation side effects to exercise runtime contract validation." });
+        }
+
+        private static IReadOnlyList<UcliOperationSideEffect> CreateMutableSideEffects (OperationPolicy policy)
+        {
+            return policy == OperationPolicy.Dangerous
+                ? new[] { UcliOperationSideEffect.SceneContentMutation, UcliOperationSideEffect.ExternalProcess }
+                : new[] { UcliOperationSideEffect.SceneContentMutation, UcliOperationSideEffect.PrefabContentMutation };
         }
 
         private static IReadOnlyList<UcliOperationSideEffect> CreateSideEffects (OperationPolicy policy)
@@ -1554,15 +1580,35 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationPhaseStepResult planResult,
                 OperationPhaseStepResult callResult,
                 OperationPolicy policy = OperationPolicy.Safe,
+                UcliOperationKind kind = UcliOperationKind.Mutation,
+                UcliOperationAssuranceContract? assurance = null,
                 IReadOnlyList<UcliOperationSideEffect>? sideEffects = null)
             {
                 this.validateResult = validateResult;
                 this.planResult = planResult;
                 this.callResult = callResult;
+                var effectiveAssurance = assurance;
+                if (effectiveAssurance == null)
+                {
+                    if (sideEffects != null)
+                    {
+                        effectiveAssurance = CreateValidationOnlyAssurance(policy, sideEffects);
+                    }
+                    else
+                    {
+                        effectiveAssurance = kind == UcliOperationKind.Query
+                            ? CreateValidationOnlyAssurance(policy)
+                            : CreateMutableAssurance(policy);
+                    }
+                }
+
                 Metadata = new UcliOperationMetadata(
                     operationName: "ucli.tests.recording",
-                    kind: policy == OperationPolicy.Safe ? UcliOperationKind.Query : UcliOperationKind.Command,
-                    describeContract: CreateDescribeContract("ucli.tests.recording", policy, sideEffects));
+                    kind: kind,
+                    describeContract: CreateDescribeContract(
+                        "ucli.tests.recording",
+                        policy,
+                        effectiveAssurance));
             }
 
             public UcliOperationMetadata Metadata { get; }
@@ -1656,7 +1702,10 @@ namespace MackySoft.Ucli.Unity.Tests
             public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
                 operationName: "ucli.tests.replay-failing",
                 kind: UcliOperationKind.Mutation,
-                describeContract: CreateDescribeContract("ucli.tests.replay-failing", OperationPolicy.Advanced),
+                describeContract: CreateDescribeContract(
+                    "ucli.tests.replay-failing",
+                    OperationPolicy.Advanced,
+                    CreateMutableAssurance(OperationPolicy.Advanced)),
                 argsType: typeof(UcliEmptyArgs),
                 resultType: typeof(UcliNoResult),
                 requiresPreCallPlanReplay: true);
@@ -1743,7 +1792,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 CallContext = executionContext;
-                return Task.FromResult(OperationPhaseStepResult.Success(applied: true, changed: false));
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
             }
         }
     }

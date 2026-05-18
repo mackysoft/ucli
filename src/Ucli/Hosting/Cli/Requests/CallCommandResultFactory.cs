@@ -50,14 +50,14 @@ internal static class CallCommandResultFactory
             ["opResults"] = output.OpResults,
         };
 
-        if (output.ReadPostcondition != null)
-        {
-            payload["readPostcondition"] = output.ReadPostcondition;
-        }
-
         if (output.ContractViolations.Count != 0)
         {
             payload["contractViolations"] = output.ContractViolations;
+        }
+
+        if (output.ReadPostcondition != null)
+        {
+            payload["readPostcondition"] = output.ReadPostcondition;
         }
 
         if (output.Plan == null)

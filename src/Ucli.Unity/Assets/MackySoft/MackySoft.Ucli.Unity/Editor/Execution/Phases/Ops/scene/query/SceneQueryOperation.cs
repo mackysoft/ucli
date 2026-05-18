@@ -52,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteAsync(operation, args, executionContext, applied: false);
+            return ExecuteAsync(operation, args, executionContext, allowTemporaryState: true);
         }
 
         protected override Task<OperationPhaseStepResult> CallAsync (
@@ -62,15 +62,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteAsync(operation, args, executionContext, applied: false, allowTemporaryState: false);
+            return ExecuteAsync(operation, args, executionContext, allowTemporaryState: false);
         }
 
         private static Task<OperationPhaseStepResult> ExecuteAsync (
             NormalizedOperation operation,
             SceneQueryArgs args,
             OperationExecutionContext executionContext,
-            bool applied,
-            bool allowTemporaryState = true)
+            bool allowTemporaryState)
         {
             if (!TryValidate(operation, args, out var scenePath, out var queryArguments, out var failure))
             {
@@ -81,7 +80,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 scenePath,
                 queryArguments,
                 executionContext,
-                allowTemporaryState,
+                allowTemporaryState: allowTemporaryState,
                 out var matches,
                 out var diagnostics,
                 out var errorMessage))
@@ -93,7 +92,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 scene: scenePath,
                 matches: CreatePayloadMatches(matches));
             return Task.FromResult(OperationPhaseStepResult.Success(
-                applied: applied,
+                applied: false,
                 changed: false,
                 result: IpcPayloadCodec.SerializeToElement(payload)).WithDiagnostics(diagnostics));
         }

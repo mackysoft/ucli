@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
+
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 
 /// <summary> Represents one normalized execute-response conversion result. </summary>

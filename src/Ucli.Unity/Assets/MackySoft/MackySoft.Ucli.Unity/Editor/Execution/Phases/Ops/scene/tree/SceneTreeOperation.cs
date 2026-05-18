@@ -63,7 +63,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecutePhaseAsync(operation, args, executionContext, applied: false);
+            return ExecutePhaseAsync(operation, args, executionContext, allowTemporaryState: true);
         }
 
         /// <summary> Executes call phase for <c>ucli.scene.tree</c>. </summary>
@@ -78,21 +78,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecutePhaseAsync(operation, args, executionContext, applied: false, allowTemporaryState: false);
+            return ExecutePhaseAsync(operation, args, executionContext, allowTemporaryState: false);
         }
 
         /// <summary> Executes shared plan/call flow. </summary>
         /// <param name="operation"> The normalized operation. </param>
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
-        /// <param name="applied"> The applied flag for the successful phase result. </param>
-        /// <param name="allowTemporaryState"> Whether temporary plan state should be included in the result. </param>
+        /// <param name="allowTemporaryState"> Whether temporary plan state may satisfy scene resolution. </param>
         /// <returns> The phase-step result. </returns>
         private static Task<OperationPhaseStepResult> ExecutePhaseAsync (
             NormalizedOperation operation,
             SceneTreeArgs args,
             OperationExecutionContext executionContext,
-            bool applied,
-            bool allowTemporaryState = true)
+            bool allowTemporaryState)
         {
             if (!TryValidateArguments(operation, args, executionContext, allowTemporaryState, out var validationState, out var failure))
             {
@@ -109,7 +107,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     validationState.SceneLease.CreateSourceState(),
                     windowedRoots.Window);
                 return Task.FromResult(OperationPhaseStepResult.Success(
-                    applied: applied,
+                    applied: false,
                     changed: false,
                     result: IpcPayloadCodec.SerializeToElement(tree)));
             }

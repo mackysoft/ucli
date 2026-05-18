@@ -61,7 +61,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteAsync(operation, args, executionContext, applied: false);
+            return ExecuteAsync(operation, args, executionContext, allowTemporaryState: true);
         }
 
         /// <summary> Executes call phase for <c>ucli.go.describe</c>. </summary>
@@ -76,34 +76,32 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteAsync(operation, args, executionContext, applied: false, includeTemporaryState: false);
+            return ExecuteAsync(operation, args, executionContext, allowTemporaryState: false);
         }
 
         /// <summary> Executes the shared plan/call flow. </summary>
         /// <param name="operation"> The normalized operation. </param>
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
-        /// <param name="applied"> The applied flag for the successful phase result. </param>
-        /// <param name="includeTemporaryState"> Whether temporary plan state should be included in the result. </param>
+        /// <param name="allowTemporaryState"> Whether temporary plan state may satisfy target resolution. </param>
         /// <returns> The phase-step result. </returns>
         private static Task<OperationPhaseStepResult> ExecuteAsync (
             NormalizedOperation operation,
             GoDescribeArgs args,
             OperationExecutionContext executionContext,
-            bool applied,
-            bool includeTemporaryState = true)
+            bool allowTemporaryState)
         {
             if (!TryValidateArguments(
                 operation,
                 args,
                 executionContext,
-                allowTemporaryState: includeTemporaryState,
+                allowTemporaryState,
                 out var validationState,
                 out var failure))
             {
                 return Task.FromResult(failure!);
             }
 
-            var description = includeTemporaryState
+            var description = allowTemporaryState
                 ? GameObjectDescriptionBuilder.Build(
                     validationState.Target,
                     validationState.Depth,
@@ -111,7 +109,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     includeTemporaryState: true)
                 : GameObjectDescriptionBuilder.Build(validationState.Target, validationState.Depth);
             return Task.FromResult(OperationPhaseStepResult.Success(
-                applied: applied,
+                applied: false,
                 changed: false,
                 result: IpcPayloadCodec.SerializeToElement(description)));
         }
@@ -152,7 +150,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             validationState = new ValidationState(
                 targetResolution.GameObject!,
-                targetResolution.Resource,
                 args.Depth);
             return true;
         }
@@ -161,17 +158,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             public ValidationState (
                 GameObject target,
-                OperationResource resource,
                 int? depth)
             {
                 Target = target;
-                Resource = resource;
                 Depth = depth;
             }
 
             public GameObject? Target { get; }
-
-            public OperationResource Resource { get; }
 
             public int? Depth { get; }
         }
