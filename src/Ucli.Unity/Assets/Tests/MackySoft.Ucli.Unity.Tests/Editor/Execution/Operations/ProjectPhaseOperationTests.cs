@@ -84,6 +84,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertSuccess(result, applied: true, changed: true);
+            Assert.That(result.Persisted, Is.True);
             Assert.That(AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(assetPath), Is.Not.Null);
             Assert.That(result.Touched.Any(touched => touched.Path == assetPath && touched.Kind == OperationTouchKind.Asset), Is.True);
             AssertReadInvalidations(
@@ -277,6 +278,51 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Touched.Any(touched => touched.Kind == OperationTouchKind.Asset && touched.Path == assetPath), Is.True);
         }
 
+        [Test]
+        [Category("Size.Small")]
+        public void SaveFailureEvidence_WhenTouchedResourcesExist_PreservesObservedPersistence ()
+        {
+            const string scenePath = "Assets/Scenes/SavedBeforeFailure.unity";
+            var failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                "op-save",
+                "Project could not be saved.");
+            var touched = new[]
+            {
+                new OperationTouch(OperationTouchKind.Scene, scenePath, null),
+            };
+
+            var result = ProjectSavePhaseOperation.WithObservedProjectSaveEvidence(failure, touched, observedPersistence: true);
+
+            AssertInvalidArgument(result, "op-save");
+            Assert.That(result.Applied, Is.True);
+            Assert.That(result.Changed, Is.True);
+            Assert.That(result.Persisted, Is.True);
+            Assert.That(result.Touched, Is.EqualTo(touched));
+            AssertReadInvalidations(
+                result,
+                (OperationReadInvalidationSurface.SceneTreeLite, scenePath));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void SaveFailureEvidence_WhenNoSaveApiSucceeded_DoesNotReportPersistence ()
+        {
+            var failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                "op-save",
+                "Project could not be saved.");
+            var touched = new[]
+            {
+                new OperationTouch(OperationTouchKind.Scene, "Assets/Scenes/ObservedOnly.unity", null),
+            };
+
+            var result = ProjectSavePhaseOperation.WithObservedProjectSaveEvidence(failure, touched, observedPersistence: false);
+
+            Assert.That(result, Is.SameAs(failure));
+            AssertInvalidArgument(result, "op-save");
+            Assert.That(result.Persisted, Is.False);
+            Assert.That(result.Touched, Is.Empty);
+        }
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Save_Plan_WhenAssetCreatePlanRan_ReturnsTouchedAsset () => UniTask.ToCoroutine(async () =>
@@ -413,6 +459,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertSuccess(result, applied: true, changed: true);
+            Assert.That(result.Persisted, Is.True);
             Assert.That(EditorUtility.IsDirty(asset), Is.False);
             Assert.That(result.Touched.Any(touched => touched.Path == assetPath && touched.Kind == OperationTouchKind.Asset), Is.True);
             AssertReadInvalidations(
@@ -441,6 +488,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertSuccess(result, applied: true, changed: false);
+            Assert.That(result.Persisted, Is.False);
             Assert.That(scene.isDirty, Is.True);
             Assert.That(result.Touched.Any(touched => touched.Kind == OperationTouchKind.Scene), Is.False);
         });
@@ -467,6 +515,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: true, changed: true);
+            Assert.That(result.Persisted, Is.True);
             Assert.That(scene.isDirty, Is.False);
             Assert.That(result.Touched.Any(touched => touched.Kind == OperationTouchKind.Scene && touched.Path == scenePath), Is.True);
             Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Scene, scenePath)), Is.False);
@@ -514,6 +563,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var saveResult = await saveOperation.CallAsync(saveRequest, context, CancellationToken.None);
 
             AssertSuccess(saveResult, applied: true, changed: true);
+            Assert.That(saveResult.Persisted, Is.True);
             Assert.That(scene.isDirty, Is.False);
             Assert.That(saveResult.Touched.Any(touched => touched.Kind == OperationTouchKind.Scene && touched.Path == scenePath), Is.True);
             Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Scene, scenePath)), Is.False);
@@ -541,6 +591,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: true, changed: true);
+            Assert.That(result.Persisted, Is.True);
             Assert.That(prefabStage.prefabContentsRoot.scene.isDirty, Is.False);
             Assert.That(result.Touched.Any(touched => touched.Kind == OperationTouchKind.Prefab && touched.Path == prefabPath), Is.True);
             Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Prefab, prefabPath)), Is.False);

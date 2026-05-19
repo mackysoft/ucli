@@ -52,6 +52,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                 var touched = new List<OperationTouch>(preparedOperation.PlanTouched.Count);
                 var diagnostics = new List<OperationDiagnostic>();
+                var persisted = preparedOperation.PlanPersisted;
                 OperationPhaseExecutionUtilities.MergeTouched(touched, preparedOperation.PlanTouched);
 
                 if (preparedOperation.RequiresPreCallPlanReplay)
@@ -67,6 +68,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         cancellationToken).ConfigureAwait(false);
                     OperationPhaseExecutionUtilities.MergeTouched(touched, replayedPlanStepResult.Touched);
                     OperationPhaseExecutionUtilities.MergeDiagnostics(diagnostics, replayedPlanStepResult.Diagnostics);
+                    persisted |= replayedPlanStepResult.Persisted;
 
                     if (!replayedPlanStepResult.IsSuccess)
                     {
@@ -83,6 +85,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                             Result = replayedPlanStepResult.Result,
                             ReadInvalidations = replayedPlanStepResult.ReadInvalidations,
                             Diagnostics = diagnostics.ToArray(),
+                            Persisted = persisted,
                             Contracts = contractFacts,
                         });
                         errors.Add(replayedPlanStepResult.Failure!);
@@ -99,6 +102,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                 OperationPhaseExecutionUtilities.MergeTouched(touched, callStepResult.Touched);
                 OperationPhaseExecutionUtilities.MergeDiagnostics(diagnostics, callStepResult.Diagnostics);
+                persisted |= callStepResult.Persisted;
                 var touchedSnapshot = touched.ToArray();
                 var diagnosticsSnapshot = diagnostics.ToArray();
 
@@ -116,6 +120,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         Result = callStepResult.Result,
                         ReadInvalidations = callStepResult.ReadInvalidations,
                         Diagnostics = diagnosticsSnapshot,
+                        Persisted = persisted,
                         Contracts = contractFacts,
                     });
                     errors.Add(callStepResult.Failure!);
@@ -135,6 +140,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     Result = callStepResult.Result,
                     ReadInvalidations = callStepResult.ReadInvalidations,
                     Diagnostics = diagnosticsSnapshot,
+                    Persisted = persisted,
                     Contracts = contractFacts,
                 });
             }
