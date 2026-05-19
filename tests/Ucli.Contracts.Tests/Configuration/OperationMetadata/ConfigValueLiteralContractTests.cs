@@ -15,6 +15,15 @@ public sealed class ConfigValueLiteralContractTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void UcliOperationExposureValues_HasStableStringValues ()
+    {
+        Assert.Equal("public", UcliOperationExposureValues.Public);
+        Assert.Equal("editLoweringOnly", UcliOperationExposureValues.EditLoweringOnly);
+        Assert.Equal("internal", UcliOperationExposureValues.Internal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void ReadIndexModeValues_HasStableStringValues ()
     {
         Assert.Equal("disabled", ReadIndexModeValues.Disabled);

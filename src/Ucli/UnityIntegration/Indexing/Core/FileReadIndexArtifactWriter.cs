@@ -1,7 +1,6 @@
 using System.Text;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Contracts.Index;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Infrastructure.Cryptography;
 using MackySoft.Ucli.Infrastructure.Paths;
@@ -64,8 +63,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
         EnsureParentDirectory(opsCatalogPath);
         FileSystemAccessBoundary.EnsureSecureDirectory(opsDescribeDirectoryPath);
 
-        var orderedOperations = IndexJsonOrderingPolicy.OrderOpsEntries(operations.Where(static operation =>
-            !UcliOperationPublicCatalogRules.HasPublicRawCatalogExclusionMarker(operation.Assurance?.SideEffects)));
+        var orderedOperations = IndexJsonOrderingPolicy.OrderOpsEntries(operations);
         var catalogEntries = new List<IndexOpsCatalogEntryJsonContract>(orderedOperations.Count);
         var originalDescribeArtifacts = new Dictionary<string, string?>(StringComparer.Ordinal);
         var catalogWritten = false;

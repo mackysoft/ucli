@@ -243,6 +243,42 @@ public sealed class RequestStaticValidatorTests
         AssertContainsError(result, ValidationErrorCodes.OperationArgsInvalid);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(UcliOperationExposure.EditLoweringOnly, "available only through edit lowering")]
+    [InlineData(UcliOperationExposure.Internal, "internal")]
+    public async Task Validate_WhenRawOperationExposureIsNotPublic_AddsInvalidArgumentError (
+        UcliOperationExposure exposure,
+        string expectedMessageFragment)
+    {
+        var validator = CreateValidator();
+        var operationName = "ucli.tests.non-public";
+        var request = CreateRequest(
+            steps:
+            [
+                CreateOpStep("step-non-public", operationName, new
+                {
+                }),
+            ]);
+        var operations = new[]
+        {
+            CreateDescriptor(operationName, exposure: exposure),
+        };
+
+        var result = await validator.ValidateAsync(
+            request,
+            operations,
+            CreateConfig(OperationPolicy.Safe, "^ucli\\.tests\\."),
+            CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        AssertContainsError(result, UcliCoreErrorCodes.InvalidArgument);
+        Assert.Contains(
+            result.Errors,
+            error => error.Code == UcliCoreErrorCodes.InvalidArgument
+                     && error.Message.Contains(expectedMessageFragment, StringComparison.Ordinal));
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Validate_WhenCompSetSetsIsEmpty_ReturnsValidForStructureOnlySchema ()
@@ -1023,6 +1059,68 @@ public sealed class RequestStaticValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Validate_WhenEditLoweringReferencesEditLoweringOnlyOperation_ReturnsValidResult ()
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            steps:
+            [
+                CreateSceneEnsureEditStep("edit-comp-ensure"),
+            ]);
+        var operations = new[]
+        {
+            CreateDescriptor(
+                UcliPrimitiveOperationNames.CompEnsure,
+                policy: OperationPolicy.Advanced,
+                exposure: UcliOperationExposure.EditLoweringOnly),
+        };
+
+        var result = await validator.ValidateAsync(
+            request,
+            operations,
+            CreateConfig(OperationPolicy.Advanced, "^ucli\\.comp\\.ensure$"),
+            CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Errors);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Validate_WhenEditLoweringReferencesInternalOperation_AddsInvalidArgumentError ()
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            steps:
+            [
+                CreateSceneEnsureEditStep("edit-comp-ensure"),
+            ]);
+        var operations = new[]
+        {
+            CreateDescriptor(
+                UcliPrimitiveOperationNames.CompEnsure,
+                policy: OperationPolicy.Advanced,
+                exposure: UcliOperationExposure.Internal),
+        };
+
+        var result = await validator.ValidateAsync(
+            request,
+            operations,
+            CreateConfig(OperationPolicy.Advanced, "^ucli\\.comp\\.ensure$"),
+            CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        AssertContainsError(result, UcliCoreErrorCodes.InvalidArgument);
+        Assert.Contains(
+            result.Errors,
+            error => error.Code == UcliCoreErrorCodes.InvalidArgument
+                     && error.Message.Contains("internal", StringComparison.Ordinal)
+                     && error.Message.Contains("Edit step 'edit-comp-ensure'", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Validate_WhenPrefabMutationEditDisallowsPrefabOpen_RemainsValid ()
     {
         var validator = CreateValidator();
@@ -1247,6 +1345,47 @@ public sealed class RequestStaticValidatorTests
             StepId: stepId,
             Op: null,
             Element: document.RootElement.Clone());
+    }
+
+    private static ValidateRequestStep CreateSceneEnsureEditStep (string stepId)
+    {
+        return CreateEditStep(
+            stepId: stepId,
+            """
+            {
+              "kind": "edit",
+              "id": "__STEP_ID__",
+              "on": {
+                "scene": "Assets/Scenes/Main.unity"
+              },
+              "select": {
+                "gameObject": "Root/Spawner",
+                "cardinality": "one"
+              },
+              "actions": [
+                {
+                  "kind": "ensureComponent",
+                  "type": "UnityEngine.BoxCollider, UnityEngine.PhysicsModule"
+                }
+              ],
+              "commit": "none"
+            }
+            """.Replace("__STEP_ID__", stepId, StringComparison.Ordinal));
+    }
+
+    private static UcliOperationDescriptor CreateDescriptor (
+        string operationName,
+        UcliOperationKind kind = UcliOperationKind.Mutation,
+        OperationPolicy policy = OperationPolicy.Safe,
+        UcliOperationExposure exposure = UcliOperationExposure.Public)
+    {
+        return new UcliOperationDescriptor(
+            Name: operationName,
+            Kind: kind,
+            Policy: policy,
+            ArgsSchemaJson: """{"type":"object"}""",
+            ResultSchemaJson: null,
+            Exposure: exposure);
     }
 
     private static UcliConfig CreateConfig (

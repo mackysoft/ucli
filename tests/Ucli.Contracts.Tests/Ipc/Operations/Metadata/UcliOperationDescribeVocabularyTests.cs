@@ -377,17 +377,6 @@ public sealed class UcliOperationDescribeVocabularyTests
         Assert.False(mayPersist);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void PublicCatalogRules_HasPublicRawCatalogExclusionMarker_ReturnsTrueOnlyForArbitrarySourceExecution ()
-    {
-        Assert.True(UcliOperationPublicCatalogRules.HasPublicRawCatalogExclusionMarker(
-            [UcliOperationSideEffectValues.ArbitrarySourceExecution]));
-        Assert.False(UcliOperationPublicCatalogRules.HasPublicRawCatalogExclusionMarker(
-            [UcliOperationSideEffectValues.FilesystemWrite]));
-        Assert.False(UcliOperationPublicCatalogRules.HasPublicRawCatalogExclusionMarker(Array.Empty<string>()));
-    }
-
     public static IEnumerable<object[]> SideEffectMinimumPolicyCases
     {
         get

@@ -31,7 +31,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             var generatedAtUtc = DateTimeOffset.UtcNow;
             var operations = IndexJsonOrderingPolicy.OrderOpsEntries(registrations
-                .Where(static registration => IsPublicRawCatalogOperation(registration.Metadata.DescribeContract))
+                .Where(static registration => registration.Metadata.Exposure == UcliOperationExposure.Public)
                 .Select(static registration =>
                 {
                     var describeContract = registration.Metadata.DescribeContract;
@@ -55,17 +55,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 Catalog: new IpcOpsReadResponse(
                     GeneratedAtUtc: generatedAtUtc,
                     Operations: operations));
-        }
-
-        private static bool IsPublicRawCatalogOperation (UcliOperationDescribeContract describeContract)
-        {
-            var sideEffects = describeContract.Assurance?.SideEffects;
-            if (sideEffects == null)
-            {
-                return false;
-            }
-
-            return !UcliOperationPublicCatalogRules.HasPublicRawCatalogExclusionMarker(sideEffects);
         }
     }
 }

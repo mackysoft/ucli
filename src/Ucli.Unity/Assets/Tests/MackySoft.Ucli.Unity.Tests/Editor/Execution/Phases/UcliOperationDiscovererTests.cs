@@ -427,6 +427,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(
                 snapshot.Catalog.Operations!.Any(operation => operation.Name == UcliPrimitiveOperationNames.CsEval),
                 Is.False);
+            Assert.That(metadata.Exposure, Is.EqualTo(UcliOperationExposure.Internal));
             Assert.That(metadata.Kind, Is.EqualTo(UcliOperationKind.Mutation));
             Assert.That(metadata.Policy, Is.EqualTo(OperationPolicy.Dangerous));
             Assert.That(metadata.ArgsSchemaJson, Does.Contain("\"source\""));
@@ -455,6 +456,24 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "Log"));
             Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "LogError"));
             Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "LogWarning"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void BuildCatalog_WhenOperationExposureIsNotPublic_ExcludesFromPublicCatalogAndKeepsRegistration ()
+        {
+            var operation = new DiscoverableOperation();
+            var registrations = new[]
+            {
+                CreateRegistration("ucli.tests.public", UcliOperationExposure.Public, operation),
+                CreateRegistration("ucli.tests.edit-lowering-only", UcliOperationExposure.EditLoweringOnly, operation),
+                CreateRegistration("ucli.tests.internal", UcliOperationExposure.Internal, operation),
+            };
+
+            var snapshot = UcliOperationCatalogSnapshotBuilder.Build(registrations);
+
+            Assert.That(snapshot.Registrations.Count, Is.EqualTo(3));
+            Assert.That(snapshot.Catalog.Operations!.Select(static entry => entry.Name), Is.EquivalentTo(new[] { "ucli.tests.public" }));
         }
 
         [Test]
@@ -753,6 +772,20 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.Fail($"Operation metadata was not discovered: {operationName}");
             return null!;
+        }
+
+        private static UcliOperationRegistration CreateRegistration (
+            string operationName,
+            UcliOperationExposure exposure,
+            IUcliOperation operation)
+        {
+            return new UcliOperationRegistration(
+                UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+                    operationName: operationName,
+                    kind: UcliOperationKind.Query,
+                    describeContract: CreateDescribeContract(operationName),
+                    exposure: exposure),
+                operation);
         }
 
         private static string FindCatalogSchema (
