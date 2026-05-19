@@ -147,12 +147,12 @@ public sealed class PackageMetadataTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Agent_skills_builder_tool_manifest_pins_expected_package ()
+    public void Agent_skills_cli_tool_manifest_pins_expected_package ()
     {
         using JsonDocument document = JsonDocument.Parse(File.ReadAllText(Path.Combine(RepositoryRoot, ".config", "dotnet-tools.json")));
         JsonElement tool = document.RootElement
             .GetProperty("tools")
-            .GetProperty("mackysoft.agentskills.builder");
+            .GetProperty("mackysoft.agentskills.cli");
 
         Assert.Equal("0.1.0", tool.GetProperty("version").GetString());
         Assert.Contains(

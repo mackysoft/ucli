@@ -2,7 +2,7 @@
   "version": 1,
   "isRoot": true,
   "tools": {
-    "mackysoft.agentskills.builder": {
+    "mackysoft.agentskills.cli": {
       "version": "0.1.0",
       "commands": [
         "agent-skills"

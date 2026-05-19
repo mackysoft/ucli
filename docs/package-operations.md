@@ -70,7 +70,7 @@ SKILL の詳細な仕様、生成方針、責務境界は [uCLI-skills.md](uCLI-
 - `skills/generated/`: canonical generated output。CLI package、release artifact、install/export の配布元
 - host install target: project scope は `.claude/skills/`、`.github/skills/`、`.agents/skills/`、user scope は `~/.claude/skills`、`~/.copilot/skills`、`${CODEX_HOME}/skills` または `~/.codex/skills`
 
-`MackySoft.AgentSkills.Builder` version `0.1.0` は repository の `.config/dotnet-tools.json` で固定する。`MackySoft.Ucli` CLI package は `skills/generated/**` を package 内の `skills/**` として同梱する。`ucli skills list/export/install/update/uninstall/doctor` は canonical `agent-skill.json` を使って SKILL 配布物を扱う。公式 SKILL は選択した host 向けに一括で install / export し、SKILL ごとの host allowlist や個別導入 metadata は持たない。`ucli skills export --format zip` は GitHub Releases へ添付できる deterministic な release zip を生成する。
+`MackySoft.AgentSkills.Cli` version `0.1.0` は repository の `.config/dotnet-tools.json` で固定する。`MackySoft.Ucli` CLI package は `skills/generated/**` を package 内の `skills/**` として同梱する。`ucli skills list/export/install/update/uninstall/doctor` は canonical `agent-skill.json` を使って SKILL 配布物を扱う。公式 SKILL は選択した host 向けに一括で install / export し、SKILL ごとの host allowlist や個別導入 metadata は持たない。`ucli skills export --format zip` は GitHub Releases へ添付できる deterministic な release zip を生成する。
 
 ## Schema Artifact Distribution
 公開 schema artifact は repository root の `schemas/**` を canonical generated output とし、`MackySoft.Ucli` CLI package と GitHub Releases に同じ相対 path で含める。package / release 内の配置は repo と同じ `schemas/v1/cli-output/**`、`schemas/v1/request/**` とする。
