@@ -1,15 +1,15 @@
 using ConsoleAppFramework;
+using MackySoft.AgentSkills.Distribution;
+using MackySoft.AgentSkills.Hosts.Registration;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Skills.Distribution;
-using MackySoft.Ucli.Skills.Hosts.Registration;
 
 namespace MackySoft.Ucli.Hosting.Cli.Skills;
 
 /// <summary> Provides the skills export CLI command entry point. </summary>
 internal sealed class SkillsExportCommand
 {
-    private readonly OfficialSkillPackageProvider packageProvider;
+    private readonly SkillPackageProvider packageProvider;
     private readonly SkillHostAdapterSet hostAdapters;
     private readonly SkillExportService exportService;
     private readonly ICommandResultWriter commandResultWriter;
@@ -20,7 +20,7 @@ internal sealed class SkillsExportCommand
     /// <param name="exportService"> The SKILL export service. </param>
     /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     public SkillsExportCommand (
-        OfficialSkillPackageProvider packageProvider,
+        SkillPackageProvider packageProvider,
         SkillHostAdapterSet hostAdapters,
         SkillExportService exportService,
         ICommandResultWriter commandResultWriter)

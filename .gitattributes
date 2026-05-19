@@ -4,8 +4,9 @@
 # C# sources are formatted with LF based on .editorconfig.
 *.cs text eol=lf
 
-# Generated SKILL packages must compare byte-for-byte with generator output.
-skills/** text eol=lf
+# SKILL definitions and generated packages must compare byte-for-byte with generator output.
+skills/definitions/** text eol=lf
+skills/generated/** text eol=lf
 
 # Generated schema artifacts must compare byte-for-byte with generator output.
 schemas/** text eol=lf

@@ -23,7 +23,6 @@ public sealed class PublicSurfaceBoundaryTests
                 "src/Ucli.Application",
                 "src/Ucli.Contracts",
                 "src/Ucli.Infrastructure",
-                "src/Ucli.Skills",
             }
             .SelectMany(ArchitectureTestRepository.EnumerateCSharpSourceFiles);
 

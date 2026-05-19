@@ -32,11 +32,11 @@ tool_path="$(mktemp -d "${temp_root%/}/ucli-tool.XXXXXX")"
 install_repo=""
 trap 'rm -rf "${tool_path}" "${install_repo}"' EXIT
 
-# --source replaces configured feeds, ensuring the install exercises only the
-# nupkg built by this run.
+# The package directory must be available for the just-built CLI nupkg, while
+# configured feeds remain available for runtime package dependencies.
 dotnet tool install \
   --tool-path "${tool_path}" \
-  --source "${package_dir}" \
+  --add-source "${package_dir}" \
   MackySoft.Ucli \
   --version "${expected_version}"
 
@@ -63,14 +63,15 @@ package_schema_manifest_path="${tool_path}/package-schema-manifest.json"
 unzip -p "${package_path}" tools/net8.0/any/schemas/v1/schema-manifest.json > "${package_schema_manifest_path}"
 assert_json_manifest_package_version "${package_schema_manifest_path}" "${expected_version}" "CLI package schema manifest"
 
+generated_skills_root="${repo_root}/skills/generated"
 while IFS= read -r skill_file; do
-  relative_path="${skill_file#"${repo_root}/"}"
-  entry="tools/net8.0/any/${relative_path}"
+  relative_path="${skill_file#"${generated_skills_root}/"}"
+  entry="tools/net8.0/any/skills/${relative_path}"
   if ! grep -Fx "${entry}" <<< "${package_entries}" >/dev/null; then
     echo "CLI package is missing required generated SKILL entry: ${entry}" >&2
     exit 1
   fi
-done < <(find "${repo_root}/skills" -type f | sort)
+done < <(find "${generated_skills_root}" -type f | sort)
 
 while IFS= read -r schema_file; do
   relative_path="${schema_file#"${repo_root}/"}"
@@ -93,13 +94,13 @@ list_host_independent_skill_files() {
   local relative_path
 
   while IFS= read -r skill_file; do
-    relative_path="${skill_file#"${repo_root}/skills/"}"
+    relative_path="${skill_file#"${generated_skills_root}/"}"
     case "${relative_path}" in
-      */SKILL.md|*/ucli-skill.json|*/references/*)
+      */SKILL.md|*/agent-skill.json|*/references/*)
         printf '%s\n' "${relative_path}"
         ;;
     esac
-  done < <(find "${repo_root}/skills" -type f | sort)
+  done < <(find "${generated_skills_root}" -type f | sort)
 }
 
 skills_list="$("${tool_path}/ucli" skills list)"

@@ -21,6 +21,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="MackySoft.AgentSkills" Version="0.1.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
   </ItemGroup>
 
@@ -28,13 +29,12 @@
     <ProjectReference Include="../Ucli.Application/Ucli.Application.csproj" />
     <ProjectReference Include="../Ucli.Contracts/Ucli.Contracts.csproj" />
     <ProjectReference Include="../Ucli.Infrastructure/Ucli.Infrastructure.csproj" />
-    <ProjectReference Include="../Ucli.Skills/Ucli.Skills.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <None Include="../../README.md" Pack="true" PackagePath="" Link="README.md" />
 
-    <None Include="../../skills/**/*" LinkBase="skills">
+    <None Include="../../skills/generated/**/*" LinkBase="skills">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>

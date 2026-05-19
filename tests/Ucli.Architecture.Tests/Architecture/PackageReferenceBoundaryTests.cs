@@ -17,10 +17,10 @@ public sealed class PackageReferenceBoundaryTests
                 "System.Text.Json",
             ],
             ["src/Ucli.Infrastructure/Ucli.Infrastructure.csproj"] = [],
-            ["src/Ucli.Skills/Ucli.Skills.csproj"] = [],
             ["src/Ucli/Ucli.csproj"] =
             [
                 "ConsoleAppFramework",
+                "MackySoft.AgentSkills",
                 "Microsoft.Extensions.DependencyInjection",
             ],
         };
@@ -49,7 +49,6 @@ public sealed class PackageReferenceBoundaryTests
             ["tests/Ucli.Application.Tests/Ucli.Application.Tests.csproj"] = expectedTestPackages,
             ["tests/Ucli.Contracts.Tests/Ucli.Contracts.Tests.csproj"] = expectedTestPackages,
             ["tests/Ucli.Infrastructure.Tests/Ucli.Infrastructure.Tests.csproj"] = expectedTestPackages,
-            ["tests/Ucli.Skills.Tests/Ucli.Skills.Tests.csproj"] = expectedTestPackages,
             ["tests/Ucli.Tests/Ucli.Tests.csproj"] = expectedTestPackages,
         };
 
@@ -66,7 +65,6 @@ public sealed class PackageReferenceBoundaryTests
         var expectedPackagesByProject = new Dictionary<string, string[]>(StringComparer.Ordinal)
         {
             ["tools/Ucli.SchemaGenerator/Ucli.SchemaGenerator.csproj"] = [],
-            ["tools/Ucli.SkillGenerator/Ucli.SkillGenerator.csproj"] = [],
         };
 
         BoundaryAssertions.AssertAllowedItemsByPath(

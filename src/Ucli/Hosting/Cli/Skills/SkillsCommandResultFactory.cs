@@ -1,12 +1,13 @@
+using MackySoft.AgentSkills.Distribution;
+using MackySoft.AgentSkills.Doctor;
+using MackySoft.AgentSkills.Hosts.Registration;
+using MackySoft.AgentSkills.Installation.Results;
+using MackySoft.AgentSkills.Installation.Targeting;
+using MackySoft.AgentSkills.Packaging.Canonical;
+using MackySoft.AgentSkills.Shared;
 using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Skills.Distribution;
-using MackySoft.Ucli.Skills.Doctor;
-using MackySoft.Ucli.Skills.Hosts.Registration;
-using MackySoft.Ucli.Skills.Installation;
-using MackySoft.Ucli.Skills.Packaging;
-using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Hosting.Cli.Skills;
 

@@ -107,6 +107,7 @@
       "namespacePrefix": [
         "ConsoleAppFramework",
         "Cysharp.Threading.Tasks",
+        "MackySoft.AgentSkills",
         "Microsoft",
         "Newtonsoft.Json",
         "NUnit",
@@ -149,36 +150,6 @@
       ]
     },
     {
-      "name": "Skills",
-      "projectExact": [
-        "src/Ucli.Skills/Ucli.Skills.csproj"
-      ],
-      "assemblyExact": [
-        "MackySoft.Ucli.Skills"
-      ],
-      "namespacePrefix": [
-        "MackySoft.Ucli.Skills"
-      ],
-      "pathPrefix": [
-        "src/Ucli.Skills"
-      ]
-    },
-    {
-      "name": "SkillsTests",
-      "projectExact": [
-        "tests/Ucli.Skills.Tests/Ucli.Skills.Tests.csproj"
-      ],
-      "assemblyExact": [
-        "MackySoft.Ucli.Skills.Tests"
-      ],
-      "namespacePrefix": [
-        "MackySoft.Ucli.Skills.Tests"
-      ],
-      "pathPrefix": [
-        "tests/Ucli.Skills.Tests"
-      ]
-    },
-    {
       "name": "TestsHelper",
       "projectExact": [
         "tests/Tests.Helper/Tests.Helper.csproj"
@@ -196,16 +167,16 @@
     {
       "name": "Tools",
       "projectExact": [
-        "tools/Ucli.SkillGenerator/Ucli.SkillGenerator.csproj"
+        "tools/Ucli.SchemaGenerator/Ucli.SchemaGenerator.csproj"
       ],
       "assemblyExact": [
-        "MackySoft.Ucli.SkillGenerator"
+        "MackySoft.Ucli.SchemaGenerator"
       ],
       "namespacePrefix": [
-        "MackySoft.Ucli.SkillGenerator"
+        "MackySoft.Ucli.SchemaGenerator"
       ],
       "pathPrefix": [
-        "tools/Ucli.SkillGenerator"
+        "tools/Ucli.SchemaGenerator"
       ]
     },
     {
@@ -277,8 +248,7 @@
         "CliHost",
         "Contracts",
         "External",
-        "Infrastructure",
-        "Skills"
+        "Infrastructure"
       ]
     },
     {
@@ -334,22 +304,6 @@
       ]
     },
     {
-      "from": "Skills",
-      "to": [
-        "External",
-        "Skills"
-      ]
-    },
-    {
-      "from": "SkillsTests",
-      "to": [
-        "External",
-        "Skills",
-        "SkillsTests",
-        "TestsHelper"
-      ]
-    },
-    {
       "from": "TestsHelper",
       "to": [
         "External",
@@ -359,8 +313,8 @@
     {
       "from": "Tools",
       "to": [
+        "Contracts",
         "External",
-        "Skills",
         "Tools"
       ]
     },

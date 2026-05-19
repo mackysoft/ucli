@@ -1,16 +1,18 @@
 using ConsoleAppFramework;
+using MackySoft.AgentSkills.Distribution;
+using MackySoft.AgentSkills.Hosts.Registration;
+using MackySoft.AgentSkills.Installation.Requests;
+using MackySoft.AgentSkills.Installation.Services;
+using MackySoft.AgentSkills.Installation.Targeting;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Skills.Distribution;
-using MackySoft.Ucli.Skills.Hosts.Registration;
-using MackySoft.Ucli.Skills.Installation;
 
 namespace MackySoft.Ucli.Hosting.Cli.Skills;
 
 /// <summary> Provides the skills uninstall CLI command entry point. </summary>
 internal sealed class SkillsUninstallCommand
 {
-    private readonly OfficialSkillPackageProvider packageProvider;
+    private readonly SkillPackageProvider packageProvider;
     private readonly SkillHostAdapterSet hostAdapters;
     private readonly SkillUninstallService uninstallService;
     private readonly ICommandResultWriter commandResultWriter;
@@ -21,7 +23,7 @@ internal sealed class SkillsUninstallCommand
     /// <param name="uninstallService"> The SKILL uninstall service. </param>
     /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     public SkillsUninstallCommand (
-        OfficialSkillPackageProvider packageProvider,
+        SkillPackageProvider packageProvider,
         SkillHostAdapterSet hostAdapters,
         SkillUninstallService uninstallService,
         ICommandResultWriter commandResultWriter)
