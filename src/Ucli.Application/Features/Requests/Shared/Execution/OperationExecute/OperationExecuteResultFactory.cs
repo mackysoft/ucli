@@ -71,6 +71,7 @@ internal static class OperationExecuteResultFactory
     /// <param name="opResults"> The per-step execution results. </param>
     /// <param name="message"> The user-facing success message. </param>
     /// <param name="readPostcondition"> The emitted mutation read-postcondition payload. </param>
+    /// <param name="postReadSource"> The source facts used by post-read verification. </param>
     /// <returns> The normalized operation execution result. </returns>
     public static OperationExecuteResult Success (
         string requestId,
@@ -78,9 +79,10 @@ internal static class OperationExecuteResultFactory
         string message,
         OperationExecutionReadPostcondition? readPostcondition,
         ProjectIdentityInfo project,
-        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
+        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null,
+        OperationExecutionPostReadSource? postReadSource = null)
     {
-        return OperationExecuteResult.Success(requestId, opResults, message, readPostcondition, project, contractViolations);
+        return OperationExecuteResult.Success(requestId, opResults, message, readPostcondition, project, contractViolations, postReadSource);
     }
 
     /// <summary> Creates one failed operation execution result. </summary>
@@ -88,6 +90,7 @@ internal static class OperationExecuteResultFactory
     /// <param name="opResults"> The per-step execution results. </param>
     /// <param name="errors"> The machine-readable error list. </param>
     /// <param name="readPostcondition"> The emitted mutation read-postcondition payload. </param>
+    /// <param name="postReadSource"> The source facts used by post-read verification. </param>
     /// <returns> The normalized operation execution result. </returns>
     public static OperationExecuteResult Failure (
         string requestId,
@@ -95,7 +98,8 @@ internal static class OperationExecuteResultFactory
         IReadOnlyList<ApplicationFailure> errors,
         IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null,
         OperationExecutionReadPostcondition? readPostcondition = null,
-        ProjectIdentityInfo? project = null)
+        ProjectIdentityInfo? project = null,
+        OperationExecutionPostReadSource? postReadSource = null)
     {
         return Failure(
             requestId,
@@ -104,7 +108,8 @@ internal static class OperationExecuteResultFactory
             failureMessage: null,
             contractViolations,
             readPostcondition,
-            project);
+            project,
+            postReadSource);
     }
 
     /// <summary> Creates one failed operation execution result. </summary>
@@ -113,6 +118,7 @@ internal static class OperationExecuteResultFactory
     /// <param name="errors"> The machine-readable error list. </param>
     /// <param name="failureMessage"> The fallback user-facing failure message. </param>
     /// <param name="readPostcondition"> The emitted mutation read-postcondition payload. </param>
+    /// <param name="postReadSource"> The source facts used by post-read verification. </param>
     /// <returns> The normalized operation execution result. </returns>
     public static OperationExecuteResult Failure (
         string requestId,
@@ -121,7 +127,8 @@ internal static class OperationExecuteResultFactory
         string? failureMessage,
         IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null,
         OperationExecutionReadPostcondition? readPostcondition = null,
-        ProjectIdentityInfo? project = null)
+        ProjectIdentityInfo? project = null,
+        OperationExecutionPostReadSource? postReadSource = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
@@ -133,6 +140,7 @@ internal static class OperationExecuteResultFactory
             RequestFailureNormalizer.ResolveMessage(errors, failureMessage ?? DefaultFailureMessage),
             contractViolations,
             readPostcondition,
-            project);
+            project,
+            postReadSource);
     }
 }

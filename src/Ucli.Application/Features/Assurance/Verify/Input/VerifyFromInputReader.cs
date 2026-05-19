@@ -95,6 +95,12 @@ internal static class VerifyFromInputReader
             return Failure("The --from payload.opResults contains malformed operation results.", VerifyErrorCodes.VerifyInputPayloadInvalid);
         }
 
+        if (!TryReadPostReadSource(payload, out var postReadSourceByOpId)
+            || !TryAttachPostReadSource(opResults, postReadSourceByOpId, out opResults))
+        {
+            return Failure("The --from payload.postReadSource contains malformed or unaligned source facts.", VerifyErrorCodes.VerifyInputPayloadInvalid);
+        }
+
         if (!TryReadPostconditionRequirementCount(payload, out var readPostconditionRequirementCount))
         {
             return Failure("The --from payload.readPostcondition contains malformed requirements.", VerifyErrorCodes.VerifyInputPayloadInvalid);
@@ -160,10 +166,102 @@ internal static class VerifyFromInputReader
                 applied,
                 changed,
                 touchedElement.GetArrayLength(),
-                diagnostics));
+                diagnostics,
+                new VerifyFromPostReadSourceStep(
+                    opId,
+                    IpcExecutePostReadSourceKindNames.Operation,
+                    false,
+                    null,
+                    false,
+                    IpcExecuteExpectedPostStateNames.Unavailable)));
         }
 
         opResults = results;
+        return true;
+    }
+
+    private static bool TryReadPostReadSource (
+        JsonElement payload,
+        out IReadOnlyDictionary<string, VerifyFromPostReadSourceStep> postReadSourceByOpId)
+    {
+        postReadSourceByOpId = new Dictionary<string, VerifyFromPostReadSourceStep>(StringComparer.Ordinal);
+        if (!payload.TryGetProperty("postReadSource", out var postReadSourceElement)
+            || postReadSourceElement.ValueKind != JsonValueKind.Object
+            || !postReadSourceElement.TryGetProperty("schemaVersion", out var schemaVersionElement)
+            || schemaVersionElement.ValueKind != JsonValueKind.Number
+            || !schemaVersionElement.TryGetInt32(out var schemaVersion)
+            || schemaVersion != IpcExecutePostReadSource.CurrentSchemaVersion
+            || !postReadSourceElement.TryGetProperty("steps", out var stepsElement)
+            || stepsElement.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        var stepsByOpId = new Dictionary<string, VerifyFromPostReadSourceStep>(StringComparer.Ordinal);
+        foreach (var stepElement in stepsElement.EnumerateArray())
+        {
+            if (stepElement.ValueKind != JsonValueKind.Object
+                || !TryReadString(stepElement, "opId", out var opId)
+                || !TryReadString(stepElement, "sourceKind", out var sourceKind)
+                || !IsKnownPostReadSourceKind(sourceKind)
+                || !TryReadBoolean(stepElement, "playModeMutation", out var playModeMutation)
+                || !TryReadOptionalPostReadCommit(stepElement, out var commit)
+                || !TryReadBoolean(stepElement, "persistenceExpected", out var persistenceExpected)
+                || !TryReadString(stepElement, "expectedPostState", out var expectedPostState)
+                || !IsKnownExpectedPostState(expectedPostState)
+                || stepsByOpId.ContainsKey(opId))
+            {
+                return false;
+            }
+
+            stepsByOpId.Add(opId, new VerifyFromPostReadSourceStep(
+                opId,
+                sourceKind,
+                playModeMutation,
+                commit,
+                persistenceExpected,
+                expectedPostState));
+        }
+
+        postReadSourceByOpId = stepsByOpId;
+        return true;
+    }
+
+    private static bool TryAttachPostReadSource (
+        IReadOnlyList<VerifyFromOperationResult> opResults,
+        IReadOnlyDictionary<string, VerifyFromPostReadSourceStep> postReadSourceByOpId,
+        out IReadOnlyList<VerifyFromOperationResult> normalizedOpResults)
+    {
+        normalizedOpResults = [];
+        if (postReadSourceByOpId.Count != opResults.Count)
+        {
+            return false;
+        }
+
+        var normalizedResults = new VerifyFromOperationResult[opResults.Count];
+        for (var i = 0; i < opResults.Count; i++)
+        {
+            var opResult = opResults[i];
+            if (!postReadSourceByOpId.TryGetValue(opResult.OpId, out var sourceStep))
+            {
+                return false;
+            }
+
+            if (!IpcExecutePostReadSourceRules.IsCompatibleWithOperation(
+                    opResult.Op,
+                    sourceStep.SourceKind,
+                    sourceStep.PlayModeMutation,
+                    sourceStep.Commit,
+                    sourceStep.PersistenceExpected,
+                    sourceStep.ExpectedPostState))
+            {
+                return false;
+            }
+
+            normalizedResults[i] = opResult with { PostReadSource = sourceStep };
+        }
+
+        normalizedOpResults = normalizedResults;
         return true;
     }
 
@@ -260,6 +358,30 @@ internal static class VerifyFromInputReader
         return false;
     }
 
+    private static bool TryReadOptionalPostReadCommit (
+        JsonElement owner,
+        out string? value)
+    {
+        value = null;
+        if (!owner.TryGetProperty("commit", out var propertyElement))
+        {
+            return false;
+        }
+
+        if (propertyElement.ValueKind == JsonValueKind.Null)
+        {
+            return true;
+        }
+
+        if (propertyElement.ValueKind != JsonValueKind.String)
+        {
+            return false;
+        }
+
+        value = propertyElement.GetString();
+        return !string.IsNullOrWhiteSpace(value) && IsKnownPostReadCommit(value);
+    }
+
     private static bool TryReadKnownOperationPhase (
         JsonElement owner,
         string propertyName)
@@ -324,6 +446,26 @@ internal static class VerifyFromInputReader
         return surface is IpcExecuteReadPostconditionSurfaceNames.AssetSearch
             or IpcExecuteReadPostconditionSurfaceNames.GuidPath
             or IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite;
+    }
+
+    private static bool IsKnownPostReadSourceKind (string sourceKind)
+    {
+        return sourceKind is IpcExecutePostReadSourceKindNames.Edit
+            or IpcExecutePostReadSourceKindNames.Operation
+            or IpcExecutePostReadSourceKindNames.Refresh;
+    }
+
+    private static bool IsKnownPostReadCommit (string commit)
+    {
+        return commit is IpcExecutePostReadCommitNames.None
+            or IpcExecutePostReadCommitNames.Context
+            or IpcExecutePostReadCommitNames.Project;
+    }
+
+    private static bool IsKnownExpectedPostState (string expectedPostState)
+    {
+        return expectedPostState is IpcExecuteExpectedPostStateNames.Deterministic
+            or IpcExecuteExpectedPostStateNames.Unavailable;
     }
 
     private static VerifyFromInputReadResult Failure (

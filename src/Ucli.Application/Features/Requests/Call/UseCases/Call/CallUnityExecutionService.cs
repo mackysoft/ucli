@@ -155,6 +155,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             OpResults = convertedCallResponse.OpResults,
             ContractViolations = convertedCallResponse.ContractViolations,
             ReadPostcondition = convertedCallResponse.ReadPostcondition,
+            PostReadSource = convertedCallResponse.PostReadSource,
         };
         var postprocessedCallResponse = await ExecuteResponseReadPostconditionProcessor.PersistAsync(
                 convertedCallResponse,

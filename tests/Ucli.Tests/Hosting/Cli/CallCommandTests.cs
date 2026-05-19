@@ -92,6 +92,49 @@ public sealed class CallCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Call_WhenPostReadSourceExists_WritesTopLevelPayload ()
+    {
+        var service = new StubCallService((_, _) => ValueTask.FromResult(CallServiceResult.Success(
+            new CallExecutionOutput(
+                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                Project: ProjectIdentityInfoTestFactory.Create(),
+                OpResults:
+                [
+                    new OperationExecutionOperationResult(
+                        OpId: "step-1",
+                        Op: "edit",
+                        Phase: IpcExecuteOperationPhaseNames.Call,
+                        Applied: true,
+                        Changed: true,
+                        Touched: []),
+                ],
+                Plan: null,
+                ReadPostcondition: null,
+                PostReadSource: CreateEditPostReadSource()),
+            "uCLI call completed.")));
+        var preflightService = new StubCallCommandPreflightService((_, _, _) => throw new InvalidOperationException("Preflight should not be called."));
+        var command = new CallCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.CallAsync(
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
+            .HasProperty("postReadSource", postReadSource => postReadSource
+                .HasInt32("schemaVersion", 1)
+                .HasArrayLength("steps", 1)
+                .HasProperty("steps", 0, step => step
+                    .HasString("opId", "step-1")
+                    .HasString("sourceKind", IpcExecutePostReadSourceKindNames.Edit)
+                    .HasBoolean("playModeMutation", false)
+                    .HasString("commit", IpcExecutePostReadCommitNames.Context)
+                    .HasBoolean("persistenceExpected", true)
+                    .HasString("expectedPostState", IpcExecuteExpectedPostStateNames.Deterministic)));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Call_WhenContractViolationExists_MatchesGolden ()
     {
         var contractViolations = new[]
@@ -231,6 +274,21 @@ public sealed class CallCommandTests
             ExpectedFact: "assurance.mayDirty=false",
             ObservedResult: "opResults[].changed=true",
             ApplicationState: applicationState);
+    }
+
+    private static OperationExecutionPostReadSource CreateEditPostReadSource ()
+    {
+        return new OperationExecutionPostReadSource(
+            IpcExecutePostReadSource.CurrentSchemaVersion,
+            [
+                new OperationExecutionPostReadSourceStep(
+                    OpId: "step-1",
+                    SourceKind: IpcExecutePostReadSourceKindNames.Edit,
+                    PlayModeMutation: false,
+                    Commit: IpcExecutePostReadCommitNames.Context,
+                    PersistenceExpected: true,
+                    ExpectedPostState: IpcExecuteExpectedPostStateNames.Deterministic),
+            ]);
     }
 
     private sealed class StubCallCommandPreflightService : ICallCommandPreflightService

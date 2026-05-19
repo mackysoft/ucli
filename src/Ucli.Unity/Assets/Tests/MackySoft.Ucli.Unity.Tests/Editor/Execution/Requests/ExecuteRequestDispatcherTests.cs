@@ -164,6 +164,65 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenRequestStepsCarryPostReadSource_MapsAlignedSourceFactsToPayload () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest(
+                ("raw-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen),
+                ("refresh", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh));
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: normalizedRequest.ProtocolVersion,
+                requestId: normalizedRequest.RequestId,
+                steps: CreateTraceSteps(normalizedRequest),
+                operationTraces: new[]
+                {
+                    new OperationPhaseTrace(
+                        "raw-1",
+                        MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen,
+                        OperationPhase.Call,
+                        true,
+                        true,
+                        Array.Empty<OperationTouch>(),
+                        null),
+                    new OperationPhaseTrace(
+                        "refresh",
+                        MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                        OperationPhase.Call,
+                        true,
+                        true,
+                        Array.Empty<OperationTouch>(),
+                        null),
+                }));
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Call,
+                failFast: false,
+                planToken: null,
+                ("raw-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen),
+                ("refresh", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh));
+
+            var response = await DispatchAsync(dispatcher, request, context, "Post-read source payload mapping");
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            var steps = response.Payload.GetProperty("postReadSource").GetProperty("steps");
+            Assert.That(steps.GetArrayLength(), Is.EqualTo(2));
+            var rawSource = GetArrayElement(steps, 0);
+            Assert.That(rawSource.GetProperty("opId").GetString(), Is.EqualTo("raw-1"));
+            Assert.That(rawSource.GetProperty("sourceKind").GetString(), Is.EqualTo(IpcExecutePostReadSourceKindNames.Operation));
+            Assert.That(rawSource.GetProperty("commit").ValueKind, Is.EqualTo(JsonValueKind.Null));
+            Assert.That(rawSource.GetProperty("persistenceExpected").GetBoolean(), Is.False);
+            Assert.That(rawSource.GetProperty("expectedPostState").GetString(), Is.EqualTo(IpcExecuteExpectedPostStateNames.Unavailable));
+            var refreshSource = GetArrayElement(steps, 1);
+            Assert.That(refreshSource.GetProperty("opId").GetString(), Is.EqualTo("refresh"));
+            Assert.That(refreshSource.GetProperty("sourceKind").GetString(), Is.EqualTo(IpcExecutePostReadSourceKindNames.Refresh));
+            Assert.That(refreshSource.GetProperty("commit").ValueKind, Is.EqualTo(JsonValueKind.Null));
+            Assert.That(refreshSource.GetProperty("persistenceExpected").GetBoolean(), Is.True);
+            Assert.That(refreshSource.GetProperty("expectedPostState").GetString(), Is.EqualTo(IpcExecuteExpectedPostStateNames.Unavailable));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Dispatch_WhenMayDirtyFalseButChangedTrue_ReportsContractViolation () => UniTask.ToCoroutine(async () =>
         {
             var normalizedRequest = CreateNormalizedRequest(
@@ -1156,6 +1215,12 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(opResult.GetProperty("applied").GetBoolean(), Is.False);
             Assert.That(opResult.GetProperty("changed").GetBoolean(), Is.False);
             Assert.That(opResult.GetProperty("touched").GetArrayLength(), Is.EqualTo(0));
+            var sourceStep = GetSingleArrayElement(response.Payload.GetProperty("postReadSource").GetProperty("steps"));
+            Assert.That(sourceStep.GetProperty("opId").GetString(), Is.EqualTo("edit-1"));
+            Assert.That(sourceStep.GetProperty("sourceKind").GetString(), Is.EqualTo(IpcExecutePostReadSourceKindNames.Edit));
+            Assert.That(sourceStep.GetProperty("commit").GetString(), Is.EqualTo(IpcExecutePostReadCommitNames.None));
+            Assert.That(sourceStep.GetProperty("persistenceExpected").GetBoolean(), Is.False);
+            Assert.That(sourceStep.GetProperty("expectedPostState").GetString(), Is.EqualTo(IpcExecuteExpectedPostStateNames.Deterministic));
         });
 
         [UnityTest]
@@ -1266,6 +1331,25 @@ namespace MackySoft.Ucli.Unity.Tests
             var first = enumerator.Current;
             Assert.That(enumerator.MoveNext(), Is.False);
             return first;
+        }
+
+        private static JsonElement GetArrayElement (
+            JsonElement arrayElement,
+            int index)
+        {
+            var currentIndex = 0;
+            foreach (var element in arrayElement.EnumerateArray())
+            {
+                if (currentIndex == index)
+                {
+                    return element;
+                }
+
+                currentIndex++;
+            }
+
+            Assert.Fail($"Array element at index {index} was not found.");
+            return default;
         }
 
         private static UniTask<IpcResponse> DispatchAsync (
@@ -1438,10 +1522,40 @@ namespace MackySoft.Ucli.Unity.Tests
                     Id: sourceStep.Id!,
                     Kind: sourceStep.Kind ?? IpcRequestStepKind.Op,
                     OperationName: isEditStep ? "edit" : sourceStep.OperationName!,
-                    PrimitiveCount: isEditStep ? editPrimitiveCount : 1);
+                    PrimitiveCount: isEditStep ? editPrimitiveCount : 1)
+                {
+                    PostReadSourceStep = CreatePostReadSourceStep(sourceStep, isEditStep),
+                };
             }
 
             return steps;
+        }
+
+        private static IpcExecutePostReadSourceStep CreatePostReadSourceStep (
+            IpcRequestContractStep sourceStep,
+            bool isEditStep)
+        {
+            if (isEditStep)
+            {
+                return new IpcExecutePostReadSourceStep(
+                    OpId: sourceStep.Id!,
+                    SourceKind: IpcExecutePostReadSourceKindNames.Edit,
+                    PlayModeMutation: false,
+                    Commit: IpcExecutePostReadCommitNames.None,
+                    PersistenceExpected: false,
+                    ExpectedPostState: IpcExecuteExpectedPostStateNames.Deterministic);
+            }
+
+            var sourceKind = string.Equals(sourceStep.OperationName, UcliPrimitiveOperationNames.ProjectRefresh, StringComparison.Ordinal)
+                ? IpcExecutePostReadSourceKindNames.Refresh
+                : IpcExecutePostReadSourceKindNames.Operation;
+            return new IpcExecutePostReadSourceStep(
+                OpId: sourceStep.Id!,
+                SourceKind: sourceKind,
+                PlayModeMutation: false,
+                Commit: null,
+                PersistenceExpected: string.Equals(sourceKind, IpcExecutePostReadSourceKindNames.Refresh, StringComparison.Ordinal),
+                ExpectedPostState: IpcExecuteExpectedPostStateNames.Unavailable);
         }
 
         private static OperationPhaseTrace[] CreateDefaultOperationTraces (NormalizedExecuteRequest request)

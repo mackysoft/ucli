@@ -24,6 +24,9 @@
     },
     "readPostcondition": {
       "type": "object"
+    },
+    "postReadSource": {
+      "$ref": "../defs/post-read-source.schema.json"
     }
   }
 }

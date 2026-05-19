@@ -169,8 +169,26 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 Project = project,
                 PlanToken = planToken,
                 ReadPostcondition = CreateReadPostcondition(operationTraces, issuedAtUtc),
+                PostReadSource = CreatePostReadSource(steps),
                 ContractViolations = contractViolations.Count == 0 ? null : contractViolations,
             };
+        }
+
+        private static IpcExecutePostReadSource? CreatePostReadSource (IReadOnlyList<Execution.Requests.NormalizedRequestStep> steps)
+        {
+            var sourceSteps = new List<IpcExecutePostReadSourceStep>(steps.Count);
+            for (var stepIndex = 0; stepIndex < steps.Count; stepIndex++)
+            {
+                var sourceStep = steps[stepIndex].PostReadSourceStep;
+                if (sourceStep == null)
+                {
+                    continue;
+                }
+
+                sourceSteps.Add(sourceStep);
+            }
+
+            return new IpcExecutePostReadSource(IpcExecutePostReadSource.CurrentSchemaVersion, sourceSteps.ToArray());
         }
 
         /// <summary>

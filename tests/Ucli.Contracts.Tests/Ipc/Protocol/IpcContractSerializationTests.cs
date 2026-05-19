@@ -932,6 +932,52 @@ public sealed class IpcContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IpcExecuteResponse_SerializesPostReadSourceContract ()
+    {
+        var response = new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>())
+        {
+            PostReadSource = new IpcExecutePostReadSource(
+                IpcExecutePostReadSource.CurrentSchemaVersion,
+                [
+                    new IpcExecutePostReadSourceStep(
+                        OpId: "edit-1",
+                        SourceKind: IpcExecutePostReadSourceKindNames.Edit,
+                        PlayModeMutation: false,
+                        Commit: IpcExecutePostReadCommitNames.Context,
+                        PersistenceExpected: true,
+                        ExpectedPostState: IpcExecuteExpectedPostStateNames.Deterministic),
+                    new IpcExecutePostReadSourceStep(
+                        OpId: "op-1",
+                        SourceKind: IpcExecutePostReadSourceKindNames.Operation,
+                        PlayModeMutation: false,
+                        Commit: null,
+                        PersistenceExpected: false,
+                        ExpectedPostState: IpcExecuteExpectedPostStateNames.Unavailable),
+                ]),
+        };
+
+        using var jsonDocument = JsonDocument.Parse(JsonSerializer.Serialize(response, SerializerOptions));
+        JsonAssert.For(jsonDocument.RootElement)
+            .HasProperty("postReadSource", postReadSource => postReadSource
+                .HasInt32("schemaVersion", 1)
+                .HasArrayLength("steps", 2)
+                .HasProperty("steps", 0, step => step
+                    .HasString("opId", "edit-1")
+                    .HasString("sourceKind", IpcExecutePostReadSourceKindNames.Edit)
+                    .HasBoolean("playModeMutation", false)
+                    .HasString("commit", IpcExecutePostReadCommitNames.Context)
+                    .HasBoolean("persistenceExpected", true)
+                    .HasString("expectedPostState", IpcExecuteExpectedPostStateNames.Deterministic))
+                .HasProperty("steps", 1, step => step
+                    .HasString("opId", "op-1")
+                    .HasString("sourceKind", IpcExecutePostReadSourceKindNames.Operation)
+                    .IsNull("commit")
+                    .HasBoolean("persistenceExpected", false)
+                    .HasString("expectedPostState", IpcExecuteExpectedPostStateNames.Unavailable)));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcExecuteResponse_SerializesContractViolationsContract ()
     {
         var response = new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>())
@@ -968,6 +1014,7 @@ public sealed class IpcContractSerializationTests
         Assert.True(jsonElement.TryGetProperty("project", out _));
         Assert.False(jsonElement.TryGetProperty("planToken", out _));
         Assert.False(jsonElement.TryGetProperty("readPostcondition", out _));
+        Assert.False(jsonElement.TryGetProperty("postReadSource", out _));
         Assert.False(jsonElement.TryGetProperty("contractViolations", out _));
     }
 

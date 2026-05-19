@@ -19,7 +19,8 @@ internal static class CallExecutionOutputFactory
             Project: ProjectIdentityInfo.From(preparedRequest.ProjectContext.UnityProject),
             OpResults: [],
             Plan: null,
-            ReadPostcondition: null);
+            ReadPostcondition: null,
+            PostReadSource: null);
     }
 
     /// <summary> Tries to create the base call payload for failure projection. </summary>

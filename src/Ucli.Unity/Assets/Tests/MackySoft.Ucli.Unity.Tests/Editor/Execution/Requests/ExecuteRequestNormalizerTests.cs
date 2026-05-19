@@ -60,13 +60,59 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(normalizedRequest.SourceSteps.Count, Is.EqualTo(1));
             Assert.That(normalizedRequest.SourceSteps[0].Kind, Is.EqualTo(IpcRequestStepKind.Op));
             Assert.That(normalizedRequest.SourceSteps[0].OperationName, Is.EqualTo(UcliPrimitiveOperationNames.Resolve));
-            var (_, compiledOperations) = CompileSingleStep(normalizedRequest, 0);
+            var (compiledStep, compiledOperations) = CompileSingleStep(normalizedRequest, 0);
             Assert.That(compiledOperations[0].AllowRequestLocalAliases, Is.False);
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasPostReadSourceStep(
+                    IpcExecutePostReadSourceKindNames.Operation,
+                    null,
+                    false,
+                    IpcExecuteExpectedPostStateNames.Unavailable);
 
             var canonicalPayload = Encoding.UTF8.GetString(normalizedRequest.CanonicalDigestPayloadUtf8.ToArray());
             Assert.That(canonicalPayload, Does.Not.Contain("requestId"));
             Assert.That(canonicalPayload, Does.Contain("\"protocolVersion\":1"));
             Assert.That(canonicalPayload, Does.Contain("\"steps\""));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenProjectRefreshOpRequestIsValid_CompilesRefreshPostReadSourceStep ()
+        {
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new[]
+                    {
+                        new
+                        {
+                            kind = "op",
+                            id = "refresh",
+                            op = UcliPrimitiveOperationNames.ProjectRefresh,
+                            args = new
+                            {
+                            },
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Error, Is.Null);
+
+            var normalizedRequest = result.Request!;
+            var (compiledStep, compiledOperations) = CompileSingleStep(normalizedRequest, 0);
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasOperationNames(UcliPrimitiveOperationNames.ProjectRefresh)
+                .HasPostReadSourceStep(
+                    IpcExecutePostReadSourceKindNames.Refresh,
+                    null,
+                    true,
+                    IpcExecuteExpectedPostStateNames.Unavailable);
         }
 
         [Test]
@@ -142,7 +188,12 @@ namespace MackySoft.Ucli.Unity.Tests
                     "edit",
                     UcliPrimitiveOperationNames.CompEnsure,
                     UcliPrimitiveOperationNames.CompSet,
-                    UcliPrimitiveOperationNames.SceneSave);
+                    UcliPrimitiveOperationNames.SceneSave)
+                .HasPostReadSourceStep(
+                    IpcExecutePostReadSourceKindNames.Edit,
+                    IpcExecutePostReadCommitNames.Context,
+                    true,
+                    IpcExecuteExpectedPostStateNames.Deterministic);
         }
 
         [Test]
