@@ -6,10 +6,6 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Semantics;
 /// <summary> Validates cross-field semantic invariants in assurance command payloads. </summary>
 internal sealed class AssuranceSemanticInvariantValidator
 {
-    private const string VerdictPass = "pass";
-    private const string VerdictFail = "fail";
-    private const string VerdictIncomplete = "incomplete";
-
     private readonly ICodeCatalog codeCatalog;
 
     private readonly IReadOnlyList<IAssuranceSemanticInvariantRule> rules;
@@ -428,26 +424,24 @@ internal sealed class AssuranceSemanticInvariantValidator
         IReadOnlyList<ClaimInfo> claims,
         IReadOnlyList<ResidualRiskInfo> payloadResidualRisks)
     {
-        if (payloadResidualRisks.Any(static risk => risk.Blocking)
-            || claims.Any(static claim => claim.ResidualRisks.Any(static risk => risk.Blocking)))
+        var claimStates = new AssuranceVerdictClaimState[claims.Count];
+        for (var i = 0; i < claims.Count; i++)
         {
-            return VerdictFail;
+            var claim = claims[i];
+            claimStates[i] = new AssuranceVerdictClaimState(
+                claim.Status,
+                claim.Coverage,
+                claim.Required,
+                claim.ResidualRisks.Any(static risk => risk.Blocking));
         }
 
-        var requiredClaims = claims.Where(static claim => claim.Required).ToArray();
-        if (requiredClaims.Any(static claim => string.Equals(claim.Status, "failed", StringComparison.Ordinal)))
+        var residualRiskStates = new AssuranceVerdictResidualRiskState[payloadResidualRisks.Count];
+        for (var i = 0; i < payloadResidualRisks.Count; i++)
         {
-            return VerdictFail;
+            residualRiskStates[i] = new AssuranceVerdictResidualRiskState(payloadResidualRisks[i].Blocking);
         }
 
-        if (requiredClaims.Any(static claim =>
-                !string.Equals(claim.Status, "passed", StringComparison.Ordinal)
-                || !string.Equals(claim.Coverage, "full", StringComparison.Ordinal)))
-        {
-            return VerdictIncomplete;
-        }
-
-        return VerdictPass;
+        return AssuranceVerdictCalculator.Calculate(claimStates, residualRiskStates);
     }
 
     private static bool TryReadRequiredString (
