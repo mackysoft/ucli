@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Contracts.Text;
@@ -136,6 +137,16 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                     if ((operationsByName != null)
                         && operationsByName.TryGetValue(normalizedOperationName, out var operationDescriptor))
                     {
+                        if (TryCreateExposureValidationError(
+                                operationDescriptor,
+                                normalizedStepId,
+                                isImplicitEditOperation: false,
+                                out var exposureError))
+                        {
+                            errors.Add(exposureError!);
+                            continue;
+                        }
+
                         var argsValidationFailure = TryValidateOperationArgs(
                             step,
                             normalizedStepId,
@@ -285,6 +296,16 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
             return;
         }
 
+        if (TryCreateExposureValidationError(
+                descriptor,
+                stepId,
+                isImplicitEditOperation,
+                out var exposureError))
+        {
+            errors.Add(exposureError!);
+            return;
+        }
+
         if (!authorizationCache.TryGetValue(operationName, out var authorizationResult))
         {
             authorizationResult = await operationAuthorizationService
@@ -303,5 +324,41 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
             Message: message,
             OpId: stepId));
         }
+    }
+
+    private static bool TryCreateExposureValidationError (
+        UcliOperationDescriptor operation,
+        string? stepId,
+        bool isImplicitEditOperation,
+        out ValidationError? error)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+
+        if (operation.Exposure == UcliOperationExposure.Public)
+        {
+            error = null;
+            return false;
+        }
+
+        if (operation.Exposure == UcliOperationExposure.EditLoweringOnly
+            && isImplicitEditOperation)
+        {
+            error = null;
+            return false;
+        }
+
+        var message = operation.Exposure == UcliOperationExposure.EditLoweringOnly
+            ? $"Operation '{operation.Name}' is available only through edit lowering."
+            : $"Operation '{operation.Name}' is internal and is not available through public requests.";
+        if (isImplicitEditOperation)
+        {
+            message = $"Edit step '{stepId ?? string.Empty}' requires operation '{operation.Name}'. {message}";
+        }
+
+        error = new ValidationError(
+            Code: UcliCoreErrorCodes.InvalidArgument,
+            Message: message,
+            OpId: stepId);
+        return true;
     }
 }

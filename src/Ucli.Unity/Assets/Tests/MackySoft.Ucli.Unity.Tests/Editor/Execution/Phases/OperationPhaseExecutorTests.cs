@@ -21,6 +21,8 @@ using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.PlanToken;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using NUnit.Framework;
+using UnityEditor.SceneManagement;
+using UnityEngine;
 using UnityEngine.TestTools;
 
 #nullable enable
@@ -236,6 +238,24 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Execute_WhenPlanStepPersists_PreservesPersistenceEvidence () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false).WithPersistence(),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: false));
+            var executor = CreateExecutor(operation);
+            var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Plan, request, "Plan persistence evidence execution");
+
+            Assert.That(trace.IsSuccess, Is.True);
+            Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Plan));
+            Assert.That(trace.OperationTraces[0].Persisted, Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Execute_WhenCommandIsCall_ExecutesValidatePlanAndCall () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
@@ -256,6 +276,67 @@ namespace MackySoft.Ucli.Unity.Tests
             CollectionAssert.AreEqual(
                 new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
                 trace.OperationTraces[0].Contracts!.TouchedKinds);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhenCallStepPersists_PreservesPersistenceEvidence () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: false).WithPersistence());
+            var executor = CreateExecutor(operation);
+            var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Call persistence evidence execution");
+
+            Assert.That(trace.IsSuccess, Is.True);
+            Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Call));
+            Assert.That(trace.OperationTraces[0].Persisted, Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhenReplayPlanStepPersists_PreservesPersistenceEvidence () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false).WithPersistence(),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: false),
+                requiresPreCallPlanReplay: true);
+            var executor = CreateExecutor(operation);
+            var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Replay persistence evidence execution");
+
+            Assert.That(trace.IsSuccess, Is.True);
+            Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Call));
+            Assert.That(trace.OperationTraces[0].Persisted, Is.True);
+            CollectionAssert.AreEqual(
+                new[] { OperationPhase.Validate, OperationPhase.Plan, OperationPhase.Plan, OperationPhase.Call },
+                operation.CalledPhases);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhenFailingCallStepPersists_PreservesPersistenceEvidence () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(),
+                callResult: OperationPhaseStepResult.Failed(
+                    new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "call failed", "op-1"),
+                    applied: true,
+                    changed: true).WithPersistence());
+            var executor = CreateExecutor(operation);
+            var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Failing call persistence evidence execution");
+
+            Assert.That(trace.IsSuccess, Is.False);
+            Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Call));
+            Assert.That(trace.OperationTraces[0].Persisted, Is.True);
         });
 
         [UnityTest]
@@ -403,14 +484,41 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Execute_WhenOperationHasPublicRawCatalogExclusionMarker_DoesNotExecuteValidatePlanOrCallPhase () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Execute_WhenRawOperationIsEditLoweringOnly_DoesNotExecuteValidatePlanOrCallPhase () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
                 policy: OperationPolicy.Dangerous,
-                sideEffects: new[] { UcliOperationSideEffect.ArbitrarySourceExecution });
+                exposure: UcliOperationExposure.EditLoweringOnly);
+            var executor = new OperationPhaseExecutor(CreateRegistry(("ucli.tests.edit-lowering-only", operation)));
+            var request = CreateRequest(
+                operations: new[] { ("op-1", "ucli.tests.edit-lowering-only") },
+                planToken: null,
+                canonicalPayloadJson: "{}",
+                allowDangerous: true);
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Edit-only raw operation denied execution");
+
+            Assert.That(trace.IsSuccess, Is.False);
+            Assert.That(trace.Errors.Count, Is.EqualTo(1));
+            Assert.That(trace.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(trace.Errors[0].Message, Does.Contain("available only through edit lowering"));
+            Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Validate));
+            CollectionAssert.IsEmpty(operation.CalledPhases);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhenInternalRawOperationAllowsDangerous_DoesNotExecuteValidatePlanOrCallPhase () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
+                policy: OperationPolicy.Dangerous,
+                exposure: UcliOperationExposure.Internal);
             var executor = new OperationPhaseExecutor(CreateRegistry(("ucli.tests.internal", operation)));
             var request = CreateRequest(
                 operations: new[] { ("op-1", "ucli.tests.internal") },
@@ -418,14 +526,106 @@ namespace MackySoft.Ucli.Unity.Tests
                 canonicalPayloadJson: "{}",
                 allowDangerous: true);
 
-            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Public raw exclusion denied execution");
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Internal raw operation denied execution");
 
             Assert.That(trace.IsSuccess, Is.False);
             Assert.That(trace.Errors.Count, Is.EqualTo(1));
-            Assert.That(trace.Errors[0].Code, Is.EqualTo(OperationAuthorizationErrorCodes.OperationNotAllowed));
-            Assert.That(trace.Errors[0].Message, Does.Contain("not available as a public raw operation"));
+            Assert.That(trace.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(trace.Errors[0].Message, Does.Contain("internal"));
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Validate));
             CollectionAssert.IsEmpty(operation.CalledPhases);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhenPlanRawOperationIsEditLoweringOnly_DoesNotIssuePlanTokenOrExecutePhase () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
+                exposure: UcliOperationExposure.EditLoweringOnly);
+            var coordinator = new StubPlanTokenCoordinator(
+                issueResultFactory: _ => PlanTokenIssueResult.Success("unused-token"),
+                requestValidationResultFactory: _ => PlanTokenValidationResult.Success(),
+                validationResultFactory: _ => PlanTokenValidationResult.Success());
+            var executor = new OperationPhaseExecutor(
+                CreateRegistry(("ucli.tests.edit-lowering-only", operation)),
+                coordinator);
+            var request = CreateRequest("op-1", "ucli.tests.edit-lowering-only");
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Plan, request, "Edit-only raw operation plan denied execution");
+
+            Assert.That(trace.IsSuccess, Is.False);
+            Assert.That(trace.Errors.Count, Is.EqualTo(1));
+            Assert.That(trace.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(trace.Errors[0].Message, Does.Contain("available only through edit lowering"));
+            Assert.That(trace.PlanToken, Is.Null);
+            Assert.That(coordinator.IssueCallCount, Is.EqualTo(0));
+            CollectionAssert.IsEmpty(operation.CalledPhases);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhenPlanRawOperationIsInternal_DoesNotIssuePlanTokenOrExecutePhase () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
+                exposure: UcliOperationExposure.Internal);
+            var coordinator = new StubPlanTokenCoordinator(
+                issueResultFactory: _ => PlanTokenIssueResult.Success("unused-token"),
+                requestValidationResultFactory: _ => PlanTokenValidationResult.Success(),
+                validationResultFactory: _ => PlanTokenValidationResult.Success());
+            var executor = new OperationPhaseExecutor(
+                CreateRegistry(("ucli.tests.internal", operation)),
+                coordinator);
+            var request = CreateRequest("op-1", "ucli.tests.internal");
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Plan, request, "Internal raw operation plan denied execution");
+
+            Assert.That(trace.IsSuccess, Is.False);
+            Assert.That(trace.Errors.Count, Is.EqualTo(1));
+            Assert.That(trace.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(trace.Errors[0].Message, Does.Contain("internal"));
+            Assert.That(trace.PlanToken, Is.Null);
+            Assert.That(coordinator.IssueCallCount, Is.EqualTo(0));
+            CollectionAssert.IsEmpty(operation.CalledPhases);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhenEditLoweringProducesEditLoweringOnlyOperation_ExecutesCallPhase () => UniTask.ToCoroutine(async () =>
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(OperationPhaseExecutorTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var operation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
+                exposure: UcliOperationExposure.EditLoweringOnly);
+            var executor = new OperationPhaseExecutor(CreateRegistry((UcliPrimitiveOperationNames.CompEnsure, operation)));
+            var request = CreateEditRequest(
+                stepId: "edit-1",
+                stepJson: "{"
+                    + "\"kind\":\"edit\","
+                    + "\"id\":\"edit-1\","
+                    + "\"on\":{\"scene\":\"" + scenePath + "\"},"
+                    + "\"select\":{\"gameObject\":\"Root\",\"cardinality\":\"one\"},"
+                    + "\"actions\":[{\"kind\":\"ensureComponent\",\"type\":\"UnityEngine.BoxCollider, UnityEngine.PhysicsModule\"}],"
+                    + "\"commit\":\"none\""
+                    + "}");
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Edit lowering allowed edit-only operation");
+
+            Assert.That(trace.IsSuccess, Is.True, trace.Errors.Count > 0 ? trace.Errors[0].Message : string.Empty);
+            CollectionAssert.AreEqual(
+                new[] { OperationPhase.Validate, OperationPhase.Plan, OperationPhase.Call },
+                operation.CalledPhases);
         });
 
         [UnityTest]
@@ -1110,7 +1310,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         describeContract: operations[i].Operation.Metadata.DescribeContract,
                         argsType: operations[i].Operation.Metadata.ArgsType,
                         resultType: operations[i].Operation.Metadata.ResultType,
-                        requiresPreCallPlanReplay: operations[i].Operation.Metadata.RequiresPreCallPlanReplay),
+                        requiresPreCallPlanReplay: operations[i].Operation.Metadata.RequiresPreCallPlanReplay,
+                        exposure: operations[i].Operation.Metadata.Exposure),
                     operations[i].Operation);
             }
 
@@ -1220,6 +1421,27 @@ namespace MackySoft.Ucli.Unity.Tests
                 AllowDangerous: allowDangerous,
                 PlanToken: planToken,
                 CanonicalDigestPayloadUtf8: Encoding.UTF8.GetBytes(canonicalPayloadJson));
+        }
+
+        private static NormalizedExecuteRequest CreateEditRequest (
+            string stepId,
+            string stepJson)
+        {
+            using var document = JsonDocument.Parse(stepJson);
+            return new NormalizedExecuteRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                SourceSteps: new[]
+                {
+                    new IpcRequestContractStep(
+                        Kind: IpcRequestStepKind.Edit,
+                        Id: stepId,
+                        OperationName: null,
+                        Element: document.RootElement.Clone()),
+                },
+                AllowDangerous: false,
+                PlanToken: null,
+                CanonicalDigestPayloadUtf8: Encoding.UTF8.GetBytes("{}"));
         }
 
         private static NormalizedOperation CreateNormalizedOperation (
@@ -1582,7 +1804,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationPolicy policy = OperationPolicy.Safe,
                 UcliOperationKind kind = UcliOperationKind.Mutation,
                 UcliOperationAssuranceContract? assurance = null,
-                IReadOnlyList<UcliOperationSideEffect>? sideEffects = null)
+                IReadOnlyList<UcliOperationSideEffect>? sideEffects = null,
+                UcliOperationExposure exposure = UcliOperationExposure.Public,
+                bool requiresPreCallPlanReplay = false)
             {
                 this.validateResult = validateResult;
                 this.planResult = planResult;
@@ -1608,7 +1832,11 @@ namespace MackySoft.Ucli.Unity.Tests
                     describeContract: CreateDescribeContract(
                         "ucli.tests.recording",
                         policy,
-                        effectiveAssurance));
+                        effectiveAssurance),
+                    argsType: typeof(UcliEmptyArgs),
+                    resultType: typeof(UcliNoResult),
+                    requiresPreCallPlanReplay: requiresPreCallPlanReplay,
+                    exposure: exposure);
             }
 
             public UcliOperationMetadata Metadata { get; }

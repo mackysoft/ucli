@@ -200,6 +200,43 @@ public sealed class RefreshCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Refresh_WhenMayPersistContractViolationExists_MatchesGolden ()
+    {
+        var failureResult = OperationExecuteResultFactory.Failure(
+            "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+            [
+                CreateViolationOperationResult(),
+            ],
+            [
+                ApplicationFailure.FromCode(
+                    ExecuteRequestErrorCodes.OperationContractViolation,
+                    ContractViolationMessage,
+                    "refresh"),
+            ],
+            ContractViolationMessage,
+            contractViolations:
+            [
+                CreateContractViolation(
+                    expectedFact: "assurance.mayPersist=false",
+                    observedResult: "executionTrace.persisted=true"),
+            ],
+            project: ProjectIdentityInfoTestFactory.Create());
+        var service = new StubRefreshService((_, _) => ValueTask.FromResult(failureResult));
+        var command = new RefreshCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.RefreshAsync(
+            projectPath: "/repo/UnityProject",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.ToolError, exitCode);
+        JsonGoldenFileAssert.Matches(
+            CliOutputGoldenFiles.GetPath("refresh", "contract-violation-may-persist.json"),
+            standardOutput,
+            CliOutputGoldenFiles.NormalizeRequestIds());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Refresh_WhenReadPostconditionExists_WritesTopLevelPayload ()
     {
         var readPostcondition = new OperationExecutionReadPostcondition(
@@ -334,14 +371,16 @@ public sealed class RefreshCommandTests
             ]);
     }
 
-    private static OperationExecutionContractViolation CreateContractViolation ()
+    private static OperationExecutionContractViolation CreateContractViolation (
+        string expectedFact = "assurance.mayDirty=false",
+        string observedResult = "opResults[].changed=true")
     {
         return new OperationExecutionContractViolation(
             OpId: "refresh",
             Operation: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
-            ExpectedFact: "assurance.mayDirty=false",
-            ObservedResult: "opResults[].changed=true",
-            ApplicationState: IpcExecuteApplicationStateNames.Indeterminate);
+            ExpectedFact: expectedFact,
+            ObservedResult: observedResult,
+            ApplicationState: IpcExecuteApplicationStateNames.Applied);
     }
 
     private static OperationExecutionPostReadSource CreateRefreshPostReadSource ()

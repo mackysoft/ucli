@@ -113,7 +113,7 @@ public `ops list` と public `ops describe` は `exposure=public` の operation 
 
 operation の valid args によって policy や sideEffects、planMode、result 解釈が変わる場合、その operation は分割対象である。分割できない場合は valid args 全体の worst-case policy を採用する。
 
-実行結果も assurance facts と整合しなければならない。`changed=true` なのに `mayDirty=false`、永続化効果があるのに `mayPersist=false`、`touched[].kind` が `assurance.touchedKinds` に含まれない、`declaredKind=query` なのに `applied=true`、`changed=true`、または `touched[]` が non-empty になる場合は `OPERATION_CONTRACT_VIOLATION` とする。この failure は operation 実装または metadata の不整合であり、未適用を意味しない。公開 payload は矛盾ごとに `contractViolations[]` を返し、適用状態を `applicationState` として `notApplied`、`applied`、`indeterminate`、`unknown` のいずれかで保持する。
+実行結果も assurance facts と整合しなければならない。`changed=true` なのに `mayDirty=false`、内部 execution trace が永続化を観測したのに `mayPersist=false`、`touched[].kind` が `assurance.touchedKinds` に含まれない、`declaredKind=query` なのに `applied=true`、`changed=true`、または `touched[]` が non-empty になる場合は `OPERATION_CONTRACT_VIOLATION` とする。この failure は operation 実装または metadata の不整合であり、未適用を意味しない。公開 payload は矛盾ごとに `contractViolations[]` を返し、適用状態を `applicationState` として `notApplied`、`applied`、`indeterminate`、`unknown` のいずれかで保持する。
 
 catalog validation、golden、contract tests は、少なくとも次の matrix を固定する。
 

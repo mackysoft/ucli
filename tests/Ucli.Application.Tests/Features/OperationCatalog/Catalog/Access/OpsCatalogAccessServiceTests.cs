@@ -161,7 +161,7 @@ public sealed class OpsCatalogAccessServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Read_WhenSourceCatalogContainsPublicRawExcludedOperation_OmitsExcludedOperation ()
+    public async Task Read_WhenSourceCatalogContainsDangerousOperation_ReturnsSourceCatalogAsProvided ()
     {
         var generatedAtUtc = DateTimeOffset.Parse("2026-03-07T00:00:00+00:00");
         var sourceRefreshService = new StubOpsCatalogSourceRefreshService
@@ -176,7 +176,9 @@ public sealed class OpsCatalogAccessServiceTests
         var result = await service.ReadListAsync(CreatePreflightContext(ReadIndexMode.Disabled), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal([UcliPrimitiveOperationNames.GoDescribe], result.Output!.Snapshot.Operations.Select(static operation => operation.Name));
+        Assert.Equal(
+            [UcliPrimitiveOperationNames.GoDescribe, UcliPrimitiveOperationNames.CsEval],
+            result.Output!.Snapshot.Operations.Select(static operation => operation.Name));
         Assert.Equal(1, sourceRefreshService.CallCount);
     }
 
@@ -210,15 +212,16 @@ public sealed class OpsCatalogAccessServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task ReadDescribe_WhenIndexDetailHasPublicRawExcludedOperation_ReturnsInvalidArgument ()
+    public async Task ReadDescribe_WhenIndexDetailHasDangerousOperation_ReturnsDetailAsProvided ()
     {
+        var operation = CreateCsEvalEntry(UcliPrimitiveOperationNames.GoDescribe);
         var persistedReader = new StubPersistedOpsCatalogReader
         {
             Result = CreatePersistedReadResult(
                 DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
                 IndexFreshness.Fresh,
                 [CreateGoDescribeEntry()]),
-            DescribeResult = PersistedOpsDescribeReadResult.Success(CreateCsEvalEntry(UcliPrimitiveOperationNames.GoDescribe)),
+            DescribeResult = PersistedOpsDescribeReadResult.Success(operation),
         };
         var sourceRefreshService = new StubOpsCatalogSourceRefreshService();
         var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
@@ -228,8 +231,8 @@ public sealed class OpsCatalogAccessServiceTests
             UcliPrimitiveOperationNames.GoDescribe,
             CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.True(result.IsSuccess);
+        Assert.Same(operation, result.Output!.Operation);
         Assert.Equal(1, persistedReader.ReadDescribeCallCount);
         Assert.Equal(0, sourceRefreshService.CallCount);
     }

@@ -34,7 +34,7 @@
         "operation": "ucli.project.refresh",
         "expectedFact": "assurance.mayDirty=false",
         "observedResult": "opResults[].changed=true",
-        "applicationState": "indeterminate"
+        "applicationState": "applied"
       }
     ],
     "plan": {

@@ -32,8 +32,8 @@
       {
         "opId": "refresh",
         "operation": "ucli.project.refresh",
-        "expectedFact": "assurance.mayDirty=false",
-        "observedResult": "opResults[].changed=true",
+        "expectedFact": "assurance.mayPersist=false",
+        "observedResult": "executionTrace.persisted=true",
         "applicationState": "applied"
       }
     ]

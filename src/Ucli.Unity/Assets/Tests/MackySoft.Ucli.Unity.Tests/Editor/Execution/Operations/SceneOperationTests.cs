@@ -182,6 +182,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertSuccess(result, applied: true, changed: true);
+            Assert.That(result.Persisted, Is.True);
             Assert.That(scene.isDirty, Is.False);
             Assert.That(result.ReadInvalidations.Count, Is.EqualTo(1));
             Assert.That(result.ReadInvalidations[0].Surface, Is.EqualTo(OperationReadInvalidationSurface.SceneTreeLite));
@@ -247,6 +248,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertSuccess(openPlanResult, applied: false, changed: false);
             AssertSuccess(savePlanResult, applied: false, changed: false);
+            Assert.That(savePlanResult.Persisted, Is.False);
         });
 
         [UnityTest]

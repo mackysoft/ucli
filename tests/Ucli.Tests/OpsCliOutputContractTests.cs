@@ -459,9 +459,9 @@ public sealed class OpsCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task OpsList_WithCsEvalCodeContract_ExcludesOperation ()
+    public async Task OpsList_WhenPublicCatalogIsRead_DoesNotEmitExposureField ()
     {
-        using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "list-cs-eval-excluded");
+        using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "list-no-exposure-field");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         SeedOpsCatalog(
             unityProjectPath,
@@ -472,13 +472,6 @@ public sealed class OpsCliOutputContractTests
                     policy: "safe",
                     argsSchemaJson: """{"type":"object"}""",
                     resultSchemaJson: """{"type":"object"}"""),
-                CreateDescribedEntry(
-                    name: UcliPrimitiveOperationNames.CsEval,
-                    kind: "mutation",
-                    policy: "dangerous",
-                    argsSchemaJson: """{"type":"object","properties":{"source":{"type":"string"}}}""",
-                    resultSchemaJson: """{"type":"object"}""",
-                    describe: CreateCsEvalDescribeContract()),
             ]);
 
         var result = await CliProcessRunner.RunCommandAsync(
@@ -494,46 +487,40 @@ public sealed class OpsCliOutputContractTests
         var operations = outputJson.RootElement.GetProperty("payload").GetProperty("operations").EnumerateArray().ToArray();
         Assert.Single(operations);
         Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, operations[0].GetProperty("name").GetString());
+        Assert.False(operations[0].TryGetProperty("exposure", out _));
     }
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task OpsDescribe_WithCsEvalCodeContract_ReturnsInvalidArgument ()
+    public async Task OpsDescribe_WhenPublicCatalogIsRead_DoesNotEmitExposureField ()
     {
-        using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "describe-cs-eval-excluded");
+        using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "describe-no-exposure-field");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         SeedOpsCatalog(
             unityProjectPath,
             [
                 CreateDescribedEntry(
-                    name: UcliPrimitiveOperationNames.CsEval,
-                    kind: "mutation",
-                    policy: "dangerous",
-                    argsSchemaJson: """{"type":"object","properties":{"source":{"type":"string"}}}""",
-                    resultSchemaJson: """{"type":"object"}""",
-                    describe: CreateCsEvalDescribeContract()),
+                    name: UcliPrimitiveOperationNames.GoDescribe,
+                    kind: "query",
+                    policy: "safe",
+                    argsSchemaJson: """{"type":"object"}""",
+                    resultSchemaJson: """{"type":"object"}"""),
             ]);
 
         var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Ops,
             UcliCommandNames.DescribeSubcommand,
-            UcliPrimitiveOperationNames.CsEval,
+            UcliPrimitiveOperationNames.GoDescribe,
             UcliContractConstants.CliOption.ProjectPath,
             unityProjectPath,
             UcliContractConstants.CliOption.ReadIndexMode,
             UcliContractConstants.Config.ReadIndexModeAllowStale);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            command: UcliCommandNames.OpsDescribe,
-            status: "error",
-            exitCode: (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(
-            outputJson.RootElement,
-            expectedCode: "INVALID_ARGUMENT");
-        Assert.Contains("not available", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        var operation = outputJson.RootElement.GetProperty("payload").GetProperty("operation");
+        Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, operation.GetProperty("name").GetString());
+        Assert.False(operation.TryGetProperty("exposure", out _));
     }
 
     [Fact]
@@ -786,168 +773,6 @@ public sealed class OpsCliOutputContractTests
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Failure means the observation was not fully produced.",
                 dangerousNotes: Array.Empty<string>()));
-    }
-
-    private static UcliOperationDescribeContract CreateCsEvalDescribeContract ()
-    {
-        return new UcliOperationDescribeContract(
-            "Compiles and executes C# source in the Unity Editor process.",
-            [
-                new UcliOperationInputContract(
-                    "source",
-                    "string",
-                    "C# source text.",
-                    Array.Empty<UcliOperationInputConstraintContract>()),
-            ],
-            new UcliOperationResultContract(
-                emitted: true,
-                resultType: "CsEvalResult",
-                description: "C# eval result."),
-            CreateCsEvalAssurance(),
-            CreateCsEvalCodeContract());
-    }
-
-    private static UcliOperationAssuranceContract CreateCsEvalAssurance ()
-    {
-        return new UcliOperationAssuranceContract(
-            sideEffects:
-            [
-                UcliOperationSideEffect.SceneContentMutation,
-                UcliOperationSideEffect.PrefabContentMutation,
-                UcliOperationSideEffect.AssetContentMutation,
-                UcliOperationSideEffect.ProjectSettingsMutation,
-                UcliOperationSideEffect.SceneSave,
-                UcliOperationSideEffect.PrefabSave,
-                UcliOperationSideEffect.AssetSave,
-                UcliOperationSideEffect.ProjectSave,
-                UcliOperationSideEffect.ExternalProcess,
-                UcliOperationSideEffect.FilesystemWrite,
-                UcliOperationSideEffect.ArbitrarySourceExecution,
-                UcliOperationSideEffect.DestructiveScope,
-            ],
-            touchedKinds:
-            [
-                IpcExecuteTouchedResourceKindNames.Scene,
-                IpcExecuteTouchedResourceKindNames.Prefab,
-                IpcExecuteTouchedResourceKindNames.Asset,
-                IpcExecuteTouchedResourceKindNames.ProjectSettings,
-            ],
-            planMode: UcliOperationPlanMode.ObservesLiveUnity,
-            planSemantics: "Compile the supplied C# source and validate the required entry point without invoking user code.",
-            callSemantics: "Compile, emit, load, and execute the user C# entry point inside the Unity Editor process.",
-            touchedContract: "Reports touched resources declared by user code through the eval context; declarations are caller-controlled and are not a complete guarantee of all Unity state changes.",
-            readPostconditionContract: "Scene, prefab, asset, ProjectSettings, and readIndex surfaces may be stale after eval execution regardless of declared touched resources.",
-            failureSemantics: "Compilation and entry-point failures occur before user code runs; once synchronous user code is invoked it cannot be forcibly stopped until it returns or throws.",
-            dangerousNotes:
-            [
-                "Executes user C# inside the Unity Editor process and can mutate project state outside declared touched resources.",
-                "Synchronous user code cannot be forcibly stopped while it is executing.",
-            ]);
-    }
-
-    private static UcliOperationCodeContract CreateCsEvalCodeContract ()
-    {
-        return new UcliOperationCodeContract(
-            "csharp",
-            new UcliCodeEntryPointContract(
-                "public static object? Run(UcliCsEvalContext context)",
-                "Compiled source must contain exactly one public static object? Run(UcliCsEvalContext context) method.",
-                requiredStatic: true,
-                new[] { "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext" },
-                "Return null or a JSON-serializable object value; a snippet without return yields null. DTO and anonymous object serialization may execute public getters. Task, Task<T>, ValueTask, and ValueTask<T> are rejected."),
-            [
-                new UcliCodeSourceFormContract(
-                    CsEvalSourceKindValues.CompilationUnit,
-                    "Complete C# compilation unit containing using directives, namespace or type declarations, and exactly one public static object? Run(UcliCsEvalContext context) method."),
-                new UcliCodeSourceFormContract(
-                    CsEvalSourceKindValues.Snippet,
-                    "Run method body snippet. Leading using directives, statements, explicit return, no return, and one expression are accepted; snippets without return produce null."),
-            ],
-            [
-                new UcliCodeApiTypeContract(
-                    "UcliCsEvalContext",
-                    "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext",
-                    "Execution context passed to ucli.cs.eval entry points.",
-                    [
-                        new UcliCodeApiMemberContract(
-                            UcliCodeApiMemberKindValues.Method,
-                            "DeclareNoTouchedResources",
-                            "Declares that the eval call did not touch Unity resources.",
-                            type: null,
-                            returnType: "void",
-                            parameters: Array.Empty<UcliCodeApiParameterContract>()),
-                        new UcliCodeApiMemberContract(
-                            UcliCodeApiMemberKindValues.Method,
-                            "DeclareTouchedAsset",
-                            "Declares that the eval call touched a project asset.",
-                            type: null,
-                            returnType: "void",
-                            parameters:
-                            [
-                                new UcliCodeApiParameterContract("path", "System.String", "Project-relative asset path."),
-                            ]),
-                        new UcliCodeApiMemberContract(
-                            UcliCodeApiMemberKindValues.Method,
-                            "DeclareTouchedPrefab",
-                            "Declares that the eval call touched a prefab asset.",
-                            type: null,
-                            returnType: "void",
-                            parameters:
-                            [
-                                new UcliCodeApiParameterContract("path", "System.String", "Project-relative prefab asset path."),
-                            ]),
-                        new UcliCodeApiMemberContract(
-                            UcliCodeApiMemberKindValues.Method,
-                            "DeclareTouchedProjectSettings",
-                            "Declares that the eval call touched a ProjectSettings asset.",
-                            type: null,
-                            returnType: "void",
-                            parameters:
-                            [
-                                new UcliCodeApiParameterContract("path", "System.String", "Project-relative ProjectSettings path."),
-                            ]),
-                        new UcliCodeApiMemberContract(
-                            UcliCodeApiMemberKindValues.Method,
-                            "DeclareTouchedScene",
-                            "Declares that the eval call touched a scene asset.",
-                            type: null,
-                            returnType: "void",
-                            parameters:
-                            [
-                                new UcliCodeApiParameterContract("path", "System.String", "Project-relative scene asset path."),
-                            ]),
-                        new UcliCodeApiMemberContract(
-                            UcliCodeApiMemberKindValues.Method,
-                            "Log",
-                            "Records an informational eval log entry.",
-                            type: null,
-                            returnType: "void",
-                            parameters:
-                            [
-                                new UcliCodeApiParameterContract("message", "System.String", "Log message text."),
-                            ]),
-                        new UcliCodeApiMemberContract(
-                            UcliCodeApiMemberKindValues.Method,
-                            "LogError",
-                            "Records an error eval log entry.",
-                            type: null,
-                            returnType: "void",
-                            parameters:
-                            [
-                                new UcliCodeApiParameterContract("message", "System.String", "Log message text."),
-                            ]),
-                        new UcliCodeApiMemberContract(
-                            UcliCodeApiMemberKindValues.Method,
-                            "LogWarning",
-                            "Records a warning eval log entry.",
-                            type: null,
-                            returnType: "void",
-                            parameters:
-                            [
-                                new UcliCodeApiParameterContract("message", "System.String", "Log message text."),
-                            ]),
-                    ]),
-            ]);
     }
 
     private static UcliOperationAssuranceContract CreateAssurance (

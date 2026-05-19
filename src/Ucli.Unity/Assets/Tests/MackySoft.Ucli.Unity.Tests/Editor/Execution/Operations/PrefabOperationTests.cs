@@ -53,6 +53,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: true, changed: true);
+            Assert.That(result.Persisted, Is.True);
             AssertTouchSet(
                 result,
                 (OperationTouchKind.Scene, scenePath),
@@ -609,6 +610,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var saveResult = await saveOperation.CallAsync(saveRequest, scope.CreateExecutionContext(), CancellationToken.None);
 
             AssertSuccess(saveResult, applied: true, changed: true);
+            Assert.That(saveResult.Persisted, Is.True);
             AssertTouchSet(saveResult, (OperationTouchKind.Prefab, prefabPath));
             Assert.That(prefabStage.prefabContentsRoot.scene.isDirty, Is.False);
             AssertReadInvalidations(
@@ -669,6 +671,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertSuccess(openPlanResult, applied: false, changed: false);
             AssertSuccess(savePlanResult, applied: false, changed: false);
+            Assert.That(savePlanResult.Persisted, Is.False);
         });
 
         [UnityTest]

@@ -16,18 +16,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="operationName"> The operation name. </param>
         /// <param name="kind"> The operation kind metadata. </param>
         /// <param name="describeContract"> The agent-facing operation describe contract. </param>
+        /// <param name="exposure"> Whether the operation is reachable from public request surfaces. </param>
         /// <exception cref="ArgumentException"> Thrown when <paramref name="operationName" /> is invalid. </exception>
         public UcliOperationMetadata (
             string operationName,
             UcliOperationKind kind,
-            UcliOperationDescribeContract describeContract)
+            UcliOperationDescribeContract describeContract,
+            UcliOperationExposure exposure = UcliOperationExposure.Public)
             : this(
                 operationName,
                 kind,
                 describeContract,
                 typeof(UcliEmptyArgs),
                 typeof(UcliNoResult),
-                requiresPreCallPlanReplay: false)
+                requiresPreCallPlanReplay: false,
+                exposure: exposure)
         {
         }
 
@@ -37,6 +40,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="describeContract"> The agent-facing operation describe contract. </param>
         /// <param name="argsType"> The operation args contract type. </param>
         /// <param name="resultType"> The operation result contract type. </param>
+        /// <param name="exposure"> Whether the operation is reachable from public request surfaces. </param>
         /// <exception cref="ArgumentException"> Thrown when one argument is invalid. </exception>
         /// <exception cref="ArgumentNullException"> Thrown when one contract type is <see langword="null" />. </exception>
         public UcliOperationMetadata (
@@ -44,8 +48,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             UcliOperationKind kind,
             UcliOperationDescribeContract describeContract,
             Type argsType,
-            Type resultType)
-            : this(operationName, kind, describeContract, argsType, resultType, requiresPreCallPlanReplay: false)
+            Type resultType,
+            UcliOperationExposure exposure = UcliOperationExposure.Public)
+            : this(operationName, kind, describeContract, argsType, resultType, requiresPreCallPlanReplay: false, exposure: exposure)
         {
         }
 
@@ -56,6 +61,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="argsType"> The operation args contract type. </param>
         /// <param name="resultType"> The operation result contract type. </param>
         /// <param name="requiresPreCallPlanReplay"> Whether call execution must replay plan immediately beforehand. </param>
+        /// <param name="exposure"> Whether the operation is reachable from public request surfaces. </param>
         /// <exception cref="ArgumentException"> Thrown when one argument is invalid. </exception>
         /// <exception cref="ArgumentNullException"> Thrown when one contract type is <see langword="null" />. </exception>
         public UcliOperationMetadata (
@@ -64,7 +70,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             UcliOperationDescribeContract describeContract,
             Type argsType,
             Type resultType,
-            bool requiresPreCallPlanReplay)
+            bool requiresPreCallPlanReplay,
+            UcliOperationExposure exposure = UcliOperationExposure.Public)
         {
             if (string.IsNullOrWhiteSpace(operationName))
             {
@@ -122,6 +129,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             ArgsSchemaJson = argsSchemaJson;
             ResultSchemaJson = resultSchemaJson;
             RequiresPreCallPlanReplay = requiresPreCallPlanReplay;
+            Exposure = exposure;
         }
 
         /// <summary> Creates typed operation metadata from args and result contract types. </summary>
@@ -131,12 +139,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="kind"> The operation kind metadata. </param>
         /// <param name="describeContract"> The agent-facing operation describe contract. </param>
         /// <param name="requiresPreCallPlanReplay"> Whether call execution must replay plan immediately beforehand. </param>
+        /// <param name="exposure"> Whether the operation is reachable from public request surfaces. </param>
         /// <returns> The created operation metadata. </returns>
         public static UcliOperationMetadata Create<TArgs, TResult> (
             string operationName,
             UcliOperationKind kind,
             UcliOperationDescribeContract describeContract,
-            bool requiresPreCallPlanReplay = false)
+            bool requiresPreCallPlanReplay = false,
+            UcliOperationExposure exposure = UcliOperationExposure.Public)
         {
             return new UcliOperationMetadata(
                 operationName,
@@ -144,7 +154,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 describeContract,
                 typeof(TArgs),
                 typeof(TResult),
-                requiresPreCallPlanReplay);
+                requiresPreCallPlanReplay,
+                exposure);
         }
 
         /// <summary> Creates typed operation metadata and derives the input contract from args attributes. </summary>
@@ -155,19 +166,22 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="description"> The operation purpose description. </param>
         /// <param name="assurance"> The agent-facing assurance metadata. </param>
         /// <param name="requiresPreCallPlanReplay"> Whether call execution must replay plan immediately beforehand. </param>
+        /// <param name="exposure"> Whether the operation is reachable from public request surfaces. </param>
         /// <returns> The created operation metadata. </returns>
         public static UcliOperationMetadata Create<TArgs, TResult> (
             string operationName,
             UcliOperationKind kind,
             string description,
             UcliOperationAssuranceContract assurance,
-            bool requiresPreCallPlanReplay = false)
+            bool requiresPreCallPlanReplay = false,
+            UcliOperationExposure exposure = UcliOperationExposure.Public)
         {
             return Create<TArgs, TResult>(
                 operationName,
                 kind,
                 UcliOperationDescribeContractBuilder.Create<TArgs, TResult>(description, assurance),
-                requiresPreCallPlanReplay);
+                requiresPreCallPlanReplay,
+                exposure);
         }
 
         /// <summary> Gets the registered operation name. </summary>
@@ -196,6 +210,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Gets a value indicating whether call execution must replay plan immediately beforehand. </summary>
         public bool RequiresPreCallPlanReplay { get; }
+
+        /// <summary> Gets whether the operation is reachable from public request surfaces. </summary>
+        public UcliOperationExposure Exposure { get; }
 
         private static OperationPolicy ValidateDescribeContract (
             string operationName,

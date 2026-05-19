@@ -139,7 +139,11 @@ public sealed class CallCommandTests
     {
         var contractViolations = new[]
         {
-            CreateContractViolation(),
+            CreateContractViolation(IpcExecuteApplicationStateNames.Applied),
+        };
+        var planContractViolations = new[]
+        {
+            CreateContractViolation(IpcExecuteApplicationStateNames.Indeterminate),
         };
         var service = new StubCallService((_, _) => ValueTask.FromResult(CallServiceResult.Failure(
             ContractViolationMessage,
@@ -165,7 +169,7 @@ public sealed class CallCommandTests
                     ],
                     PlanToken: "plan-token-1")
                 {
-                    ContractViolations = contractViolations,
+                    ContractViolations = planContractViolations,
                 },
                 ReadPostcondition: null)
             {
@@ -262,14 +266,14 @@ public sealed class CallCommandTests
             ]);
     }
 
-    private static OperationExecutionContractViolation CreateContractViolation ()
+    private static OperationExecutionContractViolation CreateContractViolation (string applicationState)
     {
         return new OperationExecutionContractViolation(
             OpId: "step-1",
             Operation: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
             ExpectedFact: "assurance.mayDirty=false",
             ObservedResult: "opResults[].changed=true",
-            ApplicationState: IpcExecuteApplicationStateNames.Indeterminate);
+            ApplicationState: applicationState);
     }
 
     private static OperationExecutionPostReadSource CreateEditPostReadSource ()
