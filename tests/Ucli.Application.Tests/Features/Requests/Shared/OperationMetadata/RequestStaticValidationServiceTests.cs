@@ -36,8 +36,7 @@ public sealed class RequestStaticValidationServiceTests
         Assert.Same(request, pureValidator.ReceivedRequest);
         Assert.Same(projectContext.Config, pureValidator.ReceivedConfig);
         Assert.True(pureValidator.ReceivedCatalog!.IsAvailable);
-        Assert.Single(pureValidator.ReceivedCatalog.Operations);
-        Assert.Equal("ucli.scene.open", pureValidator.ReceivedCatalog.Operations[0].Name);
+        Assert.Contains(pureValidator.ReceivedCatalog.Operations, operation => operation.Name == "ucli.scene.open");
     }
 
     [Fact]

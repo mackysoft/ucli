@@ -321,8 +321,8 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                 : authorizationResult.Message;
             errors.Add(new ValidationError(
                 Code: authorizationResult.ErrorCode ?? OperationAuthorizationErrorCodes.OperationNotAllowed,
-            Message: message,
-            OpId: stepId));
+                Message: message,
+                OpId: stepId));
         }
     }
 

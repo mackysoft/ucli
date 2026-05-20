@@ -22,8 +22,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.SceneContentMutation, UcliOperationSideEffect.PrefabContentMutation },
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
-                planMode: UcliOperationPlanMode.MayCreatePreviewState,
-                planSemantics: "Validate source and parent targets, then compute preview hierarchy changes without persisting project data.",
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate source and parent targets, then report the expected hierarchy impact without creating preview state or mutating live Unity state.",
                 callSemantics: "Reparent the GameObject in live Unity state and leave saving to explicit save operations.",
                 touchedContract: "Reports the scene or prefab resource dirtied by the hierarchy mutation when the target can be resolved.",
                 readPostconditionContract: "Scene, prefab, and hierarchy read surfaces covering touched resources may be stale until refreshed.",
@@ -52,9 +52,25 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryValidate(operation, args, executionContext, allowTemporaryState: true, out var state, out var failure))
+            var allowTemporaryState = operation.SourceKind == NormalizedOperation.SourceStepKind.Edit;
+            if (!TryValidate(operation, args, executionContext, allowTemporaryState, out var state, out var failure))
             {
                 return Task.FromResult(failure!);
+            }
+
+            if (operation.SourceKind == NormalizedOperation.SourceStepKind.Op)
+            {
+                if (state.Target.transform.parent == state.Parent.transform)
+                {
+                    return Task.FromResult(OperationPhaseStepResult.Success(
+                        applied: false,
+                        changed: false));
+                }
+
+                return Task.FromResult(OperationPhaseStepResult.Success(
+                    applied: false,
+                    changed: true,
+                    touched: CreateTouched(state)));
             }
 
             if (!GoOperationUtilities.TryEnsurePlanResourceState(
