@@ -105,27 +105,6 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         /// <summary>
         /// Compiles one validated source step against the current request-local execution state.
         /// </summary>
-        public bool TryCompileExecutionStep (
-            IpcRequestContractStep step,
-            OperationExecutionContext executionContext,
-            out NormalizedRequestStep compiledStep,
-            out IReadOnlyList<NormalizedOperation> operations,
-            out IReadOnlyList<OperationDiagnostic> diagnostics,
-            out ExecuteRequestNormalizationError error)
-        {
-            return TryCompileExecutionStep(
-                step,
-                executionContext,
-                allowPlayMode: false,
-                out compiledStep,
-                out operations,
-                out diagnostics,
-                out error);
-        }
-
-        /// <summary>
-        /// Compiles one validated source step against the current request-local execution state.
-        /// </summary>
         /// <param name="step"> The validated public source step. </param>
         /// <param name="executionContext"> The current request execution context used for dynamic selection resolution. </param>
         /// <param name="compiledStep"> The compiled public step metadata when compilation succeeds. </param>

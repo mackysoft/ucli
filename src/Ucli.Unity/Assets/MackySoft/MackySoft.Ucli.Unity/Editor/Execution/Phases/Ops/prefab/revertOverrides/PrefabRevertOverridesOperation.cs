@@ -70,6 +70,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             var serializedObject = new SerializedObject(state.Component);
             serializedObject.UpdateIfRequiredOrScript();
+            var appliedCount = 0;
             for (var i = 0; i < state.Changes.Count; i++)
             {
                 var propertyPath = state.Changes[i].PropertyPath;
@@ -84,13 +85,24 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 try
                 {
                     PrefabUtility.RevertPropertyOverride(property, InteractionMode.AutomatedAction);
+                    appliedCount++;
                 }
                 catch (Exception exception)
                 {
-                    return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
+                    var operationFailure = new OperationFailure(
                         Code: UcliCoreErrorCodes.InternalError,
                         Message: $"Prefab override could not be reverted: {propertyPath}. {exception.Message}",
-                        OpId: operation.Id)));
+                        OpId: operation.Id);
+                    var partialResult = OperationPhaseStepResult.Failed(
+                            operationFailure,
+                            applied: appliedCount > 0,
+                            changed: appliedCount > 0,
+                            touched: appliedCount > 0 ? CreateTouched(state.Resource) : null)
+                        .WithReadInvalidations(appliedCount > 0
+                            ? OperationReadInvalidationUtilities.CreateSceneTreeLiteForSceneResource(state.Resource)
+                            : null);
+
+                    return Task.FromResult(partialResult);
                 }
             }
 

@@ -102,7 +102,10 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 validatedSteps.Add(step);
             }
 
-            var canonicalPayload = CanonicalRequestWriter.WriteDigestPayload(parsedContract.ProtocolVersion, validatedSteps);
+            var canonicalPayload = CanonicalRequestWriter.WriteDigestPayload(
+                parsedContract.ProtocolVersion,
+                validatedSteps,
+                request.AllowPlayMode);
             var normalizedPlanToken = StringValueNormalizer.TrimToNull(request.PlanToken);
             if (!requestCompiler.TryPrepareSourceSteps(
                 parsedContract,

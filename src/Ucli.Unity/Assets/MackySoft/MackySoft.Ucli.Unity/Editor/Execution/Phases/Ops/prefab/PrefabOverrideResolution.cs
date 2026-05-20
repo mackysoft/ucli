@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor;
@@ -100,8 +99,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
+            if (!TryCreateRequestedPropertyPaths(args.PropertyPaths, out var requestedPropertyPaths, out errorMessage))
+            {
+                return false;
+            }
+
             var targetKey = CreateTargetKey(targetReference, component);
-            var requestedPropertyPaths = args.PropertyPaths?.Select(static path => path.Value).ToArray();
             if (!executionContext.TryCollectPrefabOverridePropertyChanges(
                     operation.Id,
                     targetKey,
@@ -124,6 +127,36 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             state = new State(component, componentResolution.Resource, targetAssetPath, changes);
+            return true;
+        }
+
+        private static bool TryCreateRequestedPropertyPaths (
+            IReadOnlyList<SerializedPropertyPath>? propertyPaths,
+            out IReadOnlyList<string>? requestedPropertyPaths,
+            out string errorMessage)
+        {
+            requestedPropertyPaths = null;
+            if (propertyPaths == null)
+            {
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            var values = new string[propertyPaths.Count];
+            for (var i = 0; i < propertyPaths.Count; i++)
+            {
+                var propertyPath = propertyPaths[i];
+                if (propertyPath == null)
+                {
+                    errorMessage = $"Prefab override propertyPaths[{i}] must be a string.";
+                    return false;
+                }
+
+                values[i] = propertyPath.Value;
+            }
+
+            requestedPropertyPaths = values;
+            errorMessage = string.Empty;
             return true;
         }
 

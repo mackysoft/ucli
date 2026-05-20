@@ -119,7 +119,6 @@ public sealed class UnityIpcRequestBuilderTests
             args,
             FailFast: false,
             AllowDangerous: true,
-            AllowPlayMode: true,
             PlanToken: "plan-token"));
 
         Assert.Equal(IpcMethodNames.Execute, request.Method);
@@ -127,7 +126,7 @@ public sealed class UnityIpcRequestBuilderTests
         Assert.Equal(UcliCommandIds.Call.Name, payload.Command);
         Assert.False(payload.FailFast);
         Assert.True(payload.AllowDangerous);
-        Assert.True(payload.AllowPlayMode);
+        Assert.False(payload.AllowPlayMode);
         Assert.Equal("plan-token", payload.PlanToken);
         Assert.Equal(IpcProtocol.CurrentVersion, payload.Arguments.GetProperty("protocolVersion").GetInt32());
         Assert.Equal("request-1", payload.Arguments.GetProperty("requestId").GetString());

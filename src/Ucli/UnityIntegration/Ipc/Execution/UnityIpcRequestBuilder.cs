@@ -53,7 +53,7 @@ internal sealed class UnityIpcRequestBuilder
                     executeOperation.FailFast,
                     executeOperation.AllowDangerous,
                     executeOperation.PlanToken,
-                    executeOperation.AllowPlayMode)),
+                    allowPlayMode: false)),
             _ => throw new ArgumentOutOfRangeException(nameof(request), request, "Unsupported Unity request payload."),
         };
     }

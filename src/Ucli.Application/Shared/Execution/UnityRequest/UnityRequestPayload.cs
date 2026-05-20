@@ -37,6 +37,5 @@ internal abstract record UnityRequestPayload
         JsonElement Args,
         bool FailFast,
         bool AllowDangerous = false,
-        string? PlanToken = null,
-        bool AllowPlayMode = false) : UnityRequestPayload;
+        string? PlanToken = null) : UnityRequestPayload;
 }

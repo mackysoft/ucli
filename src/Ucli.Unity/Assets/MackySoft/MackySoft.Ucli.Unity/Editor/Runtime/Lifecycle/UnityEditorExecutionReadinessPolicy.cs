@@ -112,8 +112,11 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         /// <summary> Creates the readiness result for a request that explicitly allows Play Mode mutation. </summary>
         /// <param name="snapshot"> The lifecycle snapshot captured at decision time. </param>
+        /// <param name="isPlayModeActive"> Whether Unity reports active Play Mode, excluding enter/exit transitions. </param>
         /// <returns> A ready result when GUI Play Mode is active; otherwise a Play Mode contract error. </returns>
-        public static UnityEditorExecutionReadinessResult CreatePlayModeAllowedResult (UnityEditorLifecycleSnapshot snapshot)
+        public static UnityEditorExecutionReadinessResult CreatePlayModeAllowedResult (
+            UnityEditorLifecycleSnapshot snapshot,
+            bool isPlayModeActive)
         {
             if (snapshot.EditorMode != DaemonEditorMode.Gui)
             {
@@ -125,7 +128,7 @@ namespace MackySoft.Ucli.Unity.Runtime
                         null));
             }
 
-            if (!string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Playmode, System.StringComparison.Ordinal))
+            if (!isPlayModeActive)
             {
                 return UnityEditorExecutionReadinessResult.Blocked(
                     snapshot,
@@ -133,6 +136,18 @@ namespace MackySoft.Ucli.Unity.Runtime
                         PlayModeErrorCodes.PlayModeNotActive,
                         "Play Mode mutation requires the target Unity Editor to be in Play Mode.",
                         null));
+            }
+
+            if (!string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Playmode, System.StringComparison.Ordinal))
+            {
+                return snapshot.CanAcceptExecutionRequests
+                    ? UnityEditorExecutionReadinessResult.Blocked(
+                        snapshot,
+                        new IpcError(
+                            PlayModeErrorCodes.PlayModeNotActive,
+                            "Play Mode mutation requires the target Unity Editor to be in Play Mode.",
+                            null))
+                    : CreateBlockedResult(snapshot);
             }
 
             return UnityEditorExecutionReadinessResult.Ready(snapshot);

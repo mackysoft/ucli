@@ -927,7 +927,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var compiler = new ExecuteRequestCompiler();
             var executionContext = scope.CreateExecutionContext();
             Assert.That(
-                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out _, out var openError),
+                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, allowPlayMode: false, out _, out var openOperations, out _, out var openError),
                 Is.True,
                 openError?.Message);
             var openOperation = new SceneOpenOperation();
@@ -1280,7 +1280,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var compiler = new ExecuteRequestCompiler();
             var executionContext = scope.CreateExecutionContext();
             Assert.That(
-                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out _, out var openError),
+                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, allowPlayMode: false, out _, out var openOperations, out _, out var openError),
                 Is.True,
                 openError?.Message);
             var openOperation = new PrefabOpenOperation();
@@ -1354,7 +1354,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var compiler = new ExecuteRequestCompiler();
             var executionContext = scope.CreateExecutionContext();
             Assert.That(
-                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out _, out var openError),
+                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, allowPlayMode: false, out _, out var openOperations, out _, out var openError),
                 Is.True,
                 openError?.Message);
             var openPlanResult = await new PrefabOpenOperation().PlanAsync(openOperations[0], executionContext, CancellationToken.None);
@@ -1425,7 +1425,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var compiler = new ExecuteRequestCompiler();
             var executionContext = scope.CreateExecutionContext();
             Assert.That(
-                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out _, out var openError),
+                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, allowPlayMode: false, out _, out var openOperations, out _, out var openError),
                 Is.True,
                 openError?.Message);
             var openPlanResult = await new PrefabOpenOperation().PlanAsync(openOperations[0], executionContext, CancellationToken.None);
@@ -1945,6 +1945,35 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertInvalidArgument(result, "rawSet");
             Assert.That(result.Error!.Message, Is.EqualTo("Play Mode mutation requests support only public edit steps."));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenAllowPlayModeDiffers_ProducesDifferentCanonicalDigestPayload ()
+        {
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = Array.Empty<object>(),
+                });
+            var playModeRequest = request with
+            {
+                AllowPlayMode = true,
+            };
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var playModeResult = new ExecuteRequestNormalizer().Normalize(playModeRequest);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(playModeResult.IsSuccess, Is.True);
+            Assert.That(
+                result.Request!.CanonicalDigestPayloadUtf8.Span.SequenceEqual(playModeResult.Request!.CanonicalDigestPayloadUtf8.Span),
+                Is.False);
+            var canonicalPayload = Encoding.UTF8.GetString(playModeResult.Request!.CanonicalDigestPayloadUtf8.ToArray());
+            Assert.That(canonicalPayload, Does.Contain("\"allowPlayMode\":true"));
         }
 
         [Test]
@@ -2554,7 +2583,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var compiler = new ExecuteRequestCompiler();
             var sourceStep = request.SourceSteps[stepIndex];
             Assert.That(
-                compiler.TryCompileExecutionStep(sourceStep, executionContext, out _, out _, out _, out var error),
+                compiler.TryCompileExecutionStep(sourceStep, executionContext, allowPlayMode: false, out _, out _, out _, out var error),
                 Is.False);
             Assert.That(error, Is.Not.Null);
             return error;

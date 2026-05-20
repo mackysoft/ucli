@@ -87,7 +87,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Resolve_WhenPlaymodeIsActive_TakesPriorityOverReloadAndCompile ()
+        public void Resolve_WhenPlaymodeIsChangingDuringReload_ReturnsReloadingBeforePlaymode ()
         {
             var actual = UnityEditorLifecycleStateResolver.Resolve(
                 isStartupPending: true,
@@ -99,7 +99,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 isUpdating: true,
                 isRecoveringPending: true);
 
-            Assert.That(actual, Is.EqualTo(IpcEditorLifecycleStateCodec.Playmode));
+            Assert.That(actual, Is.EqualTo(IpcEditorLifecycleStateCodec.DomainReloading));
         }
 
         [Test]
@@ -179,6 +179,34 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(beforeUpdate, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
             Assert.That(afterUpdate, Is.EqualTo(IpcEditorLifecycleStateCodec.Ready));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void ObserveEditorUpdate_WhenStartupPendingAndPlaymodeIsActive_ClearsStartupPending ()
+        {
+            var telemetryState = new UnityEditorLifecycleTelemetryState(
+                compileGeneration: 0,
+                domainReloadGeneration: 1,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: true);
+
+            var beforeUpdate = telemetryState.ResolveLifecycleState(
+                isPlaymodeActive: true,
+                isCompiling: false,
+                isUpdating: false);
+            telemetryState.ObserveEditorUpdate(
+                isPlaymodeActive: true,
+                isCompiling: false,
+                isUpdating: false);
+            var afterUpdate = telemetryState.ResolveLifecycleState(
+                isPlaymodeActive: true,
+                isCompiling: false,
+                isUpdating: false);
+
+            Assert.That(beforeUpdate, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
+            Assert.That(afterUpdate, Is.EqualTo(IpcEditorLifecycleStateCodec.Playmode));
         }
     }
 }
