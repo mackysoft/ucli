@@ -71,6 +71,456 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator ApplyOverrides_PlanAndCall_WhenPrefabWasCreatedEarlierInRequest_ResolvesPlannedPrefabLineage () => UniTask.ToCoroutine(async () =>
+        {
+            var createOperation = new PrefabCreateOperation();
+            var ensureOperation = new CompEnsureOperation();
+            var setOperation = new CompSetOperation();
+            var applyOperation = new PrefabApplyOverridesOperation();
+            using var scope = new EditorTestScope()
+                .EnableEditorSceneReset()
+                .EnablePrefabStageCleanup();
+            var scenePath = scope.CreateScenePath(nameof(PrefabOperationTests));
+            var prefabPath = scope.CreatePrefabPath(nameof(PrefabOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+
+            var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
+            var target = new
+            {
+                scene = scenePath,
+                hierarchyPath = "Root",
+                componentType = componentTypeId,
+            };
+            var createRequest = CreateOperation(
+                opId: "create-prefab",
+                opName: UcliPrimitiveOperationNames.PrefabCreate,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root",
+                    },
+                    path = prefabPath,
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var ensureRequest = CreateOperation(
+                opId: "create-prefab",
+                opName: UcliPrimitiveOperationNames.CompEnsure,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root",
+                    },
+                    type = componentTypeId,
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var setRequest = CreateOperation(
+                opId: "apply-step",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target,
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "integerValue",
+                            value = 42,
+                        },
+                    },
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var applyRequest = CreateOperation(
+                opId: "apply-step",
+                opName: UcliPrimitiveOperationNames.PrefabApplyOverrides,
+                args: new
+                {
+                    target,
+                    targetAssetPath = prefabPath,
+                    propertyPaths = new[] { "integerValue" },
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsureSceneExecutionSession(scenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+
+            var ensurePlanResult = await ensureOperation.PlanAsync(ensureRequest, context, CancellationToken.None);
+            var createPlanResult = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
+            var setPlanResult = await setOperation.PlanAsync(setRequest, context, CancellationToken.None);
+            var applyPlanResult = await applyOperation.PlanAsync(applyRequest, context, CancellationToken.None);
+            var ensureCallResult = await ensureOperation.CallAsync(ensureRequest, context, CancellationToken.None);
+            var createCallResult = await createOperation.CallAsync(createRequest, context, CancellationToken.None);
+            var setCallResult = await setOperation.CallAsync(setRequest, context, CancellationToken.None);
+            var applyCallResult = await applyOperation.CallAsync(applyRequest, context, CancellationToken.None);
+
+            AssertSuccess(ensurePlanResult, applied: false, changed: true);
+            AssertSuccess(createPlanResult, applied: false, changed: true);
+            AssertSuccess(setPlanResult, applied: false, changed: true);
+            AssertSuccess(applyPlanResult, applied: false, changed: true);
+            AssertTouchSet(applyPlanResult, (OperationTouchKind.Prefab, prefabPath));
+            AssertSuccess(ensureCallResult, applied: true, changed: true);
+            AssertSuccess(createCallResult, applied: true, changed: true);
+            AssertSuccess(setCallResult, applied: true, changed: true);
+            AssertSuccess(applyCallResult, applied: true, changed: true);
+            AssertTouchSet(applyCallResult, (OperationTouchKind.Prefab, prefabPath));
+
+            var loadedPrefabContentsRoot = scope.LoadPrefabContents(prefabPath);
+            var loadedComponent = loadedPrefabContentsRoot.GetComponent<CompOperationTestComponent>();
+            Assert.That(loadedComponent, Is.Not.Null);
+            Assert.That(loadedComponent!.IntegerValue, Is.EqualTo(42));
+            var component = root.GetComponent<CompOperationTestComponent>();
+            Assert.That(component, Is.Not.Null);
+            Assert.That(component!.IntegerValue, Is.EqualTo(42));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ApplyOverrides_Plan_WhenExistingComponentWasShadowedAfterPlannedPrefabCreation_ResolvesPlannedPrefabLineage () => UniTask.ToCoroutine(async () =>
+        {
+            var createOperation = new PrefabCreateOperation();
+            var setOperation = new CompSetOperation();
+            var applyOperation = new PrefabApplyOverridesOperation();
+            using var scope = new EditorTestScope()
+                .EnableEditorSceneReset()
+                .EnablePrefabStageCleanup();
+            var scenePath = scope.CreateScenePath(nameof(PrefabOperationTests));
+            var prefabPath = scope.CreatePrefabPath(nameof(PrefabOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            _ = root.AddComponent<CompOperationTestComponent>();
+            EditorSceneManager.SaveScene(scene, scenePath);
+
+            var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
+            var target = new
+            {
+                scene = scenePath,
+                hierarchyPath = "Root",
+                componentType = componentTypeId,
+            };
+            var createRequest = CreateOperation(
+                opId: "create-prefab",
+                opName: UcliPrimitiveOperationNames.PrefabCreate,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root",
+                    },
+                    path = prefabPath,
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var setRequest = CreateOperation(
+                opId: "apply-step",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target,
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "integerValue",
+                            value = 42,
+                        },
+                    },
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var applyRequest = CreateOperation(
+                opId: "apply-step",
+                opName: UcliPrimitiveOperationNames.PrefabApplyOverrides,
+                args: new
+                {
+                    target,
+                    targetAssetPath = prefabPath,
+                    propertyPaths = new[] { "integerValue" },
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsureSceneExecutionSession(scenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+
+            var createPlanResult = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
+            var setPlanResult = await setOperation.PlanAsync(setRequest, context, CancellationToken.None);
+            var applyPlanResult = await applyOperation.PlanAsync(applyRequest, context, CancellationToken.None);
+
+            AssertSuccess(createPlanResult, applied: false, changed: true);
+            AssertSuccess(setPlanResult, applied: false, changed: true);
+            AssertSuccess(applyPlanResult, applied: false, changed: true);
+            AssertTouchSet(applyPlanResult, (OperationTouchKind.Prefab, prefabPath));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ApplyOverrides_Plan_WhenLaterSetRestoresPreRequestValue_RejectsPropertyPath () => UniTask.ToCoroutine(async () =>
+        {
+            var setOperation = new CompSetOperation();
+            var applyOperation = new PrefabApplyOverridesOperation();
+            using var scope = new EditorTestScope()
+                .EnableEditorSceneReset()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var editableRoot = scope.LoadPrefabContents(prefabPath);
+            _ = editableRoot.AddComponent<CompOperationTestComponent>();
+            _ = PrefabUtility.SaveAsPrefabAsset(editableRoot, prefabPath);
+            scope.UnloadPrefabContents(editableRoot);
+
+            var scenePath = scope.CreateScenePath(nameof(PrefabOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var prefabAsset = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            Assert.That(prefabAsset, Is.Not.Null);
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefabAsset!);
+            instance.name = "InstanceRoot";
+            EditorSceneManager.SaveScene(scene, scenePath);
+
+            var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
+            var target = new
+            {
+                scene = scenePath,
+                hierarchyPath = "InstanceRoot",
+                componentType = componentTypeId,
+            };
+            var changeSetRequest = CreateOperation(
+                opId: "edit-step",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target,
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "integerValue",
+                            value = 42,
+                        },
+                    },
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var restoreSetRequest = CreateOperation(
+                opId: "edit-step",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target,
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "integerValue",
+                            value = 1,
+                        },
+                    },
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var applyRequest = CreateOperation(
+                opId: "edit-step",
+                opName: UcliPrimitiveOperationNames.PrefabApplyOverrides,
+                args: new
+                {
+                    target,
+                    targetAssetPath = prefabPath,
+                    propertyPaths = new[] { "integerValue" },
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsureSceneExecutionSession(scenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+
+            var changeSetResult = await setOperation.PlanAsync(changeSetRequest, context, CancellationToken.None);
+            var restoreSetResult = await setOperation.PlanAsync(restoreSetRequest, context, CancellationToken.None);
+            var applyResult = await applyOperation.PlanAsync(applyRequest, context, CancellationToken.None);
+
+            AssertSuccess(changeSetResult, applied: false, changed: true);
+            AssertSuccess(restoreSetResult, applied: false, changed: true);
+            AssertInvalidArgument(applyResult, "edit-step");
+            Assert.That(applyResult.Failure!.Message, Does.Contain("pre-request value"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ApplyOverrides_Plan_WhenExistingComponentShadowReceivesSecondProperty_TracksSecondProperty () => UniTask.ToCoroutine(async () =>
+        {
+            var setOperation = new CompSetOperation();
+            var applyOperation = new PrefabApplyOverridesOperation();
+            using var scope = new EditorTestScope()
+                .EnableEditorSceneReset()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var editableRoot = scope.LoadPrefabContents(prefabPath);
+            _ = editableRoot.AddComponent<CompOperationTestComponent>();
+            _ = PrefabUtility.SaveAsPrefabAsset(editableRoot, prefabPath);
+            scope.UnloadPrefabContents(editableRoot);
+
+            var scenePath = scope.CreateScenePath(nameof(PrefabOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var prefabAsset = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            Assert.That(prefabAsset, Is.Not.Null);
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefabAsset!);
+            instance.name = "InstanceRoot";
+            EditorSceneManager.SaveScene(scene, scenePath);
+
+            var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
+            var target = new
+            {
+                scene = scenePath,
+                hierarchyPath = "InstanceRoot",
+                componentType = componentTypeId,
+            };
+            var firstSetRequest = CreateOperation(
+                opId: "edit-step",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target,
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "integerValue",
+                            value = 42,
+                        },
+                    },
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var secondSetRequest = CreateOperation(
+                opId: "edit-step",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target,
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "floatValue",
+                            value = 3.5f,
+                        },
+                    },
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var applyRequest = CreateOperation(
+                opId: "edit-step",
+                opName: UcliPrimitiveOperationNames.PrefabApplyOverrides,
+                args: new
+                {
+                    target,
+                    targetAssetPath = prefabPath,
+                    propertyPaths = new[] { "floatValue" },
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsureSceneExecutionSession(scenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+
+            var firstSetResult = await setOperation.PlanAsync(firstSetRequest, context, CancellationToken.None);
+            var secondSetResult = await setOperation.PlanAsync(secondSetRequest, context, CancellationToken.None);
+            var applyResult = await applyOperation.PlanAsync(applyRequest, context, CancellationToken.None);
+
+            AssertSuccess(firstSetResult, applied: false, changed: true);
+            AssertSuccess(secondSetResult, applied: false, changed: true);
+            AssertSuccess(applyResult, applied: false, changed: true);
+            AssertTouchSet(applyResult, (OperationTouchKind.Prefab, prefabPath));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ApplyOverrides_Plan_WhenObjectWasReparentedIntoPlannedPrefabCreation_RejectsTarget () => UniTask.ToCoroutine(async () =>
+        {
+            var createOperation = new PrefabCreateOperation();
+            var reparentOperation = new GoReparentOperation();
+            var setOperation = new CompSetOperation();
+            var applyOperation = new PrefabApplyOverridesOperation();
+            using var scope = new EditorTestScope()
+                .EnableEditorSceneReset()
+                .EnablePrefabStageCleanup();
+            var scenePath = scope.CreateScenePath(nameof(PrefabOperationTests));
+            var prefabPath = scope.CreatePrefabPath(nameof(PrefabOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            var external = new GameObject("External");
+            _ = external.AddComponent<CompOperationTestComponent>();
+            EditorSceneManager.SaveScene(scene, scenePath);
+
+            var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
+            var target = new
+            {
+                scene = scenePath,
+                hierarchyPath = "Root/External",
+                componentType = componentTypeId,
+            };
+            var createRequest = CreateOperation(
+                opId: "create-prefab",
+                opName: UcliPrimitiveOperationNames.PrefabCreate,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root",
+                    },
+                    path = prefabPath,
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var reparentRequest = CreateOperation(
+                opId: "reparent",
+                opName: UcliPrimitiveOperationNames.GoReparent,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "External",
+                    },
+                    parent = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root",
+                    },
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var setRequest = CreateOperation(
+                opId: "edit-step",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target,
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "floatValue",
+                            value = 3.5f,
+                        },
+                    },
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var applyRequest = CreateOperation(
+                opId: "edit-step",
+                opName: UcliPrimitiveOperationNames.PrefabApplyOverrides,
+                args: new
+                {
+                    target,
+                    targetAssetPath = prefabPath,
+                    propertyPaths = new[] { "floatValue" },
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsureSceneExecutionSession(scenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+
+            var createResult = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
+            var reparentResult = await reparentOperation.PlanAsync(reparentRequest, context, CancellationToken.None);
+            var setResult = await setOperation.PlanAsync(setRequest, context, CancellationToken.None);
+            var applyResult = await applyOperation.PlanAsync(applyRequest, context, CancellationToken.None);
+
+            AssertSuccess(createResult, applied: false, changed: true);
+            AssertSuccess(reparentResult, applied: false, changed: true);
+            AssertSuccess(setResult, applied: false, changed: true);
+            AssertInvalidArgument(applyResult, "edit-step");
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Create_Validate_WhenTargetIsMissing_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new PrefabCreateOperation();
@@ -824,6 +1274,103 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator PrefabOverrideActions_Plan_WhenDirtyScenePreviewMirrorsPrefabInstance_UseSourceTrackingKey () => UniTask.ToCoroutine(async () =>
+        {
+            var setOperation = new CompSetOperation();
+            var applyOperation = new PrefabApplyOverridesOperation();
+            var revertOperation = new PrefabRevertOverridesOperation();
+            using var scope = new EditorTestScope()
+                .EnableEditorSceneReset();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var editableRoot = scope.LoadPrefabContents(prefabPath);
+            _ = editableRoot.AddComponent<CompOperationTestComponent>();
+            _ = PrefabUtility.SaveAsPrefabAsset(editableRoot, prefabPath);
+            scope.UnloadPrefabContents(editableRoot);
+
+            var scenePath = scope.CreateScenePath(nameof(PrefabOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var prefabAsset = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            Assert.That(prefabAsset, Is.Not.Null);
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefabAsset!);
+            instance.name = "InstanceRoot";
+            EditorSceneManager.MarkSceneDirty(scene);
+
+            var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
+            var target = new
+            {
+                scene = scenePath,
+                hierarchyPath = "InstanceRoot",
+                componentType = componentTypeId,
+            };
+            var applySetRequest = CreateOperation(
+                opId: "apply-step",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target,
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "floatValue",
+                            value = 2.5f,
+                        },
+                    },
+                });
+            var applyRequest = CreateOperation(
+                opId: "apply-step",
+                opName: UcliPrimitiveOperationNames.PrefabApplyOverrides,
+                args: new
+                {
+                    target,
+                    targetAssetPath = prefabPath,
+                    propertyPaths = new[] { "floatValue" },
+                });
+            var revertSetRequest = CreateOperation(
+                opId: "revert-step",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target,
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "integerValue",
+                            value = 42,
+                        },
+                    },
+                });
+            var revertRequest = CreateOperation(
+                opId: "revert-step",
+                opName: UcliPrimitiveOperationNames.PrefabRevertOverrides,
+                args: new
+                {
+                    target,
+                    targetAssetPath = prefabPath,
+                    propertyPaths = new[] { "integerValue" },
+                });
+
+            using var applyContext = scope.CreateExecutionContext();
+            Assert.That(applyContext.TryEnsureSceneExecutionSession(scenePath, out var applyEnsureErrorMessage), Is.True, applyEnsureErrorMessage);
+            var applySetPlanResult = await setOperation.PlanAsync(applySetRequest, applyContext, CancellationToken.None);
+            var applyPlanResult = await applyOperation.PlanAsync(applyRequest, applyContext, CancellationToken.None);
+            using var revertContext = scope.CreateExecutionContext();
+            Assert.That(revertContext.TryEnsureSceneExecutionSession(scenePath, out var revertEnsureErrorMessage), Is.True, revertEnsureErrorMessage);
+            var revertSetPlanResult = await setOperation.PlanAsync(revertSetRequest, revertContext, CancellationToken.None);
+            var revertPlanResult = await revertOperation.PlanAsync(revertRequest, revertContext, CancellationToken.None);
+
+            AssertSuccess(applySetPlanResult, applied: false, changed: true);
+            AssertSuccess(applyPlanResult, applied: false, changed: true);
+            AssertTouchSet(applyPlanResult, (OperationTouchKind.Prefab, prefabPath));
+            AssertSuccess(revertSetPlanResult, applied: false, changed: true);
+            AssertSuccess(revertPlanResult, applied: false, changed: true);
+            AssertTouchSet(revertPlanResult, (OperationTouchKind.Scene, scenePath));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Save_Plan_WhenPrefabOpenWasPlannedForClosedPrefab_Succeeds () => UniTask.ToCoroutine(async () =>
         {
             var openOperation = new PrefabOpenOperation();
@@ -908,7 +1455,7 @@ namespace MackySoft.Ucli.Unity.Tests
             bool applied,
             bool changed)
         {
-            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.IsSuccess, Is.True, result.Failure?.Message);
             Assert.That(result.Applied, Is.EqualTo(applied));
             Assert.That(result.Changed, Is.EqualTo(changed));
             Assert.That(result.Failure, Is.Null);

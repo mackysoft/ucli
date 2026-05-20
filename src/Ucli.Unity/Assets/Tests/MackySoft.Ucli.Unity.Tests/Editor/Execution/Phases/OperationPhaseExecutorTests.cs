@@ -78,7 +78,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 "edit-step-a",
                 "target-1",
                 "m_Text",
-                wasPrefabOverrideBeforeRequest: false);
+                wasPrefabOverrideBeforeRequest: false,
+                valueHashBeforeSet: "before",
+                valueHashAfterSet: "after");
 
             var result = executionContext.TryCollectPrefabOverridePropertyChanges(
                 "edit-step-b",
@@ -101,7 +103,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 "edit-step-a",
                 "target-1",
                 "m_Text",
-                wasPrefabOverrideBeforeRequest: false);
+                wasPrefabOverrideBeforeRequest: false,
+                valueHashBeforeSet: "before",
+                valueHashAfterSet: "after");
 
             var result = executionContext.TryCollectPrefabOverridePropertyChanges(
                 "edit-step-a",
