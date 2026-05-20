@@ -1314,13 +1314,7 @@ subset で使用できる語彙は `type`、`properties`、`required`、`additio
               }
             },
             "childrenState": {
-              "type": "string",
-              "enum": [
-                "complete",
-                "notExpandedByDepth",
-                "truncatedByWindow",
-                "unknown"
-              ]
+              "type": "string"
             }
           }
         },
