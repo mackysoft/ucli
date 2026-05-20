@@ -334,7 +334,7 @@ no-op request は envelope、pipeline、smoke check のために有効な reques
 
 #### 意味
 - Scene context の Prefab instance に対する request-attributed override を、明示した Prefab asset へ反映する
-- `targetAssetPath` は必須とし、既存の `Assets/.../*.prefab` でなければならない
+- `targetAssetPath` は必須とし、既存の `Assets/.../*.prefab`、または同一 request の先行 `createPrefab` が作成予定にした `Assets/.../*.prefab` でなければならない
 - `targetAssetPath` は current target の Prefab instance lineage / valid target chain に含まれていなければならない
 - Nested Prefab / Variant の apply 先は暗黙推論しない
 - `propertyPaths` は任意で、指定時は exact `SerializedProperty.propertyPath` の配列とする
@@ -612,7 +612,7 @@ Play Mode 変更で許可される step は `kind: "edit"` のみである。
 - Scene context の `commit:"none"` は Scene 保存を行わない指定であり、`applyPrefabOverrides` による対象 Prefab asset 保存とは矛盾しない
 - `applyPrefabOverrides` は Scene context から明示 Prefab asset へ保存する secondary persistence action であり、Scene asset は保存しない
 - `applyPrefabOverrides` / `revertPrefabOverrides` は同一 edit step / 同一 current target の先行 `set` が effective changed にした exact property path だけを対象にし、child object へ再帰しない
-- `targetAssetPath` は current target の Prefab instance lineage / valid target chain に含まれる既存の `Assets/.../*.prefab` に限定する
+- `targetAssetPath` は current target の Prefab instance lineage / valid target chain に含まれる既存の `Assets/.../*.prefab`、または同一 request の先行 `createPrefab` が作成予定にした `Assets/.../*.prefab` に限定する
 - `propertyPaths: []`、重複 path、先行 `set` に由来しない path、effective changed でない path、parent path 指定による child property 対象化は拒否する
 - 同一 property を複数回 `set` した場合は最終 effective value だけを対象にし、最終値が pre-request 値と同じなら対象外にする
 - `applyPrefabOverrides` は pre-request override であっても、同一 step の先行 `set` が exact path を effective changed にした場合だけ許可する
