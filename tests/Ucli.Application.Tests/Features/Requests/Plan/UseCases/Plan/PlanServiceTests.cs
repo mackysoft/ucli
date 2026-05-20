@@ -67,6 +67,52 @@ public sealed class PlanServiceTests
         Assert.True(executeRequest.FailFast);
         Assert.Null(executeRequest.PlanToken);
         Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", executeRequest.ExecuteArguments.GetProperty("requestId").GetString());
+        Assert.False(executeRequest.AllowPlayMode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenAllowPlayModeIsSpecified_SkipsStaticPreflightAndUsesUnityReadIndexInfo ()
+    {
+        var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Success(
+            CreateResponse(
+                status: IpcProtocol.StatusOk,
+                opResults: [],
+                errors: [],
+                planToken: "plan-token-1")));
+        var staticPreflightService = new StubRequestStaticValidationPreflightService(CreateSuccessPreflightResult(
+            CreateReadIndexInfo(
+                used: true,
+                hit: true,
+                freshness: IndexFreshness.Probable,
+                fallbackReason: null)));
+        var service = new PlanService(
+            new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
+            staticPreflightService,
+            unityIpcRequestExecutor);
+
+        var result = await service.ExecuteAsync(
+            new PlanCommandInput(
+                ProjectPath: "/repo/UnityProject",
+                Mode: UnityExecutionMode.Oneshot,
+                TimeoutMilliseconds: 1234,
+                ReadIndexMode: null,
+                FailFast: true,
+                RequestJson: """{"steps":[]}""")
+            {
+                AllowPlayMode = true,
+            },
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(0, staticPreflightService.CallCount);
+        Assert.NotNull(result.Output);
+        Assert.False(result.Output!.ReadIndex.Used);
+        Assert.False(result.Output.ReadIndex.Hit);
+        Assert.Equal(ReadIndexInfoSource.Unity, result.Output.ReadIndex.Source);
+        Assert.Equal("Play Mode mutation uses live Unity state.", result.Output.ReadIndex.FallbackReason);
+        var executeRequest = Assert.IsType<UnityRequestPayload.ExecuteJson>(unityIpcRequestExecutor.CapturedPayload);
+        Assert.True(executeRequest.AllowPlayMode);
     }
 
     [Fact]
@@ -387,12 +433,15 @@ public sealed class PlanServiceTests
             this.result = result ?? throw new ArgumentNullException(nameof(result));
         }
 
+        public int CallCount { get; private set; }
+
         public ValueTask<RequestStaticValidationPreflightResult> PrepareAsync (
             PreparedRequestContext preparedRequest,
             ReadIndexMode? readIndexMode,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            CallCount++;
             return ValueTask.FromResult(result);
         }
     }

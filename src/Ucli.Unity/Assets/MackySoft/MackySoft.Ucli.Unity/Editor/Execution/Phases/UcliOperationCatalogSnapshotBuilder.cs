@@ -30,8 +30,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             var generatedAtUtc = DateTimeOffset.UtcNow;
+            return new UcliOperationCatalogSnapshot(
+                Registrations: registrations,
+                Catalog: CreateCatalog(registrations, generatedAtUtc, includeEditLoweringOnly: false),
+                RequestValidationCatalog: CreateCatalog(registrations, generatedAtUtc, includeEditLoweringOnly: true));
+        }
+
+        private static IpcOpsReadResponse CreateCatalog (
+            IReadOnlyList<UcliOperationRegistration> registrations,
+            DateTimeOffset generatedAtUtc,
+            bool includeEditLoweringOnly)
+        {
             var operations = IndexJsonOrderingPolicy.OrderOpsEntries(registrations
-                .Where(static registration => registration.Metadata.Exposure == UcliOperationExposure.Public)
+                .Where(registration => ShouldIncludeInCatalog(registration.Metadata.Exposure, includeEditLoweringOnly))
                 .Select(static registration =>
                 {
                     var describeContract = registration.Metadata.DescribeContract;
@@ -40,7 +51,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         Kind: UcliOperationKindCodec.ToValue(registration.Metadata.Kind),
                         Policy: OperationPolicyCodec.ToValue(registration.Metadata.Policy),
                         ArgsSchemaJson: registration.Metadata.ArgsSchemaJson,
-                        ResultSchemaJson: registration.Metadata.ResultSchemaJson)
+                        ResultSchemaJson: registration.Metadata.ResultSchemaJson,
+                        Exposure: registration.Metadata.Exposure == UcliOperationExposure.Public
+                            ? null
+                            : UcliOperationExposureCodec.ToValue(registration.Metadata.Exposure))
                     {
                         Description = describeContract.Description,
                         Inputs = describeContract.Inputs,
@@ -50,11 +64,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     };
                 }));
 
-            return new UcliOperationCatalogSnapshot(
-                Registrations: registrations,
-                Catalog: new IpcOpsReadResponse(
-                    GeneratedAtUtc: generatedAtUtc,
-                    Operations: operations));
+            return new IpcOpsReadResponse(
+                GeneratedAtUtc: generatedAtUtc,
+                Operations: operations);
+        }
+
+        private static bool ShouldIncludeInCatalog (
+            UcliOperationExposure exposure,
+            bool includeEditLoweringOnly)
+        {
+            return exposure == UcliOperationExposure.Public
+                   || (includeEditLoweringOnly && exposure == UcliOperationExposure.EditLoweringOnly);
         }
     }
 }

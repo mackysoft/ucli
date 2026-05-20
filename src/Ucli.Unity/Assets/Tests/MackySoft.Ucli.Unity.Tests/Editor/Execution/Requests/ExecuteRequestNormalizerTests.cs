@@ -1,11 +1,13 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Unity.Index;
@@ -1925,6 +1927,203 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void Normalize_WhenAllowPlayModeIsSpecified_RejectsRawOperationStep ()
+        {
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new[]
+                    {
+                        new
+                        {
+                            kind = "op",
+                            id = "rawSet",
+                            op = UcliPrimitiveOperationNames.CompSet,
+                            args = new { },
+                        },
+                    },
+                }) with
+                {
+                    AllowPlayMode = true,
+                };
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            AssertInvalidArgument(result, "rawSet");
+            Assert.That(result.Error!.Message, Is.EqualTo("Play Mode mutation requests support only public edit steps."));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenAllowPlayModeSceneCommitIsContext_ReturnsPersistenceForbiddenError ()
+        {
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "playSceneCommit",
+                            on = new
+                            {
+                                scene = "Assets/Scenes/Main.unity",
+                            },
+                            select = new
+                            {
+                                gameObject = "Root",
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "delete",
+                                },
+                            },
+                            commit = "context",
+                        },
+                    },
+                }) with
+                {
+                    AllowPlayMode = true,
+                };
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error, Is.Not.Null);
+            Assert.That(result.Error!.Code, Is.EqualTo(PlayModeErrorCodes.PlayModePersistenceForbidden));
+            Assert.That(result.Error.OpId, Is.EqualTo("playSceneCommit"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenAllowPlayModeSceneCommitIsNone_CompilesLiveMutationPostReadSource ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "playSceneMutation",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                gameObject = "Root",
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "delete",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                }) with
+                {
+                    AllowPlayMode = true,
+                };
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: true);
+            Assert.That(compiledOperations, Has.Count.EqualTo(1));
+            Assert.That(compiledOperations[0].SuppressPersistenceReporting, Is.True);
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasPostReadSourceStep(
+                    IpcExecutePostReadSourceKindNames.Edit,
+                    IpcExecutePostReadCommitNames.None,
+                    false,
+                    IpcExecuteExpectedPostStateNames.Unavailable,
+                    expectedPlayModeMutation: true);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenAllowPlayModeAssetCommitIsContext_CompilesTargetLimitedAssetSave ()
+        {
+            using var scope = new EditorTestScope();
+            _ = scope.CreateScriptableAsset<AssetOperationTestAsset>(nameof(ExecuteRequestNormalizerTests), out var assetPath);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "playAssetMutation",
+                            on = new
+                            {
+                                asset = assetPath,
+                            },
+                            select = new
+                            {
+                                self = true,
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "set",
+                                    values = new
+                                    {
+                                        text = "updated",
+                                    },
+                                },
+                            },
+                            commit = "context",
+                        },
+                    },
+                }) with
+                {
+                    AllowPlayMode = true,
+                };
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var (_, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: true);
+            Assert.That(compiledOperations.Select(static operation => operation.Op), Is.EqualTo(new[]
+            {
+                UcliPrimitiveOperationNames.AssetSet,
+                UcliPrimitiveOperationNames.AssetSave,
+            }));
+            Assert.That(compiledOperations[1].Args.GetProperty("target").GetProperty("assetPath").GetString(), Is.EqualTo(assetPath));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void Normalize_WhenCommandIsValidate_ReturnsInvalidArgumentError ()
         {
             var request = CreateExecuteRequest(
@@ -2251,10 +2450,19 @@ namespace MackySoft.Ucli.Unity.Tests
             int stepIndex,
             OperationExecutionContext executionContext)
         {
+            return CompileSingleStep(request, stepIndex, executionContext, allowPlayMode: false);
+        }
+
+        private static (NormalizedRequestStep Step, IReadOnlyList<NormalizedOperation> Operations) CompileSingleStep (
+            NormalizedExecuteRequest request,
+            int stepIndex,
+            OperationExecutionContext executionContext,
+            bool allowPlayMode)
+        {
             var compiler = new ExecuteRequestCompiler();
             var sourceStep = request.SourceSteps[stepIndex];
             Assert.That(
-                compiler.TryCompileExecutionStep(sourceStep, executionContext, out var compiledStep, out var compiledOperations, out _, out var error),
+                compiler.TryCompileExecutionStep(sourceStep, executionContext, allowPlayMode, out var compiledStep, out var compiledOperations, out _, out var error),
                 Is.True,
                 error?.Message);
 

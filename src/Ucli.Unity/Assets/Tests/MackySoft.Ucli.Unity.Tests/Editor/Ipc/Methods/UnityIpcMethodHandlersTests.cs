@@ -1,9 +1,11 @@
 using System;
 using System.Collections;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -198,6 +200,23 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcOpsReadResponse payload, out _), Is.True);
             Assert.That(payload.Operations.Count, Is.EqualTo(1));
             Assert.That(payload.Operations[0].Name, Is.EqualTo(UcliPrimitiveOperationNames.GoDescribe));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator OpsReadHandler_WhenEditLoweringCatalogIsRequested_ReturnsValidationCatalog () => UniTask.ToCoroutine(async () =>
+        {
+            var readinessGate = new StubUnityEditorReadinessGate();
+            var handler = CreateOpsReadHandler(readinessGate);
+            var request = CreateOpsReadRequest("req-ops-read-validation", new IpcOpsReadRequest(IncludeEditLoweringOnly: true));
+
+            var response = await handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcOpsReadResponse payload, out _), Is.True);
+            Assert.That(payload.Operations.Select(static operation => operation.Name), Does.Contain(UcliPrimitiveOperationNames.AssetSave));
+            var assetSave = payload.Operations.Single(static operation => operation.Name == UcliPrimitiveOperationNames.AssetSave);
+            Assert.That(assetSave.Exposure, Is.EqualTo(UcliOperationExposureValues.EditLoweringOnly));
         });
 
         [UnityTest]
@@ -1119,6 +1138,22 @@ namespace MackySoft.Ucli.Unity.Tests
                                 Kind: "query",
                                 Policy: "safe",
                                 ArgsSchemaJson: "{\"type\":\"object\"}"),
+                        }),
+                    new IpcOpsReadResponse(
+                        GeneratedAtUtc: DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
+                        Operations: new[]
+                        {
+                            new IndexOpEntryJsonContract(
+                                Name: UcliPrimitiveOperationNames.GoDescribe,
+                                Kind: "query",
+                                Policy: "safe",
+                                ArgsSchemaJson: "{\"type\":\"object\"}"),
+                            new IndexOpEntryJsonContract(
+                                Name: UcliPrimitiveOperationNames.AssetSave,
+                                Kind: "mutation",
+                                Policy: "advanced",
+                                ArgsSchemaJson: "{\"type\":\"object\"}",
+                                Exposure: UcliOperationExposureValues.EditLoweringOnly),
                         })),
                 readinessGate);
         }

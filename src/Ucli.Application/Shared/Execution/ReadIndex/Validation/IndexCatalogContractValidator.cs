@@ -128,6 +128,7 @@ internal static class IndexCatalogContractValidator
             || string.IsNullOrWhiteSpace(entry.Name)
             || !UcliOperationKindCodec.TryParse(entry.Kind, out _)
             || !OperationPolicyCodec.TryParse(entry.Policy, out _)
+            || !IsValidOptionalExposure(entry.Exposure)
             || !IndexJsonSchemaSubsetValidator.IsValidPublicRawOpArgsSchema(entry.ArgsSchemaJson)
             || !IsValidOptionalSchemaObject(entry.ResultSchemaJson)
             || !TryValidateOpsDescribeContract(entry, out error))
@@ -138,6 +139,11 @@ internal static class IndexCatalogContractValidator
 
         error = null;
         return true;
+    }
+
+    private static bool IsValidOptionalExposure (string? exposure)
+    {
+        return exposure == null || UcliOperationExposureCodec.TryParse(exposure, out _);
     }
 
     private static bool TryValidateOpsDescribeContract (

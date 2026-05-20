@@ -71,6 +71,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 if (!requestCompiler.TryCompileExecutionStep(
                         sourceStep,
                         executionContext,
+                        request.AllowPlayMode,
                         out var compiledStep,
                         out var compiledOperations,
                         out var compileDiagnostics,

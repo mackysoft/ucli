@@ -1425,6 +1425,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 SourceSteps: CreateSourceSteps(operations),
                 AllowDangerous: false,
+                AllowPlayMode: false,
                 PlanToken: null,
                 CanonicalDigestPayloadUtf8: Encoding.UTF8.GetBytes("{}"));
         }
@@ -1441,6 +1442,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     CreateEditSourceStep(stepId),
                 },
                 AllowDangerous: false,
+                AllowPlayMode: false,
                 PlanToken: null,
                 CanonicalDigestPayloadUtf8: Encoding.UTF8.GetBytes("{}"));
         }

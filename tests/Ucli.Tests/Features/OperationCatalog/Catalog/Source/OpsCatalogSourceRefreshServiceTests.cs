@@ -43,6 +43,7 @@ public sealed class OpsCatalogSourceRefreshServiceTests
         Assert.Equal("readIndex stale.", result.FallbackReason);
         Assert.Equal(1, reader.CallCount);
         Assert.True(reader.LastRequireReadinessGate);
+        Assert.False(reader.LastIncludeEditLoweringOnly);
         Assert.Equal(2, fingerprintProvider.CoreCallCount);
         Assert.Equal(1, fingerprintProvider.FullCallCount);
         Assert.Equal(1, artifactWriter.OpsCatalogCallCount);
@@ -314,6 +315,8 @@ public sealed class OpsCatalogSourceRefreshServiceTests
 
         public bool LastRequireReadinessGate { get; private set; }
 
+        public bool LastIncludeEditLoweringOnly { get; private set; }
+
         public OpsCatalogFetchResult Result { get; set; }
             = OpsCatalogFetchResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
 
@@ -329,11 +332,13 @@ public sealed class OpsCatalogSourceRefreshServiceTests
             TimeSpan timeout,
             bool failFast,
             bool requireReadinessGate,
+            bool includeEditLoweringOnly = false,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
             LastRequireReadinessGate = requireReadinessGate;
+            LastIncludeEditLoweringOnly = includeEditLoweringOnly;
             if (results.TryDequeue(out var result))
             {
                 return ValueTask.FromResult(result);

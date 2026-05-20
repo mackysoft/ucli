@@ -184,7 +184,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     SerializerOptions);
             }
 
-            var readinessResult = await readinessGate.EnsureExecutionReadyAsync(request.FailFast, cancellationToken).ConfigureAwait(false);
+            var readinessResult = await readinessGate.EnsureExecutionReadyAsync(request.FailFast, cancellationToken, request.AllowPlayMode).ConfigureAwait(false);
             if (!readinessResult.IsReady)
             {
                 var lifecycleError = readinessResult.Error!;
@@ -235,7 +235,8 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
 
             public Task<UnityEditorExecutionReadinessResult> EnsureExecutionReadyAsync (
                 bool failFast,
-                CancellationToken cancellationToken = default)
+                CancellationToken cancellationToken = default,
+                bool allowPlayMode = false)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 return Task.FromResult(UnityEditorExecutionReadinessResult.Ready(CaptureSnapshot()));

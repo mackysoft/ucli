@@ -48,8 +48,7 @@ internal static class PostReadClaimBuilder
 
         var persistenceResults = fromInput.OpResults
             .Where(static result => result.Changed
-                && result.PostReadSource.PersistenceExpected
-                && !result.PostReadSource.PlayModeMutation)
+                && result.PostReadSource.PersistenceExpected)
             .ToArray();
         if (persistenceResults.Length != 0)
         {

@@ -106,6 +106,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             var normalizedPlanToken = StringValueNormalizer.TrimToNull(request.PlanToken);
             if (!requestCompiler.TryPrepareSourceSteps(
                 parsedContract,
+                request.AllowPlayMode,
                 out var sourceSteps,
                 out var compileError))
             {
@@ -117,6 +118,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 RequestId: parsedContract.RequestId,
                 SourceSteps: sourceSteps,
                 AllowDangerous: request.AllowDangerous,
+                AllowPlayMode: request.AllowPlayMode,
                 PlanToken: normalizedPlanToken,
                 CanonicalDigestPayloadUtf8: canonicalPayload);
             return ExecuteRequestNormalizationResult.Success(normalizedRequest);

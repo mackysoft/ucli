@@ -212,11 +212,17 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <inheritdoc />
         public Task<UnityEditorExecutionReadinessResult> EnsureExecutionReadyAsync (
             bool failFast,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            bool allowPlayMode = false)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             var snapshot = CaptureSnapshot();
+            if (allowPlayMode)
+            {
+                return Task.FromResult(UnityEditorExecutionReadinessPolicy.CreatePlayModeAllowedResult(snapshot));
+            }
+
             if (snapshot.CanAcceptExecutionRequests)
             {
                 return Task.FromResult(UnityEditorExecutionReadinessResult.Ready(snapshot));

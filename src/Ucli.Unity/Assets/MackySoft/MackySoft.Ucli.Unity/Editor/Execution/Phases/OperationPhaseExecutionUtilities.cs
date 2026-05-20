@@ -93,6 +93,34 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
         }
 
+        /// <summary> Applies operation-level response reporting policy to one phase-step result. </summary>
+        /// <param name="operation"> The normalized operation that produced the result. </param>
+        /// <param name="result"> The raw phase-step result. </param>
+        /// <returns> The public-reporting result. </returns>
+        public static OperationPhaseStepResult ApplyPersistenceReportingPolicy (
+            NormalizedOperation operation,
+            OperationPhaseStepResult result)
+        {
+            if (operation == null)
+            {
+                throw new ArgumentNullException(nameof(operation));
+            }
+
+            if (result == null)
+            {
+                throw new ArgumentNullException(nameof(result));
+            }
+
+            return operation.SuppressPersistenceReporting
+                ? result with
+                {
+                    Touched = Array.Empty<OperationTouch>(),
+                    ReadInvalidations = Array.Empty<OperationReadInvalidation>(),
+                    Persisted = false,
+                }
+                : result;
+        }
+
         /// <summary> Creates a skipped trace for operations after fail-fast stopping. </summary>
         /// <param name="operation"> The skipped operation. </param>
         /// <returns> The skipped trace entry. </returns>

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
+using UnityEditor;
 using UnityEngine;
 
 #nullable enable
@@ -73,6 +74,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState,
                 operation.AllowRequestLocalAliases,
                 out var changed,
+                out var changedPropertyPaths,
                 out var applyErrorMessage))
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, applyErrorMessage));
@@ -93,6 +95,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
 
                 executionContext.MarkRequestAttributedChange(bindingState.Binding.Resource);
+                RecordPrefabOverridePropertyChanges(
+                    bindingState.Binding,
+                    changedPropertyPaths,
+                    executionContext);
             }
 
             return Task.FromResult(OperationPhaseStepResult.Success(
@@ -131,6 +137,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases,
                 operation.AllowRequestLocalAliases,
                 out var changed,
+                out var changedPropertyPaths,
                 out var applyErrorMessage))
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, applyErrorMessage));
@@ -141,9 +148,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     bindingState.Binding.Component,
                     bindingState.Sets,
                     executionContext,
-                    OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases,
-                    operation.AllowRequestLocalAliases,
-                    out _,
+                OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases,
+                operation.AllowRequestLocalAliases,
+                out _,
                     out var commitErrorMessage))
             {
                 return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
@@ -155,6 +162,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (changed)
             {
                 executionContext.MarkRequestAttributedChange(bindingState.Binding.Resource);
+                RecordPrefabOverridePropertyChanges(
+                    bindingState.Binding,
+                    changedPropertyPaths,
+                    executionContext);
             }
 
             return Task.FromResult(OperationPhaseStepResult.Success(
@@ -314,6 +325,53 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return UnityObjectReferenceResolver.CreateTrackingKey(component);
+        }
+
+        private static void RecordPrefabOverridePropertyChanges (
+            TargetBinding binding,
+            IReadOnlyList<string> changedPropertyPaths,
+            OperationExecutionContext executionContext)
+        {
+            if (binding.Resource.Kind != OperationTouchKind.Scene
+                || changedPropertyPaths.Count == 0
+                || !PrefabUtility.IsPartOfPrefabInstance(binding.Component))
+            {
+                return;
+            }
+
+            var targetKey = string.IsNullOrWhiteSpace(binding.SourceGlobalObjectId)
+                ? UnityObjectReferenceResolver.CreateTrackingKey(binding.Component)
+                : binding.SourceGlobalObjectId!;
+            for (var i = 0; i < changedPropertyPaths.Count; i++)
+            {
+                if (!TryReadPrefabOverrideState(binding.Component, changedPropertyPaths[i], out var wasPrefabOverrideBeforeRequest))
+                {
+                    continue;
+                }
+
+                executionContext.RecordPrefabOverridePropertyChange(
+                    targetKey,
+                    changedPropertyPaths[i],
+                    wasPrefabOverrideBeforeRequest);
+            }
+        }
+
+        private static bool TryReadPrefabOverrideState (
+            Component component,
+            string propertyPath,
+            out bool prefabOverride)
+        {
+            var serializedObject = new SerializedObject(component);
+            serializedObject.UpdateIfRequiredOrScript();
+            var property = serializedObject.FindProperty(propertyPath);
+            if (property == null)
+            {
+                prefabOverride = false;
+                return false;
+            }
+
+            prefabOverride = property.prefabOverride;
+            return true;
         }
 
         private readonly struct TargetBinding

@@ -29,6 +29,7 @@ public sealed class OperationCatalogDiscoveryServiceTests
             reader.ReceivedTimeout);
         Assert.False(reader.ReceivedFailFast);
         Assert.False(reader.ReceivedRequireReadinessGate);
+        Assert.True(reader.ReceivedIncludeEditLoweringOnly);
         Assert.Single(operations);
     }
 
@@ -131,6 +132,8 @@ public sealed class OperationCatalogDiscoveryServiceTests
 
         public bool ReceivedRequireReadinessGate { get; private set; }
 
+        public bool ReceivedIncludeEditLoweringOnly { get; private set; }
+
         public ValueTask<OpsCatalogFetchResult> ReadAsync (
             ResolvedUnityProjectContext project,
             UcliConfig config,
@@ -138,12 +141,14 @@ public sealed class OperationCatalogDiscoveryServiceTests
             TimeSpan timeout,
             bool failFast,
             bool requireReadinessGate,
+            bool includeEditLoweringOnly = false,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             ReceivedTimeout = timeout;
             ReceivedFailFast = failFast;
             ReceivedRequireReadinessGate = requireReadinessGate;
+            ReceivedIncludeEditLoweringOnly = includeEditLoweringOnly;
 
             var describe = UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
                 "Opens a Unity scene asset in the editor.",
@@ -197,6 +202,7 @@ public sealed class OperationCatalogDiscoveryServiceTests
             TimeSpan timeout,
             bool failFast,
             bool requireReadinessGate,
+            bool includeEditLoweringOnly = false,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

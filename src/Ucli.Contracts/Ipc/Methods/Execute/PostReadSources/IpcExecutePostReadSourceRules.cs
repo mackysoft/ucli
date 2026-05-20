@@ -30,10 +30,14 @@ public static class IpcExecutePostReadSourceRules
         {
             IpcExecutePostReadSourceKindNames.Edit =>
                 string.Equals(operationName, EditOperationName, StringComparison.Ordinal)
-                && !playModeMutation
                 && IsKnownPostReadCommit(commit)
                 && (string.Equals(commit, IpcExecutePostReadCommitNames.None, StringComparison.Ordinal) || persistenceExpected)
-                && string.Equals(expectedPostState, IpcExecuteExpectedPostStateNames.Deterministic, StringComparison.Ordinal),
+                && ((playModeMutation
+                        && !persistenceExpected
+                        && string.Equals(commit, IpcExecutePostReadCommitNames.None, StringComparison.Ordinal)
+                        && string.Equals(expectedPostState, IpcExecuteExpectedPostStateNames.Unavailable, StringComparison.Ordinal))
+                    || (!playModeMutation
+                        && string.Equals(expectedPostState, IpcExecuteExpectedPostStateNames.Deterministic, StringComparison.Ordinal))),
             IpcExecutePostReadSourceKindNames.Operation =>
                 !string.Equals(operationName, EditOperationName, StringComparison.Ordinal)
                 && !string.Equals(operationName, UcliPrimitiveOperationNames.ProjectRefresh, StringComparison.Ordinal)

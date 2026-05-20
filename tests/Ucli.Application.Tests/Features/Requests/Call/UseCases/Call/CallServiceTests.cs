@@ -78,6 +78,7 @@ public sealed class CallServiceTests
         Assert.Equal("plan-token-1", executeRequest.PlanToken);
         Assert.True(executeRequest.FailFast);
         Assert.False(executeRequest.AllowDangerous);
+        Assert.False(executeRequest.AllowPlayMode);
         Assert.True(preflightService.ReceivedFailFast);
         Assert.Equal(UnityExecutionMode.Oneshot, ipcRequestExecutor.Invocations[0].Mode);
         Assert.Equal(TimeSpan.FromMilliseconds(1234), ipcRequestExecutor.Invocations[0].Timeout);
@@ -136,7 +137,10 @@ public sealed class CallServiceTests
                 WithPlan: true,
                 AllowDangerous: false,
                 FailFast: false,
-                RequestJson: """{"steps":[]}"""),
+                RequestJson: """{"steps":[]}""")
+            {
+                AllowPlayMode = true,
+            },
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -149,11 +153,13 @@ public sealed class CallServiceTests
         Assert.Equal(UcliCommandIds.Plan, planRequest.Command);
         Assert.Null(planRequest.PlanToken);
         Assert.False(planRequest.AllowDangerous);
+        Assert.True(planRequest.AllowPlayMode);
 
         var callRequest = Assert.IsType<UnityRequestPayload.ExecuteJson>(ipcRequestExecutor.Invocations[1].Payload);
         Assert.Equal(UcliCommandIds.Call, callRequest.Command);
         Assert.Equal("issued-plan-token", callRequest.PlanToken);
         Assert.False(callRequest.AllowDangerous);
+        Assert.True(callRequest.AllowPlayMode);
 
         var requestId = result.Output.RequestId;
         Assert.Equal(requestId, result.Output.Plan.RequestId);

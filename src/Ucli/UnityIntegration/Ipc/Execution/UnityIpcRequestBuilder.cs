@@ -39,7 +39,8 @@ internal sealed class UnityIpcRequestBuilder
                     executeJson.ExecuteArguments,
                     executeJson.FailFast,
                     executeJson.AllowDangerous,
-                    executeJson.PlanToken)),
+                    executeJson.PlanToken,
+                    executeJson.AllowPlayMode)),
             UnityRequestPayload.ExecuteOperation executeOperation => new UnityIpcDispatchRequest(
                 IpcMethodNames.Execute,
                 CreateExecutePayload(
@@ -48,10 +49,11 @@ internal sealed class UnityIpcRequestBuilder
                         executeOperation.RequestId,
                         executeOperation.OperationId,
                         executeOperation.OperationName,
-                        executeOperation.Args),
+                    executeOperation.Args),
                     executeOperation.FailFast,
                     executeOperation.AllowDangerous,
-                    executeOperation.PlanToken)),
+                    executeOperation.PlanToken,
+                    executeOperation.AllowPlayMode)),
             _ => throw new ArgumentOutOfRangeException(nameof(request), request, "Unsupported Unity request payload."),
         };
     }
@@ -88,7 +90,8 @@ internal sealed class UnityIpcRequestBuilder
         JsonElement executeArguments,
         bool failFast,
         bool allowDangerous,
-        string? planToken)
+        string? planToken,
+        bool allowPlayMode)
     {
         if (!command.IsValid)
         {
@@ -97,6 +100,7 @@ internal sealed class UnityIpcRequestBuilder
 
         return IpcPayloadCodec.SerializeToElement(new IpcExecuteRequest(command, executeArguments)
         {
+            AllowPlayMode = allowPlayMode,
             AllowDangerous = allowDangerous,
             FailFast = failFast,
             PlanToken = planToken,

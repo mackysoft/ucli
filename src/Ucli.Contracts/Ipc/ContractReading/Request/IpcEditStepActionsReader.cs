@@ -41,6 +41,14 @@ internal static class IpcEditStepActionsReader
         "path",
     };
 
+    private static readonly HashSet<string> PrefabOverrideActionProperties = new(StringComparer.Ordinal)
+    {
+        "kind",
+        "target",
+        "targetAssetPath",
+        "propertyPaths",
+    };
+
     private static readonly HashSet<string> DeleteActionProperties = new(StringComparer.Ordinal)
     {
         "kind",
@@ -185,6 +193,23 @@ internal static class IpcEditStepActionsReader
             return false;
         }
 
+        var targetAssetPath = IpcEditStepContractReadHelpers.TryReadOptionalString(
+            actionElement,
+            "targetAssetPath",
+            $"step.actions[{actionIndex}].targetAssetPath",
+            out errorMessage);
+        if (errorMessage.Length != 0)
+        {
+            return false;
+        }
+
+        IReadOnlyList<string>? propertyPaths = null;
+        if (actionElement.TryGetProperty("propertyPaths", out var propertyPathsElement)
+            && !TryReadPropertyPaths(propertyPathsElement, actionIndex, out propertyPaths, out errorMessage))
+        {
+            return false;
+        }
+
         var values = default(JsonElement);
         var hasValues = false;
         if (actionElement.TryGetProperty("values", out var valuesElement))
@@ -210,6 +235,8 @@ internal static class IpcEditStepActionsReader
             name,
             path,
             parent,
+            targetAssetPath,
+            propertyPaths,
             out errorMessage))
         {
             return false;
@@ -223,7 +250,61 @@ internal static class IpcEditStepActionsReader
             Name: name,
             Path: path,
             Parent: parent,
+            TargetAssetPath: targetAssetPath,
+            PropertyPaths: propertyPaths,
             Values: hasValues ? values : default);
+        return true;
+    }
+
+    private static bool TryReadPropertyPaths (
+        JsonElement propertyPathsElement,
+        int actionIndex,
+        out IReadOnlyList<string>? propertyPaths,
+        out string errorMessage)
+    {
+        propertyPaths = null;
+        errorMessage = string.Empty;
+        if (propertyPathsElement.ValueKind != JsonValueKind.Array)
+        {
+            errorMessage = $"Edit step property 'step.actions[{actionIndex}].propertyPaths' must be an array.";
+            return false;
+        }
+
+        var paths = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var propertyPathIndex = 0;
+        foreach (var propertyPathElement in propertyPathsElement.EnumerateArray())
+        {
+            if (propertyPathElement.ValueKind != JsonValueKind.String)
+            {
+                errorMessage = $"Edit step property 'step.actions[{actionIndex}].propertyPaths[{propertyPathIndex}]' must be a string.";
+                return false;
+            }
+
+            var propertyPath = propertyPathElement.GetString();
+            if (string.IsNullOrWhiteSpace(propertyPath))
+            {
+                errorMessage = $"Edit step property 'step.actions[{actionIndex}].propertyPaths[{propertyPathIndex}]' must not be empty.";
+                return false;
+            }
+
+            if (!seen.Add(propertyPath!))
+            {
+                errorMessage = $"Edit step property 'step.actions[{actionIndex}].propertyPaths' contains duplicate path: {propertyPath}.";
+                return false;
+            }
+
+            paths.Add(propertyPath!);
+            propertyPathIndex++;
+        }
+
+        if (paths.Count == 0)
+        {
+            errorMessage = $"Edit step property 'step.actions[{actionIndex}].propertyPaths' must contain at least one path when specified.";
+            return false;
+        }
+
+        propertyPaths = paths;
         return true;
     }
 
@@ -238,6 +319,8 @@ internal static class IpcEditStepActionsReader
         string? name,
         string? path,
         string? parent,
+        string? targetAssetPath,
+        IReadOnlyList<string>? propertyPaths,
         out string errorMessage)
     {
         errorMessage = string.Empty;
@@ -299,6 +382,15 @@ internal static class IpcEditStepActionsReader
                 }
 
                 return true;
+            case IpcEditStepContract.ActionKind.ApplyPrefabOverrides:
+            case IpcEditStepContract.ActionKind.RevertPrefabOverrides:
+                if (targetAssetPath is null)
+                {
+                    errorMessage = $"Edit step action '{ToActionLiteral(actionKind)}' requires 'targetAssetPath'.";
+                    return false;
+                }
+
+                return true;
             case IpcEditStepContract.ActionKind.Delete:
                 return true;
             case IpcEditStepContract.ActionKind.Reparent:
@@ -324,6 +416,8 @@ internal static class IpcEditStepActionsReader
             IpcEditStepContract.ActionKind.CreateObject => CreateObjectActionProperties,
             IpcEditStepContract.ActionKind.CreateAsset => CreateAssetActionProperties,
             IpcEditStepContract.ActionKind.CreatePrefab => CreatePrefabActionProperties,
+            IpcEditStepContract.ActionKind.ApplyPrefabOverrides => PrefabOverrideActionProperties,
+            IpcEditStepContract.ActionKind.RevertPrefabOverrides => PrefabOverrideActionProperties,
             IpcEditStepContract.ActionKind.Delete => DeleteActionProperties,
             IpcEditStepContract.ActionKind.Reparent => ReparentActionProperties,
             _ => SetActionProperties,
@@ -334,5 +428,15 @@ internal static class IpcEditStepActionsReader
     {
         var enumerator = element.EnumerateObject();
         return enumerator.MoveNext();
+    }
+
+    private static string ToActionLiteral (IpcEditStepContract.ActionKind actionKind)
+    {
+        return actionKind switch
+        {
+            IpcEditStepContract.ActionKind.ApplyPrefabOverrides => "applyPrefabOverrides",
+            IpcEditStepContract.ActionKind.RevertPrefabOverrides => "revertPrefabOverrides",
+            _ => actionKind.ToString(),
+        };
     }
 }

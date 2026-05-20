@@ -369,6 +369,60 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator EnsureExecutionReady_WhenAllowPlayModeUsesGuiPlaymode_ReturnsReadyResult () => UniTask.ToCoroutine(async () =>
+        {
+            var gate = CreateGate(
+                DaemonEditorMode.Gui,
+                isPlaymodeActive: true);
+
+            var result = await TestAwaiter.WaitAsync(
+                gate.EnsureExecutionReadyAsync(failFast: false, allowPlayMode: true),
+                "Readiness gate allow Play Mode ready result",
+                AsyncWaitTimeout);
+
+            Assert.That(result.IsReady, Is.True);
+            Assert.That(result.Snapshot.EditorMode, Is.EqualTo(DaemonEditorMode.Gui));
+            Assert.That(result.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Playmode));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator EnsureExecutionReady_WhenAllowPlayModeUsesBatchmodePlaymode_ReturnsGuiRequirementError () => UniTask.ToCoroutine(async () =>
+        {
+            var gate = CreateGate(
+                DaemonEditorMode.Batchmode,
+                isPlaymodeActive: true);
+
+            var result = await TestAwaiter.WaitAsync(
+                gate.EnsureExecutionReadyAsync(failFast: false, allowPlayMode: true),
+                "Readiness gate allow Play Mode batchmode result",
+                AsyncWaitTimeout);
+
+            Assert.That(result.IsReady, Is.False);
+            Assert.That(result.Error, Is.Not.Null);
+            Assert.That(result.Error!.Code, Is.EqualTo(PlayModeErrorCodes.PlayModeRequiresGuiEditor));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator EnsureExecutionReady_WhenAllowPlayModeUsesGuiReady_ReturnsPlayModeRequiredError () => UniTask.ToCoroutine(async () =>
+        {
+            var gate = CreateGate(
+                DaemonEditorMode.Gui,
+                isPlaymodeActive: false);
+
+            var result = await TestAwaiter.WaitAsync(
+                gate.EnsureExecutionReadyAsync(failFast: false, allowPlayMode: true),
+                "Readiness gate allow Play Mode inactive result",
+                AsyncWaitTimeout);
+
+            Assert.That(result.IsReady, Is.False);
+            Assert.That(result.Error, Is.Not.Null);
+            Assert.That(result.Error!.Code, Is.EqualTo(PlayModeErrorCodes.PlayModeNotActive));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator EnsureExecutionReady_WhenDomainReloading_WaitsUntilReloadCompletes () => UniTask.ToCoroutine(async () =>
         {
             var gate = CreateGate(
@@ -490,6 +544,24 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Error, Is.Not.Null);
             Assert.That(result.Error!.Code, Is.EqualTo(EditorLifecycleErrorCodes.EditorShuttingDown));
         });
+
+        private static UnityEditorReadinessGate CreateGate (
+            DaemonEditorMode editorMode,
+            bool isPlaymodeActive)
+        {
+            var telemetryState = new UnityEditorLifecycleTelemetryState(
+                compileGeneration: 1,
+                domainReloadGeneration: 1,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false);
+            return new UnityEditorReadinessGate(
+                editorMode,
+                telemetryState,
+                static () => false,
+                static () => false,
+                () => isPlaymodeActive);
+        }
 
         private static UnityEditorReadinessGate CreateGate (
             int compileGeneration,

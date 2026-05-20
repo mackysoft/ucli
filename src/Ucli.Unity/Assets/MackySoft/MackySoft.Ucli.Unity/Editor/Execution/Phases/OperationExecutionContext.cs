@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -24,6 +25,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private readonly TemporaryObjectScope temporaryObjectScope = new TemporaryObjectScope();
 
         private readonly RequestAttributedChangeRegistry requestAttributedChangeRegistry = new RequestAttributedChangeRegistry();
+
+        private readonly Dictionary<string, Dictionary<string, PrefabOverridePropertyChange>> prefabOverridePropertyChanges =
+            new Dictionary<string, Dictionary<string, PrefabOverridePropertyChange>>(StringComparer.Ordinal);
 
         private readonly DeletedGlobalObjectIdRegistry deletedGlobalObjectIdRegistry = new DeletedGlobalObjectIdRegistry();
 
@@ -468,6 +472,85 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             requestAttributedChangeRegistry.UnmarkChanged(resource);
         }
 
+        /// <summary> Records one request-attributed Prefab instance property change. </summary>
+        internal void RecordPrefabOverridePropertyChange (
+            string targetKey,
+            string propertyPath,
+            bool wasPrefabOverrideBeforeRequest)
+        {
+            if (!prefabOverridePropertyChanges.TryGetValue(targetKey, out var changesByPath))
+            {
+                changesByPath = new Dictionary<string, PrefabOverridePropertyChange>(StringComparer.Ordinal);
+                prefabOverridePropertyChanges.Add(targetKey, changesByPath);
+            }
+
+            if (!changesByPath.ContainsKey(propertyPath))
+            {
+                changesByPath.Add(propertyPath, new PrefabOverridePropertyChange(propertyPath, wasPrefabOverrideBeforeRequest));
+            }
+        }
+
+        /// <summary> Tries to collect request-attributed Prefab instance property changes for one target. </summary>
+        internal bool TryCollectPrefabOverridePropertyChanges (
+            string targetKey,
+            IReadOnlyList<string>? requestedPropertyPaths,
+            out IReadOnlyList<PrefabOverridePropertyChange> changes,
+            out string errorMessage)
+        {
+            changes = Array.Empty<PrefabOverridePropertyChange>();
+            if (!prefabOverridePropertyChanges.TryGetValue(targetKey, out var changesByPath)
+                || changesByPath.Count == 0)
+            {
+                errorMessage = "Prefab override action requires a preceding effective set on the same current target.";
+                return false;
+            }
+
+            if (requestedPropertyPaths == null)
+            {
+                changes = changesByPath.Values
+                    .OrderBy(static change => change.PropertyPath, StringComparer.Ordinal)
+                    .ToArray();
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            var selectedChanges = new List<PrefabOverridePropertyChange>(requestedPropertyPaths.Count);
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < requestedPropertyPaths.Count; i++)
+            {
+                var propertyPath = requestedPropertyPaths[i];
+                if (string.IsNullOrWhiteSpace(propertyPath))
+                {
+                    errorMessage = "Prefab override property path must not be empty.";
+                    return false;
+                }
+
+                if (!seen.Add(propertyPath))
+                {
+                    errorMessage = $"Prefab override property path is duplicated: {propertyPath}.";
+                    return false;
+                }
+
+                if (!changesByPath.TryGetValue(propertyPath, out var change))
+                {
+                    errorMessage = $"Prefab override property path was not changed by a preceding effective set on the same target: {propertyPath}.";
+                    return false;
+                }
+
+                selectedChanges.Add(change);
+            }
+
+            if (selectedChanges.Count == 0)
+            {
+                errorMessage = "Prefab override propertyPaths must contain at least one path when specified.";
+                return false;
+            }
+
+            changes = selectedChanges;
+            errorMessage = string.Empty;
+            return true;
+        }
+
         /// <summary> Copies all request-attributed resources tracked for the current request into the destination collection. </summary>
         /// <param name="destination"> The destination collection that receives tracked resources. </param>
         internal void CopyRequestAttributedChangesTo (ICollection<OperationResource> destination)
@@ -709,9 +792,26 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             assetSandboxRegistry.Clear();
             plannedAssetRegistry.Clear();
             requestAttributedChangeRegistry.ClearAll();
+            prefabOverridePropertyChanges.Clear();
             deletedGlobalObjectIdRegistry.Clear();
             plannedLiveSceneOpenPaths.Clear();
             plannedLivePrefabOpenPaths.Clear();
+        }
+
+        /// <summary> Describes one request-attributed Prefab instance property change. </summary>
+        internal readonly struct PrefabOverridePropertyChange
+        {
+            public PrefabOverridePropertyChange (
+                string propertyPath,
+                bool wasPrefabOverrideBeforeRequest)
+            {
+                PropertyPath = propertyPath;
+                WasPrefabOverrideBeforeRequest = wasPrefabOverrideBeforeRequest;
+            }
+
+            public string PropertyPath { get; }
+
+            public bool WasPrefabOverrideBeforeRequest { get; }
         }
     }
 }

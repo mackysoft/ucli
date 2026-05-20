@@ -27,6 +27,7 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
         TimeSpan timeout,
         bool failFast,
         bool requireReadinessGate,
+        bool includeEditLoweringOnly = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -44,7 +45,8 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
                     IpcMethodNames.OpsRead,
                     IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
                         FailFast: failFast,
-                        RequireReadinessGate: requireReadinessGate))),
+                        RequireReadinessGate: requireReadinessGate,
+                        IncludeEditLoweringOnly: includeEditLoweringOnly))),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)

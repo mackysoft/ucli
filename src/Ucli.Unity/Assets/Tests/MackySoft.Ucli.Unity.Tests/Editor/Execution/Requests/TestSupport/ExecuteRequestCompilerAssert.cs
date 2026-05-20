@@ -105,13 +105,14 @@ namespace MackySoft.Ucli.Unity.Tests
             string expectedSourceKind,
             string? expectedCommit,
             bool expectedPersistenceExpected,
-            string expectedPostState)
+            string expectedPostState,
+            bool expectedPlayModeMutation = false)
         {
             Assert.That(compiledStep.PostReadSourceStep, Is.Not.Null);
             var sourceStep = compiledStep.PostReadSourceStep!;
             Assert.That(sourceStep.OpId, Is.EqualTo(compiledStep.Id));
             Assert.That(sourceStep.SourceKind, Is.EqualTo(expectedSourceKind));
-            Assert.That(sourceStep.PlayModeMutation, Is.False);
+            Assert.That(sourceStep.PlayModeMutation, Is.EqualTo(expectedPlayModeMutation));
             Assert.That(sourceStep.Commit, Is.EqualTo(expectedCommit));
             Assert.That(sourceStep.PersistenceExpected, Is.EqualTo(expectedPersistenceExpected));
             Assert.That(sourceStep.ExpectedPostState, Is.EqualTo(expectedPostState));

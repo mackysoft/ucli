@@ -223,6 +223,32 @@ internal static class IpcEditStepLoweringRules
                 errorMessage = "Edit action 'createPrefab' requires a GameObject target in scene context.";
                 return false;
 
+            case IpcEditStepContract.ActionKind.ApplyPrefabOverrides:
+                if (contextKind == IpcEditStepContract.ContextKind.Scene
+                    && targetKind == IpcEditTargetKind.Component)
+                {
+                    operationName = UcliPrimitiveOperationNames.PrefabApplyOverrides;
+                    errorMessage = string.Empty;
+                    return true;
+                }
+
+                operationName = string.Empty;
+                errorMessage = "Edit action 'applyPrefabOverrides' requires a component target in scene context.";
+                return false;
+
+            case IpcEditStepContract.ActionKind.RevertPrefabOverrides:
+                if (contextKind == IpcEditStepContract.ContextKind.Scene
+                    && targetKind == IpcEditTargetKind.Component)
+                {
+                    operationName = UcliPrimitiveOperationNames.PrefabRevertOverrides;
+                    errorMessage = string.Empty;
+                    return true;
+                }
+
+                operationName = string.Empty;
+                errorMessage = "Edit action 'revertPrefabOverrides' requires a component target in scene context.";
+                return false;
+
             case IpcEditStepContract.ActionKind.Delete:
                 if (targetKind == IpcEditTargetKind.GameObject)
                 {
