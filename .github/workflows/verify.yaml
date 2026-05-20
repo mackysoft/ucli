@@ -28,6 +28,8 @@ jobs:
       needs_shared_pack: ${{ steps.detect.outputs.needs_shared_pack }}
       needs_cli_pack: ${{ steps.detect.outputs.needs_cli_pack }}
       needs_unity_pack: ${{ steps.detect.outputs.needs_unity_pack }}
+      needs_release_pack: ${{ steps.detect.outputs.needs_release_pack }}
+      needs_version_sync: ${{ steps.detect.outputs.needs_version_sync }}
       dotnet_matrix_json: ${{ steps.detect.outputs.dotnet_matrix_json }}
       unity_matrix_json: ${{ steps.detect.outputs.unity_matrix_json }}
 
@@ -294,12 +296,15 @@ jobs:
         run: dotnet restore src/Ucli.Infrastructure/Ucli.Infrastructure.csproj
 
       - name: Build shared packages
-        run: dotnet build src/Ucli.Infrastructure/Ucli.Infrastructure.csproj --configuration Release --no-restore
+        run: dotnet build src/Ucli.Infrastructure/Ucli.Infrastructure.csproj --configuration Release --no-restore -p:Version=0.0.0-ci -p:PackageVersion=0.0.0-ci
 
       - name: Pack shared packages
         run: |
-          dotnet pack src/Ucli.Contracts/Ucli.Contracts.csproj --configuration Release --no-build --output artifacts/packages
-          dotnet pack src/Ucli.Infrastructure/Ucli.Infrastructure.csproj --configuration Release --no-build --output artifacts/packages
+          dotnet pack src/Ucli.Contracts/Ucli.Contracts.csproj --configuration Release --no-build -p:Version=0.0.0-ci -p:PackageVersion=0.0.0-ci --output artifacts/packages
+          dotnet pack src/Ucli.Infrastructure/Ucli.Infrastructure.csproj --configuration Release --no-build -p:Version=0.0.0-ci -p:PackageVersion=0.0.0-ci --output artifacts/packages
+
+      - name: Verify shared packages
+        run: ./scripts/verify-shared-packages.sh artifacts/packages 0.0.0-ci
 
       - name: Upload shared packages
         if: always()
@@ -369,6 +374,60 @@ jobs:
           path: artifacts/packages
           if-no-files-found: warn
 
+  version_sync:
+    name: version-sync
+    needs: changes
+    if: ${{ needs.changes.outputs.needs_version_sync == 'true' }}
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
+
+      - name: Restore schema generator
+        run: dotnet restore tools/Ucli.SchemaGenerator/Ucli.SchemaGenerator.csproj
+
+      - name: Verify package version sync
+        run: |
+          repository_version="$(
+            perl -ne 'if (/<Version>([^<]+)<\/Version>/) { print $1; exit; }' Directory.Build.props
+          )"
+          verification_version=999.999.999
+          if [[ "${repository_version}" == "${verification_version}" ]]; then
+            verification_version=999.999.998
+          fi
+
+          ./scripts/sync-package-version.sh --version "${verification_version}"
+          grep -F "<Version>${verification_version}</Version>" Directory.Build.props
+          grep -F "MackySoft.Ucli.Contracts\" version=\"${verification_version}\"" src/Ucli.Unity/Assets/packages.config
+          grep -F "MackySoft.Ucli.Infrastructure\" version=\"${verification_version}\"" src/Ucli.Unity/Assets/packages.config
+          grep -F "<version>${verification_version}</version>" src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec
+          grep -F "MackySoft.Ucli.Contracts\" version=\"${verification_version}\"" src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec
+          grep -F "MackySoft.Ucli.Infrastructure\" version=\"${verification_version}\"" src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec
+          grep -F "\"packageVersion\": \"${verification_version}\"" schemas/v1/schema-manifest.json
+
+          ./scripts/sync-package-version.sh --version "${repository_version}"
+          git diff --exit-code -- \
+            Directory.Build.props \
+            schemas/v1/schema-manifest.json \
+            src/Ucli.Unity/Assets/packages.config \
+            src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec
+
   unity_pack:
     name: unity-pack
     needs: changes
@@ -400,6 +459,96 @@ jobs:
           path: artifacts/packages
           if-no-files-found: warn
 
+  release_pack:
+    name: release-pack
+    needs: changes
+    if: ${{ needs.changes.outputs.needs_release_pack == 'true' }}
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Setup NuGet CLI
+        run: ./scripts/setup-nuget-cli.sh
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
+
+      - name: Sync release package versions
+        run: ./scripts/sync-package-version.sh --version 0.0.1
+
+      - name: Restore
+        run: dotnet restore Ucli.slnx
+
+      - name: Verify generated skills
+        run: bash scripts/verify-skills.sh
+
+      - name: Pack shared packages
+        run: |
+          dotnet pack src/Ucli.Contracts/Ucli.Contracts.csproj \
+            --configuration Release \
+            --no-restore \
+            -p:Version=0.0.1 \
+            -p:PackageVersion=0.0.1 \
+            --output artifacts/packages
+          dotnet pack src/Ucli.Infrastructure/Ucli.Infrastructure.csproj \
+            --configuration Release \
+            --no-restore \
+            -p:Version=0.0.1 \
+            -p:PackageVersion=0.0.1 \
+            --output artifacts/packages
+
+      - name: Pack CLI tool
+        run: >-
+          dotnet pack src/Ucli/Ucli.csproj
+          --configuration Release
+          --no-restore
+          -p:Version=0.0.1
+          -p:PackageVersion=0.0.1
+          --output artifacts/packages
+
+      - name: Pack schema artifacts
+        run: ./scripts/pack-schema-artifacts.sh --version 0.0.1 --output artifacts/packages
+
+      - name: Pack Unity plugin
+        run: ./scripts/pack-unity-plugin.sh --version 0.0.1 --output artifacts/packages
+
+      - name: Verify shared packages
+        run: ./scripts/verify-shared-packages.sh artifacts/packages 0.0.1
+
+      - name: Smoke test CLI tool package
+        run: ./scripts/verify-cli-package.sh artifacts/packages 0.0.1
+
+      - name: Verify schema artifacts
+        run: ./scripts/verify-schema-artifacts.sh artifacts/packages 0.0.1
+
+      - name: Verify Unity plugin package
+        run: ./scripts/verify-unity-plugin-package.sh artifacts/packages 0.0.1
+
+      - name: Verify release artifact set
+        run: ./scripts/verify-release-package-artifacts.sh artifacts/packages 0.0.1
+
+      - name: Upload release package artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-package-artifacts
+          path: artifacts/packages
+          if-no-files-found: warn
+
   required:
     name: required
     if: ${{ always() }}
@@ -411,6 +560,8 @@ jobs:
       - shared_pack
       - cli_pack
       - unity_pack
+      - release_pack
+      - version_sync
     runs-on: ubuntu-latest
 
     steps:
@@ -422,6 +573,8 @@ jobs:
           NEEDS_SHARED_PACK: ${{ needs.changes.outputs.needs_shared_pack }}
           NEEDS_CLI_PACK: ${{ needs.changes.outputs.needs_cli_pack }}
           NEEDS_UNITY_PACK: ${{ needs.changes.outputs.needs_unity_pack }}
+          NEEDS_RELEASE_PACK: ${{ needs.changes.outputs.needs_release_pack }}
+          NEEDS_VERSION_SYNC: ${{ needs.changes.outputs.needs_version_sync }}
           CHANGES_RESULT: ${{ needs.changes.result }}
           ACCESS_GUARD_RESULT: ${{ needs.access_guard.result }}
           DOTNET_RESULT: ${{ needs.dotnet.result }}
@@ -429,6 +582,8 @@ jobs:
           SHARED_PACK_RESULT: ${{ needs.shared_pack.result }}
           CLI_PACK_RESULT: ${{ needs.cli_pack.result }}
           UNITY_PACK_RESULT: ${{ needs.unity_pack.result }}
+          RELEASE_PACK_RESULT: ${{ needs.release_pack.result }}
+          VERSION_SYNC_RESULT: ${{ needs.version_sync.result }}
         run: |
           set -euo pipefail
 
@@ -466,6 +621,16 @@ jobs:
 
           if [[ "${NEEDS_UNITY_PACK}" == "true" && "${UNITY_PACK_RESULT}" != "success" ]]; then
             echo "unity-pack job is required but finished with ${UNITY_PACK_RESULT}." >&2
+            exit 1
+          fi
+
+          if [[ "${NEEDS_RELEASE_PACK}" == "true" && "${RELEASE_PACK_RESULT}" != "success" ]]; then
+            echo "release-pack job is required but finished with ${RELEASE_PACK_RESULT}." >&2
+            exit 1
+          fi
+
+          if [[ "${NEEDS_VERSION_SYNC}" == "true" && "${VERSION_SYNC_RESULT}" != "success" ]]; then
+            echo "version-sync job is required but finished with ${VERSION_SYNC_RESULT}." >&2
             exit 1
           fi
 
