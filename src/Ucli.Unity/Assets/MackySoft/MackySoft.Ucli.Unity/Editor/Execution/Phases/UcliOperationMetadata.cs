@@ -117,7 +117,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 ValidateSchemaJson(resultSchemaJson, nameof(resultSchemaJson), "Result schema JSON");
             }
 
-            var policy = ValidateDescribeContract(operationName, kind, describeContract, resultType);
+            var policy = ValidateDescribeContract(operationName, kind, describeContract, resultType, exposure);
             var ownedDescribeContract = CopyDescribeContract(describeContract);
 
             OperationName = operationName;
@@ -218,12 +218,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             string operationName,
             UcliOperationKind kind,
             UcliOperationDescribeContract describeContract,
-            Type resultType)
+            Type resultType,
+            UcliOperationExposure exposure)
         {
-            if (!UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContractAndDerivePolicy(
+            if (!UcliOperationDescribeContractValidator.TryValidateRegisteredOperationDescribeContractAndDerivePolicy(
                     describeContract,
                     UcliOperationKindCodec.ToValue(kind),
                     $"Describe contract for operation '{operationName}'",
+                    exposure,
                     out var policy,
                     out var describeInputError))
             {

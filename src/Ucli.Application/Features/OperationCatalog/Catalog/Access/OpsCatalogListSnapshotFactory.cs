@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
+using MackySoft.Ucli.Application.Shared.Execution.OperationMetadata;
 using MackySoft.Ucli.Contracts.Configuration;
 
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
@@ -12,7 +13,9 @@ internal static class OpsCatalogListSnapshotFactory
         ArgumentNullException.ThrowIfNull(snapshot);
 
         return new OpsCatalogListSnapshot(
-            snapshot.Entries.Select(static entry => CreateEntry(
+            snapshot.Entries
+                .Where(static entry => !EditLoweringOnlyPrimitiveOperationNames.Contains(entry.Name))
+                .Select(static entry => CreateEntry(
                     entry.Name,
                     entry.Kind,
                     entry.Policy,
@@ -26,7 +29,9 @@ internal static class OpsCatalogListSnapshotFactory
         ArgumentNullException.ThrowIfNull(snapshot);
 
         return new OpsCatalogListSnapshot(
-            snapshot.Operations.Select(static operation => CreateEntry(
+            snapshot.Operations
+                .Where(static operation => !EditLoweringOnlyPrimitiveOperationNames.Contains(operation.Name))
+                .Select(static operation => CreateEntry(
                     operation.Name,
                     operation.Kind,
                     operation.Policy,
