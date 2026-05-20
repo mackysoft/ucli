@@ -772,12 +772,7 @@ internal static class Program
                     OperationPolicyValues.Advanced,
                     OperationPolicyValues.Dangerous)),
             Required("description", StringSchema()),
-            Required("inputs", ArraySchema(ObjectSchema(
-                additionalProperties: false,
-                Required("name", StringSchema()),
-                Required("description", StringSchema()),
-                Required("valueType", StringSchema()),
-                Required("constraints", ArraySchema(ObjectSchema(additionalProperties: true)))))),
+            Required("inputs", ArraySchema(CreateOpsDescribeInputSchema())),
             Required("resultContract", ObjectSchema(
                 additionalProperties: false,
                 Required("emitted", BooleanSchema()),
@@ -804,14 +799,95 @@ internal static class Program
                 IpcExecuteTouchedResourceKindNames.ProjectSettings))),
             Required("planMode", EnumSchema(
                 UcliOperationPlanModeValues.ValidationOnly,
-                UcliOperationPlanModeValues.ObservesLiveUnity,
-                UcliOperationPlanModeValues.MayCreatePreviewState)),
+                UcliOperationPlanModeValues.ObservesLiveUnity)),
             Required("planSemantics", StringSchema()),
             Required("callSemantics", StringSchema()),
             Required("touchedContract", StringSchema()),
             Required("readPostconditionContract", StringSchema()),
             Required("failureSemantics", StringSchema()),
             Required("dangerousNotes", ArraySchema(StringSchema())));
+    }
+
+    private static Dictionary<string, object?> CreateOpsDescribeInputSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("name", StringSchema()),
+            Required("description", StringSchema()),
+            Required(
+                "valueType",
+                EnumSchema(
+                    "string",
+                    "boolean",
+                    "integer",
+                    "number",
+                    "object",
+                    "array")),
+            Required("constraints", ArraySchema(CreateOpsDescribeInputConstraintSchema())),
+            Optional("argsPath", StringSchema()),
+            Optional("variants", ArraySchema(CreateOpsDescribeInputVariantSchema())));
+    }
+
+    private static Dictionary<string, object?> CreateOpsDescribeInputVariantSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("name", StringSchema()),
+            Required("description", StringSchema()),
+            Required("fields", ArraySchema(CreateOpsDescribeInputVariantFieldSchema())));
+    }
+
+    private static Dictionary<string, object?> CreateOpsDescribeInputVariantFieldSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("name", StringSchema()),
+            Required("argsPath", StringSchema()),
+            Required("description", StringSchema()),
+            Required("constraints", ArraySchema(CreateOpsDescribeInputConstraintSchema())));
+    }
+
+    private static Dictionary<string, object?> CreateOpsDescribeInputConstraintSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required(
+                "kind",
+                EnumSchema(
+                    UcliOperationInputConstraintKindValues.NonEmpty,
+                    UcliOperationInputConstraintKindValues.Range,
+                    UcliOperationInputConstraintKindValues.ProjectRelativePath,
+                    UcliOperationInputConstraintKindValues.AssetExists,
+                    UcliOperationInputConstraintKindValues.AssetCreatable,
+                    UcliOperationInputConstraintKindValues.GlobalObjectId,
+                    UcliOperationInputConstraintKindValues.HierarchyPath,
+                    UcliOperationInputConstraintKindValues.ReferenceResolvable,
+                    UcliOperationInputConstraintKindValues.TypeExists,
+                    UcliOperationInputConstraintKindValues.TypeAssignableTo,
+                    UcliOperationInputConstraintKindValues.SerializedProperty,
+                    UcliOperationInputConstraintKindValues.AssetGuid,
+                    UcliOperationInputConstraintKindValues.Cursor)),
+            Optional("min", NumberSchema()),
+            Optional("max", NumberSchema()),
+            Optional(
+                "assetKind",
+                EnumSchema(
+                    UcliOperationAssetKindValues.Asset,
+                    UcliOperationAssetKindValues.Prefab,
+                    UcliOperationAssetKindValues.ProjectSettings,
+                    UcliOperationAssetKindValues.Scene)),
+            Optional(
+                "targetKind",
+                EnumSchema(
+                    UcliOperationReferenceTargetKindValues.Asset,
+                    UcliOperationReferenceTargetKindValues.Component,
+                    UcliOperationReferenceTargetKindValues.GameObject)),
+            Optional(
+                "typeKind",
+                EnumSchema(UcliOperationTypeKindValues.Component)),
+            Optional(
+                "access",
+                EnumSchema(UcliOperationSerializedPropertyAccessValues.Write)));
     }
 
     private static Dictionary<string, object?> CreateOpsDescribeCodeContractSchema ()
@@ -1078,6 +1154,14 @@ internal static class Program
         return new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["type"] = "integer",
+        };
+    }
+
+    private static Dictionary<string, object?> NumberSchema ()
+    {
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["type"] = "number",
         };
     }
 

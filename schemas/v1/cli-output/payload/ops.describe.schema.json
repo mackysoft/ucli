@@ -43,12 +43,191 @@
                 "type": "string"
               },
               "valueType": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "string",
+                  "boolean",
+                  "integer",
+                  "number",
+                  "object",
+                  "array"
+                ]
               },
               "constraints": {
                 "type": "array",
                 "items": {
-                  "type": "object"
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "nonEmpty",
+                        "range",
+                        "projectRelativePath",
+                        "assetExists",
+                        "assetCreatable",
+                        "globalObjectId",
+                        "hierarchyPath",
+                        "referenceResolvable",
+                        "typeExists",
+                        "typeAssignableTo",
+                        "serializedProperty",
+                        "assetGuid",
+                        "cursor"
+                      ]
+                    },
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    },
+                    "assetKind": {
+                      "type": "string",
+                      "enum": [
+                        "asset",
+                        "prefab",
+                        "projectSettings",
+                        "scene"
+                      ]
+                    },
+                    "targetKind": {
+                      "type": "string",
+                      "enum": [
+                        "asset",
+                        "component",
+                        "gameObject"
+                      ]
+                    },
+                    "typeKind": {
+                      "type": "string",
+                      "enum": [
+                        "component"
+                      ]
+                    },
+                    "access": {
+                      "type": "string",
+                      "enum": [
+                        "write"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                }
+              },
+              "argsPath": {
+                "type": "string"
+              },
+              "variants": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "argsPath": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "constraints": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "nonEmpty",
+                                    "range",
+                                    "projectRelativePath",
+                                    "assetExists",
+                                    "assetCreatable",
+                                    "globalObjectId",
+                                    "hierarchyPath",
+                                    "referenceResolvable",
+                                    "typeExists",
+                                    "typeAssignableTo",
+                                    "serializedProperty",
+                                    "assetGuid",
+                                    "cursor"
+                                  ]
+                                },
+                                "min": {
+                                  "type": "number"
+                                },
+                                "max": {
+                                  "type": "number"
+                                },
+                                "assetKind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "asset",
+                                    "prefab",
+                                    "projectSettings",
+                                    "scene"
+                                  ]
+                                },
+                                "targetKind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "asset",
+                                    "component",
+                                    "gameObject"
+                                  ]
+                                },
+                                "typeKind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "component"
+                                  ]
+                                },
+                                "access": {
+                                  "type": "string",
+                                  "enum": [
+                                    "write"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "kind"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "argsPath",
+                          "description",
+                          "constraints"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "description",
+                    "fields"
+                  ]
                 }
               }
             },
@@ -134,8 +313,7 @@
               "type": "string",
               "enum": [
                 "validationOnly",
-                "observesLiveUnity",
-                "mayCreatePreviewState"
+                "observesLiveUnity"
               ]
             },
             "planSemantics": {
