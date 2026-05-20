@@ -238,6 +238,8 @@ public sealed class PackageMetadataTests
         Assert.Equal("true", outputs["needs_cli_pack"]);
         Assert.Equal("false", outputs["needs_unity"]);
         Assert.Equal("false", outputs["needs_unity_pack"]);
+        Assert.Equal("true", outputs["needs_release_pack"]);
+        Assert.Equal("true", outputs["needs_version_sync"]);
     }
 
     [Fact]
@@ -254,6 +256,8 @@ public sealed class PackageMetadataTests
         Assert.Equal("true", outputs["needs_cli_pack"]);
         Assert.Equal("true", outputs["needs_unity"]);
         Assert.Equal("true", outputs["needs_unity_pack"]);
+        Assert.Equal("true", outputs["needs_release_pack"]);
+        Assert.Equal("false", outputs["needs_version_sync"]);
     }
 
     [Fact]
@@ -270,6 +274,8 @@ public sealed class PackageMetadataTests
         Assert.Equal("false", outputs["needs_shared_pack"]);
         Assert.Equal("false", outputs["needs_unity"]);
         Assert.Equal("false", outputs["needs_unity_pack"]);
+        Assert.Equal("true", outputs["needs_release_pack"]);
+        Assert.Equal("true", outputs["needs_version_sync"]);
     }
 
     [Fact]
@@ -286,6 +292,44 @@ public sealed class PackageMetadataTests
         Assert.Equal("false", outputs["needs_shared_pack"]);
         Assert.Equal("false", outputs["needs_unity"]);
         Assert.Equal("false", outputs["needs_unity_pack"]);
+        Assert.Equal("true", outputs["needs_release_pack"]);
+        Assert.Equal("true", outputs["needs_version_sync"]);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Verify_scope_detector_tracks_release_publish_workflow_changes ()
+    {
+        IReadOnlyDictionary<string, string> outputs = await RunVerifyScopeDetectorForSingleFileChangeAsync(
+            ".github/workflows/package-publish.yaml",
+            "name: package-publish\n",
+            "name: package-publish\n# changed\n");
+
+        Assert.Equal("true", outputs["needs_dotnet"]);
+        Assert.Equal("true", outputs["needs_shared_pack"]);
+        Assert.Equal("true", outputs["needs_cli_pack"]);
+        Assert.Equal("false", outputs["needs_unity"]);
+        Assert.Equal("true", outputs["needs_unity_pack"]);
+        Assert.Equal("true", outputs["needs_release_pack"]);
+        Assert.Equal("true", outputs["needs_version_sync"]);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Verify_scope_detector_tracks_unity_version_sync_target_changes ()
+    {
+        IReadOnlyDictionary<string, string> outputs = await RunVerifyScopeDetectorForSingleFileChangeAsync(
+            "src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec",
+            "<package><metadata><version>0.0.0</version></metadata></package>",
+            "<package><metadata><version>0.0.1</version></metadata></package>");
+
+        Assert.Equal("false", outputs["needs_dotnet"]);
+        Assert.Equal("false", outputs["needs_shared_pack"]);
+        Assert.Equal("false", outputs["needs_cli_pack"]);
+        Assert.Equal("false", outputs["needs_unity"]);
+        Assert.Equal("true", outputs["needs_unity_pack"]);
+        Assert.Equal("true", outputs["needs_release_pack"]);
+        Assert.Equal("true", outputs["needs_version_sync"]);
     }
 
     private static async Task<IReadOnlyDictionary<string, string>> RunVerifyScopeDetectorForSingleFileChangeAsync (
