@@ -97,7 +97,13 @@ internal static class OperationCatalogTestFixtures
                     UcliOperationSideEffectValues.FilesystemWrite,
                     UcliOperationSideEffectValues.DestructiveScope,
                 ],
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds:
+                [
+                    IpcExecuteTouchedResourceKindNames.Scene,
+                    IpcExecuteTouchedResourceKindNames.Prefab,
+                    IpcExecuteTouchedResourceKindNames.Asset,
+                    IpcExecuteTouchedResourceKindNames.ProjectSettings,
+                ],
                 planMode: UcliOperationPlanModeValues.ValidationOnly,
                 planSemantics: "Validate source shape without executing user code.",
                 callSemantics: "Compile and execute caller-provided C# source.",

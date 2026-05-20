@@ -729,7 +729,7 @@ request-local alias の `var` selector branch は予約済み property である
 
 1つの operation は1つのユーザー意図だけを表す。`description` が「A または B」を説明する形になる operation は分割対象とする。`globalObjectId` / `sceneHierarchy` / `prefabHierarchy` のような差は operation variant ではなく、`inputs[].variants[]` に置く reference / input の表現方法として扱う。
 
-`policy` は author が任意に選ぶ安全ラベルではなく、operation contract facts から導出される入場制御レベルである。catalog builder は `assurance.sideEffects` descriptor、そこから生成される `mayDirty` / `mayPersist` projection、`touchedKinds`、`planMode`、`codeContract`、`exposure`、destructive scope、arbitrary execution、external process / filesystem access から `operation.policy` を導出する。author が `policy` や `mayDirty` / `mayPersist` を直接指定する API は持たない。実行結果が assurance facts に反する場合は `OPERATION_CONTRACT_VIOLATION` とする。
+`policy` は author が任意に選ぶ安全ラベルではなく、operation contract facts から導出される入場制御レベルである。catalog builder は `assurance.sideEffects` descriptor、そこから生成される `mayDirty` / `mayPersist` projection、`touchedKinds`、`planMode`、`codeContract`、`exposure`、destructive scope、arbitrary execution、external process / filesystem access から `operation.policy` を導出する。author が `policy` や `mayDirty` / `mayPersist` を直接指定する API は持たない。`mayPersist=true` の operation は、永続化境界として `touchedKinds` を 1 種類以上宣言する。実行結果が assurance facts に反する場合は `OPERATION_CONTRACT_VIOLATION` とする。
 
 `mayCreatePreviewState` は Plan が review gate 前に preview state を作るため、`policy` を最低 `advanced` に導出する。public raw catalog では `mayCreatePreviewState` を禁止し、preview state が必要な primitive は `editLoweringOnly` または `internal` に置く。
 
