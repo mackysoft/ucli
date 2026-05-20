@@ -98,6 +98,24 @@ public sealed class CodeCatalogTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Constructor_WithProductionContributors_DoesNotExposePolicyReasonCodes ()
+    {
+        var catalog = new CodeCatalogModel(
+            [
+                new ContractsCodeCatalogContributor(),
+                new ApplicationCodeCatalogContributor(),
+                new ReadyCodeCatalogContributor(),
+            ]);
+
+        foreach (var descriptor in catalog.Descriptors)
+        {
+            Assert.DoesNotContain("policyReason", descriptor.Code.Value, StringComparison.Ordinal);
+            Assert.DoesNotContain(descriptor.AppearsIn, static fieldPath => fieldPath.Contains("policyReason", StringComparison.Ordinal));
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void KnownKinds_ExposeSupportedKindsWithoutUnknown ()
     {
         Assert.Equal(
