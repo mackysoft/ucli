@@ -72,7 +72,7 @@ policy 導出の基準は次の通りである。
 | `advanced` | Unity Editor API 経由の決定論的 write、`mayDirty=true` または `mayPersist=true`、Scene / Prefab / Asset / ProjectSettings 変更、AssetDatabase refresh / import / compile など broader project effect |
 | `dangerous` | arbitrary C# execution、arbitrary shell / process / filesystem write、unbounded delete / overwrite、typed context / save boundary / touched contract を十分に保証できない escape hatch |
 
-`mayCreatePreviewState` は Plan が review gate 前に一時 Scene / Prefab Stage などの状態を作るため、`policy` を最低 `advanced` に導出する。public raw catalog からの planMode ベース除外は exposure field 導入時に扱う。v1 では `arbitrarySourceExecution` を持つ operation だけを機械的な public raw catalog 除外 marker として扱う。
+`mayCreatePreviewState` は Plan が review gate 前に一時 Scene / Prefab Stage などの状態を作るため、`policy` を最低 `advanced` に導出する。public raw catalog では `mayCreatePreviewState` を禁止し、metadata / catalog validation failure とする。preview state が必要な primitive は `editLoweringOnly` または `internal` に置く。
 
 `sideEffects` は public JSON では string tag として出るが、仕様上は `Ucli.Contracts` 内の descriptor-backed closed vocabulary である。descriptor は minimum policy、dirty/persist projection、query 許可、required touchedKinds を持つ。複数の side effect がある場合、policy は最も厳しい minimum policy を採用する。
 
@@ -125,7 +125,7 @@ catalog validation、golden、contract tests は、少なくとも次の matrix 
 - `assetDatabaseRefresh`、`assetImport`、`scriptCompilation`、`domainReload` は `advanced`
 - derived `mayDirty=true` または derived `mayPersist=true` の Unity Editor API write は `advanced`
 - arbitrary source execution、external process、filesystem write、unbounded destructive scope は `dangerous`
-- `planMode=mayCreatePreviewState` は最低 `advanced` に導出し、planMode 単体では public raw catalog から除外しない
+- `planMode=mayCreatePreviewState` は最低 `advanced` に導出し、public raw catalog では validation failure
 - `declaredKind=query` かつ `touchedKinds` が空でない場合は catalog validation failure
 - Query operation の golden は `applied=false`、`changed=false`、`touched=[]` を固定する
 - `changed=true` かつ `mayDirty=false` は `OPERATION_CONTRACT_VIOLATION`
@@ -155,14 +155,14 @@ catalog validation、golden、contract tests は、少なくとも次の matrix 
 ## asset
 
 > [!NOTE]
-> raw `ucli.asset.*` は `assetPath` に加えて `projectAssetPath` も扱う。`ucli.asset.create` が作れるのは `Assets/` 配下の既存 folder に置く `.asset` main asset だけで、`ProjectSettings/` 直下や directory 自動作成は行わない。
+> `ucli.asset.schema` は `assetPath` に加えて `projectAssetPath` も扱う。`ucli.asset.create` / `ucli.asset.set` は edit lowering 専用 primitive である。`ucli.asset.create` が作れるのは `Assets/` 配下の既存 folder に置く `.asset` main asset だけで、`ProjectSettings/` 直下や directory 自動作成は行わない。
 > `ucli.asset.set` の object reference 値は `Plan` で request-local selector を検証できるが、`Call` で persistent asset へ書き込めるのは live state または temporary alias に解決できる参照だけで、preview-only selector は拒否する。
 
 | op | kind | policy | status | 概要 | Args | Result | result 概要 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `ucli.asset.create` | mutation | advanced | mvp-core | concrete な `ScriptableObject` main asset を `Assets/` 配下へ新規作成する。 | `AssetCreateArgs` | `UcliNoResult` | result は返さない |
+| `ucli.asset.create` | mutation | advanced | mvp-core | Edit lowering 専用。concrete な `ScriptableObject` main asset を `Assets/` 配下へ新規作成する。 | `AssetCreateArgs` | `UcliNoResult` | result は返さない |
 | `ucli.asset.schema` | query | safe | mvp-support | `ScriptableObject` 型、既存 main asset、または `ProjectSettings/*` の project-scoped asset の設定可能項目を取得する。 | `AssetSchemaArgs` | `IndexSchemaEntryJsonContract` | 対象型または対象 asset の serialized property schema |
-| `ucli.asset.set` | mutation | advanced | mvp-core | 既存 main asset または `ProjectSettings/*` の project-scoped asset のシリアライズ値を更新する。 | `AssetSetArgs` | `UcliNoResult` | result は返さない |
+| `ucli.asset.set` | mutation | advanced | mvp-core | Edit lowering 専用。既存 main asset または `ProjectSettings/*` の project-scoped asset のシリアライズ値を更新する。 | `AssetSetArgs` | `UcliNoResult` | result は返さない |
 
 ## assets
 
@@ -180,14 +180,14 @@ catalog validation、golden、contract tests は、少なくとも次の matrix 
 ## comp
 
 > [!NOTE]
-> raw `scene` / `prefab` selector を使う primitive op は、`Call` では対応する Scene が loaded、または Prefab が opened stage であることを前提にする。`Plan` では同一 request の先行 primitive や edit lowering が作った request-local plan state を観測でき、まだ存在しない場合でも現在の loaded Scene / opened Prefab Stage から request-local plan state を確保して評価する。
+> raw `scene` / `prefab` selector を使う primitive op は、`Call` では対応する Scene が loaded、または Prefab が opened stage であることを前提にする。preview state が必要な component 編集は edit lowering 専用 primitive で扱う。
 > `ucli.comp.set` の object reference 値は `Plan` で request-local selector を解決できるが、`Call` で live component へ書き込めるのは live state または temporary alias に解決できる参照だけで、preview-only selector は拒否する。
 
 | op | kind | policy | status | 概要 | Args | Result | result 概要 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `ucli.comp.ensure` | mutation | advanced | mvp-core | 対象に指定コンポーネントが存在する状態を保証する。 | `ComponentEnsureArgs` | `UcliNoResult` | result は返さない |
+| `ucli.comp.ensure` | mutation | advanced | mvp-core | Edit lowering 専用。対象に指定コンポーネントが存在する状態を保証する。 | `ComponentEnsureArgs` | `UcliNoResult` | result は返さない |
 | `ucli.comp.schema` | query | safe | mvp-support | コンポーネント型の設定可能項目を取得する。 | `ComponentTypeArgs` | `IndexSchemaEntryJsonContract` | 対象 component 型の serialized property schema |
-| `ucli.comp.set` | mutation | advanced | mvp-core | 対象コンポーネントのシリアライズ値を更新する。 | `ComponentSetArgs` | `UcliNoResult` | result は返さない |
+| `ucli.comp.set` | mutation | advanced | mvp-core | Edit lowering 専用。対象コンポーネントのシリアライズ値を更新する。 | `ComponentSetArgs` | `UcliNoResult` | result は返さない |
 
 ## cs
 
@@ -212,11 +212,11 @@ catalog validation、golden、contract tests は、少なくとも次の matrix 
 ## go
 
 > [!NOTE]
-> raw `scene` / `prefab` selector を使う primitive op は、`Call` では対応する Scene が loaded、または Prefab が opened stage であることを前提にする。`Plan` では同一 request の先行 primitive や edit lowering が作った request-local plan state を観測でき、まだ存在しない場合でも現在の loaded Scene / opened Prefab Stage から request-local plan state を確保して評価する。prefab context で `ucli.go.delete` は prefab root 自身を削除できない。
+> raw `scene` / `prefab` selector を使う primitive op は、`Call` では対応する Scene が loaded、または Prefab が opened stage であることを前提にする。public raw `ucli.go.delete` / `ucli.go.reparent` の `Plan` は live Unity state を観測するだけで、新しい request-local plan state は確保しない。prefab context で `ucli.go.delete` は prefab root 自身を削除できない。
 
 | op | kind | policy | status | 概要 | Args | Result | result 概要 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `ucli.go.create` | mutation | advanced | mvp-core | 指定親配下、または loaded Scene の root に GameObject を作成する。 | `GoCreateArgs` | `UcliNoResult` | result は返さない |
+| `ucli.go.create` | mutation | advanced | mvp-core | Edit lowering 専用。指定親配下、または loaded Scene の root に GameObject を作成する。 | `GoCreateArgs` | `UcliNoResult` | result は返さない |
 | `ucli.go.delete` | mutation | advanced | mvp-core | 指定 GameObject を削除する。prefab root は対象にできない。 | `GoTargetArgs` | `UcliNoResult` | result は返さない |
 | `ucli.go.describe` | query | safe | mvp-support | GameObjectの構造とコンポーネント情報を取得する。plan では request-local ensured component も観測対象に含む。 | `GoDescribeArgs` | `GameObjectDescriptionResult` | `name`, `globalObjectId`, `components[]`, `children[]` を返す |
 | `ucli.go.reparent` | mutation | advanced | mvp-core | 指定 GameObject の親を付け替える。 | `GoReparentArgs` | `UcliNoResult` | result は返さない |
@@ -225,7 +225,7 @@ catalog validation、golden、contract tests は、少なくとも次の matrix 
 
 | op | kind | policy | status | 概要 | Args | Result | result 概要 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `ucli.prefab.create` | mutation | advanced | mvp-core | Loaded Scene 上の GameObject から Prefab を新規作成する。`target` 必須、空 Prefab は作らない。 | `PrefabCreateArgs` | `UcliNoResult` | result は返さない |
+| `ucli.prefab.create` | mutation | advanced | mvp-core | Edit lowering 専用。Loaded Scene 上の GameObject から Prefab を新規作成する。`target` 必須、空 Prefab は作らない。 | `PrefabCreateArgs` | `UcliNoResult` | result は返さない |
 | `ucli.prefab.open` | command | advanced | mvp-core | 指定 Prefab を編集コンテキストとして開く。 | `PrefabPathArgs` | `UcliNoResult` | result は返さない |
 | `ucli.prefab.save` | mutation | advanced | mvp-core | opened Prefab に dirty または request-attributed change があるとき保存する。opened stage 必須。`Plan` は request-local plan state と計画時に観測できる dirty を基に評価し、`Call` は保存時点の live dirty も保存し得る。 | `PrefabPathArgs` | `UcliNoResult` | result は返さない |
 | `ucli.prefab.applyOverrides` | mutation | advanced | mvp-core | Edit lowering 専用。raw `kind:"op"` では呼び出せない。Scene 上の Prefab instance に対する request-attributed property override を明示した Prefab asset へ反映する。 | `{ target, targetAssetPath, propertyPaths[] }` | `UcliNoResult` | result は返さない |

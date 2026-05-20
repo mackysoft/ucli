@@ -28,7 +28,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 touchedContract: "Reports the asset or project settings resource dirtied by the mutation when the target can be resolved.",
                 readPostconditionContract: "Asset and project settings read surfaces covering touched resources may be stale until refreshed.",
                 failureSemantics: "Failure before apply leaves no requested mutation; failure during apply may leave live Unity state partially changed.",
-                dangerousNotes: new[] { "This operation can dirty asset or ProjectSettings state without persisting it; callers must save or discard changes explicitly." }));
+                dangerousNotes: new[] { "This operation can dirty asset or ProjectSettings state without persisting it; callers must save or discard changes explicitly." }),
+            exposure: UcliOperationExposure.EditLoweringOnly);
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,

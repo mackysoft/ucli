@@ -870,7 +870,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Normalize_WhenSceneOpenPrecedesClosedSceneEditCommitContext_RuntimeCompileSucceeds () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Normalize_WhenRawSceneOpenPrecedesClosedSceneEditCommitContext_RuntimeCompileStillRequiresLiveScene () => UniTask.ToCoroutine(async () =>
         {
             using var scope = new EditorTestScope();
             var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
@@ -934,13 +934,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var openPlanResult = await openOperation.PlanAsync(openOperations[0], executionContext, CancellationToken.None);
 
             Assert.That(openPlanResult.IsSuccess, Is.True);
-            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request, 1, executionContext);
-            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(
-                    IpcRequestStepKind.Edit,
-                    "edit",
-                    UcliPrimitiveOperationNames.GoDelete,
-                    UcliPrimitiveOperationNames.SceneSave);
+            Assert.That(executionContext.HasPlannedLiveSceneOpen(scenePath), Is.False);
+            var error = CompileSingleStepFailure(result.Request, 1, executionContext);
+            _ = new ExecuteRequestCompileFailureAssert(error)
+                .HasInvalidArgument("closedSceneCommitAfterOpen")
+                .HasMessageContaining("Add 'ucli.scene.open' before this step.");
         });
 
         [UnityTest]
@@ -1225,7 +1223,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Normalize_WhenPrefabOpenPrecedesClosedPrefabEdit_RuntimeCompileSucceeds () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Normalize_WhenRawPrefabOpenPrecedesClosedPrefabEdit_RuntimeCompileStillRequiresOpenPrefab () => UniTask.ToCoroutine(async () =>
         {
             using var scope = new EditorTestScope()
                 .EnablePrefabStageCleanup();
@@ -1289,16 +1287,16 @@ namespace MackySoft.Ucli.Unity.Tests
             var openPlanResult = await openOperation.PlanAsync(openOperations[0], executionContext, CancellationToken.None);
 
             Assert.That(openPlanResult.IsSuccess, Is.True);
-            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request, 1, executionContext);
-            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit", UcliPrimitiveOperationNames.CompEnsure)
-                .AllHavePublicId("closedPrefabEnsureAfterOpen")
-                .HaveDistinctInternalExecutionKeys();
+            Assert.That(executionContext.HasPlannedLivePrefabOpen(prefabPath), Is.False);
+            var error = CompileSingleStepFailure(result.Request, 1, executionContext);
+            _ = new ExecuteRequestCompileFailureAssert(error)
+                .HasInvalidArgument("closedPrefabEnsureAfterOpen")
+                .HasMessageContaining("Add 'ucli.prefab.open' before this step.");
         });
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Normalize_WhenPrefabOpenPrecedesClosedPrefabCreateAssetWithContextCommit_RuntimeCompileSucceeds () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Normalize_WhenRawPrefabOpenPrecedesClosedPrefabCreateAssetWithContextCommit_RuntimeCompileStillRequiresOpenPrefab () => UniTask.ToCoroutine(async () =>
         {
             using var scope = new EditorTestScope()
                 .EnablePrefabStageCleanup();
@@ -1362,20 +1360,16 @@ namespace MackySoft.Ucli.Unity.Tests
             var openPlanResult = await new PrefabOpenOperation().PlanAsync(openOperations[0], executionContext, CancellationToken.None);
 
             Assert.That(openPlanResult.IsSuccess, Is.True, openPlanResult.Failure?.Message);
-            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request, 1, executionContext);
-            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(
-                    IpcRequestStepKind.Edit,
-                    "edit",
-                    UcliPrimitiveOperationNames.AssetCreate,
-                    UcliPrimitiveOperationNames.PrefabSave)
-                .AllHavePublicId("closedPrefabCreateAssetAfterOpen")
-                .HaveDistinctInternalExecutionKeys();
+            Assert.That(executionContext.HasPlannedLivePrefabOpen(prefabPath), Is.False);
+            var error = CompileSingleStepFailure(result.Request, 1, executionContext);
+            _ = new ExecuteRequestCompileFailureAssert(error)
+                .HasInvalidArgument("closedPrefabCreateAssetAfterOpen")
+                .HasMessageContaining("Add 'ucli.prefab.open' before this step.");
         });
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Normalize_WhenOpenedPrefabOptionalSelectionDoesNotResolveAndCommitIsContext_RuntimeCompileLowersPrefabSaveOnly () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Normalize_WhenRawPrefabOpenPrecedesOptionalPrefabCommit_RuntimeCompileStillRequiresOpenPrefab () => UniTask.ToCoroutine(async () =>
         {
             using var scope = new EditorTestScope()
                 .EnablePrefabStageCleanup();
@@ -1437,14 +1431,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var openPlanResult = await new PrefabOpenOperation().PlanAsync(openOperations[0], executionContext, CancellationToken.None);
 
             Assert.That(openPlanResult.IsSuccess, Is.True, openPlanResult.Failure?.Message);
-            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request, 1, executionContext);
-            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(
-                    IpcRequestStepKind.Edit,
-                    "edit",
-                    UcliPrimitiveOperationNames.PrefabSave)
-                .AllHavePublicId("openedPrefabOptionalCommit")
-                .HaveDistinctInternalExecutionKeys();
+            Assert.That(executionContext.HasPlannedLivePrefabOpen(prefabPath), Is.False);
+            var error = CompileSingleStepFailure(result.Request, 1, executionContext);
+            _ = new ExecuteRequestCompileFailureAssert(error)
+                .HasInvalidArgument("openedPrefabOptionalCommit")
+                .HasMessageContaining("Add 'ucli.prefab.open' before this step.");
         });
 
         [Test]

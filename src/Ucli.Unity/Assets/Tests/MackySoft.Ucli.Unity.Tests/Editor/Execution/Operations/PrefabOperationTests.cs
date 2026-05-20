@@ -183,7 +183,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     path = prefabPath,
                 },
-                alias: "root");
+                alias: "root",
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
@@ -196,6 +197,33 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(
                 ((GameObject)temporaryAliasState.UnityObject!).name,
                 Is.EqualTo(Path.GetFileNameWithoutExtension(prefabPath)));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Open_Plan_WhenRawPrefabPathIsValid_DoesNotTrackTemporaryPrefabRoot () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new PrefabOpenOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var context = scope.CreateExecutionContext();
+            var requestOperation = CreateOperation(
+                opId: "op-prefab-open",
+                opName: UcliPrimitiveOperationNames.PrefabOpen,
+                args: new
+                {
+                    path = prefabPath,
+                },
+                alias: "root");
+
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(result, applied: false, changed: false);
+            AssertTouchSet(result, (OperationTouchKind.Prefab, prefabPath));
+            Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out _), Is.False);
+            Assert.That(context.TryGetTemporaryAliasState("root", out _), Is.False);
+            Assert.That(PrefabStageUtility.GetCurrentPrefabStage(), Is.Null);
         });
 
         [UnityTest]
@@ -218,7 +246,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     path = prefabPath,
                 },
-                alias: "root");
+                alias: "root",
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var createRequest = CreateOperation(
                 opId: "op-go-create",
                 opName: UcliPrimitiveOperationNames.GoCreate,
@@ -230,7 +259,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         @var = "root",
                     },
                 },
-                alias: "child");
+                alias: "child",
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var ensureRequest = CreateOperation(
                 opId: "op-comp-ensure",
                 opName: UcliPrimitiveOperationNames.CompEnsure,
@@ -242,7 +272,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                     type = componentTypeId,
                 },
-                alias: "childComp");
+                alias: "childComp",
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var setRequest = CreateOperation(
                 opId: "op-comp-set",
                 opName: UcliPrimitiveOperationNames.CompSet,
@@ -260,7 +291,8 @@ namespace MackySoft.Ucli.Unity.Tests
                             value = 11,
                         },
                     },
-                });
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
             var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
             var createResult = await goCreateOperation.PlanAsync(createRequest, context, CancellationToken.None);
@@ -297,7 +329,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     path = prefabPath,
                 },
-                alias: "root");
+                alias: "root",
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
@@ -348,7 +381,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 args: new
                 {
                     path = prefabPath,
-                });
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
@@ -386,7 +420,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 args: new
                 {
                     path = prefabPath,
-                });
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var ensureRequest = CreateOperation(
                 opId: "op-comp-ensure",
                 opName: UcliPrimitiveOperationNames.CompEnsure,
@@ -399,7 +434,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                     type = componentTypeId,
                 },
-                alias: "component");
+                alias: "component",
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
             var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
             var ensureResult = await ensureOperation.PlanAsync(ensureRequest, context, CancellationToken.None);
@@ -802,7 +838,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 args: new
                 {
                     path = prefabPath,
-                });
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var saveRequest = CreateOperation(
                 opId: "op-prefab-save",
                 opName: UcliPrimitiveOperationNames.PrefabSave,
@@ -844,14 +881,16 @@ namespace MackySoft.Ucli.Unity.Tests
             string opId,
             string opName,
             object args,
-            string? alias = null)
+            string? alias = null,
+            NormalizedOperation.SourceStepKind sourceKind = NormalizedOperation.SourceStepKind.Op)
         {
             return new NormalizedOperation(
                 Id: opId,
                 Op: opName,
                 Args: JsonSerializer.SerializeToElement(args),
                 As: alias,
-                Expect: null);
+                Expect: null,
+                SourceKind: sourceKind);
         }
 
         private static void AssertInvalidArgument (
