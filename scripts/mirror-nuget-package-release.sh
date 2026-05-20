@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat >&2 <<'EOF'
-Usage: scripts/mirror-nuget-package-release.sh --repository <owner/repo> --tag-name <tag> --package-glob <glob> --title <title> --notes <notes>
+Usage: scripts/mirror-nuget-package-release.sh --repository <owner/repo> --tag-name <tag> --package-glob <glob> --title <title> [--notes <notes>]
 
 Creates or updates the GitHub Release for a package tag and uploads matched nupkg artifacts.
 EOF
@@ -53,7 +53,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "${repository}" || -z "${tag_name}" || -z "${package_glob}" || -z "${release_title}" || -z "${release_notes}" ]]; then
+if [[ -z "${repository}" || -z "${tag_name}" || -z "${package_glob}" || -z "${release_title}" ]]; then
   usage
   exit 2
 fi
@@ -68,6 +68,10 @@ if [[ ${#package_paths[@]} -eq 0 ]]; then
 fi
 
 if gh release view "${tag_name}" --repo "${repository}" >/dev/null 2>&1; then
+  gh release edit "${tag_name}" \
+    --repo "${repository}" \
+    --title "${release_title}" \
+    --notes "${release_notes}"
   gh release upload "${tag_name}" "${package_paths[@]}" --repo "${repository}" --clobber
 else
   gh release create "${tag_name}" "${package_paths[@]}" \

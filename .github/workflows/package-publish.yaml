@@ -211,8 +211,8 @@ jobs:
           --repository "${REPOSITORY}"
           --tag-name "${RELEASE_TAG}"
           --package-glob "artifacts/packages/*.nupkg"
-          --title "uCLI ${PACKAGE_VERSION}"
-          --notes "Unified uCLI release for ${RELEASE_TAG}."
+          --title "${PACKAGE_VERSION}"
+          --notes ""
 
       - name: Mirror schema artifacts to GitHub Release
         env:
