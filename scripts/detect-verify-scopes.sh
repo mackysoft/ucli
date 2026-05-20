@@ -13,6 +13,8 @@ needs_unity=false
 needs_shared_pack=false
 needs_cli_pack=false
 needs_unity_pack=false
+needs_release_pack=false
+needs_version_sync=false
 
 event_name="${EVENT_NAME:-}"
 current_sha="${CURRENT_SHA:-}"
@@ -35,6 +37,8 @@ emit_outputs() {
   emit_output needs_shared_pack "${needs_shared_pack}"
   emit_output needs_cli_pack "${needs_cli_pack}"
   emit_output needs_unity_pack "${needs_unity_pack}"
+  emit_output needs_release_pack "${needs_release_pack}"
+  emit_output needs_version_sync "${needs_version_sync}"
   emit_output dotnet_matrix_json "${dotnet_matrix_json}"
   emit_output unity_matrix_json "${unity_matrix_json}"
 }
@@ -46,6 +50,8 @@ emit_full_verification() {
   needs_shared_pack=true
   needs_cli_pack=true
   needs_unity_pack=true
+  needs_release_pack=true
+  needs_version_sync=true
   dotnet_matrix_json="${dotnet_matrix_pr}"
   unity_matrix_json="${unity_matrix_pr}"
   emit_outputs
@@ -69,7 +75,7 @@ is_dotnet_input() {
 
   case "${file}" in
     # Changes to this detector can alter every downstream job decision.
-    .config/dotnet-tools.json|.editorconfig|.gitattributes|Directory.Build.props|Ucli.slnx|.github/workflows/verify.yaml|.github/workflows/shared-package-publish.yaml|.github/workflows/cli-package-publish.yaml|scripts/code-quality.sh|scripts/detect-verify-scopes.sh|scripts/dotnet-common.sh|scripts/generate-schemas.sh|scripts/generate-skills.sh|scripts/test-dotnet.sh|scripts/verify-schemas.sh|scripts/verify-skills.sh|scripts/verify.sh|schemas/*|skills/*|skills/definitions/*|skills/generated/*|tools/*)
+    .config/dotnet-tools.json|.editorconfig|.gitattributes|Directory.Build.props|Ucli.slnx|.github/workflows/verify.yaml|.github/workflows/package-publish.yaml|scripts/code-quality.sh|scripts/detect-verify-scopes.sh|scripts/dotnet-common.sh|scripts/generate-schemas.sh|scripts/generate-skills.sh|scripts/test-dotnet.sh|scripts/verify-schemas.sh|scripts/verify-skills.sh|scripts/verify.sh|schemas/*|skills/*|skills/definitions/*|skills/generated/*|tools/*)
       return 0
       ;;
   esac
@@ -115,7 +121,37 @@ is_package_publish_shared_input() {
   local file="$1"
 
   case "${file}" in
-    .github/actions/mirror-nuget-release/action.yaml|.github/actions/publish-nuget-package/action.yaml|scripts/create-release-tag.sh|scripts/create-version-sync-pr.sh|scripts/mirror-nuget-package-release.sh|scripts/package-version-sync-common.sh|scripts/prepare-version-sync-branch.sh|scripts/resolve-release-version.sh)
+    .github/actions/publish-nuget-package/action.yaml|.github/workflows/package-publish.yaml|scripts/create-release-tag.sh|scripts/create-version-sync-pr.sh|scripts/mirror-nuget-package-release.sh|scripts/package-version-sync-common.sh|scripts/prepare-version-sync-branch.sh|scripts/resolve-release-version.sh|scripts/sync-package-version.sh|scripts/verify-release-package-artifacts.sh)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+is_release_pack_input() {
+  local file="$1"
+
+  if is_package_publish_shared_input "${file}"; then
+    return 0
+  fi
+
+  case "${file}" in
+    .gitattributes|Directory.Build.props|README.md|LICENSE|.github/workflows/verify.yaml|scripts/detect-verify-scopes.sh|scripts/generate-schemas.sh|scripts/pack-schema-artifacts.sh|scripts/pack-unity-plugin.sh|scripts/schema-artifact-common.sh|scripts/setup-nuget-cli.sh|scripts/verify-cli-package.sh|scripts/verify-schema-artifacts.sh|scripts/verify-shared-packages.sh|scripts/verify-skills.sh|scripts/verify-unity-plugin-package.sh|schemas/*|src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec|src/Ucli.Unity/Assets/packages.config)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+is_version_sync_input() {
+  local file="$1"
+
+  case "${file}" in
+    Directory.Build.props|.github/workflows/verify.yaml|.github/workflows/package-publish.yaml|scripts/detect-verify-scopes.sh|scripts/generate-schemas.sh|scripts/package-version-sync-common.sh|scripts/sync-package-version.sh|schemas/v1/schema-manifest.json|src/Ucli.Unity/Assets/packages.config|src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec)
       return 0
       ;;
     *)
@@ -132,7 +168,7 @@ is_shared_pack_input() {
   fi
 
   case "${file}" in
-    .gitattributes|Directory.Build.props|.github/workflows/verify.yaml|.github/workflows/shared-package-publish.yaml|scripts/detect-verify-scopes.sh|scripts/sync-shared-package-version.sh)
+    .gitattributes|Directory.Build.props|.github/workflows/verify.yaml|scripts/detect-verify-scopes.sh|scripts/verify-shared-packages.sh)
       return 0
       ;;
   esac
@@ -159,7 +195,7 @@ is_cli_pack_input() {
   fi
 
   case "${file}" in
-    README.md|LICENSE|.config/dotnet-tools.json|.gitattributes|Directory.Build.props|.github/workflows/verify.yaml|.github/workflows/cli-package-publish.yaml|scripts/detect-verify-scopes.sh|scripts/generate-schemas.sh|scripts/generate-skills.sh|scripts/pack-schema-artifacts.sh|scripts/schema-artifact-common.sh|scripts/sync-cli-package-version.sh|scripts/verify-cli-package.sh|scripts/verify-schema-artifacts.sh|scripts/verify-schemas.sh|scripts/verify-skills.sh|schemas/*|skills/*|skills/definitions/*|skills/generated/*|src/Ucli/*|src/Ucli.Application/*|src/Ucli.Contracts/*|src/Ucli.Infrastructure/*|tools/*)
+    README.md|LICENSE|.config/dotnet-tools.json|.gitattributes|Directory.Build.props|.github/workflows/verify.yaml|scripts/detect-verify-scopes.sh|scripts/generate-schemas.sh|scripts/generate-skills.sh|scripts/pack-schema-artifacts.sh|scripts/schema-artifact-common.sh|scripts/verify-cli-package.sh|scripts/verify-schema-artifacts.sh|scripts/verify-schemas.sh|scripts/verify-skills.sh|schemas/*|skills/*|skills/definitions/*|skills/generated/*|src/Ucli/*|src/Ucli.Application/*|src/Ucli.Contracts/*|src/Ucli.Infrastructure/*|tools/*)
       return 0
       ;;
     *)
@@ -176,7 +212,7 @@ is_unity_pack_input() {
   fi
 
   case "${file}" in
-    README.md|LICENSE|docs/package-operations.md|.gitattributes|.github/workflows/verify.yaml|.github/workflows/unity-package-publish.yaml|scripts/detect-verify-scopes.sh|scripts/pack-unity-plugin.sh|scripts/setup-nuget-cli.sh|scripts/sync-unity-package-version.sh|scripts/verify-unity-plugin-package.sh|src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec|src/Ucli.Unity/Assets/packages.config|src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/*)
+    README.md|LICENSE|docs/package-operations.md|.gitattributes|.github/workflows/verify.yaml|scripts/detect-verify-scopes.sh|scripts/pack-unity-plugin.sh|scripts/setup-nuget-cli.sh|scripts/verify-unity-plugin-package.sh|src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec|src/Ucli.Unity/Assets/packages.config|src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/*)
       return 0
       ;;
     *)
@@ -241,6 +277,14 @@ changed_files="$(
 
 while IFS= read -r file; do
   [[ -z "${file}" ]] && continue
+
+  if is_release_pack_input "${file}"; then
+    needs_release_pack=true
+  fi
+
+  if is_version_sync_input "${file}"; then
+    needs_version_sync=true
+  fi
 
   if is_dotnet_input "${file}"; then
     needs_dotnet=true

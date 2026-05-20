@@ -6,9 +6,9 @@ source "${script_dir}/package-version-sync-common.sh"
 
 usage() {
   cat >&2 <<'EOF'
-Usage: scripts/sync-shared-package-version.sh --version <version>
+Usage: scripts/sync-package-version.sh --version <version>
 
-Updates repository files that track MackySoft.Ucli.Contracts and MackySoft.Ucli.Infrastructure package versions.
+Updates all repository files that track the unified uCLI package version.
 EOF
 }
 
@@ -20,5 +20,8 @@ unity_package_nuspec_path="src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec"
 update_xml_element_value "${props_path}" "Version" "${package_version}" "central package version"
 update_xml_attribute_value "${unity_packages_config_path}" '<package id="MackySoft.Ucli.Contracts" version="' "${package_version}" "Unity contracts package version"
 update_xml_attribute_value "${unity_packages_config_path}" '<package id="MackySoft.Ucli.Infrastructure" version="' "${package_version}" "Unity infrastructure package version"
+update_xml_element_value "${unity_package_nuspec_path}" "version" "${package_version}" "Unity package version"
 update_xml_attribute_value "${unity_package_nuspec_path}" '<dependency id="MackySoft.Ucli.Contracts" version="' "${package_version}" "Unity package contracts dependency version"
 update_xml_attribute_value "${unity_package_nuspec_path}" '<dependency id="MackySoft.Ucli.Infrastructure" version="' "${package_version}" "Unity package infrastructure dependency version"
+
+bash "${script_dir}/generate-schemas.sh" --package-version "${package_version}"
