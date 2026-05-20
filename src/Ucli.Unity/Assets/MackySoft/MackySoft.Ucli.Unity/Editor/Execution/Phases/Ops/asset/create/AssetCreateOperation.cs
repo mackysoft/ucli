@@ -29,7 +29,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 touchedContract: "Reports the created asset resource when Unity returns a persisted asset path.",
                 readPostconditionContract: "Asset search, GUID path, schema, and readIndex surfaces covering the created asset may be stale after a successful call.",
                 failureSemantics: "Asset creation is not transactional; timeout, cancellation, or Unity failure can leave partial or indeterminate asset file changes.",
-                dangerousNotes: new[] { "This operation can create project files and is not transactional across Unity asset creation/import steps." }));
+                dangerousNotes: new[] { "This operation can create project files and is not transactional across Unity asset creation/import steps." }),
+            exposure: UcliOperationExposure.EditLoweringOnly);
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,

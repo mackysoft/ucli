@@ -22,8 +22,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.EditorStateChange, UcliOperationSideEffect.OpensPrefabStage },
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Prefab },
-                planMode: UcliOperationPlanMode.MayCreatePreviewState,
-                planSemantics: "Validate the prefab path and observe whether the prefab stage can be opened without saving project data.",
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate the prefab path and observe whether the prefab stage can be opened without creating preview state or changing the live editor context.",
                 callSemantics: "Open the requested prefab stage in the Unity Editor without saving project data.",
                 touchedContract: "Reports the prefab resource as an observed editor context, not as a persisted mutation.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
@@ -65,24 +65,27 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     blockerErrorMessage));
             }
 
-            GameObject? prefabContentsRoot;
-            if (!executionContext.TryGetOrCreateTemporaryPrefabContentsRoot(
-                    validationState.PrefabPath,
-                    out prefabContentsRoot,
-                    out var errorMessage))
+            if (operation.SourceKind == NormalizedOperation.SourceStepKind.Edit)
             {
-                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage));
-            }
+                GameObject? prefabContentsRoot;
+                if (!executionContext.TryGetOrCreateTemporaryPrefabContentsRoot(
+                        validationState.PrefabPath,
+                        out prefabContentsRoot,
+                        out var errorMessage))
+                {
+                    return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage));
+                }
 
-            if (operation.As != null)
-            {
-                executionContext.SetTemporaryAlias(
-                    operation.As,
-                    prefabContentsRoot!,
-                    new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath));
-            }
+                if (operation.As != null)
+                {
+                    executionContext.SetTemporaryAlias(
+                        operation.As,
+                        prefabContentsRoot!,
+                        new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath));
+                }
 
-            executionContext.TrackPlannedLivePrefabOpen(validationState.PrefabPath);
+                executionContext.TrackPlannedLivePrefabOpen(validationState.PrefabPath);
+            }
 
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,

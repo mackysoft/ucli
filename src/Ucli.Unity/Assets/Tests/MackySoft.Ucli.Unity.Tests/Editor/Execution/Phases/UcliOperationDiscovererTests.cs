@@ -125,6 +125,41 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void UcliOperationMetadata_WhenPublicOperationMayCreatePreviewState_ThrowsArgumentException ()
+        {
+            Assert.Throws<ArgumentException>(() =>
+            {
+                _ = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+                    operationName: "ucli.tests.public-preview-state",
+                    kind: UcliOperationKind.Command,
+                    description: "Public preview-state operation.",
+                    assurance: CreatePreviewStateAssurance());
+            });
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void UcliOperationMetadata_WhenNonPublicOperationMayCreatePreviewState_ReturnsMetadata ()
+        {
+            var editLoweringOnlyMetadata = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+                operationName: "ucli.tests.edit-preview-state",
+                kind: UcliOperationKind.Command,
+                description: "Edit-only preview-state operation.",
+                assurance: CreatePreviewStateAssurance(),
+                exposure: UcliOperationExposure.EditLoweringOnly);
+            var internalMetadata = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+                operationName: "ucli.tests.internal-preview-state",
+                kind: UcliOperationKind.Command,
+                description: "Internal preview-state operation.",
+                assurance: CreatePreviewStateAssurance(),
+                exposure: UcliOperationExposure.Internal);
+
+            Assert.That(editLoweringOnlyMetadata.Exposure, Is.EqualTo(UcliOperationExposure.EditLoweringOnly));
+            Assert.That(internalMetadata.Exposure, Is.EqualTo(UcliOperationExposure.Internal));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void UcliOperationMetadata_WhenDescribeVariantFieldUsesRequestLocalAliasArgsPath_ThrowsArgumentException ()
         {
             Assert.Throws<ArgumentException>(() =>
@@ -493,11 +528,19 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(sceneOpenEntry.Assurance, Is.Not.Null);
             Assert.That(sceneOpenEntry.Assurance!.SideEffects, Does.Contain(UcliOperationSideEffectValues.EditorStateChange));
             Assert.That(sceneOpenEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.OpensSceneInEditor));
-            Assert.That(sceneOpenEntry.Assurance!.PlanMode, Is.EqualTo(UcliOperationPlanModeValues.MayCreatePreviewState));
+            Assert.That(sceneOpenEntry.Assurance!.PlanMode, Is.EqualTo(UcliOperationPlanModeValues.ObservesLiveUnity));
             Assert.That(sceneOpenEntry.Assurance.PlanSemantics, Does.Contain("scene path"));
             Assert.That(sceneOpenEntry.Assurance.CallSemantics, Does.Contain("Open the requested scene"));
             Assert.That(sceneOpenEntry.Assurance.TouchedContract, Does.Contain("observed editor context"));
             Assert.That(sceneOpenEntry.Assurance.DangerousNotes, Is.Not.Empty);
+
+            var goDeleteEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.GoDelete);
+            Assert.That(goDeleteEntry.Assurance, Is.Not.Null);
+            Assert.That(goDeleteEntry.Assurance!.PlanMode, Is.EqualTo(UcliOperationPlanModeValues.ObservesLiveUnity));
+
+            var goReparentEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.GoReparent);
+            Assert.That(goReparentEntry.Assurance, Is.Not.Null);
+            Assert.That(goReparentEntry.Assurance!.PlanMode, Is.EqualTo(UcliOperationPlanModeValues.ObservesLiveUnity));
 
             var projectRefreshEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.ProjectRefresh);
             Assert.That(projectRefreshEntry.Kind, Is.EqualTo(UcliOperationKindValues.Command));
@@ -513,29 +556,13 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(projectRefreshEntry.Assurance.ReadPostconditionContract, Does.Contain("readIndex"));
             Assert.That(projectRefreshEntry.Assurance.DangerousNotes, Is.Not.Empty);
 
-            var prefabCreateEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.PrefabCreate);
-            Assert.That(prefabCreateEntry.Assurance, Is.Not.Null);
-            Assert.That(prefabCreateEntry.Assurance!.SideEffects, Does.Contain(UcliOperationSideEffectValues.PrefabContentMutation));
-            Assert.That(prefabCreateEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.SceneContentMutation));
-            Assert.That(prefabCreateEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.PrefabSave));
-            Assert.That(prefabCreateEntry.Assurance.MayDirty, Is.True);
-            Assert.That(prefabCreateEntry.Assurance.MayPersist, Is.True);
-            Assert.That(prefabCreateEntry.Assurance.TouchedKinds, Does.Contain(IpcExecuteTouchedResourceKindNames.Scene));
-            Assert.That(prefabCreateEntry.Assurance.TouchedKinds, Does.Contain(IpcExecuteTouchedResourceKindNames.Prefab));
-
-            var assetSetEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.AssetSet);
-            Assert.That(assetSetEntry.Assurance, Is.Not.Null);
-            Assert.That(assetSetEntry.Assurance!.SideEffects, Does.Contain(UcliOperationSideEffectValues.AssetContentMutation));
-            Assert.That(assetSetEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.ProjectSettingsMutation));
-            Assert.That(assetSetEntry.Assurance.PlanSemantics, Does.Contain("preview"));
-            Assert.That(assetSetEntry.Assurance.CallSemantics, Does.Contain("live asset"));
-            Assert.That(assetSetEntry.Assurance.DangerousNotes, Is.Not.Empty);
-
-            var goCreateSchemaJson = FindCatalogSchema(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.GoCreate);
-            using var goCreateSchemaDocument = JsonDocument.Parse(goCreateSchemaJson);
-            var goCreateParentProperties = goCreateSchemaDocument.RootElement.GetProperty("properties").GetProperty("parent").GetProperty("properties");
-            Assert.That(goCreateParentProperties.TryGetProperty("var", out _), Is.False);
-            AssertContainsNoUnsupportedSchemaKeyword(goCreateSchemaDocument.RootElement);
+            var publicOperationNames = snapshot.Catalog.Operations!.Select(static entry => entry.Name).ToArray();
+            Assert.That(publicOperationNames, Does.Not.Contain(UcliPrimitiveOperationNames.PrefabCreate));
+            Assert.That(publicOperationNames, Does.Not.Contain(UcliPrimitiveOperationNames.AssetCreate));
+            Assert.That(publicOperationNames, Does.Not.Contain(UcliPrimitiveOperationNames.AssetSet));
+            Assert.That(publicOperationNames, Does.Not.Contain(UcliPrimitiveOperationNames.GoCreate));
+            Assert.That(publicOperationNames, Does.Not.Contain(UcliPrimitiveOperationNames.CompEnsure));
+            Assert.That(publicOperationNames, Does.Not.Contain(UcliPrimitiveOperationNames.CompSet));
 
             var goDescribeSchemaJson = FindCatalogSchema(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.GoDescribe);
             using var goDescribeSchemaDocument = JsonDocument.Parse(goDescribeSchemaJson);
@@ -548,6 +575,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 using var schemaDocument = JsonDocument.Parse(snapshot.Catalog.Operations[i].ArgsSchemaJson!);
                 AssertContainsNoVarBranch(schemaDocument.RootElement);
                 AssertContainsNoVarVariantField(snapshot.Catalog.Operations[i].Inputs);
+                Assert.That(snapshot.Catalog.Operations[i].Assurance!.PlanMode, Is.Not.EqualTo(UcliOperationPlanModeValues.MayCreatePreviewState));
             }
         }
 
@@ -940,6 +968,20 @@ namespace MackySoft.Ucli.Unity.Tests
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Failure means the observation was not fully produced.",
                 dangerousNotes: Array.Empty<string>());
+        }
+
+        private static UcliOperationAssuranceContract CreatePreviewStateAssurance ()
+        {
+            return new UcliOperationAssuranceContract(
+                sideEffects: Array.Empty<UcliOperationSideEffect>(),
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanMode.MayCreatePreviewState,
+                planSemantics: "Create request-local preview state before approval.",
+                callSemantics: "Apply the requested operation.",
+                touchedContract: "Reports no touched resources.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Failure means the operation did not complete.",
+                dangerousNotes: new[] { "Preview-state planning is not public raw safe." });
         }
 
         private static UcliOperationDescribeContract CreateDescribeContract (string operationName)

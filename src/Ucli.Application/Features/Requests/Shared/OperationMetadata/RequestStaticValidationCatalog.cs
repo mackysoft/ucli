@@ -17,6 +17,8 @@ internal sealed record RequestStaticValidationCatalog (
     public static RequestStaticValidationCatalog Available (IReadOnlyList<UcliOperationDescriptor> operations)
     {
         ArgumentNullException.ThrowIfNull(operations);
-        return new RequestStaticValidationCatalog(true, operations);
+        return new RequestStaticValidationCatalog(
+            true,
+            EditLoweringOnlyOperationDescriptors.AppendMissingTo(operations));
     }
 }

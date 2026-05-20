@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Helpers.OperationCatalog.OperationCatalogTestFixtures;
 
 namespace MackySoft.Ucli.Application.Tests;
@@ -119,7 +120,7 @@ public sealed class ReadIndexValidationCatalogResolverTests
 
         Assert.True(result.IsSuccess);
         Assert.True(result.Catalog.IsAvailable);
-        Assert.Single(result.Catalog.Operations);
+        Assert.Contains(result.Catalog.Operations, operation => operation.Name == UcliPrimitiveOperationNames.GoDescribe);
         Assert.True(result.ReadIndex.Used);
         Assert.True(result.ReadIndex.Hit);
         Assert.Equal(IndexFreshness.Probable, result.ReadIndex.Freshness);

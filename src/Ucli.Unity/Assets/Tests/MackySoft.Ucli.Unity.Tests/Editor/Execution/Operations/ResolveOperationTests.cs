@@ -299,7 +299,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 }),
                 As: null,
-                Expect: null);
+                Expect: null,
+                SourceKind: NormalizedOperation.SourceStepKind.Edit);
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
                 alias: "resolved",
@@ -375,7 +376,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = prefabPath,
                 }),
                 As: null,
-                Expect: null);
+                Expect: null,
+                SourceKind: NormalizedOperation.SourceStepKind.Edit);
             var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
             Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryRoot), Is.True);
             Assert.That(temporaryRoot, Is.Not.Null);
@@ -474,7 +476,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = prefabPath,
                 }),
                 As: null,
-                Expect: null);
+                Expect: null,
+                SourceKind: NormalizedOperation.SourceStepKind.Edit);
             var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
             Assert.That(openResult.IsSuccess, Is.True);
             Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryRoot), Is.True);
@@ -613,7 +616,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = prefabPath,
                 }),
                 As: null,
-                Expect: null);
+                Expect: null,
+                SourceKind: NormalizedOperation.SourceStepKind.Edit);
             var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
             Assert.That(openResult.IsSuccess, Is.True, openResult.Failure?.Message);
             Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryRoot), Is.True);
@@ -632,7 +636,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 }),
                 As: null,
-                Expect: null);
+                Expect: null,
+                SourceKind: NormalizedOperation.SourceStepKind.Edit);
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
                 alias: "resolved",

@@ -32,7 +32,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 touchedContract: "Reports the created prefab and any scene resource dirtied by prefab creation when Unity exposes them.",
                 readPostconditionContract: "Prefab, scene, asset search, GUID path, and readIndex surfaces covering touched resources may be stale after a successful call.",
                 failureSemantics: "Prefab creation is not transactional; timeout, cancellation, or Unity failure can leave partial or indeterminate scene and prefab file changes.",
-                dangerousNotes: new[] { "This operation can persist prefab project files and dirty scene state; callers must account for partial Unity save/import behavior." }));
+                dangerousNotes: new[] { "This operation can persist prefab project files and dirty scene state; callers must account for partial Unity save/import behavior." }),
+            exposure: UcliOperationExposure.EditLoweringOnly);
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
