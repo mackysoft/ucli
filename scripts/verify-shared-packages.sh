@@ -111,4 +111,19 @@ for package_id in "${package_ids[@]}"; do
   fi
 done
 
+consumer_dir="${temp_dir}/consumer"
+export DOTNET_CLI_HOME="${temp_dir}/dotnet-home"
+export NUGET_PACKAGES="${temp_dir}/nuget-packages"
+mkdir -p "${DOTNET_CLI_HOME}" "${NUGET_PACKAGES}"
+
+dotnet new classlib --output "${consumer_dir}" --no-restore >/dev/null
+EXPECTED_VERSION="${expected_version}" perl -0pi -e '
+  my $version = $ENV{"EXPECTED_VERSION"};
+  s{</Project>}{  <ItemGroup>\n    <PackageReference Include="MackySoft.Ucli.Contracts" Version="$version" />\n    <PackageReference Include="MackySoft.Ucli.Infrastructure" Version="$version" />\n  </ItemGroup>\n</Project>};
+' "${consumer_dir}/consumer.csproj"
+dotnet restore "${consumer_dir}/consumer.csproj" \
+  --source "${package_dir}" \
+  --source https://api.nuget.org/v3/index.json >/dev/null
+dotnet build "${consumer_dir}/consumer.csproj" --configuration Release --no-restore >/dev/null
+
 echo "Shared package verification passed: ${package_dir}"

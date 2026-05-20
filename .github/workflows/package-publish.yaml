@@ -194,11 +194,43 @@ jobs:
       - name: Verify release artifact set
         run: ./scripts/verify-release-package-artifacts.sh artifacts/packages "${{ needs.prepare-release.outputs.package_version }}"
 
+      - name: Inspect NuGet publication state
+        id: nuget_state
+        run: >-
+          ./scripts/inspect-nuget-package-state.sh
+          --version "${{ needs.prepare-release.outputs.package_version }}"
+          --package-id MackySoft.Ucli
+          --package-id MackySoft.Ucli.Contracts
+          --package-id MackySoft.Ucli.Infrastructure
+          --package-id MackySoft.Ucli.Unity
+
+      - name: Validate NuGet trusted publishing user
+        if: steps.nuget_state.outputs.publish_required == 'true'
+        env:
+          NUGET_USER: ${{ vars.NUGET_USER }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${NUGET_USER}" ]]; then
+            echo "Repository variable NUGET_USER must be set to the nuget.org profile name." >&2
+            exit 2
+          fi
+
       - name: Publish to nuget.org
+        if: steps.nuget_state.outputs.publish_required == 'true'
         uses: ./.github/actions/publish-nuget-package
         with:
           package-glob: artifacts/packages/*.nupkg
           nuget-user: ${{ vars.NUGET_USER }}
+
+      - name: Wait for published NuGet packages
+        run: >-
+          ./scripts/wait-nuget-packages.sh
+          --version "${{ needs.prepare-release.outputs.package_version }}"
+          --package-id MackySoft.Ucli
+          --package-id MackySoft.Ucli.Contracts
+          --package-id MackySoft.Ucli.Infrastructure
+          --package-id MackySoft.Ucli.Unity
 
       - name: Mirror packages to GitHub Release
         env:

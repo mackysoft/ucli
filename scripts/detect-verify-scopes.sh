@@ -121,7 +121,7 @@ is_package_publish_shared_input() {
   local file="$1"
 
   case "${file}" in
-    .github/actions/publish-nuget-package/action.yaml|.github/workflows/package-publish.yaml|scripts/create-release-tag.sh|scripts/create-version-sync-pr.sh|scripts/mirror-nuget-package-release.sh|scripts/package-version-sync-common.sh|scripts/prepare-version-sync-branch.sh|scripts/resolve-release-version.sh|scripts/sync-package-version.sh|scripts/verify-release-package-artifacts.sh)
+    .github/actions/publish-nuget-package/action.yaml|.github/workflows/package-publish.yaml|scripts/create-release-tag.sh|scripts/create-version-sync-pr.sh|scripts/inspect-nuget-package-state.sh|scripts/mirror-nuget-package-release.sh|scripts/package-version-sync-common.sh|scripts/prepare-version-sync-branch.sh|scripts/resolve-release-version.sh|scripts/sync-package-version.sh|scripts/verify-release-package-artifacts.sh|scripts/wait-nuget-packages.sh)
       return 0
       ;;
     *)
