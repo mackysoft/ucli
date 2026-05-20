@@ -1028,6 +1028,7 @@ kind ごとの parameter 規則:
 | `dangerousNotes` | string[] | yes | dangerous / advanced operation の保証外領域。該当なしは空配列 |
 
 `sideEffects` は `Ucli.Contracts` 内の descriptor-backed closed vocabulary で表す。public JSON では string tag として出るが、policy、`mayDirty`、`mayPersist`、query 許可、required touchedKinds の判定は descriptor table から行う。
+`mayPersist=true` の operation は、永続化境界を `touchedKinds` で 1 種類以上宣言しなければならない。descriptor の required touchedKinds は side effect 固有の最小種別であり、`mayPersist=true` による operation 全体の非空要求に加えて検証する。
 
 | sideEffects value | Meaning |
 | --- | --- |
@@ -1052,7 +1053,7 @@ kind ごとの parameter 規則:
 | `arbitrarySourceExecution` | 利用者が渡した source code を実行し得る |
 | `destructiveScope` | delete / overwrite など破壊的操作を行い得る |
 
-`touchedKinds` は閉じた語彙で表す。観測だけを行う query operation は読み取り対象を `inputs[]`、semantic constraints、`description` で表し、`touchedKinds: []` とする。touched resource がない operation も `touchedKinds: []` とする。
+`touchedKinds` は閉じた語彙で表す。観測だけを行う query operation は読み取り対象を `inputs[]`、semantic constraints、`description` で表し、`touchedKinds: []` とする。touched resource がなく、かつ `mayPersist=false` の operation も `touchedKinds: []` とする。
 
 | touchedKinds value | Meaning |
 | --- | --- |

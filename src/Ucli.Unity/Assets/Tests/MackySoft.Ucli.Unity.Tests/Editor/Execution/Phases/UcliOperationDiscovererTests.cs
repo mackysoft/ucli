@@ -160,6 +160,24 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void UcliOperationMetadata_WhenFactoryAndConstructorsAreInspected_DoNotExposePolicyParameter ()
+        {
+            var factoryHasPolicyParameter = typeof(UcliOperationMetadata)
+                .GetMethods(BindingFlags.Public | BindingFlags.Static)
+                .Where(static method => method.Name == nameof(UcliOperationMetadata.Create))
+                .SelectMany(static method => method.GetParameters())
+                .Any(IsPolicyParameter);
+            var constructorHasPolicyParameter = typeof(UcliOperationMetadata)
+                .GetConstructors(BindingFlags.Public | BindingFlags.Instance)
+                .SelectMany(static constructor => constructor.GetParameters())
+                .Any(IsPolicyParameter);
+
+            Assert.That(factoryHasPolicyParameter, Is.False);
+            Assert.That(constructorHasPolicyParameter, Is.False);
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void UcliOperationMetadata_WhenDescribeVariantFieldUsesRequestLocalAliasArgsPath_ThrowsArgumentException ()
         {
             Assert.Throws<ArgumentException>(() =>
@@ -808,6 +826,12 @@ namespace MackySoft.Ucli.Unity.Tests
         [UcliOperation]
         private sealed class InvalidAttributedType
         {
+        }
+
+        private static bool IsPolicyParameter (ParameterInfo parameter)
+        {
+            return string.Equals(parameter.Name, "policy", StringComparison.Ordinal)
+                || string.Equals(parameter.Name, "operationPolicy", StringComparison.Ordinal);
         }
 
         private static UcliOperationMetadata FindMetadata (

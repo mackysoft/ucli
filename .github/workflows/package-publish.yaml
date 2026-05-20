@@ -1,0 +1,330 @@
+name: package-publish
+
+on:
+  push:
+    tags:
+      - release/*
+  workflow_dispatch:
+    inputs:
+      package_version:
+        description: "SemVer package version (e.g. 1.2.3)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      package_version: ${{ steps.version.outputs.package_version }}
+      tag_name: ${{ steps.version.outputs.tag_name }}
+      release_sha: ${{ steps.source.outputs.release_sha }}
+
+    steps:
+      - name: Validate workflow dispatch source
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${REF_NAME}" != "${DEFAULT_BRANCH}" ]]; then
+            echo "workflow_dispatch releases must run from ${DEFAULT_BRANCH}. Actual ref: ${REF_NAME}" >&2
+            exit 1
+          fi
+
+      - name: Checkout release tooling
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Resolve package version
+        id: version
+        shell: bash
+        env:
+          DISPATCH_VERSION: ${{ github.event.inputs.package_version }}
+        run: ./scripts/resolve-release-version.sh --tag-prefix release --dispatch-version "${DISPATCH_VERSION}"
+
+      - name: Validate release source
+        id: source
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_SHA: ${{ github.sha }}
+          TAG_NAME: ${{ steps.version.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+
+          git fetch origin "${DEFAULT_BRANCH}"
+
+          release_sha="${RELEASE_SHA}"
+          if [[ "${EVENT_NAME}" != "workflow_dispatch" ]]; then
+            git fetch --force origin "refs/tags/${TAG_NAME}:refs/tags/${TAG_NAME}"
+            release_sha="$(git rev-list -n 1 "refs/tags/${TAG_NAME}")"
+          fi
+
+          if ! git merge-base --is-ancestor "${release_sha}" "origin/${DEFAULT_BRANCH}"; then
+            echo "Release source must be reachable from origin/${DEFAULT_BRANCH}. Actual sha: ${release_sha}" >&2
+            exit 1
+          fi
+
+          echo "release_sha=${release_sha}" >> "${GITHUB_OUTPUT}"
+
+      - name: Create and push release tag
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          TAG_NAME: ${{ steps.version.outputs.tag_name }}
+          RELEASE_SHA: ${{ steps.source.outputs.release_sha }}
+        run: ./scripts/create-release-tag.sh --tag-name "${TAG_NAME}" --release-sha "${RELEASE_SHA}"
+
+  publish:
+    needs: prepare-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          # Pack from the validated commit so a moved tag cannot change the
+          # source after prepare-release has accepted it.
+          ref: ${{ needs.prepare-release.outputs.release_sha }}
+
+      - name: Validate checked out release source
+        env:
+          RELEASE_SHA: ${{ needs.prepare-release.outputs.release_sha }}
+          TAG_NAME: ${{ needs.prepare-release.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+
+          actual_sha="$(git rev-parse HEAD)"
+          if [[ "${actual_sha}" != "${RELEASE_SHA}" ]]; then
+            echo "Checked out release source does not match validated sha. Expected: ${RELEASE_SHA}. Actual: ${actual_sha}" >&2
+            exit 1
+          fi
+
+          git fetch --force origin "refs/tags/${TAG_NAME}:refs/tags/${TAG_NAME}"
+          tag_sha="$(git rev-list -n 1 "refs/tags/${TAG_NAME}")"
+          if [[ "${tag_sha}" != "${RELEASE_SHA}" ]]; then
+            echo "Release tag moved after validation. Expected: ${RELEASE_SHA}. Actual: ${tag_sha}" >&2
+            exit 1
+          fi
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Setup NuGet CLI
+        run: ./scripts/setup-nuget-cli.sh
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
+
+      - name: Sync release package versions
+        run: ./scripts/sync-package-version.sh --version "${{ needs.prepare-release.outputs.package_version }}"
+
+      - name: Restore
+        run: dotnet restore Ucli.slnx
+
+      - name: Verify generated skills
+        run: bash scripts/verify-skills.sh
+
+      - name: Pack shared packages
+        run: |
+          dotnet pack src/Ucli.Contracts/Ucli.Contracts.csproj \
+            --configuration Release \
+            --no-restore \
+            -p:Version=${{ needs.prepare-release.outputs.package_version }} \
+            -p:PackageVersion=${{ needs.prepare-release.outputs.package_version }} \
+            --output artifacts/packages
+          dotnet pack src/Ucli.Infrastructure/Ucli.Infrastructure.csproj \
+            --configuration Release \
+            --no-restore \
+            -p:Version=${{ needs.prepare-release.outputs.package_version }} \
+            -p:PackageVersion=${{ needs.prepare-release.outputs.package_version }} \
+            --output artifacts/packages
+
+      - name: Pack CLI tool
+        run: >-
+          dotnet pack src/Ucli/Ucli.csproj
+          --configuration Release
+          --no-restore
+          -p:Version=${{ needs.prepare-release.outputs.package_version }}
+          -p:PackageVersion=${{ needs.prepare-release.outputs.package_version }}
+          --output artifacts/packages
+
+      - name: Pack schema artifacts
+        run: ./scripts/pack-schema-artifacts.sh --version "${{ needs.prepare-release.outputs.package_version }}" --output artifacts/packages
+
+      - name: Pack Unity plugin
+        run: ./scripts/pack-unity-plugin.sh --version "${{ needs.prepare-release.outputs.package_version }}" --output artifacts/packages
+
+      - name: Verify shared packages
+        run: ./scripts/verify-shared-packages.sh artifacts/packages "${{ needs.prepare-release.outputs.package_version }}"
+
+      - name: Smoke test CLI tool package
+        run: ./scripts/verify-cli-package.sh artifacts/packages "${{ needs.prepare-release.outputs.package_version }}"
+
+      - name: Verify schema artifacts
+        run: ./scripts/verify-schema-artifacts.sh artifacts/packages "${{ needs.prepare-release.outputs.package_version }}"
+
+      - name: Verify Unity plugin package
+        run: ./scripts/verify-unity-plugin-package.sh artifacts/packages "${{ needs.prepare-release.outputs.package_version }}"
+
+      - name: Verify release artifact set
+        run: ./scripts/verify-release-package-artifacts.sh artifacts/packages "${{ needs.prepare-release.outputs.package_version }}"
+
+      - name: Inspect NuGet publication state
+        id: nuget_state
+        run: >-
+          ./scripts/inspect-nuget-package-state.sh
+          --version "${{ needs.prepare-release.outputs.package_version }}"
+          --package-id MackySoft.Ucli
+          --package-id MackySoft.Ucli.Contracts
+          --package-id MackySoft.Ucli.Infrastructure
+          --package-id MackySoft.Ucli.Unity
+
+      - name: Validate NuGet trusted publishing user
+        if: steps.nuget_state.outputs.publish_required == 'true'
+        env:
+          NUGET_USER: ${{ vars.NUGET_USER }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${NUGET_USER}" ]]; then
+            echo "Repository variable NUGET_USER must be set to the nuget.org profile name." >&2
+            exit 2
+          fi
+
+      - name: Publish to nuget.org
+        if: steps.nuget_state.outputs.publish_required == 'true'
+        uses: ./.github/actions/publish-nuget-package
+        with:
+          package-glob: artifacts/packages/*.nupkg
+          nuget-user: ${{ vars.NUGET_USER }}
+
+      - name: Wait for published NuGet packages
+        run: >-
+          ./scripts/wait-nuget-packages.sh
+          --version "${{ needs.prepare-release.outputs.package_version }}"
+          --package-id MackySoft.Ucli
+          --package-id MackySoft.Ucli.Contracts
+          --package-id MackySoft.Ucli.Infrastructure
+          --package-id MackySoft.Ucli.Unity
+
+      - name: Mirror packages to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_VERSION: ${{ needs.prepare-release.outputs.package_version }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.tag_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: >-
+          ./scripts/mirror-nuget-package-release.sh
+          --repository "${REPOSITORY}"
+          --tag-name "${RELEASE_TAG}"
+          --package-glob "artifacts/packages/*.nupkg"
+          --title "${PACKAGE_VERSION}"
+          --notes ""
+
+      - name: Mirror schema artifacts to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.tag_name }}
+          REPOSITORY: ${{ github.repository }}
+          SCHEMA_ARCHIVE: artifacts/packages/MackySoft.Ucli.Schemas.${{ needs.prepare-release.outputs.package_version }}.zip
+        run: gh release upload "${RELEASE_TAG}" "${SCHEMA_ARCHIVE}" --repo "${REPOSITORY}" --clobber
+
+  sync-repository-version:
+    needs:
+      - prepare-release
+      - publish
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
+
+      - name: Create package version sync pull request
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_VERSION: ${{ needs.prepare-release.outputs.package_version }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.tag_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          sync_branch="chore/release-sync-${PACKAGE_VERSION}"
+          ./scripts/prepare-version-sync-branch.sh \
+            --default-branch "${DEFAULT_BRANCH}" \
+            --sync-branch "${sync_branch}"
+
+          ./scripts/sync-package-version.sh \
+            --version "${PACKAGE_VERSION}"
+
+          pr_body_file="$(mktemp)"
+          trap 'rm -f "${pr_body_file}"' EXIT
+          cat > "${pr_body_file}" <<EOF
+          ## Summary
+          - Sync all uCLI package versions to \`${PACKAGE_VERSION}\` after \`${RELEASE_TAG}\` publish.
+          - Update \`Directory.Build.props\`, schema manifest, Unity package config, and Unity nuspec.
+
+          ## Verification
+          - \`package-publish\` packed, verified, published, and released \`${RELEASE_TAG}\` before creating this PR.
+          - \`verify.yaml\` workflow was dispatched for \`${sync_branch}\`.
+          EOF
+
+          ./scripts/create-version-sync-pr.sh \
+            --repository "${REPOSITORY}" \
+            --default-branch "${DEFAULT_BRANCH}" \
+            --sync-branch "${sync_branch}" \
+            --commit-message "chore(release): sync package version to ${PACKAGE_VERSION}" \
+            --pr-title "chore(release): sync package version to ${PACKAGE_VERSION}" \
+            --pr-body-file "${pr_body_file}" \
+            --verify-workflow verify.yaml \
+            --changed-path "Directory.Build.props" \
+            --changed-path "schemas/v1/schema-manifest.json" \
+            --changed-path "src/Ucli.Unity/Assets/packages.config" \
+            --changed-path "src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec"

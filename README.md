@@ -133,7 +133,7 @@ If you manage `Assets/packages.config` directly, add:
 <package id="MackySoft.Ucli.Unity" version="<version>" manuallyInstalled="true" targetFramework="netstandard2.1" />
 ```
 
-> **IMPORTANT:** Use a pinned `<version>` for both the CLI and Unity plugin in released automation.
+> **IMPORTANT:** Use the same pinned `<version>` for both the CLI and Unity plugin in released automation.
 
 ## 🚀 Quick Start
 
@@ -182,7 +182,7 @@ Use `--projectPath <path>` when a single command needs to override the environme
 
 ## 🧭 Compatibility and Stability
 
-- Pin `MackySoft.Ucli` and `MackySoft.Ucli.Unity` to compatible released versions and update them together.
+- Pin `MackySoft.Ucli` and `MackySoft.Ucli.Unity` to the same released version and update them together.
 - The CLI generates the internal request protocol metadata for automation workflows.
 - `MackySoft.Ucli.Contracts` is for direct IPC protocol and tooling consumers.
 - `MackySoft.Ucli.Infrastructure` is an advanced integration package for runtime support code.
