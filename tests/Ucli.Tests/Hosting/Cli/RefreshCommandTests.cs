@@ -86,6 +86,45 @@ public sealed class RefreshCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Refresh_WhenPostReadSourceExists_WritesTopLevelPayload ()
+    {
+        var service = new StubRefreshService((_, _) => ValueTask.FromResult(OperationExecuteResultFactory.Success(
+            "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+            [
+                new OperationExecutionOperationResult(
+                    OpId: "refresh",
+                    Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                    Phase: IpcExecuteOperationPhaseNames.Call,
+                    Applied: true,
+                    Changed: true,
+                    Touched: []),
+            ],
+            "uCLI refresh completed.",
+            readPostcondition: null,
+            project: ProjectIdentityInfoTestFactory.Create(),
+            postReadSource: CreateRefreshPostReadSource())));
+        var command = new RefreshCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.RefreshAsync(
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
+            .HasProperty("postReadSource", postReadSource => postReadSource
+                .HasInt32("schemaVersion", 1)
+                .HasArrayLength("steps", 1)
+                .HasProperty("steps", 0, step => step
+                    .HasString("opId", "refresh")
+                    .HasString("sourceKind", IpcExecutePostReadSourceKindNames.Refresh)
+                    .HasBoolean("playModeMutation", false)
+                    .HasValueKind("commit", JsonValueKind.Null)
+                    .HasBoolean("persistenceExpected", true)
+                    .HasString("expectedPostState", IpcExecuteExpectedPostStateNames.Unavailable)));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Refresh_WhenServiceFails_PreservesFailurePayloadAndErrors ()
     {
         var failureResult = OperationExecuteResultFactory.Failure(
@@ -342,5 +381,20 @@ public sealed class RefreshCommandTests
             ExpectedFact: expectedFact,
             ObservedResult: observedResult,
             ApplicationState: IpcExecuteApplicationStateNames.Applied);
+    }
+
+    private static OperationExecutionPostReadSource CreateRefreshPostReadSource ()
+    {
+        return new OperationExecutionPostReadSource(
+            IpcExecutePostReadSource.CurrentSchemaVersion,
+            [
+                new OperationExecutionPostReadSourceStep(
+                    OpId: "refresh",
+                    SourceKind: IpcExecutePostReadSourceKindNames.Refresh,
+                    PlayModeMutation: false,
+                    Commit: null,
+                    PersistenceExpected: true,
+                    ExpectedPostState: IpcExecuteExpectedPostStateNames.Unavailable),
+            ]);
     }
 }

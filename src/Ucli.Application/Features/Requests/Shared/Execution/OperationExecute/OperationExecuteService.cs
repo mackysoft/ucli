@@ -181,7 +181,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 definition.SuccessMessage,
                 convertedResponse.ReadPostcondition,
                 responseProject,
-                convertedResponse.ContractViolations);
+                convertedResponse.ContractViolations,
+                convertedResponse.PostReadSource);
         }
 
         return OperationExecuteResultFactory.Failure(
@@ -191,7 +192,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             definition.FailureMessage,
             contractViolations: convertedResponse.ContractViolations,
             readPostcondition: convertedResponse.ReadPostcondition,
-            project: responseProject);
+            project: responseProject,
+            postReadSource: convertedResponse.PostReadSource);
     }
 
     /// <summary> Executes one internal <c>plan</c> pass and returns the issued plan token. </summary>

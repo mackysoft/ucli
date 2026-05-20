@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using NUnit.Framework;
@@ -92,5 +93,36 @@ namespace MackySoft.Ucli.Unity.Tests
             return this;
         }
 
+        /// <summary>
+        /// Asserts that the compiled public step carries post-read source facts.
+        /// </summary>
+        /// <param name="expectedSourceKind"> The expected post-read source kind. </param>
+        /// <param name="expectedCommit"> The expected commit value. </param>
+        /// <param name="expectedPersistenceExpected"> The expected persistence expectation. </param>
+        /// <param name="expectedPostState"> The expected post-state availability. </param>
+        /// <returns> The current assertion instance. </returns>
+        public ExecuteRequestCompilerAssert HasPostReadSourceStep (
+            string expectedSourceKind,
+            string? expectedCommit,
+            bool expectedPersistenceExpected,
+            string expectedPostState)
+        {
+            Assert.That(compiledStep.PostReadSourceStep, Is.Not.Null);
+            var sourceStep = compiledStep.PostReadSourceStep!;
+            Assert.That(sourceStep.OpId, Is.EqualTo(compiledStep.Id));
+            Assert.That(sourceStep.SourceKind, Is.EqualTo(expectedSourceKind));
+            Assert.That(sourceStep.PlayModeMutation, Is.False);
+            Assert.That(sourceStep.Commit, Is.EqualTo(expectedCommit));
+            Assert.That(sourceStep.PersistenceExpected, Is.EqualTo(expectedPersistenceExpected));
+            Assert.That(sourceStep.ExpectedPostState, Is.EqualTo(expectedPostState));
+            Assert.That(IpcExecutePostReadSourceRules.IsCompatibleWithOperation(
+                compiledStep.OperationName,
+                sourceStep.SourceKind,
+                sourceStep.PlayModeMutation,
+                sourceStep.Commit,
+                sourceStep.PersistenceExpected,
+                sourceStep.ExpectedPostState), Is.True);
+            return this;
+        }
     }
 }

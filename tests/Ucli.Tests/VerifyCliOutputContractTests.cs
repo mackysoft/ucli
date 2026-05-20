@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Compile.Semantics;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Catalog;
+using MackySoft.Ucli.Application.Features.Assurance.Verify.Semantics;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -65,6 +66,7 @@ public sealed class VerifyCliOutputContractTests
             [
                 new ReadyAssuranceSemanticInvariantRule(),
                 new CompileAssuranceSemanticInvariantRule(),
+                new VerifyAssuranceSemanticInvariantRule(),
             ]);
     }
 

@@ -105,7 +105,7 @@
   - redirected `stdin` から JSON リクエストを読み、static preflight 後に Unity IPC `call` を実行する。
   - `--projectPath <string?>`、`--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--planToken <string?>`、`--withPlan`、`--allowDangerous`、`--allowPlayMode`、`--failFast` を受け付ける。
   - `--readIndexMode` は受け付けない。
-  - 成功時 payload は `project`、`requestId`、`opResults`、必要時のみ `readPostcondition`、必要時のみ `plan` を返す。
+  - 成功時 payload は `project`、`requestId`、`opResults`、必要時のみ `readPostcondition`、`postReadSource`、`plan` を返す。
 
 ## Assurance command contracts
 
@@ -239,7 +239,7 @@ profile step の入力は `kind`、`required`、verifier-specific args だけを
 - `VERIFY_INPUT_PROJECT_MISSING`
 - `PROJECT_FINGERPRINT_MISMATCH`
 
-`postRead` verifier は `--from` の `readPostcondition` だけでなく、`opResults[].applied`、`changed`、`touched`、Play Mode 変更かどうか、commit 種別を読んで必要な claim を組み立てる。`postRead` claim は少なくとも `PERSISTENCE_UNIT_TOUCHED`、`READ_SURFACE_SAFE`、`POST_MUTATION_OBSERVED` の3種へ分ける。
+`postRead` verifier は `--from` の `readPostcondition`、`opResults[]`、`postReadSource.steps[]` を読んで必要な claim を組み立てる。ローカル保存済み request は参照しない。`postRead` claim は少なくとも `PERSISTENCE_UNIT_TOUCHED`、`READ_SURFACE_SAFE`、`POST_MUTATION_OBSERVED` の3種へ分ける。
 
 `PERSISTENCE_UNIT_TOUCHED` は `changed=true` かつ永続化単位が期待される mutation で required claim とする。`READ_SURFACE_SAFE` は `readPostcondition.requirements[]` が存在する場合に required claim とする。`POST_MUTATION_OBSERVED` は edit DSL など、request から期待 post-state を決定論的に導ける場合だけ required claim とする。raw op や broad mutation など期待 post-state が定義されない場合は `outOfScope` または `required=false` とし、推測で required claim にしてはならない。
 
@@ -753,7 +753,7 @@ ucli plan --projectPath ./UnityProject --mode daemon --allowPlayMode < playmode-
 
 ### `call` のレスポンス契約
 - 出力は共通の `CommandResult` エンベロープを返す。
-- 成功時 payload は `project`、`requestId`、`opResults`、必要時のみ `readPostcondition`、必要時のみ `plan` を返す。
+- 成功時 payload は `project`、`requestId`、`opResults`、必要時のみ `readPostcondition`、`postReadSource`、`plan` を返す。
 - `payload.plan` は `project`、`requestId`、`opResults`、必要時のみ `planToken` を返す。
 - `payload.readIndex` は返さない。
 - Scene context の Play Mode 変更成功時、Prefab apply / revert を含まない場合の `opResults[].touched` は空配列になり、`readPostcondition` は返さない。`applyPrefabOverrides` で Prefab asset へ反映した場合は、その Prefab asset を `touched` に返し、必要な `readPostcondition` を返す。`revertPrefabOverrides` は Scene live object だけを戻すため、`touched` は空配列、`readPostcondition` は返さない。Prefab / asset / project context の保存を伴う Play Mode 変更は、通常の永続化変更と同じく保存した永続化単位を `touched` に返し、必要な `readPostcondition` を返す。
@@ -818,7 +818,7 @@ CLI は内部で固定の標準 `execute` リクエストを組み立て、Unity
 
 ### `refresh` のレスポンス契約
 - 出力は共通の `CommandResult` エンベロープを返す。
-- 成功時 payload は `project`、`requestId`、`opResults`、必要時のみ `readPostcondition` を返す。
+- 成功時 payload は `project`、`requestId`、`opResults`、必要時のみ `readPostcondition`、`postReadSource` を返す。
 - `planToken` は返さない。
 - `payload` のフィールド定義は [uCLI-property-reference.md](uCLI-property-reference.md) を参照する。
 

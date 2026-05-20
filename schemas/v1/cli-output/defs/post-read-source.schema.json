@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/post-read-source.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "opId": {
+            "type": "string"
+          },
+          "sourceKind": {
+            "type": "string",
+            "enum": [
+              "edit",
+              "operation",
+              "refresh"
+            ]
+          },
+          "playModeMutation": {
+            "type": "boolean"
+          },
+          "commit": {
+            "enum": [
+              "none",
+              "context",
+              "project",
+              null
+            ]
+          },
+          "persistenceExpected": {
+            "type": "boolean"
+          },
+          "expectedPostState": {
+            "type": "string",
+            "enum": [
+              "deterministic",
+              "unavailable"
+            ]
+          }
+        },
+        "required": [
+          "opId",
+          "sourceKind",
+          "playModeMutation",
+          "commit",
+          "persistenceExpected",
+          "expectedPostState"
+        ]
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "steps"
+  ]
+}

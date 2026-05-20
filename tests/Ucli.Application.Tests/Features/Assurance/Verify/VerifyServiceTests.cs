@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
@@ -315,19 +316,7 @@ public sealed class VerifyServiceTests
     public async Task Execute_WithPostReadErrorDiagnostic_ReturnsFailedClaim ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithPostReadErrorDiagnostic_ReturnsFailedClaim));
-        scope.WriteFile(
-            "verify.json",
-            """
-            {
-              "schemaVersion": 1,
-              "steps": [
-                {
-                  "kind": "postRead",
-                  "required": true
-                }
-              ]
-            }
-            """);
+        WriteRequiredPostReadProfile(scope);
         var fromPath = scope.WriteFile(
             "from.json",
             CreateFromJson(
@@ -350,6 +339,217 @@ public sealed class VerifyServiceTests
         Assert.True(claim.Required);
         Assert.Equal(VerifyClaimStatusValues.Failed, claim.Status);
         Assert.Equal(VerifyCoverageValues.Full, claim.Coverage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithDeterministicPostState_ReturnsRequiredObservedClaim ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithDeterministicPostState_ReturnsRequiredObservedClaim));
+        WriteRequiredPostReadProfile(scope);
+        var fromPath = scope.WriteFile(
+            "from.json",
+            CreateFromJson(
+                "project-fingerprint",
+                coverageImpact: "none",
+                includeReadPostcondition: false));
+        var service = CreateService(scope.FullPath);
+
+        var result = await service.ExecuteAsync(new VerifyCommandInput(
+            ProjectPath: null,
+            Profile: null,
+            ProfilePath: "verify.json",
+            FromPath: fromPath,
+            Mode: UnityExecutionMode.Auto,
+            TimeoutMilliseconds: 10000));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(VerifyVerdictValues.Pass, result.Output!.Verdict);
+        var claim = Assert.Single(result.Output.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.PostMutationObserved.Value, StringComparison.Ordinal));
+        Assert.True(claim.Required);
+        Assert.Equal(VerifyClaimStatusValues.Passed, claim.Status);
+        Assert.Equal(VerifyCoverageValues.Full, claim.Coverage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithRawOperationPostStateUnavailable_ReturnsOutOfScopeClaim ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithRawOperationPostStateUnavailable_ReturnsOutOfScopeClaim));
+        WriteRequiredPostReadProfile(scope);
+        var fromPath = scope.WriteFile(
+            "from.json",
+            CreateFromJson(
+                "project-fingerprint",
+                coverageImpact: "none",
+                touchedJson: "[]",
+                sourceKind: "operation",
+                commit: null,
+                persistenceExpected: false,
+                expectedPostState: "unavailable",
+                includeReadPostcondition: false,
+                op: UcliPrimitiveOperationNames.SceneOpen));
+        var service = CreateService(scope.FullPath);
+
+        var result = await service.ExecuteAsync(new VerifyCommandInput(
+            ProjectPath: null,
+            Profile: null,
+            ProfilePath: "verify.json",
+            FromPath: fromPath,
+            Mode: UnityExecutionMode.Auto,
+            TimeoutMilliseconds: 10000));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(VerifyVerdictValues.Pass, result.Output!.Verdict);
+        var claim = Assert.Single(result.Output.Claims);
+        Assert.Equal(VerifyClaimCodes.PostMutationObserved.Value, claim.Id);
+        Assert.False(claim.Required);
+        Assert.Equal(VerifyClaimStatusValues.OutOfScope, claim.Status);
+        Assert.Equal(VerifyCoverageValues.None, claim.Coverage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithNoOpRequiredPostRead_ReturnsIncompleteUnverifiedClaim ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithNoOpRequiredPostRead_ReturnsIncompleteUnverifiedClaim));
+        WriteRequiredPostReadProfile(scope);
+        var fromPath = scope.WriteFile(
+            "from.json",
+            CreateFromJson(
+                "project-fingerprint",
+                coverageImpact: "none",
+                applied: false,
+                changed: false,
+                touchedJson: "[]",
+                includeReadPostcondition: false));
+        var service = CreateService(scope.FullPath);
+
+        var result = await service.ExecuteAsync(new VerifyCommandInput(
+            ProjectPath: null,
+            Profile: null,
+            ProfilePath: "verify.json",
+            FromPath: fromPath,
+            Mode: UnityExecutionMode.Auto,
+            TimeoutMilliseconds: 10000));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(VerifyVerdictValues.Incomplete, result.Output!.Verdict);
+        var claim = Assert.Single(result.Output.Claims);
+        Assert.Equal(VerifyClaimCodes.PostMutationObserved.Value, claim.Id);
+        Assert.True(claim.Required);
+        Assert.Equal(VerifyClaimStatusValues.Unverified, claim.Status);
+        Assert.Equal(VerifyCoverageValues.None, claim.Coverage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithEmptyNoOpRequiredPostRead_ReturnsIncompleteUnverifiedClaim ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithEmptyNoOpRequiredPostRead_ReturnsIncompleteUnverifiedClaim));
+        WriteRequiredPostReadProfile(scope);
+        var fromPath = scope.WriteFile("from.json", CreateNoOpFromJson("project-fingerprint"));
+        var service = CreateService(scope.FullPath);
+
+        var result = await service.ExecuteAsync(new VerifyCommandInput(
+            ProjectPath: null,
+            Profile: null,
+            ProfilePath: "verify.json",
+            FromPath: fromPath,
+            Mode: UnityExecutionMode.Auto,
+            TimeoutMilliseconds: 10000));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(VerifyVerdictValues.Incomplete, result.Output!.Verdict);
+        var claim = Assert.Single(result.Output.Claims);
+        Assert.Equal(VerifyClaimCodes.PostMutationObserved.Value, claim.Id);
+        Assert.True(claim.Required);
+        Assert.Equal(VerifyClaimStatusValues.Unverified, claim.Status);
+        Assert.Equal(VerifyCoverageValues.None, claim.Coverage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithIndeterminateDiagnostic_ReturnsIndeterminateClaimCoverageNone ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithIndeterminateDiagnostic_ReturnsIndeterminateClaimCoverageNone));
+        WriteRequiredPostReadProfile(scope);
+        var fromPath = scope.WriteFile("from.json", CreateFromJson("project-fingerprint", coverageImpact: "indeterminate"));
+        var service = CreateService(scope.FullPath);
+
+        var result = await service.ExecuteAsync(new VerifyCommandInput(
+            ProjectPath: null,
+            Profile: null,
+            ProfilePath: "verify.json",
+            FromPath: fromPath,
+            Mode: UnityExecutionMode.Auto,
+            TimeoutMilliseconds: 10000));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(VerifyVerdictValues.Incomplete, result.Output!.Verdict);
+        var claim = Assert.Single(result.Output.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.ReadSurfaceSafe.Value, StringComparison.Ordinal));
+        Assert.Equal(VerifyClaimStatusValues.Indeterminate, claim.Status);
+        Assert.Equal(VerifyCoverageValues.None, claim.Coverage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithUnboundCoverageDiagnostic_ReturnsBlockingResidualRisk ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithUnboundCoverageDiagnostic_ReturnsBlockingResidualRisk));
+        var fromPath = scope.WriteFile(
+            "from.json",
+            CreateFromJson(
+                "project-fingerprint",
+                coverageImpact: "partial",
+                touchedJson: "[]",
+                sourceKind: "operation",
+                commit: null,
+                persistenceExpected: false,
+                expectedPostState: "unavailable",
+                includeReadPostcondition: false,
+                op: UcliPrimitiveOperationNames.SceneOpen));
+        var service = CreateService(scope.FullPath);
+
+        var result = await service.ExecuteAsync(new VerifyCommandInput(
+            ProjectPath: null,
+            Profile: "built-in:mutation",
+            ProfilePath: null,
+            FromPath: fromPath,
+            Mode: UnityExecutionMode.Auto,
+            TimeoutMilliseconds: 10000));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(VerifyVerdictValues.Fail, result.Output!.Verdict);
+        var risk = Assert.Single(result.Output.ResidualRisks);
+        Assert.Equal(VerifyRiskCodes.FromDiagnosticCoverageUnbound.Value, risk.Code);
+        Assert.True(risk.Blocking);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithMixedBoundAndUnboundDiagnostics_ReturnsBlockingResidualRisk ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithMixedBoundAndUnboundDiagnostics_ReturnsBlockingResidualRisk));
+        WriteRequiredPostReadProfile(scope);
+        var fromPath = scope.WriteFile("from.json", CreateMixedBoundAndUnboundDiagnosticFromJson("project-fingerprint"));
+        var service = CreateService(scope.FullPath);
+
+        var result = await service.ExecuteAsync(new VerifyCommandInput(
+            ProjectPath: null,
+            Profile: null,
+            ProfilePath: "verify.json",
+            FromPath: fromPath,
+            Mode: UnityExecutionMode.Auto,
+            TimeoutMilliseconds: 10000));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(VerifyVerdictValues.Fail, result.Output!.Verdict);
+        var observedClaim = Assert.Single(result.Output.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.PostMutationObserved.Value, StringComparison.Ordinal));
+        Assert.Equal(VerifyCoverageValues.Full, observedClaim.Coverage);
+        var risk = Assert.Single(result.Output.ResidualRisks);
+        Assert.Equal(VerifyRiskCodes.FromDiagnosticCoverageUnbound.Value, risk.Code);
+        Assert.True(risk.Blocking);
     }
 
     [Fact]
@@ -495,6 +695,23 @@ public sealed class VerifyServiceTests
             UnityVersion: "6000.1.4f1");
     }
 
+    private static void WriteRequiredPostReadProfile (TestDirectoryScope scope)
+    {
+        scope.WriteFile(
+            "verify.json",
+            """
+            {
+              "schemaVersion": 1,
+              "steps": [
+                {
+                  "kind": "postRead",
+                  "required": true
+                }
+              ]
+            }
+            """);
+    }
+
     private static ReadyExecutionResult CreateReadyResult (
         ReadyTarget target,
         ProjectIdentityInfo project)
@@ -629,8 +846,38 @@ public sealed class VerifyServiceTests
     private static string CreateFromJson (
         string projectFingerprint,
         string coverageImpact,
-        string severity = "warning")
+        string severity = "warning",
+        bool applied = true,
+        bool changed = true,
+        string touchedJson = """
+                  [
+                    {
+                      "kind": "asset",
+                      "path": "Assets/Scene.unity"
+                    }
+                  ]
+            """,
+        string sourceKind = "edit",
+        string? commit = "context",
+        bool persistenceExpected = true,
+        string expectedPostState = "deterministic",
+        bool includeReadPostcondition = true,
+        string op = "edit")
     {
+        var commitJson = commit is null ? "null" : $"\"{commit}\"";
+        var readPostconditionJson = includeReadPostcondition
+            ? """
+            ,
+            "readPostcondition": {
+              "requirements": [
+                {
+                  "surface": "sceneTreeLite",
+                  "minSafeGeneratedAtUtc": "2026-05-17T00:00:00+00:00"
+                }
+              ]
+            }
+            """
+            : string.Empty;
         return $$"""
         {
           "protocolVersion": 1,
@@ -646,16 +893,11 @@ public sealed class VerifyServiceTests
             "opResults": [
               {
                   "opId": "op-1",
-                  "op": "Scene.Touch",
+                  "op": "{{op}}",
                   "phase": "call",
-                  "applied": true,
-                  "changed": true,
-                "touched": [
-                  {
-                    "kind": "asset",
-                    "path": "Assets/Scene.unity"
-                  }
-                ],
+                  "applied": {{JsonSerializer.Serialize(applied)}},
+                  "changed": {{JsonSerializer.Serialize(changed)}},
+                "touched": {{touchedJson}},
                 "diagnostics": [
                     {
                       "code": "READ_SURFACE_PARTIAL",
@@ -666,11 +908,109 @@ public sealed class VerifyServiceTests
                 ]
               }
             ],
-            "readPostcondition": {
-              "requirements": [
+            "postReadSource": {
+              "schemaVersion": 1,
+              "steps": [
                 {
-                  "surface": "sceneTreeLite",
-                  "minSafeGeneratedAtUtc": "2026-05-17T00:00:00+00:00"
+                  "opId": "op-1",
+                  "sourceKind": "{{sourceKind}}",
+                  "playModeMutation": false,
+                  "commit": {{commitJson}},
+                  "persistenceExpected": {{JsonSerializer.Serialize(persistenceExpected)}},
+                  "expectedPostState": "{{expectedPostState}}"
+                }
+              ]
+            }{{readPostconditionJson}}
+          },
+          "errors": []
+        }
+        """;
+    }
+
+    private static string CreateNoOpFromJson (string projectFingerprint)
+    {
+        return $$"""
+        {
+          "protocolVersion": 1,
+          "status": "ok",
+          "exitCode": 0,
+          "command": "call",
+          "payload": {
+            "project": {
+              "projectPath": "/repo/UnityProject",
+              "projectFingerprint": "{{projectFingerprint}}",
+              "unityVersion": "6000.1.4f1"
+            },
+            "opResults": [],
+            "postReadSource": {
+              "schemaVersion": 1,
+              "steps": []
+            }
+          },
+          "errors": []
+        }
+        """;
+    }
+
+    private static string CreateMixedBoundAndUnboundDiagnosticFromJson (string projectFingerprint)
+    {
+        return $$"""
+        {
+          "protocolVersion": 1,
+          "status": "ok",
+          "exitCode": 0,
+          "command": "call",
+          "payload": {
+            "project": {
+              "projectPath": "/repo/UnityProject",
+              "projectFingerprint": "{{projectFingerprint}}",
+              "unityVersion": "6000.1.4f1"
+            },
+            "opResults": [
+              {
+                "opId": "edit-1",
+                "op": "edit",
+                "phase": "call",
+                "applied": true,
+                "changed": true,
+                "touched": [],
+                "diagnostics": []
+              },
+              {
+                "opId": "raw-1",
+                "op": "ucli.scene.open",
+                "phase": "call",
+                "applied": true,
+                "changed": true,
+                "touched": [],
+                "diagnostics": [
+                  {
+                    "code": "READ_SURFACE_PARTIAL",
+                    "severity": "warning",
+                    "coverageImpact": "partial",
+                    "message": "Read surface coverage is partial."
+                  }
+                ]
+              }
+            ],
+            "postReadSource": {
+              "schemaVersion": 1,
+              "steps": [
+                {
+                  "opId": "edit-1",
+                  "sourceKind": "edit",
+                  "playModeMutation": false,
+                  "commit": "none",
+                  "persistenceExpected": false,
+                  "expectedPostState": "deterministic"
+                },
+                {
+                  "opId": "raw-1",
+                  "sourceKind": "operation",
+                  "playModeMutation": false,
+                  "commit": null,
+                  "persistenceExpected": false,
+                  "expectedPostState": "unavailable"
                 }
               ]
             }

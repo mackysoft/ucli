@@ -7,4 +7,5 @@ internal sealed record VerifyFromOperationResult (
     bool Applied,
     bool Changed,
     int TouchedCount,
-    IReadOnlyList<VerifyFromDiagnostic> Diagnostics);
+    IReadOnlyList<VerifyFromDiagnostic> Diagnostics,
+    VerifyFromPostReadSourceStep PostReadSource);

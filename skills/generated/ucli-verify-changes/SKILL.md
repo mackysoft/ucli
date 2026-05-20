@@ -4,7 +4,7 @@ Use this skill to verify whether a uCLI-backed Unity change actually reached the
 
 ## Workflow
 1. Start from the command result, not from the exit code alone.
-2. Inspect `payload.opResults[].applied`, `changed`, and `touched` for each public step.
+2. Inspect `payload.opResults[].applied`, `changed`, `touched`, and `payload.postReadSource.steps[]` for each public step.
 3. If the task involves primitive operations, use `ucli ops describe <opName>` to interpret the operation's assurance and result contract.
 4. If the command result includes `readPostcondition`, satisfy those requirements before trusting affected read surfaces.
 5. Run `ucli verify --profile built-in:mutation --from <result.json>` when only post-mutation Unity-local evidence is needed, and read `payload.verdict`, `claims[]`, `reports`, and `residualRisks[]`.

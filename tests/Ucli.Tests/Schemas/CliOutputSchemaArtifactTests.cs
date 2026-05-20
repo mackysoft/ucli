@@ -188,6 +188,54 @@ public sealed class CliOutputSchemaArtifactTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void ExecutePayloadSchema_AcceptsPostReadSource ()
+    {
+        using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
+        using var document = JsonDocument.Parse(
+            """
+            {
+              "requestId": "req-1",
+              "project": {
+                "projectPath": "/repo/UnityProject",
+                "projectFingerprint": "project-fingerprint",
+                "unityVersion": "6000.1.4f1"
+              },
+              "opResults": [
+                {
+                  "opId": "edit-1",
+                  "op": "edit",
+                  "phase": "call",
+                  "applied": true,
+                  "changed": true,
+                  "touched": [],
+                  "diagnostics": []
+                }
+              ],
+              "postReadSource": {
+                "schemaVersion": 1,
+                "steps": [
+                  {
+                    "opId": "edit-1",
+                    "sourceKind": "edit",
+                    "playModeMutation": false,
+                    "commit": "context",
+                    "persistenceExpected": true,
+                    "expectedPostState": "deterministic"
+                  }
+                ]
+              }
+            }
+            """);
+
+        var errors = schemaSet.Validate(
+            "cli-output/payload/call.schema.json",
+            document.RootElement);
+
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void ExecutePayloadSchema_RejectsUnknownContractViolationApplicationState ()
     {
         using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
