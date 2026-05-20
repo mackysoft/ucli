@@ -234,7 +234,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 args: new
                 {
                     path = scenePath,
-                });
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var saveRequest = CreateOperation(
                 opId: "op-save",
                 opName: UcliPrimitiveOperationNames.SceneSave,
@@ -253,7 +254,37 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Open_Plan_WhenScenePathIsValid_TracksPreviewScene () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Open_Plan_WhenEditSourceScenePathIsValid_TracksPreviewScene () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new SceneOpenOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var createdScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(createdScene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var requestOperation = CreateOperation(
+                opId: "op-open",
+                opName: UcliPrimitiveOperationNames.SceneOpen,
+                args: new
+                {
+                    path = scenePath,
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var context = scope.CreateExecutionContext();
+
+            var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(result, applied: false, changed: false);
+            Assert.That(context.TryGetTemporaryScene(scenePath, out var previewScene), Is.True);
+            Assert.That(previewScene.IsValid(), Is.True);
+            Assert.That(previewScene.isLoaded, Is.True);
+            Assert.That(EditorSceneManager.IsPreviewScene(previewScene), Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Open_Plan_WhenRawScenePathIsValid_DoesNotTrackPreviewScene () => UniTask.ToCoroutine(async () =>
         {
             var operation = new SceneOpenOperation();
             using var scope = new EditorTestScope();
@@ -274,10 +305,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
-            Assert.That(context.TryGetTemporaryScene(scenePath, out var previewScene), Is.True);
-            Assert.That(previewScene.IsValid(), Is.True);
-            Assert.That(previewScene.isLoaded, Is.True);
-            Assert.That(EditorSceneManager.IsPreviewScene(previewScene), Is.True);
+            Assert.That(context.TryGetTemporaryScene(scenePath, out _), Is.False);
+            Assert.That(SceneManager.GetActiveScene().path, Is.Not.EqualTo(scenePath));
         });
 
         [UnityTest]
@@ -298,7 +327,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 args: new
                 {
                     path = scenePath,
-                });
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var context = scope.CreateExecutionContext();
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
@@ -341,7 +371,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 args: new
                 {
                     path = scenePath,
-                });
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var context = scope.CreateExecutionContext();
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
@@ -379,7 +410,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 args: new
                 {
                     path = scenePath,
-                });
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
 
             AssertSuccess(openResult, applied: false, changed: false);
@@ -391,7 +423,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     name = "CreatedRoot",
                     scene = scenePath,
-                });
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var createResult = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
 
             AssertSuccess(createResult, applied: false, changed: true);
@@ -402,7 +435,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 args: new
                 {
                     path = scenePath,
-                });
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var saveResult = await saveOperation.PlanAsync(saveRequest, context, CancellationToken.None);
 
             AssertSuccess(saveResult, applied: false, changed: true);
@@ -427,7 +461,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 args: new
                 {
                     path = scenePath,
-                });
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var createRequest = CreateOperation(
                 opId: "op-create",
                 opName: UcliPrimitiveOperationNames.GoCreate,
@@ -435,14 +470,16 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     name = "CreatedRoot",
                     scene = scenePath,
-                });
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var saveRequest = CreateOperation(
                 opId: "op-save",
                 opName: UcliPrimitiveOperationNames.SceneSave,
                 args: new
                 {
                     path = scenePath,
-                });
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
             _ = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
             _ = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
@@ -812,7 +849,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 args: new
                 {
                     path = scenePath,
-                });
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
 
             AssertSuccess(openResult, applied: false, changed: false);
@@ -824,7 +862,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     name = "CreatedRoot",
                     scene = scenePath,
-                });
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var createResult = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
 
             AssertSuccess(createResult, applied: false, changed: true);
@@ -867,7 +906,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 args: new
                 {
                     path = scenePath,
-                });
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
             AssertSuccess(openResult, applied: false, changed: false);
 
@@ -883,7 +923,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         hierarchyPath = "Root",
                     },
                     type = componentTypeId,
-                });
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var ensureResult = await ensureOperation.PlanAsync(ensureRequest, context, CancellationToken.None);
             AssertSuccess(ensureResult, applied: false, changed: true);
 
@@ -1083,14 +1124,16 @@ namespace MackySoft.Ucli.Unity.Tests
         private static NormalizedOperation CreateOperation (
             string opId,
             string opName,
-            object args)
+            object args,
+            NormalizedOperation.SourceStepKind sourceKind = NormalizedOperation.SourceStepKind.Op)
         {
             return new NormalizedOperation(
                 Id: opId,
                 Op: opName,
                 Args: JsonSerializer.SerializeToElement(args),
                 As: null,
-                Expect: null);
+                Expect: null,
+                SourceKind: sourceKind);
         }
 
         private static void AssertInvalidArgument (

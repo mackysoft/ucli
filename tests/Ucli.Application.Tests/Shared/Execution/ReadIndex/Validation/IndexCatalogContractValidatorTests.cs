@@ -121,6 +121,35 @@ public sealed class IndexCatalogContractValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IsValidOpsDescribe_ReturnsFalse_WhenPublicOperationMayCreatePreviewState ()
+    {
+        var entry = CreateValidOpsEntry() with
+        {
+            Policy = OperationPolicyValues.Advanced,
+            Assurance = new UcliOperationAssuranceContract(
+                sideEffects: Array.Empty<string>(),
+                touchedKinds: Array.Empty<string>(),
+                planMode: UcliOperationPlanModeValues.MayCreatePreviewState,
+                planSemantics: "Create request-local preview state before approval.",
+                callSemantics: "Apply the requested operation.",
+                touchedContract: "Reports no touched resources.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Failure means the operation did not complete.",
+                dangerousNotes: ["Preview-state planning is not public raw safe."]),
+        };
+        var contract = new IndexOpsDescribeJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "source-hash",
+            Operation: entry);
+
+        var result = IndexCatalogContractValidator.IsValidOpsDescribe(contract);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IsValidOpsCatalog_ReturnsTrue_WhenDescribeContractHasMultiFieldVariant ()
     {
         var contract = new IndexOpsDescribeJsonContract(

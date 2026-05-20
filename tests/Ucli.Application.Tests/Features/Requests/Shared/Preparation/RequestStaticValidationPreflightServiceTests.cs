@@ -153,7 +153,7 @@ public sealed class RequestStaticValidationPreflightServiceTests
         Assert.Null(result.Error);
         Assert.Null(result.ErrorCode);
         Assert.True(validator.LastCatalog!.IsAvailable);
-        Assert.Single(validator.LastCatalog.Operations);
+        Assert.Contains(validator.LastCatalog.Operations, operation => operation.Name == "ucli.scene.open");
         Assert.Equal(preparedRequest.ProjectContext.Config.ReadIndexDefaultMode, resolver.ReceivedMode);
     }
 

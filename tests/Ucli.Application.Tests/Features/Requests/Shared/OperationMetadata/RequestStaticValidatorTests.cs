@@ -22,6 +22,16 @@ public sealed class RequestStaticValidatorTests
         { "edit-step-invalid", ValidationErrorCodes.EditStepInvalid },
     };
 
+    public static TheoryData<string> EditLoweringOnlyPrimitiveNames => new()
+    {
+        UcliPrimitiveOperationNames.AssetCreate,
+        UcliPrimitiveOperationNames.AssetSet,
+        UcliPrimitiveOperationNames.CompEnsure,
+        UcliPrimitiveOperationNames.CompSet,
+        UcliPrimitiveOperationNames.GoCreate,
+        UcliPrimitiveOperationNames.PrefabCreate,
+    };
+
     [Theory]
     [Trait("Size", "Small")]
     [MemberData(nameof(InvalidRequestCases))]
@@ -279,9 +289,33 @@ public sealed class RequestStaticValidatorTests
                      && error.Message.Contains(expectedMessageFragment, StringComparison.Ordinal));
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [MemberData(nameof(EditLoweringOnlyPrimitiveNames))]
+    public async Task Validate_WhenPublicCatalogOmitsEditLoweringPrimitiveButRawOpReferencesIt_AddsInvalidArgumentError (
+        string operationName)
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            steps:
+            [
+                CreateOpStep("step-edit-only-raw", operationName, new
+                {
+                }),
+            ]);
+
+        var result = await validator.ValidateAsync(
+            request,
+            Array.Empty<UcliOperationDescriptor>(),
+            CreateConfig(OperationPolicy.Advanced, "^ucli\\."),
+            CancellationToken.None);
+
+        AssertContainsEditLoweringOnlyError(result, operationName);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Validate_WhenCompSetSetsIsEmpty_ReturnsValidForStructureOnlySchema ()
+    public async Task Validate_WhenRawCompSetIsEditLoweringOnly_AddsInvalidArgumentError ()
     {
         var validator = CreateValidator();
         var request = CreateRequest(
@@ -299,7 +333,7 @@ public sealed class RequestStaticValidatorTests
 
         var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
 
-        Assert.True(result.IsValid);
+        AssertContainsEditLoweringOnlyError(result, UcliPrimitiveOperationNames.CompSet);
     }
 
     [Fact]
@@ -343,7 +377,7 @@ public sealed class RequestStaticValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Validate_WhenGoCreateUsesPrefabParentSelector_ReturnsValidResult ()
+    public async Task Validate_WhenRawGoCreateIsEditLoweringOnly_AddsInvalidArgumentError ()
     {
         var validator = CreateValidator();
         var request = CreateRequest(
@@ -362,9 +396,7 @@ public sealed class RequestStaticValidatorTests
 
         var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
 
-        Assert.True(result.IsValid);
-        Assert.Empty(result.Errors);
-        Assert.Null(result.Error);
+        AssertContainsEditLoweringOnlyError(result, UcliPrimitiveOperationNames.GoCreate);
     }
 
     [Fact]
@@ -395,7 +427,7 @@ public sealed class RequestStaticValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Validate_WhenCompSetUsesPrefabComponentSelector_ReturnsValidResult ()
+    public async Task Validate_WhenRawCompSetUsesPrefabComponentSelector_AddsInvalidArgumentError ()
     {
         var validator = CreateValidator();
         var request = CreateRequest(
@@ -422,14 +454,12 @@ public sealed class RequestStaticValidatorTests
 
         var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
 
-        Assert.True(result.IsValid);
-        Assert.Empty(result.Errors);
-        Assert.Null(result.Error);
+        AssertContainsEditLoweringOnlyError(result, UcliPrimitiveOperationNames.CompSet);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Validate_WhenCompSetItemMissesRequiredPath_AddsOperationArgsInvalidError ()
+    public async Task Validate_WhenRawCompSetItemMissesRequiredPath_AddsInvalidArgumentError ()
     {
         var validator = CreateValidator();
         var request = CreateRequest(
@@ -453,8 +483,7 @@ public sealed class RequestStaticValidatorTests
 
         var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
 
-        Assert.False(result.IsValid);
-        AssertContainsError(result, ValidationErrorCodes.OperationArgsInvalid);
+        AssertContainsEditLoweringOnlyError(result, UcliPrimitiveOperationNames.CompSet);
     }
 
     [Fact]
@@ -519,7 +548,7 @@ public sealed class RequestStaticValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Validate_WhenAssetSetUsesProjectAssetPathTarget_ReturnsValidResult ()
+    public async Task Validate_WhenRawAssetSetIsEditLoweringOnly_AddsInvalidArgumentError ()
     {
         var validator = CreateValidator();
         var request = CreateRequest(
@@ -544,9 +573,7 @@ public sealed class RequestStaticValidatorTests
 
         var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
 
-        Assert.True(result.IsValid);
-        Assert.Empty(result.Errors);
-        Assert.Null(result.Error);
+        AssertContainsEditLoweringOnlyError(result, UcliPrimitiveOperationNames.AssetSet);
     }
 
     [Fact]
@@ -669,7 +696,7 @@ public sealed class RequestStaticValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Validate_WhenPrefabCreateUsesPrefabTargetSelector_AddsOperationArgsInvalidError ()
+    public async Task Validate_WhenRawPrefabCreateIsEditLoweringOnly_AddsInvalidArgumentError ()
     {
         var validator = CreateValidator();
         var request = CreateRequest(
@@ -688,13 +715,12 @@ public sealed class RequestStaticValidatorTests
 
         var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
 
-        Assert.False(result.IsValid);
-        AssertContainsError(result, ValidationErrorCodes.OperationArgsInvalid);
+        AssertContainsEditLoweringOnlyError(result, UcliPrimitiveOperationNames.PrefabCreate);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Validate_WhenRawOpUsesVarSelector_AddsOperationArgsInvalidError ()
+    public async Task Validate_WhenRawGoCreateUsesVarSelector_AddsInvalidArgumentError ()
     {
         var validator = CreateValidator();
         var request = CreateRequest(
@@ -712,8 +738,7 @@ public sealed class RequestStaticValidatorTests
 
         var result = await validator.ValidateAsync(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
 
-        Assert.False(result.IsValid);
-        AssertContainsError(result, ValidationErrorCodes.OperationArgsInvalid);
+        AssertContainsEditLoweringOnlyError(result, UcliPrimitiveOperationNames.GoCreate);
     }
 
     [Fact]
@@ -1088,6 +1113,56 @@ public sealed class RequestStaticValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Validate_WhenPublicCatalogOmitsEditLoweringPrimitiveAndPolicyDisallowsIt_AddsOperationNotAllowedError ()
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            steps:
+            [
+                CreateSceneEnsureEditStep("edit-comp-ensure"),
+            ]);
+
+        var result = await validator.ValidateAsync(
+            request,
+            Array.Empty<UcliOperationDescriptor>(),
+            CreateConfig(OperationPolicy.Safe, "^ucli\\.comp\\.ensure$"),
+            CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(
+            result.Errors,
+            error => error.Code == OperationAuthorizationErrorCodes.OperationNotAllowed
+                     && error.Message.Contains("Edit step 'edit-comp-ensure' requires operation 'ucli.comp.ensure'.", StringComparison.Ordinal)
+                     && error.Message.Contains("operationPolicy", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Validate_WhenPublicCatalogOmitsEditLoweringPrimitiveAndAllowlistExcludesIt_AddsOperationNotAllowedError ()
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            steps:
+            [
+                CreateSceneEnsureEditStep("edit-comp-ensure"),
+            ]);
+
+        var result = await validator.ValidateAsync(
+            request,
+            Array.Empty<UcliOperationDescriptor>(),
+            CreateConfig(OperationPolicy.Advanced, "^ucli\\.asset\\.create$"),
+            CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(
+            result.Errors,
+            error => error.Code == OperationAuthorizationErrorCodes.OperationNotAllowed
+                     && error.Message.Contains("Edit step 'edit-comp-ensure' requires operation 'ucli.comp.ensure'.", StringComparison.Ordinal)
+                     && error.Message.Contains("operationAllowlist", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Validate_WhenEditLoweringReferencesInternalOperation_AddsInvalidArgumentError ()
     {
         var validator = CreateValidator();
@@ -1414,6 +1489,18 @@ public sealed class RequestStaticValidatorTests
         Assert.Contains(
             result.Errors,
             error => error.Code == errorCode);
+    }
+
+    private static void AssertContainsEditLoweringOnlyError (
+        ValidationResult result,
+        string operationName)
+    {
+        Assert.False(result.IsValid);
+        Assert.Contains(
+            result.Errors,
+            error => error.Code == UcliCoreErrorCodes.InvalidArgument
+                     && error.Message.Contains(operationName, StringComparison.Ordinal)
+                     && error.Message.Contains("available only through edit lowering", StringComparison.Ordinal));
     }
 
 }

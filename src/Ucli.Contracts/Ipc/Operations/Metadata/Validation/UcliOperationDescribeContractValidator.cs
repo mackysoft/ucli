@@ -20,6 +20,7 @@ internal static class UcliOperationDescribeContractValidator
             operationKind: null,
             operationPolicy: null,
             ownerName,
+            allowMayCreatePreviewState: false,
             out _,
             out errorMessage);
     }
@@ -36,6 +37,7 @@ internal static class UcliOperationDescribeContractValidator
             operationKind,
             operationPolicy,
             ownerName,
+            allowMayCreatePreviewState: false,
             out _,
             out errorMessage);
     }
@@ -52,6 +54,25 @@ internal static class UcliOperationDescribeContractValidator
             operationKind,
             operationPolicy: null,
             ownerName,
+            allowMayCreatePreviewState: false,
+            out derivedPolicy,
+            out errorMessage);
+    }
+
+    public static bool TryValidateRegisteredOperationDescribeContractAndDerivePolicy (
+        UcliOperationDescribeContract? describeContract,
+        string? operationKind,
+        string ownerName,
+        UcliOperationExposure exposure,
+        out OperationPolicy derivedPolicy,
+        out string errorMessage)
+    {
+        return TryValidatePublicRawOpDescribeContractCore(
+            describeContract,
+            operationKind,
+            operationPolicy: null,
+            ownerName,
+            allowMayCreatePreviewState: exposure != UcliOperationExposure.Public,
             out derivedPolicy,
             out errorMessage);
     }
@@ -61,6 +82,7 @@ internal static class UcliOperationDescribeContractValidator
         string? operationKind,
         string? operationPolicy,
         string ownerName,
+        bool allowMayCreatePreviewState,
         out OperationPolicy derivedPolicy,
         out string errorMessage)
     {
@@ -75,7 +97,14 @@ internal static class UcliOperationDescribeContractValidator
 
         if (!TryValidatePublicRawOpInputs(describeContract.Inputs, ownerName, out errorMessage)
             || !TryValidateResultContract(describeContract.ResultContract, ownerName, out errorMessage)
-            || !TryValidateAssurance(describeContract.Assurance, operationKind, operationPolicy, ownerName, out derivedPolicy, out errorMessage)
+            || !TryValidateAssurance(
+                describeContract.Assurance,
+                operationKind,
+                operationPolicy,
+                ownerName,
+                allowMayCreatePreviewState,
+                out derivedPolicy,
+                out errorMessage)
             || !TryValidateCodeContract(describeContract.CodeContract, ownerName, out errorMessage))
         {
             return false;
@@ -388,6 +417,7 @@ internal static class UcliOperationDescribeContractValidator
         string? operationKind,
         string? operationPolicy,
         string ownerName,
+        bool allowMayCreatePreviewState,
         out OperationPolicy derivedPolicy,
         out string errorMessage)
     {
@@ -405,6 +435,13 @@ internal static class UcliOperationDescribeContractValidator
             || string.IsNullOrWhiteSpace(assurance.FailureSemantics))
         {
             errorMessage = $"{ownerName} has invalid assurance metadata.";
+            return false;
+        }
+
+        if (!allowMayCreatePreviewState
+            && string.Equals(assurance.PlanMode, UcliOperationPlanModeValues.MayCreatePreviewState, StringComparison.Ordinal))
+        {
+            errorMessage = $"{ownerName} public raw assurance metadata must not use planMode '{UcliOperationPlanModeValues.MayCreatePreviewState}'.";
             return false;
         }
 

@@ -231,7 +231,7 @@ public sealed class PhaseExecutionPreflightServiceTests
         Assert.Equal(token, validationService.ReceivedToken);
         Assert.Same(preparedRequest.Request, validationService.ReceivedRequest);
         Assert.True(validationService.ReceivedCatalog!.IsAvailable);
-        Assert.Single(validationService.ReceivedCatalog.Operations);
+        Assert.Contains(validationService.ReceivedCatalog.Operations, operation => operation.Name == MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe);
     }
 
     private static PreparedRequestContext CreatePreparedRequestContext ()

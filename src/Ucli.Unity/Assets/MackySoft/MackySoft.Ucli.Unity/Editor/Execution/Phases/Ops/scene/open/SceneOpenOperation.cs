@@ -21,8 +21,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.EditorStateChange, UcliOperationSideEffect.OpensSceneInEditor },
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene },
-                planMode: UcliOperationPlanMode.MayCreatePreviewState,
-                planSemantics: "Validate the scene path and observe whether the scene can be opened without saving project data.",
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate the scene path and observe whether the scene can be opened without creating preview state or changing the live editor context.",
                 callSemantics: "Open the requested scene in the Unity Editor without saving project data.",
                 touchedContract: "Reports the scene resource as an observed editor context, not as a persisted mutation.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
@@ -74,14 +74,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     blockerErrorMessage));
             }
 
-            if (!executionContext.TryGetOrOpenTemporaryScene(validationState.ScenePath, out _, out var sceneErrorMessage))
+            if (operation.SourceKind == NormalizedOperation.SourceStepKind.Edit)
             {
-                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
-                    operation.Id,
-                    sceneErrorMessage));
-            }
+                if (!executionContext.TryGetOrOpenTemporaryScene(validationState.ScenePath, out _, out var sceneErrorMessage))
+                {
+                    return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                        operation.Id,
+                        sceneErrorMessage));
+                }
 
-            executionContext.TrackPlannedLiveSceneOpen(validationState.ScenePath);
+                executionContext.TrackPlannedLiveSceneOpen(validationState.ScenePath);
+            }
 
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
