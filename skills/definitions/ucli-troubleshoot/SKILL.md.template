@@ -6,9 +6,10 @@ Use this skill to diagnose uCLI execution, daemon, lifecycle, readIndex, timeout
 1. Identify the command, project path, mode, timeout, and exact code value.
 2. Use `ucli status`, `ucli ready --for mutation`, daemon commands, readIndex output, and logs to locate the failing boundary.
 3. Use `ucli codes describe <CODE>` to read the static meaning of machine-readable codes.
-4. If an operation-specific result is involved, run `ucli ops describe <opName>` before interpreting its contract.
-5. Preserve the safe request path when recovering from a failed mutation: `read -> ready -> describe -> build request -> validate -> plan -> call --withPlan -> verify`.
-6. Verify the final state after any recovery step.
+4. If an operation-specific result is involved, run `ucli ops describe <opName>` and interpret `description`, `inputs`, `resultContract`, `assurance`, and optional `codeContract`.
+5. Use `argsSchema` and `resultSchema` only to validate JSON argument and result structure.
+6. Preserve the safe request path when recovering from a failed mutation: `read -> ready -> describe -> build request -> validate -> plan -> call --withPlan -> verify`.
+7. Verify the final state after any recovery step.
 
 ## Guardrails
 - Do not copy operation catalogs, argument schemas, result schemas, or long command reference text into diagnostic output.

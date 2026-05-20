@@ -3,7 +3,7 @@
   "skillName": "ucli-troubleshoot",
   "displayName": "uCLI Troubleshoot",
   "description": "Use when diagnosing uCLI daemon, lifecycle, readIndex freshness, timeout, compile or domain reload, logs, IPC, and Unity execution failures.",
-  "contentDigest": "sha256:18460458db3efb0321181da38d84698d8116c7c322ccafa3289e9674bed39f23",
+  "contentDigest": "sha256:12b3aed82e9e4a511d11096764ddafe55fdbfe7fbd2b90e3fec4a3a6fe9e39bc",
   "hostArtifacts": [
     {
       "host": "claude",

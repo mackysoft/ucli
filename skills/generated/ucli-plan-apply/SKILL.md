@@ -5,13 +5,14 @@ Use this skill to turn an intended Unity change into a validated and reviewable 
 ## Workflow
 1. Read the target project state before writing the request.
 2. Run `ucli ready --for mutation` before the mutation workflow.
-3. For every primitive operation in the request, run `ucli ops describe <opName>` and use that runtime contract.
-4. Build the smallest JSON request that expresses the intended context, selection, action, and commit boundary.
-5. Run `ucli validate` before any Unity-backed execution.
-6. Run `ucli plan` and inspect the plan evidence before mutating.
-7. Run `ucli call --withPlan` only after the plan is acceptable, using a plan token when available or required.
-8. Run `ucli verify --profile built-in:mutation --from <result.json>` after mutation, then add targeted reads, tests, or logs only when the claim packet requires them.
-9. For C# script changes, run `ucli compile` or `ucli verify --profile built-in:script --from <result.json>`. Omit `--profile` only when `built-in:default` project-level verification is intended, because it can trigger compile / domain reload.
+3. For every primitive operation in the request, run `ucli ops describe <opName>` and use `description`, `inputs`, `resultContract`, `assurance`, and optional `codeContract` as the runtime contract.
+4. Use `argsSchema` and `resultSchema` only to validate JSON argument and result structure.
+5. Build the smallest JSON request that expresses the intended context, selection, action, and commit boundary.
+6. Run `ucli validate` before any Unity-backed execution.
+7. Run `ucli plan` and inspect the plan evidence before mutating.
+8. Run `ucli call --withPlan` only after the plan is acceptable, using a plan token when available or required.
+9. Run `ucli verify --profile built-in:mutation --from <result.json>` after mutation, then add targeted reads, tests, or logs only when the claim packet requires them.
+10. For C# script changes, run `ucli compile` or `ucli verify --profile built-in:script --from <result.json>`. Omit `--profile` only when `built-in:default` project-level verification is intended, because it can trigger compile / domain reload.
 
 The required sequence is `read -> ready -> describe -> build request -> validate -> plan -> call --withPlan -> verify`.
 
