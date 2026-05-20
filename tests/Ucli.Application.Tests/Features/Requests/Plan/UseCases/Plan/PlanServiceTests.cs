@@ -40,6 +40,7 @@ public sealed class PlanServiceTests
                     hit: true,
                     freshness: IndexFreshness.Probable,
                     fallbackReason: null))),
+            new StubRequestStaticValidationService(ValidationResult.Success()),
             unityIpcRequestExecutor);
 
         var result = await service.ExecuteAsync(
@@ -72,7 +73,7 @@ public sealed class PlanServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenAllowPlayModeIsSpecified_SkipsStaticPreflightAndUsesUnityReadIndexInfo ()
+    public async Task Execute_WhenAllowPlayModeIsSpecified_SkipsReadIndexPreflightAndUsesLiveStaticValidation ()
     {
         var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Success(
             CreateResponse(
@@ -86,9 +87,11 @@ public sealed class PlanServiceTests
                 hit: true,
                 freshness: IndexFreshness.Probable,
                 fallbackReason: null)));
+        var staticValidationService = new StubRequestStaticValidationService(ValidationResult.Success());
         var service = new PlanService(
             new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
             staticPreflightService,
+            staticValidationService,
             unityIpcRequestExecutor);
 
         var result = await service.ExecuteAsync(
@@ -106,6 +109,7 @@ public sealed class PlanServiceTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(0, staticPreflightService.CallCount);
+        Assert.Equal(1, staticValidationService.CallCount);
         Assert.NotNull(result.Output);
         Assert.False(result.Output!.ReadIndex.Used);
         Assert.False(result.Output.ReadIndex.Hit);
@@ -113,6 +117,51 @@ public sealed class PlanServiceTests
         Assert.Equal("Play Mode mutation uses live Unity state.", result.Output.ReadIndex.FallbackReason);
         var executeRequest = Assert.IsType<UnityRequestPayload.ExecuteJson>(unityIpcRequestExecutor.CapturedPayload);
         Assert.True(executeRequest.AllowPlayMode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenAllowPlayModeStaticValidationFails_ReturnsFailureWithoutCallingPlan ()
+    {
+        ValidationError[] validationErrors =
+        [
+            new ValidationError(
+                OperationAuthorizationErrorCodes.OperationNotAllowed,
+                "Edit step 'step-1' requires operation 'ucli.comp.set'. Operation is blocked.",
+                "step-1"),
+        ];
+        var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor();
+        var service = new PlanService(
+            new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
+            new StubRequestStaticValidationPreflightService(CreateSuccessPreflightResult(
+                CreateReadIndexInfo(
+                    used: true,
+                    hit: true,
+                    freshness: IndexFreshness.Probable,
+                    fallbackReason: null))),
+            new StubRequestStaticValidationService(new ValidationResult(validationErrors)),
+            unityIpcRequestExecutor);
+
+        var result = await service.ExecuteAsync(
+            new PlanCommandInput(
+                ProjectPath: "/repo/UnityProject",
+                Mode: null,
+                TimeoutMilliseconds: null,
+                ReadIndexMode: null,
+                FailFast: false,
+                RequestJson: """{"steps":[]}""")
+            {
+                AllowPlayMode = true,
+            },
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
+        Assert.NotNull(result.Output);
+        Assert.False(result.Output!.ReadIndex.Used);
+        Assert.Equal(0, unityIpcRequestExecutor.CallCount);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(OperationAuthorizationErrorCodes.OperationNotAllowed, error.Code);
     }
 
     [Fact]
@@ -133,6 +182,7 @@ public sealed class PlanServiceTests
                     hit: false,
                     freshness: IndexFreshness.Probable,
                     fallbackReason: "Index contract file was not found: ops.catalog.json."))),
+            new StubRequestStaticValidationService(ValidationResult.Success()),
             unityIpcRequestExecutor);
 
         var result = await service.ExecuteAsync(
@@ -169,6 +219,7 @@ public sealed class PlanServiceTests
                     freshness: IndexFreshness.Stale,
                     fallbackReason: "readIndexMode=requireFresh requires index freshness 'fresh'."),
                 ReadIndexErrorCodes.ReadIndexFreshRequired)),
+            new StubRequestStaticValidationService(ValidationResult.Success()),
             unityIpcRequestExecutor);
 
         var result = await service.ExecuteAsync(
@@ -202,6 +253,7 @@ public sealed class PlanServiceTests
             new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
             new StubRequestStaticValidationPreflightService(RequestStaticValidationPreflightResult.Failure(
                 ExecutionError.InvalidArgument("readIndexMode is invalid."))),
+            new StubRequestStaticValidationService(ValidationResult.Success()),
             unityIpcRequestExecutor);
 
         var result = await service.ExecuteAsync(
@@ -244,6 +296,7 @@ public sealed class PlanServiceTests
                     freshness: IndexFreshness.Probable,
                     fallbackReason: null),
                 validationErrors)),
+            new StubRequestStaticValidationService(ValidationResult.Success()),
             unityIpcRequestExecutor);
 
         var result = await service.ExecuteAsync(
@@ -291,6 +344,7 @@ public sealed class PlanServiceTests
                     hit: true,
                     freshness: IndexFreshness.Probable,
                     fallbackReason: null))),
+            new StubRequestStaticValidationService(ValidationResult.Success()),
             unityIpcRequestExecutor);
 
         var result = await service.ExecuteAsync(
@@ -335,6 +389,7 @@ public sealed class PlanServiceTests
                     hit: true,
                     freshness: IndexFreshness.Probable,
                     fallbackReason: null))),
+            new StubRequestStaticValidationService(ValidationResult.Success()),
             unityIpcRequestExecutor);
 
         var result = await service.ExecuteAsync(
@@ -438,6 +493,28 @@ public sealed class PlanServiceTests
         public ValueTask<RequestStaticValidationPreflightResult> PrepareAsync (
             PreparedRequestContext preparedRequest,
             ReadIndexMode? readIndexMode,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            CallCount++;
+            return ValueTask.FromResult(result);
+        }
+    }
+
+    private sealed class StubRequestStaticValidationService : IRequestStaticValidationService
+    {
+        private readonly ValidationResult result;
+
+        public StubRequestStaticValidationService (ValidationResult result)
+        {
+            this.result = result ?? throw new ArgumentNullException(nameof(result));
+        }
+
+        public int CallCount { get; private set; }
+
+        public ValueTask<ValidationResult> ValidateAsync (
+            ValidateRequest request,
+            ProjectContext projectContext,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

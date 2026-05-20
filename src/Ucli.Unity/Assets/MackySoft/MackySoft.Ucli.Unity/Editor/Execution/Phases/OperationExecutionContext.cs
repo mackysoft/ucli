@@ -26,8 +26,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private readonly RequestAttributedChangeRegistry requestAttributedChangeRegistry = new RequestAttributedChangeRegistry();
 
-        private readonly Dictionary<string, Dictionary<string, PrefabOverridePropertyChange>> prefabOverridePropertyChanges =
-            new Dictionary<string, Dictionary<string, PrefabOverridePropertyChange>>(StringComparer.Ordinal);
+        private readonly Dictionary<string, Dictionary<string, Dictionary<string, PrefabOverridePropertyChange>>> prefabOverridePropertyChanges =
+            new Dictionary<string, Dictionary<string, Dictionary<string, PrefabOverridePropertyChange>>>(StringComparer.Ordinal);
 
         private readonly DeletedGlobalObjectIdRegistry deletedGlobalObjectIdRegistry = new DeletedGlobalObjectIdRegistry();
 
@@ -474,14 +474,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Records one request-attributed Prefab instance property change. </summary>
         internal void RecordPrefabOverridePropertyChange (
+            string editStepId,
             string targetKey,
             string propertyPath,
             bool wasPrefabOverrideBeforeRequest)
         {
-            if (!prefabOverridePropertyChanges.TryGetValue(targetKey, out var changesByPath))
+            if (!prefabOverridePropertyChanges.TryGetValue(editStepId, out var changesByTarget))
+            {
+                changesByTarget = new Dictionary<string, Dictionary<string, PrefabOverridePropertyChange>>(StringComparer.Ordinal);
+                prefabOverridePropertyChanges.Add(editStepId, changesByTarget);
+            }
+
+            if (!changesByTarget.TryGetValue(targetKey, out var changesByPath))
             {
                 changesByPath = new Dictionary<string, PrefabOverridePropertyChange>(StringComparer.Ordinal);
-                prefabOverridePropertyChanges.Add(targetKey, changesByPath);
+                changesByTarget.Add(targetKey, changesByPath);
             }
 
             if (!changesByPath.ContainsKey(propertyPath))
@@ -492,16 +499,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Tries to collect request-attributed Prefab instance property changes for one target. </summary>
         internal bool TryCollectPrefabOverridePropertyChanges (
+            string editStepId,
             string targetKey,
             IReadOnlyList<string>? requestedPropertyPaths,
             out IReadOnlyList<PrefabOverridePropertyChange> changes,
             out string errorMessage)
         {
             changes = Array.Empty<PrefabOverridePropertyChange>();
-            if (!prefabOverridePropertyChanges.TryGetValue(targetKey, out var changesByPath)
+            if (!prefabOverridePropertyChanges.TryGetValue(editStepId, out var changesByTarget)
+                || !changesByTarget.TryGetValue(targetKey, out var changesByPath)
                 || changesByPath.Count == 0)
             {
-                errorMessage = "Prefab override action requires a preceding effective set on the same current target.";
+                errorMessage = "Prefab override action requires a preceding effective set on the same edit step and current target.";
                 return false;
             }
 
@@ -533,7 +542,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                 if (!changesByPath.TryGetValue(propertyPath, out var change))
                 {
-                    errorMessage = $"Prefab override property path was not changed by a preceding effective set on the same target: {propertyPath}.";
+                    errorMessage = $"Prefab override property path was not changed by a preceding effective set on the same edit step and current target: {propertyPath}.";
                     return false;
                 }
 

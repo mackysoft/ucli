@@ -67,6 +67,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     OpId: operation.Id)));
             }
 
+            var prefabOverrideStatesBeforeApply = CreatePrefabOverrideStateSnapshot(bindingState.Binding, bindingState.Sets);
             if (!SerializedObjectValueApplier.TryApply(
                 sandbox!,
                 bindingState.Sets,
@@ -96,8 +97,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                 executionContext.MarkRequestAttributedChange(bindingState.Binding.Resource);
                 RecordPrefabOverridePropertyChanges(
+                    operation.Id,
                     bindingState.Binding,
                     changedPropertyPaths,
+                    prefabOverrideStatesBeforeApply,
                     executionContext);
             }
 
@@ -130,6 +133,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     OpId: operation.Id)));
             }
 
+            var prefabOverrideStatesBeforeApply = CreatePrefabOverrideStateSnapshot(bindingState.Binding, bindingState.Sets);
             if (!SerializedObjectValueApplier.TryApply(
                 sandbox!,
                 bindingState.Sets,
@@ -163,8 +167,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 executionContext.MarkRequestAttributedChange(bindingState.Binding.Resource);
                 RecordPrefabOverridePropertyChanges(
+                    operation.Id,
                     bindingState.Binding,
                     changedPropertyPaths,
+                    prefabOverrideStatesBeforeApply,
                     executionContext);
             }
 
@@ -328,13 +334,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static void RecordPrefabOverridePropertyChanges (
+            string editStepId,
             TargetBinding binding,
             IReadOnlyList<string> changedPropertyPaths,
+            IReadOnlyDictionary<string, bool>? prefabOverrideStatesBeforeApply,
             OperationExecutionContext executionContext)
         {
             if (binding.Resource.Kind != OperationTouchKind.Scene
                 || changedPropertyPaths.Count == 0
-                || !PrefabUtility.IsPartOfPrefabInstance(binding.Component))
+                || prefabOverrideStatesBeforeApply == null)
             {
                 return;
             }
@@ -344,34 +352,50 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 : binding.SourceGlobalObjectId!;
             for (var i = 0; i < changedPropertyPaths.Count; i++)
             {
-                if (!TryReadPrefabOverrideState(binding.Component, changedPropertyPaths[i], out var wasPrefabOverrideBeforeRequest))
+                if (!prefabOverrideStatesBeforeApply.TryGetValue(changedPropertyPaths[i], out var wasPrefabOverrideBeforeRequest))
                 {
                     continue;
                 }
 
                 executionContext.RecordPrefabOverridePropertyChange(
+                    editStepId,
                     targetKey,
                     changedPropertyPaths[i],
                     wasPrefabOverrideBeforeRequest);
             }
         }
 
-        private static bool TryReadPrefabOverrideState (
-            Component component,
-            string propertyPath,
-            out bool prefabOverride)
+        private static IReadOnlyDictionary<string, bool>? CreatePrefabOverrideStateSnapshot (
+            TargetBinding binding,
+            IReadOnlyList<SerializedPropertyAssignment> assignments)
         {
-            var serializedObject = new SerializedObject(component);
-            serializedObject.UpdateIfRequiredOrScript();
-            var property = serializedObject.FindProperty(propertyPath);
-            if (property == null)
+            if (binding.Resource.Kind != OperationTouchKind.Scene
+                || !PrefabUtility.IsPartOfPrefabInstance(binding.Component))
             {
-                prefabOverride = false;
-                return false;
+                return null;
             }
 
-            prefabOverride = property.prefabOverride;
-            return true;
+            var statesByPath = new Dictionary<string, bool>(assignments.Count, StringComparer.Ordinal);
+            var serializedObject = new SerializedObject(binding.Component);
+            serializedObject.UpdateIfRequiredOrScript();
+            for (var i = 0; i < assignments.Count; i++)
+            {
+                var propertyPath = assignments[i].Path;
+                if (statesByPath.ContainsKey(propertyPath))
+                {
+                    continue;
+                }
+
+                var property = serializedObject.FindProperty(propertyPath);
+                if (property == null)
+                {
+                    continue;
+                }
+
+                statesByPath.Add(propertyPath, property.prefabOverride);
+            }
+
+            return statesByPath;
         }
 
         private readonly struct TargetBinding

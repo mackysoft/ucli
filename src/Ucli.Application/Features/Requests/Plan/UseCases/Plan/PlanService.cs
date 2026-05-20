@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan.Projection;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
+using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
@@ -17,19 +18,24 @@ internal sealed class PlanService : IPlanService
 
     private readonly IRequestStaticValidationPreflightService requestStaticValidationPreflightService;
 
+    private readonly IRequestStaticValidationService requestStaticValidationService;
+
     private readonly IUnityRequestExecutor unityIpcRequestExecutor;
 
     /// <summary> Initializes a new instance of the <see cref="PlanService" /> class. </summary>
     /// <param name="requestPreparationService"> The shared request-preparation dependency. </param>
     /// <param name="requestStaticValidationPreflightService"> The shared static-validation preflight dependency. </param>
+    /// <param name="requestStaticValidationService"> The live-catalog static-validation dependency used when readIndex must be bypassed. </param>
     /// <param name="unityIpcRequestExecutor"> The Unity IPC request executor dependency. </param>
     public PlanService (
         IRequestPreparationService requestPreparationService,
         IRequestStaticValidationPreflightService requestStaticValidationPreflightService,
+        IRequestStaticValidationService requestStaticValidationService,
         IUnityRequestExecutor unityIpcRequestExecutor)
     {
         this.requestPreparationService = requestPreparationService ?? throw new ArgumentNullException(nameof(requestPreparationService));
         this.requestStaticValidationPreflightService = requestStaticValidationPreflightService ?? throw new ArgumentNullException(nameof(requestStaticValidationPreflightService));
+        this.requestStaticValidationService = requestStaticValidationService ?? throw new ArgumentNullException(nameof(requestStaticValidationService));
         this.unityIpcRequestExecutor = unityIpcRequestExecutor ?? throw new ArgumentNullException(nameof(unityIpcRequestExecutor));
     }
 
@@ -88,6 +94,27 @@ internal sealed class PlanService : IPlanService
 
             preparedRequest = requestStaticValidationPreflightResult.PreparedRequest!;
             baseOutput = PlanExecutionOutputFactory.CreateBase(preparedRequest, requestStaticValidationPreflightResult.ReadIndex!);
+        }
+        else
+        {
+            var validationResult = await requestStaticValidationService.ValidateAsync(
+                    preparedRequest.Request,
+                    preparedRequest.ProjectContext,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (validationResult.Error != null)
+            {
+                return PlanFailureResultFactory.FromExecutionError(
+                    validationResult.Error,
+                    baseOutput);
+            }
+
+            if (!validationResult.IsValid)
+            {
+                return PlanFailureResultFactory.FromValidationErrors(
+                    validationResult.Errors,
+                    baseOutput);
+            }
         }
 
         var timeoutResolutionResult = IpcCommandTimeoutResolver.ResolveNormalized(

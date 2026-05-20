@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using MackySoft.Ucli.Contracts;
 using System.Threading;
 using System.Threading.Tasks;
@@ -25,8 +26,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate that selected property overrides came from this request and were not pre-existing.",
                 callSemantics: "Revert selected live Prefab instance property overrides to the explicit Prefab asset value.",
-                touchedContract: "Does not report touched persistence units because only live Play Mode scene state changes.",
-                readPostconditionContract: "No persisted read surface is invalidated.",
+                touchedContract: "Reports the live scene resource when persistence reporting is not suppressed by the compiled edit step.",
+                readPostconditionContract: "Scene tree read surfaces covering the live scene resource may be stale when persistence reporting is not suppressed.",
                 failureSemantics: "Failure before revert leaves no requested mutation; Unity API failure may leave live scene state partially changed.",
                 dangerousNotes: new[] { "This operation mutates live scene objects but does not persist scene or Prefab assets." }),
             exposure: UcliOperationExposure.EditLoweringOnly);
@@ -38,7 +39,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(TryResolve(operation, args, executionContext, out _, out var failure)
+            return Task.FromResult(TryResolve(operation, args, executionContext, allowTemporaryState: true, out _, out var failure)
                 ? OperationPhaseStepResult.Success(applied: false, changed: false)
                 : failure!);
         }
@@ -50,8 +51,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(TryResolve(operation, args, executionContext, out _, out var failure)
-                ? OperationPhaseStepResult.Success(applied: false, changed: true)
+            return Task.FromResult(TryResolve(operation, args, executionContext, allowTemporaryState: true, out var state, out var failure)
+                ? OperationPhaseStepResult.Success(applied: false, changed: true, touched: CreateTouched(state.Resource))
                 : failure!);
         }
 
@@ -62,7 +63,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryResolve(operation, args, executionContext, out var state, out var failure))
+            if (!TryResolve(operation, args, executionContext, allowTemporaryState: false, out var state, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -93,31 +94,37 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
             }
 
-            return Task.FromResult(OperationPhaseStepResult.Success(applied: true, changed: true));
+            var touched = CreateTouched(state.Resource);
+            return Task.FromResult(
+                OperationPhaseStepResult.Success(applied: true, changed: true, touched: touched)
+                    .WithReadInvalidations(OperationReadInvalidationUtilities.CreateSceneTreeLiteForSceneResource(state.Resource)));
         }
 
         private static bool TryResolve (
             NormalizedOperation operation,
             PrefabOverrideArgs args,
             OperationExecutionContext executionContext,
-            out PrefabApplyOverridesOperation.ResolutionState state,
+            bool allowTemporaryState,
+            out PrefabOverrideResolution.State state,
             out OperationPhaseStepResult? failure)
         {
             state = default;
             failure = null;
-            if (!PrefabApplyOverridesOperation.TryResolveCommon(
-                    operation,
-                    args,
-                    executionContext,
-                    rejectPreRequestOverrides: true,
-                    out state,
-                    out var errorMessage))
+            if (!PrefabOverrideResolution.TryResolveForRevert(operation, args, executionContext, allowTemporaryState, out state, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
             return true;
+        }
+
+        private static IReadOnlyList<OperationTouch> CreateTouched (OperationResource resource)
+        {
+            return new[]
+            {
+                OperationResourceUtilities.CreateTouch(resource),
+            };
         }
     }
 }

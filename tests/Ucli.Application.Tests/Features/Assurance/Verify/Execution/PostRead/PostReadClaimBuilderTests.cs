@@ -121,6 +121,51 @@ public sealed class PostReadClaimBuilderTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Build_WithPlayModeLiveMutation_ReturnsOutOfScopePostMutationClaim ()
+    {
+        var input = CreateInput(CreateOperationResult(
+            playModeMutation: true,
+            persistenceExpected: false,
+            expectedPostState: IpcExecuteExpectedPostStateNames.Unavailable,
+            touchedCount: 0));
+
+        var claimSet = PostReadClaimBuilder.Build(input, profileRequired: true);
+
+        var claim = Assert.Single(claimSet.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.PostMutationObserved.Value, StringComparison.Ordinal));
+        Assert.False(claim.Required);
+        Assert.Equal(VerifyClaimStatusValues.OutOfScope, claim.Status);
+        Assert.Equal(VerifyCoverageValues.None, claim.Coverage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Build_WithPlayModeLiveMutationAndPersistentMutation_DoesNotCountLiveMutationAsDeterministic ()
+    {
+        var input = CreateInput([
+            CreateOperationResult(
+                opId: "live",
+                playModeMutation: true,
+                persistenceExpected: false,
+                expectedPostState: IpcExecuteExpectedPostStateNames.Unavailable,
+                touchedCount: 0),
+            CreateOperationResult(
+                opId: "persistent",
+                persistenceExpected: true,
+                expectedPostState: IpcExecuteExpectedPostStateNames.Deterministic,
+                touchedCount: 1),
+        ]);
+
+        var claimSet = PostReadClaimBuilder.Build(input, profileRequired: true);
+
+        var persistenceClaim = Assert.Single(claimSet.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.PersistenceUnitTouched.Value, StringComparison.Ordinal));
+        Assert.Equal(VerifyClaimStatusValues.Passed, persistenceClaim.Status);
+        var postMutationClaim = Assert.Single(claimSet.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.PostMutationObserved.Value, StringComparison.Ordinal));
+        Assert.Equal(VerifyClaimStatusValues.Passed, postMutationClaim.Status);
+        Assert.Equal(1, postMutationClaim.Subject["observedMutationCount"]);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Build_WithNoMutationEvidenceAndRequiredProfile_ReturnsUnverifiedClaim ()
     {
         var input = CreateInput();
@@ -208,23 +253,25 @@ public sealed class PostReadClaimBuilderTests
         string? commit = IpcExecutePostReadCommitNames.None,
         bool persistenceExpected = false,
         string expectedPostState = IpcExecuteExpectedPostStateNames.Deterministic,
+        bool playModeMutation = false,
         bool applied = true,
         bool changed = true,
         int touchedCount = 0,
         IReadOnlyList<VerifyFromDiagnostic>? diagnostics = null,
-        string op = "edit")
+        string op = "edit",
+        string opId = "op-1")
     {
         return new VerifyFromOperationResult(
-            OpId: "op-1",
+            OpId: opId,
             Op: op,
             Applied: applied,
             Changed: changed,
             TouchedCount: touchedCount,
             Diagnostics: diagnostics ?? Array.Empty<VerifyFromDiagnostic>(),
             PostReadSource: new VerifyFromPostReadSourceStep(
-                OpId: "op-1",
+                OpId: opId,
                 SourceKind: sourceKind,
-                PlayModeMutation: false,
+                PlayModeMutation: playModeMutation,
                 Commit: commit,
                 PersistenceExpected: persistenceExpected,
                 ExpectedPostState: expectedPostState));

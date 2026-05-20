@@ -36,6 +36,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
             writer.WritePropertyName("arguments");
             CanonicalRequestWriter.WriteCanonicalJsonValue(writer, request.Arguments);
             writer.WriteBoolean("allowDangerous", request.AllowDangerous);
+            writer.WriteBoolean("allowPlayMode", request.AllowPlayMode);
             writer.WriteString("command", request.Command);
             writer.WriteBoolean("failFast", request.FailFast);
             if (normalizedPlanToken is null)

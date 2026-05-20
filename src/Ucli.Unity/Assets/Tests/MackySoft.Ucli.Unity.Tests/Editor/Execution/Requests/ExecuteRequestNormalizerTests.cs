@@ -2124,6 +2124,48 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void Normalize_WhenRevertPrefabOverridesRunsOutsidePlayMode_DoesNotSuppressPersistenceReporting ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            _ = root.AddComponent<BoxCollider>();
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var request = CreatePrefabOverrideRevertRequest(scenePath, allowPlayMode: false);
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var (_, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: false);
+            Assert.That(compiledOperations, Has.Count.EqualTo(1));
+            Assert.That(compiledOperations[0].Op, Is.EqualTo(UcliPrimitiveOperationNames.PrefabRevertOverrides));
+            Assert.That(compiledOperations[0].SuppressPersistenceReporting, Is.False);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenRevertPrefabOverridesRunsInPlayMode_SuppressesPersistenceReporting ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            _ = root.AddComponent<BoxCollider>();
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var request = CreatePrefabOverrideRevertRequest(scenePath, allowPlayMode: true);
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var (_, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: true);
+            Assert.That(compiledOperations, Has.Count.EqualTo(1));
+            Assert.That(compiledOperations[0].Op, Is.EqualTo(UcliPrimitiveOperationNames.PrefabRevertOverrides));
+            Assert.That(compiledOperations[0].SuppressPersistenceReporting, Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void Normalize_WhenCommandIsValidate_ReturnsInvalidArgumentError ()
         {
             var request = CreateExecuteRequest(
@@ -2435,6 +2477,50 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Error!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(result.Error.OpId, Is.EqualTo("badCommit"));
             Assert.That(result.Error.Message, Is.EqualTo("Edit step property 'step.commit' must be one of 'none', 'context', or 'project'."));
+        }
+
+        private static IpcExecuteRequest CreatePrefabOverrideRevertRequest (
+            string scenePath,
+            bool allowPlayMode)
+        {
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "revertOverrides",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                gameObject = "Root",
+                                component = "UnityEngine.BoxCollider, UnityEngine.PhysicsModule",
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "revertPrefabOverrides",
+                                    targetAssetPath = "Assets/Prefabs/Enemy.prefab",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+            return request with
+            {
+                AllowPlayMode = allowPlayMode,
+            };
         }
 
         private static (NormalizedRequestStep Step, IReadOnlyList<NormalizedOperation> Operations) CompileSingleStep (

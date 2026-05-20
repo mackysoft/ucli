@@ -71,6 +71,53 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void PrefabOverridePropertyChanges_WhenCollectedFromDifferentEditStep_ReturnsError ()
+        {
+            using var executionContext = new OperationExecutionContext();
+            executionContext.RecordPrefabOverridePropertyChange(
+                "edit-step-a",
+                "target-1",
+                "m_Text",
+                wasPrefabOverrideBeforeRequest: false);
+
+            var result = executionContext.TryCollectPrefabOverridePropertyChanges(
+                "edit-step-b",
+                "target-1",
+                requestedPropertyPaths: null,
+                out var changes,
+                out var errorMessage);
+
+            Assert.That(result, Is.False);
+            Assert.That(changes, Is.Empty);
+            Assert.That(errorMessage, Does.Contain("same edit step"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void PrefabOverridePropertyChanges_WhenCollectedFromSameEditStep_ReturnsRecordedPath ()
+        {
+            using var executionContext = new OperationExecutionContext();
+            executionContext.RecordPrefabOverridePropertyChange(
+                "edit-step-a",
+                "target-1",
+                "m_Text",
+                wasPrefabOverrideBeforeRequest: false);
+
+            var result = executionContext.TryCollectPrefabOverridePropertyChanges(
+                "edit-step-a",
+                "target-1",
+                requestedPropertyPaths: null,
+                out var changes,
+                out var errorMessage);
+
+            Assert.That(result, Is.True);
+            Assert.That(errorMessage, Is.Empty);
+            Assert.That(changes.Count, Is.EqualTo(1));
+            Assert.That(changes[0].PropertyPath, Is.EqualTo("m_Text"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public async Task TypedOperation_WhenArgsFailContractValidation_ReturnsInvalidArgumentWithoutCallingBody ()
         {
             var operation = new RequiredTypedOperation();

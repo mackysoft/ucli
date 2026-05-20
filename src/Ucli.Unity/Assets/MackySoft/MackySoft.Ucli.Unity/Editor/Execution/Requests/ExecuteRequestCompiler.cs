@@ -878,10 +878,10 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                     return TryCompileCreatePrefabAction(step, branchTarget, aliases, action, operations, out error);
 
                 case IpcEditStepContract.ActionKind.ApplyPrefabOverrides:
-                    return TryCompilePrefabOverrideAction(step, branchTarget, aliases, action, operations, isRevert: false, out error);
+                    return TryCompilePrefabOverrideAction(step, branchTarget, aliases, action, operations, allowPlayMode, isRevert: false, out error);
 
                 case IpcEditStepContract.ActionKind.RevertPrefabOverrides:
-                    return TryCompilePrefabOverrideAction(step, branchTarget, aliases, action, operations, isRevert: true, out error);
+                    return TryCompilePrefabOverrideAction(step, branchTarget, aliases, action, operations, allowPlayMode, isRevert: true, out error);
 
                 case IpcEditStepContract.ActionKind.Delete:
                     return TryCompileDeleteAction(step, branchTarget, aliases, action, operations, allowPlayMode, out error);
@@ -1108,6 +1108,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             IDictionary<string, SelectionTarget> aliases,
             IpcEditStepContract.EditAction action,
             ICollection<NormalizedOperation> operations,
+            bool allowPlayMode,
             bool isRevert,
             out ExecuteRequestNormalizationError error)
         {
@@ -1138,7 +1139,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 Expect: null,
                 InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
                 SourceKind: NormalizedOperation.SourceStepKind.Edit,
-                SuppressPersistenceReporting: isRevert));
+                SuppressPersistenceReporting: isRevert && allowPlayMode));
             error = default!;
             return true;
         }

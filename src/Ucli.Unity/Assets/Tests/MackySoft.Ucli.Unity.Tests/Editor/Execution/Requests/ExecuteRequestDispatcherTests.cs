@@ -1045,6 +1045,32 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenAllowPlayModeIsSetOnQuery_ReturnsInvalidArgumentWithoutReadiness () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizer = new SpyExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Failure(
+                new ExecuteRequestNormalizationError(UcliCoreErrorCodes.InvalidArgument, "normalizer should not run", null)));
+            var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(CreateNormalizedRequest()));
+            var readinessGate = StubUnityEditorReadinessGate.CreatePending();
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor, readinessGate);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(UcliCommandIds.Query) with
+            {
+                AllowPlayMode = true,
+            };
+
+            var response = await DispatchAsync(dispatcher, request, context, "allowPlayMode query rejection");
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].Message, Does.Contain("allowPlayMode"));
+            Assert.That(readinessGate.CallCount, Is.EqualTo(0));
+            Assert.That(normalizer.CallCount, Is.EqualTo(0));
+            Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Dispatch_WhenNormalizationFails_DoesNotWaitForReadiness () => UniTask.ToCoroutine(async () =>
         {
             var normalizer = new SpyExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Failure(

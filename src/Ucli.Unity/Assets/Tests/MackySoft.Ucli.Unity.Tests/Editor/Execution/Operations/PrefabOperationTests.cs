@@ -620,7 +620,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Save_Plan_WhenOnlyTemporaryPrefabPreviewExistsWithoutPlannedLiveOpen_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Save_Plan_WhenOnlyTemporaryPrefabPreviewExistsWithoutPlannedLiveOpen_Succeeds () => UniTask.ToCoroutine(async () =>
         {
             var saveOperation = new PrefabSaveOperation();
             using var scope = new EditorTestScope()
@@ -638,7 +638,152 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var saveResult = await saveOperation.PlanAsync(saveRequest, context, CancellationToken.None);
 
-            AssertInvalidArgument(saveResult, "op-prefab-save");
+            AssertSuccess(saveResult, applied: false, changed: false);
+            AssertTouchSet(saveResult, (OperationTouchKind.Prefab, prefabPath));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Call_WhenOnlyTemporaryPrefabPreviewHasRequestAttributedChange_SavesTemporaryPrefabContents () => UniTask.ToCoroutine(async () =>
+        {
+            var saveOperation = new PrefabSaveOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsurePrefabExecutionSession(prefabPath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+            Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryRoot), Is.True);
+            var child = new GameObject("SavedChild");
+            child.transform.SetParent(temporaryRoot!.transform, worldPositionStays: false);
+            context.MarkRequestAttributedChange(new OperationResource(OperationTouchKind.Prefab, prefabPath));
+            var saveRequest = CreateOperation(
+                opId: "op-prefab-save",
+                opName: UcliPrimitiveOperationNames.PrefabSave,
+                args: new
+                {
+                    path = prefabPath,
+                });
+
+            var saveResult = await saveOperation.CallAsync(saveRequest, context, CancellationToken.None);
+
+            AssertSuccess(saveResult, applied: true, changed: true);
+            Assert.That(saveResult.Persisted, Is.True);
+            AssertTouchSet(saveResult, (OperationTouchKind.Prefab, prefabPath));
+            Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Prefab, prefabPath)), Is.False);
+
+            var loadedPrefabContentsRoot = scope.LoadPrefabContents(prefabPath);
+            Assert.That(loadedPrefabContentsRoot.transform.Find("SavedChild"), Is.Not.Null);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Call_WhenOpenedPrefabStageAndTemporaryPreviewExist_SavesOpenedPrefabStage () => UniTask.ToCoroutine(async () =>
+        {
+            var saveOperation = new PrefabSaveOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsurePrefabExecutionSession(prefabPath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+            Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryRoot), Is.True);
+            var temporaryChild = new GameObject("TemporaryChild");
+            temporaryChild.transform.SetParent(temporaryRoot!.transform, worldPositionStays: false);
+            EditorSceneManager.MarkSceneDirty(temporaryRoot.scene);
+
+            var prefabStage = PrefabStageUtility.OpenPrefab(prefabPath);
+            Assert.That(prefabStage, Is.Not.Null);
+            var stageChild = new GameObject("StageChild");
+            stageChild.transform.SetParent(prefabStage!.prefabContentsRoot.transform, worldPositionStays: false);
+            EditorSceneManager.MarkSceneDirty(prefabStage.scene);
+            var saveRequest = CreateOperation(
+                opId: "op-prefab-save",
+                opName: UcliPrimitiveOperationNames.PrefabSave,
+                args: new
+                {
+                    path = prefabPath,
+                });
+
+            var saveResult = await saveOperation.CallAsync(saveRequest, context, CancellationToken.None);
+
+            AssertSuccess(saveResult, applied: true, changed: true);
+            Assert.That(saveResult.Persisted, Is.True);
+            AssertTouchSet(saveResult, (OperationTouchKind.Prefab, prefabPath));
+            Assert.That(prefabStage.scene.isDirty, Is.False);
+            var loadedPrefabContentsRoot = scope.LoadPrefabContents(prefabPath);
+            Assert.That(loadedPrefabContentsRoot.transform.Find("StageChild"), Is.Not.Null);
+            Assert.That(loadedPrefabContentsRoot.transform.Find("TemporaryChild"), Is.Null);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator RevertOverrides_Call_WhenPlanPreviewExists_RevertsLivePrefabInstance () => UniTask.ToCoroutine(async () =>
+        {
+            var setOperation = new CompSetOperation();
+            var revertOperation = new PrefabRevertOverridesOperation();
+            using var scope = new EditorTestScope()
+                .EnableEditorSceneReset();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var editableRoot = scope.LoadPrefabContents(prefabPath);
+            _ = editableRoot.AddComponent<CompOperationTestComponent>();
+            _ = PrefabUtility.SaveAsPrefabAsset(editableRoot, prefabPath);
+            scope.UnloadPrefabContents(editableRoot);
+
+            var scenePath = scope.CreateScenePath(nameof(PrefabOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var prefabAsset = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            Assert.That(prefabAsset, Is.Not.Null);
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefabAsset!);
+            instance.name = "InstanceRoot";
+            var component = instance.GetComponent<CompOperationTestComponent>();
+            Assert.That(component, Is.Not.Null);
+            EditorSceneManager.SaveScene(scene, scenePath);
+
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsureSceneExecutionSession(scenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+            var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
+            var target = new
+            {
+                scene = scenePath,
+                hierarchyPath = "InstanceRoot",
+                componentType = componentTypeId,
+            };
+            var setRequest = CreateOperation(
+                opId: "edit-step",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target,
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "integerValue",
+                            value = 42,
+                        },
+                    },
+                });
+            var revertRequest = CreateOperation(
+                opId: "edit-step",
+                opName: UcliPrimitiveOperationNames.PrefabRevertOverrides,
+                args: new
+                {
+                    target,
+                    targetAssetPath = prefabPath,
+                    propertyPaths = new[] { "integerValue" },
+                });
+
+            var planSetResult = await setOperation.PlanAsync(setRequest, context, CancellationToken.None);
+            var callSetResult = await setOperation.CallAsync(setRequest, context, CancellationToken.None);
+            var revertResult = await revertOperation.CallAsync(revertRequest, context, CancellationToken.None);
+
+            AssertSuccess(planSetResult, applied: false, changed: true);
+            AssertSuccess(callSetResult, applied: true, changed: true);
+            AssertSuccess(revertResult, applied: true, changed: true);
+            AssertTouchSet(revertResult, (OperationTouchKind.Scene, scenePath));
+            AssertReadInvalidations(
+                revertResult,
+                (OperationReadInvalidationSurface.SceneTreeLite, scenePath.Replace('\\', '/')));
+            Assert.That(component!.IntegerValue, Is.EqualTo(1));
         });
 
         [UnityTest]

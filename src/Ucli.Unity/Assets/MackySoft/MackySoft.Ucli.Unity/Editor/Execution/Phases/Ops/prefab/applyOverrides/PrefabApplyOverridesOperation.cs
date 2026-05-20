@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using MackySoft.Ucli.Contracts;
 using System.Threading;
 using System.Threading.Tasks;
@@ -41,7 +40,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(TryResolve(operation, args, executionContext, out _, out var failure)
+            return Task.FromResult(TryResolve(operation, args, executionContext, allowTemporaryState: true, out _, out var failure)
                 ? OperationPhaseStepResult.Success(applied: false, changed: false)
                 : failure!);
         }
@@ -53,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryResolve(operation, args, executionContext, out var state, out var failure))
+            if (!TryResolve(operation, args, executionContext, allowTemporaryState: true, out var state, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -71,7 +70,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryResolve(operation, args, executionContext, out var state, out var failure))
+            if (!TryResolve(operation, args, executionContext, allowTemporaryState: false, out var state, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -115,118 +114,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             NormalizedOperation operation,
             PrefabOverrideArgs args,
             OperationExecutionContext executionContext,
-            out ResolutionState state,
+            bool allowTemporaryState,
+            out PrefabOverrideResolution.State state,
             out OperationPhaseStepResult? failure)
         {
             state = default;
             failure = null;
-            if (!TryResolveCommon(operation, args, executionContext, rejectPreRequestOverrides: false, out state, out var errorMessage))
+            if (!PrefabOverrideResolution.TryResolveForApply(operation, args, executionContext, allowTemporaryState, out state, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
-            return true;
-        }
-
-        internal static bool TryResolveCommon (
-            NormalizedOperation operation,
-            PrefabOverrideArgs args,
-            OperationExecutionContext executionContext,
-            bool rejectPreRequestOverrides,
-            out ResolutionState state,
-            out string errorMessage)
-        {
-            state = default;
-            if (!UnityObjectReferenceContractMapper.TryMap(args.Target, "args.target", out var targetReference, out errorMessage))
-            {
-                return false;
-            }
-
-            if (!ComponentOperationUtilities.TryResolveComponent(
-                targetReference,
-                executionContext,
-                allowTemporaryState: true,
-                out var componentResolution,
-                out errorMessage))
-            {
-                return false;
-            }
-
-            var component = componentResolution.Component!;
-            if (componentResolution.Resource.Kind != OperationTouchKind.Scene)
-            {
-                errorMessage = "Prefab override actions require a scene component target.";
-                return false;
-            }
-
-            var targetAssetPath = args.TargetAssetPath.Value;
-            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(targetAssetPath, out errorMessage))
-            {
-                return false;
-            }
-
-            if (!PrefabUtility.IsPartOfPrefabInstance(component))
-            {
-                errorMessage = "Prefab override actions require a Prefab instance component target.";
-                return false;
-            }
-
-            if (PrefabUtility.GetCorrespondingObjectFromSourceAtPath(component, targetAssetPath) == null)
-            {
-                errorMessage = $"Prefab override target asset is not in the target instance lineage: {targetAssetPath}.";
-                return false;
-            }
-
-            var targetKey = UnityObjectReferenceResolver.CreateTrackingKey(component);
-            var requestedPropertyPaths = args.PropertyPaths?.Select(static path => path.Value).ToArray();
-            if (!executionContext.TryCollectPrefabOverridePropertyChanges(
-                    targetKey,
-                    requestedPropertyPaths,
-                    out var changes,
-                    out errorMessage))
-            {
-                return false;
-            }
-
-            if (rejectPreRequestOverrides)
-            {
-                for (var i = 0; i < changes.Count; i++)
-                {
-                    if (changes[i].WasPrefabOverrideBeforeRequest)
-                    {
-                        errorMessage = $"Prefab override property already existed before the request: {changes[i].PropertyPath}.";
-                        return false;
-                    }
-                }
-            }
-
-            if (!TryValidateProperties(component, changes, out errorMessage))
-            {
-                return false;
-            }
-
-            state = new ResolutionState(component, targetAssetPath, changes);
-            return true;
-        }
-
-        internal static bool TryValidateProperties (
-            Component component,
-            IReadOnlyList<OperationExecutionContext.PrefabOverridePropertyChange> changes,
-            out string errorMessage)
-        {
-            var serializedObject = new SerializedObject(component);
-            serializedObject.UpdateIfRequiredOrScript();
-            for (var i = 0; i < changes.Count; i++)
-            {
-                if (serializedObject.FindProperty(changes[i].PropertyPath) == null)
-                {
-                    errorMessage = $"SerializedProperty path was not found: {changes[i].PropertyPath}.";
-                    return false;
-                }
-            }
-
-            errorMessage = string.Empty;
             return true;
         }
 
@@ -238,23 +137,5 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             };
         }
 
-        internal readonly struct ResolutionState
-        {
-            public ResolutionState (
-                Component component,
-                string targetAssetPath,
-                IReadOnlyList<OperationExecutionContext.PrefabOverridePropertyChange> changes)
-            {
-                Component = component;
-                TargetAssetPath = targetAssetPath;
-                Changes = changes;
-            }
-
-            public Component Component { get; }
-
-            public string TargetAssetPath { get; }
-
-            public IReadOnlyList<OperationExecutionContext.PrefabOverridePropertyChange> Changes { get; }
-        }
     }
 }
