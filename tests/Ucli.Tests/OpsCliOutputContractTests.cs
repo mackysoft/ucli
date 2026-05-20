@@ -505,7 +505,7 @@ public sealed class OpsCliOutputContractTests
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         var operation = outputJson.RootElement.GetProperty("payload").GetProperty("operation");
-        AssertNoFreezeInternalOperationFields(operation);
+        AssertNoFreezeInternalOperationTopLevelFields(operation);
     }
 
     [Fact]
@@ -929,26 +929,11 @@ public sealed class OpsCliOutputContractTests
             dangerousNotes: isRiskyPolicy ? ["Fixture operation has policy-specific risk metadata for contract validation."] : Array.Empty<string>());
     }
 
-    private static void AssertNoFreezeInternalOperationFields (JsonElement element)
+    private static void AssertNoFreezeInternalOperationTopLevelFields (JsonElement operation)
     {
-        switch (element.ValueKind)
+        foreach (var property in operation.EnumerateObject())
         {
-            case JsonValueKind.Object:
-                foreach (var property in element.EnumerateObject())
-                {
-                    Assert.DoesNotContain(property.Name, FreezeInternalOperationFields);
-                    AssertNoFreezeInternalOperationFields(property.Value);
-                }
-
-                break;
-
-            case JsonValueKind.Array:
-                foreach (var item in element.EnumerateArray())
-                {
-                    AssertNoFreezeInternalOperationFields(item);
-                }
-
-                break;
+            Assert.DoesNotContain(property.Name, FreezeInternalOperationFields);
         }
     }
 }

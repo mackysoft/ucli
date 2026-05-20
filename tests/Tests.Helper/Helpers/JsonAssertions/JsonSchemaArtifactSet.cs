@@ -1,6 +1,7 @@
 namespace MackySoft.Tests;
 
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 internal sealed class JsonSchemaArtifactSet : IDisposable
 {
@@ -19,6 +20,7 @@ internal sealed class JsonSchemaArtifactSet : IDisposable
         "additionalProperties",
         "enum",
         "const",
+        "pattern",
         "oneOf",
     };
 
@@ -197,6 +199,13 @@ internal sealed class JsonSchemaArtifactSet : IDisposable
             && !MatchesEnum(element, enumElement))
         {
             errors.Add($"path '{path}' did not match any schema enum value.");
+            return;
+        }
+
+        if (schema.TryGetProperty("pattern", out var patternElement)
+            && !MatchesPattern(element, patternElement))
+        {
+            errors.Add($"path '{path}' did not match schema pattern.");
             return;
         }
 
@@ -537,6 +546,11 @@ internal sealed class JsonSchemaArtifactSet : IDisposable
             ValidateSchemaDefinition(itemsElement, schemaPath, BuildPropertyPath(path, "items"), errors);
         }
 
+        if (schema.TryGetProperty("pattern", out var patternElement))
+        {
+            ValidatePatternDefinition(patternElement, schemaPath, path, errors);
+        }
+
         if (schema.TryGetProperty("oneOf", out var oneOfElement))
         {
             if (oneOfElement.ValueKind != JsonValueKind.Array)
@@ -628,6 +642,59 @@ internal sealed class JsonSchemaArtifactSet : IDisposable
         }
 
         return false;
+    }
+
+    private static bool MatchesPattern (
+        JsonElement element,
+        JsonElement patternElement)
+    {
+        if (element.ValueKind != JsonValueKind.String)
+        {
+            return true;
+        }
+
+        if (patternElement.ValueKind != JsonValueKind.String)
+        {
+            return false;
+        }
+
+        try
+        {
+            return Regex.IsMatch(
+                element.GetString() ?? string.Empty,
+                patternElement.GetString()!,
+                RegexOptions.CultureInvariant,
+                TimeSpan.FromSeconds(1));
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+    }
+
+    private static void ValidatePatternDefinition (
+        JsonElement patternElement,
+        string schemaPath,
+        string path,
+        List<string> errors)
+    {
+        if (patternElement.ValueKind != JsonValueKind.String)
+        {
+            errors.Add($"schema '{schemaPath}' for path '{path}' has a non-string pattern.");
+            return;
+        }
+
+        try
+        {
+            _ = new Regex(
+                patternElement.GetString()!,
+                RegexOptions.CultureInvariant,
+                TimeSpan.FromSeconds(1));
+        }
+        catch (ArgumentException)
+        {
+            errors.Add($"schema '{schemaPath}' for path '{path}' has an invalid pattern.");
+        }
     }
 
     private static bool JsonLiteralEquals (

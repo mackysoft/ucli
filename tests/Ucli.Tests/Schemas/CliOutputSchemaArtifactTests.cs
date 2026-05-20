@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests.Schemas;
 
@@ -71,6 +72,12 @@ public sealed class CliOutputSchemaArtifactTests
         AssertSchemaValid(
             schemaSet.Validate(payloadSchemaPath!, root.GetProperty("payload"), "$.payload"),
             repositoryRelativeGoldenPath);
+
+        if (string.Equals(command, UcliCommandIds.OpsDescribe.Name, StringComparison.Ordinal)
+            && root.GetProperty("payload").TryGetProperty("operation", out var operation))
+        {
+            AssertOpsDescribeSchemasUseSupportedSubset(operation);
+        }
     }
 
     [Theory]
@@ -393,6 +400,7 @@ public sealed class CliOutputSchemaArtifactTests
                 document.RootElement);
 
             Assert.Empty(errors);
+            AssertOpsDescribeSchemasUseSupportedSubset(document.RootElement.GetProperty("operation"));
         }
     }
 
@@ -485,6 +493,46 @@ public sealed class CliOutputSchemaArtifactTests
             "unknown constraint parameter must not be public",
             CreateOpsDescribePayload(constraintExtra: ",\"unknownParameter\":true"),
         };
+        yield return new object[]
+        {
+            "asset constraint must require assetKind",
+            CreateOpsDescribePayload(targetConstraintJson: """{"kind":"assetExists"}"""),
+        };
+        yield return new object[]
+        {
+            "nonEmpty constraint must not allow range parameter",
+            CreateOpsDescribePayload(targetConstraintJson: """{"kind":"nonEmpty","min":1}"""),
+        };
+        yield return new object[]
+        {
+            "range constraint must require a bound",
+            CreateOpsDescribePayload(targetConstraintJson: """{"kind":"range"}"""),
+        };
+        yield return new object[]
+        {
+            "cursor constraint must not allow serialized property access",
+            CreateOpsDescribePayload(targetConstraintJson: """{"kind":"cursor","access":"write"}"""),
+        };
+        yield return new object[]
+        {
+            "input argsPath must not expose request-local alias root branch",
+            CreateOpsDescribePayload(inputArgsPath: $"$.{UcliOperationContractPropertyNames.Alias}"),
+        };
+        yield return new object[]
+        {
+            "input argsPath must not expose request-local alias nested branch",
+            CreateOpsDescribePayload(inputArgsPath: $"$.target.{UcliOperationContractPropertyNames.Alias}"),
+        };
+        yield return new object[]
+        {
+            "variant field argsPath must not expose request-local alias branch",
+            CreateOpsDescribePayload(fieldArgsPath: $"$.target.{UcliOperationContractPropertyNames.Alias}"),
+        };
+        yield return new object[]
+        {
+            "variant field argsPath must use uCLI args path syntax",
+            CreateOpsDescribePayload(fieldArgsPath: "$.target[0].globalObjectId"),
+        };
     }
 
     private static void AssertSchemaValid (
@@ -499,8 +547,13 @@ public sealed class CliOutputSchemaArtifactTests
     private static string CreateOpsDescribePayload (
         string planMode = "observesLiveUnity",
         string operationExtra = "",
-        string constraintExtra = "")
+        string constraintExtra = "",
+        string? targetConstraintJson = null,
+        string inputArgsPath = "$.target",
+        string fieldArgsPath = "$.target.globalObjectId")
     {
+        targetConstraintJson ??= $$"""{"kind":"referenceResolvable","targetKind":"gameObject"{{constraintExtra}}}""";
+
         return $$"""
             {
               "operation": {
@@ -514,12 +567,9 @@ public sealed class CliOutputSchemaArtifactTests
                     "description": "Target GameObject reference.",
                     "valueType": "object",
                     "constraints": [
-                      {
-                        "kind": "referenceResolvable",
-                        "targetKind": "gameObject"{{constraintExtra}}
-                      }
+                      {{targetConstraintJson}}
                     ],
-                    "argsPath": "$.target",
+                    "argsPath": "{{inputArgsPath}}",
                     "variants": [
                       {
                         "name": "byGlobalObjectId",
@@ -527,7 +577,7 @@ public sealed class CliOutputSchemaArtifactTests
                         "fields": [
                           {
                             "name": "globalObjectId",
-                            "argsPath": "$.target.globalObjectId",
+                            "argsPath": "{{fieldArgsPath}}",
                             "description": "Resolved Unity GlobalObjectId.",
                             "constraints": [
                               {
@@ -615,6 +665,23 @@ public sealed class CliOutputSchemaArtifactTests
               }
             }
             """;
+    }
+
+    private static void AssertOpsDescribeSchemasUseSupportedSubset (JsonElement operation)
+    {
+        Assert.True(
+            IndexJsonSchemaSubsetValidator.IsValidPublicRawOpArgsSchema(operation.GetProperty("argsSchema").GetRawText()),
+            "Documented ops describe argsSchema must use the uCLI-supported public raw op schema subset.");
+
+        var resultSchema = operation.GetProperty("resultSchema");
+        if (resultSchema.ValueKind == JsonValueKind.Null)
+        {
+            return;
+        }
+
+        Assert.True(
+            IndexJsonSchemaSubsetValidator.IsValidObjectSchema(resultSchema.GetRawText()),
+            "Documented ops describe resultSchema must use the uCLI-supported schema subset.");
     }
 
     private static IReadOnlyList<string> ReadOpsDescribeDocumentationPayloadExamples ()
