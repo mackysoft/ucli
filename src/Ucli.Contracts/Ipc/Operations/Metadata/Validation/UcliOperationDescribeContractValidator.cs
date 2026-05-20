@@ -101,6 +101,7 @@ internal static class UcliOperationDescribeContractValidator
                 describeContract.Assurance,
                 operationKind,
                 operationPolicy,
+                describeContract.CodeContract,
                 ownerName,
                 allowMayCreatePreviewState,
                 out derivedPolicy,
@@ -416,6 +417,7 @@ internal static class UcliOperationDescribeContractValidator
         UcliOperationAssuranceContract? assurance,
         string? operationKind,
         string? operationPolicy,
+        UcliOperationCodeContract? codeContract,
         string ownerName,
         bool allowMayCreatePreviewState,
         out OperationPolicy derivedPolicy,
@@ -474,7 +476,7 @@ internal static class UcliOperationDescribeContractValidator
             }
         }
 
-        if (!TryValidateAssuranceConsistency(assurance, operationKind, operationPolicy, ownerName, out derivedPolicy, out errorMessage))
+        if (!TryValidateAssuranceConsistency(assurance, operationKind, operationPolicy, codeContract, ownerName, out derivedPolicy, out errorMessage))
         {
             return false;
         }
@@ -487,6 +489,7 @@ internal static class UcliOperationDescribeContractValidator
         UcliOperationAssuranceContract assurance,
         string? operationKind,
         string? operationPolicy,
+        UcliOperationCodeContract? codeContract,
         string ownerName,
         out OperationPolicy derivedPolicy,
         out string errorMessage)
@@ -502,7 +505,7 @@ internal static class UcliOperationDescribeContractValidator
             }
 
             if (parsedKind == UcliOperationKind.Query
-                && (assurance.MayDirty || assurance.MayPersist || assurance.TouchedKinds!.Count != 0 || !HasOnlyQuerySideEffects(assurance.SideEffects!)))
+                && (codeContract != null || assurance.MayDirty || assurance.MayPersist || assurance.TouchedKinds!.Count != 0 || !HasOnlyQuerySideEffects(assurance.SideEffects!)))
             {
                 errorMessage = $"{ownerName} has query assurance metadata with mutation or side-effect risk.";
                 return false;
@@ -514,7 +517,12 @@ internal static class UcliOperationDescribeContractValidator
             return false;
         }
 
-        if (!UcliOperationPolicyDeriver.TryDerive(assurance, out derivedPolicy))
+        if (!TryValidateCodeContractPolicyFact(assurance, codeContract, ownerName, out errorMessage))
+        {
+            return false;
+        }
+
+        if (!UcliOperationPolicyDeriver.TryDerive(assurance, codeContract, out derivedPolicy))
         {
             errorMessage = $"{ownerName} has invalid policy derivation metadata.";
             return false;
@@ -543,6 +551,22 @@ internal static class UcliOperationDescribeContractValidator
 
         errorMessage = string.Empty;
         return true;
+    }
+
+    private static bool TryValidateCodeContractPolicyFact (
+        UcliOperationAssuranceContract assurance,
+        UcliOperationCodeContract? codeContract,
+        string ownerName,
+        out string errorMessage)
+    {
+        if (codeContract == null || ContainsSideEffect(assurance.SideEffects!, UcliOperationSideEffectValues.ArbitrarySourceExecution))
+        {
+            errorMessage = string.Empty;
+            return true;
+        }
+
+        errorMessage = $"{ownerName} codeContract requires assurance.sideEffects to include '{UcliOperationSideEffectValues.ArbitrarySourceExecution}'.";
+        return false;
     }
 
     private static bool HasOnlyQuerySideEffects (IReadOnlyList<string> sideEffects)
@@ -578,6 +602,12 @@ internal static class UcliOperationDescribeContractValidator
         if (assurance.MayPersist != derivedMayPersist)
         {
             errorMessage = $"{ownerName} assurance.mayPersist does not match derived projection '{FormatBoolean(derivedMayPersist)}'.";
+            return false;
+        }
+
+        if (derivedMayPersist && assurance.TouchedKinds!.Count == 0)
+        {
+            errorMessage = $"{ownerName} assurance.mayPersist requires assurance.touchedKinds to be non-empty.";
             return false;
         }
 
@@ -617,6 +647,21 @@ internal static class UcliOperationDescribeContractValidator
         for (var i = 0; i < touchedKinds.Count; i++)
         {
             if (string.Equals(touchedKinds[i], requiredTouchedKind, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ContainsSideEffect (
+        IReadOnlyList<string> sideEffects,
+        string expectedSideEffect)
+    {
+        for (var i = 0; i < sideEffects.Count; i++)
+        {
+            if (string.Equals(sideEffects[i], expectedSideEffect, StringComparison.Ordinal))
             {
                 return true;
             }

@@ -48,6 +48,18 @@ public sealed class UcliOperationPolicyDeriverTests
         Assert.Equal(OperationPolicy.Advanced, policy);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryDerive_WhenCodeContractExists_ReturnsDangerous ()
+    {
+        var assurance = CreateAssurance(Array.Empty<string>());
+
+        var result = UcliOperationPolicyDeriver.TryDerive(assurance, CreateValidCodeContract(), out var policy);
+
+        Assert.True(result);
+        Assert.Equal(OperationPolicy.Dangerous, policy);
+    }
+
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(UcliOperationSideEffectValues.ExternalProcess)]
@@ -116,5 +128,29 @@ public sealed class UcliOperationPolicyDeriverTests
             readPostconditionContract: "Does not stale read surfaces by itself.",
             failureSemantics: "Failure means the operation was not completed.",
             dangerousNotes: Array.Empty<string>());
+    }
+
+    private static UcliOperationCodeContract CreateValidCodeContract ()
+    {
+        return new UcliOperationCodeContract(
+            "csharp",
+            new UcliCodeEntryPointContract(
+                "public static object? Run(SampleContext context)",
+                "Compiled source must contain exactly one matching Run method.",
+                requiredStatic: true,
+                new[] { "SampleContext" },
+                "JSON-serializable value."),
+            new[]
+            {
+                new UcliCodeSourceFormContract(CsEvalSourceKindValues.CompilationUnit, "Complete C# compilation unit."),
+            },
+            new[]
+            {
+                new UcliCodeApiTypeContract(
+                    "SampleContext",
+                    "SampleContext",
+                    "Sample context.",
+                    Array.Empty<UcliCodeApiMemberContract>()),
+            });
     }
 }

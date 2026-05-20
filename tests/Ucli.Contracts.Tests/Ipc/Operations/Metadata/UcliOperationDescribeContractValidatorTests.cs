@@ -551,22 +551,24 @@ public sealed class UcliOperationDescribeContractValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryValidatePublicRawOpDescribeContract_WhenCodeContractLacksArbitrarySourceExecution_ReturnsTrue ()
+    public void TryValidatePublicRawOpDescribeContract_WhenCodeContractLacksArbitrarySourceExecution_ReturnsFalse ()
     {
         var describe = CreateValidDescribeContract();
         describe.CodeContract = CreateValidCodeContract();
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
 
-        Assert.True(isValid, errorMessage);
-        Assert.Equal(string.Empty, errorMessage);
+        Assert.False(isValid);
+        Assert.Equal("Test contract codeContract requires assurance.sideEffects to include 'arbitrarySourceExecution'.", errorMessage);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryValidatePublicRawOpDescribeContractAndDerivePolicy_WhenCodeContractLacksArbitrarySourceExecution_ReturnsSafePolicy ()
+    public void TryValidatePublicRawOpDescribeContractAndDerivePolicy_WhenCodeContractHasArbitrarySourceExecution_ReturnsDangerousPolicy ()
     {
         var describe = CreateValidDescribeContract();
+        describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.ArbitrarySourceExecution];
+        describe.Assurance.DangerousNotes = ["Arbitrary source execution requires dangerous policy."];
         describe.CodeContract = CreateValidCodeContract();
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContractAndDerivePolicy(
@@ -577,8 +579,28 @@ public sealed class UcliOperationDescribeContractValidatorTests
             out var errorMessage);
 
         Assert.True(isValid, errorMessage);
-        Assert.Equal(OperationPolicy.Safe, derivedPolicy);
+        Assert.Equal(OperationPolicy.Dangerous, derivedPolicy);
         Assert.Equal(string.Empty, errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpDescribeContract_WhenQueryHasCodeContract_ReturnsFalse ()
+    {
+        var describe = CreateValidDescribeContract();
+        describe.Assurance!.SideEffects = [UcliOperationSideEffectValues.ArbitrarySourceExecution];
+        describe.Assurance.DangerousNotes = ["Arbitrary source execution requires dangerous policy."];
+        describe.CodeContract = CreateValidCodeContract();
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
+            describe,
+            operationKind: UcliOperationKindValues.Query,
+            operationPolicy: OperationPolicyValues.Dangerous,
+            ownerName: "Test contract",
+            out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Test contract has query assurance metadata with mutation or side-effect risk.", errorMessage);
     }
 
     [Fact]
@@ -765,7 +787,7 @@ public sealed class UcliOperationDescribeContractValidatorTests
                 false,
                 true,
                 Array.Empty<string>(),
-                "Test contract side effect 'assetSave' requires assurance.touchedKinds to include 'asset'.",
+                "Test contract assurance.mayPersist requires assurance.touchedKinds to be non-empty.",
             };
             yield return new object[]
             {
@@ -774,6 +796,14 @@ public sealed class UcliOperationDescribeContractValidatorTests
                 false,
                 Array.Empty<string>(),
                 "Test contract assurance.mayPersist does not match derived projection 'true'.",
+            };
+            yield return new object[]
+            {
+                UcliOperationSideEffectValues.FilesystemWrite,
+                false,
+                true,
+                Array.Empty<string>(),
+                "Test contract assurance.mayPersist requires assurance.touchedKinds to be non-empty.",
             };
             yield return new object[]
             {
