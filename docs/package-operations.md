@@ -53,11 +53,12 @@ NuGetForUnity のUIで導入した場合は依存パッケージも `packages.co
 ```
 
 ## Release Artifact Mirror
-各 publish workflow は、nuget.org への公開が成功した後に同じ `.nupkg` を GitHub Releases へミラーする。配布の正は nuget.org とし、GitHub Releases はタグごとの公開成果物を確認する監査場所として扱う。
+`package-publish` workflow は、nuget.org への公開が成功した後に同じ `.nupkg` を GitHub Releases へミラーし、schema artifact zip も同じ `release/<version>` へ添付する。NuGet パッケージ配布の正は nuget.org とし、GitHub Releases はタグごとの公開成果物を確認する監査場所として扱う。
 
-- `cli/<version>`: `MackySoft.Ucli.<version>.nupkg`
-- `shared/<version>`: `MackySoft.Ucli.Contracts.<version>.nupkg` / `MackySoft.Ucli.Infrastructure.<version>.nupkg`
-- `unity/<version>`: `MackySoft.Ucli.Unity.<version>.nupkg`
+- `release/<version>`: `MackySoft.Ucli.<version>.nupkg`
+- `release/<version>`: `MackySoft.Ucli.Contracts.<version>.nupkg` / `MackySoft.Ucli.Infrastructure.<version>.nupkg`
+- `release/<version>`: `MackySoft.Ucli.Unity.<version>.nupkg`
+- `release/<version>`: `MackySoft.Ucli.Schemas.<version>.zip`
 
 ## Agent Skill Distribution
 uCLI 公式 SKILL は agent 向け workflow 配布物であり、operation contract の正本ではない。正本は `Ucli.Contracts`、operation metadata、`ucli ops describe`、[json-request-spec.md](json-request-spec.md) に置く。
@@ -90,7 +91,7 @@ dotnet tool install --global MackySoft.Ucli --version <version>
 dotnet tool update --global MackySoft.Ucli --version <version>
 ```
 
-CLI パッケージは `src/Ucli/Ucli.csproj` と root の `Directory.Build.props` を正として `dotnet pack` で生成する。公開 workflow は release tag の version を `Version` / `PackageVersion` に渡し、`ucli --version` が公開 version と一致することを検証してから nuget.org へ公開し、同じ `.nupkg` を GitHub Releases へミラーする。
+CLI パッケージは `src/Ucli/Ucli.csproj` と root の `Directory.Build.props` を正として `dotnet pack` で生成する。公開 workflow は `release/<version>` tag の version を `Version` / `PackageVersion` に渡し、`ucli --version` が公開 version と一致することを検証してから nuget.org へ公開し、同じ `.nupkg` を GitHub Releases へミラーする。
 
 ```bash
 dotnet pack "src/Ucli/Ucli.csproj" \
@@ -100,7 +101,7 @@ dotnet pack "src/Ucli/Ucli.csproj" \
   -o "artifacts/packages"
 ```
 
-nuget.org への公開は GitHub Actions の Trusted Publishing を使用する。nuget.org 側で repository owner `mackysoft`、repository `ucli`、workflow file `cli-package-publish.yaml` / `shared-package-publish.yaml` / `unity-package-publish.yaml`、environment 未指定の policy を作成し、GitHub repository variable `NUGET_USER` に nuget.org profile name を設定する。
+nuget.org への公開は GitHub Actions の Trusted Publishing を使用する。nuget.org 側で repository owner `mackysoft`、repository `ucli`、workflow file `package-publish.yaml`、environment 未指定の policy を各 package ID に対して作成し、GitHub repository variable `NUGET_USER` に nuget.org profile name を設定する。
 
 ## NuGetForUnity パッケージ解決手順
 ### 標準フロー（Unity エディタ起動）
@@ -204,33 +205,22 @@ done
 失敗時はログの `Scripts have compiler errors.` の直前にあるエラーで原因を判定する。
 
 ## CI / Release Workflow
-- `verify`: PR、`master` push、`workflow_dispatch` で起動する統一検証 workflow。変更差分に応じて `.NET`、Unity、shared pack、CLI pack を job 単位で分岐し、最終的な必須判定は `required` job で集約する。
+- `verify`: PR、`master` push、`workflow_dispatch` で起動する統一検証 workflow。変更差分に応じて `.NET`、Unity、shared pack、CLI pack、Unity package pack、release pack、version sync を job 単位で分岐し、最終的な必須判定は `required` job で集約する。
 - `verify` の `.NET` 検証には、公開 CLI schema generation、schema artifact diff check、Golden output validation、semantic invariant validator tests を含める。
-- `shared-package-publish` の workflow 自体を変更した PR でも `verify` は `.NET` と shared pack を起動し、公開フロー変更を無検証のまま通さない。
-- `cli-package-publish` の workflow 自体を変更した PR では `verify` は `.NET` と CLI pack を起動し、global tool packaging の回帰を検出する。
-- `unity-package-publish` の workflow、Unity package nuspec、pack/verify script、Unityプラグイン本体、`packages.config` を変更した PR では `verify` は Unity package pack を起動し、NuGetForUnity配布物の回帰を検出する。
+- `package-publish` の workflow 自体を変更した PR では `verify` は `.NET`、shared pack、CLI pack、Unity package pack、release pack、version sync を起動し、公開フロー変更を無検証のまま通さない。
+- Unity package nuspec、pack/verify script、Unityプラグイン本体、`packages.config` を変更した PR では `verify` は Unity package pack を起動し、NuGetForUnity配布物の回帰を検出する。
 - `verify` は workflow-level `concurrency` で同一 PR または同一 branch の古い run を自動キャンセルする。`workflow_dispatch` のみ明示比較用途のため自動キャンセルしない。
 - `pull_request` では変更差分を merge base 起点で判定し、必要な job だけを `Linux`、`Windows`、`macOS` の 3 OS matrix で実行する。外部 contributor の PR では `access-guard` job が失敗し、Unity job は実行しない。
 - `push` to `master` では変更差分を判定しつつ、実行 OS は `Linux` のみに絞って post-merge 検証を軽量化する。
-- `workflow_dispatch` は差分判定を使わず、`.NET`、Unity、shared pack、CLI pack、Unity package pack をフル検証する。`.NET` と Unity は `Linux`、`Windows`、`macOS` の 3 OS で実行し、package 検証は `Linux` で実行する。
+- `workflow_dispatch` は差分判定を使わず、`.NET`、Unity、shared pack、CLI pack、Unity package pack、release pack、version sync をフル検証する。`.NET` と Unity は `Linux`、`Windows`、`macOS` の 3 OS で実行し、package 検証は `Linux` で実行する。
 - Unity 検証は `src/Ucli`、`src/Ucli.Application`、`src/Ucli.Unity`、`src/Ucli.Contracts`、`src/Ucli.Infrastructure`、`scripts/test-unity.sh`、`scripts/update-local-shared-packages.sh`、`verify` 自体の変更時に動く。`buildalon/unity-setup` と `buildalon/activate-unity-license` で各 OS の Unity Editor を用意した後、CI とローカル共通の `scripts/test-unity.sh` から `ucli test run --mode oneshot` を使って `EditMode` テストアセンブリを明示指定して実行する。workflow はプロセス終了コードだけでなく `command-result.json` の `status` / `exitCode` / `payload.result` も検証し、`pass` 以外を失敗として扱う。
-- CLI pack 検証は `Directory.Build.props`、`src/Ucli`、`src/Ucli.Contracts`、`src/Ucli.Infrastructure`、`README.md`、`LICENSE`、`cli-package-publish`、`verify` 自体の変更時に動く。`dotnet pack` 後にローカル tool install、`ucli --version`、`ucli --help`、nupkg 内の `DotnetToolSettings.xml` / `README.md` / `LICENSE` を検証する。
+- CLI pack 検証は `Directory.Build.props`、`src/Ucli`、`src/Ucli.Contracts`、`src/Ucli.Infrastructure`、`README.md`、`LICENSE`、`package-publish`、`verify` 自体の変更時に動く。`dotnet pack` 後にローカル tool install、`ucli --version`、`ucli --help`、nupkg 内の `DotnetToolSettings.xml` / `README.md` / `LICENSE` を検証する。
 - Unity package pack 検証は `scripts/pack-unity-plugin.sh` で `MackySoft.Ucli.Unity` nupkg を作成し、`scripts/verify-unity-plugin-package.sh` で必須ファイル、依存定義、ローカル復元後の `ucli-plugin.json` 配置を検証する。
-- `shared-package-publish`: `shared/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、その同一 workflow run の中で nuget.org publish / GitHub Release mirror / repository version sync PR 作成まで継続する。
-- `shared-package-publish` は公開後に `chore/shared-sync-<version>` ブランチを作成し、`Directory.Build.props`、`src/Ucli.Unity/Assets/packages.config`、`src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec` の shared package version を同一値へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
-- `cli-package-publish`: `cli/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、同一 workflow run の中で pack / smoke test / nuget.org publish / GitHub Release mirror まで継続する。
-- `cli-package-publish` は公開後に `chore/cli-sync-<version>` ブランチを作成し、`Directory.Build.props` の `MackySoft.Ucli` バージョンと `schemas/v1/schema-manifest.json` の schema artifact version を公開 version へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
-- `unity-package-publish`: `unity/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、同一 workflow run の中で pack / package verify / nuget.org publish / GitHub Release mirror / repository version sync PR 作成まで継続する。
-- `unity-package-publish` は公開後に `chore/unity-sync-<version>` ブランチを作成し、`src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec` の `MackySoft.Ucli.Unity` バージョンを公開 version へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
-- タグは `v` プレフィックスを付けない（例: `shared/x.y.z`、`cli/x.y.z`、`unity/x.y.z`）。
+- `package-publish`: `release/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、その同一 workflow run の中で version sync / pack / package verify / nuget.org publish / GitHub Release mirror / repository version sync PR 作成まで継続する。
+- `package-publish` は公開後に `chore/release-sync-<version>` ブランチを作成し、`Directory.Build.props`、`schemas/v1/schema-manifest.json`、`src/Ucli.Unity/Assets/packages.config`、`src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec` の package version を同一値へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
+- タグは `v` プレフィックスを付けない（例: `release/x.y.z`）。
 
 ```bash
-git tag shared/x.y.z
-git push origin shared/x.y.z
-
-git tag cli/x.y.z
-git push origin cli/x.y.z
-
-git tag unity/x.y.z
-git push origin unity/x.y.z
+git tag release/x.y.z
+git push origin release/x.y.z
 ```
