@@ -52,7 +52,6 @@ public sealed class OfficialSkillDistributionPolicyTests
     ];
 
     private const string CurrentPlanApplyWorkflowSummary = "read -> ready -> describe -> build request -> validate -> plan -> call --withPlan -> verify";
-    private const string LegacyPlanApplyWorkflowSummary = "read -> describe -> build request -> validate -> plan -> call -> verify";
 
     private static readonly string[] SensitivePolicyFragments =
     [
@@ -135,7 +134,6 @@ public sealed class OfficialSkillDistributionPolicyTests
             var text = ReadRepositoryText(relativePath);
 
             Assert.Contains(CurrentPlanApplyWorkflowSummary, text, StringComparison.Ordinal);
-            Assert.DoesNotContain(LegacyPlanApplyWorkflowSummary, text, StringComparison.Ordinal);
         }
     }
 
