@@ -57,12 +57,13 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
                 executionResult.FailureInfo!.StartupFailure);
         }
 
-        return CreateResultFromResponse(executionResult.Response!, "ops.read");
+        return CreateResultFromResponse(executionResult.Response!, "ops.read", includeEditLoweringOnly);
     }
 
     private static OpsCatalogFetchResult CreateResultFromResponse (
         UnityRequestResponse response,
-        string responseSourceName)
+        string responseSourceName,
+        bool allowEditLoweringOnlyEntries)
     {
         ArgumentNullException.ThrowIfNull(response);
         ArgumentException.ThrowIfNullOrWhiteSpace(responseSourceName);
@@ -98,6 +99,7 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
                 payload.GeneratedAtUtc,
                 payload.Operations,
                 "operations",
+                allowEditLoweringOnlyEntries,
                 out var snapshot,
                 out var validationError))
         {
