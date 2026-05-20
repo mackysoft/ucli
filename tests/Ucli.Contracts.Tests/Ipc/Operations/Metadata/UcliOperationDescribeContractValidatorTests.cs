@@ -385,6 +385,46 @@ public sealed class UcliOperationDescribeContractValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpDescribeContract_WhenAssurancePlanModeCreatesPreviewState_ReturnsFalse ()
+    {
+        var describe = CreateValidDescribeContract();
+        describe.Assurance!.PlanMode = UcliOperationPlanModeValues.MayCreatePreviewState;
+        describe.Assurance.DangerousNotes = ["Preview-state planning is not public raw safe."];
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
+            describe,
+            operationKind: UcliOperationKindValues.Command,
+            operationPolicy: OperationPolicyValues.Advanced,
+            ownerName: "Test contract",
+            out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Test contract public raw assurance metadata must not use planMode 'mayCreatePreviewState'.", errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidateRegisteredOperationDescribeContractAndDerivePolicy_WhenPreviewStateIsAllowedForNonPublicExposure_ReturnsAdvancedPolicy ()
+    {
+        var describe = CreateValidDescribeContract();
+        describe.Assurance!.PlanMode = UcliOperationPlanModeValues.MayCreatePreviewState;
+        describe.Assurance.DangerousNotes = ["Preview-state planning is allowed for non-public operations."];
+
+        var isValid = UcliOperationDescribeContractValidator.TryValidateRegisteredOperationDescribeContractAndDerivePolicy(
+            describe,
+            operationKind: UcliOperationKindValues.Command,
+            ownerName: "Test contract",
+            exposure: UcliOperationExposure.EditLoweringOnly,
+            out var derivedPolicy,
+            out var errorMessage);
+
+        Assert.True(isValid, errorMessage);
+        Assert.Equal(OperationPolicy.Advanced, derivedPolicy);
+        Assert.Empty(errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void TryValidatePublicRawOpDescribeContract_WhenDangerousNotesIsNull_ReturnsFalse ()
     {
         var describe = CreateValidDescribeContract();

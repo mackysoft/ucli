@@ -57,6 +57,34 @@ public sealed class OpsCatalogAccessServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Read_WhenAllowStaleIndexContainsEditLoweringOnlyPrimitive_FiltersPublicList ()
+    {
+        var hiddenPrimitiveEntry = CreateSceneSaveEntry() with
+        {
+            Name = UcliPrimitiveOperationNames.CompEnsure,
+        };
+        var persistedReader = new StubPersistedOpsCatalogReader
+        {
+            Result = CreatePersistedReadResult(
+                DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+                IndexFreshness.Stale,
+                [CreateGoDescribeEntry(), hiddenPrimitiveEntry]),
+        };
+        var sourceRefreshService = new StubOpsCatalogSourceRefreshService();
+        var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
+
+        var result = await service.ReadListAsync(CreatePreflightContext(ReadIndexMode.AllowStale), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(
+            [UcliPrimitiveOperationNames.GoDescribe],
+            result.Output!.Snapshot.Operations.Select(static operation => operation.Name));
+        Assert.Equal(OpsCatalogSource.Index, result.Output.AccessInfo.Source);
+        Assert.Equal(0, sourceRefreshService.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Read_WhenRequireFreshIndexIsStale_FallsBackToSource ()
     {
         var persistedReader = new StubPersistedOpsCatalogReader
