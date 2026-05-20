@@ -16,7 +16,7 @@ Use this reference when constructing or applying a uCLI JSON request.
 4. Run `ucli call --withPlan` only after reviewing the plan.
 5. Preserve returned evidence, especially `payload.opResults[].applied`, `changed`, `touched`, and any error payload.
 6. Run `ucli verify --profile built-in:mutation --from <result.json>` when post-mutation evidence is needed.
-7. For C# script changes, run `ucli compile` or `ucli verify --profile built-in:script --from <result.json>`.
+7. For C# script changes, run `ucli compile` or `ucli verify --profile built-in:script --from <result.json>`. Use `built-in:default` only when compile / domain reload side effects are intended.
 8. When `readPostcondition` is present, perform the requested read before reporting final state.
 
 ## Failure Handling

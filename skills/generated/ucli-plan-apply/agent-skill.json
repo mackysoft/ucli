@@ -2,22 +2,22 @@
   "schemaVersion": 1,
   "skillName": "ucli-plan-apply",
   "displayName": "uCLI Plan Apply",
-  "description": "Use when building, validating, planning, and applying a uCLI JSON request for Unity changes. Enforces read -> describe -> build request -> validate -> plan -> call -> verify.",
-  "contentDigest": "sha256:9093b9db4647f1fe99f514d883e331ace5028cff1e5a99bdccd6bff127ab87eb",
+  "description": "Use when building, validating, planning, and applying a uCLI JSON request for Unity changes. Enforces read -> ready -> describe -> build request -> validate -> plan -> call --withPlan -> verify.",
+  "contentDigest": "sha256:c8c0c72015128c32ba0dd49d392a1020c3306bc7950d3be034af49582accb45a",
   "hostArtifacts": [
     {
       "host": "claude",
-      "materializedFrontmatterDigest": "sha256:adf39bec57672802cb8add4ec4801672fc81ec2fb98d40d1156a4d13a97c0b27"
+      "materializedFrontmatterDigest": "sha256:5254cee66318e5cc86db676c5f6321aac0d831591f68d032d92c5352e24b3557"
     },
     {
       "host": "copilot",
-      "materializedFrontmatterDigest": "sha256:8a90c95fa63004dd32fb1330ceb47b115e690979c430684860657ee1693aa27b"
+      "materializedFrontmatterDigest": "sha256:2ba4e17d49ddee045b5218780a0f05d66b19cfeac123feb3d77074e34055671e"
     },
     {
       "host": "openai",
       "path": "agents/openai.yaml",
-      "digest": "sha256:4a86df2d26bd7accd4eeeac2f8c89db37a1846298191c49fe6d96d13e7c1c6df",
-      "materializedFrontmatterDigest": "sha256:983e5e69e25aecc95402025e6d271b0a22847193c00fc4bc2c50624c277843e4"
+      "digest": "sha256:4773003bf9761af8ac29121654c7b475af842e4f5367e280bfd7a26522cb2802",
+      "materializedFrontmatterDigest": "sha256:699c348af2510a3ce5db0c7e39813d8ad53373e682abb40e1e33257b1831a015"
     }
   ]
 }
