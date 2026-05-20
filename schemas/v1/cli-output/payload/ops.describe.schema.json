@@ -56,70 +56,267 @@
               "constraints": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "kind": {
-                      "type": "string",
-                      "enum": [
-                        "nonEmpty",
-                        "range",
-                        "projectRelativePath",
-                        "assetExists",
-                        "assetCreatable",
-                        "globalObjectId",
-                        "hierarchyPath",
-                        "referenceResolvable",
-                        "typeExists",
-                        "typeAssignableTo",
-                        "serializedProperty",
-                        "assetGuid",
-                        "cursor"
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "const": "nonEmpty"
+                        }
+                      },
+                      "required": [
+                        "kind"
                       ]
                     },
-                    "min": {
-                      "type": "number"
-                    },
-                    "max": {
-                      "type": "number"
-                    },
-                    "assetKind": {
-                      "type": "string",
-                      "enum": [
-                        "asset",
-                        "prefab",
-                        "projectSettings",
-                        "scene"
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "const": "range"
+                        },
+                        "min": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "min"
                       ]
                     },
-                    "targetKind": {
-                      "type": "string",
-                      "enum": [
-                        "asset",
-                        "component",
-                        "gameObject"
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "const": "range"
+                        },
+                        "max": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "max"
                       ]
                     },
-                    "typeKind": {
-                      "type": "string",
-                      "enum": [
-                        "component"
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "const": "range"
+                        },
+                        "min": {
+                          "type": "number"
+                        },
+                        "max": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "min",
+                        "max"
                       ]
                     },
-                    "access": {
-                      "type": "string",
-                      "enum": [
-                        "write"
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "const": "projectRelativePath"
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "const": "assetExists"
+                        },
+                        "assetKind": {
+                          "type": "string",
+                          "enum": [
+                            "asset",
+                            "prefab",
+                            "projectSettings",
+                            "scene"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "assetKind"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "const": "assetCreatable"
+                        },
+                        "assetKind": {
+                          "type": "string",
+                          "enum": [
+                            "asset",
+                            "prefab",
+                            "projectSettings",
+                            "scene"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "assetKind"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "const": "globalObjectId"
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "const": "hierarchyPath"
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "const": "referenceResolvable"
+                        },
+                        "targetKind": {
+                          "type": "string",
+                          "enum": [
+                            "asset",
+                            "component",
+                            "gameObject"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "targetKind"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "const": "typeExists"
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "const": "typeAssignableTo"
+                        },
+                        "typeKind": {
+                          "type": "string",
+                          "enum": [
+                            "component"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "typeKind"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "const": "serializedProperty"
+                        },
+                        "access": {
+                          "type": "string",
+                          "enum": [
+                            "write"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "access"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "const": "assetGuid"
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "const": "cursor"
+                        }
+                      },
+                      "required": [
+                        "kind"
                       ]
                     }
-                  },
-                  "required": [
-                    "kind"
                   ]
                 }
               },
               "argsPath": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^(?=.{1,256}$)(?!.*(?:^|\\.)var(?:\\.|$))(?:\\$|\\$\\.[A-Za-z0-9_]\u002B(?:\\.[A-Za-z0-9_]\u002B){0,15})$"
               },
               "variants": {
                 "type": "array",
@@ -143,7 +340,8 @@
                             "type": "string"
                           },
                           "argsPath": {
-                            "type": "string"
+                            "type": "string",
+                            "pattern": "^(?=.{1,256}$)(?!.*(?:^|\\.)var(?:\\.|$))\\$\\.[A-Za-z0-9_]\u002B(?:\\.[A-Za-z0-9_]\u002B){0,15}$"
                           },
                           "description": {
                             "type": "string"
@@ -151,65 +349,261 @@
                           "constraints": {
                             "type": "array",
                             "items": {
-                              "type": "object",
-                              "additionalProperties": false,
-                              "properties": {
-                                "kind": {
-                                  "type": "string",
-                                  "enum": [
-                                    "nonEmpty",
-                                    "range",
-                                    "projectRelativePath",
-                                    "assetExists",
-                                    "assetCreatable",
-                                    "globalObjectId",
-                                    "hierarchyPath",
-                                    "referenceResolvable",
-                                    "typeExists",
-                                    "typeAssignableTo",
-                                    "serializedProperty",
-                                    "assetGuid",
-                                    "cursor"
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "const": "nonEmpty"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind"
                                   ]
                                 },
-                                "min": {
-                                  "type": "number"
-                                },
-                                "max": {
-                                  "type": "number"
-                                },
-                                "assetKind": {
-                                  "type": "string",
-                                  "enum": [
-                                    "asset",
-                                    "prefab",
-                                    "projectSettings",
-                                    "scene"
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "const": "range"
+                                    },
+                                    "min": {
+                                      "type": "number"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "min"
                                   ]
                                 },
-                                "targetKind": {
-                                  "type": "string",
-                                  "enum": [
-                                    "asset",
-                                    "component",
-                                    "gameObject"
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "const": "range"
+                                    },
+                                    "max": {
+                                      "type": "number"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "max"
                                   ]
                                 },
-                                "typeKind": {
-                                  "type": "string",
-                                  "enum": [
-                                    "component"
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "const": "range"
+                                    },
+                                    "min": {
+                                      "type": "number"
+                                    },
+                                    "max": {
+                                      "type": "number"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "min",
+                                    "max"
                                   ]
                                 },
-                                "access": {
-                                  "type": "string",
-                                  "enum": [
-                                    "write"
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "const": "projectRelativePath"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind"
+                                  ]
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "const": "assetExists"
+                                    },
+                                    "assetKind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "asset",
+                                        "prefab",
+                                        "projectSettings",
+                                        "scene"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "assetKind"
+                                  ]
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "const": "assetCreatable"
+                                    },
+                                    "assetKind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "asset",
+                                        "prefab",
+                                        "projectSettings",
+                                        "scene"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "assetKind"
+                                  ]
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "const": "globalObjectId"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind"
+                                  ]
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "const": "hierarchyPath"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind"
+                                  ]
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "const": "referenceResolvable"
+                                    },
+                                    "targetKind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "asset",
+                                        "component",
+                                        "gameObject"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "targetKind"
+                                  ]
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "const": "typeExists"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind"
+                                  ]
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "const": "typeAssignableTo"
+                                    },
+                                    "typeKind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "component"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "typeKind"
+                                  ]
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "const": "serializedProperty"
+                                    },
+                                    "access": {
+                                      "type": "string",
+                                      "enum": [
+                                        "write"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "access"
+                                  ]
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "const": "assetGuid"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind"
+                                  ]
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "const": "cursor"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind"
                                   ]
                                 }
-                              },
-                              "required": [
-                                "kind"
                               ]
                             }
                           }

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -824,7 +825,7 @@ internal static class Program
                     "object",
                     "array")),
             Required("constraints", ArraySchema(CreateOpsDescribeInputConstraintSchema())),
-            Optional("argsPath", StringSchema()),
+            Optional("argsPath", InputArgsPathSchema()),
             Optional("variants", ArraySchema(CreateOpsDescribeInputVariantSchema())));
     }
 
@@ -842,50 +843,89 @@ internal static class Program
         return ObjectSchema(
             additionalProperties: false,
             Required("name", StringSchema()),
-            Required("argsPath", StringSchema()),
+            Required("argsPath", VariantFieldArgsPathSchema()),
             Required("description", StringSchema()),
             Required("constraints", ArraySchema(CreateOpsDescribeInputConstraintSchema())));
     }
 
     private static Dictionary<string, object?> CreateOpsDescribeInputConstraintSchema ()
     {
-        return ObjectSchema(
-            additionalProperties: false,
+        return OneOfSchema(
+            ConstraintSchema(UcliOperationInputConstraintKindValues.NonEmpty),
+            RangeConstraintSchema(Required("min", NumberSchema())),
+            RangeConstraintSchema(Required("max", NumberSchema())),
+            RangeConstraintSchema(
+                Required("min", NumberSchema()),
+                Required("max", NumberSchema())),
+            ConstraintSchema(UcliOperationInputConstraintKindValues.ProjectRelativePath),
+            AssetConstraintSchema(UcliOperationInputConstraintKindValues.AssetExists),
+            AssetConstraintSchema(UcliOperationInputConstraintKindValues.AssetCreatable),
+            ConstraintSchema(UcliOperationInputConstraintKindValues.GlobalObjectId),
+            ConstraintSchema(UcliOperationInputConstraintKindValues.HierarchyPath),
+            ReferenceResolvableConstraintSchema(),
+            ConstraintSchema(UcliOperationInputConstraintKindValues.TypeExists),
+            TypeAssignableToConstraintSchema(),
+            SerializedPropertyConstraintSchema(),
+            ConstraintSchema(UcliOperationInputConstraintKindValues.AssetGuid),
+            ConstraintSchema(UcliOperationInputConstraintKindValues.Cursor));
+    }
+
+    private static Dictionary<string, object?> ConstraintSchema (
+        string kind,
+        params SchemaProperty[] parameters)
+    {
+        var properties = new List<SchemaProperty>(parameters.Length + 1)
+        {
+            Required("kind", ConstString(kind)),
+        };
+        properties.AddRange(parameters);
+        return ObjectSchema(additionalProperties: false, properties.ToArray());
+    }
+
+    private static Dictionary<string, object?> RangeConstraintSchema (params SchemaProperty[] parameters)
+    {
+        return ConstraintSchema(UcliOperationInputConstraintKindValues.Range, parameters);
+    }
+
+    private static Dictionary<string, object?> AssetConstraintSchema (string kind)
+    {
+        return ConstraintSchema(
+            kind,
             Required(
-                "kind",
-                EnumSchema(
-                    UcliOperationInputConstraintKindValues.NonEmpty,
-                    UcliOperationInputConstraintKindValues.Range,
-                    UcliOperationInputConstraintKindValues.ProjectRelativePath,
-                    UcliOperationInputConstraintKindValues.AssetExists,
-                    UcliOperationInputConstraintKindValues.AssetCreatable,
-                    UcliOperationInputConstraintKindValues.GlobalObjectId,
-                    UcliOperationInputConstraintKindValues.HierarchyPath,
-                    UcliOperationInputConstraintKindValues.ReferenceResolvable,
-                    UcliOperationInputConstraintKindValues.TypeExists,
-                    UcliOperationInputConstraintKindValues.TypeAssignableTo,
-                    UcliOperationInputConstraintKindValues.SerializedProperty,
-                    UcliOperationInputConstraintKindValues.AssetGuid,
-                    UcliOperationInputConstraintKindValues.Cursor)),
-            Optional("min", NumberSchema()),
-            Optional("max", NumberSchema()),
-            Optional(
                 "assetKind",
                 EnumSchema(
                     UcliOperationAssetKindValues.Asset,
                     UcliOperationAssetKindValues.Prefab,
                     UcliOperationAssetKindValues.ProjectSettings,
-                    UcliOperationAssetKindValues.Scene)),
-            Optional(
+                    UcliOperationAssetKindValues.Scene)));
+    }
+
+    private static Dictionary<string, object?> ReferenceResolvableConstraintSchema ()
+    {
+        return ConstraintSchema(
+            UcliOperationInputConstraintKindValues.ReferenceResolvable,
+            Required(
                 "targetKind",
                 EnumSchema(
                     UcliOperationReferenceTargetKindValues.Asset,
                     UcliOperationReferenceTargetKindValues.Component,
-                    UcliOperationReferenceTargetKindValues.GameObject)),
-            Optional(
+                    UcliOperationReferenceTargetKindValues.GameObject)));
+    }
+
+    private static Dictionary<string, object?> TypeAssignableToConstraintSchema ()
+    {
+        return ConstraintSchema(
+            UcliOperationInputConstraintKindValues.TypeAssignableTo,
+            Required(
                 "typeKind",
-                EnumSchema(UcliOperationTypeKindValues.Component)),
-            Optional(
+                EnumSchema(UcliOperationTypeKindValues.Component)));
+    }
+
+    private static Dictionary<string, object?> SerializedPropertyConstraintSchema ()
+    {
+        return ConstraintSchema(
+            UcliOperationInputConstraintKindValues.SerializedProperty,
+            Required(
                 "access",
                 EnumSchema(UcliOperationSerializedPropertyAccessValues.Write)));
     }
@@ -1133,11 +1173,40 @@ internal static class Program
         };
     }
 
+    private static Dictionary<string, object?> OneOfSchema (params Dictionary<string, object?>[] schemas)
+    {
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["oneOf"] = schemas,
+        };
+    }
+
     private static Dictionary<string, object?> StringSchema ()
     {
         return new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["type"] = "string",
+        };
+    }
+
+    private static Dictionary<string, object?> InputArgsPathSchema ()
+    {
+        var aliasPropertyName = Regex.Escape(UcliOperationContractPropertyNames.Alias);
+        return PatternStringSchema($@"^(?=.{{1,256}}$)(?!.*(?:^|\.){aliasPropertyName}(?:\.|$))(?:\$|\$\.[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+){{0,15}})$");
+    }
+
+    private static Dictionary<string, object?> VariantFieldArgsPathSchema ()
+    {
+        var aliasPropertyName = Regex.Escape(UcliOperationContractPropertyNames.Alias);
+        return PatternStringSchema($@"^(?=.{{1,256}}$)(?!.*(?:^|\.){aliasPropertyName}(?:\.|$))\$\.[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+){{0,15}}$");
+    }
+
+    private static Dictionary<string, object?> PatternStringSchema (string pattern)
+    {
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["type"] = "string",
+            ["pattern"] = pattern,
         };
     }
 
