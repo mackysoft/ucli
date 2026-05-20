@@ -11,7 +11,6 @@ public sealed class FriendAssemblyBoundaryTests
             "src/Ucli.Application",
             "src/Ucli.Contracts",
             "src/Ucli.Infrastructure",
-            "src/Ucli.Skills",
             "src/Ucli/Hosting",
             "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity",
             "tests/Tests.Helper",
@@ -44,10 +43,6 @@ public sealed class FriendAssemblyBoundaryTests
                 "MackySoft.Ucli.Unity.Editor",
                 "MackySoft.Ucli.Unity.Tests.Editor",
             ],
-            ["src/Ucli.Skills/Properties/AssemblyInfo.cs"] =
-            [
-                "MackySoft.Ucli.Skills.Tests",
-            ],
             ["src/Ucli/Hosting/AssemblyInfo.cs"] =
             [
                 "MackySoft.Ucli.Tests",
@@ -61,7 +56,6 @@ public sealed class FriendAssemblyBoundaryTests
                 "MackySoft.Ucli.Application.Tests",
                 "MackySoft.Ucli.Contracts.Tests",
                 "MackySoft.Ucli.Infrastructure.Tests",
-                "MackySoft.Ucli.Skills.Tests",
                 "MackySoft.Ucli.Tests",
             ],
         };

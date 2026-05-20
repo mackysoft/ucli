@@ -9,7 +9,7 @@ public sealed class SourceBoundaryTests
         "MackySoft.Ucli.Hosting",
         "MackySoft.Ucli.Infrastructure",
         "MackySoft.Ucli.Shared",
-        "MackySoft.Ucli.Skills",
+        "MackySoft.AgentSkills",
         "MackySoft.Ucli.UnityIntegration",
         "UnityEditor",
         "UnityEngine",
@@ -174,7 +174,7 @@ public sealed class SourceBoundaryTests
             "MackySoft.Ucli.Features",
             "MackySoft.Ucli.Hosting",
             "MackySoft.Ucli.Shared",
-            "MackySoft.Ucli.Skills",
+            "MackySoft.AgentSkills",
             "MackySoft.Ucli.UnityIntegration",
             "UnityEditor",
             "UnityEngine",
@@ -261,18 +261,26 @@ public sealed class SourceBoundaryTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Skills_project_does_not_reference_other_ucli_or_unity_boundaries ()
+    public void Skills_cli_adapter_does_not_reference_agent_skills_implementation_namespaces ()
     {
         var forbiddenMarkers = new[]
         {
-            "MackySoft.Ucli.Application",
-            "MackySoft.Ucli.Contracts",
-            "MackySoft.Ucli.Infrastructure",
-            "UnityEngine",
+            "MackySoft.AgentSkills.Digests",
+            "MackySoft.AgentSkills.Generation",
+            "MackySoft.AgentSkills.Installation.Contracts",
+            "MackySoft.AgentSkills.Installation.Diffing",
+            "MackySoft.AgentSkills.Installation.Inventory",
+            "MackySoft.AgentSkills.Installation.State",
+            "MackySoft.AgentSkills.Installation.Transactions",
+            "MackySoft.AgentSkills.Installation.Validation",
+            "MackySoft.AgentSkills.Manifests",
+            "MackySoft.AgentSkills.Materialization",
+            "MackySoft.AgentSkills.Packaging.FileSystem",
+            "MackySoft.AgentSkills.Sources",
         };
 
         SourceBoundaryAssertions.AssertNoMarkersInCode(
-            ArchitectureTestRepository.EnumerateCSharpSourceFiles("src/Ucli.Skills"),
+            ArchitectureTestRepository.EnumerateCSharpSourceFiles("src/Ucli/Hosting/Cli/Skills"),
             forbiddenMarkers);
     }
 }

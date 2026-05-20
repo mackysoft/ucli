@@ -7,7 +7,7 @@
 - Unity開発プロジェクト（`src/Ucli.Unity`）は NuGetForUnity と `packages.config` で `MackySoft.Ucli.Contracts` と `MackySoft.Ucli.Infrastructure` を参照する。
 - 配布用Unityプラグインは `MackySoft.Ucli.Unity` nupkg として生成し、NuGetForUnity で導入する。
 
-Project 責務境界、依存方向、公開パッケージにしない内部 project の扱いは [uCLI-architecture.md](uCLI-architecture.md) を参照する。`Ucli.Application` は追加後も `MackySoft.Ucli` の内部 assembly として扱い、単独の NuGet package にはしない。`Ucli.Skills` も単独の NuGet package にはせず、`Ucli` から参照する場合は `MackySoft.Ucli` package 内部の assembly として扱う。SKILL 配布物は `MackySoft.Ucli` package、release artifact、または `ucli skills install/export` の出力として扱う。
+Project 責務境界、依存方向、公開パッケージにしない内部 project の扱いは [uCLI-architecture.md](uCLI-architecture.md) を参照する。`Ucli.Application` は追加後も `MackySoft.Ucli` の内部 assembly として扱い、単独の NuGet package にはしない。`MackySoft.AgentSkills` は外部 NuGet package として `PackageReference` version `0.1.0` で参照する。SKILL 配布物は `MackySoft.Ucli` package、release artifact、または `ucli skills install/export` の出力として扱う。
 
 ## Unity Dependency Restore
 - `src/Ucli.Unity/Assets/NuGet.config` で以下のソースを利用する。
@@ -21,6 +21,7 @@ Project 責務境界、依存方向、公開パッケージにしない内部 pr
 
 ## NuGet Source Policy
 - 公開パッケージは `MackySoft.Ucli`、`MackySoft.Ucli.Contracts`、`MackySoft.Ucli.Infrastructure`、`MackySoft.Ucli.Unity` のいずれも nuget.org へ公開する。
+- `MackySoft.Ucli` は `MackySoft.AgentSkills` version `0.1.0` を nuget.org から復元する。
 - 利用者側の Unity project は `nuget.org` source だけで `MackySoft.Ucli.Unity` と推移依存を復元できる。
 - 開発用 project は `MackySoft.Ucli.Contracts` と `MackySoft.Ucli.Infrastructure` を `LocalNuGet` から復元し、`Microsoft.*` / `System.*` の外部依存を `nuget.org` から復元する。
 - 認証付き feed は標準導入手順に含めない。
@@ -65,11 +66,11 @@ SKILL の詳細な仕様、生成方針、責務境界は [uCLI-skills.md](uCLI-
 
 配布上の役割は次のとおり。
 
-- `src/Ucli.Skills/SkillDefinitions/`: 人間が編集する template と metadata の定義
-- `skills/`: canonical generated output。CLI package、release artifact、install/export の配布元
+- `skills/definitions/`: 人間が編集する template と metadata の定義
+- `skills/generated/`: canonical generated output。CLI package、release artifact、install/export の配布元
 - host install target: project scope は `.claude/skills/`、`.github/skills/`、`.agents/skills/`、user scope は `~/.claude/skills`、`~/.copilot/skills`、`${CODEX_HOME}/skills` または `~/.codex/skills`
 
-`MackySoft.Ucli` CLI package は `skills/**` を同梱する。`ucli skills list/export/install/update/uninstall/doctor` は canonical `ucli-skill.json` を使って SKILL 配布物を扱う。公式 SKILL は選択した host 向けに一括で install / export し、SKILL ごとの host allowlist や個別導入 metadata は持たない。`ucli skills export --format zip` は GitHub Releases へ添付できる deterministic な release zip を生成する。
+`MackySoft.AgentSkills.Cli` version `0.1.0` は repository の `.config/dotnet-tools.json` で固定する。`MackySoft.Ucli` CLI package は `skills/generated/**` を package 内の `skills/**` として同梱する。`ucli skills list/export/install/update/uninstall/doctor` は canonical `agent-skill.json` を使って SKILL 配布物を扱う。公式 SKILL は選択した host 向けに一括で install / export し、SKILL ごとの host allowlist や個別導入 metadata は持たない。`ucli skills export --format zip` は GitHub Releases へ添付できる deterministic な release zip を生成する。
 
 ## Schema Artifact Distribution
 公開 schema artifact は repository root の `schemas/**` を canonical generated output とし、`MackySoft.Ucli` CLI package と GitHub Releases に同じ相対 path で含める。package / release 内の配置は repo と同じ `schemas/v1/cli-output/**`、`schemas/v1/request/**` とする。

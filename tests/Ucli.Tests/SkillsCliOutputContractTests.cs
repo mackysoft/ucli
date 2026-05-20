@@ -1,10 +1,10 @@
 using System.IO.Compression;
 using System.Text.Json;
+using MackySoft.AgentSkills.Digests;
+using MackySoft.AgentSkills.Installation.Validation;
+using MackySoft.AgentSkills.Manifests;
 using MackySoft.Tests;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Skills.Digests;
-using MackySoft.Ucli.Skills.Installation.Validation;
-using MackySoft.Ucli.Skills.Manifests;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -167,7 +167,7 @@ public sealed class SkillsCliOutputContractTests
         foreach (var skillName in ExpectedSkillNames)
         {
             Assert.True(File.Exists(Path.Combine(outputRoot, skillName, "SKILL.md")), skillName);
-            Assert.True(File.Exists(Path.Combine(outputRoot, skillName, "ucli-skill.json")), skillName);
+            Assert.True(File.Exists(Path.Combine(outputRoot, skillName, "agent-skill.json")), skillName);
             Assert.True(File.Exists(Path.Combine(outputRoot, skillName, "agents", "openai.yaml")), skillName);
         }
     }
@@ -412,7 +412,7 @@ public sealed class SkillsCliOutputContractTests
         foreach (var skillName in ExpectedSkillNames)
         {
             Assert.True(File.Exists(Path.Combine(targetRoot, skillName, "SKILL.md")), skillName);
-            Assert.True(File.Exists(Path.Combine(targetRoot, skillName, "ucli-skill.json")), skillName);
+            Assert.True(File.Exists(Path.Combine(targetRoot, skillName, "agent-skill.json")), skillName);
         }
     }
 
@@ -1099,7 +1099,7 @@ public sealed class SkillsCliOutputContractTests
     {
         var skillDirectory = Path.Combine(targetRoot, skillName);
         var skillPath = Path.Combine(skillDirectory, "SKILL.md");
-        var manifestPath = Path.Combine(skillDirectory, "ucli-skill.json");
+        var manifestPath = Path.Combine(skillDirectory, "agent-skill.json");
         var skillText = NormalizeToLf(await File.ReadAllTextAsync(skillPath));
         Assert.True(SkillHostMaterializationInspector.TryExtractFrontmatter(skillText, out var frontmatter));
         var body = skillText[frontmatter.Length..];

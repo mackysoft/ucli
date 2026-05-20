@@ -1,15 +1,15 @@
 using ConsoleAppFramework;
+using MackySoft.AgentSkills.Distribution;
+using MackySoft.AgentSkills.Hosts.Registration;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Skills.Distribution;
-using MackySoft.Ucli.Skills.Hosts.Registration;
 
 namespace MackySoft.Ucli.Hosting.Cli.Skills;
 
 /// <summary> Provides the skills list CLI command entry point. </summary>
 internal sealed class SkillsListCommand
 {
-    private readonly OfficialSkillPackageProvider packageProvider;
+    private readonly SkillPackageProvider packageProvider;
     private readonly SkillHostAdapterSet hostAdapters;
     private readonly ICommandResultWriter commandResultWriter;
 
@@ -18,7 +18,7 @@ internal sealed class SkillsListCommand
     /// <param name="hostAdapters"> The supported host adapter set. </param>
     /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     public SkillsListCommand (
-        OfficialSkillPackageProvider packageProvider,
+        SkillPackageProvider packageProvider,
         SkillHostAdapterSet hostAdapters,
         ICommandResultWriter commandResultWriter)
     {

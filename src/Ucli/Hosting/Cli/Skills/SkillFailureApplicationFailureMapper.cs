@@ -1,5 +1,5 @@
+using MackySoft.AgentSkills.Shared;
 using MackySoft.Ucli.Application.Shared.Execution;
-using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Hosting.Cli.Skills;
 

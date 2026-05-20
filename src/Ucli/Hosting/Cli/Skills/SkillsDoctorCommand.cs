@@ -1,17 +1,17 @@
 using ConsoleAppFramework;
+using MackySoft.AgentSkills.Distribution;
+using MackySoft.AgentSkills.Doctor;
+using MackySoft.AgentSkills.Hosts.Registration;
+using MackySoft.AgentSkills.Installation.Targeting;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Skills.Distribution;
-using MackySoft.Ucli.Skills.Doctor;
-using MackySoft.Ucli.Skills.Hosts.Registration;
-using MackySoft.Ucli.Skills.Installation;
 
 namespace MackySoft.Ucli.Hosting.Cli.Skills;
 
 /// <summary> Provides the skills doctor CLI command entry point. </summary>
 internal sealed class SkillsDoctorCommand
 {
-    private readonly OfficialSkillPackageProvider packageProvider;
+    private readonly SkillPackageProvider packageProvider;
     private readonly SkillHostAdapterSet hostAdapters;
     private readonly SkillInstallTargetResolver targetResolver;
     private readonly SkillDoctorService doctorService;
@@ -24,7 +24,7 @@ internal sealed class SkillsDoctorCommand
     /// <param name="doctorService"> The SKILL doctor service. </param>
     /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     public SkillsDoctorCommand (
-        OfficialSkillPackageProvider packageProvider,
+        SkillPackageProvider packageProvider,
         SkillHostAdapterSet hostAdapters,
         SkillInstallTargetResolver targetResolver,
         SkillDoctorService doctorService,

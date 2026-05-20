@@ -17,13 +17,11 @@ public sealed class ProjectReferenceBoundaryTests
             [
                 "src/Ucli.Contracts/Ucli.Contracts.csproj",
             ],
-            ["src/Ucli.Skills/Ucli.Skills.csproj"] = [],
             ["src/Ucli/Ucli.csproj"] =
             [
                 "src/Ucli.Application/Ucli.Application.csproj",
                 "src/Ucli.Contracts/Ucli.Contracts.csproj",
                 "src/Ucli.Infrastructure/Ucli.Infrastructure.csproj",
-                "src/Ucli.Skills/Ucli.Skills.csproj",
             ],
         };
 
@@ -57,11 +55,6 @@ public sealed class ProjectReferenceBoundaryTests
                 "src/Ucli.Infrastructure/Ucli.Infrastructure.csproj",
                 "tests/Tests.Helper/Tests.Helper.csproj",
             ],
-            ["tests/Ucli.Skills.Tests/Ucli.Skills.Tests.csproj"] =
-            [
-                "src/Ucli.Skills/Ucli.Skills.csproj",
-                "tests/Tests.Helper/Tests.Helper.csproj",
-            ],
             ["tests/Ucli.Tests/Ucli.Tests.csproj"] =
             [
                 "src/Ucli.Application/Ucli.Application.csproj",
@@ -87,10 +80,6 @@ public sealed class ProjectReferenceBoundaryTests
             ["tools/Ucli.SchemaGenerator/Ucli.SchemaGenerator.csproj"] =
             [
                 "src/Ucli.Contracts/Ucli.Contracts.csproj",
-            ],
-            ["tools/Ucli.SkillGenerator/Ucli.SkillGenerator.csproj"] =
-            [
-                "src/Ucli.Skills/Ucli.Skills.csproj",
             ],
         };
 

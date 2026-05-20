@@ -33,7 +33,6 @@ public sealed class PackageMetadataTests
             "src/Ucli.Application/Ucli.Application.csproj",
             "src/Ucli.Contracts/Ucli.Contracts.csproj",
             "src/Ucli.Infrastructure/Ucli.Infrastructure.csproj",
-            "src/Ucli.Skills/Ucli.Skills.csproj",
         };
         var violations = new List<string>();
 
@@ -148,6 +147,21 @@ public sealed class PackageMetadataTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Agent_skills_cli_tool_manifest_pins_expected_package ()
+    {
+        using JsonDocument document = JsonDocument.Parse(File.ReadAllText(Path.Combine(RepositoryRoot, ".config", "dotnet-tools.json")));
+        JsonElement tool = document.RootElement
+            .GetProperty("tools")
+            .GetProperty("mackysoft.agentskills.cli");
+
+        Assert.Equal("0.1.0", tool.GetProperty("version").GetString());
+        Assert.Contains(
+            "agent-skills",
+            tool.GetProperty("commands").EnumerateArray().Select(static command => command.GetString()));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Projects_declare_expected_packability ()
     {
         var expectedPackabilityByProject = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -155,23 +169,21 @@ public sealed class PackageMetadataTests
             ["src/Ucli.Application/Ucli.Application.csproj"] = "false",
             ["src/Ucli.Contracts/Ucli.Contracts.csproj"] = "true",
             ["src/Ucli.Infrastructure/Ucli.Infrastructure.csproj"] = "true",
-            ["src/Ucli.Skills/Ucli.Skills.csproj"] = "false",
             ["src/Ucli/Ucli.csproj"] = "true",
             ["tests/Tests.Helper/Tests.Helper.csproj"] = "false",
             ["tests/Ucli.Application.Tests/Ucli.Application.Tests.csproj"] = "false",
             ["tests/Ucli.Architecture.Tests/Ucli.Architecture.Tests.csproj"] = "false",
             ["tests/Ucli.Contracts.Tests/Ucli.Contracts.Tests.csproj"] = "false",
             ["tests/Ucli.Infrastructure.Tests/Ucli.Infrastructure.Tests.csproj"] = "false",
-            ["tests/Ucli.Skills.Tests/Ucli.Skills.Tests.csproj"] = "false",
             ["tests/Ucli.Tests/Ucli.Tests.csproj"] = "false",
             ["tools/Ucli.SchemaGenerator/Ucli.SchemaGenerator.csproj"] = "false",
-            ["tools/Ucli.SkillGenerator/Ucli.SkillGenerator.csproj"] = "false",
         };
 
         string[] actualProjectPaths = Directory
             .EnumerateFiles(RepositoryRoot, "*.csproj", SearchOption.AllDirectories)
             .Select(NormalizeRepositoryRelativePath)
             .Where(static path => !path.StartsWith("src/Ucli.Unity/", StringComparison.Ordinal))
+            .Where(static path => !path.StartsWith("external/", StringComparison.Ordinal))
             .OrderBy(static path => path, StringComparer.Ordinal)
             .ToArray();
         Assert.Equal(
@@ -234,8 +246,8 @@ public sealed class PackageMetadataTests
     {
         IReadOnlyDictionary<string, string> outputs = await RunVerifyScopeDetectorForSingleFileChangeAsync(
             ".gitattributes",
-            "skills/** text=auto\n",
-            "skills/** text eol=lf\n");
+            "skills/definitions/** text=auto\n",
+            "skills/generated/** text eol=lf\n");
 
         Assert.Equal("true", outputs["needs_dotnet"]);
         Assert.Equal("true", outputs["needs_shared_pack"]);

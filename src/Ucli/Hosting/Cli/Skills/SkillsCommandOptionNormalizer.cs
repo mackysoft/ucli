@@ -1,7 +1,7 @@
+using MackySoft.AgentSkills.Distribution;
+using MackySoft.AgentSkills.Hosts.Registration;
+using MackySoft.AgentSkills.Installation.Targeting;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Skills.Distribution;
-using MackySoft.Ucli.Skills.Hosts.Registration;
-using MackySoft.Ucli.Skills.Installation;
 
 namespace MackySoft.Ucli.Hosting.Cli.Skills;
 

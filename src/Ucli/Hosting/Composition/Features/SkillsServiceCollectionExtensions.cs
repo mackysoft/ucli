@@ -1,17 +1,24 @@
-using MackySoft.Ucli.Skills.Digests;
-using MackySoft.Ucli.Skills.Distribution;
-using MackySoft.Ucli.Skills.Doctor;
-using MackySoft.Ucli.Skills.Doctor.Diagnostics;
-using MackySoft.Ucli.Skills.Hosts.Official;
-using MackySoft.Ucli.Skills.Installation;
-using MackySoft.Ucli.Skills.Installation.Validation;
-using MackySoft.Ucli.Skills.Manifests;
-using MackySoft.Ucli.Skills.Materialization;
+using MackySoft.AgentSkills.Digests;
+using MackySoft.AgentSkills.Distribution;
+using MackySoft.AgentSkills.Doctor;
+using MackySoft.AgentSkills.Doctor.Diagnostics;
+using MackySoft.AgentSkills.Hosts.Defaults;
+using MackySoft.AgentSkills.Installation.Contracts;
+using MackySoft.AgentSkills.Installation.Diffing;
+using MackySoft.AgentSkills.Installation.Inventory;
+using MackySoft.AgentSkills.Installation.Services;
+using MackySoft.AgentSkills.Installation.State;
+using MackySoft.AgentSkills.Installation.Targeting;
+using MackySoft.AgentSkills.Installation.Transactions;
+using MackySoft.AgentSkills.Installation.Validation;
+using MackySoft.AgentSkills.Manifests;
+using MackySoft.AgentSkills.Materialization;
+using MackySoft.AgentSkills.Packaging.Canonical;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli.Hosting.Composition.Features;
 
-/// <summary> Provides DI registration for official SKILL distribution commands. </summary>
+/// <summary> Provides DI registration for uCLI SKILL distribution commands. </summary>
 internal static class SkillsServiceCollectionExtensions
 {
     /// <summary> Registers services required by <c>ucli skills</c> commands. </summary>
@@ -22,13 +29,13 @@ internal static class SkillsServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton(_ => OfficialSkillHostAdapters.CreateSet());
+        services.AddSingleton(_ => DefaultSkillHostAdapters.CreateSet());
         services.AddSingleton<BundledSkillPackageRootResolver>();
         services.AddSingleton<SkillDigestCalculator>();
         services.AddSingleton<SkillManifestJsonSerializer>();
         services.AddSingleton<SkillManifestValidator>();
         services.AddSingleton<CanonicalSkillPackageReader>();
-        services.AddSingleton<OfficialSkillPackageProvider>();
+        services.AddSingleton<SkillPackageProvider>();
         services.AddSingleton<SkillMaterializationService>();
         services.AddSingleton<SkillExportService>();
         services.AddSingleton<SkillUserTargetRootResolver>();
