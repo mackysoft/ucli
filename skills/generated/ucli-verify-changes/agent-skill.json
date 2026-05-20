@@ -3,7 +3,7 @@
   "skillName": "ucli-verify-changes",
   "displayName": "uCLI Verify Changes",
   "description": "Use when verifying uCLI-driven Unity changes with ucli verify profiles, claim packets, follow-up reads, ucli test, logs, artifacts, and opResults evidence after validation, plan, or call execution.",
-  "contentDigest": "sha256:97c3e2bc6381a06b9f58beaaaea3ed578752cc191a691242a7c5efad33fb854e",
+  "contentDigest": "sha256:a1dba12f8b04d207d4e5d958e0889cf083ba09c4e95be42fd97b71ab046227f3",
   "hostArtifacts": [
     {
       "host": "claude",

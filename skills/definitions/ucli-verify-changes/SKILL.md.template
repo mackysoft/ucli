@@ -8,17 +8,19 @@ Use this skill to verify whether a uCLI-backed Unity change actually reached the
 3. If the task involves primitive operations, use `ucli ops describe <opName>` to interpret the operation's assurance and result contract.
 4. If the command result includes `readPostcondition`, satisfy those requirements before trusting affected read surfaces.
 5. Run `ucli verify --profile built-in:mutation --from <result.json>` when only post-mutation Unity-local evidence is needed, and read `payload.verdict`, `claims[]`, `reports`, and `residualRisks[]`.
-6. Use `ucli verify --profile built-in:script --from <result.json>` for C# script changes, or omit `--profile` only when the default project-level verification and its compile side effects are intended.
+6. For C# script changes, run `ucli compile` or `ucli verify --profile built-in:script --from <result.json>`. Omit `--profile` only when `built-in:default` project-level verification is intended, because it can trigger compile / domain reload.
 7. Use targeted `ucli query`, `ucli resolve`, `ucli test run`, or `ucli logs` evidence only when the claim packet or task scope requires it.
-8. Preserve the overall safe path: `read -> describe -> build request -> validate -> plan -> call -> verify`.
+8. Preserve the overall safe path: `read -> ready -> describe -> build request -> validate -> plan -> call --withPlan -> verify`.
 
 ## Guardrails
 - Do not copy operation catalogs, argument schemas, result schemas, or long command reference text into verification output.
 - Do not use fixed sleep before verification. Re-read state or inspect lifecycle/log evidence instead.
+- Do not use log scraping as a pass/fail gate. Use claim packets and bounded log commands only when a code or claim requires evidence.
 - Do not treat `IPC_TIMEOUT` as proof that no operation ran. Partial payload evidence can be authoritative.
 - Do not treat `payload.verdict=pass` as reviewless green by itself; it is Unity-local assurance only.
-- Do not use probe-only readiness as proof that a later mutation reused the same Unity process.
+- If `ready --mode auto` returns `probeOnly`, do not treat it as proof that a later mutation has a reusable session.
 - Use `ucli codes describe <CODE>` for machine-readable code meaning; do not branch on free-form messages.
+- Do not use arbitrary C# execution, arbitrary shell execution, or Unity YAML direct edits as normal shortcuts.
 - Do not include `--allowDangerous` in normal verification workflows.
 - Keep output bounded: verification command, observed evidence, pass/fail conclusion, and any residual uncertainty.
 

@@ -14,6 +14,7 @@ Use this reference when a uCLI command fails or returns uncertain state.
 - Do not retry mutating calls blindly after `IPC_TIMEOUT`, disconnect, reload, or crash.
 - First check any returned `payload.opResults[]`.
 - Then inspect Unity or daemon logs when the returned payload is incomplete.
+- Do not use log scraping as proof of success or failure; prefer claim packets and machine-readable command output.
 - Re-read the touched context before replaying a request.
 
 ## Output
