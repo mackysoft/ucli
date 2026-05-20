@@ -182,7 +182,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 var sourceStep = steps[stepIndex].PostReadSourceStep;
                 if (sourceStep == null)
                 {
-                    continue;
+                    return null;
                 }
 
                 sourceSteps.Add(sourceStep);

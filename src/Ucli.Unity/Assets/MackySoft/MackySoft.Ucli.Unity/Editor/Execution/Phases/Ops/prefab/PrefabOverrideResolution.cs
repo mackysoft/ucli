@@ -12,6 +12,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     internal static class PrefabOverrideResolution
     {
         /// <summary> Resolves a target for applying request-attributed Prefab overrides. </summary>
+        /// <param name="operation"> The normalized operation whose identifier scopes preceding set operations. </param>
+        /// <param name="args"> The apply operation arguments containing the target component, target Prefab asset path, and optional property paths. </param>
+        /// <param name="executionContext"> The per-request execution context containing request-attributed property changes. </param>
+        /// <param name="allowTemporaryState"> <see langword="true" /> to allow plan-time temporary state, including same-request planned Prefab creation. </param>
+        /// <param name="state"> The resolved apply state when the method returns <see langword="true" />; otherwise the default value. </param>
+        /// <param name="errorMessage"> The validation error when the method returns <see langword="false" />; otherwise an empty string. </param>
+        /// <returns> <see langword="true" /> when the target is a valid scene component target and at least one requested effective change can be applied; otherwise <see langword="false" />. </returns>
         public static bool TryResolveForApply (
             NormalizedOperation operation,
             PrefabOverrideArgs args,
@@ -31,6 +38,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         /// <summary> Resolves a target for reverting request-attributed Prefab overrides. </summary>
+        /// <param name="operation"> The normalized operation whose identifier scopes preceding set operations. </param>
+        /// <param name="args"> The revert operation arguments containing the target component, target Prefab asset path, and optional property paths. </param>
+        /// <param name="executionContext"> The per-request execution context containing request-attributed property changes. </param>
+        /// <param name="allowTemporaryState"> <see langword="true" /> to allow plan-time temporary state, including same-request planned Prefab creation. </param>
+        /// <param name="state"> The resolved revert state when the method returns <see langword="true" />; otherwise the default value. </param>
+        /// <param name="errorMessage"> The validation error when the method returns <see langword="false" />; otherwise an empty string. </param>
+        /// <returns> <see langword="true" /> when the target is a valid scene component target and every requested effective change was created by the current request; otherwise <see langword="false" />. </returns>
         public static bool TryResolveForRevert (
             NormalizedOperation operation,
             PrefabOverrideArgs args,
@@ -82,18 +96,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             var targetAssetPath = args.TargetAssetPath.Value;
-            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(targetAssetPath, out errorMessage))
+            var usesPlannedPrefabCreation = allowTemporaryState
+                && executionContext.IsPlannedPrefabInstanceLineage(component, targetAssetPath);
+            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(targetAssetPath, out errorMessage)
+                && !usesPlannedPrefabCreation)
             {
                 return false;
             }
 
-            if (!PrefabUtility.IsPartOfPrefabInstance(component))
+            if (!PrefabUtility.IsPartOfPrefabInstance(component)
+                && !usesPlannedPrefabCreation)
             {
                 errorMessage = "Prefab override actions require a Prefab instance component target.";
                 return false;
             }
 
-            if (PrefabUtility.GetCorrespondingObjectFromSourceAtPath(component, targetAssetPath) == null)
+            if (!usesPlannedPrefabCreation
+                && PrefabUtility.GetCorrespondingObjectFromSourceAtPath(component, targetAssetPath) == null)
             {
                 errorMessage = $"Prefab override target asset is not in the target instance lineage: {targetAssetPath}.";
                 return false;
@@ -104,7 +123,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            var targetKey = CreateTargetKey(targetReference, component);
+            var targetKey = executionContext.CreatePrefabOverrideTargetKey(
+                targetReference,
+                component,
+                componentResolution.Resource);
             if (!executionContext.TryCollectPrefabOverridePropertyChanges(
                     operation.Id,
                     targetKey,
@@ -180,6 +202,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (allowTemporaryState
                 && componentResolution.Component != null
                 && !PrefabUtility.IsPartOfPrefabInstance(componentResolution.Component)
+                && !executionContext.IsPlannedPrefabInstanceLineage(componentResolution.Component)
                 && ComponentOperationUtilities.TryResolveComponent(
                     targetReference,
                     executionContext,
@@ -192,19 +215,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             errorMessage = string.Empty;
             return true;
-        }
-
-        private static string CreateTargetKey (
-            UnityObjectReference targetReference,
-            Component component)
-        {
-            if (targetReference.Kind == UnityObjectReferenceKind.Selector
-                && targetReference.Selector.Kind == ResolveSelectorKind.GlobalObjectId)
-            {
-                return targetReference.Selector.GlobalObjectId!;
-            }
-
-            return UnityObjectReferenceResolver.CreateTrackingKey(component);
         }
 
         private static bool TryRejectPreRequestOverrides (
@@ -246,6 +256,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         internal readonly struct State
         {
+            /// <summary> Initializes a new instance of the <see cref="State" /> struct. </summary>
+            /// <param name="component"> The resolved scene component whose serialized properties are addressed by <paramref name="changes" />. </param>
+            /// <param name="resource"> The scene resource that owns <paramref name="component" />. </param>
+            /// <param name="targetAssetPath"> The Prefab asset path that apply/revert is constrained to. </param>
+            /// <param name="changes"> The effective request-attributed changes selected for the operation. </param>
             public State (
                 Component component,
                 OperationResource resource,
@@ -258,12 +273,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 Changes = changes;
             }
 
+            /// <summary> Gets the resolved scene component whose serialized properties are addressed by <see cref="Changes" />. </summary>
             public Component Component { get; }
 
+            /// <summary> Gets the scene resource that owns <see cref="Component" />. </summary>
             public OperationResource Resource { get; }
 
+            /// <summary> Gets the Prefab asset path that apply/revert is constrained to. </summary>
             public string TargetAssetPath { get; }
 
+            /// <summary> Gets the effective request-attributed changes selected for the operation. </summary>
             public IReadOnlyList<OperationExecutionContext.PrefabOverridePropertyChange> Changes { get; }
         }
     }

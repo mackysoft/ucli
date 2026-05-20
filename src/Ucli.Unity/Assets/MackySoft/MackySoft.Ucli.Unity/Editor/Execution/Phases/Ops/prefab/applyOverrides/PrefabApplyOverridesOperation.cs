@@ -22,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             kind: UcliOperationKind.Mutation,
             description: "Applies request-attributed Prefab instance property overrides to an explicit Prefab asset.",
             assurance: new UcliOperationAssuranceContract(
-                sideEffects: new[] { UcliOperationSideEffect.PrefabSave },
+                sideEffects: new[] { UcliOperationSideEffect.PrefabContentMutation, UcliOperationSideEffect.PrefabSave },
                 touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Prefab },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the request-attributed property override set and target Prefab asset without persisting it.",
