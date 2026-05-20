@@ -34,6 +34,17 @@ internal static class ArchitectureTestRepository
         return fullPath;
     }
 
+    internal static string ToRegularDirectoryFullPath (string repositoryRelativePath)
+    {
+        var fullPath = ToFullPath(repositoryRelativePath);
+        if (IsReparsePoint(fullPath) || HasReparsePointParent(fullPath))
+        {
+            throw new InvalidOperationException($"Repository directory must not be a reparse point: {repositoryRelativePath}");
+        }
+
+        return fullPath;
+    }
+
     internal static IEnumerable<string> EnumerateCSharpSourceFiles (string repositoryRelativeDirectory)
     {
         return EnumerateRepositoryFiles(ToFullPath(repositoryRelativeDirectory), "*.cs")
@@ -42,6 +53,14 @@ internal static class ArchitectureTestRepository
                 var relativePath = NormalizeRepositoryRelativePath(sourceFile);
                 return !IsGeneratedPath(relativePath) && !IsReparsePoint(sourceFile);
             });
+    }
+
+    internal static IEnumerable<string> EnumerateRegularFilesUnderDirectory (string rootDirectory)
+    {
+        return EnumerateFilesUnderDirectory(
+            rootDirectory,
+            "*",
+            static _ => false);
     }
 
     internal static IEnumerable<string> EnumerateProductionProjectFiles ()
@@ -109,12 +128,28 @@ internal static class ArchitectureTestRepository
 
     private static IEnumerable<string> EnumerateRepositoryFiles (string rootDirectory, string searchPattern)
     {
+        return EnumerateFilesUnderDirectory(
+            rootDirectory,
+            searchPattern,
+            IsGeneratedDirectory);
+    }
+
+    private static IEnumerable<string> EnumerateFilesUnderDirectory (
+        string rootDirectory,
+        string searchPattern,
+        Func<string, bool> shouldSkipDirectory)
+    {
+        if (IsReparsePoint(rootDirectory))
+        {
+            throw new InvalidOperationException($"Root directory must not be a reparse point: {rootDirectory}");
+        }
+
         var pendingDirectories = new Stack<string>();
         pendingDirectories.Push(rootDirectory);
         while (pendingDirectories.Count > 0)
         {
             var currentDirectory = pendingDirectories.Pop();
-            foreach (var file in Directory.EnumerateFiles(currentDirectory, searchPattern))
+            foreach (var file in Directory.EnumerateFiles(currentDirectory, searchPattern).Order(StringComparer.Ordinal))
             {
                 if (!IsReparsePoint(file))
                 {
@@ -122,9 +157,9 @@ internal static class ArchitectureTestRepository
                 }
             }
 
-            foreach (var childDirectory in Directory.EnumerateDirectories(currentDirectory))
+            foreach (var childDirectory in Directory.EnumerateDirectories(currentDirectory).Order(StringComparer.Ordinal))
             {
-                if (!IsGeneratedDirectory(childDirectory) && !IsReparsePoint(childDirectory))
+                if (!shouldSkipDirectory(childDirectory) && !IsReparsePoint(childDirectory))
                 {
                     pendingDirectories.Push(childDirectory);
                 }
