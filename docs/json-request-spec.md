@@ -440,6 +440,8 @@ no-op request は envelope、pipeline、smoke check のために有効な reques
 ## Play Mode 変更
 Play Mode 中の変更は、通常の Play Mode 拒否契約に対する明示例外である。`--allowPlayMode` を指定しない `plan` / `call` は、Play Mode 中の request を lifecycle error として拒否する。`--allowPlayMode` は変更 request 用であり、query-only の `kind:"op"` step を許可するためには使わない。
 
+Play Mode enter / exit は JSON request の責務ではない。Editor lifecycle state を遷移させる操作は `ucli play enter` / `ucli play exit` の command surface で扱い、`kind:"op"` や `kind:"edit"` の step として表現しない。`ucli play` は uCLI content mutation を実行せず、`opResults[].touched` を返す content edit として扱わない。Play Mode 中に project code が起こす副作用は、uCLI request-step mutation attribution の対象外である。`--allowPlayMode` は Play Mode 中 mutation の明示ガードであり、Play Mode lifecycle 制御を許可する option ではない。
+
 ### 許容形
 Play Mode 変更で許可される step は `kind: "edit"` のみである。
 
