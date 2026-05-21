@@ -17,6 +17,7 @@
     "observedAtUtc": "2026-03-12T04:06:00+00:00",
     "actionRequired": null,
     "primaryDiagnostic": null,
+    "playMode": null,
     "timeoutMilliseconds": 3000,
     "session": null,
     "diagnosis": null,

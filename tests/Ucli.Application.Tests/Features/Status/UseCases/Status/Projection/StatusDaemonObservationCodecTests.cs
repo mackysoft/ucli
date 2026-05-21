@@ -21,6 +21,7 @@ public sealed class StatusDaemonObservationCodecTests
         Assert.Null(actual.DomainReloadGeneration);
         Assert.False(actual.CanAcceptExecutionRequests);
         Assert.Null(actual.EditorMode);
+        Assert.Null(actual.PlayMode);
     }
 
     [Theory]
@@ -45,7 +46,13 @@ public sealed class StatusDaemonObservationCodecTests
             BlockingReason: " busy ",
             CompileGeneration: " 42 ",
             DomainReloadGeneration: " 17 ",
-            CanAcceptExecutionRequests: true);
+            CanAcceptExecutionRequests: true,
+            PlayMode: new IpcPlayModeSnapshot(
+                State: " playing ",
+                Transition: " none ",
+                IsPlaying: true,
+                IsPlayingOrWillChangePlaymode: true,
+                Generation: " 9 "));
 
         var actual = StatusDaemonObservationCodec.CreateFromPing(
             DaemonStatusKind.Running,
@@ -60,6 +67,12 @@ public sealed class StatusDaemonObservationCodecTests
         Assert.Equal("17", actual.DomainReloadGeneration);
         Assert.True(actual.CanAcceptExecutionRequests);
         Assert.Equal(DaemonEditorModeValues.Batchmode, actual.EditorMode);
+        Assert.NotNull(actual.PlayMode);
+        Assert.Equal(IpcPlayModeStateNames.Playing, actual.PlayMode.State);
+        Assert.Equal(IpcPlayModeTransitionNames.None, actual.PlayMode.Transition);
+        Assert.True(actual.PlayMode.IsPlaying);
+        Assert.True(actual.PlayMode.IsPlayingOrWillChangePlaymode);
+        Assert.Equal("9", actual.PlayMode.Generation);
     }
 
     [Fact]

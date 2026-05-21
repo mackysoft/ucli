@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -261,6 +262,41 @@ public sealed class IpcContractSerializationTests
 
         Assert.Equal(IpcPingClientVersions.Ready, failFastJson.GetProperty("clientVersion").GetString());
         Assert.True(failFastJson.GetProperty("failFast").GetBoolean());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcPingResponse_SerializesPlayModeSnapshotWithCamelCaseFields ()
+    {
+        var response = new IpcPingResponse(
+            ServerVersion: "0.5.0",
+            EditorMode: DaemonEditorModeValues.Batchmode,
+            UnityVersion: "6000.1.4f1",
+            ProjectFingerprint: "project-fingerprint",
+            CompileState: IpcCompileStateCodec.Ready,
+            LifecycleState: IpcEditorLifecycleStateCodec.Playmode,
+            BlockingReason: IpcEditorBlockingReasonCodec.PlayMode,
+            CompileGeneration: "12",
+            DomainReloadGeneration: "7",
+            CanAcceptExecutionRequests: false,
+            PlayMode: new IpcPlayModeSnapshot(
+                State: IpcPlayModeStateNames.Playing,
+                Transition: IpcPlayModeTransitionNames.None,
+                IsPlaying: true,
+                IsPlayingOrWillChangePlaymode: true,
+                Generation: "42"));
+
+        var json = JsonSerializer.SerializeToElement(response, SerializerOptions);
+
+        JsonAssert.For(json)
+            .HasString("lifecycleState", IpcEditorLifecycleStateCodec.Playmode)
+            .HasBoolean("canAcceptExecutionRequests", false)
+            .HasProperty("playMode", playMode => playMode
+                .HasString("state", IpcPlayModeStateNames.Playing)
+                .HasString("transition", IpcPlayModeTransitionNames.None)
+                .HasBoolean("isPlaying", true)
+                .HasBoolean("isPlayingOrWillChangePlaymode", true)
+                .HasString("generation", "42"));
     }
 
     [Fact]

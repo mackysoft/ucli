@@ -1,6 +1,7 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -308,7 +309,13 @@ public sealed class ReadyCommandTests
             CanAcceptExecutionRequests: true,
             ObservedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
             ActionRequired: null,
-            PrimaryDiagnostic: null);
+            PrimaryDiagnostic: null,
+            PlayMode: new PlayModeSnapshotOutput(
+                State: IpcPlayModeStateNames.Stopped,
+                Transition: IpcPlayModeTransitionNames.None,
+                IsPlaying: false,
+                IsPlayingOrWillChangePlaymode: false,
+                Generation: "2"));
     }
 
     private static Dictionary<string, object?> CreateSubject (

@@ -57,7 +57,14 @@
               "canAcceptExecutionRequests": true,
               "observedAtUtc": "2026-05-17T00:00:00+00:00",
               "actionRequired": null,
-              "primaryDiagnostic": null
+              "primaryDiagnostic": null,
+              "playMode": {
+                "state": "stopped",
+                "transition": "none",
+                "isPlaying": false,
+                "isPlayingOrWillChangePlaymode": false,
+                "generation": "2"
+              }
             }
           }
         ],
@@ -83,7 +90,14 @@
       "canAcceptExecutionRequests": true,
       "observedAtUtc": "2026-05-17T00:00:00+00:00",
       "actionRequired": null,
-      "primaryDiagnostic": null
+      "primaryDiagnostic": null,
+      "playMode": {
+        "state": "stopped",
+        "transition": "none",
+        "isPlaying": false,
+        "isPlayingOrWillChangePlaymode": false,
+        "generation": "2"
+      }
     },
     "readIndex": null
   },
