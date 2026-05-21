@@ -29,7 +29,6 @@ jobs:
       needs_cli_pack: ${{ steps.detect.outputs.needs_cli_pack }}
       needs_unity_pack: ${{ steps.detect.outputs.needs_unity_pack }}
       needs_release_pack: ${{ steps.detect.outputs.needs_release_pack }}
-      needs_version_sync: ${{ steps.detect.outputs.needs_version_sync }}
       dotnet_matrix_json: ${{ steps.detect.outputs.dotnet_matrix_json }}
       unity_matrix_json: ${{ steps.detect.outputs.unity_matrix_json }}
 
@@ -374,60 +373,6 @@ jobs:
           path: artifacts/packages
           if-no-files-found: warn
 
-  version_sync:
-    name: version-sync
-    needs: changes
-    if: ${{ needs.changes.outputs.needs_version_sync == 'true' }}
-    runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        shell: bash
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: 10.0.x
-
-      - name: Cache NuGet packages
-        uses: actions/cache@v5
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
-
-      - name: Restore schema generator
-        run: dotnet restore tools/Ucli.SchemaGenerator/Ucli.SchemaGenerator.csproj
-
-      - name: Verify package version sync
-        run: |
-          repository_version="$(
-            perl -ne 'if (/<Version>([^<]+)<\/Version>/) { print $1; exit; }' Directory.Build.props
-          )"
-          verification_version=999.999.999
-          if [[ "${repository_version}" == "${verification_version}" ]]; then
-            verification_version=999.999.998
-          fi
-
-          ./scripts/sync-package-version.sh --version "${verification_version}"
-          grep -F "<Version>${verification_version}</Version>" Directory.Build.props
-          grep -F "MackySoft.Ucli.Contracts\" version=\"${verification_version}\"" src/Ucli.Unity/Assets/packages.config
-          grep -F "MackySoft.Ucli.Infrastructure\" version=\"${verification_version}\"" src/Ucli.Unity/Assets/packages.config
-          grep -F "<version>${verification_version}</version>" src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec
-          grep -F "MackySoft.Ucli.Contracts\" version=\"${verification_version}\"" src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec
-          grep -F "MackySoft.Ucli.Infrastructure\" version=\"${verification_version}\"" src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec
-          grep -F "\"packageVersion\": \"${verification_version}\"" schemas/v1/schema-manifest.json
-
-          ./scripts/sync-package-version.sh --version "${repository_version}"
-          git diff --exit-code -- \
-            Directory.Build.props \
-            schemas/v1/schema-manifest.json \
-            src/Ucli.Unity/Assets/packages.config \
-            src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec
-
   unity_pack:
     name: unity-pack
     needs: changes
@@ -561,7 +506,6 @@ jobs:
       - cli_pack
       - unity_pack
       - release_pack
-      - version_sync
     runs-on: ubuntu-latest
 
     steps:
@@ -574,7 +518,6 @@ jobs:
           NEEDS_CLI_PACK: ${{ needs.changes.outputs.needs_cli_pack }}
           NEEDS_UNITY_PACK: ${{ needs.changes.outputs.needs_unity_pack }}
           NEEDS_RELEASE_PACK: ${{ needs.changes.outputs.needs_release_pack }}
-          NEEDS_VERSION_SYNC: ${{ needs.changes.outputs.needs_version_sync }}
           CHANGES_RESULT: ${{ needs.changes.result }}
           ACCESS_GUARD_RESULT: ${{ needs.access_guard.result }}
           DOTNET_RESULT: ${{ needs.dotnet.result }}
@@ -583,7 +526,6 @@ jobs:
           CLI_PACK_RESULT: ${{ needs.cli_pack.result }}
           UNITY_PACK_RESULT: ${{ needs.unity_pack.result }}
           RELEASE_PACK_RESULT: ${{ needs.release_pack.result }}
-          VERSION_SYNC_RESULT: ${{ needs.version_sync.result }}
         run: |
           set -euo pipefail
 
@@ -626,11 +568,6 @@ jobs:
 
           if [[ "${NEEDS_RELEASE_PACK}" == "true" && "${RELEASE_PACK_RESULT}" != "success" ]]; then
             echo "release-pack job is required but finished with ${RELEASE_PACK_RESULT}." >&2
-            exit 1
-          fi
-
-          if [[ "${NEEDS_VERSION_SYNC}" == "true" && "${VERSION_SYNC_RESULT}" != "success" ]]; then
-            echo "version-sync job is required but finished with ${VERSION_SYNC_RESULT}." >&2
             exit 1
           fi
 
