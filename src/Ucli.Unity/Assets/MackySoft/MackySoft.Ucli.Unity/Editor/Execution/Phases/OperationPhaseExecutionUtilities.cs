@@ -93,6 +93,85 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
         }
 
+        /// <summary> Applies operation-level response reporting policy to one phase-step result. </summary>
+        /// <param name="operation"> The normalized operation that produced the result. </param>
+        /// <param name="result"> The raw phase-step result. </param>
+        /// <returns> The public-reporting result. </returns>
+        public static OperationPhaseStepResult ApplyPersistenceReportingPolicy (
+            NormalizedOperation operation,
+            OperationPhaseStepResult result)
+        {
+            if (operation == null)
+            {
+                throw new ArgumentNullException(nameof(operation));
+            }
+
+            if (result == null)
+            {
+                throw new ArgumentNullException(nameof(result));
+            }
+
+            if (operation.SuppressPersistenceReporting)
+            {
+                return result with
+                {
+                    Touched = Array.Empty<OperationTouch>(),
+                    ReadInvalidations = Array.Empty<OperationReadInvalidation>(),
+                    Persisted = false,
+                };
+            }
+
+            if (operation.SuppressScenePersistenceReporting)
+            {
+                return result with
+                {
+                    Touched = FilterSceneTouched(result.Touched),
+                    ReadInvalidations = FilterSceneReadInvalidations(result.ReadInvalidations),
+                };
+            }
+
+            return result;
+        }
+
+        private static IReadOnlyList<OperationTouch> FilterSceneTouched (IReadOnlyList<OperationTouch> touched)
+        {
+            if (touched.Count == 0)
+            {
+                return touched;
+            }
+
+            var filtered = new List<OperationTouch>(touched.Count);
+            for (var i = 0; i < touched.Count; i++)
+            {
+                if (touched[i].Kind != OperationTouchKind.Scene)
+                {
+                    filtered.Add(touched[i]);
+                }
+            }
+
+            return filtered.Count == touched.Count ? touched : filtered.ToArray();
+        }
+
+        private static IReadOnlyList<OperationReadInvalidation> FilterSceneReadInvalidations (
+            IReadOnlyList<OperationReadInvalidation> readInvalidations)
+        {
+            if (readInvalidations.Count == 0)
+            {
+                return readInvalidations;
+            }
+
+            var filtered = new List<OperationReadInvalidation>(readInvalidations.Count);
+            for (var i = 0; i < readInvalidations.Count; i++)
+            {
+                if (readInvalidations[i].Surface != OperationReadInvalidationSurface.SceneTreeLite)
+                {
+                    filtered.Add(readInvalidations[i]);
+                }
+            }
+
+            return filtered.Count == readInvalidations.Count ? readInvalidations : filtered.ToArray();
+        }
+
         /// <summary> Creates a skipped trace for operations after fail-fast stopping. </summary>
         /// <param name="operation"> The skipped operation. </param>
         /// <returns> The skipped trace entry. </returns>

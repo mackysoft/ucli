@@ -13,9 +13,11 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <summary> Ensures the editor can accept execution requests, optionally failing fast. </summary>
         /// <param name="failFast"> Whether waitable lifecycle states should fail immediately instead of being waited out. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
+        /// <param name="allowPlayMode"> Whether a GUI Editor Play Mode session may accept mutation execution. </param>
         /// <returns> The readiness decision result. </returns>
         Task<UnityEditorExecutionReadinessResult> EnsureExecutionReadyAsync (
             bool failFast,
-            CancellationToken cancellationToken = default);
+            CancellationToken cancellationToken = default,
+            bool allowPlayMode = false);
     }
 }

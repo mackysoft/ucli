@@ -30,10 +30,10 @@ public static class IpcExecutePostReadSourceRules
         {
             IpcExecutePostReadSourceKindNames.Edit =>
                 string.Equals(operationName, EditOperationName, StringComparison.Ordinal)
-                && !playModeMutation
                 && IsKnownPostReadCommit(commit)
-                && (string.Equals(commit, IpcExecutePostReadCommitNames.None, StringComparison.Ordinal) || persistenceExpected)
-                && string.Equals(expectedPostState, IpcExecuteExpectedPostStateNames.Deterministic, StringComparison.Ordinal),
+                && (playModeMutation
+                    ? IsCompatiblePlayModeEditSource(commit, expectedPostState)
+                    : IsCompatibleDeterministicEditSource(commit, persistenceExpected, expectedPostState)),
             IpcExecutePostReadSourceKindNames.Operation =>
                 !string.Equals(operationName, EditOperationName, StringComparison.Ordinal)
                 && !string.Equals(operationName, UcliPrimitiveOperationNames.ProjectRefresh, StringComparison.Ordinal)
@@ -80,5 +80,22 @@ public static class IpcExecutePostReadSourceRules
         return commit is IpcExecutePostReadCommitNames.None
             or IpcExecutePostReadCommitNames.Context
             or IpcExecutePostReadCommitNames.Project;
+    }
+
+    private static bool IsCompatiblePlayModeEditSource (
+        string? commit,
+        string expectedPostState)
+    {
+        return string.Equals(commit, IpcExecutePostReadCommitNames.None, StringComparison.Ordinal)
+            && string.Equals(expectedPostState, IpcExecuteExpectedPostStateNames.Unavailable, StringComparison.Ordinal);
+    }
+
+    private static bool IsCompatibleDeterministicEditSource (
+        string? commit,
+        bool persistenceExpected,
+        string expectedPostState)
+    {
+        return (string.Equals(commit, IpcExecutePostReadCommitNames.None, StringComparison.Ordinal) || persistenceExpected)
+            && string.Equals(expectedPostState, IpcExecuteExpectedPostStateNames.Deterministic, StringComparison.Ordinal);
     }
 }

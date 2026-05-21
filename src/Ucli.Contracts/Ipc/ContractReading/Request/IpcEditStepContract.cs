@@ -68,6 +68,10 @@ internal sealed record IpcEditStepContract (
 
         CreatePrefab,
 
+        ApplyPrefabOverrides,
+
+        RevertPrefabOverrides,
+
         Delete,
 
         Reparent,
@@ -125,6 +129,8 @@ internal sealed record IpcEditStepContract (
     /// <param name="Name"> The created GameObject name for <c>createObject</c>. </param>
     /// <param name="Path"> The created asset or prefab path for path-producing actions. </param>
     /// <param name="Parent"> The public parent literal for <c>reparent</c>. </param>
+    /// <param name="TargetAssetPath"> The explicit prefab asset path for prefab override actions. </param>
+    /// <param name="PropertyPaths"> The optional exact SerializedProperty paths for prefab override actions. </param>
     /// <param name="Values"> The cloned assignment object for <c>set</c>. </param>
     internal sealed record EditAction (
         ActionKind Kind,
@@ -134,5 +140,7 @@ internal sealed record IpcEditStepContract (
         string? Name,
         string? Path,
         string? Parent,
+        string? TargetAssetPath,
+        IReadOnlyList<string>? PropertyPaths,
         JsonElement Values);
 }

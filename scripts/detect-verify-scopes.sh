@@ -14,7 +14,6 @@ needs_shared_pack=false
 needs_cli_pack=false
 needs_unity_pack=false
 needs_release_pack=false
-needs_version_sync=false
 
 event_name="${EVENT_NAME:-}"
 current_sha="${CURRENT_SHA:-}"
@@ -38,7 +37,6 @@ emit_outputs() {
   emit_output needs_cli_pack "${needs_cli_pack}"
   emit_output needs_unity_pack "${needs_unity_pack}"
   emit_output needs_release_pack "${needs_release_pack}"
-  emit_output needs_version_sync "${needs_version_sync}"
   emit_output dotnet_matrix_json "${dotnet_matrix_json}"
   emit_output unity_matrix_json "${unity_matrix_json}"
 }
@@ -51,7 +49,6 @@ emit_full_verification() {
   needs_cli_pack=true
   needs_unity_pack=true
   needs_release_pack=true
-  needs_version_sync=true
   dotnet_matrix_json="${dotnet_matrix_pr}"
   unity_matrix_json="${unity_matrix_pr}"
   emit_outputs
@@ -121,7 +118,7 @@ is_package_publish_shared_input() {
   local file="$1"
 
   case "${file}" in
-    .github/actions/publish-nuget-package/action.yaml|.github/workflows/package-publish.yaml|scripts/create-release-tag.sh|scripts/create-version-sync-pr.sh|scripts/inspect-nuget-package-state.sh|scripts/mirror-nuget-package-release.sh|scripts/package-version-sync-common.sh|scripts/prepare-version-sync-branch.sh|scripts/resolve-release-version.sh|scripts/sync-package-version.sh|scripts/verify-release-package-artifacts.sh|scripts/wait-nuget-packages.sh)
+    .github/actions/publish-nuget-package/action.yaml|.github/workflows/package-publish.yaml|scripts/create-release-tag.sh|scripts/inspect-nuget-package-state.sh|scripts/mirror-nuget-package-release.sh|scripts/package-version-sync-common.sh|scripts/resolve-release-version.sh|scripts/sync-package-version.sh|scripts/verify-release-package-artifacts.sh|scripts/wait-nuget-packages.sh)
       return 0
       ;;
     *)
@@ -139,19 +136,6 @@ is_release_pack_input() {
 
   case "${file}" in
     .gitattributes|Directory.Build.props|README.md|LICENSE|.github/workflows/verify.yaml|scripts/detect-verify-scopes.sh|scripts/generate-schemas.sh|scripts/pack-schema-artifacts.sh|scripts/pack-unity-plugin.sh|scripts/schema-artifact-common.sh|scripts/setup-nuget-cli.sh|scripts/verify-cli-package.sh|scripts/verify-schema-artifacts.sh|scripts/verify-shared-packages.sh|scripts/verify-skills.sh|scripts/verify-unity-plugin-package.sh|schemas/*|src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec|src/Ucli.Unity/Assets/packages.config)
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
-
-is_version_sync_input() {
-  local file="$1"
-
-  case "${file}" in
-    Directory.Build.props|.github/workflows/verify.yaml|.github/workflows/package-publish.yaml|scripts/detect-verify-scopes.sh|scripts/generate-schemas.sh|scripts/package-version-sync-common.sh|scripts/sync-package-version.sh|schemas/v1/schema-manifest.json|src/Ucli.Unity/Assets/packages.config|src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec)
       return 0
       ;;
     *)
@@ -280,10 +264,6 @@ while IFS= read -r file; do
 
   if is_release_pack_input "${file}"; then
     needs_release_pack=true
-  fi
-
-  if is_version_sync_input "${file}"; then
-    needs_version_sync=true
   fi
 
   if is_dotnet_input "${file}"; then

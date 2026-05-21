@@ -205,19 +205,19 @@ done
 失敗時はログの `Scripts have compiler errors.` の直前にあるエラーで原因を判定する。
 
 ## CI / Release Workflow
-- `verify`: PR、`master` push、`workflow_dispatch` で起動する統一検証 workflow。変更差分に応じて `.NET`、Unity、shared pack、CLI pack、Unity package pack、release pack、version sync を job 単位で分岐し、最終的な必須判定は `required` job で集約する。
+- `verify`: PR、`master` push、`workflow_dispatch` で起動する統一検証 workflow。変更差分に応じて `.NET`、Unity、shared pack、CLI pack、Unity package pack、release pack を job 単位で分岐し、最終的な必須判定は `required` job で集約する。
 - `verify` の `.NET` 検証には、公開 CLI schema generation、schema artifact diff check、Golden output validation、semantic invariant validator tests を含める。
-- `package-publish` の workflow 自体を変更した PR では `verify` は `.NET`、shared pack、CLI pack、Unity package pack、release pack、version sync を起動し、公開フロー変更を無検証のまま通さない。
+- `package-publish` の workflow 自体を変更した PR では `verify` は `.NET`、shared pack、CLI pack、Unity package pack、release pack を起動し、公開フロー変更を無検証のまま通さない。
 - Unity package nuspec、pack/verify script、Unityプラグイン本体、`packages.config` を変更した PR では `verify` は Unity package pack を起動し、NuGetForUnity配布物の回帰を検出する。
 - `verify` は workflow-level `concurrency` で同一 PR または同一 branch の古い run を自動キャンセルする。`workflow_dispatch` のみ明示比較用途のため自動キャンセルしない。
 - `pull_request` では変更差分を merge base 起点で判定し、必要な job だけを `Linux`、`Windows`、`macOS` の 3 OS matrix で実行する。外部 contributor の PR では `access-guard` job が失敗し、Unity job は実行しない。
 - `push` to `master` では変更差分を判定しつつ、実行 OS は `Linux` のみに絞って post-merge 検証を軽量化する。
-- `workflow_dispatch` は差分判定を使わず、`.NET`、Unity、shared pack、CLI pack、Unity package pack、release pack、version sync をフル検証する。`.NET` と Unity は `Linux`、`Windows`、`macOS` の 3 OS で実行し、package 検証は `Linux` で実行する。
+- `workflow_dispatch` は差分判定を使わず、`.NET`、Unity、shared pack、CLI pack、Unity package pack、release pack をフル検証する。`.NET` と Unity は `Linux`、`Windows`、`macOS` の 3 OS で実行し、package 検証は `Linux` で実行する。
 - Unity 検証は `src/Ucli`、`src/Ucli.Application`、`src/Ucli.Unity`、`src/Ucli.Contracts`、`src/Ucli.Infrastructure`、`scripts/test-unity.sh`、`scripts/update-local-shared-packages.sh`、`verify` 自体の変更時に動く。`buildalon/unity-setup` と `buildalon/activate-unity-license` で各 OS の Unity Editor を用意した後、CI とローカル共通の `scripts/test-unity.sh` から `ucli test run --mode oneshot` を使って `EditMode` テストアセンブリを明示指定して実行する。workflow はプロセス終了コードだけでなく `command-result.json` の `status` / `exitCode` / `payload.result` も検証し、`pass` 以外を失敗として扱う。
 - CLI pack 検証は `Directory.Build.props`、`src/Ucli`、`src/Ucli.Contracts`、`src/Ucli.Infrastructure`、`README.md`、`LICENSE`、`package-publish`、`verify` 自体の変更時に動く。`dotnet pack` 後にローカル tool install、`ucli --version`、`ucli --help`、nupkg 内の `DotnetToolSettings.xml` / `README.md` / `LICENSE` を検証する。
 - Unity package pack 検証は `scripts/pack-unity-plugin.sh` で `MackySoft.Ucli.Unity` nupkg を作成し、`scripts/verify-unity-plugin-package.sh` で必須ファイル、依存定義、ローカル復元後の `ucli-plugin.json` 配置を検証する。
-- `package-publish`: `<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `release_tag` から同名タグを先に作成して push し、その同一 workflow run の中で version sync / pack / package verify / nuget.org publication state check / publish availability wait / GitHub Release mirror / repository version sync PR 作成まで継続する。
-- `package-publish` は公開後に `chore/release-sync-<version>` ブランチを作成し、`Directory.Build.props`、`schemas/v1/schema-manifest.json`、`src/Ucli.Unity/Assets/packages.config`、`src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec` の package version を同一値へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
+- `package-publish`: `<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `release_tag` から同名タグを先に作成して push し、その同一 workflow run の中で release workspace の package version 同期 / pack / package verify / nuget.org publication state check / publish availability wait / GitHub Release mirror まで継続する。
+- `package-publish` は repository 上の package version を公開後に書き戻さない。公開成果物の version はタグと pack 時の明示指定を正とし、`Directory.Build.props` などの checked-in version は開発用の既定値として扱う。
 - タグは `v` や `release/` のプレフィックスを付けない（例: `x.y.z`）。
 
 ```bash

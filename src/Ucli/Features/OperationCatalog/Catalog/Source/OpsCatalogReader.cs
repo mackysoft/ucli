@@ -27,6 +27,7 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
         TimeSpan timeout,
         bool failFast,
         bool requireReadinessGate,
+        bool includeEditLoweringOnly = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -44,7 +45,8 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
                     IpcMethodNames.OpsRead,
                     IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
                         FailFast: failFast,
-                        RequireReadinessGate: requireReadinessGate))),
+                        RequireReadinessGate: requireReadinessGate,
+                        IncludeEditLoweringOnly: includeEditLoweringOnly))),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
@@ -55,12 +57,13 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
                 executionResult.FailureInfo!.StartupFailure);
         }
 
-        return CreateResultFromResponse(executionResult.Response!, "ops.read");
+        return CreateResultFromResponse(executionResult.Response!, "ops.read", includeEditLoweringOnly);
     }
 
     private static OpsCatalogFetchResult CreateResultFromResponse (
         UnityRequestResponse response,
-        string responseSourceName)
+        string responseSourceName,
+        bool allowEditLoweringOnlyEntries)
     {
         ArgumentNullException.ThrowIfNull(response);
         ArgumentException.ThrowIfNullOrWhiteSpace(responseSourceName);
@@ -96,6 +99,7 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
                 payload.GeneratedAtUtc,
                 payload.Operations,
                 "operations",
+                allowEditLoweringOnlyEntries,
                 out var snapshot,
                 out var validationError))
         {

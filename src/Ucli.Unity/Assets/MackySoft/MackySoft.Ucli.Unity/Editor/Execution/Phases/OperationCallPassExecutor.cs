@@ -61,11 +61,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     // Some operations keep request-local plan state inside the phase-operation instance.
                     // Those operations opt into plan replay explicitly through metadata so Call observes
                     // state derived from the current operation immediately beforehand.
-                    var replayedPlanStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStepAsync(
+                    var replayedPlanStepResult = OperationPhaseExecutionUtilities.ApplyPersistenceReportingPolicy(
                         preparedOperation.Operation,
-                        OperationPhase.Plan,
-                        ct => preparedOperation.PhaseOperation.PlanAsync(preparedOperation.Operation, executionContext, ct),
-                        cancellationToken).ConfigureAwait(false);
+                        await OperationPhaseExecutionUtilities.ExecutePhaseStepAsync(
+                            preparedOperation.Operation,
+                            OperationPhase.Plan,
+                            ct => preparedOperation.PhaseOperation.PlanAsync(preparedOperation.Operation, executionContext, ct),
+                            cancellationToken).ConfigureAwait(false));
                     OperationPhaseExecutionUtilities.MergeTouched(touched, replayedPlanStepResult.Touched);
                     OperationPhaseExecutionUtilities.MergeDiagnostics(diagnostics, replayedPlanStepResult.Diagnostics);
                     persisted |= replayedPlanStepResult.Persisted;
@@ -94,11 +96,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     }
                 }
 
-                var callStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStepAsync(
+                var callStepResult = OperationPhaseExecutionUtilities.ApplyPersistenceReportingPolicy(
                     preparedOperation.Operation,
-                    OperationPhase.Call,
-                    ct => preparedOperation.PhaseOperation.CallAsync(preparedOperation.Operation, executionContext, ct),
-                    cancellationToken).ConfigureAwait(false);
+                    await OperationPhaseExecutionUtilities.ExecutePhaseStepAsync(
+                        preparedOperation.Operation,
+                        OperationPhase.Call,
+                        ct => preparedOperation.PhaseOperation.CallAsync(preparedOperation.Operation, executionContext, ct),
+                        cancellationToken).ConfigureAwait(false));
 
                 OperationPhaseExecutionUtilities.MergeTouched(touched, callStepResult.Touched);
                 OperationPhaseExecutionUtilities.MergeDiagnostics(diagnostics, callStepResult.Diagnostics);

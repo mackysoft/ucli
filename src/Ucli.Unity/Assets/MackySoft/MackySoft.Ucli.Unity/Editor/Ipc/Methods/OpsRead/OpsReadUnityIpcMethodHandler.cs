@@ -61,7 +61,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
             }
 
-            return UnityIpcResponseFactory.CreateSuccessResponse(request, operationCatalogSnapshot.Catalog);
+            var catalog = payload.IncludeEditLoweringOnly
+                ? operationCatalogSnapshot.RequestValidationCatalog
+                : operationCatalogSnapshot.Catalog;
+            return UnityIpcResponseFactory.CreateSuccessResponse(request, catalog);
         }
     }
 }

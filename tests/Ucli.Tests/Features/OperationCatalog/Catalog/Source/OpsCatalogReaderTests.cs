@@ -50,7 +50,8 @@ public sealed class OpsCatalogReaderTests
             TimeSpan.FromMilliseconds(1200),
             failFast: true,
             requireReadinessGate: false,
-            CancellationToken.None);
+            includeEditLoweringOnly: true,
+            cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Snapshot);
@@ -59,6 +60,10 @@ public sealed class OpsCatalogReaderTests
         Assert.Equal(UcliCommandIds.Ops, executor.Command.Name);
         var request = Assert.IsType<UnityRequestPayload.Raw>(executor.Payload);
         Assert.Equal(IpcMethodNames.OpsRead, request.Method);
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcOpsReadRequest payload, out _));
+        Assert.True(payload.FailFast);
+        Assert.False(payload.RequireReadinessGate);
+        Assert.True(payload.IncludeEditLoweringOnly);
     }
 
     [Fact]
@@ -86,7 +91,7 @@ public sealed class OpsCatalogReaderTests
             TimeSpan.FromMilliseconds(1200),
             failFast: false,
             requireReadinessGate: true,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
@@ -113,7 +118,7 @@ public sealed class OpsCatalogReaderTests
             TimeSpan.FromMilliseconds(1200),
             failFast: false,
             requireReadinessGate: true,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
@@ -143,7 +148,7 @@ public sealed class OpsCatalogReaderTests
             TimeSpan.FromMilliseconds(1200),
             failFast: false,
             requireReadinessGate: false,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);

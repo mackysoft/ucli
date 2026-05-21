@@ -29,7 +29,7 @@ internal static class IndexCatalogContractValidator
     {
         return IsSupportedSchemaVersion(contract.SchemaVersion)
             && !string.IsNullOrWhiteSpace(contract.SourceInputsHash)
-            && TryValidateOpsEntry(contract.Operation, 0, out _);
+            && TryValidateOpsEntry(contract.Operation, 0, allowEditLoweringOnlyEntries: false, out _);
     }
 
     /// <summary> Validates one lightweight operation-descriptor collection from <c>ops.catalog.json</c>. </summary>
@@ -92,6 +92,25 @@ internal static class IndexCatalogContractValidator
         string propertyName,
         out string? error)
     {
+        return TryValidateOpsEntries(
+            entries,
+            propertyName,
+            allowEditLoweringOnlyEntries: false,
+            out error);
+    }
+
+    /// <summary> Validates one operation-entry collection shared by persisted and live ops catalog payloads. </summary>
+    /// <param name="entries"> The operation-entry collection. </param>
+    /// <param name="propertyName"> The property name used in validation errors. </param>
+    /// <param name="allowEditLoweringOnlyEntries"> Whether edit-lowering-only entries are valid for request validation. </param>
+    /// <param name="error"> The validation error; otherwise <see langword="null" />. </param>
+    /// <returns> <see langword="true" /> when the entry collection is valid; otherwise <see langword="false" />. </returns>
+    public static bool TryValidateOpsEntries (
+        IReadOnlyList<IndexOpEntryJsonContract>? entries,
+        string propertyName,
+        bool allowEditLoweringOnlyEntries,
+        out string? error)
+    {
         if (entries == null)
         {
             error = $"Required property '{propertyName}' is missing.";
@@ -102,7 +121,7 @@ internal static class IndexCatalogContractValidator
         for (var i = 0; i < entries.Count; i++)
         {
             var entry = entries[i];
-            if (!TryValidateOpsEntry(entry, i, out error))
+            if (!TryValidateOpsEntry(entry, i, allowEditLoweringOnlyEntries, out error))
             {
                 return false;
             }
@@ -121,6 +140,7 @@ internal static class IndexCatalogContractValidator
     private static bool TryValidateOpsEntry (
         IndexOpEntryJsonContract? entry,
         int index,
+        bool allowEditLoweringOnlyEntries,
         out string? error)
     {
         error = null;
@@ -128,9 +148,10 @@ internal static class IndexCatalogContractValidator
             || string.IsNullOrWhiteSpace(entry.Name)
             || !UcliOperationKindCodec.TryParse(entry.Kind, out _)
             || !OperationPolicyCodec.TryParse(entry.Policy, out _)
-            || !IndexJsonSchemaSubsetValidator.IsValidPublicRawOpArgsSchema(entry.ArgsSchemaJson)
+            || !TryResolveCatalogExposure(entry.Exposure, allowEditLoweringOnlyEntries, out var exposure, out error)
+            || !IsValidArgsSchema(entry.ArgsSchemaJson, exposure)
             || !IsValidOptionalSchemaObject(entry.ResultSchemaJson)
-            || !TryValidateOpsDescribeContract(entry, out error))
+            || !TryValidateOpsDescribeContract(entry, exposure, out error))
         {
             error ??= $"Operation entry at index {index} is invalid.";
             return false;
@@ -140,8 +161,53 @@ internal static class IndexCatalogContractValidator
         return true;
     }
 
+    private static bool TryResolveCatalogExposure (
+        string? exposureValue,
+        bool allowEditLoweringOnlyEntries,
+        out UcliOperationExposure exposure,
+        out string? error)
+    {
+        if (exposureValue == null)
+        {
+            exposure = UcliOperationExposure.Public;
+            error = null;
+            return true;
+        }
+
+        if (!UcliOperationExposureCodec.TryParse(exposureValue, out exposure))
+        {
+            error = $"Unsupported operation exposure '{exposureValue}'.";
+            return false;
+        }
+
+        if (exposure == UcliOperationExposure.Public)
+        {
+            error = null;
+            return true;
+        }
+
+        if (exposure == UcliOperationExposure.EditLoweringOnly && allowEditLoweringOnlyEntries)
+        {
+            error = null;
+            return true;
+        }
+
+        error = $"Operation exposure '{exposureValue}' is not allowed in this catalog.";
+        return false;
+    }
+
+    private static bool IsValidArgsSchema (
+        string? argsSchemaJson,
+        UcliOperationExposure exposure)
+    {
+        return exposure == UcliOperationExposure.EditLoweringOnly
+            ? IndexJsonSchemaSubsetValidator.IsValidObjectSchema(argsSchemaJson)
+            : IndexJsonSchemaSubsetValidator.IsValidPublicRawOpArgsSchema(argsSchemaJson);
+    }
+
     private static bool TryValidateOpsDescribeContract (
         IndexOpEntryJsonContract entry,
+        UcliOperationExposure exposure,
         out string? error)
     {
         var describeContract = new UcliOperationDescribeContract(
@@ -150,12 +216,30 @@ internal static class IndexCatalogContractValidator
             entry.ResultContract,
             entry.Assurance,
             entry.CodeContract);
-        if (!UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
+        var ownerName = $"Operation entry '{entry.Name}'";
+        string inputError;
+        bool describeContractValid;
+        if (exposure == UcliOperationExposure.Public)
+        {
+            describeContractValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
                 describeContract,
                 entry.Kind,
                 entry.Policy,
-                $"Operation entry '{entry.Name}'",
-                out var inputError))
+                ownerName,
+                out inputError);
+        }
+        else
+        {
+            describeContractValid = UcliOperationDescribeContractValidator.TryValidateRegisteredOperationDescribeContract(
+                describeContract,
+                entry.Kind,
+                entry.Policy,
+                ownerName,
+                exposure,
+                out inputError);
+        }
+
+        if (!describeContractValid)
         {
             error = inputError;
             return false;

@@ -15,7 +15,9 @@ public sealed record IndexOpEntryJsonContract (
     string? Policy,
     string? ArgsSchemaJson,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    string? ResultSchemaJson = null)
+    string? ResultSchemaJson = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? Exposure = null)
 {
     /// <summary> Gets or initializes the operation purpose description. </summary>
     public string? Description { get; init; }

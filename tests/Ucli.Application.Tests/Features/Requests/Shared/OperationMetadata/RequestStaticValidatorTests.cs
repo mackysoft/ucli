@@ -25,11 +25,14 @@ public sealed class RequestStaticValidatorTests
     public static TheoryData<string> EditLoweringOnlyPrimitiveNames => new()
     {
         UcliPrimitiveOperationNames.AssetCreate,
+        UcliPrimitiveOperationNames.AssetSave,
         UcliPrimitiveOperationNames.AssetSet,
         UcliPrimitiveOperationNames.CompEnsure,
         UcliPrimitiveOperationNames.CompSet,
         UcliPrimitiveOperationNames.GoCreate,
+        UcliPrimitiveOperationNames.PrefabApplyOverrides,
         UcliPrimitiveOperationNames.PrefabCreate,
+        UcliPrimitiveOperationNames.PrefabRevertOverrides,
     };
 
     [Theory]
@@ -311,6 +314,59 @@ public sealed class RequestStaticValidatorTests
             CancellationToken.None);
 
         AssertContainsEditLoweringOnlyError(result, operationName);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("applyPrefabOverrides")]
+    [InlineData("revertPrefabOverrides")]
+    public async Task Validate_WhenPublicCatalogOmitsPrefabOverrideEditLoweringPrimitive_RemainsValid (
+        string prefabOverrideAction)
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            steps:
+            [
+                CreateEditStep(
+                    stepId: "edit-prefab-override",
+                    $$"""
+                    {
+                      "kind": "edit",
+                      "id": "edit-prefab-override",
+                      "on": {
+                        "scene": "Assets/Scenes/Main.unity"
+                      },
+                      "select": {
+                        "gameObject": "Root/Spawner",
+                        "component": "Game.EnemySpawner, Assembly-CSharp",
+                        "cardinality": "one"
+                      },
+                      "actions": [
+                        {
+                          "kind": "set",
+                          "values": {
+                            "spawnInterval": 3.0
+                          }
+                        },
+                        {
+                          "kind": "{{prefabOverrideAction}}",
+                          "targetAssetPath": "Assets/Prefabs/Enemy.prefab"
+                        }
+                      ],
+                      "commit": "none"
+                    }
+                    """),
+            ]);
+
+        var result = await validator.ValidateAsync(
+            request,
+            Array.Empty<UcliOperationDescriptor>(),
+            CreateConfig(OperationPolicy.Advanced, "^ucli\\."),
+            CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Errors);
+        Assert.Null(result.Error);
     }
 
     [Fact]

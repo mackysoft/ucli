@@ -117,6 +117,17 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     SerializerOptions);
             }
 
+            if (request.AllowPlayMode
+                && !IsPlayModeMutationCommand(request.Command))
+            {
+                return ExecuteResponseBuilder.CreateErrorResponse(
+                    context,
+                    UcliCoreErrorCodes.InvalidArgument,
+                    "allowPlayMode is supported only for plan and call execute commands.",
+                    null,
+                    SerializerOptions);
+            }
+
             var normalizationResult = requestNormalizer.Normalize(request, cancellationToken);
             if (!normalizationResult.IsSuccess)
             {
@@ -129,7 +140,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     SerializerOptions);
             }
 
-            var readinessResult = await readinessGate.EnsureExecutionReadyAsync(request.FailFast, cancellationToken).ConfigureAwait(false);
+            var readinessResult = await readinessGate.EnsureExecutionReadyAsync(request.FailFast, cancellationToken, request.AllowPlayMode).ConfigureAwait(false);
             if (!readinessResult.IsReady)
             {
                 var lifecycleError = readinessResult.Error!;
@@ -164,5 +175,15 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             }
         }
 
+        private static bool IsPlayModeMutationCommand (string commandName)
+        {
+            if (!UcliCommand.TryCreate(commandName, out var command))
+            {
+                return false;
+            }
+
+            return command == UcliCommandIds.Plan
+                   || command == UcliCommandIds.Call;
+        }
     }
 }

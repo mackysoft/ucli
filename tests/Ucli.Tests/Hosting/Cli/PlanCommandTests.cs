@@ -65,6 +65,7 @@ public sealed class PlanCommandTests
         Assert.Equal(ReadIndexMode.Disabled, service.CapturedInput.ReadIndexMode);
         Assert.True(service.CapturedInput.FailFast);
         Assert.Equal(DefaultRequestJson, service.CapturedInput.RequestJson);
+        Assert.False(service.CapturedInput.AllowPlayMode);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
         JsonAssert.For(outputJson.RootElement)
@@ -74,6 +75,35 @@ public sealed class PlanCommandTests
             CliOutputGoldenFiles.GetPath("plan", "success.json"),
             standardOutput,
             CliOutputGoldenFiles.NormalizeRequestIds());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Plan_WhenAllowPlayModeIsSpecified_PassesAllowPlayModeToService ()
+    {
+        var service = new StubPlanService((input, _) => ValueTask.FromResult(PlanServiceResult.Success(
+            new PlanExecutionOutput(
+                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                Project: ProjectIdentityInfoTestFactory.Create(),
+                OpResults: [],
+                ReadIndex: CreateReadIndexInfo(
+                    used: false,
+                    hit: false,
+                    fallbackReason: "Play Mode mutation uses live Unity state."),
+                PlanToken: "plan-token-1"),
+            "uCLI plan completed.")));
+        var preflightService = new StubPlanCommandPreflightService((_, _, _, _) => throw new InvalidOperationException("Preflight should not be called."));
+        var command = new PlanCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
+
+        var (exitCode, _) = await StandardOutputCapture.ExecuteAsync(() => command.PlanAsync(
+            allowPlayMode: true,
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        Assert.NotNull(service.CapturedInput);
+        Assert.True(service.CapturedInput!.AllowPlayMode);
+        Assert.Null(service.CapturedInput.ReadIndexMode);
+        Assert.Equal(0, preflightService.CallCount);
     }
 
     [Fact]
@@ -182,6 +212,35 @@ public sealed class PlanCommandTests
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
         Assert.Equal(0, preflightService.CallCount);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("disabled")]
+    [InlineData("allowStale")]
+    [InlineData("requireFresh")]
+    public async Task Plan_WhenAllowPlayModeAndReadIndexModeAreSpecified_ReturnsInvalidArgumentWithoutCallingService (
+        string readIndexMode)
+    {
+        var service = new StubPlanService((_, _) => throw new InvalidOperationException("Service should not be called."));
+        var preflightService = new StubPlanCommandPreflightService((_, _, _, _) => throw new InvalidOperationException("Preflight should not be called."));
+        var command = new PlanCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.PlanAsync(
+            readIndexMode: readIndexMode,
+            allowPlayMode: true,
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
+        Assert.Null(service.CapturedInput);
+        Assert.Equal(0, preflightService.CallCount);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Plan,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
     }
 
     [Fact]

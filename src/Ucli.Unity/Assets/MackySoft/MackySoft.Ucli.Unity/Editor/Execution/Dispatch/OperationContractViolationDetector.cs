@@ -33,7 +33,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     continue;
                 }
 
-                if (trace.Changed && !contracts.MayDirty)
+                if (trace.Changed && !contracts.MayDirty && !contracts.MayPersist)
                 {
                     AddContractViolation(
                         violations,

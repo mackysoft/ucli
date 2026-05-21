@@ -44,6 +44,7 @@ internal sealed class CallCommand
     /// <param name="planToken">--planToken, Optional plan token issued by a prior plan execution.</param>
     /// <param name="withPlan">--withPlan, Includes one plan-equivalent payload alongside call output.</param>
     /// <param name="allowDangerous">--allowDangerous, Explicitly allows dangerous operations when the project config also permits them.</param>
+    /// <param name="allowPlayMode">--allowPlayMode, Allows Play Mode mutation when the target is a GUI Editor session in Play Mode.</param>
     /// <param name="failFast">--failFast, Fails immediately when Unity editor lifecycle is not yet ready.</param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
@@ -55,6 +56,7 @@ internal sealed class CallCommand
         string? planToken = null,
         bool withPlan = false,
         bool allowDangerous = false,
+        bool allowPlayMode = false,
         bool failFast = false,
         CancellationToken cancellationToken = default)
     {
@@ -116,7 +118,10 @@ internal sealed class CallCommand
                     WithPlan: withPlan,
                     AllowDangerous: allowDangerous,
                     FailFast: failFast,
-                    RequestJson: serviceRequestInputReadResult.Json!),
+                    RequestJson: serviceRequestInputReadResult.Json!)
+                {
+                    AllowPlayMode = allowPlayMode,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = CallCommandResultFactory.Create(serviceResult);

@@ -239,7 +239,6 @@ public sealed class PackageMetadataTests
         Assert.Equal("false", outputs["needs_unity"]);
         Assert.Equal("false", outputs["needs_unity_pack"]);
         Assert.Equal("true", outputs["needs_release_pack"]);
-        Assert.Equal("true", outputs["needs_version_sync"]);
     }
 
     [Fact]
@@ -257,7 +256,6 @@ public sealed class PackageMetadataTests
         Assert.Equal("true", outputs["needs_unity"]);
         Assert.Equal("true", outputs["needs_unity_pack"]);
         Assert.Equal("true", outputs["needs_release_pack"]);
-        Assert.Equal("false", outputs["needs_version_sync"]);
     }
 
     [Fact]
@@ -275,7 +273,6 @@ public sealed class PackageMetadataTests
         Assert.Equal("false", outputs["needs_unity"]);
         Assert.Equal("false", outputs["needs_unity_pack"]);
         Assert.Equal("true", outputs["needs_release_pack"]);
-        Assert.Equal("true", outputs["needs_version_sync"]);
     }
 
     [Fact]
@@ -293,7 +290,6 @@ public sealed class PackageMetadataTests
         Assert.Equal("false", outputs["needs_unity"]);
         Assert.Equal("false", outputs["needs_unity_pack"]);
         Assert.Equal("true", outputs["needs_release_pack"]);
-        Assert.Equal("true", outputs["needs_version_sync"]);
     }
 
     [Fact]
@@ -311,12 +307,11 @@ public sealed class PackageMetadataTests
         Assert.Equal("false", outputs["needs_unity"]);
         Assert.Equal("true", outputs["needs_unity_pack"]);
         Assert.Equal("true", outputs["needs_release_pack"]);
-        Assert.Equal("true", outputs["needs_version_sync"]);
     }
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Verify_scope_detector_tracks_unity_version_sync_target_changes ()
+    public async Task Verify_scope_detector_tracks_unity_package_metadata_changes ()
     {
         IReadOnlyDictionary<string, string> outputs = await RunVerifyScopeDetectorForSingleFileChangeAsync(
             "src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec",
@@ -329,7 +324,6 @@ public sealed class PackageMetadataTests
         Assert.Equal("false", outputs["needs_unity"]);
         Assert.Equal("true", outputs["needs_unity_pack"]);
         Assert.Equal("true", outputs["needs_release_pack"]);
-        Assert.Equal("true", outputs["needs_version_sync"]);
     }
 
     private static async Task<IReadOnlyDictionary<string, string>> RunVerifyScopeDetectorForSingleFileChangeAsync (

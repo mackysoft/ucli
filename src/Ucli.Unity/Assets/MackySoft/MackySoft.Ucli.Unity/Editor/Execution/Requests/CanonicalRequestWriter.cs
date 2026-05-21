@@ -17,11 +17,13 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         /// <summary> Writes canonical UTF-8 payload bytes for request digest material. </summary>
         /// <param name="protocolVersion"> The request protocol version. </param>
         /// <param name="steps"> The validated public step sequence. </param>
-        /// <returns> Canonical UTF-8 payload bytes containing only <c>protocolVersion</c> and <c>steps</c>. </returns>
+        /// <param name="allowPlayMode"> Whether the request explicitly allows Play Mode mutation. </param>
+        /// <returns> Canonical UTF-8 payload bytes containing request execution-safety inputs. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="steps" /> is <see langword="null" />. </exception>
         public static ReadOnlyMemory<byte> WriteDigestPayload (
             int protocolVersion,
-            IReadOnlyList<IpcRequestContractStep> steps)
+            IReadOnlyList<IpcRequestContractStep> steps,
+            bool allowPlayMode)
         {
             if (steps == null)
             {
@@ -44,6 +46,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
             writer.WriteEndArray();
             writer.WriteNumber("protocolVersion", protocolVersion);
+            writer.WriteBoolean("allowPlayMode", allowPlayMode);
             writer.WriteEndObject();
             writer.Flush();
             return stream.ToArray();

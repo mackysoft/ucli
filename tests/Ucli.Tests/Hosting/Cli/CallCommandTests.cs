@@ -63,6 +63,7 @@ public sealed class CallCommandTests
             planToken: "user-token",
             withPlan: true,
             allowDangerous: true,
+            allowPlayMode: true,
             failFast: true,
             cancellationToken: cancellationTokenSource.Token));
 
@@ -75,6 +76,7 @@ public sealed class CallCommandTests
         Assert.Equal("user-token", service.CapturedInput.PlanToken);
         Assert.True(service.CapturedInput.WithPlan);
         Assert.True(service.CapturedInput.AllowDangerous);
+        Assert.True(service.CapturedInput.AllowPlayMode);
         Assert.True(service.CapturedInput.FailFast);
         Assert.Equal(DefaultRequestJson, service.CapturedInput.RequestJson);
 

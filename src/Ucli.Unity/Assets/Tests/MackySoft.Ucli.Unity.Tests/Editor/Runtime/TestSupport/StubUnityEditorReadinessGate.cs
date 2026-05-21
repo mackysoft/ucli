@@ -39,6 +39,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
         public bool? LastFailFast { get; private set; }
 
+        public bool? LastAllowPlayMode { get; private set; }
+
         public Task WaitObserved => waitObserved.Task;
 
         public static StubUnityEditorReadinessGate CreatePending ()
@@ -70,11 +72,13 @@ namespace MackySoft.Ucli.Unity.Tests
 
         public Task<UnityEditorExecutionReadinessResult> EnsureExecutionReadyAsync (
             bool failFast,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            bool allowPlayMode = false)
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
             LastFailFast = failFast;
+            LastAllowPlayMode = allowPlayMode;
             waitObserved.TrySetResult(true);
             if (completionSource != null && !failFast)
             {

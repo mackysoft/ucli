@@ -21,6 +21,27 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out bool changed,
             out string errorMessage)
         {
+            return TryApply(
+                unityObject,
+                assignments,
+                executionContext,
+                referenceResolutionPolicy,
+                allowRequestLocalAliases,
+                out changed,
+                out _,
+                out errorMessage);
+        }
+
+        public static bool TryApply (
+            UnityEngine.Object unityObject,
+            IReadOnlyList<SerializedPropertyAssignment> assignments,
+            OperationExecutionContext executionContext,
+            OperationObjectReferenceUtilities.ReferenceResolutionPolicy referenceResolutionPolicy,
+            bool allowRequestLocalAliases,
+            out bool changed,
+            out IReadOnlyList<string> changedPropertyPaths,
+            out string errorMessage)
+        {
             if (unityObject == null)
             {
                 throw new ArgumentNullException(nameof(unityObject));
@@ -33,7 +54,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             var serializedObject = new SerializedObject(unityObject);
             var rootType = unityObject.GetType();
+            var changedPaths = new List<string>(assignments.Count);
             changed = false;
+            changedPropertyPaths = Array.Empty<string>();
             errorMessage = string.Empty;
             serializedObject.UpdateIfRequiredOrScript();
             for (var i = 0; i < assignments.Count; i++)
@@ -62,6 +85,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
 
                 changed |= assignmentChanged;
+                if (assignmentChanged)
+                {
+                    changedPaths.Add(assignment.Path);
+                }
             }
 
             _ = serializedObject.ApplyModifiedProperties();
@@ -70,6 +97,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 EditorUtility.SetDirty(unityObject);
             }
 
+            changedPropertyPaths = changedPaths;
             return true;
         }
 

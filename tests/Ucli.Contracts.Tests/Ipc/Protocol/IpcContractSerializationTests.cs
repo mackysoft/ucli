@@ -193,6 +193,9 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("EDITOR_MODAL_BLOCKED", EditorLifecycleErrorCodes.EditorModalBlocked.Value);
         Assert.Equal("EDITOR_SAFE_MODE", EditorLifecycleErrorCodes.EditorSafeMode.Value);
         Assert.Equal("EDITOR_SHUTTING_DOWN", EditorLifecycleErrorCodes.EditorShuttingDown.Value);
+        Assert.Equal("PLAYMODE_NOT_ACTIVE", PlayModeErrorCodes.PlayModeNotActive.Value);
+        Assert.Equal("PLAYMODE_REQUIRES_GUI_EDITOR", PlayModeErrorCodes.PlayModeRequiresGuiEditor.Value);
+        Assert.Equal("PLAYMODE_PERSISTENCE_FORBIDDEN", PlayModeErrorCodes.PlayModePersistenceForbidden.Value);
         Assert.Equal("DAEMON_EDITOR_MODE_MISMATCH", DaemonErrorCodes.DaemonEditorModeMismatch.Value);
         Assert.Equal("INTERNAL_ERROR", UcliCoreErrorCodes.InternalError.Value);
     }
@@ -212,6 +215,7 @@ public sealed class IpcContractSerializationTests
         {
             PlanToken = "token-value",
             AllowDangerous = true,
+            AllowPlayMode = true,
         };
 
         var withTokenJson = JsonSerializer.SerializeToElement(requestWithToken, SerializerOptions);
@@ -219,6 +223,8 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("token-value", planTokenElement.GetString());
         Assert.True(withTokenJson.TryGetProperty("allowDangerous", out var allowDangerousElement));
         Assert.True(allowDangerousElement.GetBoolean());
+        Assert.True(withTokenJson.TryGetProperty("allowPlayMode", out var allowPlayModeElement));
+        Assert.True(allowPlayModeElement.GetBoolean());
         Assert.False(withTokenJson.TryGetProperty("failFast", out _));
 
         var requestWithoutToken = new IpcExecuteRequest(
@@ -235,6 +241,7 @@ public sealed class IpcContractSerializationTests
         var withoutTokenJson = JsonSerializer.SerializeToElement(requestWithoutToken, SerializerOptions);
         Assert.False(withoutTokenJson.TryGetProperty("planToken", out _));
         Assert.False(withoutTokenJson.TryGetProperty("allowDangerous", out _));
+        Assert.False(withoutTokenJson.TryGetProperty("allowPlayMode", out _));
         Assert.True(withoutTokenJson.TryGetProperty("failFast", out var failFastElement));
         Assert.True(failFastElement.GetBoolean());
     }
@@ -254,6 +261,26 @@ public sealed class IpcContractSerializationTests
 
         Assert.Equal(IpcPingClientVersions.Ready, failFastJson.GetProperty("clientVersion").GetString());
         Assert.True(failFastJson.GetProperty("failFast").GetBoolean());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcOpsReadRequest_SerializesEditLoweringCatalogFlagOnlyWhenSpecified ()
+    {
+        var defaultRequest = new IpcOpsReadRequest();
+        var defaultJson = JsonSerializer.SerializeToElement(defaultRequest, SerializerOptions);
+
+        Assert.False(defaultJson.TryGetProperty("includeEditLoweringOnly", out _));
+
+        var validationRequest = new IpcOpsReadRequest(
+            FailFast: true,
+            RequireReadinessGate: true,
+            IncludeEditLoweringOnly: true);
+        var validationJson = JsonSerializer.SerializeToElement(validationRequest, SerializerOptions);
+
+        Assert.True(validationJson.GetProperty("failFast").GetBoolean());
+        Assert.True(validationJson.GetProperty("requireReadinessGate").GetBoolean());
+        Assert.True(validationJson.GetProperty("includeEditLoweringOnly").GetBoolean());
     }
 
     [Fact]

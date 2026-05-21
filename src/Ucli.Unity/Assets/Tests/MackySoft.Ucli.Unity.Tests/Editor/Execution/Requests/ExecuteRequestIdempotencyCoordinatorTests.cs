@@ -397,6 +397,28 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void FingerprintCalculator_WhenAllowPlayModeDiffers_ReturnsDifferentFingerprint ()
+        {
+            using var document = JsonDocument.Parse(
+                "{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"op-1\",\"op\":\"__RESOLVE_OP__\",\"args\":{}}]}"
+                    .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
+            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
+            {
+                AllowPlayMode = false,
+            };
+            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
+            {
+                AllowPlayMode = true,
+            };
+
+            var firstFingerprint = ExecuteRequestFingerprintCalculator.Create(firstRequest);
+            var secondFingerprint = ExecuteRequestFingerprintCalculator.Create(secondRequest);
+
+            Assert.That(firstFingerprint, Is.Not.EqualTo(secondFingerprint));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void FingerprintCalculator_WhenPlanTokenOnlyDiffersByOuterWhitespace_ReturnsSameFingerprint ()
         {
             using var document = JsonDocument.Parse(

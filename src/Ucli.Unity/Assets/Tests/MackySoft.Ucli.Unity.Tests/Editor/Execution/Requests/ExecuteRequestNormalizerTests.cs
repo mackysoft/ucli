@@ -1,11 +1,13 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Unity.Index;
@@ -520,10 +522,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Normalize_WhenPrefabEditContainsCreatePrefabAction_ReturnsInvalidArgumentError ()
+        public void Normalize_WhenOpenedPrefabEditContainsCreatePrefabAction_RuntimeCompileReturnsInvalidArgumentError ()
         {
-            using var scope = new EditorTestScope();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
             var prefabPath = scope.CreatePrefabAsset(nameof(ExecuteRequestNormalizerTests), "PrefabRoot");
+            var prefabRootName = System.IO.Path.GetFileNameWithoutExtension(prefabPath);
+            var prefabStage = PrefabStageUtility.OpenPrefab(prefabPath);
+            Assert.That(prefabStage, Is.Not.Null);
             var request = CreateExecuteRequest(
                 UcliCommandIds.Plan,
                 new
@@ -542,7 +548,7 @@ namespace MackySoft.Ucli.Unity.Tests
                             },
                             select = new
                             {
-                                gameObject = "PrefabRoot",
+                                gameObject = prefabRootName,
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -560,8 +566,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = new ExecuteRequestNormalizer().Normalize(request);
 
-            AssertInvalidArgument(result, "createPrefabInPrefabContext");
-            Assert.That(result.Error!.Message, Does.Contain("requires both 'target' and 'path'."));
+            Assert.That(result.IsSuccess, Is.True);
+            var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
+            _ = new ExecuteRequestCompileFailureAssert(error)
+                .HasInvalidArgument("createPrefabInPrefabContext")
+                .HasMessageContaining("requires a GameObject target in scene context.");
         }
 
         [Test]
@@ -925,7 +934,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var compiler = new ExecuteRequestCompiler();
             var executionContext = scope.CreateExecutionContext();
             Assert.That(
-                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out _, out var openError),
+                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, allowPlayMode: false, out _, out var openOperations, out _, out var openError),
                 Is.True,
                 openError?.Message);
             var openOperation = new SceneOpenOperation();
@@ -1278,7 +1287,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var compiler = new ExecuteRequestCompiler();
             var executionContext = scope.CreateExecutionContext();
             Assert.That(
-                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out _, out var openError),
+                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, allowPlayMode: false, out _, out var openOperations, out _, out var openError),
                 Is.True,
                 openError?.Message);
             var openOperation = new PrefabOpenOperation();
@@ -1352,7 +1361,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var compiler = new ExecuteRequestCompiler();
             var executionContext = scope.CreateExecutionContext();
             Assert.That(
-                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out _, out var openError),
+                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, allowPlayMode: false, out _, out var openOperations, out _, out var openError),
                 Is.True,
                 openError?.Message);
             var openPlanResult = await new PrefabOpenOperation().PlanAsync(openOperations[0], executionContext, CancellationToken.None);
@@ -1423,7 +1432,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var compiler = new ExecuteRequestCompiler();
             var executionContext = scope.CreateExecutionContext();
             Assert.That(
-                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out _, out var openError),
+                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, allowPlayMode: false, out _, out var openOperations, out _, out var openError),
                 Is.True,
                 openError?.Message);
             var openPlanResult = await new PrefabOpenOperation().PlanAsync(openOperations[0], executionContext, CancellationToken.None);
@@ -1916,6 +1925,426 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void Normalize_WhenAllowPlayModeIsSpecified_RejectsRawOperationStep ()
+        {
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new[]
+                    {
+                        new
+                        {
+                            kind = "op",
+                            id = "rawSet",
+                            op = UcliPrimitiveOperationNames.CompSet,
+                            args = new { },
+                        },
+                    },
+                }) with
+                {
+                    AllowPlayMode = true,
+                };
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            AssertInvalidArgument(result, "rawSet");
+            Assert.That(result.Error!.Message, Is.EqualTo("Play Mode mutation requests support only public edit steps."));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenAllowPlayModeDiffers_ProducesDifferentCanonicalDigestPayload ()
+        {
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = Array.Empty<object>(),
+                });
+            var playModeRequest = request with
+            {
+                AllowPlayMode = true,
+            };
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+            var playModeResult = new ExecuteRequestNormalizer().Normalize(playModeRequest);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(playModeResult.IsSuccess, Is.True);
+            Assert.That(
+                result.Request!.CanonicalDigestPayloadUtf8.Span.SequenceEqual(playModeResult.Request!.CanonicalDigestPayloadUtf8.Span),
+                Is.False);
+            var canonicalPayload = Encoding.UTF8.GetString(playModeResult.Request!.CanonicalDigestPayloadUtf8.ToArray());
+            Assert.That(canonicalPayload, Does.Contain("\"allowPlayMode\":true"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenAllowPlayModeSceneCommitIsContext_ReturnsPersistenceForbiddenError ()
+        {
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "playSceneCommit",
+                            on = new
+                            {
+                                scene = "Assets/Scenes/Main.unity",
+                            },
+                            select = new
+                            {
+                                gameObject = "Root",
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "delete",
+                                },
+                            },
+                            commit = "context",
+                        },
+                    },
+                }) with
+                {
+                    AllowPlayMode = true,
+                };
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error, Is.Not.Null);
+            Assert.That(result.Error!.Code, Is.EqualTo(PlayModeErrorCodes.PlayModePersistenceForbidden));
+            Assert.That(result.Error.OpId, Is.EqualTo("playSceneCommit"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenAllowPlayModeSceneCommitIsNone_CompilesLiveMutationPostReadSource ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "playSceneMutation",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                gameObject = "Root",
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "delete",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                }) with
+                {
+                    AllowPlayMode = true,
+                };
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: true);
+            Assert.That(compiledOperations, Has.Count.EqualTo(1));
+            Assert.That(compiledOperations[0].SuppressPersistenceReporting, Is.True);
+            Assert.That(compiledOperations[0].AllowExplicitPrefabAssetMutation, Is.False);
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasPostReadSourceStep(
+                    IpcExecutePostReadSourceKindNames.Edit,
+                    IpcExecutePostReadCommitNames.None,
+                    false,
+                    IpcExecuteExpectedPostStateNames.Unavailable,
+                    expectedPlayModeMutation: true);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenAllowPlayModeSceneStepAppliesPrefabOverride_CompilesUnavailablePersistentPostReadSource ()
+        {
+            using var scope = new EditorTestScope()
+                .EnableEditorSceneReset();
+            var prefabPath = scope.CreatePrefabAsset(nameof(ExecuteRequestNormalizerTests), "PrefabRoot");
+            var editableRoot = scope.LoadPrefabContents(prefabPath);
+            _ = editableRoot.AddComponent<CompOperationTestComponent>();
+            _ = PrefabUtility.SaveAsPrefabAsset(editableRoot, prefabPath);
+            scope.UnloadPrefabContents(editableRoot);
+
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var prefabAsset = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            Assert.That(prefabAsset, Is.Not.Null);
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefabAsset!);
+            instance.name = "InstanceRoot";
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "playSceneApplyOverride",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                gameObject = "InstanceRoot",
+                                component = componentTypeId,
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "set",
+                                    values = new
+                                    {
+                                        integerValue = 42,
+                                    },
+                                },
+                                new
+                                {
+                                    kind = "applyPrefabOverrides",
+                                    targetAssetPath = prefabPath,
+                                    propertyPaths = new[] { "integerValue" },
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                }) with
+                {
+                    AllowPlayMode = true,
+                };
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: true);
+            Assert.That(compiledOperations.Select(static operation => operation.Op), Is.EqualTo(new[]
+            {
+                UcliPrimitiveOperationNames.CompSet,
+                UcliPrimitiveOperationNames.PrefabApplyOverrides,
+            }));
+            Assert.That(compiledOperations[0].AllowExplicitPrefabAssetMutation, Is.True);
+            Assert.That(compiledOperations[1].AllowExplicitPrefabAssetMutation, Is.False);
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasPostReadSourceStep(
+                    IpcExecutePostReadSourceKindNames.Edit,
+                    IpcExecutePostReadCommitNames.None,
+                    true,
+                    IpcExecuteExpectedPostStateNames.Unavailable,
+                    expectedPlayModeMutation: true);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenAllowPlayModeSceneStepCreatesPrefab_CompilesWithSceneReportingSuppressed ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var prefabPath = scope.CreatePrefabPath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "playSceneCreatePrefab",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                gameObject = "Root",
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "createPrefab",
+                                    path = prefabPath,
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                }) with
+                {
+                    AllowPlayMode = true,
+                };
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: true);
+            Assert.That(compiledOperations, Has.Count.EqualTo(1));
+            Assert.That(compiledOperations[0].Op, Is.EqualTo(UcliPrimitiveOperationNames.PrefabCreate));
+            Assert.That(compiledOperations[0].SuppressPersistenceReporting, Is.False);
+            Assert.That(compiledOperations[0].SuppressScenePersistenceReporting, Is.True);
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasPostReadSourceStep(
+                    IpcExecutePostReadSourceKindNames.Edit,
+                    IpcExecutePostReadCommitNames.None,
+                    true,
+                    IpcExecuteExpectedPostStateNames.Unavailable,
+                    expectedPlayModeMutation: true);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenAllowPlayModeAssetCommitIsContext_CompilesTargetLimitedAssetSave ()
+        {
+            using var scope = new EditorTestScope();
+            _ = scope.CreateScriptableAsset<AssetOperationTestAsset>(nameof(ExecuteRequestNormalizerTests), out var assetPath);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "playAssetMutation",
+                            on = new
+                            {
+                                asset = assetPath,
+                            },
+                            select = new
+                            {
+                                self = true,
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "set",
+                                    values = new
+                                    {
+                                        text = "updated",
+                                    },
+                                },
+                            },
+                            commit = "context",
+                        },
+                    },
+                }) with
+                {
+                    AllowPlayMode = true,
+                };
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var (_, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: true);
+            Assert.That(compiledOperations.Select(static operation => operation.Op), Is.EqualTo(new[]
+            {
+                UcliPrimitiveOperationNames.AssetSet,
+                UcliPrimitiveOperationNames.AssetSave,
+            }));
+            Assert.That(compiledOperations[1].Args.GetProperty("target").GetProperty("assetPath").GetString(), Is.EqualTo(assetPath));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenRevertPrefabOverridesRunsOutsidePlayMode_DoesNotSuppressPersistenceReporting ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            _ = root.AddComponent<BoxCollider>();
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var request = CreatePrefabOverrideRevertRequest(scenePath, allowPlayMode: false);
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var (_, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: false);
+            Assert.That(compiledOperations, Has.Count.EqualTo(1));
+            Assert.That(compiledOperations[0].Op, Is.EqualTo(UcliPrimitiveOperationNames.PrefabRevertOverrides));
+            Assert.That(compiledOperations[0].SuppressPersistenceReporting, Is.False);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenRevertPrefabOverridesRunsInPlayMode_SuppressesPersistenceReporting ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            _ = root.AddComponent<BoxCollider>();
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var request = CreatePrefabOverrideRevertRequest(scenePath, allowPlayMode: true);
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var (_, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: true);
+            Assert.That(compiledOperations, Has.Count.EqualTo(1));
+            Assert.That(compiledOperations[0].Op, Is.EqualTo(UcliPrimitiveOperationNames.PrefabRevertOverrides));
+            Assert.That(compiledOperations[0].SuppressPersistenceReporting, Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void Normalize_WhenCommandIsValidate_ReturnsInvalidArgumentError ()
         {
             var request = CreateExecuteRequest(
@@ -2229,6 +2658,50 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Error.Message, Is.EqualTo("Edit step property 'step.commit' must be one of 'none', 'context', or 'project'."));
         }
 
+        private static IpcExecuteRequest CreatePrefabOverrideRevertRequest (
+            string scenePath,
+            bool allowPlayMode)
+        {
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "revertOverrides",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                gameObject = "Root",
+                                component = "UnityEngine.BoxCollider, UnityEngine.PhysicsModule",
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "revertPrefabOverrides",
+                                    targetAssetPath = "Assets/Prefabs/Enemy.prefab",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+            return request with
+            {
+                AllowPlayMode = allowPlayMode,
+            };
+        }
+
         private static (NormalizedRequestStep Step, IReadOnlyList<NormalizedOperation> Operations) CompileSingleStep (
             NormalizedExecuteRequest request,
             int stepIndex)
@@ -2242,10 +2715,19 @@ namespace MackySoft.Ucli.Unity.Tests
             int stepIndex,
             OperationExecutionContext executionContext)
         {
+            return CompileSingleStep(request, stepIndex, executionContext, allowPlayMode: false);
+        }
+
+        private static (NormalizedRequestStep Step, IReadOnlyList<NormalizedOperation> Operations) CompileSingleStep (
+            NormalizedExecuteRequest request,
+            int stepIndex,
+            OperationExecutionContext executionContext,
+            bool allowPlayMode)
+        {
             var compiler = new ExecuteRequestCompiler();
             var sourceStep = request.SourceSteps[stepIndex];
             Assert.That(
-                compiler.TryCompileExecutionStep(sourceStep, executionContext, out var compiledStep, out var compiledOperations, out _, out var error),
+                compiler.TryCompileExecutionStep(sourceStep, executionContext, allowPlayMode, out var compiledStep, out var compiledOperations, out _, out var error),
                 Is.True,
                 error?.Message);
 
@@ -2260,7 +2742,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var compiler = new ExecuteRequestCompiler();
             var sourceStep = request.SourceSteps[stepIndex];
             Assert.That(
-                compiler.TryCompileExecutionStep(sourceStep, executionContext, out _, out _, out _, out var error),
+                compiler.TryCompileExecutionStep(sourceStep, executionContext, allowPlayMode: false, out _, out _, out _, out var error),
                 Is.False);
             Assert.That(error, Is.Not.Null);
             return error;
