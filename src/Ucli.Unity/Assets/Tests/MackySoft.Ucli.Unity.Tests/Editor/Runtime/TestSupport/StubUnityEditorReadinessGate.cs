@@ -37,6 +37,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
         public int CallCount { get; private set; }
 
+        public int CaptureSnapshotCallCount { get; private set; }
+
         public bool? LastFailFast { get; private set; }
 
         public bool? LastAllowPlayMode { get; private set; }
@@ -57,6 +59,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         public UnityEditorLifecycleSnapshot CaptureSnapshot ()
         {
+            CaptureSnapshotCallCount++;
             return currentResult.Snapshot;
         }
 

@@ -32,6 +32,9 @@ internal sealed class UnityIpcRequestBuilder
                 IpcMethodNames.Compile,
                 IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(compile.RunId)),
                 CompileAllowedStartupLifecycleStates),
+            UnityRequestPayload.PlayStatus => new UnityIpcDispatchRequest(
+                IpcMethodNames.PlayStatus,
+                IpcPayloadCodec.SerializeToElement(new IpcPlayStatusRequest())),
             UnityRequestPayload.ExecuteJson executeJson => new UnityIpcDispatchRequest(
                 IpcMethodNames.Execute,
                 CreateExecutePayload(

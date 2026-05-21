@@ -729,7 +729,8 @@ JSON リクエストの step のうち `kind: "op"` は primitive operation を�
     "daemon.list": 3000,
     "logs.daemon.read": 3000,
     "logs.unity.read": 3000,
-    "logs.unity.clear": 3000
+    "logs.unity.clear": 3000,
+    "play.status": 3000
   },
   "operationAllowlist": [
     "^ucli\\."

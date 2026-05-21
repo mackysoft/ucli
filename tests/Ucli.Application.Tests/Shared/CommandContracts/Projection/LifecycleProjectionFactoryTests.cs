@@ -3,13 +3,13 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Shared.CommandContracts.Projection;
 
-public sealed class PingLifecycleProjectionFactoryTests
+public sealed class LifecycleProjectionFactoryTests
 {
     [Fact]
     [Trait("Size", "Small")]
     public void Create_WhenPlayModeIsMissing_ReturnsNullPlayMode ()
     {
-        var projection = PingLifecycleProjectionFactory.Create(CreatePing(playMode: null));
+        var projection = LifecycleProjectionFactory.Create(CreatePing(playMode: null));
 
         Assert.Null(projection.PlayMode);
     }
@@ -22,7 +22,7 @@ public sealed class PingLifecycleProjectionFactoryTests
         string state,
         string transition)
     {
-        var projection = PingLifecycleProjectionFactory.Create(CreatePing(new IpcPlayModeSnapshot(
+        var projection = LifecycleProjectionFactory.Create(CreatePing(new IpcPlayModeSnapshot(
             State: state,
             Transition: transition,
             IsPlaying: true,
@@ -36,7 +36,7 @@ public sealed class PingLifecycleProjectionFactoryTests
     [Trait("Size", "Small")]
     public void Create_WhenPlayModeGenerationIsBlank_ReturnsPlayModeWithNullGeneration ()
     {
-        var projection = PingLifecycleProjectionFactory.Create(CreatePing(new IpcPlayModeSnapshot(
+        var projection = LifecycleProjectionFactory.Create(CreatePing(new IpcPlayModeSnapshot(
             State: $" {IpcPlayModeStateNames.Playing} ",
             Transition: $" {IpcPlayModeTransitionNames.None} ",
             IsPlaying: true,

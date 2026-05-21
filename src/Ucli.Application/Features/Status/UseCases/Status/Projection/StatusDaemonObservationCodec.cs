@@ -86,7 +86,7 @@ internal static class StatusDaemonObservationCodec
     {
         ArgumentNullException.ThrowIfNull(pingResponse);
 
-        var projection = PingLifecycleProjectionFactory.Create(pingResponse);
+        var projection = LifecycleProjectionFactory.Create(pingResponse);
 
         return new StatusDaemonObservation(
             DaemonStatus: daemonStatus,

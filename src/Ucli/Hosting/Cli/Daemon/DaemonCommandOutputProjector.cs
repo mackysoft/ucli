@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
 
@@ -75,13 +74,6 @@ internal static class DaemonCommandOutputProjector
         return DaemonStartStateCodec.TryToValue(status, out var value)
             ? value
             : throw new InvalidOperationException($"Unsupported daemon start status: {status}.");
-    }
-
-    public static string ToStatus (DaemonStatusKind status)
-    {
-        return DaemonStatusStateCodec.TryToValue(status, out var value)
-            ? value
-            : throw new InvalidOperationException($"Unsupported daemon status: {status}.");
     }
 
     public static string ToStopStatus (DaemonStopStatus status)

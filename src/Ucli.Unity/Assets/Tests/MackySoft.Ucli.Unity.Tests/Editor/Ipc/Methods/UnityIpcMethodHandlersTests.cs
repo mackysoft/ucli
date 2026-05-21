@@ -155,6 +155,54 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator PlayStatusHandler_WhenPayloadIsValid_ReturnsLifecycleSnapshotWithoutReadinessWait () => UniTask.ToCoroutine(async () =>
+        {
+            var readinessGate = new StubUnityEditorReadinessGate(DaemonEditorMode.Gui);
+            var handler = new PlayStatusUnityIpcMethodHandler(
+                new StubServerVersionProvider("1.2.3"),
+                readinessGate,
+                new IpcProjectIdentity("/repo/UnityProject", "project-fingerprint", "6000.1.4f1"));
+            var request = CreatePlayStatusRequest("req-play-status-valid", new IpcPlayStatusRequest());
+
+            var response = await handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(response.Errors, Is.Empty);
+            Assert.That(readinessGate.CaptureSnapshotCallCount, Is.EqualTo(1));
+            Assert.That(readinessGate.CallCount, Is.EqualTo(0));
+            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPlayStatusResponse payload, out _), Is.True);
+            Assert.That(payload.Snapshot.ServerVersion, Is.EqualTo("1.2.3"));
+            Assert.That(payload.Snapshot.EditorMode, Is.EqualTo(DaemonEditorModeValues.Gui));
+            Assert.That(payload.Snapshot.UnityVersion, Is.EqualTo("6000.1.4f1"));
+            Assert.That(payload.Snapshot.ProjectFingerprint, Is.EqualTo("project-fingerprint"));
+            Assert.That(payload.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Ready));
+            Assert.That(payload.Snapshot.CompileState, Is.EqualTo(IpcCompileStateCodec.Ready));
+            Assert.That(payload.Snapshot.PlayMode, Is.Not.Null);
+            Assert.That(payload.Snapshot.PlayMode!.State, Is.EqualTo(IpcPlayModeStateNames.Stopped));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator PlayStatusHandler_WhenPayloadIsInvalid_ReturnsInvalidArgumentWithoutCapturingSnapshot () => UniTask.ToCoroutine(async () =>
+        {
+            var readinessGate = new StubUnityEditorReadinessGate(DaemonEditorMode.Gui);
+            var handler = new PlayStatusUnityIpcMethodHandler(
+                new StubServerVersionProvider("1.2.3"),
+                readinessGate,
+                new IpcProjectIdentity("/repo/UnityProject", "project-fingerprint", "6000.1.4f1"));
+            var request = CreatePlayStatusRequest("req-play-status-invalid", 123);
+
+            var response = await handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(readinessGate.CaptureSnapshotCallCount, Is.EqualTo(0));
+            Assert.That(readinessGate.CallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator ExecuteHandler_WhenPayloadIsValid_CallsDispatcher () => UniTask.ToCoroutine(async () =>
         {
             var dispatcher = new StubExecuteRequestDispatcher();
@@ -1075,6 +1123,13 @@ namespace MackySoft.Ucli.Unity.Tests
             object payload)
         {
             return CreateRequest(requestId, IpcMethodNames.Execute, payload);
+        }
+
+        private static IpcRequest CreatePlayStatusRequest (
+            string requestId,
+            object payload)
+        {
+            return CreateRequest(requestId, IpcMethodNames.PlayStatus, payload);
         }
 
         private static IpcRequest CreateOpsReadRequest (

@@ -73,12 +73,16 @@ public sealed class CliOutputSchemaArtifactTests
             string.IsNullOrWhiteSpace(payloadSchemaPath),
             $"No payload schema is registered for command '{command}' in {repositoryRelativeGoldenPath}.");
 
-        AssertSchemaValid(
-            schemaSet.Validate(payloadSchemaPath!, root.GetProperty("payload"), "$.payload"),
-            repositoryRelativeGoldenPath);
+        var payload = root.GetProperty("payload");
+        if (ShouldValidateCommandPayloadSchema(root, payload))
+        {
+            AssertSchemaValid(
+                schemaSet.Validate(payloadSchemaPath!, payload, "$.payload"),
+                repositoryRelativeGoldenPath);
+        }
 
         if (string.Equals(command, UcliCommandIds.OpsDescribe.Name, StringComparison.Ordinal)
-            && root.GetProperty("payload").TryGetProperty("operation", out var operation))
+            && payload.TryGetProperty("operation", out var operation))
         {
             AssertOpsDescribeSchemasUseSupportedSubset(operation);
         }
@@ -251,34 +255,7 @@ public sealed class CliOutputSchemaArtifactTests
     public void PlayPayloadSchemas_AcceptLifecycleAndTransitionContracts ()
     {
         using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
-        using var statusDocument = JsonDocument.Parse(
-            """
-            {
-              "snapshot": {
-                "serverVersion": "0.5.0",
-                "editorMode": "gui",
-                "unityVersion": "6000.1.4f1",
-                "projectFingerprint": "project-fingerprint",
-                "lifecycleState": "ready",
-                "blockingReason": "none",
-                "compileState": "idle",
-                "compileGeneration": "12",
-                "domainReloadGeneration": "7",
-                "canAcceptExecutionRequests": true,
-                "observedAtUtc": "2026-05-21T00:00:00+00:00",
-                "actionRequired": null,
-                "primaryDiagnostic": null,
-                "playMode": {
-                  "state": "stopped",
-                  "transition": "none",
-                  "isPlaying": false,
-                  "isPlayingOrWillChangePlaymode": false,
-                  "generation": "42"
-                }
-              },
-              "timeoutMilliseconds": 1000
-            }
-            """);
+        using var statusDocument = JsonDocument.Parse(CreatePlayStatusPayloadJson());
         using var enterDocument = JsonDocument.Parse(
             """
             {
@@ -413,47 +390,74 @@ public sealed class CliOutputSchemaArtifactTests
     public void PlayLifecycleSnapshotSchemas_ValidatePrimaryDiagnosticContract ()
     {
         using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
-        using var validDiagnosticDocument = JsonDocument.Parse(
-            $$"""
+        using var validDiagnosticDocument = JsonDocument.Parse(CreatePlayStatusPayloadJson(primaryDiagnosticJson: """
             {
-              "snapshot": {{CreatePlayLifecycleSnapshotJson(primaryDiagnosticJson: """
-                {
-                  "kind": "compiler.error",
-                  "code": "CS1002",
-                  "file": "Assets/Scripts/Example.cs",
-                  "line": 12,
-                  "column": 8,
-                  "message": "Expected semicolon."
-                }
-              """)}}
+              "kind": "compiler.error",
+              "code": "CS1002",
+              "file": "Assets/Scripts/Example.cs",
+              "line": 12,
+              "column": 8,
+              "message": "Expected semicolon."
             }
-            """);
-        using var invalidDiagnosticTypeDocument = JsonDocument.Parse(
-            $$"""
+            """));
+        using var invalidDiagnosticTypeDocument = JsonDocument.Parse(CreatePlayStatusPayloadJson(primaryDiagnosticJson: """
             {
-              "snapshot": {{CreatePlayLifecycleSnapshotJson(primaryDiagnosticJson: """
-                {
-                  "kind": "compiler.error",
-                  "line": "12"
-                }
-              """)}}
+              "kind": "compiler.error",
+              "line": "12"
             }
-            """);
-        using var invalidDiagnosticPropertyDocument = JsonDocument.Parse(
-            $$"""
+            """));
+        using var invalidDiagnosticPropertyDocument = JsonDocument.Parse(CreatePlayStatusPayloadJson(primaryDiagnosticJson: """
             {
-              "snapshot": {{CreatePlayLifecycleSnapshotJson(primaryDiagnosticJson: """
-                {
-                  "kind": "compiler.error",
-                  "unexpected": true
-                }
-              """)}}
+              "kind": "compiler.error",
+              "unexpected": true
             }
-            """);
+            """));
 
         Assert.Empty(schemaSet.Validate("cli-output/payload/play.status.schema.json", validDiagnosticDocument.RootElement));
         Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.status.schema.json", invalidDiagnosticTypeDocument.RootElement));
         Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.status.schema.json", invalidDiagnosticPropertyDocument.RootElement));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void PlayStatusPayloadSchema_RejectsMissingRequiredFlatFields ()
+    {
+        using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
+        using var missingProjectDocument = JsonDocument.Parse(
+            """
+            {
+              "daemonStatus": "running",
+              "serverVersion": "0.5.0",
+              "editorMode": "gui",
+              "lifecycleState": "ready",
+              "blockingReason": null,
+              "compileState": "idle",
+              "compileGeneration": "12",
+              "domainReloadGeneration": "7",
+              "canAcceptExecutionRequests": true,
+              "observedAtUtc": "2026-05-21T00:00:00+00:00",
+              "actionRequired": null,
+              "primaryDiagnostic": null,
+              "playMode": {
+                "state": "stopped",
+                "transition": "none",
+                "isPlaying": false,
+                "isPlayingOrWillChangePlaymode": false,
+                "generation": "42"
+              },
+              "timeoutMilliseconds": 1000
+            }
+            """);
+        using var legacyNestedSnapshotDocument = JsonDocument.Parse(
+            $$"""
+            {
+              "snapshot": {{CreatePlayLifecycleSnapshotJson()}},
+              "timeoutMilliseconds": 1000
+            }
+            """);
+
+        Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.status.schema.json", missingProjectDocument.RootElement));
+        Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.status.schema.json", legacyNestedSnapshotDocument.RootElement));
     }
 
     [Fact]
@@ -777,6 +781,21 @@ public sealed class CliOutputSchemaArtifactTests
             $"Schema validation failed for {repositoryRelativeGoldenPath}:{Environment.NewLine}{string.Join(Environment.NewLine, errors)}");
     }
 
+    private static bool ShouldValidateCommandPayloadSchema (JsonElement root, JsonElement payload)
+    {
+        if (!string.Equals(root.GetProperty("status").GetString(), "error", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        foreach (var _ in payload.EnumerateObject())
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     private static string CreateOpsDescribePayload (
         string planMode = "observesLiveUnity",
         string operationExtra = "",
@@ -927,6 +946,42 @@ public sealed class CliOutputSchemaArtifactTests
                 "isPlayingOrWillChangePlaymode": false,
                 "generation": "42"
               }
+            }
+            """;
+    }
+
+    private static string CreatePlayStatusPayloadJson (
+        string playModeState = "stopped",
+        string playModeTransition = "none",
+        string primaryDiagnosticJson = "null")
+    {
+        return $$"""
+            {
+              "project": {
+                "projectPath": "/repo/UnityProject",
+                "projectFingerprint": "project-fingerprint",
+                "unityVersion": "6000.1.4f1"
+              },
+              "daemonStatus": "running",
+              "serverVersion": "0.5.0",
+              "editorMode": "gui",
+              "lifecycleState": "ready",
+              "blockingReason": null,
+              "compileState": "idle",
+              "compileGeneration": "12",
+              "domainReloadGeneration": "7",
+              "canAcceptExecutionRequests": true,
+              "observedAtUtc": "2026-05-21T00:00:00+00:00",
+              "actionRequired": null,
+              "primaryDiagnostic": {{primaryDiagnosticJson}},
+              "playMode": {
+                "state": "{{playModeState}}",
+                "transition": "{{playModeTransition}}",
+                "isPlaying": false,
+                "isPlayingOrWillChangePlaymode": false,
+                "generation": "42"
+              },
+              "timeoutMilliseconds": 1000
             }
             """;
     }

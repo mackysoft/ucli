@@ -3,41 +3,36 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
-using UnityEditor;
-using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
-    /// <summary> Handles <c>ping</c> IPC method requests. </summary>
-    internal sealed class PingUnityIpcMethodHandler : IUnityIpcMethodHandler
+    /// <summary> Handles <c>play.status</c> IPC method requests. </summary>
+    internal sealed class PlayStatusUnityIpcMethodHandler : IUnityIpcMethodHandler
     {
         private readonly IServerVersionProvider serverVersionProvider;
         private readonly IUnityEditorReadinessGate readinessGate;
-        private readonly string projectFingerprint;
+        private readonly IpcProjectIdentity projectIdentity;
         private readonly IDaemonLogger daemonLogger;
 
-        /// <summary> Initializes a new instance of the <see cref="PingUnityIpcMethodHandler" /> class. </summary>
+        /// <summary> Initializes a new instance of the <see cref="PlayStatusUnityIpcMethodHandler" /> class. </summary>
         /// <param name="serverVersionProvider"> The server-version provider dependency. </param>
-        /// <param name="projectFingerprint"> The project fingerprint served by this IPC host. </param>
-        public PingUnityIpcMethodHandler (
+        /// <param name="readinessGate"> The lifecycle snapshot provider dependency. </param>
+        /// <param name="projectIdentity"> The project identity served by this IPC host. </param>
+        /// <param name="daemonLogger"> The daemon logger dependency. </param>
+        public PlayStatusUnityIpcMethodHandler (
             IServerVersionProvider serverVersionProvider,
             IUnityEditorReadinessGate readinessGate,
-            string projectFingerprint,
+            IpcProjectIdentity projectIdentity,
             IDaemonLogger daemonLogger = null)
         {
             this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
             this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
-            if (string.IsNullOrWhiteSpace(projectFingerprint))
-            {
-                throw new ArgumentException("projectFingerprint must not be empty.", nameof(projectFingerprint));
-            }
-
-            this.projectFingerprint = projectFingerprint;
+            this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
             this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
         }
 
         /// <inheritdoc />
-        public string Method => IpcMethodNames.Ping;
+        public string Method => IpcMethodNames.PlayStatus;
 
         /// <inheritdoc />
         public ValueTask<IpcResponse> HandleAsync (
@@ -50,22 +45,22 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(request));
             }
 
-            if (!UnityIpcRequestCodec.TryDecodePingRequest(
+            if (!UnityIpcRequestCodec.TryDecodePlayStatusRequest(
                     request,
-                    out IpcPingRequest _,
+                    out IpcPlayStatusRequest _,
                     out var errorResponse))
             {
                 daemonLogger.Warning(
                     DaemonLogCategories.Health,
-                    "Ping payload decode failed.");
+                    "Play status payload decode failed.");
                 return new ValueTask<IpcResponse>(errorResponse!);
             }
 
-            var payload = UnityLifecycleResponseCodec.CreatePingPayload(
-                Application.unityVersion,
+            var payload = new IpcPlayStatusResponse(UnityLifecycleResponseCodec.CreatePlayLifecycleSnapshot(
+                projectIdentity.UnityVersion,
                 serverVersionProvider.GetVersion(),
-                projectFingerprint,
-                readinessGate.CaptureSnapshot());
+                projectIdentity.ProjectFingerprint,
+                readinessGate.CaptureSnapshot()));
             return new ValueTask<IpcResponse>(UnityIpcResponseFactory.CreateSuccessResponse(request, payload));
         }
     }

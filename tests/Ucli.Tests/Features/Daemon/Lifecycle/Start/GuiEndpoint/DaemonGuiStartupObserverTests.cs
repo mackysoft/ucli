@@ -3,6 +3,7 @@ namespace MackySoft.Ucli.Tests.Daemon;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Identity;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Logs;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Timing;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
@@ -38,6 +39,31 @@ public sealed class DaemonGuiStartupObserverTests
         Assert.Equal(session, result.Session);
         Assert.Equal(0, logReader.CallCount);
         Assert.Equal(processStartedAtUtc, awaiter.LastExpectedProcessStartedAtUtc);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WaitForStartup_WhenTimeoutExceedsProbeAttemptCap_PassesProbeAttemptCapToSessionAwaiter ()
+    {
+        var awaiter = new StubDaemonGuiSessionRegistrationAwaiter
+        {
+            NextResult = DaemonGuiSessionRegistrationWaitResult.Success(CreateSession()),
+        };
+        var observer = new DaemonGuiStartupObserver(
+            awaiter,
+            new StubUnityLogReader(),
+            new StubDaemonProcessIdentityAssessor());
+
+        var result = await observer.WaitForStartupAsync(
+            CreateContext("fingerprint-gui-observer-session"),
+            processId: 4321,
+            processStartedAtUtc: DateTimeOffset.UtcNow,
+            unityLogPath: "/tmp/unity.log",
+            timeout: TimeSpan.FromSeconds(5),
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(DaemonTimeouts.ProbeAttemptTimeoutCap, awaiter.LastTimeout);
     }
 
     [Fact]
@@ -307,6 +333,8 @@ public sealed class DaemonGuiStartupObserverTests
 
         public int CallCount { get; private set; }
 
+        public TimeSpan LastTimeout { get; private set; }
+
         public DateTimeOffset? LastExpectedProcessStartedAtUtc { get; private set; }
 
         public ValueTask<DaemonGuiSessionRegistrationWaitResult> WaitForSessionAsync (
@@ -319,6 +347,7 @@ public sealed class DaemonGuiStartupObserverTests
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
             OnWaitForSession?.Invoke();
+            LastTimeout = timeout;
             LastExpectedProcessStartedAtUtc = expectedProcessStartedAtUtc;
             return ValueTask.FromResult(NextResult);
         }
