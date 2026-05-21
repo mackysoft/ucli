@@ -3,7 +3,6 @@ using MackySoft.Ucli.Contracts;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.RequestIdempotency;
@@ -28,60 +27,6 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         private readonly IExecuteRequestIdempotencyCoordinator requestIdempotencyCoordinator;
         private readonly IUnityEditorReadinessGate readinessGate;
         private readonly IUnityMainThreadRequestExecutor mainThreadRequestExecutor;
-
-        /// <summary> Initializes a new instance of the <see cref="ExecuteRequestDispatcher" /> class. </summary>
-        /// <param name="requestNormalizer"> The execute-request normalizer dependency. </param>
-        /// <param name="operationPhaseExecutor"> The operation-phase executor dependency. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when any dependency is <see langword="null" />. </exception>
-        public ExecuteRequestDispatcher (
-            IExecuteRequestNormalizer requestNormalizer,
-            IOperationPhaseExecutor operationPhaseExecutor)
-            : this(
-                requestNormalizer,
-                operationPhaseExecutor,
-                new ExecuteRequestIdempotencyCoordinator(),
-                new PassThroughUnityEditorReadinessGate(),
-                new InlineUnityMainThreadRequestExecutor())
-        {
-        }
-
-        /// <summary> Initializes a new instance of the <see cref="ExecuteRequestDispatcher" /> class. </summary>
-        /// <param name="requestNormalizer"> The execute-request normalizer dependency. </param>
-        /// <param name="operationPhaseExecutor"> The operation-phase executor dependency. </param>
-        /// <param name="readinessGate"> The editor-readiness gate dependency. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when any dependency is <see langword="null" />. </exception>
-        public ExecuteRequestDispatcher (
-            IExecuteRequestNormalizer requestNormalizer,
-            IOperationPhaseExecutor operationPhaseExecutor,
-            IUnityEditorReadinessGate readinessGate)
-            : this(
-                requestNormalizer,
-                operationPhaseExecutor,
-                new ExecuteRequestIdempotencyCoordinator(),
-                readinessGate,
-                new InlineUnityMainThreadRequestExecutor())
-        {
-        }
-
-        /// <summary> Initializes a new instance of the <see cref="ExecuteRequestDispatcher" /> class. </summary>
-        /// <param name="requestNormalizer"> The execute-request normalizer dependency. </param>
-        /// <param name="operationPhaseExecutor"> The operation-phase executor dependency. </param>
-        /// <param name="readinessGate"> The editor-readiness gate dependency. </param>
-        /// <param name="mainThreadRequestExecutor"> The Unity main-thread executor dependency. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when any dependency is <see langword="null" />. </exception>
-        public ExecuteRequestDispatcher (
-            IExecuteRequestNormalizer requestNormalizer,
-            IOperationPhaseExecutor operationPhaseExecutor,
-            IUnityEditorReadinessGate readinessGate,
-            IUnityMainThreadRequestExecutor mainThreadRequestExecutor)
-            : this(
-                requestNormalizer,
-                operationPhaseExecutor,
-                new ExecuteRequestIdempotencyCoordinator(),
-                readinessGate,
-                mainThreadRequestExecutor)
-        {
-        }
 
         /// <summary> Initializes a new instance of the <see cref="ExecuteRequestDispatcher" /> class. </summary>
         /// <param name="requestNormalizer"> The execute-request normalizer dependency. </param>
@@ -216,45 +161,6 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     $"Unexpected error occurred while dispatching execute request. {exception.Message}",
                     null,
                     SerializerOptions);
-            }
-        }
-
-        private sealed class PassThroughUnityEditorReadinessGate : IUnityEditorReadinessGate
-        {
-            public UnityEditorLifecycleSnapshot CaptureSnapshot ()
-            {
-                return new UnityEditorLifecycleSnapshot(
-                    EditorMode: DaemonEditorMode.Batchmode,
-                    LifecycleState: IpcEditorLifecycleStateCodec.Ready,
-                    BlockingReason: null,
-                    CompileState: IpcCompileStateCodec.Ready,
-                    CompileGeneration: "0",
-                    DomainReloadGeneration: "0",
-                    CanAcceptExecutionRequests: true);
-            }
-
-            public Task<UnityEditorExecutionReadinessResult> EnsureExecutionReadyAsync (
-                bool failFast,
-                CancellationToken cancellationToken = default)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                return Task.FromResult(UnityEditorExecutionReadinessResult.Ready(CaptureSnapshot()));
-            }
-        }
-
-        private sealed class InlineUnityMainThreadRequestExecutor : IUnityMainThreadRequestExecutor
-        {
-            public Task<T> ExecuteAsync<T> (
-                Func<Task<T>> workItem,
-                CancellationToken cancellationToken = default)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (workItem == null)
-                {
-                    throw new ArgumentNullException(nameof(workItem));
-                }
-
-                return workItem();
             }
         }
 

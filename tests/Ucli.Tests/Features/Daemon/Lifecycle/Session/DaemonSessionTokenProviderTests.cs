@@ -12,7 +12,7 @@ public sealed class DaemonSessionTokenProviderTests
     public async Task Resolve_WhenSessionExists_ReturnsToken ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-token-provider", "session-exists");
-        var store = new DaemonSessionStore();
+        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
         var provider = new DaemonSessionTokenProvider(store);
         var context = CreateContext(scope.FullPath, "fingerprint-session-exists");
 
@@ -32,7 +32,7 @@ public sealed class DaemonSessionTokenProviderTests
     public async Task Resolve_WhenSessionDoesNotExist_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-token-provider", "session-missing");
-        var provider = new DaemonSessionTokenProvider(new DaemonSessionStore());
+        var provider = new DaemonSessionTokenProvider(new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator()));
         var context = CreateContext(scope.FullPath, "fingerprint-session-missing");
 
         var resolveResult = await provider.ResolveAsync(context, CancellationToken.None);

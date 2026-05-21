@@ -16,15 +16,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private readonly IPlanTokenEnvironment environment;
 
         /// <summary> Initializes a new instance of the <see cref="DangerousOperationCallAuthorizer" /> class. </summary>
-        public DangerousOperationCallAuthorizer ()
-            : this(new DefaultPlanTokenEnvironment())
-        {
-        }
-
-        /// <summary> Initializes a new instance of the <see cref="DangerousOperationCallAuthorizer" /> class. </summary>
         /// <param name="environment"> The runtime environment dependency used to locate project configuration. </param>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="environment" /> is <see langword="null" />. </exception>
-        internal DangerousOperationCallAuthorizer (IPlanTokenEnvironment environment)
+        public DangerousOperationCallAuthorizer (IPlanTokenEnvironment environment)
         {
             this.environment = environment ?? throw new ArgumentNullException(nameof(environment));
         }

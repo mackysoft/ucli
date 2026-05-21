@@ -22,23 +22,6 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
         IReadIndexFreshnessEvaluator freshnessEvaluator,
         IMutationReadPostconditionStore mutationReadPostconditionStore,
         ISceneTreeLiteSourceRefreshService sourceRefreshService,
-        ISceneTreeLiteSourceProbe sourceProbe)
-        : this(
-            artifactReader,
-            freshnessEvaluator,
-            mutationReadPostconditionStore,
-            sourceRefreshService,
-            sourceProbe,
-            NoOpSceneTreeLiteDirtySourceProbeService.Instance)
-    {
-    }
-
-    /// <summary> Initializes a new instance of the <see cref="SceneTreeLiteAccessService" /> class. </summary>
-    public SceneTreeLiteAccessService (
-        IReadIndexArtifactReader artifactReader,
-        IReadIndexFreshnessEvaluator freshnessEvaluator,
-        IMutationReadPostconditionStore mutationReadPostconditionStore,
-        ISceneTreeLiteSourceRefreshService sourceRefreshService,
         ISceneTreeLiteSourceProbe sourceProbe,
         ISceneTreeLiteDirtySourceProbeService dirtySourceProbeService)
     {
@@ -288,21 +271,4 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
             "Scene-tree-lite read completed.");
     }
 
-    private sealed class NoOpSceneTreeLiteDirtySourceProbeService : ISceneTreeLiteDirtySourceProbeService
-    {
-        public static NoOpSceneTreeLiteDirtySourceProbeService Instance { get; } = new();
-
-        public ValueTask<SceneTreeLiteDirtySourceProbeResult> ProbeAsync (
-            ResolvedUnityProjectContext project,
-            UcliConfig config,
-            UcliCommand command,
-            UnityExecutionModeValue mode,
-            TimeSpan timeout,
-            string scenePath,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(SceneTreeLiteDirtySourceProbeResult.NotAvailable("dirty source probe is not configured."));
-        }
-    }
 }

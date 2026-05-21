@@ -21,15 +21,9 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     private readonly UcliConfigCompiler compiler;
 
     /// <summary> Initializes a new instance of the <see cref="UcliConfigStore" /> class. </summary>
-    public UcliConfigStore ()
-        : this(UcliConfigCompiler.CreateDefault())
-    {
-    }
-
-    /// <summary> Initializes a new instance of the <see cref="UcliConfigStore" /> class. </summary>
     /// <param name="compiler"> The config compiler dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="compiler" /> is <see langword="null" />. </exception>
-    internal UcliConfigStore (UcliConfigCompiler compiler)
+    public UcliConfigStore (UcliConfigCompiler compiler)
     {
         this.compiler = compiler ?? throw new ArgumentNullException(nameof(compiler));
     }

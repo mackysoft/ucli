@@ -25,6 +25,9 @@ internal static class SharedServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IEnvironmentVariableReader, ProcessEnvironmentVariableReader>();
+        services.AddSingleton<UcliConfigSchemaValidator>();
+        services.AddSingleton<UcliEffectiveConfigBuilder>();
+        services.AddSingleton<UcliConfigCompiler>();
         services.AddSingleton<IUcliConfigStore, UcliConfigStore>();
         services.AddSingleton<IProjectLifecycleLockProvider, FileSystemProjectLifecycleLockProvider>();
         services.AddSingleton<IUnityProjectLockFileProbe, UnityProjectLockFileProbe>();

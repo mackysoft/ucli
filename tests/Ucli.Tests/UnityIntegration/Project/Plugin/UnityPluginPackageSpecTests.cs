@@ -4,6 +4,7 @@ using System.Xml.Linq;
 using MackySoft.Tests;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin.Cache;
+using MackySoft.Ucli.UnityIntegration.Project.Plugin.Marker;
 
 public sealed class UnityPluginPackageSpecTests
 {
@@ -42,7 +43,7 @@ public sealed class UnityPluginPackageSpecTests
               "protocolVersion": 1
             }
             """);
-        var locator = new UnityUcliPluginLocator(CreateNoOpCacheStore());
+        var locator = CreateLocator(CreateNoOpCacheStore());
 
         var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
 
@@ -94,6 +95,15 @@ public sealed class UnityPluginPackageSpecTests
             static (_, _) => ValueTask.FromResult<string?>(null),
             static (_, _, _) => ValueTask.CompletedTask,
             static _ => { });
+    }
+
+    private static UnityUcliPluginLocator CreateLocator (UnityUcliPluginMarkerCacheStore cacheStore)
+    {
+        var markerValidator = new UnityUcliPluginMarkerValidator();
+        return new UnityUcliPluginLocator(
+            new UnityUcliPluginMarkerDiscovery(),
+            markerValidator,
+            new UnityUcliPluginMarkerCacheCoordinator(cacheStore, markerValidator));
     }
 
     private static string ResolveRepositoryRoot ()

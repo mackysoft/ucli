@@ -45,134 +45,33 @@ namespace MackySoft.Ucli.Unity.Runtime
         public UnityEditorReadinessGate (DaemonEditorMode editorMode)
             : this(
                 editorMode,
-                sharedLifecycleTelemetryState,
-                static () => EditorApplication.isCompiling,
-                static () => EditorApplication.isUpdating,
-                static () => EditorApplication.isPlayingOrWillChangePlaymode,
+                sharedLifecycleMonitor,
                 static handler => AssemblyReloadEvents.beforeAssemblyReload += handler,
                 static handler => AssemblyReloadEvents.beforeAssemblyReload -= handler,
                 static handler => EditorApplication.quitting += handler,
                 static handler => EditorApplication.quitting -= handler,
-                subscribeToEditorEvents: true)
-        {
-        }
-
-        /// <summary> Initializes a new instance of the <see cref="UnityEditorReadinessGate" /> class. </summary>
-        /// <param name="lifecycleTelemetryState"> The mutable lifecycle telemetry state to observe. </param>
-        internal UnityEditorReadinessGate (UnityEditorLifecycleTelemetryState lifecycleTelemetryState)
-            : this(
-                DaemonEditorMode.Batchmode,
-                lifecycleTelemetryState,
-                static () => EditorApplication.isCompiling,
-                static () => EditorApplication.isUpdating,
-                static () => EditorApplication.isPlayingOrWillChangePlaymode,
-                static handler => AssemblyReloadEvents.beforeAssemblyReload += handler,
-                static handler => AssemblyReloadEvents.beforeAssemblyReload -= handler,
-                static handler => EditorApplication.quitting += handler,
-                static handler => EditorApplication.quitting -= handler,
-                subscribeToEditorEvents: false)
-        {
-        }
-
-        /// <summary> Initializes a new instance of the <see cref="UnityEditorReadinessGate" /> class. </summary>
-        /// <param name="lifecycleTelemetryState"> The mutable lifecycle telemetry state to observe. </param>
-        /// <param name="isCompilingProvider"> The compile-state observer. </param>
-        /// <param name="isUpdatingProvider"> The update-state observer. </param>
-        /// <param name="isPlaymodeActiveProvider"> The Play Mode observer. </param>
-        internal UnityEditorReadinessGate (
-            UnityEditorLifecycleTelemetryState lifecycleTelemetryState,
-            Func<bool> isCompilingProvider,
-            Func<bool> isUpdatingProvider,
-            Func<bool> isPlaymodeActiveProvider)
-            : this(
-                DaemonEditorMode.Batchmode,
-                lifecycleTelemetryState,
-                isCompilingProvider,
-                isUpdatingProvider,
-                isPlaymodeActiveProvider,
-                static handler => AssemblyReloadEvents.beforeAssemblyReload += handler,
-                static handler => AssemblyReloadEvents.beforeAssemblyReload -= handler,
-                static handler => EditorApplication.quitting += handler,
-                static handler => EditorApplication.quitting -= handler,
-                subscribeToEditorEvents: false)
+            subscribeToEditorEvents: true)
         {
         }
 
         /// <summary> Initializes a new instance of the <see cref="UnityEditorReadinessGate" /> class. </summary>
         /// <param name="editorMode"> The daemon Editor mode reported by lifecycle snapshots. </param>
-        /// <param name="lifecycleTelemetryState"> The mutable lifecycle telemetry state to observe. </param>
-        /// <param name="isCompilingProvider"> The compile-state observer. </param>
-        /// <param name="isUpdatingProvider"> The update-state observer. </param>
-        /// <param name="isPlaymodeActiveProvider"> The Play Mode observer. </param>
-        internal UnityEditorReadinessGate (
-            DaemonEditorMode editorMode,
-            UnityEditorLifecycleTelemetryState lifecycleTelemetryState,
-            Func<bool> isCompilingProvider,
-            Func<bool> isUpdatingProvider,
-            Func<bool> isPlaymodeActiveProvider)
-            : this(
-                editorMode,
-                lifecycleTelemetryState,
-                isCompilingProvider,
-                isUpdatingProvider,
-                isPlaymodeActiveProvider,
-                static handler => AssemblyReloadEvents.beforeAssemblyReload += handler,
-                static handler => AssemblyReloadEvents.beforeAssemblyReload -= handler,
-                static handler => EditorApplication.quitting += handler,
-                static handler => EditorApplication.quitting -= handler,
-                subscribeToEditorEvents: false)
-        {
-        }
-
-        /// <summary> Initializes a new instance of the <see cref="UnityEditorReadinessGate" /> class. </summary>
-        /// <param name="lifecycleTelemetryState"> The mutable lifecycle telemetry state to observe. </param>
-        /// <param name="isCompilingProvider"> The compile-state observer. </param>
-        /// <param name="isUpdatingProvider"> The update-state observer. </param>
-        /// <param name="isPlaymodeActiveProvider"> The Play Mode observer. </param>
+        /// <param name="lifecycleMonitor"> The lifecycle monitor dependency. </param>
         /// <param name="beforeAssemblyReloadSubscriber"> Subscribes one handler to the assembly-reload start event. </param>
         /// <param name="beforeAssemblyReloadUnsubscriber"> Unsubscribes one handler from the assembly-reload start event. </param>
         /// <param name="quittingSubscriber"> Subscribes one handler to the editor-quitting event. </param>
         /// <param name="quittingUnsubscriber"> Unsubscribes one handler from the editor-quitting event. </param>
+        /// <param name="subscribeToEditorEvents"> Whether this instance should subscribe shared Unity editor lifecycle callbacks. </param>
         internal UnityEditorReadinessGate (
-            UnityEditorLifecycleTelemetryState lifecycleTelemetryState,
-            Func<bool> isCompilingProvider,
-            Func<bool> isUpdatingProvider,
-            Func<bool> isPlaymodeActiveProvider,
-            Action<AssemblyReloadEvents.AssemblyReloadCallback> beforeAssemblyReloadSubscriber,
-            Action<AssemblyReloadEvents.AssemblyReloadCallback> beforeAssemblyReloadUnsubscriber,
-            Action<Action> quittingSubscriber,
-            Action<Action> quittingUnsubscriber)
-            : this(
-                DaemonEditorMode.Batchmode,
-                lifecycleTelemetryState,
-                isCompilingProvider,
-                isUpdatingProvider,
-                isPlaymodeActiveProvider,
-                beforeAssemblyReloadSubscriber,
-                beforeAssemblyReloadUnsubscriber,
-                quittingSubscriber,
-                quittingUnsubscriber,
-                subscribeToEditorEvents: false)
-        {
-        }
-
-        private UnityEditorReadinessGate (
             DaemonEditorMode editorMode,
-            UnityEditorLifecycleTelemetryState lifecycleTelemetryState,
-            Func<bool> isCompilingProvider,
-            Func<bool> isUpdatingProvider,
-            Func<bool> isPlaymodeActiveProvider,
+            UnityEditorLifecycleMonitor lifecycleMonitor,
             Action<AssemblyReloadEvents.AssemblyReloadCallback> beforeAssemblyReloadSubscriber,
             Action<AssemblyReloadEvents.AssemblyReloadCallback> beforeAssemblyReloadUnsubscriber,
             Action<Action> quittingSubscriber,
             Action<Action> quittingUnsubscriber,
             bool subscribeToEditorEvents)
         {
-            this.lifecycleMonitor = new UnityEditorLifecycleMonitor(
-                lifecycleTelemetryState ?? throw new ArgumentNullException(nameof(lifecycleTelemetryState)),
-                isCompilingProvider,
-                isUpdatingProvider,
-                isPlaymodeActiveProvider);
+            this.lifecycleMonitor = lifecycleMonitor ?? throw new ArgumentNullException(nameof(lifecycleMonitor));
             _ = DaemonEditorModeCodec.ToValue(editorMode);
             this.editorMode = editorMode;
             this.beforeAssemblyReloadSubscriber = beforeAssemblyReloadSubscriber ?? throw new ArgumentNullException(nameof(beforeAssemblyReloadSubscriber));

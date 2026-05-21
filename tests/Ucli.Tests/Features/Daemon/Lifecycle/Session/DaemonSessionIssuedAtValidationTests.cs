@@ -12,7 +12,7 @@ public sealed class DaemonSessionIssuedAtValidationTests
     public async Task Read_WhenIssuedAtUtcIsMissing_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "missing-issued-at");
-        var store = new DaemonSessionStore();
+        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, "fingerprint-missing-issued-at");
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
         await File.WriteAllTextAsync(
@@ -46,7 +46,7 @@ public sealed class DaemonSessionIssuedAtValidationTests
     public async Task Write_WhenIssuedAtUtcIsDefault_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "default-issued-at");
-        var store = new DaemonSessionStore();
+        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
         var session = new DaemonSession(
             SchemaVersion: DaemonSession.CurrentSchemaVersion,
             SessionToken: "token-1",

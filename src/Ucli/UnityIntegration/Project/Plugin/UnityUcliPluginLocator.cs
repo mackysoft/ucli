@@ -33,28 +33,6 @@ internal sealed class UnityUcliPluginLocator : IUnityUcliPluginLocator
         this.pluginMarkerCacheCoordinator = pluginMarkerCacheCoordinator ?? throw new ArgumentNullException(nameof(pluginMarkerCacheCoordinator));
     }
 
-    /// <summary> Initializes a new instance of the <see cref="UnityUcliPluginLocator" /> class for tests. </summary>
-    internal UnityUcliPluginLocator ()
-        : this(
-            new UnityUcliPluginMarkerDiscovery(),
-            new UnityUcliPluginMarkerValidator(),
-            new UnityUcliPluginMarkerCacheCoordinator(
-                new UnityUcliPluginMarkerCacheStore(),
-                new UnityUcliPluginMarkerValidator()))
-    {
-    }
-
-    /// <summary> Initializes a new instance of the <see cref="UnityUcliPluginLocator" /> class for tests. </summary>
-    internal UnityUcliPluginLocator (UnityUcliPluginMarkerCacheStore pluginMarkerCacheStore)
-        : this(
-            new UnityUcliPluginMarkerDiscovery(),
-            new UnityUcliPluginMarkerValidator(),
-            new UnityUcliPluginMarkerCacheCoordinator(
-                pluginMarkerCacheStore ?? throw new ArgumentNullException(nameof(pluginMarkerCacheStore)),
-                new UnityUcliPluginMarkerValidator()))
-    {
-    }
-
     /// <inheritdoc />
     public async ValueTask<UnityUcliPluginLocateResult> LocateAsync (
         string unityProjectRoot,

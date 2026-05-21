@@ -25,42 +25,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private readonly IDangerousOperationCallAuthorizer dangerousOperationCallAuthorizer;
 
         /// <summary> Initializes a new instance of the <see cref="OperationPhaseExecutor" /> class. </summary>
-        /// <param name="operationRegistry"> The phase-operation registry dependency. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="operationRegistry" /> is <see langword="null" />. </exception>
-        public OperationPhaseExecutor (IPhaseOperationRegistry operationRegistry)
-            : this(operationRegistry, new PlanTokenCoordinator(), new DangerousOperationCallAuthorizer())
-        {
-        }
-
-        /// <summary> Initializes a new instance of the <see cref="OperationPhaseExecutor" /> class. </summary>
-        /// <param name="operationRegistry"> The phase-operation registry dependency. </param>
-        /// <param name="planTokenCoordinator"> The plan-token coordination dependency. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when any dependency is <see langword="null" />. </exception>
-        public OperationPhaseExecutor (
-            IPhaseOperationRegistry operationRegistry,
-            IPlanTokenCoordinator planTokenCoordinator)
-            : this(operationRegistry, planTokenCoordinator, new DangerousOperationCallAuthorizer())
-        {
-        }
-
-        internal OperationPhaseExecutor (
-            IPhaseOperationRegistry operationRegistry,
-            IPlanTokenCoordinator planTokenCoordinator,
-            IDangerousOperationCallAuthorizer dangerousOperationCallAuthorizer)
-            : this(
-                new OperationPlanPassExecutor(operationRegistry),
-                new OperationCallPassExecutor(),
-                planTokenCoordinator,
-                dangerousOperationCallAuthorizer)
-        {
-        }
-
-        /// <summary> Initializes a new instance of the <see cref="OperationPhaseExecutor" /> class. </summary>
         /// <param name="planPassExecutor"> The validate/plan pass executor dependency. </param>
         /// <param name="callPassExecutor"> The call pass executor dependency. </param>
         /// <param name="planTokenCoordinator"> The plan-token coordination dependency. </param>
         /// <exception cref="ArgumentNullException"> Thrown when any dependency is <see langword="null" />. </exception>
-        internal OperationPhaseExecutor (
+        public OperationPhaseExecutor (
             IOperationPlanPassExecutor planPassExecutor,
             IOperationCallPassExecutor callPassExecutor,
             IPlanTokenCoordinator planTokenCoordinator,
