@@ -34,6 +34,10 @@ public sealed class UcliCommandCatalogTests
     [InlineData(UcliCommandNames.Ops, UcliCommandNames.DescribeSubcommand, null, UcliCommandNames.OpsDescribe)]
     [InlineData(UcliCommandNames.Codes, UcliCommandNames.ListSubcommand, null, UcliCommandNames.CodesList)]
     [InlineData(UcliCommandNames.Codes, UcliCommandNames.DescribeSubcommand, null, UcliCommandNames.CodesDescribe)]
+    [InlineData(UcliCommandNames.Play, UcliCommandNames.Status, null, UcliCommandNames.PlayStatus)]
+    [InlineData(UcliCommandNames.Play, UcliCommandNames.EnterSubcommand, null, UcliCommandNames.PlayEnter)]
+    [InlineData(UcliCommandNames.Play, UcliCommandNames.ExitSubcommand, null, UcliCommandNames.PlayExit)]
+    [InlineData(UcliCommandNames.Play, UcliCommandNames.WaitSubcommand, null, UcliCommandNames.PlayWait)]
     [InlineData(UcliCommandNames.Skills, UcliCommandNames.ListSubcommand, null, UcliCommandNames.SkillsList)]
     [InlineData(UcliCommandNames.Skills, UcliCommandNames.ExportSubcommand, null, UcliCommandNames.SkillsExport)]
     [InlineData(UcliCommandNames.Skills, UcliCommandNames.InstallSubcommand, null, UcliCommandNames.SkillsInstall)]
@@ -78,6 +82,7 @@ public sealed class UcliCommandCatalogTests
     [InlineData(UcliCommandNames.Logs)]
     [InlineData(UcliCommandNames.Ops)]
     [InlineData(UcliCommandNames.Codes)]
+    [InlineData(UcliCommandNames.Play)]
     [InlineData(UcliCommandNames.Skills)]
     [InlineData(UcliCommandNames.Test)]
     public void IsRegisteredRootCommand_WhenKnownCommandSpecified_ReturnsTrue (string commandName)
@@ -125,6 +130,25 @@ public sealed class UcliCommandCatalogTests
                 UcliCommandNames.CleanupSubcommand,
                 UcliCommandNames.Status,
                 UcliCommandNames.ListSubcommand,
+            ],
+            subcommands);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryGetPreDispatchSupportedSubcommands_WhenPlayCommandSpecified_ReturnsPlayCommands ()
+    {
+        var found = UcliCommandCatalog.TryGetPreDispatchSupportedSubcommands(
+            UcliCommandNames.Play,
+            out var subcommands);
+
+        Assert.True(found);
+        Assert.Equal(
+            [
+                UcliCommandNames.Status,
+                UcliCommandNames.EnterSubcommand,
+                UcliCommandNames.ExitSubcommand,
+                UcliCommandNames.WaitSubcommand,
             ],
             subcommands);
     }

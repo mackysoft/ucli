@@ -47,6 +47,10 @@ public sealed class CliOutputSchemaArtifactTests
         Assert.Contains("plan", commandEntries.Keys);
         Assert.Contains("ops.describe", commandEntries.Keys);
         Assert.Contains("codes.describe", commandEntries.Keys);
+        Assert.Contains("play.status", commandEntries.Keys);
+        Assert.Contains("play.enter", commandEntries.Keys);
+        Assert.Contains("play.exit", commandEntries.Keys);
+        Assert.Contains("play.wait", commandEntries.Keys);
         Assert.Contains("test.run", commandEntries.Keys);
     }
 
@@ -240,6 +244,118 @@ public sealed class CliOutputSchemaArtifactTests
             document.RootElement);
 
         Assert.Empty(errors);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void PlayPayloadSchemas_AcceptLifecycleAndTransitionContracts ()
+    {
+        using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
+        using var statusDocument = JsonDocument.Parse(
+            """
+            {
+              "snapshot": {
+                "serverVersion": "0.5.0",
+                "editorMode": "gui",
+                "unityVersion": "6000.1.4f1",
+                "projectFingerprint": "project-fingerprint",
+                "lifecycleState": "ready",
+                "blockingReason": "none",
+                "compileState": "idle",
+                "compileGeneration": "12",
+                "domainReloadGeneration": "7",
+                "canAcceptExecutionRequests": true,
+                "observedAtUtc": "2026-05-21T00:00:00+00:00",
+                "actionRequired": null,
+                "primaryDiagnostic": null,
+                "playMode": {
+                  "state": "stopped",
+                  "transition": "none",
+                  "isPlaying": false,
+                  "isPlayingOrWillChangePlaymode": false,
+                  "generation": "42"
+                }
+              },
+              "timeoutMilliseconds": 1000
+            }
+            """);
+        using var enterDocument = JsonDocument.Parse(
+            """
+            {
+              "transition": {
+                "transition": "enter",
+                "result": "entered",
+                "before": {
+                  "serverVersion": "0.5.0",
+                  "editorMode": "gui",
+                  "unityVersion": "6000.1.4f1",
+                  "projectFingerprint": "project-fingerprint",
+                  "lifecycleState": "ready",
+                  "blockingReason": "none",
+                  "compileState": "idle",
+                  "compileGeneration": "12",
+                  "domainReloadGeneration": "7",
+                  "canAcceptExecutionRequests": true,
+                  "observedAtUtc": "2026-05-21T00:00:00+00:00",
+                  "actionRequired": null,
+                  "primaryDiagnostic": null,
+                  "playMode": {
+                    "state": "stopped",
+                    "transition": "none",
+                    "isPlaying": false,
+                    "isPlayingOrWillChangePlaymode": false,
+                    "generation": "42"
+                  }
+                },
+                "after": {
+                  "serverVersion": "0.5.0",
+                  "editorMode": "gui",
+                  "unityVersion": "6000.1.4f1",
+                  "projectFingerprint": "project-fingerprint",
+                  "lifecycleState": "ready",
+                  "blockingReason": "none",
+                  "compileState": "idle",
+                  "compileGeneration": "12",
+                  "domainReloadGeneration": "7",
+                  "canAcceptExecutionRequests": true,
+                  "observedAtUtc": "2026-05-21T00:00:01+00:00",
+                  "actionRequired": null,
+                  "primaryDiagnostic": null,
+                  "playMode": {
+                    "state": "playing",
+                    "transition": "none",
+                    "isPlaying": true,
+                    "isPlayingOrWillChangePlaymode": true,
+                    "generation": "43"
+                  }
+                },
+                "applicationState": "applied"
+              },
+              "timeoutMilliseconds": 1000
+            }
+            """);
+
+        Assert.Empty(schemaSet.Validate("cli-output/payload/play.status.schema.json", statusDocument.RootElement));
+        Assert.Empty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", enterDocument.RootElement));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void RequestSchemasAndPrimitiveOperationNames_DoNotExposePlayModeLifecycleOperations ()
+    {
+        var requestEnvelopeSchemaPath = Path.Combine(RepositoryRoot, "schemas", "v1", "request", "request-envelope.schema.json");
+        var editDslSchemaPath = Path.Combine(RepositoryRoot, "schemas", "v1", "request", "edit-dsl.schema.json");
+        var requestSchemas = File.ReadAllText(requestEnvelopeSchemaPath) + File.ReadAllText(editDslSchemaPath);
+        var primitiveOperationNames = StaticFieldValueReader.ReadFromStaticClasses<string>(
+            typeof(UcliPrimitiveOperationNames).Assembly,
+            "PrimitiveOperationNames");
+
+        Assert.DoesNotContain("play.enter", requestSchemas, StringComparison.Ordinal);
+        Assert.DoesNotContain("play.exit", requestSchemas, StringComparison.Ordinal);
+        Assert.DoesNotContain("ucli.play.enter", requestSchemas, StringComparison.Ordinal);
+        Assert.DoesNotContain("ucli.play.exit", requestSchemas, StringComparison.Ordinal);
+        Assert.DoesNotContain("ucli.play.enter", primitiveOperationNames);
+        Assert.DoesNotContain("ucli.play.exit", primitiveOperationNames);
     }
 
     [Fact]

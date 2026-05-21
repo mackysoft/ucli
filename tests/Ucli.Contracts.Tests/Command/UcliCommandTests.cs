@@ -8,6 +8,7 @@ public sealed class UcliCommandTests
     [InlineData("daemon.cleanup")]
     [InlineData("daemon.status")]
     [InlineData("daemon.list")]
+    [InlineData("play.wait")]
     [InlineData("test.run")]
     [InlineData("logs.daemon.read")]
     [InlineData("logs.unity.read")]
@@ -25,6 +26,7 @@ public sealed class UcliCommandTests
     [InlineData("daemon.cleanup")]
     [InlineData("daemon.status")]
     [InlineData("daemon.list")]
+    [InlineData("play.wait")]
     [InlineData("test.run")]
     [InlineData("logs.daemon.read")]
     [InlineData("logs.unity.read")]
@@ -55,6 +57,28 @@ public sealed class UcliCommandTests
     public void IsValid_OnDefaultCommand_ReturnsFalse ()
     {
         Assert.False(default(UcliCommand).IsValid);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UcliCommandIds_ExposePlayModeCommandLiterals ()
+    {
+        Assert.Equal("play", UcliCommandIds.Play.Name);
+        Assert.Equal("play.status", UcliCommandIds.PlayStatus.Name);
+        Assert.Equal("play.enter", UcliCommandIds.PlayEnter.Name);
+        Assert.Equal("play.exit", UcliCommandIds.PlayExit.Name);
+        Assert.Equal("play.wait", UcliCommandIds.PlayWait.Name);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void PublicCommandCatalog_IncludesPlayModeCommandFamily ()
+    {
+        Assert.Contains(UcliCommandIds.Play, UcliPublicCommandCatalog.KnownCommands);
+        Assert.Contains(UcliCommandIds.PlayStatus, UcliPublicCommandCatalog.KnownCommands);
+        Assert.Contains(UcliCommandIds.PlayEnter, UcliPublicCommandCatalog.KnownCommands);
+        Assert.Contains(UcliCommandIds.PlayExit, UcliPublicCommandCatalog.KnownCommands);
+        Assert.Contains(UcliCommandIds.PlayWait, UcliPublicCommandCatalog.KnownCommands);
     }
 
     [Theory]
