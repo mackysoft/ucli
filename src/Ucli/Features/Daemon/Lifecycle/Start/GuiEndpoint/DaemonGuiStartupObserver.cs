@@ -191,10 +191,9 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
 
     private static TimeSpan GetObservationAttemptTimeout (TimeSpan remainingTimeout)
     {
-        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        return remainingTimeout < retryDelay
+        return remainingTimeout < DaemonTimeouts.ProbeAttemptTimeoutCap
             ? remainingTimeout
-            : retryDelay;
+            : DaemonTimeouts.ProbeAttemptTimeoutCap;
     }
 
     private static DaemonGuiStartupBlocker CreateProcessExitedBlocker (
