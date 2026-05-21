@@ -138,6 +138,138 @@ public sealed class UcliErrorDescriptorTests
         Assert.Contains("payload.readPostcondition", descriptor.Inspect);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void PlayModeSessionAndStateDescriptors_ApplyToPlayCommandFamily ()
+    {
+        var lifecycleCodes = new[]
+        {
+            PlayModeErrorCodes.PlayModeSessionNotAvailable,
+            PlayModeErrorCodes.PlayModeStateUnknown,
+        };
+
+        foreach (var code in lifecycleCodes)
+        {
+            var descriptor = FindDescriptor(code);
+
+            Assert.Equal("playMode", descriptor.Category);
+            Assert.Contains(UcliCommandIds.PlayStatus, descriptor.AppliesTo);
+            Assert.Contains(UcliCommandIds.PlayEnter, descriptor.AppliesTo);
+            Assert.Contains(UcliCommandIds.PlayExit, descriptor.AppliesTo);
+            Assert.Contains(UcliCommandIds.PlayWait, descriptor.AppliesTo);
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void PlayModeTransitionDescriptors_ApplyToTransitionCommands ()
+    {
+        var transitionCodes = new[]
+        {
+            PlayModeErrorCodes.PlayModeTransitionTimeout,
+            PlayModeErrorCodes.PlayModeTransitionBlocked,
+        };
+
+        foreach (var code in transitionCodes)
+        {
+            var descriptor = FindDescriptor(code);
+
+            Assert.Contains(UcliCommandIds.PlayEnter, descriptor.AppliesTo);
+            Assert.Contains(UcliCommandIds.PlayExit, descriptor.AppliesTo);
+            Assert.Contains(UcliCommandIds.PlayWait, descriptor.AppliesTo);
+            Assert.DoesNotContain(UcliCommandIds.PlayStatus, descriptor.AppliesTo);
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void PlayModeLeafSpecificDescriptors_ApplyOnlyToOwningLifecycleCommands ()
+    {
+        var alreadyChangingDescriptor = FindDescriptor(PlayModeErrorCodes.PlayModeAlreadyChanging);
+        var enterRejectedDescriptor = FindDescriptor(PlayModeErrorCodes.PlayModeEnterRejected);
+        var exitRejectedDescriptor = FindDescriptor(PlayModeErrorCodes.PlayModeExitRejected);
+
+        Assert.Contains(UcliCommandIds.PlayEnter, alreadyChangingDescriptor.AppliesTo);
+        Assert.Contains(UcliCommandIds.PlayExit, alreadyChangingDescriptor.AppliesTo);
+        Assert.DoesNotContain(UcliCommandIds.PlayStatus, alreadyChangingDescriptor.AppliesTo);
+        Assert.DoesNotContain(UcliCommandIds.PlayWait, alreadyChangingDescriptor.AppliesTo);
+
+        Assert.Equal([UcliCommandIds.PlayEnter], enterRejectedDescriptor.AppliesTo);
+        Assert.Equal([UcliCommandIds.PlayExit], exitRejectedDescriptor.AppliesTo);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void PlayModeGuiDescriptor_AppliesToMutationAndLifecycleCommands ()
+    {
+        var descriptor = FindDescriptor(PlayModeErrorCodes.PlayModeRequiresGuiEditor);
+
+        Assert.Contains(UcliCommandIds.Plan, descriptor.AppliesTo);
+        Assert.Contains(UcliCommandIds.Call, descriptor.AppliesTo);
+        Assert.Contains(UcliCommandIds.PlayStatus, descriptor.AppliesTo);
+        Assert.Contains(UcliCommandIds.PlayEnter, descriptor.AppliesTo);
+        Assert.Contains(UcliCommandIds.PlayExit, descriptor.AppliesTo);
+        Assert.Contains(UcliCommandIds.PlayWait, descriptor.AppliesTo);
+        Assert.DoesNotContain(
+            descriptor.NextActions,
+            static action => action.Action.Contains("in Play Mode", StringComparison.Ordinal));
+        Assert.Contains("payload.snapshot.playMode", descriptor.Inspect);
+        Assert.Contains("payload.transition.observed.playMode", descriptor.Inspect);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void PlayModeTransitionDescriptors_InspectPublishedPayloadPaths ()
+    {
+        var timeoutDescriptor = FindDescriptor(PlayModeErrorCodes.PlayModeTransitionTimeout);
+        var blockedDescriptor = FindDescriptor(PlayModeErrorCodes.PlayModeTransitionBlocked);
+        var stateUnknownDescriptor = FindDescriptor(PlayModeErrorCodes.PlayModeStateUnknown);
+
+        Assert.Contains("payload.transition.before.playMode", timeoutDescriptor.Inspect);
+        Assert.Contains("payload.transition.observed", timeoutDescriptor.Inspect);
+        Assert.Contains("payload.transition.applicationState", timeoutDescriptor.Inspect);
+        Assert.DoesNotContain("payload.playMode", timeoutDescriptor.Inspect);
+        Assert.DoesNotContain("payload.observed", timeoutDescriptor.Inspect);
+        Assert.DoesNotContain("payload.applicationState", timeoutDescriptor.Inspect);
+
+        Assert.Contains("payload.transition.before.lifecycleState", blockedDescriptor.Inspect);
+        Assert.Contains("payload.transition.observed.blockingReason", blockedDescriptor.Inspect);
+        Assert.DoesNotContain("payload.lifecycleState", blockedDescriptor.Inspect);
+        Assert.DoesNotContain("payload.blockingReason", blockedDescriptor.Inspect);
+
+        Assert.Contains("payload.snapshot.playMode", stateUnknownDescriptor.Inspect);
+        Assert.Contains("payload.transition.observed.playMode", stateUnknownDescriptor.Inspect);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ExistingPlayModeMutationDescriptors_RemainScopedToRequestMutationCommands ()
+    {
+        var notActiveDescriptor = FindDescriptor(PlayModeErrorCodes.PlayModeNotActive);
+        var persistenceForbiddenDescriptor = FindDescriptor(PlayModeErrorCodes.PlayModePersistenceForbidden);
+
+        Assert.Contains(UcliCommandIds.Plan, notActiveDescriptor.AppliesTo);
+        Assert.Contains(UcliCommandIds.Call, notActiveDescriptor.AppliesTo);
+        Assert.DoesNotContain(UcliCommandIds.PlayEnter, notActiveDescriptor.AppliesTo);
+        Assert.DoesNotContain(UcliCommandIds.PlayExit, notActiveDescriptor.AppliesTo);
+        Assert.Contains(UcliCommandIds.Plan, persistenceForbiddenDescriptor.AppliesTo);
+        Assert.Contains(UcliCommandIds.Call, persistenceForbiddenDescriptor.AppliesTo);
+        Assert.DoesNotContain(UcliCommandIds.PlayEnter, persistenceForbiddenDescriptor.AppliesTo);
+        Assert.DoesNotContain(UcliCommandIds.PlayExit, persistenceForbiddenDescriptor.AppliesTo);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void PlayModeErrorCodes_DoNotExposePlayModeUnderscorePrefix ()
+    {
+        var codes = StaticFieldValueReader.ReadFromStaticClasses<UcliCode>(
+            typeof(PlayModeErrorCodes).Assembly,
+            "ErrorCodes");
+
+        Assert.Contains(PlayModeErrorCodes.PlayModeSessionNotAvailable, codes);
+        Assert.DoesNotContain(codes, static code => code.Value.StartsWith("PLAY_MODE_", StringComparison.Ordinal));
+    }
+
     private static UcliErrorDescriptor FindDescriptor (UcliCode code)
     {
         return UcliKnownErrorDescriptors.All.Single(descriptor => descriptor.Code == code);

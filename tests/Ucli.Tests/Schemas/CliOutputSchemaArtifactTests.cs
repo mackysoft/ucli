@@ -47,6 +47,10 @@ public sealed class CliOutputSchemaArtifactTests
         Assert.Contains("plan", commandEntries.Keys);
         Assert.Contains("ops.describe", commandEntries.Keys);
         Assert.Contains("codes.describe", commandEntries.Keys);
+        Assert.Contains("play.status", commandEntries.Keys);
+        Assert.Contains("play.enter", commandEntries.Keys);
+        Assert.Contains("play.exit", commandEntries.Keys);
+        Assert.Contains("play.wait", commandEntries.Keys);
         Assert.Contains("test.run", commandEntries.Keys);
     }
 
@@ -240,6 +244,235 @@ public sealed class CliOutputSchemaArtifactTests
             document.RootElement);
 
         Assert.Empty(errors);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void PlayPayloadSchemas_AcceptLifecycleAndTransitionContracts ()
+    {
+        using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
+        using var statusDocument = JsonDocument.Parse(
+            """
+            {
+              "snapshot": {
+                "serverVersion": "0.5.0",
+                "editorMode": "gui",
+                "unityVersion": "6000.1.4f1",
+                "projectFingerprint": "project-fingerprint",
+                "lifecycleState": "ready",
+                "blockingReason": "none",
+                "compileState": "idle",
+                "compileGeneration": "12",
+                "domainReloadGeneration": "7",
+                "canAcceptExecutionRequests": true,
+                "observedAtUtc": "2026-05-21T00:00:00+00:00",
+                "actionRequired": null,
+                "primaryDiagnostic": null,
+                "playMode": {
+                  "state": "stopped",
+                  "transition": "none",
+                  "isPlaying": false,
+                  "isPlayingOrWillChangePlaymode": false,
+                  "generation": "42"
+                }
+              },
+              "timeoutMilliseconds": 1000
+            }
+            """);
+        using var enterDocument = JsonDocument.Parse(
+            """
+            {
+              "transition": {
+                "transition": "enter",
+                "result": "entered",
+                "before": {
+                  "serverVersion": "0.5.0",
+                  "editorMode": "gui",
+                  "unityVersion": "6000.1.4f1",
+                  "projectFingerprint": "project-fingerprint",
+                  "lifecycleState": "ready",
+                  "blockingReason": "none",
+                  "compileState": "idle",
+                  "compileGeneration": "12",
+                  "domainReloadGeneration": "7",
+                  "canAcceptExecutionRequests": true,
+                  "observedAtUtc": "2026-05-21T00:00:00+00:00",
+                  "actionRequired": null,
+                  "primaryDiagnostic": null,
+                  "playMode": {
+                    "state": "stopped",
+                    "transition": "none",
+                    "isPlaying": false,
+                    "isPlayingOrWillChangePlaymode": false,
+                    "generation": "42"
+                  }
+                },
+                "after": {
+                  "serverVersion": "0.5.0",
+                  "editorMode": "gui",
+                  "unityVersion": "6000.1.4f1",
+                  "projectFingerprint": "project-fingerprint",
+                  "lifecycleState": "ready",
+                  "blockingReason": "none",
+                  "compileState": "idle",
+                  "compileGeneration": "12",
+                  "domainReloadGeneration": "7",
+                  "canAcceptExecutionRequests": true,
+                  "observedAtUtc": "2026-05-21T00:00:01+00:00",
+                  "actionRequired": null,
+                  "primaryDiagnostic": null,
+                  "playMode": {
+                    "state": "playing",
+                    "transition": "none",
+                    "isPlaying": true,
+                    "isPlayingOrWillChangePlaymode": true,
+                    "generation": "43"
+                  }
+                },
+                "applicationState": "applied"
+              },
+              "timeoutMilliseconds": 1000
+            }
+            """);
+        using var exitDocument = JsonDocument.Parse(
+            $$"""
+            {
+              "transition": {
+                "transition": "exit",
+                "result": "exited",
+                "before": {{CreatePlayLifecycleSnapshotJson()}},
+                "applicationState": "applied"
+              },
+              "timeoutMilliseconds": 1000
+            }
+            """);
+        using var waitDocument = JsonDocument.Parse(
+            $$"""
+            {
+              "transition": {
+                "transition": "wait",
+                "result": "waited",
+                "before": {{CreatePlayLifecycleSnapshotJson()}},
+                "until": "ready",
+                "applicationState": "notApplied"
+              },
+              "timeoutMilliseconds": 1000
+            }
+            """);
+
+        Assert.Empty(schemaSet.Validate("cli-output/payload/play.status.schema.json", statusDocument.RootElement));
+        Assert.Empty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", enterDocument.RootElement));
+        Assert.Empty(schemaSet.Validate("cli-output/payload/play.exit.schema.json", exitDocument.RootElement));
+        Assert.Empty(schemaSet.Validate("cli-output/payload/play.wait.schema.json", waitDocument.RootElement));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void PlayTransitionPayloadSchemas_RejectMismatchedLeafContracts ()
+    {
+        using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
+        using var enterWithExitTransitionDocument = JsonDocument.Parse(
+            $$"""
+            {
+              "transition": {
+                "transition": "exit",
+                "result": "exited",
+                "before": {{CreatePlayLifecycleSnapshotJson()}}
+              }
+            }
+            """);
+        using var enterWithWaitTargetDocument = JsonDocument.Parse(
+            $$"""
+            {
+              "transition": {
+                "transition": "enter",
+                "result": "entered",
+                "before": {{CreatePlayLifecycleSnapshotJson()}},
+                "until": "entered"
+              }
+            }
+            """);
+        using var waitWithoutTargetDocument = JsonDocument.Parse(
+            $$"""
+            {
+              "transition": {
+                "transition": "wait",
+                "result": "waited",
+                "before": {{CreatePlayLifecycleSnapshotJson()}}
+              }
+            }
+            """);
+
+        Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", enterWithExitTransitionDocument.RootElement));
+        Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", enterWithWaitTargetDocument.RootElement));
+        Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.wait.schema.json", waitWithoutTargetDocument.RootElement));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void PlayLifecycleSnapshotSchemas_ValidatePrimaryDiagnosticContract ()
+    {
+        using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
+        using var validDiagnosticDocument = JsonDocument.Parse(
+            $$"""
+            {
+              "snapshot": {{CreatePlayLifecycleSnapshotJson(primaryDiagnosticJson: """
+                {
+                  "kind": "compiler.error",
+                  "code": "CS1002",
+                  "file": "Assets/Scripts/Example.cs",
+                  "line": 12,
+                  "column": 8,
+                  "message": "Expected semicolon."
+                }
+              """)}}
+            }
+            """);
+        using var invalidDiagnosticTypeDocument = JsonDocument.Parse(
+            $$"""
+            {
+              "snapshot": {{CreatePlayLifecycleSnapshotJson(primaryDiagnosticJson: """
+                {
+                  "kind": "compiler.error",
+                  "line": "12"
+                }
+              """)}}
+            }
+            """);
+        using var invalidDiagnosticPropertyDocument = JsonDocument.Parse(
+            $$"""
+            {
+              "snapshot": {{CreatePlayLifecycleSnapshotJson(primaryDiagnosticJson: """
+                {
+                  "kind": "compiler.error",
+                  "unexpected": true
+                }
+              """)}}
+            }
+            """);
+
+        Assert.Empty(schemaSet.Validate("cli-output/payload/play.status.schema.json", validDiagnosticDocument.RootElement));
+        Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.status.schema.json", invalidDiagnosticTypeDocument.RootElement));
+        Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.status.schema.json", invalidDiagnosticPropertyDocument.RootElement));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void RequestSchemasAndPrimitiveOperationNames_DoNotExposePlayModeLifecycleOperations ()
+    {
+        var requestEnvelopeSchemaPath = Path.Combine(RepositoryRoot, "schemas", "v1", "request", "request-envelope.schema.json");
+        var editDslSchemaPath = Path.Combine(RepositoryRoot, "schemas", "v1", "request", "edit-dsl.schema.json");
+        var requestSchemas = File.ReadAllText(requestEnvelopeSchemaPath) + File.ReadAllText(editDslSchemaPath);
+        var primitiveOperationNames = StaticFieldValueReader.ReadFromStaticClasses<string>(
+            typeof(UcliPrimitiveOperationNames).Assembly,
+            "PrimitiveOperationNames");
+
+        Assert.DoesNotContain("play.enter", requestSchemas, StringComparison.Ordinal);
+        Assert.DoesNotContain("play.exit", requestSchemas, StringComparison.Ordinal);
+        Assert.DoesNotContain("ucli.play.enter", requestSchemas, StringComparison.Ordinal);
+        Assert.DoesNotContain("ucli.play.exit", requestSchemas, StringComparison.Ordinal);
+        Assert.DoesNotContain("ucli.play.enter", primitiveOperationNames);
+        Assert.DoesNotContain("ucli.play.exit", primitiveOperationNames);
     }
 
     [Fact]
@@ -662,6 +895,37 @@ public sealed class CliOutputSchemaArtifactTests
                 "freshness": "fresh",
                 "generatedAtUtc": "2026-05-03T00:00:00Z",
                 "fallbackReason": null
+              }
+            }
+            """;
+    }
+
+    private static string CreatePlayLifecycleSnapshotJson (
+        string playModeState = "stopped",
+        string playModeTransition = "none",
+        string primaryDiagnosticJson = "null")
+    {
+        return $$"""
+            {
+              "serverVersion": "0.5.0",
+              "editorMode": "gui",
+              "unityVersion": "6000.1.4f1",
+              "projectFingerprint": "project-fingerprint",
+              "lifecycleState": "ready",
+              "blockingReason": "none",
+              "compileState": "idle",
+              "compileGeneration": "12",
+              "domainReloadGeneration": "7",
+              "canAcceptExecutionRequests": true,
+              "observedAtUtc": "2026-05-21T00:00:00+00:00",
+              "actionRequired": null,
+              "primaryDiagnostic": {{primaryDiagnosticJson}},
+              "playMode": {
+                "state": "{{playModeState}}",
+                "transition": "{{playModeTransition}}",
+                "isPlaying": false,
+                "isPlayingOrWillChangePlaymode": false,
+                "generation": "42"
               }
             }
             """;

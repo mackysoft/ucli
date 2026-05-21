@@ -84,6 +84,9 @@ internal static class UcliCommandNames
     /// <summary> Gets the top-level command name for codes. </summary>
     public const string Codes = "codes";
 
+    /// <summary> Gets the top-level command name for play. </summary>
+    public const string Play = "play";
+
     /// <summary> Gets the top-level command name for skills. </summary>
     public const string Skills = "skills";
 
@@ -107,6 +110,18 @@ internal static class UcliCommandNames
 
     /// <summary> Gets the command name for <c>codes describe</c> result payloads. </summary>
     public const string CodesDescribe = "codes.describe";
+
+    /// <summary> Gets the command name for <c>play status</c> result payloads. </summary>
+    public const string PlayStatus = "play.status";
+
+    /// <summary> Gets the command name for <c>play enter</c> result payloads. </summary>
+    public const string PlayEnter = "play.enter";
+
+    /// <summary> Gets the command name for <c>play exit</c> result payloads. </summary>
+    public const string PlayExit = "play.exit";
+
+    /// <summary> Gets the command name for <c>play wait</c> result payloads. </summary>
+    public const string PlayWait = "play.wait";
 
     /// <summary> Gets the command name for <c>skills list</c> result payloads. </summary>
     public const string SkillsList = "skills.list";
@@ -173,6 +188,15 @@ internal static class UcliCommandNames
 
     /// <summary> Gets the nested command name for daemon cleanup. </summary>
     public const string CleanupSubcommand = "cleanup";
+
+    /// <summary> Gets the nested command name for play enter. </summary>
+    public const string EnterSubcommand = "enter";
+
+    /// <summary> Gets the nested command name for play exit. </summary>
+    public const string ExitSubcommand = "exit";
+
+    /// <summary> Gets the nested command name for play wait. </summary>
+    public const string WaitSubcommand = "wait";
 
     /// <summary> Gets the nested command name for logs unity target. </summary>
     public const string UnitySubcommand = "unity";

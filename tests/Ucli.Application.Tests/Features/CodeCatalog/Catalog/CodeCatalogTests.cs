@@ -199,6 +199,31 @@ public sealed class CodeCatalogTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void List_WithPlayCommandFilter_ReturnsPlayModeLifecycleErrors ()
+    {
+        var service = new CodeCatalogService(CreateCatalog());
+
+        var result = service.List(new CodeCatalogListInput(Kind: CodeCatalogKindValues.Error, Command: "play"));
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Descriptors);
+        var codes = result.Descriptors!
+            .Select(static descriptor => descriptor.Code)
+            .ToArray();
+        Assert.Contains(PlayModeErrorCodes.PlayModeSessionNotAvailable, codes);
+        Assert.Contains(PlayModeErrorCodes.PlayModeTransitionTimeout, codes);
+        Assert.Contains(PlayModeErrorCodes.PlayModeTransitionBlocked, codes);
+        Assert.Contains(PlayModeErrorCodes.PlayModeAlreadyChanging, codes);
+        Assert.Contains(PlayModeErrorCodes.PlayModeEnterRejected, codes);
+        Assert.Contains(PlayModeErrorCodes.PlayModeExitRejected, codes);
+        Assert.Contains(PlayModeErrorCodes.PlayModeStateUnknown, codes);
+        Assert.Contains(PlayModeErrorCodes.PlayModeRequiresGuiEditor, codes);
+        Assert.DoesNotContain(PlayModeErrorCodes.PlayModeNotActive, codes);
+        Assert.DoesNotContain(PlayModeErrorCodes.PlayModePersistenceForbidden, codes);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void List_WithEveryDescriptorCommandFilter_ReturnsOwningDescriptor ()
     {
         var catalog = CreateCatalog();

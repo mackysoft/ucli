@@ -1,0 +1,90 @@
+using MackySoft.Tests;
+using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
+
+namespace MackySoft.Ucli.Tests;
+
+public sealed class PlayCliOutputContractTests
+{
+    private const string AllowPlayModeOptionMessage = "Argument '--allowPlayMode' is not recognized.";
+
+    [Theory]
+    [InlineData(UcliCommandNames.EnterSubcommand, UcliCommandNames.PlayEnter)]
+    [InlineData(UcliCommandNames.ExitSubcommand, UcliCommandNames.PlayExit)]
+    [InlineData(UcliCommandNames.WaitSubcommand, UcliCommandNames.PlayWait)]
+    [Trait("Size", "Medium")]
+    public async Task PlayLifecycleCommand_WithAllowPlayModeOption_ReturnsInvalidArgument (
+        string subcommand,
+        string expectedCommand)
+    {
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Play,
+            subcommand,
+            "--allowPlayMode");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: expectedCommand,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
+        Assert.Contains(AllowPlayModeOptionMessage, result.StdErr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task PlayWait_WithUntilOption_ReturnsRegisteredStubResult ()
+    {
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Play,
+            UcliCommandNames.WaitSubcommand,
+            "--projectPath",
+            "/tmp/ucli-play-contract",
+            "--until",
+            "entered",
+            "--timeout",
+            "1000");
+
+        AssertPlayStubResult(result, UcliCommandNames.PlayWait);
+        Assert.DoesNotContain("Argument '--projectPath' is not recognized.", result.StdErr, StringComparison.Ordinal);
+        Assert.DoesNotContain("Argument '--until' is not recognized.", result.StdErr, StringComparison.Ordinal);
+        Assert.DoesNotContain("Argument '--timeout' is not recognized.", result.StdErr, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(UcliCommandNames.Status, UcliCommandNames.PlayStatus)]
+    [InlineData(UcliCommandNames.EnterSubcommand, UcliCommandNames.PlayEnter)]
+    [InlineData(UcliCommandNames.ExitSubcommand, UcliCommandNames.PlayExit)]
+    [Trait("Size", "Medium")]
+    public async Task PlayCommand_WithProjectPathAndTimeoutOptions_ReturnsRegisteredStubResult (
+        string subcommand,
+        string expectedCommand)
+    {
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Play,
+            subcommand,
+            "--projectPath",
+            "/tmp/ucli-play-contract",
+            "--timeout",
+            "1000");
+
+        AssertPlayStubResult(result, expectedCommand);
+        Assert.DoesNotContain("Argument '--projectPath' is not recognized.", result.StdErr, StringComparison.Ordinal);
+        Assert.DoesNotContain("Argument '--timeout' is not recognized.", result.StdErr, StringComparison.Ordinal);
+    }
+
+    private static void AssertPlayStubResult (
+        CommandExecutionResult result,
+        string expectedCommand)
+    {
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: expectedCommand,
+            status: "error",
+            exitCode: (int)CliExitCode.ToolError);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.CommandNotImplemented);
+    }
+}

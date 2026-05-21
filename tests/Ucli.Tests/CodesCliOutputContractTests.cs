@@ -145,6 +145,70 @@ public sealed class CodesCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task CodesList_WithPlayCommandFilter_ReturnsAllPlayModeControlErrors ()
+    {
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Codes,
+            UcliCommandNames.ListSubcommand,
+            "--kind",
+            CodeCatalogKindValues.Error,
+            "--command",
+            "play");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.CodesList,
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+        var codes = GetCodes(outputJson.RootElement);
+        Assert.Contains(PlayModeErrorCodes.PlayModeSessionNotAvailable.Value, codes);
+        Assert.Contains(PlayModeErrorCodes.PlayModeTransitionTimeout.Value, codes);
+        Assert.Contains(PlayModeErrorCodes.PlayModeTransitionBlocked.Value, codes);
+        Assert.Contains(PlayModeErrorCodes.PlayModeAlreadyChanging.Value, codes);
+        Assert.Contains(PlayModeErrorCodes.PlayModeEnterRejected.Value, codes);
+        Assert.Contains(PlayModeErrorCodes.PlayModeExitRejected.Value, codes);
+        Assert.Contains(PlayModeErrorCodes.PlayModeStateUnknown.Value, codes);
+        Assert.Contains(PlayModeErrorCodes.PlayModeRequiresGuiEditor.Value, codes);
+        Assert.DoesNotContain(PlayModeErrorCodes.PlayModeNotActive.Value, codes);
+        Assert.DoesNotContain(PlayModeErrorCodes.PlayModePersistenceForbidden.Value, codes);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task CodesList_WithPlayEnterCommandFilter_ReturnsEnterControlErrorsOnly ()
+    {
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Codes,
+            UcliCommandNames.ListSubcommand,
+            "--kind",
+            CodeCatalogKindValues.Error,
+            "--command",
+            "play.enter");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.CodesList,
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+        var codes = GetCodes(outputJson.RootElement);
+        Assert.Contains(PlayModeErrorCodes.PlayModeSessionNotAvailable.Value, codes);
+        Assert.Contains(PlayModeErrorCodes.PlayModeTransitionTimeout.Value, codes);
+        Assert.Contains(PlayModeErrorCodes.PlayModeTransitionBlocked.Value, codes);
+        Assert.Contains(PlayModeErrorCodes.PlayModeAlreadyChanging.Value, codes);
+        Assert.Contains(PlayModeErrorCodes.PlayModeEnterRejected.Value, codes);
+        Assert.Contains(PlayModeErrorCodes.PlayModeStateUnknown.Value, codes);
+        Assert.Contains(PlayModeErrorCodes.PlayModeRequiresGuiEditor.Value, codes);
+        Assert.DoesNotContain(PlayModeErrorCodes.PlayModeExitRejected.Value, codes);
+        Assert.DoesNotContain(PlayModeErrorCodes.PlayModeNotActive.Value, codes);
+        Assert.DoesNotContain(PlayModeErrorCodes.PlayModePersistenceForbidden.Value, codes);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task CodesList_WithKindAndCommandFilter_MatchesGolden ()
     {
         var result = await CliProcessRunner.RunCommandAsync(
@@ -243,6 +307,30 @@ public sealed class CodesCliOutputContractTests
         JsonGoldenFileAssert.Matches(
             CliOutputGoldenFiles.GetPath("codes", "describe-ipc-timeout.json"),
             result.StdOut);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task CodesDescribe_WithPlayModeControlCode_ReturnsKnownCode ()
+    {
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Codes,
+            UcliCommandNames.DescribeSubcommand,
+            PlayModeErrorCodes.PlayModeTransitionTimeout.Value);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.CodesDescribe,
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", static payload => payload
+                .HasString("code", PlayModeErrorCodes.PlayModeTransitionTimeout.Value)
+                .HasBoolean("known", true)
+                .HasString("kind", CodeCatalogKindValues.Error)
+                .HasString("category", "playMode"));
     }
 
     [Fact]

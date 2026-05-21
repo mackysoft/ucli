@@ -7,6 +7,7 @@ using MackySoft.Ucli.Hosting.Cli.Daemon;
 using MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 using MackySoft.Ucli.Hosting.Cli.Init;
 using MackySoft.Ucli.Hosting.Cli.Ops;
+using MackySoft.Ucli.Hosting.Cli.Play;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Hosting.Cli.Skills;
 using MackySoft.Ucli.Hosting.Cli.Status;
@@ -73,6 +74,16 @@ internal static class UcliCommandCatalog
         ],
         []);
 
+    private static readonly CommandGroupEntry PlayCommandGroup = new(
+        UcliCommandNames.Play,
+        [
+            new CommandLeafEntry(UcliCommandNames.Status, UcliCommandNames.PlayStatus),
+            new CommandLeafEntry(UcliCommandNames.EnterSubcommand, UcliCommandNames.PlayEnter),
+            new CommandLeafEntry(UcliCommandNames.ExitSubcommand, UcliCommandNames.PlayExit),
+            new CommandLeafEntry(UcliCommandNames.WaitSubcommand, UcliCommandNames.PlayWait),
+        ],
+        []);
+
     private static readonly CommandGroupEntry SkillsCommandGroup = new(
         UcliCommandNames.Skills,
         [
@@ -122,6 +133,7 @@ internal static class UcliCommandCatalog
         LogsCommandGroup,
         OpsCommandGroup,
         CodesCommandGroup,
+        PlayCommandGroup,
         SkillsCommandGroup,
         QueryCommandGroup,
         TestCommandGroup,
@@ -178,6 +190,10 @@ internal static class UcliCommandCatalog
         app.Add<OpsDescribeCommand>("ops");
         app.Add<CodesListCommand>("codes");
         app.Add<CodesDescribeCommand>("codes");
+        app.Add<PlayStatusCommand>("play");
+        app.Add<PlayEnterCommand>("play");
+        app.Add<PlayExitCommand>("play");
+        app.Add<PlayWaitCommand>("play");
         app.Add<SkillsListCommand>("skills");
         app.Add<SkillsExportCommand>("skills");
         app.Add<SkillsInstallCommand>("skills");

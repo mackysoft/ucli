@@ -190,6 +190,30 @@
       "command": "codes.describe"
     },
     {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/play.status.schema.json",
+      "path": "cli-output/payload/play.status.schema.json",
+      "kind": "cli-output-payload",
+      "command": "play.status"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/play.enter.schema.json",
+      "path": "cli-output/payload/play.enter.schema.json",
+      "kind": "cli-output-payload",
+      "command": "play.enter"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/play.exit.schema.json",
+      "path": "cli-output/payload/play.exit.schema.json",
+      "kind": "cli-output-payload",
+      "command": "play.exit"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/play.wait.schema.json",
+      "path": "cli-output/payload/play.wait.schema.json",
+      "kind": "cli-output-payload",
+      "command": "play.wait"
+    },
+    {
       "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/daemon.start.schema.json",
       "path": "cli-output/payload/daemon.start.schema.json",
       "kind": "cli-output-payload",

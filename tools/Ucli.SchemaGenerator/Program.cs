@@ -108,6 +108,10 @@ internal static class Program
             CreatePayloadSchema(UcliCommandIds.OpsDescribe.Name, CreateOpsDescribePayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.CodesList.Name, CreateCodesListPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.CodesDescribe.Name, CreateCodesDescribePayloadSchema()),
+            CreatePayloadSchema(UcliCommandIds.PlayStatus.Name, CreatePlayStatusPayloadSchema()),
+            CreatePayloadSchema(UcliCommandIds.PlayEnter.Name, CreatePlayEnterPayloadSchema()),
+            CreatePayloadSchema(UcliCommandIds.PlayExit.Name, CreatePlayExitPayloadSchema()),
+            CreatePayloadSchema(UcliCommandIds.PlayWait.Name, CreatePlayWaitPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.DaemonStart.Name, CreateDaemonStartPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.DaemonStatus.Name, CreateDaemonStatusPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.TestProfileInit.Name, CreateTestProfileInitPayloadSchema()),
@@ -436,12 +440,12 @@ internal static class Program
                 ["canAcceptExecutionRequests"] = BooleanSchema(),
                 ["observedAtUtc"] = NullableStringSchema(),
                 ["actionRequired"] = NullableStringSchema(),
-                ["primaryDiagnostic"] = CreateReadyPrimaryDiagnosticSchema(),
+                ["primaryDiagnostic"] = CreatePrimaryDiagnosticSchema(),
             },
         };
     }
 
-    private static Dictionary<string, object?> CreateReadyPrimaryDiagnosticSchema ()
+    private static Dictionary<string, object?> CreatePrimaryDiagnosticSchema ()
     {
         return new Dictionary<string, object?>(StringComparer.Ordinal)
         {
@@ -581,7 +585,7 @@ internal static class Program
                     additionalProperties: false,
                     Required("errorCount", IntegerSchema()),
                     Required("warningCount", IntegerSchema()),
-                    Required("primaryDiagnostic", CreateReadyPrimaryDiagnosticSchema()))))),
+                    Required("primaryDiagnostic", CreatePrimaryDiagnosticSchema()))))),
             Required("domainReload", ObjectSchema(
                 additionalProperties: false,
                 Required("reloadRequired", BooleanSchema()),
@@ -602,7 +606,7 @@ internal static class Program
                 Required("canAcceptExecutionRequests", BooleanSchema()),
                 Required("observedAtUtc", NullableStringSchema()),
                 Required("actionRequired", NullableStringSchema()),
-                Required("primaryDiagnostic", CreateReadyPrimaryDiagnosticSchema()))));
+                Required("primaryDiagnostic", CreatePrimaryDiagnosticSchema()))));
     }
 
     private static Dictionary<string, object?> CreateVerifyPayloadSchema ()
@@ -1028,6 +1032,158 @@ internal static class Program
             Required("relatedCodes", ArraySchema(StringSchema())));
     }
 
+    private static Dictionary<string, object?> CreatePlayStatusPayloadSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Optional("snapshot", CreatePlayLifecycleSnapshotSchema()),
+            Optional("timeoutMilliseconds", IntegerSchema()));
+    }
+
+    private static Dictionary<string, object?> CreatePlayEnterPayloadSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Optional(
+                "transition",
+                CreatePlayTransitionResultSchema(
+                    IpcPlayTransitionCommandNames.Enter,
+                    [
+                        IpcPlayTransitionResultNames.Entered,
+                        IpcPlayTransitionResultNames.AlreadyEntered,
+                        IpcPlayTransitionResultNames.Timeout,
+                        IpcPlayTransitionResultNames.Blocked,
+                    ],
+                    includeUntil: false)),
+            Optional("timeoutMilliseconds", IntegerSchema()));
+    }
+
+    private static Dictionary<string, object?> CreatePlayExitPayloadSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Optional(
+                "transition",
+                CreatePlayTransitionResultSchema(
+                    IpcPlayTransitionCommandNames.Exit,
+                    [
+                        IpcPlayTransitionResultNames.Exited,
+                        IpcPlayTransitionResultNames.AlreadyExited,
+                        IpcPlayTransitionResultNames.Timeout,
+                        IpcPlayTransitionResultNames.Blocked,
+                    ],
+                    includeUntil: false)),
+            Optional("timeoutMilliseconds", IntegerSchema()));
+    }
+
+    private static Dictionary<string, object?> CreatePlayWaitPayloadSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Optional(
+                "transition",
+                CreatePlayTransitionResultSchema(
+                    IpcPlayTransitionCommandNames.Wait,
+                    [
+                        IpcPlayTransitionResultNames.Waited,
+                        IpcPlayTransitionResultNames.Timeout,
+                        IpcPlayTransitionResultNames.Blocked,
+                    ],
+                    includeUntil: true)),
+            Optional("timeoutMilliseconds", IntegerSchema()));
+    }
+
+    private static Dictionary<string, object?> CreatePlayTransitionResultSchema (
+        string transitionCommand,
+        string[] results,
+        bool includeUntil)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(transitionCommand);
+        ArgumentNullException.ThrowIfNull(results);
+
+        var properties = new List<SchemaProperty>
+        {
+            Required("transition", ConstString(transitionCommand)),
+            Required("result", EnumSchema(results)),
+            Required("before", CreatePlayLifecycleSnapshotSchema()),
+        };
+
+        if (includeUntil)
+        {
+            properties.Add(Required(
+                "until",
+                EnumSchema(
+                    IpcPlayWaitTargetNames.Entered,
+                    IpcPlayWaitTargetNames.Exited,
+                    IpcPlayWaitTargetNames.Ready)));
+        }
+
+        properties.Add(Optional("after", CreatePlayLifecycleSnapshotSchema()));
+        properties.Add(Optional("observed", CreatePlayLifecycleSnapshotSchema()));
+        properties.Add(Optional(
+            "applicationState",
+            EnumSchema(
+                IpcPlayApplicationStateNames.NotApplied,
+                IpcPlayApplicationStateNames.Applied,
+                IpcPlayApplicationStateNames.Indeterminate,
+                IpcPlayApplicationStateNames.Unknown)));
+
+        return ObjectSchema(
+            additionalProperties: false,
+            properties.ToArray());
+    }
+
+    private static Dictionary<string, object?> CreatePlayLifecycleSnapshotSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("serverVersion", NullableStringSchema()),
+            Required("editorMode", NullableStringSchema()),
+            Required("unityVersion", NullableStringSchema()),
+            Required("projectFingerprint", NullableStringSchema()),
+            Required("lifecycleState", NullableStringSchema()),
+            Required("blockingReason", NullableStringSchema()),
+            Required("compileState", NullableStringSchema()),
+            Required("compileGeneration", NullableStringSchema()),
+            Required("domainReloadGeneration", NullableStringSchema()),
+            Required("canAcceptExecutionRequests", BooleanSchema()),
+            Required("observedAtUtc", NullableStringSchema()),
+            Required("actionRequired", NullableStringSchema()),
+            Required("primaryDiagnostic", CreatePrimaryDiagnosticSchema()),
+            Required("playMode", NullablePlayModeSnapshotSchema()));
+    }
+
+    private static Dictionary<string, object?> NullablePlayModeSnapshotSchema ()
+    {
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["oneOf"] = new object?[]
+            {
+                CreatePlayModeSnapshotSchema(),
+                NullSchema(),
+            },
+        };
+    }
+
+    private static Dictionary<string, object?> CreatePlayModeSnapshotSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("state", EnumSchema(
+                IpcPlayModeStateNames.Stopped,
+                IpcPlayModeStateNames.Entering,
+                IpcPlayModeStateNames.Playing,
+                IpcPlayModeStateNames.Exiting,
+                IpcPlayModeStateNames.Unknown)),
+            Required("transition", EnumSchema(
+                IpcPlayModeTransitionNames.None,
+                IpcPlayModeTransitionNames.Entering,
+                IpcPlayModeTransitionNames.Exiting)),
+            Required("isPlaying", BooleanSchema()),
+            Required("isPlayingOrWillChangePlaymode", BooleanSchema()),
+            Required("generation", NullableStringSchema()));
+    }
+
     private static Dictionary<string, object?> CreateDaemonStartPayloadSchema ()
     {
         return ObjectSchema(
@@ -1261,6 +1417,14 @@ internal static class Program
     private static Dictionary<string, object?> AnySchema ()
     {
         return new Dictionary<string, object?>(StringComparer.Ordinal);
+    }
+
+    private static Dictionary<string, object?> NullSchema ()
+    {
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["type"] = "null",
+        };
     }
 
     private static Dictionary<string, object?> ReferenceSchema (string reference)

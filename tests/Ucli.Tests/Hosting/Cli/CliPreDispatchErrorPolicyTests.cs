@@ -43,6 +43,16 @@ public sealed class CliPreDispatchErrorPolicyTests
                 "Subcommand 'unknown' is not recognized for command 'codes'."
             },
             {
+                [UcliCommandNames.Play],
+                UcliCommandNames.Play,
+                "Subcommand is required for command 'play'. Supported subcommands: status, enter, exit, wait."
+            },
+            {
+                [UcliCommandNames.Play, "unknown"],
+                UcliCommandNames.Play,
+                "Subcommand 'unknown' is not recognized for command 'play'."
+            },
+            {
                 ["errors"],
                 UcliCommandNames.Root,
                 "Command 'errors' is not recognized."

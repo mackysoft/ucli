@@ -298,6 +298,132 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("daemon.logs.read", IpcMethodNames.DaemonLogsRead);
         Assert.Equal("unity.logs.read", IpcMethodNames.UnityLogsRead);
         Assert.Equal("unity.console.clear", IpcMethodNames.UnityConsoleClear);
+        Assert.Equal("play.status", IpcMethodNames.PlayStatus);
+        Assert.Equal("play.enter", IpcMethodNames.PlayEnter);
+        Assert.Equal("play.exit", IpcMethodNames.PlayExit);
+        Assert.Equal("play.wait", IpcMethodNames.PlayWait);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcPlayRequestContracts_SerializeWithCamelCaseFields ()
+    {
+        var statusRequest = JsonSerializer.SerializeToElement(new IpcPlayStatusRequest(), SerializerOptions);
+        var enterRequest = JsonSerializer.SerializeToElement(
+            new IpcPlayEnterRequest { TimeoutMilliseconds = 1500 },
+            SerializerOptions);
+        var exitRequest = JsonSerializer.SerializeToElement(new IpcPlayExitRequest(), SerializerOptions);
+        var waitRequest = JsonSerializer.SerializeToElement(
+            new IpcPlayWaitRequest(IpcPlayWaitTargetNames.Ready)
+            {
+                TimeoutMilliseconds = 2500,
+            },
+            SerializerOptions);
+
+        Assert.Equal(JsonValueKind.Object, statusRequest.ValueKind);
+        Assert.Empty(statusRequest.EnumerateObject());
+        JsonAssert.For(enterRequest)
+            .HasInt32("timeoutMilliseconds", 1500);
+        Assert.False(exitRequest.TryGetProperty("timeoutMilliseconds", out _));
+        JsonAssert.For(waitRequest)
+            .HasString("until", IpcPlayWaitTargetNames.Ready)
+            .HasInt32("timeoutMilliseconds", 2500);
+
+        var roundTrip = JsonSerializer.Deserialize<IpcPlayWaitRequest>(waitRequest.GetRawText(), SerializerOptions);
+
+        Assert.NotNull(roundTrip);
+        Assert.Equal(IpcPlayWaitTargetNames.Ready, roundTrip.Until);
+        Assert.Equal(2500, roundTrip.TimeoutMilliseconds);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcPlayResponseContracts_SerializeWithCamelCaseFields ()
+    {
+        var before = CreatePlayLifecycleSnapshot(IpcPlayModeStateNames.Stopped, IpcPlayModeTransitionNames.None);
+        var after = CreatePlayLifecycleSnapshot(IpcPlayModeStateNames.Playing, IpcPlayModeTransitionNames.None);
+        var statusResponse = new IpcPlayStatusResponse(before);
+        var transitionResponse = new IpcPlayTransitionResponse(
+            new IpcPlayTransitionResult(
+                Transition: IpcPlayTransitionCommandNames.Enter,
+                Result: IpcPlayTransitionResultNames.Entered,
+                Before: before)
+            {
+                After = after,
+                ApplicationState = IpcPlayApplicationStateNames.Applied,
+            });
+
+        using var statusDocument = JsonDocument.Parse(JsonSerializer.Serialize(statusResponse, SerializerOptions));
+        using var transitionDocument = JsonDocument.Parse(JsonSerializer.Serialize(transitionResponse, SerializerOptions));
+
+        JsonAssert.For(statusDocument.RootElement)
+            .HasProperty("snapshot", snapshot => snapshot
+                .HasString("serverVersion", "0.5.0")
+                .HasString("editorMode", "gui")
+                .HasString("unityVersion", "6000.1.4f1")
+                .HasString("projectFingerprint", "project-fingerprint")
+                .HasString("lifecycleState", "ready")
+                .HasString("blockingReason", "none")
+                .HasString("compileState", "idle")
+                .HasBoolean("canAcceptExecutionRequests", true)
+                .HasString("observedAtUtc", "2026-05-21T00:00:00+00:00")
+                .HasProperty("playMode", playMode => playMode
+                    .HasString("state", IpcPlayModeStateNames.Stopped)
+                    .HasString("transition", IpcPlayModeTransitionNames.None)
+                    .HasBoolean("isPlaying", false)
+                    .HasBoolean("isPlayingOrWillChangePlaymode", false)
+                    .HasString("generation", "42")));
+
+        JsonAssert.For(transitionDocument.RootElement)
+            .HasProperty("transition", transition => transition
+                .HasString("transition", IpcPlayTransitionCommandNames.Enter)
+                .HasString("result", IpcPlayTransitionResultNames.Entered)
+                .HasString("applicationState", IpcPlayApplicationStateNames.Applied)
+                .HasProperty("before", beforeSnapshot => beforeSnapshot
+                    .HasProperty("playMode", playMode => playMode
+                        .HasString("state", IpcPlayModeStateNames.Stopped)))
+                .HasProperty("after", afterSnapshot => afterSnapshot
+                    .HasProperty("playMode", playMode => playMode
+                        .HasString("state", IpcPlayModeStateNames.Playing))));
+
+        var roundTrip = JsonSerializer.Deserialize<IpcPlayTransitionResponse>(
+            transitionDocument.RootElement.GetRawText(),
+            SerializerOptions);
+
+        Assert.NotNull(roundTrip);
+        Assert.Equal(IpcPlayTransitionCommandNames.Enter, roundTrip.Transition.Transition);
+        Assert.Equal(IpcPlayApplicationStateNames.Applied, roundTrip.Transition.ApplicationState);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcPlayLiteralContracts_ExposeExpectedLiterals ()
+    {
+        Assert.Equal("stopped", IpcPlayModeStateNames.Stopped);
+        Assert.Equal("entering", IpcPlayModeStateNames.Entering);
+        Assert.Equal("playing", IpcPlayModeStateNames.Playing);
+        Assert.Equal("exiting", IpcPlayModeStateNames.Exiting);
+        Assert.Equal("unknown", IpcPlayModeStateNames.Unknown);
+        Assert.Equal("none", IpcPlayModeTransitionNames.None);
+        Assert.Equal("entering", IpcPlayModeTransitionNames.Entering);
+        Assert.Equal("exiting", IpcPlayModeTransitionNames.Exiting);
+        Assert.Equal("enter", IpcPlayTransitionCommandNames.Enter);
+        Assert.Equal("exit", IpcPlayTransitionCommandNames.Exit);
+        Assert.Equal("wait", IpcPlayTransitionCommandNames.Wait);
+        Assert.Equal("entered", IpcPlayWaitTargetNames.Entered);
+        Assert.Equal("exited", IpcPlayWaitTargetNames.Exited);
+        Assert.Equal("ready", IpcPlayWaitTargetNames.Ready);
+        Assert.Equal("entered", IpcPlayTransitionResultNames.Entered);
+        Assert.Equal("alreadyEntered", IpcPlayTransitionResultNames.AlreadyEntered);
+        Assert.Equal("exited", IpcPlayTransitionResultNames.Exited);
+        Assert.Equal("alreadyExited", IpcPlayTransitionResultNames.AlreadyExited);
+        Assert.Equal("waited", IpcPlayTransitionResultNames.Waited);
+        Assert.Equal("timeout", IpcPlayTransitionResultNames.Timeout);
+        Assert.Equal("blocked", IpcPlayTransitionResultNames.Blocked);
+        Assert.Equal("notApplied", IpcPlayApplicationStateNames.NotApplied);
+        Assert.Equal("applied", IpcPlayApplicationStateNames.Applied);
+        Assert.Equal("indeterminate", IpcPlayApplicationStateNames.Indeterminate);
+        Assert.Equal("unknown", IpcPlayApplicationStateNames.Unknown);
     }
 
     [Fact]
@@ -1165,6 +1291,33 @@ public sealed class IpcContractSerializationTests
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Failure means the observation was not fully produced.",
                 dangerousNotes: Array.Empty<string>()));
+    }
+
+    private static IpcPlayLifecycleSnapshot CreatePlayLifecycleSnapshot (
+        string playModeState,
+        string transition)
+    {
+        return new IpcPlayLifecycleSnapshot(
+            ServerVersion: "0.5.0",
+            EditorMode: "gui",
+            UnityVersion: "6000.1.4f1",
+            ProjectFingerprint: "project-fingerprint",
+            LifecycleState: "ready",
+            BlockingReason: "none",
+            CompileState: "idle",
+            CompileGeneration: "12",
+            DomainReloadGeneration: "7",
+            CanAcceptExecutionRequests: true,
+            ObservedAtUtc: DateTimeOffset.Parse("2026-05-21T00:00:00+00:00"),
+            ActionRequired: null,
+            PrimaryDiagnostic: null,
+            PlayMode: new IpcPlayModeSnapshot(
+                State: playModeState,
+                Transition: transition,
+                IsPlaying: string.Equals(playModeState, IpcPlayModeStateNames.Playing, StringComparison.Ordinal),
+                IsPlayingOrWillChangePlaymode: string.Equals(playModeState, IpcPlayModeStateNames.Playing, StringComparison.Ordinal)
+                    || string.Equals(transition, IpcPlayModeTransitionNames.Entering, StringComparison.Ordinal),
+                Generation: "42"));
     }
 
     private static IpcCompileSummary CreateCompileSummary ()
