@@ -79,6 +79,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                     serviceProvider.GetRequiredService<IServerVersionProvider>(),
                     serviceProvider.GetRequiredService<IDaemonLogger>());
             });
+            services.AddSingleton<IUnityIpcMethodHandler>(serviceProvider =>
+            {
+                return new PlayStatusUnityIpcMethodHandler(
+                    serviceProvider.GetRequiredService<IServerVersionProvider>(),
+                    serviceProvider.GetRequiredService<IUnityEditorReadinessGate>(),
+                    serviceProvider.GetRequiredService<IpcProjectIdentity>(),
+                    serviceProvider.GetRequiredService<IDaemonLogger>());
+            });
             services.AddSingleton<IUnityIpcMethodHandler, TestRunUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, OpsReadUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, IndexAssetsReadUnityIpcMethodHandler>();

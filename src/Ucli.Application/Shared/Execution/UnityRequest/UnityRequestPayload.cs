@@ -19,6 +19,9 @@ internal abstract record UnityRequestPayload
     internal sealed record Compile (
         string RunId) : UnityRequestPayload;
 
+    /// <summary> Represents a Play Mode status request prepared by application orchestration. </summary>
+    internal sealed record PlayStatus : UnityRequestPayload;
+
     /// <summary> Represents an execute request whose execute-arguments JSON was already prepared. </summary>
     internal sealed record ExecuteJson (
         UcliCommand Command,

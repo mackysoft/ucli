@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.SchemaGenerator;
@@ -1038,8 +1039,21 @@ internal static class Program
     {
         return ObjectSchema(
             additionalProperties: false,
-            Optional("snapshot", CreatePlayLifecycleSnapshotSchema()),
-            Optional("timeoutMilliseconds", IntegerSchema()));
+            Required("project", ReferenceSchema("../defs/project.schema.json")),
+            Required("daemonStatus", ConstString("running")),
+            Required("serverVersion", NullableStringSchema()),
+            Required("editorMode", ConstString(DaemonEditorModeValues.Gui)),
+            Required("lifecycleState", NullableStringSchema()),
+            Required("blockingReason", NullableStringSchema()),
+            Required("compileState", NullableStringSchema()),
+            Required("compileGeneration", NullableStringSchema()),
+            Required("domainReloadGeneration", NullableStringSchema()),
+            Required("canAcceptExecutionRequests", BooleanSchema()),
+            Required("observedAtUtc", NullableStringSchema()),
+            Required("actionRequired", NullableStringSchema()),
+            Required("primaryDiagnostic", CreatePrimaryDiagnosticSchema()),
+            Required("playMode", CreatePlayModeSnapshotSchema()),
+            Required("timeoutMilliseconds", IntegerSchema()));
     }
 
     private static Dictionary<string, object?> CreatePlayEnterPayloadSchema ()

@@ -36,6 +36,7 @@ using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Preflight;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
+using MackySoft.Ucli.Application.Features.Play.UseCases.Status;
 using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call;
 using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan;
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
@@ -80,6 +81,7 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddUcliApplicationOperationCatalogServices();
         services.AddUcliApplicationDaemonServices();
         services.AddUcliApplicationInitServices();
+        services.AddUcliApplicationPlayServices();
         services.AddUcliApplicationStatusServices();
         services.AddUcliApplicationTestingServices();
         return services;
@@ -207,6 +209,12 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddSingleton<IStatusExecutionContextResolver, StatusExecutionContextResolver>();
         services.AddSingleton<IStatusDaemonObservationService, StatusDaemonObservationService>();
         services.AddSingleton<IStatusService, StatusService>();
+        return services;
+    }
+
+    private static IServiceCollection AddUcliApplicationPlayServices (this IServiceCollection services)
+    {
+        services.AddSingleton<IPlayStatusService, PlayStatusService>();
         return services;
     }
 
