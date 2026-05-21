@@ -327,6 +327,41 @@ public sealed class IpcEditStepContractReaderTests
         Assert.Null(contract.Actions[1].PropertyPaths);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryRead_WhenCreatePrefabOmitsTarget_ReturnsParsedContract ()
+    {
+        using var document = JsonDocument.Parse(
+            """
+            {
+              "kind": "edit",
+              "id": "create-prefab",
+              "on": {
+                "scene": "Assets/Scenes/Main.unity"
+              },
+              "select": {
+                "gameObject": "Root",
+                "cardinality": "one"
+              },
+              "actions": [
+                {
+                  "kind": "createPrefab",
+                  "path": "Assets/Prefabs/Root.prefab"
+                }
+              ],
+              "commit": "none"
+            }
+            """);
+
+        var result = IpcEditStepContractReader.TryRead(document.RootElement, out var contract, out var errorMessage);
+
+        Assert.True(result, errorMessage);
+        Assert.Single(contract.Actions);
+        Assert.Equal(IpcEditStepContract.ActionKind.CreatePrefab, contract.Actions[0].Kind);
+        Assert.Null(contract.Actions[0].Target);
+        Assert.Equal("Assets/Prefabs/Root.prefab", contract.Actions[0].Path);
+    }
+
     [Theory]
     [Trait("Size", "Small")]
     [InlineData("""[]""", "Edit step property 'step.actions[0].propertyPaths' must contain at least one path when specified.")]

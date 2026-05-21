@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Unity.Execution;
@@ -549,6 +550,53 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenChangedTrueAndMayPersistTrueWithMayDirtyFalse_DoesNotReportContractViolation () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest(
+                ("step-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave));
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: normalizedRequest.ProtocolVersion,
+                requestId: normalizedRequest.RequestId,
+                steps: CreateTraceSteps(normalizedRequest),
+                operationTraces: new[]
+                {
+                    new OperationPhaseTrace(
+                        "step-1",
+                        MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave,
+                        OperationPhase.Call,
+                        true,
+                        true,
+                        new[]
+                        {
+                            new OperationTouch(OperationTouchKind.Scene, "Assets/Scenes/Main.unity", null),
+                        },
+                        null)
+                    {
+                        Persisted = true,
+                        Contracts = CreateContractFacts(
+                            UcliOperationKind.Mutation,
+                            mayDirty: false,
+                            mayPersist: true,
+                            IpcExecuteTouchedResourceKindNames.Scene),
+                    },
+                }));
+            var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Call,
+                operationId: "step-1",
+                operationName: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave);
+
+            var response = await DispatchAsync(dispatcher, request, context, "allowed save persistence response");
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(response.Payload.TryGetProperty("contractViolations", out _), Is.False);
+            Assert.That(response.Errors.Count, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Dispatch_WhenPersistedTrueAndMayPersistTrue_DoesNotReportContractViolation () => UniTask.ToCoroutine(async () =>
         {
             var normalizedRequest = CreateNormalizedRequest(
@@ -960,6 +1008,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(readinessGate.CallCount, Is.EqualTo(1));
             Assert.That(readinessGate.LastFailFast, Is.False);
+            Assert.That(readinessGate.LastAllowPlayMode, Is.False);
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
 
             readinessGate.Release();
@@ -990,9 +1039,54 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Errors[0].Code, Is.EqualTo(EditorLifecycleErrorCodes.EditorBusy));
             Assert.That(readinessGate.CallCount, Is.EqualTo(1));
             Assert.That(readinessGate.LastFailFast, Is.True);
+            Assert.That(readinessGate.LastAllowPlayMode, Is.False);
             Assert.That(mainThreadRequestExecutor.CallCount, Is.EqualTo(0));
             AssertEmptyOpResultsPayload(response.Payload);
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenAllowPlayModeIsSetOnPlan_PassesAllowPlayModeToReadinessGate () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest();
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(normalizedRequest));
+            var readinessGate = new StubUnityEditorReadinessGate(DaemonEditorMode.Gui);
+            var dispatcher = CreateDispatcher(normalizer, phaseExecutor, readinessGate);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(UcliCommandIds.Plan) with
+            {
+                AllowPlayMode = true,
+            };
+
+            var response = await DispatchAsync(dispatcher, request, context, "allowPlayMode readiness propagation response");
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(readinessGate.CallCount, Is.EqualTo(1));
+            Assert.That(readinessGate.LastAllowPlayMode, Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenAllowPlayModeIsSetOnCall_PassesAllowPlayModeToReadinessGate () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest();
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(normalizedRequest));
+            var readinessGate = new StubUnityEditorReadinessGate(DaemonEditorMode.Gui);
+            var dispatcher = CreateDispatcher(normalizer, phaseExecutor, readinessGate);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(UcliCommandIds.Call) with
+            {
+                AllowPlayMode = true,
+            };
+
+            var response = await DispatchAsync(dispatcher, request, context, "allowPlayMode call readiness propagation response");
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(readinessGate.CallCount, Is.EqualTo(1));
+            Assert.That(readinessGate.LastAllowPlayMode, Is.True);
         });
 
         [UnityTest]

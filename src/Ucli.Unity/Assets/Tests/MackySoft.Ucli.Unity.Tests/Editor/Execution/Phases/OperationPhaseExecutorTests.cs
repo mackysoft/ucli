@@ -80,7 +80,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 "m_Text",
                 wasPrefabOverrideBeforeRequest: false,
                 valueHashBeforeSet: "before",
-                valueHashAfterSet: "after");
+                valueHashAfterSet: "after",
+                requiresExplicitPrefabAssetMutation: false);
 
             var result = executionContext.TryCollectPrefabOverridePropertyChanges(
                 "edit-step-b",
@@ -105,7 +106,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 "m_Text",
                 wasPrefabOverrideBeforeRequest: false,
                 valueHashBeforeSet: "before",
-                valueHashAfterSet: "after");
+                valueHashAfterSet: "after",
+                requiresExplicitPrefabAssetMutation: false);
 
             var result = executionContext.TryCollectPrefabOverridePropertyChanges(
                 "edit-step-a",
@@ -118,6 +120,41 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(errorMessage, Is.Empty);
             Assert.That(changes.Count, Is.EqualTo(1));
             Assert.That(changes[0].PropertyPath, Is.EqualTo("m_Text"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void PersistenceReportingPolicy_WhenSceneReportingIsSuppressed_PreservesNonScenePersistence ()
+        {
+            var operation = new NormalizedOperation(
+                Id: "op-create-prefab",
+                Op: UcliPrimitiveOperationNames.PrefabCreate,
+                Args: JsonSerializer.SerializeToElement(new { }),
+                As: null,
+                Expect: null,
+                SuppressScenePersistenceReporting: true);
+            var result = OperationPhaseStepResult.Success(
+                    applied: true,
+                    changed: true,
+                    touched: new[]
+                    {
+                        OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Scene, "Assets/Scene.unity")),
+                        OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Prefab, "Assets/Prefab.prefab")),
+                    })
+                .WithPersistence()
+                .WithReadInvalidations(new[]
+                {
+                    new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, "Assets/Scene.unity"),
+                    new OperationReadInvalidation(OperationReadInvalidationSurface.AssetSearch, null),
+                });
+
+            var filtered = OperationPhaseExecutionUtilities.ApplyPersistenceReportingPolicy(operation, result);
+
+            Assert.That(filtered.Persisted, Is.True);
+            Assert.That(filtered.Touched.Count, Is.EqualTo(1));
+            Assert.That(filtered.Touched[0].Kind, Is.EqualTo(OperationTouchKind.Prefab));
+            Assert.That(filtered.ReadInvalidations.Count, Is.EqualTo(1));
+            Assert.That(filtered.ReadInvalidations[0].Surface, Is.EqualTo(OperationReadInvalidationSurface.AssetSearch));
         }
 
         [Test]

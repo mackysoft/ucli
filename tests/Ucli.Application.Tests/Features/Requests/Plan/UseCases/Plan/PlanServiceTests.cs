@@ -121,6 +121,48 @@ public sealed class PlanServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenAllowPlayModeAndReadIndexModeAreSpecified_ReturnsInvalidArgumentWithoutPreflight ()
+    {
+        var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor();
+        var staticPreflightService = new StubRequestStaticValidationPreflightService(CreateSuccessPreflightResult(
+            CreateReadIndexInfo(
+                used: true,
+                hit: true,
+                freshness: IndexFreshness.Probable,
+                fallbackReason: null)));
+        var staticValidationService = new StubRequestStaticValidationService(ValidationResult.Success());
+        var service = new PlanService(
+            new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
+            staticPreflightService,
+            staticValidationService,
+            unityIpcRequestExecutor);
+
+        var result = await service.ExecuteAsync(
+            new PlanCommandInput(
+                ProjectPath: "/repo/UnityProject",
+                Mode: UnityExecutionMode.Oneshot,
+                TimeoutMilliseconds: 1234,
+                ReadIndexMode: ReadIndexMode.Disabled,
+                FailFast: true,
+                RequestJson: """{"steps":[]}""")
+            {
+                AllowPlayMode = true,
+            },
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
+        Assert.Null(result.Output);
+        Assert.Equal(0, staticPreflightService.CallCount);
+        Assert.Equal(0, staticValidationService.CallCount);
+        Assert.Equal(0, unityIpcRequestExecutor.CallCount);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
+        Assert.Contains("--readIndexMode", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenAllowPlayModeStaticValidationFails_ReturnsFailureWithoutCallingPlan ()
     {
         ValidationError[] validationErrors =

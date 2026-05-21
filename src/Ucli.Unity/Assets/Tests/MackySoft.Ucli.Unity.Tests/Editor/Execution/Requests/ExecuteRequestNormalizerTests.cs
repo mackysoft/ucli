@@ -522,10 +522,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Normalize_WhenPrefabEditContainsCreatePrefabAction_ReturnsInvalidArgumentError ()
+        public void Normalize_WhenOpenedPrefabEditContainsCreatePrefabAction_RuntimeCompileReturnsInvalidArgumentError ()
         {
-            using var scope = new EditorTestScope();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
             var prefabPath = scope.CreatePrefabAsset(nameof(ExecuteRequestNormalizerTests), "PrefabRoot");
+            var prefabRootName = System.IO.Path.GetFileNameWithoutExtension(prefabPath);
+            var prefabStage = PrefabStageUtility.OpenPrefab(prefabPath);
+            Assert.That(prefabStage, Is.Not.Null);
             var request = CreateExecuteRequest(
                 UcliCommandIds.Plan,
                 new
@@ -544,7 +548,7 @@ namespace MackySoft.Ucli.Unity.Tests
                             },
                             select = new
                             {
-                                gameObject = "PrefabRoot",
+                                gameObject = prefabRootName,
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -562,8 +566,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = new ExecuteRequestNormalizer().Normalize(request);
 
-            AssertInvalidArgument(result, "createPrefabInPrefabContext");
-            Assert.That(result.Error!.Message, Does.Contain("requires both 'target' and 'path'."));
+            Assert.That(result.IsSuccess, Is.True);
+            var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
+            _ = new ExecuteRequestCompileFailureAssert(error)
+                .HasInvalidArgument("createPrefabInPrefabContext")
+                .HasMessageContaining("requires a GameObject target in scene context.");
         }
 
         [Test]
@@ -2075,11 +2082,163 @@ namespace MackySoft.Ucli.Unity.Tests
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: true);
             Assert.That(compiledOperations, Has.Count.EqualTo(1));
             Assert.That(compiledOperations[0].SuppressPersistenceReporting, Is.True);
+            Assert.That(compiledOperations[0].AllowExplicitPrefabAssetMutation, Is.False);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasPostReadSourceStep(
                     IpcExecutePostReadSourceKindNames.Edit,
                     IpcExecutePostReadCommitNames.None,
                     false,
+                    IpcExecuteExpectedPostStateNames.Unavailable,
+                    expectedPlayModeMutation: true);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenAllowPlayModeSceneStepAppliesPrefabOverride_CompilesUnavailablePersistentPostReadSource ()
+        {
+            using var scope = new EditorTestScope()
+                .EnableEditorSceneReset();
+            var prefabPath = scope.CreatePrefabAsset(nameof(ExecuteRequestNormalizerTests), "PrefabRoot");
+            var editableRoot = scope.LoadPrefabContents(prefabPath);
+            _ = editableRoot.AddComponent<CompOperationTestComponent>();
+            _ = PrefabUtility.SaveAsPrefabAsset(editableRoot, prefabPath);
+            scope.UnloadPrefabContents(editableRoot);
+
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var prefabAsset = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            Assert.That(prefabAsset, Is.Not.Null);
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefabAsset!);
+            instance.name = "InstanceRoot";
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "playSceneApplyOverride",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                gameObject = "InstanceRoot",
+                                component = componentTypeId,
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "set",
+                                    values = new
+                                    {
+                                        integerValue = 42,
+                                    },
+                                },
+                                new
+                                {
+                                    kind = "applyPrefabOverrides",
+                                    targetAssetPath = prefabPath,
+                                    propertyPaths = new[] { "integerValue" },
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                }) with
+                {
+                    AllowPlayMode = true,
+                };
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: true);
+            Assert.That(compiledOperations.Select(static operation => operation.Op), Is.EqualTo(new[]
+            {
+                UcliPrimitiveOperationNames.CompSet,
+                UcliPrimitiveOperationNames.PrefabApplyOverrides,
+            }));
+            Assert.That(compiledOperations[0].AllowExplicitPrefabAssetMutation, Is.True);
+            Assert.That(compiledOperations[1].AllowExplicitPrefabAssetMutation, Is.False);
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasPostReadSourceStep(
+                    IpcExecutePostReadSourceKindNames.Edit,
+                    IpcExecutePostReadCommitNames.None,
+                    true,
+                    IpcExecuteExpectedPostStateNames.Unavailable,
+                    expectedPlayModeMutation: true);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenAllowPlayModeSceneStepCreatesPrefab_CompilesWithSceneReportingSuppressed ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var prefabPath = scope.CreatePrefabPath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "playSceneCreatePrefab",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                gameObject = "Root",
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "createPrefab",
+                                    path = prefabPath,
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                }) with
+                {
+                    AllowPlayMode = true,
+                };
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: true);
+            Assert.That(compiledOperations, Has.Count.EqualTo(1));
+            Assert.That(compiledOperations[0].Op, Is.EqualTo(UcliPrimitiveOperationNames.PrefabCreate));
+            Assert.That(compiledOperations[0].SuppressPersistenceReporting, Is.False);
+            Assert.That(compiledOperations[0].SuppressScenePersistenceReporting, Is.True);
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasPostReadSourceStep(
+                    IpcExecutePostReadSourceKindNames.Edit,
+                    IpcExecutePostReadCommitNames.None,
+                    true,
                     IpcExecuteExpectedPostStateNames.Unavailable,
                     expectedPlayModeMutation: true);
         }

@@ -139,6 +139,26 @@ public sealed class PostReadClaimBuilderTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Build_WithPlayModeLiveMutationAndPersistenceExpected_DoesNotCountAsDeterministic ()
+    {
+        var input = CreateInput(CreateOperationResult(
+            playModeMutation: true,
+            persistenceExpected: true,
+            expectedPostState: IpcExecuteExpectedPostStateNames.Unavailable,
+            touchedCount: 1));
+
+        var claimSet = PostReadClaimBuilder.Build(input, profileRequired: true);
+
+        var persistenceClaim = Assert.Single(claimSet.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.PersistenceUnitTouched.Value, StringComparison.Ordinal));
+        Assert.Equal(VerifyClaimStatusValues.Passed, persistenceClaim.Status);
+        var postMutationClaim = Assert.Single(claimSet.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.PostMutationObserved.Value, StringComparison.Ordinal));
+        Assert.False(postMutationClaim.Required);
+        Assert.Equal(VerifyClaimStatusValues.OutOfScope, postMutationClaim.Status);
+        Assert.Equal(VerifyCoverageValues.None, postMutationClaim.Coverage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Build_WithPlayModeLiveMutationAndPersistentMutation_DoesNotCountLiveMutationAsDeterministic ()
     {
         var input = CreateInput([
