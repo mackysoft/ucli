@@ -499,10 +499,53 @@ uCLI の runtime JSON は bare `code` を返す。外部 supervisor が uCLI と
 | `compileState` | `ready \| compiling \| null` | yes | compiler activity 専用の状態 |
 | `compileGeneration` | `string \| null` | yes | compile 開始または完了ごとに変化する opaque な識別子 |
 | `domainReloadGeneration` | `string \| null` | yes | domain reload 完了ごとに変化する opaque な識別子 |
+| `playMode` | `object \| null` | yes | daemon が reachable なときの Play Mode subsystem snapshot。daemon 未到達時は `null` |
 | `canAcceptExecutionRequests` | boolean | yes | 通常実行要求を受け付けられるときのみ `true`。`--allowPlayMode` の例外可否は含めず、`lifecycleState = playmode` では `false` |
 | `timeoutMilliseconds` | integer | yes | 実効タイムアウト |
 
+#### `payload.playMode`
+
+`payload.playMode` は Play Mode subsystem の詳細状態であり、Editor 全体の gate state である `lifecycleState` とは分けて読む。`lifecycleState=playmode` は通常 execution を止める lifecycle blocker を表し、`playMode.state` は Play Mode の stopped / transition / playing 状態を表す。`ready` command が runtime lifecycle を観測した場合、lifecycle evidence は同じ `playMode` object を含む。
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `state` | `stopped \| entering \| playing \| exiting \| unknown` | yes | Play Mode subsystem の現在状態 |
+| `transition` | `none \| entering \| exiting` | yes | 現在進行中の Play Mode transition |
+| `isPlaying` | boolean | yes | Unity が `EditorApplication.isPlaying` として返す値 |
+| `isPlayingOrWillChangePlaymode` | boolean | yes | Unity が `EditorApplication.isPlayingOrWillChangePlaymode` として返す値 |
+| `generation` | `string \| null` | yes | Play Mode enter / exit 完了ごとに変化する opaque な識別子。未観測時は `null` |
+
+`playMode.generation` は Play Mode transition の完了単位で更新する。`play enter` が `entered` を返した場合と `play exit` が `exited` を返した場合は、成功前の `generation` と異なる値を返す。`alreadyEntered` / `alreadyExited` では `generation` を変更しない。timeout や transition error では latest observed value を返し、transition 中に変化済みかどうかを payload だけで断定しない。
+
 ## コマンド別 `payload`
+
+### `ucli play`
+
+`ucli play` の payload は Play Mode lifecycle control の request-response 結果を返す。すべての subcommand は `project`、`daemonStatus`、`editorMode`、`lifecycleState`、`blockingReason`、`canAcceptExecutionRequests`、`playMode`、`timeoutMilliseconds` を返す。transition command は追加で transition result fields を返す。
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `project` | object | yes | 対象 Unity project |
+| `daemonStatus` | `running \| notRunning \| stale` | yes | daemon 状態 |
+| `editorMode` | `batchmode \| gui \| null` | yes | daemon Editor mode |
+| `lifecycleState` | `starting \| ready \| busy \| compiling \| domainReloading \| playmode \| blockedByModal \| safeMode \| shuttingDown \| null` | yes | 最新観測 lifecycle state |
+| `blockingReason` | `null \| startup \| busy \| compile \| domainReload \| playMode \| modalDialog \| safeMode \| shutdown` | yes | 最新観測 blocking reason |
+| `canAcceptExecutionRequests` | boolean | yes | 通常実行要求を受け付けられるか |
+| `playMode` | `object \| null` | yes | 最新観測 Play Mode snapshot |
+| `timeoutMilliseconds` | integer | yes | 実効タイムアウト |
+
+Transition result fields は次を使う。
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `transition` | `enter \| exit \| wait` | transition command: yes | 要求した transition または wait の種類 |
+| `result` | `entered \| alreadyEntered \| exited \| alreadyExited \| waited \| timeout \| blocked` | transition command: yes | command 結果 |
+| `applicationState` | `notApplied \| applied \| indeterminate \| unknown` | transition error: yes | retry 判断用の適用状態。timeout では `indeterminate`。`notApplied` は transition request を発行していないことを断定できる場合だけ使う |
+| `before` | object | transition command: yes | command 開始前の lifecycle snapshot |
+| `after` | `object \| null` | successful transition: yes | successful transition 後の lifecycle snapshot |
+| `observed` | `object \| null` | transition error: yes | error または timeout 時点の latest observed lifecycle snapshot |
+
+`play status` は状態変更を行わないため、transition result fields を返さない。`play enter` / `play exit` は成功時に `result=entered|alreadyEntered|exited|alreadyExited` を返す。successful transition payload は `transition`、`result`、`before`、`after` を必須とし、`applicationState` は省略する。transition error payload は `transition`、`result`、`before`、`observed`、`applicationState` を必須とし、`after` は省略または `null` とする。timeout 時は `status=error`、`errors[].code=PLAYMODE_TRANSITION_TIMEOUT`、`result=timeout`、`applicationState=indeterminate` とし、payload に最新の `observed` snapshot を返す。`play wait` は `--until` の待機対象と最新 snapshot を返し、暗黙の Play Mode enter / exit は行わない。
 
 ### `ucli daemon`
 `ucli daemon` はサブコマンドにかかわらず `payload.timeoutMilliseconds` を常に含む。
@@ -517,6 +560,7 @@ uCLI の runtime JSON は bare `code` を返す。外部 supervisor が uCLI と
 | `daemonStatus` | `running` | yes | daemon 状態 |
 | `lifecycleState` | `starting \| ready \| busy \| compiling \| domainReloading \| playmode \| blockedByModal \| safeMode \| shuttingDown` | yes | 起動または attach 直後の lifecycle snapshot。`daemon start` 成功は `ready` を保証しない |
 | `blockingReason` | `null \| startup \| busy \| compile \| domainReload \| playMode \| modalDialog \| safeMode \| shutdown` | yes | 起動または attach 直後に通常実行を止めている理由 |
+| `playMode` | `object \| null` | yes | 起動または attach 直後の Play Mode snapshot |
 | `canAcceptExecutionRequests` | boolean | yes | 起動または attach 直後に通常実行要求を受け付けられるか。Play Mode 例外は含めない |
 | `timeoutMilliseconds` | integer | yes | 実効タイムアウト |
 | `session` | object | yes | セッション情報 |
@@ -602,6 +646,7 @@ final `daemon start` failure payload では原則として `retryDisposition=wai
 | `compileState` | `ready \| compiling \| null` | yes | compiler activity 状態 |
 | `compileGeneration` | `string \| null` | yes | compile 開始または完了ごとに変化する opaque な識別子 |
 | `domainReloadGeneration` | `string \| null` | yes | `running` のときのみ値を持つ |
+| `playMode` | `object \| null` | yes | `running` のときのみ値を持つ Play Mode snapshot |
 | `canAcceptExecutionRequests` | boolean | yes | 通常実行要求を受け付けられるときのみ `true`。`--allowPlayMode` の例外可否は含めず、`playmode` では `false` |
 | `timeoutMilliseconds` | integer | yes | 実効タイムアウト |
 | `session` | `object \| null` | yes | `running` / `stale` は object、`notRunning` は `null` |
