@@ -106,25 +106,12 @@ jobs:
           # source after prepare-release has accepted it.
           ref: ${{ needs.prepare-release.outputs.release_sha }}
 
-      - name: Validate checked out release source
-        env:
-          RELEASE_SHA: ${{ needs.prepare-release.outputs.release_sha }}
-          TAG_NAME: ${{ needs.prepare-release.outputs.tag_name }}
-        run: |
-          set -euo pipefail
-
-          actual_sha="$(git rev-parse HEAD)"
-          if [[ "${actual_sha}" != "${RELEASE_SHA}" ]]; then
-            echo "Checked out release source does not match validated sha. Expected: ${RELEASE_SHA}. Actual: ${actual_sha}" >&2
-            exit 1
-          fi
-
-          git fetch --force origin "refs/tags/${TAG_NAME}:refs/tags/${TAG_NAME}"
-          tag_sha="$(git rev-list -n 1 "refs/tags/${TAG_NAME}")"
-          if [[ "${tag_sha}" != "${RELEASE_SHA}" ]]; then
-            echo "Release tag moved after validation. Expected: ${RELEASE_SHA}. Actual: ${tag_sha}" >&2
-            exit 1
-          fi
+      - name: Guard checked out release source
+        uses: mackysoft/actions/release-source-guard@v1
+        with:
+          tag-name: ${{ needs.prepare-release.outputs.tag_name }}
+          default-branch: ${{ github.event.repository.default_branch }}
+          expected-release-sha: ${{ needs.prepare-release.outputs.release_sha }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -196,16 +183,18 @@ jobs:
 
       - name: Inspect NuGet publication state
         id: nuget_state
-        run: >-
-          ./scripts/inspect-nuget-package-state.sh
-          --version "${{ needs.prepare-release.outputs.package_version }}"
-          --package-id MackySoft.Ucli
-          --package-id MackySoft.Ucli.Contracts
-          --package-id MackySoft.Ucli.Infrastructure
-          --package-id MackySoft.Ucli.Unity
+        uses: mackysoft/actions/nuget-package-state@v1
+        with:
+          mode: inspect
+          package-version: ${{ needs.prepare-release.outputs.package_version }}
+          package-ids: |
+            MackySoft.Ucli
+            MackySoft.Ucli.Contracts
+            MackySoft.Ucli.Infrastructure
+            MackySoft.Ucli.Unity
 
       - name: Validate NuGet trusted publishing user
-        if: steps.nuget_state.outputs.publish_required == 'true'
+        if: ${{ steps.nuget_state.outputs['publish-required'] == 'true' }}
         env:
           NUGET_USER: ${{ vars.NUGET_USER }}
         run: |
@@ -217,20 +206,24 @@ jobs:
           fi
 
       - name: Publish to nuget.org
-        if: steps.nuget_state.outputs.publish_required == 'true'
-        uses: ./.github/actions/publish-nuget-package
+        if: ${{ steps.nuget_state.outputs['publish-required'] == 'true' }}
+        uses: mackysoft/actions/nuget-trusted-publish@v1
         with:
           package-glob: artifacts/packages/*.nupkg
           nuget-user: ${{ vars.NUGET_USER }}
 
       - name: Wait for published NuGet packages
-        run: >-
-          ./scripts/wait-nuget-packages.sh
-          --version "${{ needs.prepare-release.outputs.package_version }}"
-          --package-id MackySoft.Ucli
-          --package-id MackySoft.Ucli.Contracts
-          --package-id MackySoft.Ucli.Infrastructure
-          --package-id MackySoft.Ucli.Unity
+        uses: mackysoft/actions/nuget-package-state@v1
+        with:
+          mode: wait
+          package-version: ${{ needs.prepare-release.outputs.package_version }}
+          package-ids: |
+            MackySoft.Ucli
+            MackySoft.Ucli.Contracts
+            MackySoft.Ucli.Infrastructure
+            MackySoft.Ucli.Unity
+          max-attempts: 30
+          interval-seconds: 10
 
       - name: Mirror packages to GitHub Release
         env:
