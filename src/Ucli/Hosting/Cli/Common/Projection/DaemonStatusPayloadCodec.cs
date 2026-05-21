@@ -1,10 +1,10 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Contracts.Text;
 
-namespace MackySoft.Ucli.Hosting.Cli.Status;
+namespace MackySoft.Ucli.Hosting.Cli.Common.Projection;
 
-/// <summary> Converts daemon status values between enum and status command contract literals. </summary>
-internal static class StatusDaemonStateCodec
+/// <summary> Converts daemon status values between enum and public CLI contract literals. </summary>
+internal static class DaemonStatusPayloadCodec
 {
     /// <summary> Gets the daemon-status value used when daemon is running. </summary>
     public const string Running = "running";
@@ -22,7 +22,7 @@ internal static class StatusDaemonStateCodec
         (DaemonStatusKind.Stale, Stale),
     };
 
-    /// <summary> Converts one daemon status enum value to a status contract literal. </summary>
+    /// <summary> Converts one daemon status enum value to a CLI contract literal. </summary>
     /// <param name="daemonStatus"> The daemon status enum value. </param>
     /// <returns> The daemon-status contract literal. </returns>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="daemonStatus" /> is unsupported. </exception>

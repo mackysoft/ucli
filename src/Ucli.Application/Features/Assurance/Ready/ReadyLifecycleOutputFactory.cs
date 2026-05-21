@@ -12,7 +12,7 @@ internal static class ReadyLifecycleOutputFactory
     {
         ArgumentNullException.ThrowIfNull(pingResponse);
 
-        var projection = PingLifecycleProjectionFactory.Create(pingResponse);
+        var projection = LifecycleProjectionFactory.Create(pingResponse);
 
         return new ReadyLifecycleOutput(
             ServerVersion: projection.ServerVersion,

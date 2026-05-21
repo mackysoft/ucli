@@ -50,6 +50,7 @@ public sealed class ApplicationOwnershipBoundaryTests
             "QueryAssetsFindOperationRequestFactory",
             "QueryWindowOptionsFactory",
             "StatusDaemonStateCodec",
+            "DaemonStatusPayloadCodec",
             "DaemonStartStateCodec",
             "DaemonStatusStateCodec",
             "DaemonStopStateCodec",

@@ -113,23 +113,29 @@ internal sealed class PlayStatusService : IPlayStatusService
         }
 
         var snapshot = statusResponse.Snapshot;
-        if (!IsGuiEditorMode(snapshot.EditorMode, out var editorMode))
+        if (!string.Equals(snapshot.ProjectFingerprint, context.UnityProject.ProjectFingerprint, StringComparison.Ordinal))
+        {
+            return PlayStatusExecutionResult.Failure(ExecutionError.InternalError(
+                $"Unity play status projectFingerprint mismatch. Requested={context.UnityProject.ProjectFingerprint}, Actual={snapshot.ProjectFingerprint}."));
+        }
+
+        var lifecycle = LifecycleProjectionFactory.Create(snapshot);
+        var guiEditorMode = DaemonEditorModeCodec.ToValue(DaemonEditorMode.Gui);
+        if (!string.Equals(lifecycle.EditorMode, guiEditorMode, StringComparison.Ordinal))
         {
             return PlayStatusExecutionResult.Failure(CreateRequiresGuiEditorError());
         }
 
-        var playMode = PlayModeSnapshotOutputFactory.Create(snapshot.PlayMode);
-        if (playMode is null)
+        if (lifecycle.PlayMode is null)
         {
             return PlayStatusExecutionResult.Failure(CreateStateUnknownError("Unity play status playMode snapshot is missing or invalid."));
         }
 
-        var lifecycle = CreateLifecycleProjection(snapshot);
         var output = new PlayStatusExecutionOutput(
             Project: project,
             DaemonStatus: DaemonStatusKind.Running,
             ServerVersion: lifecycle.ServerVersion,
-            EditorMode: editorMode,
+            EditorMode: guiEditorMode,
             LifecycleState: lifecycle.LifecycleState,
             BlockingReason: lifecycle.BlockingReason,
             CompileState: lifecycle.CompileState,
@@ -139,7 +145,7 @@ internal sealed class PlayStatusService : IPlayStatusService
             ObservedAtUtc: lifecycle.ObservedAtUtc,
             ActionRequired: lifecycle.ActionRequired,
             PrimaryDiagnostic: ToOutput(lifecycle.PrimaryDiagnostic),
-            PlayMode: playMode,
+            PlayMode: lifecycle.PlayMode,
             TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds));
         return PlayStatusExecutionResult.Success(output);
     }
@@ -162,39 +168,6 @@ internal sealed class PlayStatusService : IPlayStatusService
 
         editorMode = string.Empty;
         return false;
-    }
-
-    private static PingLifecycleProjection CreateLifecycleProjection (IpcPlayLifecycleSnapshot snapshot)
-    {
-        var lifecycleState = IpcEditorLifecycleStateCodec.TryParse(snapshot.LifecycleState, out var normalizedLifecycleState)
-            ? normalizedLifecycleState
-            : null;
-        var blockingReason = lifecycleState is null || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
-            ? null
-            : IpcEditorBlockingReasonCodec.TryParse(snapshot.BlockingReason, out var normalizedBlockingReason)
-                ? normalizedBlockingReason
-                : null;
-        var canAcceptExecutionRequests = string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
-            && snapshot.CanAcceptExecutionRequests;
-
-        return new PingLifecycleProjection(
-            ServerVersion: StringValueNormalizer.TrimToNull(snapshot.ServerVersion),
-            UnityVersion: StringValueNormalizer.TrimToNull(snapshot.UnityVersion),
-            EditorMode: DaemonEditorModeCodec.TryParse(snapshot.EditorMode, out var editorMode)
-                ? DaemonEditorModeCodec.ToValue(editorMode)
-                : null,
-            LifecycleState: lifecycleState,
-            BlockingReason: blockingReason,
-            CompileState: IpcCompileStateCodec.TryParse(snapshot.CompileState, out var compileState)
-                ? compileState
-                : null,
-            CompileGeneration: StringValueNormalizer.TrimToNull(snapshot.CompileGeneration),
-            DomainReloadGeneration: StringValueNormalizer.TrimToNull(snapshot.DomainReloadGeneration),
-            CanAcceptExecutionRequests: canAcceptExecutionRequests,
-            ObservedAtUtc: snapshot.ObservedAtUtc,
-            ActionRequired: StringValueNormalizer.TrimToNull(snapshot.ActionRequired),
-            PrimaryDiagnostic: snapshot.PrimaryDiagnostic,
-            PlayMode: PlayModeSnapshotOutputFactory.Create(snapshot.PlayMode));
     }
 
     private static DaemonPrimaryDiagnosticOutput? ToOutput (IpcPrimaryDiagnostic? diagnostic)

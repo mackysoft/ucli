@@ -1,7 +1,6 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 
@@ -57,32 +56,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return new ValueTask<IpcResponse>(errorResponse!);
             }
 
-            var payload = new IpcPlayStatusResponse(CreateSnapshot(readinessGate.CaptureSnapshot()));
+            var payload = new IpcPlayStatusResponse(UnityLifecycleResponseCodec.CreatePlayLifecycleSnapshot(
+                projectIdentity.UnityVersion,
+                serverVersionProvider.GetVersion(),
+                projectIdentity.ProjectFingerprint,
+                readinessGate.CaptureSnapshot()));
             return new ValueTask<IpcResponse>(UnityIpcResponseFactory.CreateSuccessResponse(request, payload));
-        }
-
-        private IpcPlayLifecycleSnapshot CreateSnapshot (UnityEditorLifecycleSnapshot snapshot)
-        {
-            if (snapshot == null)
-            {
-                throw new ArgumentNullException(nameof(snapshot));
-            }
-
-            return new IpcPlayLifecycleSnapshot(
-                ServerVersion: serverVersionProvider.GetVersion(),
-                EditorMode: DaemonEditorModeCodec.ToValue(snapshot.EditorMode),
-                UnityVersion: projectIdentity.UnityVersion,
-                ProjectFingerprint: projectIdentity.ProjectFingerprint,
-                LifecycleState: snapshot.LifecycleState,
-                BlockingReason: snapshot.BlockingReason,
-                CompileState: snapshot.CompileState,
-                CompileGeneration: snapshot.CompileGeneration,
-                DomainReloadGeneration: snapshot.DomainReloadGeneration,
-                CanAcceptExecutionRequests: snapshot.CanAcceptExecutionRequests,
-                ObservedAtUtc: snapshot.ObservedAtUtc,
-                ActionRequired: snapshot.ActionRequired,
-                PrimaryDiagnostic: snapshot.PrimaryDiagnostic,
-                PlayMode: snapshot.PlayMode);
         }
     }
 }

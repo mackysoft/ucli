@@ -14,6 +14,23 @@ public sealed class PlayStatusServiceTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenProjectResolutionFails_ReturnsFailureWithoutSessionOrIpcCall ()
+    {
+        var expectedError = ExecutionError.InvalidArgument("Project resolution failed.");
+        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Gui)));
+        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateStatusResponse())));
+        var service = CreateService(ProjectContextResolutionResult.Failure(expectedError), sessionStore, requestExecutor);
+
+        var result = await service.ExecuteAsync(new PlayStatusCommandInput("/missing/project", null), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Same(expectedError, result.Error);
+        Assert.Equal(0, sessionStore.ReadCallCount);
+        Assert.Equal(0, requestExecutor.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenSessionIsMissing_ReturnsSessionNotAvailableWithoutIpcCall ()
     {
         var context = CreateContext();
@@ -93,6 +110,31 @@ public sealed class PlayStatusServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenPlayModeIsPlaying_ReturnsPlayingSnapshot ()
+    {
+        var playMode = new IpcPlayModeSnapshot(
+            State: IpcPlayModeStateNames.Playing,
+            Transition: IpcPlayModeTransitionNames.None,
+            IsPlaying: true,
+            IsPlayingOrWillChangePlaymode: true,
+            Generation: "9");
+        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Gui)));
+        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateStatusResponse(playMode: playMode))));
+        var service = CreateService(CreateContext(), sessionStore, requestExecutor);
+
+        var result = await service.ExecuteAsync(new PlayStatusCommandInput(null, null), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var output = Assert.IsType<PlayStatusExecutionOutput>(result.Output);
+        Assert.Equal(IpcPlayModeStateNames.Playing, output.PlayMode.State);
+        Assert.Equal(IpcPlayModeTransitionNames.None, output.PlayMode.Transition);
+        Assert.True(output.PlayMode.IsPlaying);
+        Assert.True(output.PlayMode.IsPlayingOrWillChangePlaymode);
+        Assert.Equal("9", output.PlayMode.Generation);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenIpcExecutionTimesOut_ReturnsTimeoutError ()
     {
         var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Gui)));
@@ -111,6 +153,25 @@ public sealed class PlayStatusServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenIpcExecutionFailsWithoutTimeout_PreservesFailureCodeAndMessage ()
+    {
+        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Gui)));
+        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+            UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
+            "Daemon is not running.")));
+        var service = CreateService(CreateContext(), sessionStore, requestExecutor);
+
+        var result = await service.ExecuteAsync(new PlayStatusCommandInput(null, null), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, error.Code);
+        Assert.Equal("Daemon is not running.", error.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenIpcErrorResponseIsReturned_PreservesErrorCode ()
     {
         var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Gui)));
@@ -125,6 +186,25 @@ public sealed class PlayStatusServiceTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
         Assert.Equal("PlayStatus payload is invalid.", error.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenResponseProjectFingerprintDiffers_ReturnsMismatchFailure ()
+    {
+        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Gui)));
+        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateStatusResponse(
+            projectFingerprint: "other-project-fingerprint"))));
+        var service = CreateService(CreateContext(), sessionStore, requestExecutor);
+
+        var result = await service.ExecuteAsync(new PlayStatusCommandInput(null, null), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Contains("projectFingerprint mismatch", error.Message, StringComparison.Ordinal);
+        Assert.Contains("project-fingerprint", error.Message, StringComparison.Ordinal);
+        Assert.Contains("other-project-fingerprint", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -169,8 +249,16 @@ public sealed class PlayStatusServiceTests
         IDaemonSessionStore sessionStore,
         IUnityRequestExecutor requestExecutor)
     {
+        return CreateService(ProjectContextResolutionResult.Success(context), sessionStore, requestExecutor);
+    }
+
+    private static PlayStatusService CreateService (
+        ProjectContextResolutionResult contextResult,
+        IDaemonSessionStore sessionStore,
+        IUnityRequestExecutor requestExecutor)
+    {
         return new PlayStatusService(
-            new StubProjectContextResolver(ProjectContextResolutionResult.Success(context)),
+            new StubProjectContextResolver(contextResult),
             sessionStore,
             requestExecutor);
     }
@@ -206,13 +294,15 @@ public sealed class PlayStatusServiceTests
             OwnerProcessId: 9876);
     }
 
-    private static IpcPlayStatusResponse CreateStatusResponse (IpcPlayModeSnapshot? playMode = null)
+    private static IpcPlayStatusResponse CreateStatusResponse (
+        IpcPlayModeSnapshot? playMode = null,
+        string projectFingerprint = "project-fingerprint")
     {
         return new IpcPlayStatusResponse(new IpcPlayLifecycleSnapshot(
             ServerVersion: "0.5.0",
             EditorMode: DaemonEditorModeValues.Gui,
             UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: "project-fingerprint",
+            ProjectFingerprint: projectFingerprint,
             LifecycleState: IpcEditorLifecycleStateCodec.Ready,
             BlockingReason: "none",
             CompileState: IpcCompileStateCodec.Ready,
@@ -285,11 +375,14 @@ public sealed class PlayStatusServiceTests
 
         public string? CapturedProjectFingerprint { get; private set; }
 
+        public int ReadCallCount { get; private set; }
+
         public ValueTask<DaemonSessionReadResult> ReadAsync (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
         {
+            ReadCallCount++;
             CapturedStorageRoot = storageRoot;
             CapturedProjectFingerprint = projectFingerprint;
             return ValueTask.FromResult(readResult);

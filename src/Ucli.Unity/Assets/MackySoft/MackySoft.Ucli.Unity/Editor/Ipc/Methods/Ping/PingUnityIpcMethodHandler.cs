@@ -61,7 +61,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return new ValueTask<IpcResponse>(errorResponse!);
             }
 
-            var payload = UnityPingResponseCodec.CreatePayload(
+            var payload = UnityLifecycleResponseCodec.CreatePingPayload(
                 Application.unityVersion,
                 serverVersionProvider.GetVersion(),
                 projectFingerprint,

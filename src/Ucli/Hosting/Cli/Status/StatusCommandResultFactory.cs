@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Status.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Common.Projection;
 
 namespace MackySoft.Ucli.Hosting.Cli.Status;
 
@@ -22,7 +23,7 @@ internal static class StatusCommandResultFactory
                 message: "uCLI status retrieval completed.",
                 payload: new
                 {
-                    daemonStatus = StatusDaemonStateCodec.ToValue(output.DaemonStatus),
+                    daemonStatus = DaemonStatusPayloadCodec.ToValue(output.DaemonStatus),
                     unityVersion = output.UnityVersion,
                     serverVersion = output.ServerVersion,
                     lifecycleState = output.LifecycleState,
