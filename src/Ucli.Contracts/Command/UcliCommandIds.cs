@@ -63,6 +63,21 @@ public static class UcliCommandIds
     /// <summary> Gets command identifier for <c>codes.describe</c>. </summary>
     public static UcliCommand CodesDescribe { get; } = new("codes.describe");
 
+    /// <summary> Gets command identifier for <c>play</c>. </summary>
+    public static UcliCommand Play { get; } = new("play");
+
+    /// <summary> Gets command identifier for <c>play.status</c>. </summary>
+    public static UcliCommand PlayStatus { get; } = new("play.status");
+
+    /// <summary> Gets command identifier for <c>play.enter</c>. </summary>
+    public static UcliCommand PlayEnter { get; } = new("play.enter");
+
+    /// <summary> Gets command identifier for <c>play.exit</c>. </summary>
+    public static UcliCommand PlayExit { get; } = new("play.exit");
+
+    /// <summary> Gets command identifier for <c>play.wait</c>. </summary>
+    public static UcliCommand PlayWait { get; } = new("play.wait");
+
     /// <summary> Gets command identifier for <c>test</c>. </summary>
     public static UcliCommand Test { get; } = new("test");
 

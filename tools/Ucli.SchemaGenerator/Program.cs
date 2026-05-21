@@ -108,6 +108,10 @@ internal static class Program
             CreatePayloadSchema(UcliCommandIds.OpsDescribe.Name, CreateOpsDescribePayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.CodesList.Name, CreateCodesListPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.CodesDescribe.Name, CreateCodesDescribePayloadSchema()),
+            CreatePayloadSchema(UcliCommandIds.PlayStatus.Name, CreatePlayStatusPayloadSchema()),
+            CreatePayloadSchema(UcliCommandIds.PlayEnter.Name, CreatePlayTransitionPayloadSchema()),
+            CreatePayloadSchema(UcliCommandIds.PlayExit.Name, CreatePlayTransitionPayloadSchema()),
+            CreatePayloadSchema(UcliCommandIds.PlayWait.Name, CreatePlayTransitionPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.DaemonStart.Name, CreateDaemonStartPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.DaemonStatus.Name, CreateDaemonStatusPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.TestProfileInit.Name, CreateTestProfileInitPayloadSchema()),
@@ -1028,6 +1032,103 @@ internal static class Program
             Required("relatedCodes", ArraySchema(StringSchema())));
     }
 
+    private static Dictionary<string, object?> CreatePlayStatusPayloadSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Optional("snapshot", CreatePlayLifecycleSnapshotSchema()),
+            Optional("timeoutMilliseconds", IntegerSchema()));
+    }
+
+    private static Dictionary<string, object?> CreatePlayTransitionPayloadSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Optional("transition", CreatePlayTransitionResultSchema()),
+            Optional("timeoutMilliseconds", IntegerSchema()));
+    }
+
+    private static Dictionary<string, object?> CreatePlayTransitionResultSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("transition", EnumSchema(
+                IpcPlayTransitionCommandNames.Enter,
+                IpcPlayTransitionCommandNames.Exit,
+                IpcPlayTransitionCommandNames.Wait)),
+            Required("result", EnumSchema(
+                IpcPlayTransitionResultNames.Entered,
+                IpcPlayTransitionResultNames.AlreadyEntered,
+                IpcPlayTransitionResultNames.Exited,
+                IpcPlayTransitionResultNames.AlreadyExited,
+                IpcPlayTransitionResultNames.Waited,
+                IpcPlayTransitionResultNames.Timeout,
+                IpcPlayTransitionResultNames.Blocked)),
+            Required("before", CreatePlayLifecycleSnapshotSchema()),
+            Optional("until", EnumSchema(
+                IpcPlayWaitTargetNames.Entered,
+                IpcPlayWaitTargetNames.Exited,
+                IpcPlayWaitTargetNames.Ready)),
+            Optional("after", CreatePlayLifecycleSnapshotSchema()),
+            Optional("observed", CreatePlayLifecycleSnapshotSchema()),
+            Optional("applicationState", EnumSchema(
+                IpcPlayApplicationStateNames.NotApplied,
+                IpcPlayApplicationStateNames.Applied,
+                IpcPlayApplicationStateNames.Indeterminate,
+                IpcPlayApplicationStateNames.Unknown)));
+    }
+
+    private static Dictionary<string, object?> CreatePlayLifecycleSnapshotSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("serverVersion", NullableStringSchema()),
+            Required("editorMode", NullableStringSchema()),
+            Required("unityVersion", NullableStringSchema()),
+            Required("projectFingerprint", NullableStringSchema()),
+            Required("lifecycleState", NullableStringSchema()),
+            Required("blockingReason", NullableStringSchema()),
+            Required("compileState", NullableStringSchema()),
+            Required("compileGeneration", NullableStringSchema()),
+            Required("domainReloadGeneration", NullableStringSchema()),
+            Required("canAcceptExecutionRequests", BooleanSchema()),
+            Required("observedAtUtc", NullableStringSchema()),
+            Required("actionRequired", NullableStringSchema()),
+            Required("primaryDiagnostic", NullableObjectSchema()),
+            Required("playMode", NullablePlayModeSnapshotSchema()));
+    }
+
+    private static Dictionary<string, object?> NullablePlayModeSnapshotSchema ()
+    {
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["oneOf"] = new object?[]
+            {
+                CreatePlayModeSnapshotSchema(),
+                NullSchema(),
+            },
+        };
+    }
+
+    private static Dictionary<string, object?> CreatePlayModeSnapshotSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("state", EnumSchema(
+                IpcPlayModeStateNames.Stopped,
+                IpcPlayModeStateNames.Entering,
+                IpcPlayModeStateNames.Playing,
+                IpcPlayModeStateNames.Exiting,
+                IpcPlayModeStateNames.Unknown)),
+            Required("transition", EnumSchema(
+                IpcPlayModeTransitionNames.None,
+                IpcPlayModeTransitionNames.Entering,
+                IpcPlayModeTransitionNames.Exiting)),
+            Required("isPlaying", BooleanSchema()),
+            Required("isPlayingOrWillChangePlaymode", BooleanSchema()),
+            Required("generation", NullableStringSchema()));
+    }
+
     private static Dictionary<string, object?> CreateDaemonStartPayloadSchema ()
     {
         return ObjectSchema(
@@ -1261,6 +1362,14 @@ internal static class Program
     private static Dictionary<string, object?> AnySchema ()
     {
         return new Dictionary<string, object?>(StringComparer.Ordinal);
+    }
+
+    private static Dictionary<string, object?> NullSchema ()
+    {
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["type"] = "null",
+        };
     }
 
     private static Dictionary<string, object?> ReferenceSchema (string reference)
