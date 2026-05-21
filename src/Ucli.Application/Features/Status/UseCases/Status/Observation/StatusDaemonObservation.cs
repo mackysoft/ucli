@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 
 namespace MackySoft.Ucli.Application.Features.Status.UseCases.Status.Observation;
 
@@ -16,6 +17,7 @@ namespace MackySoft.Ucli.Application.Features.Status.UseCases.Status.Observation
 /// <param name="ObservedAtUtc"> The daemon lifecycle observation timestamp when available. </param>
 /// <param name="ActionRequired"> The normalized user action required by the lifecycle blocker when available. </param>
 /// <param name="PrimaryDiagnostic"> The primary lifecycle diagnostic when available. </param>
+/// <param name="PlayMode"> The Play Mode snapshot when daemon ping details are available. </param>
 internal sealed record StatusDaemonObservation (
     DaemonStatusKind DaemonStatus,
     string? ServerVersion,
@@ -28,4 +30,5 @@ internal sealed record StatusDaemonObservation (
     string? EditorMode,
     DateTimeOffset? ObservedAtUtc = null,
     string? ActionRequired = null,
-    DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic = null);
+    DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic = null,
+    PlayModeSnapshotOutput? PlayMode = null);

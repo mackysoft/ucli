@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Observation;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
@@ -28,7 +29,8 @@ internal static class StatusDaemonObservationCodec
             EditorMode: null,
             ObservedAtUtc: null,
             ActionRequired: null,
-            PrimaryDiagnostic: null);
+            PrimaryDiagnostic: null,
+            PlayMode: null);
     }
 
     /// <summary> Creates observation values from a persisted lifecycle sidecar when ping details are unavailable. </summary>
@@ -50,7 +52,8 @@ internal static class StatusDaemonObservationCodec
             EditorMode: observation.EditorMode,
             ObservedAtUtc: observation.ObservedAtUtc,
             ActionRequired: observation.ActionRequired,
-            PrimaryDiagnostic: ToOutput(observation.PrimaryDiagnostic));
+            PrimaryDiagnostic: ToOutput(observation.PrimaryDiagnostic),
+            PlayMode: null);
     }
 
     /// <summary> Creates observation values for an unreachable daemon whose lifecycle cannot be inferred. </summary>
@@ -68,7 +71,8 @@ internal static class StatusDaemonObservationCodec
             EditorMode: null,
             ObservedAtUtc: DateTimeOffset.UtcNow,
             ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
-            PrimaryDiagnostic: null);
+            PrimaryDiagnostic: null,
+            PlayMode: null);
     }
 
     /// <summary> Creates observation values for daemon states where ping details are available. </summary>
@@ -109,7 +113,8 @@ internal static class StatusDaemonObservationCodec
                 : null,
             ObservedAtUtc: pingResponse.ObservedAtUtc,
             ActionRequired: StringValueNormalizer.TrimToNull(pingResponse.ActionRequired),
-            PrimaryDiagnostic: ToOutput(pingResponse.PrimaryDiagnostic));
+            PrimaryDiagnostic: ToOutput(pingResponse.PrimaryDiagnostic),
+            PlayMode: PlayModeSnapshotOutputFactory.Create(pingResponse.PlayMode));
     }
 
     private static DaemonPrimaryDiagnosticOutput? ToOutput (IpcPrimaryDiagnostic? diagnostic)

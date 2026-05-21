@@ -17,6 +17,7 @@ namespace MackySoft.Ucli.Unity.Runtime
             sharedLifecycleTelemetryState,
             static () => EditorApplication.isCompiling,
             static () => EditorApplication.isUpdating,
+            static () => EditorApplication.isPlaying,
             static () => EditorApplication.isPlayingOrWillChangePlaymode);
 
         private readonly UnityEditorLifecycleMonitor lifecycleMonitor;
@@ -95,6 +96,7 @@ namespace MackySoft.Ucli.Unity.Runtime
             AssemblyReloadEvents.beforeAssemblyReload -= OnBeforeAssemblyReload;
             AssemblyReloadEvents.afterAssemblyReload -= OnAfterAssemblyReload;
             EditorApplication.update -= OnEditorUpdate;
+            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
             EditorApplication.wantsToQuit -= OnWantsToQuit;
             EditorApplication.quitting -= OnQuitting;
 
@@ -104,6 +106,7 @@ namespace MackySoft.Ucli.Unity.Runtime
             AssemblyReloadEvents.beforeAssemblyReload += OnBeforeAssemblyReload;
             AssemblyReloadEvents.afterAssemblyReload += OnAfterAssemblyReload;
             EditorApplication.update += OnEditorUpdate;
+            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
             EditorApplication.wantsToQuit += OnWantsToQuit;
             EditorApplication.quitting += OnQuitting;
         }
@@ -158,6 +161,11 @@ namespace MackySoft.Ucli.Unity.Runtime
         private static void OnQuitting ()
         {
             sharedLifecycleMonitor.OnShutdownStarted();
+        }
+
+        private static void OnPlayModeStateChanged (PlayModeStateChange stateChange)
+        {
+            sharedLifecycleMonitor.OnPlayModeStateChanged(stateChange);
         }
 
         private static void OnCompilationStarted (object _)
@@ -304,7 +312,8 @@ namespace MackySoft.Ucli.Unity.Runtime
                     CanAcceptExecutionRequests: false,
                     ObservedAtUtc: snapshot.ObservedAtUtc,
                     ActionRequired: snapshot.ActionRequired,
-                    PrimaryDiagnostic: snapshot.PrimaryDiagnostic);
+                    PrimaryDiagnostic: snapshot.PrimaryDiagnostic,
+                    PlayMode: snapshot.PlayMode);
                 return UnityEditorExecutionReadinessPolicy.CreateBlockedResult(blockedSnapshot);
             }
 

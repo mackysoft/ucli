@@ -54,7 +54,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 CanAcceptExecutionRequests: snapshot.CanAcceptExecutionRequests,
                 ObservedAtUtc: snapshot.ObservedAtUtc,
                 ActionRequired: snapshot.ActionRequired,
-                PrimaryDiagnostic: snapshot.PrimaryDiagnostic);
+                PrimaryDiagnostic: snapshot.PrimaryDiagnostic,
+                PlayMode: snapshot.PlayMode);
         }
     }
 }

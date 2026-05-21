@@ -14,6 +14,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="ObservedAtUtc"> The UTC timestamp when lifecycle values were observed. </param>
 /// <param name="ActionRequired"> The normalized action required to resolve the current lifecycle state. </param>
 /// <param name="PrimaryDiagnostic"> The primary machine-readable diagnostic for the current lifecycle state. </param>
+/// <param name="PlayMode"> The Play Mode subsystem snapshot. </param>
 public sealed record IpcPingResponse (
     string ServerVersion,
     string EditorMode,
@@ -27,4 +28,5 @@ public sealed record IpcPingResponse (
     bool CanAcceptExecutionRequests = false,
     DateTimeOffset? ObservedAtUtc = null,
     string? ActionRequired = null,
-    IpcPrimaryDiagnostic? PrimaryDiagnostic = null);
+    IpcPrimaryDiagnostic? PrimaryDiagnostic = null,
+    IpcPlayModeSnapshot? PlayMode = null);

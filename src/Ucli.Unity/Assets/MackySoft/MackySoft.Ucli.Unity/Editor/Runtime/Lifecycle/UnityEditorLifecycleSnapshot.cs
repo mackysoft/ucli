@@ -15,5 +15,6 @@ namespace MackySoft.Ucli.Unity.Runtime
         bool CanAcceptExecutionRequests,
         DateTimeOffset? ObservedAtUtc = null,
         string ActionRequired = null,
-        IpcPrimaryDiagnostic PrimaryDiagnostic = null);
+        IpcPrimaryDiagnostic PrimaryDiagnostic = null,
+        IpcPlayModeSnapshot PlayMode = null);
 }

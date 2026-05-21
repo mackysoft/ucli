@@ -35,6 +35,7 @@ internal static class StatusCommandResultFactory
                     observedAtUtc = output.ObservedAtUtc,
                     actionRequired = output.ActionRequired,
                     primaryDiagnostic = output.PrimaryDiagnostic,
+                    playMode = output.PlayMode,
                     timeoutMilliseconds = output.TimeoutMilliseconds,
                 });
         }

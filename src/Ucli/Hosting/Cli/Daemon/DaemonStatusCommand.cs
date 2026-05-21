@@ -87,6 +87,7 @@ internal sealed class DaemonStatusCommand
                     observedAtUtc = output.ObservedAtUtc,
                     actionRequired = output.ActionRequired,
                     primaryDiagnostic = output.PrimaryDiagnostic,
+                    playMode = output.PlayMode,
                     timeoutMilliseconds = output.TimeoutMilliseconds,
                     session = output.Session,
                     diagnosis = output.Diagnosis,

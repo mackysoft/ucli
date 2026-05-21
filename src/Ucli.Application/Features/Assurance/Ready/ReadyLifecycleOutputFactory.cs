@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -38,7 +39,8 @@ internal static class ReadyLifecycleOutputFactory
             CanAcceptExecutionRequests: canAcceptExecutionRequests,
             ObservedAtUtc: pingResponse.ObservedAtUtc,
             ActionRequired: StringValueNormalizer.TrimToNull(pingResponse.ActionRequired),
-            PrimaryDiagnostic: ToOutput(pingResponse.PrimaryDiagnostic));
+            PrimaryDiagnostic: ToOutput(pingResponse.PrimaryDiagnostic),
+            PlayMode: PlayModeSnapshotOutputFactory.Create(pingResponse.PlayMode));
     }
 
     private static ReadyPrimaryDiagnosticOutput? ToOutput (IpcPrimaryDiagnostic? diagnostic)
