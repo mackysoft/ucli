@@ -2,6 +2,7 @@ using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Stop;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Common.Projection;
 using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Daemon;
@@ -76,7 +77,7 @@ internal sealed class DaemonStopCommand
                 payload: new
                 {
                     stopStatus = DaemonCommandOutputProjector.ToStopStatus(output.StopStatus),
-                    daemonStatus = DaemonCommandOutputProjector.ToStatus(output.DaemonStatus),
+                    daemonStatus = DaemonStatusPayloadCodec.ToValue(output.DaemonStatus),
                     timeoutMilliseconds = output.TimeoutMilliseconds,
                     session = output.Session,
                 });

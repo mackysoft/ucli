@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Common.Projection;
 using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Daemon;
@@ -103,7 +104,7 @@ internal sealed class DaemonStartCommand
                 payload: new
                 {
                     startStatus = DaemonCommandOutputProjector.ToStartStatus(output.StartStatus),
-                    daemonStatus = DaemonCommandOutputProjector.ToStatus(output.DaemonStatus),
+                    daemonStatus = DaemonStatusPayloadCodec.ToValue(output.DaemonStatus),
                     lifecycleState = output.LifecycleState,
                     blockingReason = output.BlockingReason,
                     canAcceptExecutionRequests = output.CanAcceptExecutionRequests,
@@ -124,7 +125,7 @@ internal sealed class DaemonStartCommand
             payload: new
             {
                 startStatus = DaemonStartStateCodec.Failed,
-                daemonStatus = DaemonCommandOutputProjector.ToStatus(failureOutput.DaemonStatus),
+                daemonStatus = DaemonStatusPayloadCodec.ToValue(failureOutput.DaemonStatus),
                 timeoutMilliseconds = failureOutput.TimeoutMilliseconds,
                 session = (object?)null,
                 startup = failureOutput.Startup,
