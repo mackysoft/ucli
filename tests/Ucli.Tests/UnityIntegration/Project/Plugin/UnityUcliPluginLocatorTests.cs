@@ -5,6 +5,7 @@ using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin.Cache;
+using MackySoft.Ucli.UnityIntegration.Project.Plugin.Marker;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -20,7 +21,7 @@ public sealed class UnityUcliPluginLocatorTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         await WriteMarkerAsync(scope, Path.Combine("UnityProject", "Assets", "MackySoft", "MackySoft.Ucli.Unity"));
         var observedCacheStore = new ObservedPluginMarkerCacheStore();
-        var locator = new UnityUcliPluginLocator(observedCacheStore.CacheStore);
+        var locator = CreateLocator(observedCacheStore.CacheStore);
         var cacheWriteTask = observedCacheStore.ExpectWriteAsync();
 
         var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
@@ -43,7 +44,7 @@ public sealed class UnityUcliPluginLocatorTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         await WriteMarkerAsync(scope, Path.Combine("UnityProject", "Packages", "com.mackysoft.ucli.unity"));
         var observedCacheStore = new ObservedPluginMarkerCacheStore();
-        var locator = new UnityUcliPluginLocator(observedCacheStore.CacheStore);
+        var locator = CreateLocator(observedCacheStore.CacheStore);
         var cacheWriteTask = observedCacheStore.ExpectWriteAsync();
 
         var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
@@ -66,7 +67,7 @@ public sealed class UnityUcliPluginLocatorTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         await WriteMarkerAsync(scope, Path.Combine("UnityProject", "Assets", "Packages", "com.mackysoft.ucli.unity.1.0.0"));
         var observedCacheStore = new ObservedPluginMarkerCacheStore();
-        var locator = new UnityUcliPluginLocator(observedCacheStore.CacheStore);
+        var locator = CreateLocator(observedCacheStore.CacheStore);
         var cacheWriteTask = observedCacheStore.ExpectWriteAsync();
 
         var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
@@ -89,7 +90,7 @@ public sealed class UnityUcliPluginLocatorTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         await WriteMarkerAsync(scope, Path.Combine("UnityProject", "Assets", "Packages", "MackySoft.Ucli.Unity.1.0.0"));
         var observedCacheStore = new ObservedPluginMarkerCacheStore();
-        var locator = new UnityUcliPluginLocator(observedCacheStore.CacheStore);
+        var locator = CreateLocator(observedCacheStore.CacheStore);
         var cacheWriteTask = observedCacheStore.ExpectWriteAsync();
 
         var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
@@ -112,7 +113,7 @@ public sealed class UnityUcliPluginLocatorTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         await WriteMarkerAsync(scope, Path.Combine("UnityProject", "Assets", "MackySoft", "MackySoft.Ucli.Unity"));
         var observedCacheStore = new ObservedPluginMarkerCacheStore();
-        var locator = new UnityUcliPluginLocator(observedCacheStore.CacheStore);
+        var locator = CreateLocator(observedCacheStore.CacheStore);
         var cacheWriteTask = observedCacheStore.ExpectWriteAsync();
 
         var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
@@ -135,7 +136,7 @@ public sealed class UnityUcliPluginLocatorTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         await WriteMarkerAsync(scope, Path.Combine("UnityProject", "Assets", "MackySoft", "MackySoft.Ucli.Unity"));
         var observedCacheStore = new ObservedPluginMarkerCacheStore();
-        var locator = new UnityUcliPluginLocator(observedCacheStore.CacheStore);
+        var locator = CreateLocator(observedCacheStore.CacheStore);
         var cacheWriteTask = observedCacheStore.ExpectWriteAsync();
 
         var firstResult = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
@@ -160,7 +161,7 @@ public sealed class UnityUcliPluginLocatorTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         await WriteMarkerAsync(scope, Path.Combine("UnityProject", "Assets", "MackySoft", "MackySoft.Ucli.Unity"));
         var observedCacheStore = new ObservedPluginMarkerCacheStore();
-        var locator = new UnityUcliPluginLocator(observedCacheStore.CacheStore);
+        var locator = CreateLocator(observedCacheStore.CacheStore);
         var cacheWriteTask = observedCacheStore.ExpectWriteAsync();
 
         var firstResult = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
@@ -188,7 +189,7 @@ public sealed class UnityUcliPluginLocatorTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         await WriteMarkerAsync(scope, Path.Combine("UnityProject", "Assets", "MackySoft", "MackySoft.Ucli.Unity"));
         var observedCacheStore = new ObservedPluginMarkerCacheStore();
-        var locator = new UnityUcliPluginLocator(observedCacheStore.CacheStore);
+        var locator = CreateLocator(observedCacheStore.CacheStore);
         var firstCacheWriteTask = observedCacheStore.ExpectWriteAsync();
 
         var firstResult = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
@@ -222,7 +223,7 @@ public sealed class UnityUcliPluginLocatorTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         await WriteMarkerAsync(scope, Path.Combine("UnityProject", "Assets", "MackySoft", "MackySoft.Ucli.Unity"));
         await WriteMarkerAsync(scope, Path.Combine("UnityProject", "Assets", "ThirdParty", "UcliCopy"));
-        var locator = new UnityUcliPluginLocator();
+        var locator = CreateLocator();
 
         var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
 
@@ -237,7 +238,7 @@ public sealed class UnityUcliPluginLocatorTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-ucli-plugin-locator", "not-found");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var locator = new UnityUcliPluginLocator();
+        var locator = CreateLocator();
 
         var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
 
@@ -257,7 +258,7 @@ public sealed class UnityUcliPluginLocatorTests
         await scope.WriteFileAsync(
             Path.Combine("UnityProject", "Assets", "MackySoft", "MackySoft.Ucli.Unity", UnityUcliPluginLocator.MarkerFileName),
             "{ invalid");
-        var locator = new UnityUcliPluginLocator();
+        var locator = CreateLocator();
 
         var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
 
@@ -283,7 +284,7 @@ public sealed class UnityUcliPluginLocatorTests
               "protocolVersion": 1
             }
             """);
-        var locator = new UnityUcliPluginLocator();
+        var locator = CreateLocator();
 
         var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
 
@@ -309,7 +310,7 @@ public sealed class UnityUcliPluginLocatorTests
               "protocolVersion": 2
             }
             """);
-        var locator = new UnityUcliPluginLocator();
+        var locator = CreateLocator();
 
         var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
 
@@ -338,7 +339,7 @@ public sealed class UnityUcliPluginLocatorTests
                 await releaseWrite.Task.ConfigureAwait(false);
             },
             static path => FileUtilities.DeleteIfExists(path));
-        var locator = new UnityUcliPluginLocator(cacheStore);
+        var locator = CreateLocator(cacheStore);
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var locateTask = locator.LocateAsync(unityProjectPath, cancellationTokenSource.Token).AsTask();
@@ -360,7 +361,7 @@ public sealed class UnityUcliPluginLocatorTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         await WriteMarkerAsync(scope, Path.Combine("UnityProject", "Assets", "MackySoft", "MackySoft.Ucli.Unity"));
         await WriteMarkerAsync(scope, Path.Combine("UnityProject", "Packages", "com.mackysoft.ucli.unity"));
-        var locator = new UnityUcliPluginLocator();
+        var locator = CreateLocator();
 
         var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
 
@@ -409,6 +410,20 @@ public sealed class UnityUcliPluginLocatorTests
                     PropertyNameCaseInsensitive = true,
                 })
             ?? throw new InvalidOperationException("Plugin marker cache JSON was null.");
+    }
+
+    private static UnityUcliPluginLocator CreateLocator ()
+    {
+        return CreateLocator(new UnityUcliPluginMarkerCacheStore());
+    }
+
+    private static UnityUcliPluginLocator CreateLocator (UnityUcliPluginMarkerCacheStore cacheStore)
+    {
+        var markerValidator = new UnityUcliPluginMarkerValidator();
+        return new UnityUcliPluginLocator(
+            new UnityUcliPluginMarkerDiscovery(),
+            markerValidator,
+            new UnityUcliPluginMarkerCacheCoordinator(cacheStore, markerValidator));
     }
 
     private sealed class ObservedPluginMarkerCacheStore

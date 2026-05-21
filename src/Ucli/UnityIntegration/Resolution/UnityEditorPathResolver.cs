@@ -14,21 +14,10 @@ internal sealed class UnityEditorPathResolver : IUnityEditorPathResolver
 
     /// <summary> Initializes a new instance of the <see cref="UnityEditorPathResolver" /> class. </summary>
     /// <param name="searchRootProvider"> The search-root provider dependency. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="searchRootProvider" /> is <see langword="null" />. </exception>
-    public UnityEditorPathResolver (IUnityEditorSearchRootProvider searchRootProvider)
-        : this(
-            searchRootProvider,
-            new UnityEditorExecutablePathLocator(),
-            new UnityEditorVersionConsistencyValidator())
-    {
-    }
-
-    /// <summary> Initializes a new instance of the <see cref="UnityEditorPathResolver" /> class. </summary>
-    /// <param name="searchRootProvider"> The search-root provider dependency. </param>
     /// <param name="executablePathLocator"> The executable-path locator dependency. </param>
     /// <param name="versionConsistencyValidator"> The version-consistency validator dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
-    internal UnityEditorPathResolver (
+    public UnityEditorPathResolver (
         IUnityEditorSearchRootProvider searchRootProvider,
         UnityEditorExecutablePathLocator executablePathLocator,
         UnityEditorVersionConsistencyValidator versionConsistencyValidator)

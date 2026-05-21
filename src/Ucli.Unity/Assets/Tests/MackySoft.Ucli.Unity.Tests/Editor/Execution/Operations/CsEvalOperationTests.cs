@@ -21,7 +21,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Metadata_ExposesDangerousMutationAndCodeContract ()
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
 
             Assert.That(operation.Metadata.OperationName, Is.EqualTo(UcliPrimitiveOperationNames.CsEval));
             Assert.That(operation.Metadata.Kind, Is.EqualTo(UcliOperationKind.Mutation));
@@ -53,7 +53,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Plan_WhenSourceIsValid_DoesNotInvokeEntryPoint () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(
                 source: @"
@@ -88,7 +88,7 @@ namespace EvalScripts
         [Category("Size.Small")]
         public IEnumerator Plan_WhenNullableContextDirectiveIsOmitted_DoesNotWarnForRequiredNullableSignature () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(
                 source: @"
@@ -121,7 +121,7 @@ namespace EvalScripts
         [Category("Size.Small")]
         public IEnumerator PlanAndCall_WhenSourceIsSame_ReturnStableDigestValues () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             var source = @"
 context.DeclareNoTouchedResources();
 return new { value = 7 };
@@ -176,7 +176,7 @@ return new { value = 7 };
         [Category("Size.Small")]
         public IEnumerator Call_WhenStatementSnippetReturnsValue_ReturnsSnippetSourceKind () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(
                 source: @"
@@ -201,7 +201,7 @@ return new { count = 2 };
         [Category("Size.Small")]
         public IEnumerator Call_WhenSnippetHasNoReturn_ReturnsNull () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(
                 source: @"
@@ -221,7 +221,7 @@ context.DeclareNoTouchedResources();
         [Category("Size.Small")]
         public IEnumerator Call_WhenSnippetIsSingleExpression_ReturnsExpressionValue () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(
                 source: "new { ok = true, label = \"expr\" }");
@@ -238,7 +238,7 @@ context.DeclareNoTouchedResources();
         [Category("Size.Small")]
         public IEnumerator Call_WhenSnippetHasLeadingUsing_CompilesWithUsing () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(
                 source: @"
@@ -259,7 +259,7 @@ return new { value = new StringBuilder().Append(""ok"").ToString() };
         [Category("Size.Small")]
         public IEnumerator Plan_WhenSnippetDoesNotCompile_ReturnsSnippetDiagnosticLine () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(
                 source: @"context.Log(""first"");
@@ -278,7 +278,7 @@ return missingSymbol;");
         [Category("Size.Small")]
         public IEnumerator Plan_WhenSourceDoesNotCompile_ReturnsDiagnostics () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(
                 source: @"
@@ -310,7 +310,7 @@ namespace EvalScripts
         [Category("Size.Small")]
         public IEnumerator Call_WhenSourceReturnsJsonSerializableValue_ReturnsLogsAndTouchedResources () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(
                 source: @"
@@ -357,7 +357,7 @@ namespace EvalScripts
         [Category("Size.Small")]
         public IEnumerator Call_WhenNoTouchedResourcesDeclared_ReturnsNoneAndUnchanged () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(
                 source: @"
@@ -396,7 +396,7 @@ namespace EvalScripts
         [Category("Size.Small")]
         public IEnumerator Call_WhenTouchedResourcesAreNotDeclared_ReturnsUnknownAndChanged () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(
                 source: @"
@@ -434,7 +434,7 @@ namespace EvalScripts
         [Category("Size.Small")]
         public IEnumerator Call_WhenPrefabAndProjectSettingsAreDeclared_ReturnsTypedTouches () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(
                 source: @"
@@ -478,7 +478,7 @@ namespace EvalScripts
         [Category("Size.Small")]
         public IEnumerator Call_WhenEntryPointReturnValueCannotBeSerialized_FailsAfterInvocation () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(
                 source: @"
@@ -525,7 +525,7 @@ namespace EvalScripts
                 "new System.Threading.Tasks.ValueTask()",
                 "new System.Threading.Tasks.ValueTask<int>(1)",
             };
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             for (var i = 0; i < cases.Length; i++)
             {
                 using var context = new OperationExecutionContext();
@@ -556,7 +556,7 @@ return " + cases[i] + @";
         [Category("Size.Small")]
         public IEnumerator Call_WhenEntryPointReturnsDerivedTaskObject_FailsAfterInvocation () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(
                 source: @"
@@ -603,7 +603,7 @@ namespace EvalScripts
         [Category("Size.Small")]
         public IEnumerator Call_WhenReturnValueGetterThrows_FailsAfterInvocationWithTouchedResources () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(
                 source: @"
@@ -650,7 +650,7 @@ namespace EvalScripts
         [Category("Size.Small")]
         public IEnumerator Call_WhenSnippetReturnValueIsTooLarge_FailsBeforeIpcSerialization () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(
                 source: "return new string('x', 9 * 1024 * 1024);");
@@ -668,7 +668,7 @@ namespace EvalScripts
         [Category("Size.Small")]
         public IEnumerator Plan_WhenSourceExceedsInternalGuardrail_FailsBeforeCompilation () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(new string('x', CsEvalSafetyLimits.MaxSourceBytes + 1));
 
@@ -683,7 +683,7 @@ namespace EvalScripts
         [Category("Size.Small")]
         public IEnumerator Call_WhenLogsExceedInternalGuardrail_TruncatesLogs () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(@"
 for (var i = 0; i < " + (CsEvalSafetyLimits.MaxLogEntries + 1) + @"; i++)
@@ -706,7 +706,7 @@ context.DeclareNoTouchedResources();
         [Category("Size.Small")]
         public IEnumerator Call_WhenTouchedResourcesExceedInternalGuardrail_ReturnsUnknownAuditState () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(@"
 for (var i = 0; i < " + (CsEvalSafetyLimits.MaxTouchedResources + 1) + @"; i++)
@@ -728,7 +728,7 @@ return null;
         [Category("Size.Small")]
         public IEnumerator Call_WhenEntryPointThrows_FailsAfterInvocationWithDeclaredState () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(
                 source: @"
@@ -770,7 +770,7 @@ namespace EvalScripts
         [Category("Size.Small")]
         public IEnumerator Call_WhenEntryPointSignatureIsInvalid_FailsBeforeInvocation () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             var cases = new[]
             {
                 new InvalidEntryPointCase(
@@ -953,7 +953,7 @@ namespace EvalScripts
         [Category("Size.Small")]
         public IEnumerator Call_WhenMultipleEntryPointsMatch_FailsBeforeInvocationWithCandidates () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(
                 source: @"
@@ -1012,7 +1012,7 @@ namespace EvalScripts
                 "context.DeclareTouchedAsset(\"Assets/Main.unity\");",
                 "context.DeclareTouchedAsset(\"Assets/Widget.prefab\");",
             };
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             for (var i = 0; i < cases.Length; i++)
             {
                 using var context = new OperationExecutionContext();
@@ -1053,7 +1053,7 @@ namespace EvalScripts
         [Category("Size.Small")]
         public IEnumerator Call_WhenEntryPointReturnsTask_FailsBeforeInvocation () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(
                 source: @"
@@ -1083,7 +1083,7 @@ namespace EvalScripts
         [Category("Size.Small")]
         public IEnumerator Call_WhenTouchedDeclarationConflicts_FailsWithLogs () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new CsEvalOperation();
+            var operation = CreateCsEvalOperation();
             using var context = new OperationExecutionContext();
             var request = CreateOperation(
                 source: @"
@@ -1113,6 +1113,17 @@ namespace EvalScripts
             Assert.That(payload.GetProperty("logs")[0].GetProperty("message").GetString(), Is.EqualTo("before conflict"));
             Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.None));
         });
+
+        private static CsEvalOperation CreateCsEvalOperation ()
+        {
+            return new CsEvalOperation(
+                new CsEvalCompilationService(
+                    new CsEvalReferenceResolver(),
+                    new CsEvalEntryPointSymbolValidator(),
+                    new CsEvalSourcePreparer()),
+                new CsEvalEntryPointReflectionResolver(),
+                new CsEvalReturnValueSerializer());
+        }
 
         private static NormalizedOperation CreateOperation (
             string source)

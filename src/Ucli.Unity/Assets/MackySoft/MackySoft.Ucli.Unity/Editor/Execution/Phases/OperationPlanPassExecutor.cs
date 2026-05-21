@@ -15,18 +15,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private readonly ExecuteRequestCompiler requestCompiler;
 
         /// <summary> Initializes a new instance of the <see cref="OperationPlanPassExecutor" /> class. </summary>
-        /// <param name="operationRegistry"> The phase-operation registry dependency. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="operationRegistry" /> is <see langword="null" />. </exception>
-        public OperationPlanPassExecutor (IPhaseOperationRegistry operationRegistry)
-            : this(new OperationPlanStepRunner(operationRegistry), new ExecuteRequestCompiler())
-        {
-        }
-
-        /// <summary> Initializes a new instance of the <see cref="OperationPlanPassExecutor" /> class. </summary>
         /// <param name="stepRunner"> The one-operation plan-step runner dependency. </param>
         /// <param name="requestCompiler"> The runtime request compiler dependency. </param>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="stepRunner" /> is <see langword="null" />. </exception>
-        internal OperationPlanPassExecutor (
+        public OperationPlanPassExecutor (
             OperationPlanStepRunner stepRunner,
             ExecuteRequestCompiler requestCompiler)
         {

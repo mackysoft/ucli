@@ -351,7 +351,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 issueResultFactory: _ => PlanTokenIssueResult.Success("unused"),
                 requestValidationResultFactory: _ => PlanTokenValidationResult.Success(),
                 validationResultFactory: _ => PlanTokenValidationResult.Success());
-            var executor = new OperationPhaseExecutor(
+            var executor = CreateExecutor(
                 CreateRegistry((UcliPrimitiveOperationNames.Resolve, operation)),
                 coordinator);
             var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
@@ -439,7 +439,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
                 policy: OperationPolicy.Dangerous);
-            var executor = new OperationPhaseExecutor(CreateRegistry(("ucli.tests.dangerous", operation)));
+            var executor = CreateExecutor(CreateRegistry(("ucli.tests.dangerous", operation)));
             var request = CreateRequest("op-1", "ucli.tests.dangerous");
 
             var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Dangerous call denied execution");
@@ -464,7 +464,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
                 policy: OperationPolicy.Dangerous);
-            var executor = new OperationPhaseExecutor(
+            var executor = CreateExecutor(
                 CreateRegistry(("ucli.tests.dangerous", operation)),
                 new PlanTokenCoordinator(environment),
                 new DangerousOperationCallAuthorizer(environment));
@@ -492,7 +492,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
                 policy: OperationPolicy.Dangerous,
                 exposure: UcliOperationExposure.EditLoweringOnly);
-            var executor = new OperationPhaseExecutor(CreateRegistry(("ucli.tests.edit-lowering-only", operation)));
+            var executor = CreateExecutor(CreateRegistry(("ucli.tests.edit-lowering-only", operation)));
             var request = CreateRequest(
                 operations: new[] { ("op-1", "ucli.tests.edit-lowering-only") },
                 planToken: null,
@@ -519,7 +519,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
                 policy: OperationPolicy.Dangerous,
                 exposure: UcliOperationExposure.Internal);
-            var executor = new OperationPhaseExecutor(CreateRegistry(("ucli.tests.internal", operation)));
+            var executor = CreateExecutor(CreateRegistry(("ucli.tests.internal", operation)));
             var request = CreateRequest(
                 operations: new[] { ("op-1", "ucli.tests.internal") },
                 planToken: null,
@@ -549,7 +549,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 issueResultFactory: _ => PlanTokenIssueResult.Success("unused-token"),
                 requestValidationResultFactory: _ => PlanTokenValidationResult.Success(),
                 validationResultFactory: _ => PlanTokenValidationResult.Success());
-            var executor = new OperationPhaseExecutor(
+            var executor = CreateExecutor(
                 CreateRegistry(("ucli.tests.edit-lowering-only", operation)),
                 coordinator);
             var request = CreateRequest("op-1", "ucli.tests.edit-lowering-only");
@@ -578,7 +578,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 issueResultFactory: _ => PlanTokenIssueResult.Success("unused-token"),
                 requestValidationResultFactory: _ => PlanTokenValidationResult.Success(),
                 validationResultFactory: _ => PlanTokenValidationResult.Success());
-            var executor = new OperationPhaseExecutor(
+            var executor = CreateExecutor(
                 CreateRegistry(("ucli.tests.internal", operation)),
                 coordinator);
             var request = CreateRequest("op-1", "ucli.tests.internal");
@@ -608,7 +608,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
                 exposure: UcliOperationExposure.EditLoweringOnly);
-            var executor = new OperationPhaseExecutor(CreateRegistry((UcliPrimitiveOperationNames.CompEnsure, operation)));
+            var executor = CreateExecutor(CreateRegistry((UcliPrimitiveOperationNames.CompEnsure, operation)));
             var request = CreateEditRequest(
                 stepId: "edit-1",
                 stepJson: "{"
@@ -640,7 +640,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
                 policy: OperationPolicy.Dangerous);
-            var executor = new OperationPhaseExecutor(
+            var executor = CreateExecutor(
                 CreateRegistry(("ucli.tests.dangerous", operation)),
                 new PlanTokenCoordinator(environment),
                 new DangerousOperationCallAuthorizer(environment));
@@ -671,7 +671,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 issueResultFactory: _ => PlanTokenIssueResult.Success("issued-token"),
                 requestValidationResultFactory: _ => PlanTokenValidationResult.Success(),
                 validationResultFactory: _ => PlanTokenValidationResult.Success());
-            var executor = new OperationPhaseExecutor(
+            var executor = CreateExecutor(
                 CreateRegistry((UcliPrimitiveOperationNames.Resolve, operation)),
                 coordinator);
             var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
@@ -703,7 +703,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     Code: PlanTokenErrorCodes.PlanTokenInvalid,
                     Message: "invalid token",
                     OpId: null)));
-            var executor = new OperationPhaseExecutor(
+            var executor = CreateExecutor(
                 CreateRegistry(
                     (UcliPrimitiveOperationNames.Resolve, firstOperation),
                     (UcliPrimitiveOperationNames.SceneOpen, secondOperation)),
@@ -764,7 +764,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         PlanTokenErrorCodes.StateChangedSincePlan,
                         "Compiled execution changed since plan token issuance.",
                         null))),
-                new DangerousOperationCallAuthorizer());
+                CreateDangerousOperationCallAuthorizer());
 
             var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Call compile failure should map to compiled execution drift");
 
@@ -816,7 +816,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubPlanPassExecutor(planPassResult),
                 new OperationCallPassExecutor(),
                 coordinator,
-                new DangerousOperationCallAuthorizer());
+                CreateDangerousOperationCallAuthorizer());
 
             var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Legacy-compatible token should preserve compile failure");
 
@@ -843,7 +843,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success());
-            var executor = new OperationPhaseExecutor(CreateRegistry(
+            var executor = CreateExecutor(CreateRegistry(
                 (UcliPrimitiveOperationNames.Resolve, failingOperation),
                 (UcliPrimitiveOperationNames.SceneOpen, skippedOperation)));
             var request = CreateRequest(
@@ -874,7 +874,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success());
-            var executor = new OperationPhaseExecutor(CreateRegistry(
+            var executor = CreateExecutor(CreateRegistry(
                 (UcliPrimitiveOperationNames.Resolve, failingOperation),
                 (UcliPrimitiveOperationNames.SceneOpen, skippedOperation)));
             var request = CreateRequest(
@@ -904,7 +904,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success());
-            var executor = new OperationPhaseExecutor(CreateRegistry(
+            var executor = CreateExecutor(CreateRegistry(
                 (UcliPrimitiveOperationNames.Resolve, failingOperation),
                 (UcliPrimitiveOperationNames.SceneOpen, skippedOperation)));
             var request = CreateRequest(
@@ -1254,7 +1254,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success(applied: true, changed: false));
-            var executor = new OperationPhaseExecutor(CreateRegistry(
+            var executor = CreateExecutor(CreateRegistry(
                 ("ucli.tests.replay-failing", replayOperation),
                 (UcliPrimitiveOperationNames.Resolve, secondOperation)));
             var request = CreateRequest(
@@ -1281,7 +1281,45 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static OperationPhaseExecutor CreateExecutor (IUcliOperation operation)
         {
-            return new OperationPhaseExecutor(CreateRegistry((UcliPrimitiveOperationNames.Resolve, operation)));
+            return CreateExecutor(CreateRegistry((UcliPrimitiveOperationNames.Resolve, operation)));
+        }
+
+        private static OperationPhaseExecutor CreateExecutor (IPhaseOperationRegistry operationRegistry)
+        {
+            var environment = new DefaultPlanTokenEnvironment();
+            return CreateExecutor(
+                operationRegistry,
+                new PlanTokenCoordinator(environment),
+                new DangerousOperationCallAuthorizer(environment));
+        }
+
+        private static OperationPhaseExecutor CreateExecutor (
+            IPhaseOperationRegistry operationRegistry,
+            IPlanTokenCoordinator planTokenCoordinator)
+        {
+            return CreateExecutor(
+                operationRegistry,
+                planTokenCoordinator,
+                CreateDangerousOperationCallAuthorizer());
+        }
+
+        private static OperationPhaseExecutor CreateExecutor (
+            IPhaseOperationRegistry operationRegistry,
+            IPlanTokenCoordinator planTokenCoordinator,
+            IDangerousOperationCallAuthorizer dangerousOperationCallAuthorizer)
+        {
+            return new OperationPhaseExecutor(
+                new OperationPlanPassExecutor(
+                    new OperationPlanStepRunner(operationRegistry),
+                    new ExecuteRequestCompiler()),
+                new OperationCallPassExecutor(),
+                planTokenCoordinator,
+                dangerousOperationCallAuthorizer);
+        }
+
+        private static DangerousOperationCallAuthorizer CreateDangerousOperationCallAuthorizer ()
+        {
+            return new DangerousOperationCallAuthorizer(new DefaultPlanTokenEnvironment());
         }
 
         private static UniTask<PhaseExecutionTrace> ExecuteAsync (

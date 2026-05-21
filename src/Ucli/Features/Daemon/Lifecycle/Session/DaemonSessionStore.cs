@@ -13,14 +13,6 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
 
     private readonly IDaemonSessionValidator sessionValidator;
 
-    /// <summary> Initializes a new instance of the <see cref="DaemonSessionStore" /> class with default dependencies. </summary>
-    public DaemonSessionStore ()
-        : this(
-            new DaemonSessionJsonSerializer(),
-            new DaemonSessionValidator())
-    {
-    }
-
     /// <summary> Initializes a new instance of the <see cref="DaemonSessionStore" /> class. </summary>
     /// <param name="sessionSerializer"> The daemon session serializer dependency. </param>
     /// <param name="sessionValidator"> The daemon session validator dependency. </param>

@@ -12,7 +12,7 @@ public sealed class DaemonSessionProcessIdValidationTests
     public async Task Read_WhenProcessIdIsNotPositive_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "invalid-process-id-read");
-        var store = new DaemonSessionStore();
+        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
         var projectFingerprint = "fingerprint-invalid-process-id-read";
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
@@ -49,7 +49,7 @@ public sealed class DaemonSessionProcessIdValidationTests
     public async Task Read_WhenProcessStartedAtUtcIsMissingWithProcessId_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "missing-process-started-at-read");
-        var store = new DaemonSessionStore();
+        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
         var projectFingerprint = "fingerprint-missing-process-started-at-read";
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
@@ -89,7 +89,7 @@ public sealed class DaemonSessionProcessIdValidationTests
     public async Task Write_WhenProcessIdIsNotPositive_ReturnsInvalidArgument (int processId)
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "invalid-process-id-write");
-        var store = new DaemonSessionStore();
+        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
         var session = new DaemonSession(
             SchemaVersion: DaemonSession.CurrentSchemaVersion,
             SessionToken: "token-1",
@@ -117,7 +117,7 @@ public sealed class DaemonSessionProcessIdValidationTests
     public async Task Write_WhenProcessStartedAtUtcIsMissingWithProcessId_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "missing-process-started-at-write");
-        var store = new DaemonSessionStore();
+        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
         var session = new DaemonSession(
             SchemaVersion: DaemonSession.CurrentSchemaVersion,
             SessionToken: "token-1",

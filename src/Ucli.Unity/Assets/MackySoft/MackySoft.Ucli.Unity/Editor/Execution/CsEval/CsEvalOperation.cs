@@ -24,16 +24,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         private readonly CsEvalReturnValueSerializer returnValueSerializer;
 
-        public CsEvalOperation ()
-            : this(
-                new CsEvalCompilationService(new CsEvalReferenceResolver(), new CsEvalEntryPointSymbolValidator(), new CsEvalSourcePreparer()),
-                new CsEvalEntryPointReflectionResolver(),
-                new CsEvalReturnValueSerializer())
-        {
-            // NOTE: Operation discovery instantiates [UcliOperation] types through their public parameterless constructor.
-        }
-
-        internal CsEvalOperation (
+        public CsEvalOperation (
             CsEvalCompilationService compilationService,
             CsEvalEntryPointReflectionResolver entryPointResolver,
             CsEvalReturnValueSerializer returnValueSerializer)

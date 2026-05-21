@@ -29,11 +29,6 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             this.environment = environment ?? throw new ArgumentNullException(nameof(environment));
         }
 
-        /// <summary> Initializes a new instance of the <see cref="PlanTokenCoordinator" /> class with default runtime environment. </summary>
-        public PlanTokenCoordinator () : this(new DefaultPlanTokenEnvironment())
-        {
-        }
-
         /// <summary>
         /// Issues one plan token from a normalized request and its plan-phase primitive traces.
         /// </summary>

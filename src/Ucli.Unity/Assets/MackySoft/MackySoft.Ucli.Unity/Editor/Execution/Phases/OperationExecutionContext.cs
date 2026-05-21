@@ -35,20 +35,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Initializes a new instance of the <see cref="OperationExecutionContext" /> class. </summary>
         public OperationExecutionContext ()
-            : this(new OperationAliasStore())
         {
-        }
-
-        /// <summary> Initializes a new instance of the <see cref="OperationExecutionContext" /> class. </summary>
-        /// <param name="aliasStore"> The alias-store dependency. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="aliasStore" /> is <see langword="null" />. </exception>
-        internal OperationExecutionContext (OperationAliasStore aliasStore)
-        {
-            AliasStore = aliasStore ?? throw new ArgumentNullException(nameof(aliasStore));
         }
 
         /// <summary> Gets the alias store used to share resolved references within one request. </summary>
-        internal OperationAliasStore AliasStore { get; }
+        internal OperationAliasStore AliasStore { get; } = new OperationAliasStore();
 
         /// <summary> Stores or replaces one temporary alias value used during plan execution. </summary>
         /// <param name="alias"> The alias name. </param>
