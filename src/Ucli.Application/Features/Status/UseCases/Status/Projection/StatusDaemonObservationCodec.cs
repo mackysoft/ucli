@@ -2,7 +2,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Observation;
-using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
+using MackySoft.Ucli.Application.Shared.CommandContracts.Projection;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
@@ -86,35 +86,22 @@ internal static class StatusDaemonObservationCodec
     {
         ArgumentNullException.ThrowIfNull(pingResponse);
 
-        var lifecycleState = IpcEditorLifecycleStateCodec.TryParse(pingResponse.LifecycleState, out var normalizedLifecycleState)
-            ? normalizedLifecycleState
-            : null;
-        var blockingReason = lifecycleState is null || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
-            ? null
-            : IpcEditorBlockingReasonCodec.TryParse(pingResponse.BlockingReason, out var normalizedBlockingReason)
-                ? normalizedBlockingReason
-                : null;
-        var canAcceptExecutionRequests = string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
-            && pingResponse.CanAcceptExecutionRequests;
+        var projection = PingLifecycleProjectionFactory.Create(pingResponse);
 
         return new StatusDaemonObservation(
             DaemonStatus: daemonStatus,
-            ServerVersion: StringValueNormalizer.TrimToNull(pingResponse.ServerVersion),
-            LifecycleState: lifecycleState,
-            BlockingReason: blockingReason,
-            CompileState: IpcCompileStateCodec.TryParse(pingResponse.CompileState, out var compileState)
-                ? compileState
-                : null,
-            CompileGeneration: StringValueNormalizer.TrimToNull(pingResponse.CompileGeneration),
-            DomainReloadGeneration: StringValueNormalizer.TrimToNull(pingResponse.DomainReloadGeneration),
-            CanAcceptExecutionRequests: canAcceptExecutionRequests,
-            EditorMode: DaemonEditorModeCodec.TryParse(pingResponse.EditorMode, out var editorMode)
-                ? DaemonEditorModeCodec.ToValue(editorMode)
-                : null,
-            ObservedAtUtc: pingResponse.ObservedAtUtc,
-            ActionRequired: StringValueNormalizer.TrimToNull(pingResponse.ActionRequired),
-            PrimaryDiagnostic: ToOutput(pingResponse.PrimaryDiagnostic),
-            PlayMode: PlayModeSnapshotOutputFactory.Create(pingResponse.PlayMode));
+            ServerVersion: projection.ServerVersion,
+            LifecycleState: projection.LifecycleState,
+            BlockingReason: projection.BlockingReason,
+            CompileState: projection.CompileState,
+            CompileGeneration: projection.CompileGeneration,
+            DomainReloadGeneration: projection.DomainReloadGeneration,
+            CanAcceptExecutionRequests: projection.CanAcceptExecutionRequests,
+            EditorMode: projection.EditorMode,
+            ObservedAtUtc: projection.ObservedAtUtc,
+            ActionRequired: projection.ActionRequired,
+            PrimaryDiagnostic: ToOutput(projection.PrimaryDiagnostic),
+            PlayMode: projection.PlayMode);
     }
 
     private static DaemonPrimaryDiagnosticOutput? ToOutput (IpcPrimaryDiagnostic? diagnostic)

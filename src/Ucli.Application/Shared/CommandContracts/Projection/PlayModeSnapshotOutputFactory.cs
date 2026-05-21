@@ -1,7 +1,7 @@
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
-namespace MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
+namespace MackySoft.Ucli.Application.Shared.CommandContracts.Projection;
 
 /// <summary> Converts IPC Play Mode snapshots into command payload output values. </summary>
 internal static class PlayModeSnapshotOutputFactory

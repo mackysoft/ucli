@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
+using MackySoft.Ucli.Application.Shared.CommandContracts;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 

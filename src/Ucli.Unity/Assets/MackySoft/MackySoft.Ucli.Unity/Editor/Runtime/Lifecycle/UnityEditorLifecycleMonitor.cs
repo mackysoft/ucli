@@ -41,7 +41,8 @@ namespace MackySoft.Ucli.Unity.Runtime
             var isUpdating = isUpdatingProvider();
             var isPlaying = isPlayingProvider();
             var isPlayingOrWillChangePlaymode = isPlayingOrWillChangePlaymodeProvider();
-            var lifecycleState = lifecycleTelemetryState.ResolveLifecycleState(isPlayingOrWillChangePlaymode, isCompiling, isUpdating);
+            var isPlaymodeActive = isPlaying || isPlayingOrWillChangePlaymode;
+            var lifecycleState = lifecycleTelemetryState.ResolveLifecycleState(isPlaymodeActive, isCompiling, isUpdating);
             var blockingReason = UnityEditorExecutionReadinessPolicy.ResolveBlockingReason(lifecycleState);
             var canAcceptExecutionRequests = string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal);
 

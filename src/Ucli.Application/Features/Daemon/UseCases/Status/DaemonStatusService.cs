@@ -8,7 +8,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Observation;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Projection;
-using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
@@ -120,7 +119,7 @@ internal sealed class DaemonStatusService : IDaemonStatusService
                 $"Daemon status returned unsupported status: {statusResult.Status}."));
         }
 
-        var projection = new DaemonStatusProjection(statusResult.Status);
+        var daemonObservation = StatusDaemonObservationCodec.CreateWithoutPing(statusResult.Status);
         var persistedDiagnosis = statusResult.Diagnosis;
         var diagnosis = statusResult.Status == DaemonStatusKind.Running
             ? null
@@ -133,8 +132,8 @@ internal sealed class DaemonStatusService : IDaemonStatusService
                     statusResult.Session,
                     cancellationToken)
                 .ConfigureAwait(false);
-            projection.Apply(unreachableObservation);
-            diagnosis = projection.DaemonStatus == DaemonStatusKind.Running
+            daemonObservation = unreachableObservation;
+            diagnosis = daemonObservation.DaemonStatus == DaemonStatusKind.Running
                 ? null
                 : diagnosis;
         }
@@ -161,8 +160,7 @@ internal sealed class DaemonStatusService : IDaemonStatusService
                         statusResult.Session.SessionToken,
                         cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
-                var observation = StatusDaemonObservationCodec.CreateFromPing(statusResult.Status, pingResponse);
-                projection.Apply(observation);
+                daemonObservation = StatusDaemonObservationCodec.CreateFromPing(statusResult.Status, pingResponse);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -182,7 +180,7 @@ internal sealed class DaemonStatusService : IDaemonStatusService
                     return DaemonStatusExecutionResult.Failure(unreachableResolution.Error!);
                 }
 
-                projection.Apply(unreachableResolution.Observation!);
+                daemonObservation = unreachableResolution.Observation!;
                 diagnosis = unreachableResolution.Diagnosis;
             }
             catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
@@ -199,7 +197,7 @@ internal sealed class DaemonStatusService : IDaemonStatusService
                     return DaemonStatusExecutionResult.Failure(unreachableResolution.Error!);
                 }
 
-                projection.Apply(unreachableResolution.Observation!);
+                daemonObservation = unreachableResolution.Observation!;
                 diagnosis = unreachableResolution.Diagnosis;
             }
             catch (Exception exception)
@@ -210,15 +208,15 @@ internal sealed class DaemonStatusService : IDaemonStatusService
         }
 
         var output = new DaemonStatusExecutionOutput(
-            DaemonStatus: projection.DaemonStatus,
-            ServerVersion: projection.ServerVersion,
-            EditorMode: projection.EditorMode,
-            LifecycleState: projection.LifecycleState,
-            BlockingReason: projection.BlockingReason,
-            CompileState: projection.CompileState,
-            CompileGeneration: projection.CompileGeneration,
-            DomainReloadGeneration: projection.DomainReloadGeneration,
-            CanAcceptExecutionRequests: projection.CanAcceptExecutionRequests,
+            DaemonStatus: daemonObservation.DaemonStatus,
+            ServerVersion: daemonObservation.ServerVersion,
+            EditorMode: daemonObservation.EditorMode,
+            LifecycleState: daemonObservation.LifecycleState,
+            BlockingReason: daemonObservation.BlockingReason,
+            CompileState: daemonObservation.CompileState,
+            CompileGeneration: daemonObservation.CompileGeneration,
+            DomainReloadGeneration: daemonObservation.DomainReloadGeneration,
+            CanAcceptExecutionRequests: daemonObservation.CanAcceptExecutionRequests,
             TimeoutMilliseconds: checked((int)executionContext.Timeout.TotalMilliseconds),
             Session: statusResult.Session is null
                 ? null
@@ -229,10 +227,10 @@ internal sealed class DaemonStatusService : IDaemonStatusService
             LastLaunchAttempt: statusResult.LastLaunchAttempt is null || statusResult.Session is not null
                 ? null
                 : ToLaunchAttemptOutput(statusResult.LastLaunchAttempt),
-            ObservedAtUtc: projection.ObservedAtUtc,
-            ActionRequired: projection.ActionRequired,
-            PrimaryDiagnostic: projection.PrimaryDiagnostic,
-            PlayMode: projection.PlayMode);
+            ObservedAtUtc: daemonObservation.ObservedAtUtc,
+            ActionRequired: daemonObservation.ActionRequired,
+            PrimaryDiagnostic: daemonObservation.PrimaryDiagnostic,
+            PlayMode: daemonObservation.PlayMode);
         return DaemonStatusExecutionResult.Success(output);
     }
 
@@ -348,59 +346,6 @@ internal sealed class DaemonStatusService : IDaemonStatusService
         return status is DaemonStatusKind.Running
             or DaemonStatusKind.NotRunning
             or DaemonStatusKind.Stale;
-    }
-
-    private sealed class DaemonStatusProjection
-    {
-        public DaemonStatusProjection (DaemonStatusKind daemonStatus)
-        {
-            DaemonStatus = daemonStatus;
-        }
-
-        public DaemonStatusKind DaemonStatus { get; private set; }
-
-        public string? ServerVersion { get; private set; }
-
-        public string? EditorMode { get; private set; }
-
-        public string? LifecycleState { get; private set; }
-
-        public string? BlockingReason { get; private set; }
-
-        public string? CompileState { get; private set; }
-
-        public string? CompileGeneration { get; private set; }
-
-        public string? DomainReloadGeneration { get; private set; }
-
-        public bool CanAcceptExecutionRequests { get; private set; }
-
-        public DateTimeOffset? ObservedAtUtc { get; private set; }
-
-        public string? ActionRequired { get; private set; }
-
-        public DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic { get; private set; }
-
-        public PlayModeSnapshotOutput? PlayMode { get; private set; }
-
-        public void Apply (StatusDaemonObservation observation)
-        {
-            ArgumentNullException.ThrowIfNull(observation);
-
-            DaemonStatus = observation.DaemonStatus;
-            ServerVersion = observation.ServerVersion;
-            EditorMode = observation.EditorMode;
-            LifecycleState = observation.LifecycleState;
-            BlockingReason = observation.BlockingReason;
-            CompileState = observation.CompileState;
-            CompileGeneration = observation.CompileGeneration;
-            DomainReloadGeneration = observation.DomainReloadGeneration;
-            CanAcceptExecutionRequests = observation.CanAcceptExecutionRequests;
-            ObservedAtUtc = observation.ObservedAtUtc;
-            ActionRequired = observation.ActionRequired;
-            PrimaryDiagnostic = observation.PrimaryDiagnostic;
-            PlayMode = observation.PlayMode;
-        }
     }
 
     private sealed record UnreachableDaemonStatusResolution (

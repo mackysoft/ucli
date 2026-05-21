@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
+namespace MackySoft.Ucli.Application.Shared.CommandContracts;
 
 /// <summary> Represents normalized Play Mode subsystem snapshot values emitted by command payloads. </summary>
 /// <param name="State"> The Play Mode state literal. </param>

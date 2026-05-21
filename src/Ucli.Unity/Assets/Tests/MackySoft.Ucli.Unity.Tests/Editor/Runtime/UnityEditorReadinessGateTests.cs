@@ -287,6 +287,44 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void CaptureSnapshot_WhenPlayModeChangeIsPending_ReturnsPlaymodeEnteringSnapshot ()
+        {
+            var monitor = CreateMonitor(
+                isPlaying: false,
+                isPlayingOrWillChangePlaymode: true);
+
+            var snapshot = monitor.CaptureSnapshot(DaemonEditorMode.Batchmode);
+
+            Assert.That(snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Playmode));
+            Assert.That(snapshot.BlockingReason, Is.EqualTo(IpcEditorBlockingReasonCodec.PlayMode));
+            Assert.That(snapshot.CanAcceptExecutionRequests, Is.False);
+            Assert.That(snapshot.PlayMode.State, Is.EqualTo(IpcPlayModeStateNames.Entering));
+            Assert.That(snapshot.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransitionNames.None));
+            Assert.That(snapshot.PlayMode.IsPlaying, Is.False);
+            Assert.That(snapshot.PlayMode.IsPlayingOrWillChangePlaymode, Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void CaptureSnapshot_WhenPlayModeFlagsAreInconsistent_ReturnsPlaymodeWithUnknownPlayModeState ()
+        {
+            var monitor = CreateMonitor(
+                isPlaying: true,
+                isPlayingOrWillChangePlaymode: false);
+
+            var snapshot = monitor.CaptureSnapshot(DaemonEditorMode.Batchmode);
+
+            Assert.That(snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Playmode));
+            Assert.That(snapshot.BlockingReason, Is.EqualTo(IpcEditorBlockingReasonCodec.PlayMode));
+            Assert.That(snapshot.CanAcceptExecutionRequests, Is.False);
+            Assert.That(snapshot.PlayMode.State, Is.EqualTo(IpcPlayModeStateNames.Unknown));
+            Assert.That(snapshot.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransitionNames.None));
+            Assert.That(snapshot.PlayMode.IsPlaying, Is.True);
+            Assert.That(snapshot.PlayMode.IsPlayingOrWillChangePlaymode, Is.False);
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void CapturePlayModeSnapshot_WhenTransitionCallbacksAreObserved_ReturnsTransitionStatesWithoutAdvancingGeneration ()
         {
             UnityEditorPlayModeGenerationStore.SetPersistedValue(40);
@@ -831,6 +869,25 @@ namespace MackySoft.Ucli.Unity.Tests
                 static _ => { },
                 static _ => { },
                 subscribeToEditorEvents: false);
+        }
+
+        private static UnityEditorLifecycleMonitor CreateMonitor (
+            bool isPlaying,
+            bool isPlayingOrWillChangePlaymode)
+        {
+            var lifecycleTelemetryState = new UnityEditorLifecycleTelemetryState(
+                compileGeneration: 4,
+                domainReloadGeneration: 9,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false);
+
+            return new UnityEditorLifecycleMonitor(
+                lifecycleTelemetryState,
+                static () => false,
+                static () => false,
+                () => isPlaying,
+                () => isPlayingOrWillChangePlaymode);
         }
 
         private sealed class EditorActivityProbe
