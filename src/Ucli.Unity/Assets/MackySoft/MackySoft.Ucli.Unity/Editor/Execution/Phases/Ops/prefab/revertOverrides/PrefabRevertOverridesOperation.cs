@@ -68,6 +68,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
+            if (state.RequiresExplicitPrefabAssetMutation)
+            {
+                return Task.FromResult(RevertExplicitPrefabAssetMutation(operation, state));
+            }
+
             var serializedObject = new SerializedObject(state.Component);
             serializedObject.UpdateIfRequiredOrScript();
             var appliedCount = 0;
@@ -129,6 +134,44 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return true;
+        }
+
+        private static OperationPhaseStepResult RevertExplicitPrefabAssetMutation (
+            NormalizedOperation operation,
+            PrefabOverrideResolution.State state)
+        {
+            if (!PrefabOverrideResolution.TryLoadExplicitPrefabAssetTarget(state, out var prefabRoot, out var assetComponent, out var errorMessage))
+            {
+                return OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
+            }
+
+            try
+            {
+                if (!SerializedPropertyCopyUtility.TryCopyComponentProperties(
+                        assetComponent!,
+                        state.Component,
+                        state.Changes,
+                        "live target",
+                        out errorMessage))
+                {
+                    return OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
+                }
+            }
+            catch (Exception exception)
+            {
+                return OperationPhaseStepResult.Failed(new OperationFailure(
+                    Code: UcliCoreErrorCodes.InternalError,
+                    Message: $"Prefab override could not be reverted from explicit Prefab asset: {state.TargetAssetPath}. {exception.Message}",
+                    OpId: operation.Id));
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(prefabRoot!);
+            }
+
+            var touched = CreateTouched(state.Resource);
+            return OperationPhaseStepResult.Success(applied: true, changed: true, touched: touched)
+                .WithReadInvalidations(OperationReadInvalidationUtilities.CreateSceneTreeLiteForSceneResource(state.Resource));
         }
 
         private static IReadOnlyList<OperationTouch> CreateTouched (OperationResource resource)

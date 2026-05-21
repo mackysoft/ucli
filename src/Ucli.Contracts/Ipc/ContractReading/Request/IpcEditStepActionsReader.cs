@@ -236,7 +236,6 @@ internal static class IpcEditStepActionsReader
             path,
             parent,
             targetAssetPath,
-            propertyPaths,
             out errorMessage))
         {
             return false;
@@ -320,7 +319,6 @@ internal static class IpcEditStepActionsReader
         string? path,
         string? parent,
         string? targetAssetPath,
-        IReadOnlyList<string>? propertyPaths,
         out string errorMessage)
     {
         errorMessage = string.Empty;
@@ -375,9 +373,9 @@ internal static class IpcEditStepActionsReader
 
                 return true;
             case IpcEditStepContract.ActionKind.CreatePrefab:
-                if (target is null || path is null)
+                if (path is null)
                 {
-                    errorMessage = "Edit step action 'createPrefab' requires both 'target' and 'path'.";
+                    errorMessage = "Edit step action 'createPrefab' requires 'path'.";
                     return false;
                 }
 

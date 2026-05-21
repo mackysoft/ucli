@@ -632,13 +632,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="wasPrefabOverrideBeforeRequest"> Whether the property was already a Prefab override before this request changed it. </param>
         /// <param name="valueHashBeforeSet"> The normalized property value hash observed before the set that is being recorded. </param>
         /// <param name="valueHashAfterSet"> The normalized property value hash observed after the set that is being recorded. </param>
+        /// <param name="requiresExplicitPrefabAssetMutation"> Whether apply/revert must use the explicit target Prefab asset because Unity Prefab instance linkage is unavailable for this request-attributed change. </param>
         internal void RecordPrefabOverridePropertyChange (
             string editStepId,
             string targetKey,
             string propertyPath,
             bool wasPrefabOverrideBeforeRequest,
             string valueHashBeforeSet,
-            string valueHashAfterSet)
+            string valueHashAfterSet,
+            bool requiresExplicitPrefabAssetMutation)
         {
             if (!prefabOverridePropertyChanges.TryGetValue(editStepId, out var changesByTarget))
             {
@@ -657,13 +659,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 wasPrefabOverrideBeforeRequest = existingChange.WasPrefabOverrideBeforeRequest;
                 initialValueHash = existingChange.ValueHashBeforeRequest;
+                requiresExplicitPrefabAssetMutation |= existingChange.RequiresExplicitPrefabAssetMutation;
             }
 
             changesByPath[propertyPath] = new PrefabOverridePropertyChange(
                 propertyPath,
                 wasPrefabOverrideBeforeRequest,
                 initialValueHash,
-                isEffective: !string.Equals(valueHashAfterSet, initialValueHash, StringComparison.Ordinal));
+                isEffective: !string.Equals(valueHashAfterSet, initialValueHash, StringComparison.Ordinal),
+                requiresExplicitPrefabAssetMutation);
         }
 
         /// <summary> Tries to retrieve one previously recorded request-attributed Prefab instance property change. </summary>
@@ -1147,16 +1151,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             /// <param name="wasPrefabOverrideBeforeRequest"> Whether the property was already a Prefab override before this request changed it. </param>
             /// <param name="valueHashBeforeRequest"> The normalized property value hash captured before the first request-attributed set for this path. </param>
             /// <param name="isEffective"> Whether the latest request-attributed value differs from <paramref name="valueHashBeforeRequest" />. </param>
+            /// <param name="requiresExplicitPrefabAssetMutation"> Whether apply/revert must mutate the explicit Prefab asset because Unity Prefab instance linkage is unavailable for this request-attributed change. </param>
             public PrefabOverridePropertyChange (
                 string propertyPath,
                 bool wasPrefabOverrideBeforeRequest,
                 string valueHashBeforeRequest,
-                bool isEffective)
+                bool isEffective,
+                bool requiresExplicitPrefabAssetMutation)
             {
                 PropertyPath = propertyPath;
                 WasPrefabOverrideBeforeRequest = wasPrefabOverrideBeforeRequest;
                 ValueHashBeforeRequest = valueHashBeforeRequest;
                 IsEffective = isEffective;
+                RequiresExplicitPrefabAssetMutation = requiresExplicitPrefabAssetMutation;
             }
 
             /// <summary> Gets the exact <c>SerializedProperty.propertyPath</c> changed by a preceding set. </summary>
@@ -1170,6 +1177,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             /// <summary> Gets a value indicating whether the latest request-attributed value differs from the pre-request value. </summary>
             public bool IsEffective { get; }
+
+            /// <summary> Gets a value indicating whether apply/revert must mutate the explicit Prefab asset because Unity Prefab instance linkage is unavailable. </summary>
+            public bool RequiresExplicitPrefabAssetMutation { get; }
         }
 
         private readonly struct PlannedPrefabCreation

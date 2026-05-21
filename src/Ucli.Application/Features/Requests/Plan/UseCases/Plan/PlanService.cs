@@ -64,9 +64,7 @@ internal sealed class PlanService : IPlanService
         }
 
         var preparedRequest = requestPreparationResult.PreparedRequest!;
-        var baseOutput = PlanExecutionOutputFactory.CreateBase(
-            preparedRequest,
-            ReadIndexInfoFactory.Unity(PlayModeReadIndexFallbackReason));
+        PlanExecutionOutput baseOutput;
         if (!input.AllowPlayMode)
         {
             var requestStaticValidationPreflightResult = await requestStaticValidationPreflightService.PrepareAsync(
@@ -75,28 +73,32 @@ internal sealed class PlanService : IPlanService
                     cancellationToken)
                 .ConfigureAwait(false);
 
-            preparedRequest = requestStaticValidationPreflightResult.PreparedRequest;
-            baseOutput = PlanExecutionOutputFactory.TryCreateBase(preparedRequest, requestStaticValidationPreflightResult.ReadIndex);
+            var preflightPreparedRequest = requestStaticValidationPreflightResult.PreparedRequest;
             if (requestStaticValidationPreflightResult.Error != null)
             {
+                var preflightBaseOutput = PlanExecutionOutputFactory.TryCreateBase(preflightPreparedRequest, requestStaticValidationPreflightResult.ReadIndex);
                 return PlanFailureResultFactory.FromExecutionError(
                     requestStaticValidationPreflightResult.Error,
-                    baseOutput,
+                    preflightBaseOutput,
                     requestStaticValidationPreflightResult.ErrorCode);
             }
 
             if (requestStaticValidationPreflightResult.HasValidationErrors)
             {
+                var preflightBaseOutput = PlanExecutionOutputFactory.TryCreateBase(preflightPreparedRequest, requestStaticValidationPreflightResult.ReadIndex);
                 return PlanFailureResultFactory.FromValidationErrors(
                     requestStaticValidationPreflightResult.ValidationErrors,
-                    baseOutput);
+                    preflightBaseOutput);
             }
 
-            preparedRequest = requestStaticValidationPreflightResult.PreparedRequest!;
+            preparedRequest = preflightPreparedRequest!;
             baseOutput = PlanExecutionOutputFactory.CreateBase(preparedRequest, requestStaticValidationPreflightResult.ReadIndex!);
         }
         else
         {
+            baseOutput = PlanExecutionOutputFactory.CreateBase(
+                preparedRequest,
+                ReadIndexInfoFactory.Unity(PlayModeReadIndexFallbackReason));
             var validationResult = await requestStaticValidationService.ValidateAsync(
                     preparedRequest.Request,
                     preparedRequest.ProjectContext,

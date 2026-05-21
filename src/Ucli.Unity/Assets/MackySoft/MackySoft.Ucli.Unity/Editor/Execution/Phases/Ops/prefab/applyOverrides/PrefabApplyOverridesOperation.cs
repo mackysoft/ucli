@@ -7,7 +7,6 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor;
-using UnityEngine;
 
 #nullable enable
 
@@ -73,6 +72,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!TryResolve(operation, args, executionContext, allowTemporaryState: false, out var state, out var failure))
             {
                 return Task.FromResult(failure!);
+            }
+
+            if (state.RequiresExplicitPrefabAssetMutation)
+            {
+                return Task.FromResult(ApplyExplicitPrefabAssetMutation(operation, state));
             }
 
             var serializedObject = new SerializedObject(state.Component);
@@ -142,6 +146,56 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return true;
+        }
+
+        private static OperationPhaseStepResult ApplyExplicitPrefabAssetMutation (
+            NormalizedOperation operation,
+            PrefabOverrideResolution.State state)
+        {
+            if (!PrefabOverrideResolution.TryLoadExplicitPrefabAssetTarget(state, out var prefabRoot, out var assetComponent, out var errorMessage))
+            {
+                return OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
+            }
+
+            try
+            {
+                if (!SerializedPropertyCopyUtility.TryCopyComponentProperties(
+                        state.Component,
+                        assetComponent!,
+                        state.Changes,
+                        "Prefab asset target",
+                        out errorMessage))
+                {
+                    return OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
+                }
+
+                var savedPrefab = PrefabUtility.SaveAsPrefabAsset(prefabRoot!, state.TargetAssetPath);
+                if (savedPrefab == null)
+                {
+                    return OperationPhaseStepResult.Failed(new OperationFailure(
+                        Code: UcliCoreErrorCodes.InternalError,
+                        Message: $"Prefab override could not be applied because the Prefab asset save returned no asset: {state.TargetAssetPath}.",
+                        OpId: operation.Id));
+                }
+            }
+            catch (Exception exception)
+            {
+                return OperationPhaseStepResult.Failed(new OperationFailure(
+                    Code: UcliCoreErrorCodes.InternalError,
+                    Message: $"Prefab override could not be applied to explicit Prefab asset: {state.TargetAssetPath}. {exception.Message}",
+                    OpId: operation.Id));
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(prefabRoot!);
+            }
+
+            return OperationPhaseStepResult.Success(
+                    applied: true,
+                    changed: true,
+                    touched: CreateTouched(state.TargetAssetPath))
+                .WithPersistence()
+                .WithReadInvalidations(OperationReadInvalidationUtilities.CreateAssetSearchAndGuidPath());
         }
 
         private static IReadOnlyList<OperationTouch> CreateTouched (string prefabPath)

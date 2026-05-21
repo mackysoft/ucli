@@ -111,14 +111,65 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(result));
             }
 
-            return operation.SuppressPersistenceReporting
-                ? result with
+            if (operation.SuppressPersistenceReporting)
+            {
+                return result with
                 {
                     Touched = Array.Empty<OperationTouch>(),
                     ReadInvalidations = Array.Empty<OperationReadInvalidation>(),
                     Persisted = false,
+                };
+            }
+
+            if (operation.SuppressScenePersistenceReporting)
+            {
+                return result with
+                {
+                    Touched = FilterSceneTouched(result.Touched),
+                    ReadInvalidations = FilterSceneReadInvalidations(result.ReadInvalidations),
+                };
+            }
+
+            return result;
+        }
+
+        private static IReadOnlyList<OperationTouch> FilterSceneTouched (IReadOnlyList<OperationTouch> touched)
+        {
+            if (touched.Count == 0)
+            {
+                return touched;
+            }
+
+            var filtered = new List<OperationTouch>(touched.Count);
+            for (var i = 0; i < touched.Count; i++)
+            {
+                if (touched[i].Kind != OperationTouchKind.Scene)
+                {
+                    filtered.Add(touched[i]);
                 }
-                : result;
+            }
+
+            return filtered.Count == touched.Count ? touched : filtered.ToArray();
+        }
+
+        private static IReadOnlyList<OperationReadInvalidation> FilterSceneReadInvalidations (
+            IReadOnlyList<OperationReadInvalidation> readInvalidations)
+        {
+            if (readInvalidations.Count == 0)
+            {
+                return readInvalidations;
+            }
+
+            var filtered = new List<OperationReadInvalidation>(readInvalidations.Count);
+            for (var i = 0; i < readInvalidations.Count; i++)
+            {
+                if (readInvalidations[i].Surface != OperationReadInvalidationSurface.SceneTreeLite)
+                {
+                    filtered.Add(readInvalidations[i]);
+                }
+            }
+
+            return filtered.Count == readInvalidations.Count ? readInvalidations : filtered.ToArray();
         }
 
         /// <summary> Creates a skipped trace for operations after fail-fast stopping. </summary>
