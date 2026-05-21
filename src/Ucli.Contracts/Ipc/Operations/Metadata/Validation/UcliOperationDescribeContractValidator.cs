@@ -10,6 +10,11 @@ internal static class UcliOperationDescribeContractValidator
 
     private const int MaxArgsPathSegmentCount = 16;
 
+    /// <summary> Validates one public raw-operation describe contract without an external operation kind or policy. </summary>
+    /// <param name="describeContract"> The describe contract to validate. A <see langword="null" /> value is invalid. </param>
+    /// <param name="ownerName"> The non-empty diagnostic owner name used in validation messages. </param>
+    /// <param name="errorMessage"> The validation error when the method returns <see langword="false" />; otherwise an empty string. </param>
+    /// <returns> <see langword="true" /> when the contract is valid for a public raw operation; otherwise <see langword="false" />. </returns>
     public static bool TryValidatePublicRawOpDescribeContract (
         UcliOperationDescribeContract? describeContract,
         string ownerName,
@@ -25,6 +30,13 @@ internal static class UcliOperationDescribeContractValidator
             out errorMessage);
     }
 
+    /// <summary> Validates one public raw-operation describe contract against an optional operation kind and policy. </summary>
+    /// <param name="describeContract"> The describe contract to validate. A <see langword="null" /> value is invalid. </param>
+    /// <param name="operationKind"> The optional operation kind that assurance metadata must match when specified. </param>
+    /// <param name="operationPolicy"> The optional operation policy that assurance metadata must match when specified. </param>
+    /// <param name="ownerName"> The non-empty diagnostic owner name used in validation messages. </param>
+    /// <param name="errorMessage"> The validation error when the method returns <see langword="false" />; otherwise an empty string. </param>
+    /// <returns> <see langword="true" /> when the contract is valid for a public raw operation; otherwise <see langword="false" />. </returns>
     public static bool TryValidatePublicRawOpDescribeContract (
         UcliOperationDescribeContract? describeContract,
         string? operationKind,
@@ -42,6 +54,13 @@ internal static class UcliOperationDescribeContractValidator
             out errorMessage);
     }
 
+    /// <summary> Validates one public raw-operation describe contract and derives its operation policy from assurance metadata. </summary>
+    /// <param name="describeContract"> The describe contract to validate. A <see langword="null" /> value is invalid. </param>
+    /// <param name="operationKind"> The optional operation kind that assurance metadata must match when specified. </param>
+    /// <param name="ownerName"> The non-empty diagnostic owner name used in validation messages. </param>
+    /// <param name="derivedPolicy"> The policy derived from assurance metadata when validation succeeds; otherwise <see cref="OperationPolicy.Safe" />. </param>
+    /// <param name="errorMessage"> The validation error when the method returns <see langword="false" />; otherwise an empty string. </param>
+    /// <returns> <see langword="true" /> when the contract is valid for a public raw operation; otherwise <see langword="false" />. </returns>
     public static bool TryValidatePublicRawOpDescribeContractAndDerivePolicy (
         UcliOperationDescribeContract? describeContract,
         string? operationKind,
@@ -59,6 +78,14 @@ internal static class UcliOperationDescribeContractValidator
             out errorMessage);
     }
 
+    /// <summary> Validates one registered operation describe contract and derives its operation policy from assurance metadata. </summary>
+    /// <param name="describeContract"> The describe contract to validate. A <see langword="null" /> value is invalid. </param>
+    /// <param name="operationKind"> The optional operation kind that assurance metadata must match when specified. </param>
+    /// <param name="ownerName"> The non-empty diagnostic owner name used in validation messages. </param>
+    /// <param name="exposure"> The operation exposure that determines whether preview-state plan mode is allowed. </param>
+    /// <param name="derivedPolicy"> The policy derived from assurance metadata when validation succeeds; otherwise <see cref="OperationPolicy.Safe" />. </param>
+    /// <param name="errorMessage"> The validation error when the method returns <see langword="false" />; otherwise an empty string. </param>
+    /// <returns> <see langword="true" /> when the contract is valid for the registered exposure; otherwise <see langword="false" />. </returns>
     public static bool TryValidateRegisteredOperationDescribeContractAndDerivePolicy (
         UcliOperationDescribeContract? describeContract,
         string? operationKind,
@@ -74,6 +101,32 @@ internal static class UcliOperationDescribeContractValidator
             ownerName,
             allowMayCreatePreviewState: exposure != UcliOperationExposure.Public,
             out derivedPolicy,
+            out errorMessage);
+    }
+
+    /// <summary> Validates one registered operation describe contract against its kind, policy, and exposure. </summary>
+    /// <param name="describeContract"> The describe contract to validate. A <see langword="null" /> value is invalid. </param>
+    /// <param name="operationKind"> The optional operation kind that assurance metadata must match when specified. </param>
+    /// <param name="operationPolicy"> The optional operation policy that assurance metadata must match when specified. </param>
+    /// <param name="ownerName"> The non-empty diagnostic owner name used in validation messages. </param>
+    /// <param name="exposure"> The operation exposure that determines whether preview-state plan mode is allowed. </param>
+    /// <param name="errorMessage"> The validation error when the method returns <see langword="false" />; otherwise an empty string. </param>
+    /// <returns> <see langword="true" /> when the contract is valid for the registered exposure; otherwise <see langword="false" />. </returns>
+    public static bool TryValidateRegisteredOperationDescribeContract (
+        UcliOperationDescribeContract? describeContract,
+        string? operationKind,
+        string? operationPolicy,
+        string ownerName,
+        UcliOperationExposure exposure,
+        out string errorMessage)
+    {
+        return TryValidatePublicRawOpDescribeContractCore(
+            describeContract,
+            operationKind,
+            operationPolicy,
+            ownerName,
+            allowMayCreatePreviewState: exposure != UcliOperationExposure.Public,
+            out _,
             out errorMessage);
     }
 
@@ -115,6 +168,11 @@ internal static class UcliOperationDescribeContractValidator
         return true;
     }
 
+    /// <summary> Validates public raw-operation input contracts. </summary>
+    /// <param name="inputs"> The input contract collection. A <see langword="null" /> value is invalid; an empty collection is valid. </param>
+    /// <param name="ownerName"> The non-empty diagnostic owner name used in validation messages. </param>
+    /// <param name="errorMessage"> The validation error when the method returns <see langword="false" />; otherwise an empty string. </param>
+    /// <returns> <see langword="true" /> when every input contract is valid and input names are unique; otherwise <see langword="false" />. </returns>
     public static bool TryValidatePublicRawOpInputs (
         IReadOnlyList<UcliOperationInputContract>? inputs,
         string ownerName,

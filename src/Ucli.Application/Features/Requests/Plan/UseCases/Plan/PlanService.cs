@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan.Projection;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
+using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
@@ -11,23 +12,30 @@ namespace MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan;
 /// <summary> Implements the <c>plan</c> workflow by combining static-validation preflight and Unity IPC plan execution. </summary>
 internal sealed class PlanService : IPlanService
 {
+    private const string PlayModeReadIndexFallbackReason = "Play Mode mutation uses live Unity state.";
+
     private readonly IRequestPreparationService requestPreparationService;
 
     private readonly IRequestStaticValidationPreflightService requestStaticValidationPreflightService;
+
+    private readonly IRequestStaticValidationService requestStaticValidationService;
 
     private readonly IUnityRequestExecutor unityIpcRequestExecutor;
 
     /// <summary> Initializes a new instance of the <see cref="PlanService" /> class. </summary>
     /// <param name="requestPreparationService"> The shared request-preparation dependency. </param>
     /// <param name="requestStaticValidationPreflightService"> The shared static-validation preflight dependency. </param>
+    /// <param name="requestStaticValidationService"> The live-catalog static-validation dependency used when readIndex must be bypassed. </param>
     /// <param name="unityIpcRequestExecutor"> The Unity IPC request executor dependency. </param>
     public PlanService (
         IRequestPreparationService requestPreparationService,
         IRequestStaticValidationPreflightService requestStaticValidationPreflightService,
+        IRequestStaticValidationService requestStaticValidationService,
         IUnityRequestExecutor unityIpcRequestExecutor)
     {
         this.requestPreparationService = requestPreparationService ?? throw new ArgumentNullException(nameof(requestPreparationService));
         this.requestStaticValidationPreflightService = requestStaticValidationPreflightService ?? throw new ArgumentNullException(nameof(requestStaticValidationPreflightService));
+        this.requestStaticValidationService = requestStaticValidationService ?? throw new ArgumentNullException(nameof(requestStaticValidationService));
         this.unityIpcRequestExecutor = unityIpcRequestExecutor ?? throw new ArgumentNullException(nameof(unityIpcRequestExecutor));
     }
 
@@ -39,6 +47,12 @@ internal sealed class PlanService : IPlanService
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(input);
 
+        if (input.AllowPlayMode && input.ReadIndexMode != null)
+        {
+            return PlanFailureResultFactory.FromExecutionError(
+                ExecutionError.InvalidArgument("--allowPlayMode cannot be combined with --readIndexMode."));
+        }
+
         var requestPreparationResult = await requestPreparationService.PrepareAsync(
                 input.ProjectPath,
                 input.RequestJson,
@@ -49,31 +63,61 @@ internal sealed class PlanService : IPlanService
             return PlanFailureResultFactory.FromExecutionError(requestPreparationResult.Error!);
         }
 
-        var requestStaticValidationPreflightResult = await requestStaticValidationPreflightService.PrepareAsync(
-                requestPreparationResult.PreparedRequest!,
-                input.ReadIndexMode,
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        var preparedRequest = requestStaticValidationPreflightResult.PreparedRequest;
-        var baseOutput = PlanExecutionOutputFactory.TryCreateBase(preparedRequest, requestStaticValidationPreflightResult.ReadIndex);
-        if (requestStaticValidationPreflightResult.Error != null)
+        var preparedRequest = requestPreparationResult.PreparedRequest!;
+        PlanExecutionOutput baseOutput;
+        if (!input.AllowPlayMode)
         {
-            return PlanFailureResultFactory.FromExecutionError(
-                requestStaticValidationPreflightResult.Error,
-                baseOutput,
-                requestStaticValidationPreflightResult.ErrorCode);
-        }
+            var requestStaticValidationPreflightResult = await requestStaticValidationPreflightService.PrepareAsync(
+                    preparedRequest,
+                    input.ReadIndexMode,
+                    cancellationToken)
+                .ConfigureAwait(false);
 
-        if (requestStaticValidationPreflightResult.HasValidationErrors)
+            var preflightPreparedRequest = requestStaticValidationPreflightResult.PreparedRequest;
+            if (requestStaticValidationPreflightResult.Error != null)
+            {
+                var preflightBaseOutput = PlanExecutionOutputFactory.TryCreateBase(preflightPreparedRequest, requestStaticValidationPreflightResult.ReadIndex);
+                return PlanFailureResultFactory.FromExecutionError(
+                    requestStaticValidationPreflightResult.Error,
+                    preflightBaseOutput,
+                    requestStaticValidationPreflightResult.ErrorCode);
+            }
+
+            if (requestStaticValidationPreflightResult.HasValidationErrors)
+            {
+                var preflightBaseOutput = PlanExecutionOutputFactory.TryCreateBase(preflightPreparedRequest, requestStaticValidationPreflightResult.ReadIndex);
+                return PlanFailureResultFactory.FromValidationErrors(
+                    requestStaticValidationPreflightResult.ValidationErrors,
+                    preflightBaseOutput);
+            }
+
+            preparedRequest = preflightPreparedRequest!;
+            baseOutput = PlanExecutionOutputFactory.CreateBase(preparedRequest, requestStaticValidationPreflightResult.ReadIndex!);
+        }
+        else
         {
-            return PlanFailureResultFactory.FromValidationErrors(
-                requestStaticValidationPreflightResult.ValidationErrors,
-                baseOutput);
-        }
+            baseOutput = PlanExecutionOutputFactory.CreateBase(
+                preparedRequest,
+                ReadIndexInfoFactory.Unity(PlayModeReadIndexFallbackReason));
+            var validationResult = await requestStaticValidationService.ValidateAsync(
+                    preparedRequest.Request,
+                    preparedRequest.ProjectContext,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (validationResult.Error != null)
+            {
+                return PlanFailureResultFactory.FromExecutionError(
+                    validationResult.Error,
+                    baseOutput);
+            }
 
-        preparedRequest = requestStaticValidationPreflightResult.PreparedRequest!;
-        baseOutput = PlanExecutionOutputFactory.CreateBase(preparedRequest, requestStaticValidationPreflightResult.ReadIndex!);
+            if (!validationResult.IsValid)
+            {
+                return PlanFailureResultFactory.FromValidationErrors(
+                    validationResult.Errors,
+                    baseOutput);
+            }
+        }
 
         var timeoutResolutionResult = IpcCommandTimeoutResolver.ResolveNormalized(
             input.TimeoutMilliseconds,
@@ -94,7 +138,7 @@ internal sealed class PlanService : IPlanService
                 timeoutResolutionResult.Timeout!.Value,
                 preparedRequest.ProjectContext.Config,
                 preparedRequest.ProjectContext.UnityProject,
-                CreateExecuteRequestPayload(preparedRequest.RequestJson, input.FailFast),
+                CreateExecuteRequestPayload(preparedRequest.RequestJson, input.FailFast, input.AllowPlayMode),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
@@ -142,7 +186,8 @@ internal sealed class PlanService : IPlanService
 
     private static UnityRequestPayload CreateExecuteRequestPayload (
         string requestJson,
-        bool failFast)
+        bool failFast,
+        bool allowPlayMode)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestJson);
 
@@ -150,7 +195,8 @@ internal sealed class PlanService : IPlanService
         return new UnityRequestPayload.ExecuteJson(
             UcliCommandIds.Plan,
             document.RootElement.Clone(),
-            failFast);
+            failFast,
+            AllowPlayMode: allowPlayMode);
     }
 
 }

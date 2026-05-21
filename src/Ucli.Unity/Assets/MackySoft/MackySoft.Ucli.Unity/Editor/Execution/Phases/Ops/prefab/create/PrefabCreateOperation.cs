@@ -68,12 +68,45 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
+            if (!GoOperationUtilities.TryEnsurePlanResourceState(
+                    validationState.SourceResource,
+                    executionContext,
+                    out var preparationErrorMessage))
+            {
+                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    preparationErrorMessage));
+            }
+
+            if (!TryValidateArguments(
+                    operation,
+                    args,
+                    executionContext,
+                    allowTemporaryState: true,
+                    out validationState,
+                    out failure))
+            {
+                return Task.FromResult(failure!);
+            }
+
+            if (!GoOperationUtilities.TryEnsureRequestLocalPlanGameObject(
+                    validationState.Target!,
+                    validationState.SourceResource,
+                    executionContext,
+                    out var projectionErrorMessage))
+            {
+                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    projectionErrorMessage));
+            }
+
             if (operation.As != null)
             {
                 executionContext.SetTemporaryAlias(operation.As, validationState.Target, validationState.SourceResource);
             }
 
             executionContext.MarkRequestAttributedChange(validationState.SourceResource);
+            executionContext.TrackPlannedPrefabCreation(validationState.Target!, validationState.PrefabPath);
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
                 changed: true,

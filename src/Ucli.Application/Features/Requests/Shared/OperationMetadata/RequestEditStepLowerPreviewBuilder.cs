@@ -112,6 +112,15 @@ internal static class RequestEditStepLowerPreviewBuilder
 
                 return TryAddOperationName(stepContract.Context.Kind, action.Kind, prefabTargetKind, parentTargetKind: null, operations, out errorMessage);
 
+            case IpcEditStepContract.ActionKind.ApplyPrefabOverrides:
+            case IpcEditStepContract.ActionKind.RevertPrefabOverrides:
+                if (!TryResolveTargetKind(action.Target, currentTargetKind, aliases, out var prefabOverrideTargetKind, out errorMessage))
+                {
+                    return false;
+                }
+
+                return TryAddOperationName(stepContract.Context.Kind, action.Kind, prefabOverrideTargetKind, parentTargetKind: null, operations, out errorMessage);
+
             case IpcEditStepContract.ActionKind.Delete:
                 if (!TryResolveTargetKind(action.Target, currentTargetKind, aliases, out var deleteTargetKind, out errorMessage))
                 {

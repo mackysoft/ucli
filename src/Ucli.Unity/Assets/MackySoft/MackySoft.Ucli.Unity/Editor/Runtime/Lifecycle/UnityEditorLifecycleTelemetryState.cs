@@ -103,7 +103,7 @@ namespace MackySoft.Ucli.Unity.Runtime
             bool isCompiling,
             bool isUpdating)
         {
-            if (isShuttingDown || isPlaymodeActive || isDomainReloading || isCompiling || isUpdating)
+            if (isShuttingDown || isDomainReloading || isCompiling || isUpdating)
             {
                 return;
             }

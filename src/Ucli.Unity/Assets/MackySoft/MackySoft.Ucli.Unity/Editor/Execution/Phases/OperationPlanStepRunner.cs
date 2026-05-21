@@ -81,11 +81,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var touched = new List<OperationTouch>();
             var diagnostics = new List<OperationDiagnostic>();
             var persisted = false;
-            var validateStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStepAsync(
+            var validateStepResult = OperationPhaseExecutionUtilities.ApplyPersistenceReportingPolicy(
                 operation,
-                OperationPhase.Validate,
-                ct => phaseOperation.ValidateAsync(operation, executionContext, ct),
-                cancellationToken).ConfigureAwait(false);
+                await OperationPhaseExecutionUtilities.ExecutePhaseStepAsync(
+                    operation,
+                    OperationPhase.Validate,
+                    ct => phaseOperation.ValidateAsync(operation, executionContext, ct),
+                    cancellationToken).ConfigureAwait(false));
             OperationPhaseExecutionUtilities.MergeTouched(touched, validateStepResult.Touched);
             OperationPhaseExecutionUtilities.MergeDiagnostics(diagnostics, validateStepResult.Diagnostics);
             persisted |= validateStepResult.Persisted;
@@ -110,11 +112,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     PreparedOperation: null);
             }
 
-            var planStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStepAsync(
+            var planStepResult = OperationPhaseExecutionUtilities.ApplyPersistenceReportingPolicy(
                 operation,
-                OperationPhase.Plan,
-                ct => phaseOperation.PlanAsync(operation, executionContext, ct),
-                cancellationToken).ConfigureAwait(false);
+                await OperationPhaseExecutionUtilities.ExecutePhaseStepAsync(
+                    operation,
+                    OperationPhase.Plan,
+                    ct => phaseOperation.PlanAsync(operation, executionContext, ct),
+                    cancellationToken).ConfigureAwait(false));
             OperationPhaseExecutionUtilities.MergeTouched(touched, planStepResult.Touched);
             OperationPhaseExecutionUtilities.MergeDiagnostics(diagnostics, planStepResult.Diagnostics);
             persisted |= planStepResult.Persisted;

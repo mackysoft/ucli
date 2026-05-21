@@ -40,12 +40,18 @@ internal static class OperationDescriptorMapper
                     $"Operation policy is invalid for '{operation.Name}'.");
             }
 
+            if (!UcliOperationExposureCodec.TryParse(operation.Exposure, out var exposure))
+            {
+                exposure = UcliOperationExposure.Public;
+            }
+
             descriptors[i] = new UcliOperationDescriptor(
                 Name: operation.Name!,
                 Kind: kind,
                 Policy: policy,
                 ArgsSchemaJson: operation.ArgsSchemaJson!,
-                ResultSchemaJson: operation.ResultSchemaJson);
+                ResultSchemaJson: operation.ResultSchemaJson,
+                Exposure: exposure);
         }
 
         return descriptors;

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -25,11 +26,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private readonly RequestAttributedChangeRegistry requestAttributedChangeRegistry = new RequestAttributedChangeRegistry();
 
+        private readonly Dictionary<string, Dictionary<string, Dictionary<string, PrefabOverridePropertyChange>>> prefabOverridePropertyChanges =
+            new Dictionary<string, Dictionary<string, Dictionary<string, PrefabOverridePropertyChange>>>(StringComparer.Ordinal);
+
         private readonly DeletedGlobalObjectIdRegistry deletedGlobalObjectIdRegistry = new DeletedGlobalObjectIdRegistry();
 
         private readonly HashSet<string> plannedLiveSceneOpenPaths = new HashSet<string>(StringComparer.Ordinal);
 
         private readonly HashSet<string> plannedLivePrefabOpenPaths = new HashSet<string>(StringComparer.Ordinal);
+
+        private readonly List<PlannedPrefabCreation> plannedPrefabCreations = new List<PlannedPrefabCreation>();
 
         private bool disposed;
 
@@ -70,14 +76,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="targetGlobalObjectId"> The source GameObject GlobalObjectId. </param>
         /// <param name="componentType"> The ensured component runtime type. </param>
         /// <param name="component"> The temporary ensured component. </param>
+        /// <param name="targetGameObject"> The request-local GameObject that owns the ensured component semantically. </param>
         /// <param name="resource"> The owning resource. </param>
         internal void SetEnsuredComponent (
             string targetGlobalObjectId,
             Type componentType,
             Component component,
+            GameObject targetGameObject,
             OperationResource resource)
         {
-            componentSandboxRegistry.SetEnsuredComponent(targetGlobalObjectId, componentType, component, resource);
+            componentSandboxRegistry.SetEnsuredComponent(targetGlobalObjectId, componentType, component, targetGameObject, resource);
         }
 
         /// <summary> Tries to get one plan-time ensured component state keyed by target GameObject and component type. </summary>
@@ -114,16 +122,62 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return componentSandboxRegistry.TryResolveTrackedComponentResource(component, out resource);
         }
 
+        /// <summary> Tries to resolve the Prefab override correlation key for one tracked request-local component. </summary>
+        /// <param name="component"> The tracked temporary component. </param>
+        /// <param name="targetKey"> The Prefab override correlation key when found. </param>
+        /// <returns> <see langword="true" /> when the component belongs to tracked plan-time state; otherwise <see langword="false" />. </returns>
+        internal bool TryResolveTrackedComponentTargetKey (
+            Component component,
+            out string targetKey)
+        {
+            return componentSandboxRegistry.TryResolveTrackedComponentTargetKey(component, out targetKey);
+        }
+
+        /// <summary> Tries to resolve the semantic owner GameObject tracking key for one tracked request-local component. </summary>
+        /// <param name="component"> The tracked temporary component. </param>
+        /// <param name="ownerKey"> The owner GameObject tracking key when found. </param>
+        /// <returns> <see langword="true" /> when the component belongs to tracked plan-time state; otherwise <see langword="false" />. </returns>
+        internal bool TryResolveTrackedComponentOwnerKey (
+            Component component,
+            out string ownerKey)
+        {
+            return componentSandboxRegistry.TryResolveTrackedComponentOwnerKey(component, out ownerKey);
+        }
+
+        /// <summary> Tries to resolve the semantic owner GameObject for one tracked request-local component. </summary>
+        /// <param name="component"> The tracked temporary component. </param>
+        /// <param name="ownerGameObject"> The owner GameObject when found. </param>
+        /// <returns> <see langword="true" /> when the component belongs to tracked plan-time state and its owner still exists; otherwise <see langword="false" />. </returns>
+        internal bool TryResolveTrackedComponentOwnerGameObject (
+            Component component,
+            out GameObject? ownerGameObject)
+        {
+            return componentSandboxRegistry.TryResolveTrackedComponentOwnerGameObject(component, out ownerGameObject);
+        }
+
         /// <summary> Stores or replaces one temporary component shadow keyed by source GlobalObjectId. </summary>
         /// <param name="globalObjectId"> The source component GlobalObjectId. </param>
         /// <param name="component"> The temporary shadow component. </param>
+        /// <param name="sourceComponent"> The source component whose serialized state is represented by <paramref name="component" />. </param>
+        /// <param name="ownerGameObject"> The request-local GameObject that semantically owns <paramref name="component" />. </param>
+        /// <param name="ownerGameObjectTrackingKey"> The tracking key of <paramref name="ownerGameObject" />. </param>
         /// <param name="resource"> The owning resource. </param>
         internal void SetComponentShadow (
             string globalObjectId,
             Component component,
+            Component sourceComponent,
+            GameObject ownerGameObject,
+            string ownerGameObjectTrackingKey,
             OperationResource resource)
         {
-            componentSandboxRegistry.SetComponentShadow(globalObjectId, component, resource, temporaryAliasRegistry);
+            componentSandboxRegistry.SetComponentShadow(
+                globalObjectId,
+                component,
+                sourceComponent,
+                ownerGameObject,
+                ownerGameObjectTrackingKey,
+                resource,
+                temporaryAliasRegistry);
         }
 
         /// <summary> Replaces tracked temporary component references that still point to an older plan-time component instance. </summary>
@@ -261,6 +315,118 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out string stableReference)
         {
             return temporaryObjectScope.TryResolveStableReferenceFromPreviewObject(prefabPath, previewObject, out stableReference);
+        }
+
+        /// <summary> Tries to resolve one request-local preview object to the stable tracking key of its source object. </summary>
+        /// <param name="unityObject"> The object to normalize. </param>
+        /// <param name="resource"> The logical owner resource for the object. </param>
+        /// <param name="trackingKey"> The stable tracking key when the object belongs to request-local preview state. </param>
+        /// <returns> <see langword="true" /> when the object was normalized from preview state; otherwise <see langword="false" />. </returns>
+        internal bool TryResolvePreviewSourceTrackingKey (
+            UnityEngine.Object unityObject,
+            OperationResource resource,
+            out string trackingKey)
+        {
+            if (unityObject == null)
+            {
+                throw new ArgumentNullException(nameof(unityObject));
+            }
+
+            switch (resource.Kind)
+            {
+                case OperationTouchKind.Scene:
+                    if (TryResolveTemporarySceneStableReference(resource.Path, unityObject, out trackingKey))
+                    {
+                        return true;
+                    }
+
+                    if (TryResolveTemporarySceneSourceObject(resource.Path, unityObject, out var sceneSourceObject)
+                        && sceneSourceObject != null)
+                    {
+                        trackingKey = UnityObjectReferenceResolver.CreateTrackingKey(sceneSourceObject);
+                        return true;
+                    }
+
+                    break;
+
+                case OperationTouchKind.Prefab:
+                    if (TryResolveTemporaryPrefabStableReference(resource.Path, unityObject, out trackingKey))
+                    {
+                        return true;
+                    }
+
+                    if (TryResolveTemporaryPrefabSourceObject(resource.Path, unityObject, out var prefabSourceObject)
+                        && prefabSourceObject != null)
+                    {
+                        trackingKey = UnityObjectReferenceResolver.CreateTrackingKey(prefabSourceObject);
+                        return true;
+                    }
+
+                    break;
+            }
+
+            trackingKey = string.Empty;
+            return false;
+        }
+
+        /// <summary> Creates the canonical target key used to correlate request-attributed Prefab override property changes. </summary>
+        /// <param name="targetReference"> The reference used by the current primitive operation. </param>
+        /// <param name="component"> The resolved component target. </param>
+        /// <param name="resource"> The logical owner resource for the component. </param>
+        /// <returns> A non-empty request-local target key for the component. </returns>
+        internal string CreatePrefabOverrideTargetKey (
+            UnityObjectReference targetReference,
+            Component component,
+            OperationResource resource)
+        {
+            if (component == null)
+            {
+                throw new ArgumentNullException(nameof(component));
+            }
+
+            if (targetReference.Kind == UnityObjectReferenceKind.Selector
+                && targetReference.Selector.Kind == ResolveSelectorKind.GlobalObjectId)
+            {
+                return targetReference.Selector.GlobalObjectId!;
+            }
+
+            if (TryResolveTrackedComponentTargetKey(component, out var trackedTargetKey))
+            {
+                return trackedTargetKey;
+            }
+
+            if (TryResolvePreviewSourceTrackingKey(component, resource, out var previewSourceTrackingKey))
+            {
+                return previewSourceTrackingKey;
+            }
+
+            return UnityObjectReferenceResolver.CreateTrackingKey(component);
+        }
+
+        /// <summary> Creates the canonical owner GameObject key for a component target. </summary>
+        /// <param name="component"> The resolved component target. </param>
+        /// <param name="resource"> The logical owner resource for the component. </param>
+        /// <returns> A non-empty request-local owner GameObject tracking key. </returns>
+        internal string CreateComponentOwnerTrackingKey (
+            Component component,
+            OperationResource resource)
+        {
+            if (component == null)
+            {
+                throw new ArgumentNullException(nameof(component));
+            }
+
+            if (TryResolveTrackedComponentOwnerKey(component, out var trackedOwnerKey))
+            {
+                return trackedOwnerKey;
+            }
+
+            if (TryResolvePreviewSourceTrackingKey(component.gameObject, resource, out var previewSourceOwnerKey))
+            {
+                return previewSourceOwnerKey;
+            }
+
+            return UnityObjectReferenceResolver.CreateTrackingKey(component.gameObject);
         }
 
         /// <summary> Tries to resolve one stable GlobalObjectId text to any request-local preview object. </summary>
@@ -459,6 +625,168 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             requestAttributedChangeRegistry.UnmarkChanged(resource);
         }
 
+        /// <summary> Records one request-attributed Prefab instance property change for the current edit step and target. </summary>
+        /// <param name="editStepId"> The edit step identifier that scopes apply/revert eligibility. </param>
+        /// <param name="targetKey"> The Prefab override target key created from the current target reference and request-local component state. </param>
+        /// <param name="propertyPath"> The exact <c>SerializedProperty.propertyPath</c> changed by a preceding set. </param>
+        /// <param name="wasPrefabOverrideBeforeRequest"> Whether the property was already a Prefab override before this request changed it. </param>
+        /// <param name="valueHashBeforeSet"> The normalized property value hash observed before the set that is being recorded. </param>
+        /// <param name="valueHashAfterSet"> The normalized property value hash observed after the set that is being recorded. </param>
+        /// <param name="requiresExplicitPrefabAssetMutation"> Whether apply/revert must use the explicit target Prefab asset because Unity Prefab instance linkage is unavailable for this request-attributed change. </param>
+        internal void RecordPrefabOverridePropertyChange (
+            string editStepId,
+            string targetKey,
+            string propertyPath,
+            bool wasPrefabOverrideBeforeRequest,
+            string valueHashBeforeSet,
+            string valueHashAfterSet,
+            bool requiresExplicitPrefabAssetMutation)
+        {
+            if (!prefabOverridePropertyChanges.TryGetValue(editStepId, out var changesByTarget))
+            {
+                changesByTarget = new Dictionary<string, Dictionary<string, PrefabOverridePropertyChange>>(StringComparer.Ordinal);
+                prefabOverridePropertyChanges.Add(editStepId, changesByTarget);
+            }
+
+            if (!changesByTarget.TryGetValue(targetKey, out var changesByPath))
+            {
+                changesByPath = new Dictionary<string, PrefabOverridePropertyChange>(StringComparer.Ordinal);
+                changesByTarget.Add(targetKey, changesByPath);
+            }
+
+            var initialValueHash = valueHashBeforeSet;
+            if (changesByPath.TryGetValue(propertyPath, out var existingChange))
+            {
+                wasPrefabOverrideBeforeRequest = existingChange.WasPrefabOverrideBeforeRequest;
+                initialValueHash = existingChange.ValueHashBeforeRequest;
+                requiresExplicitPrefabAssetMutation |= existingChange.RequiresExplicitPrefabAssetMutation;
+            }
+
+            changesByPath[propertyPath] = new PrefabOverridePropertyChange(
+                propertyPath,
+                wasPrefabOverrideBeforeRequest,
+                initialValueHash,
+                isEffective: !string.Equals(valueHashAfterSet, initialValueHash, StringComparison.Ordinal),
+                requiresExplicitPrefabAssetMutation);
+        }
+
+        /// <summary> Tries to retrieve one previously recorded request-attributed Prefab instance property change. </summary>
+        /// <param name="editStepId"> The edit step identifier that scopes apply/revert eligibility. </param>
+        /// <param name="targetKey"> The Prefab override target key used when the change was recorded. </param>
+        /// <param name="propertyPath"> The exact <c>SerializedProperty.propertyPath</c> to retrieve. </param>
+        /// <param name="change"> The recorded change when the method returns <see langword="true" />; otherwise the default value. </param>
+        /// <returns> <see langword="true" /> when a change was recorded for the same edit step, target, and property path; otherwise <see langword="false" />. </returns>
+        internal bool TryGetPrefabOverridePropertyChange (
+            string editStepId,
+            string targetKey,
+            string propertyPath,
+            out PrefabOverridePropertyChange change)
+        {
+            change = default;
+            if (!prefabOverridePropertyChanges.TryGetValue(editStepId, out var changesByTarget)
+                || !changesByTarget.TryGetValue(targetKey, out var changesByPath))
+            {
+                return false;
+            }
+
+            return changesByPath.TryGetValue(propertyPath, out change);
+        }
+
+        /// <summary> Tries to collect effective request-attributed Prefab instance property changes for one target. </summary>
+        /// <param name="editStepId"> The edit step identifier that scopes apply/revert eligibility. </param>
+        /// <param name="targetKey"> The Prefab override target key used when changes were recorded. </param>
+        /// <param name="requestedPropertyPaths"> The exact property paths requested by the operation, or <see langword="null" /> to select every effective path for the target. </param>
+        /// <param name="changes"> The selected effective changes when the method returns <see langword="true" />; otherwise an empty collection. </param>
+        /// <param name="errorMessage"> The validation error when the method returns <see langword="false" />; otherwise an empty string. </param>
+        /// <returns> <see langword="true" /> when at least one effective change is selected and all requested paths are eligible; otherwise <see langword="false" />. </returns>
+        internal bool TryCollectPrefabOverridePropertyChanges (
+            string editStepId,
+            string targetKey,
+            IReadOnlyList<string>? requestedPropertyPaths,
+            out IReadOnlyList<PrefabOverridePropertyChange> changes,
+            out string errorMessage)
+        {
+            changes = Array.Empty<PrefabOverridePropertyChange>();
+            if (!prefabOverridePropertyChanges.TryGetValue(editStepId, out var changesByTarget)
+                || !changesByTarget.TryGetValue(targetKey, out var changesByPath))
+            {
+                errorMessage = "Prefab override action requires a preceding effective set on the same edit step and current target.";
+                return false;
+            }
+
+            if (requestedPropertyPaths == null)
+            {
+                if (!ContainsEffectivePrefabOverridePropertyChange(changesByPath))
+                {
+                    errorMessage = "Prefab override action requires a preceding effective set on the same edit step and current target.";
+                    return false;
+                }
+
+                changes = changesByPath.Values
+                    .Where(static change => change.IsEffective)
+                    .OrderBy(static change => change.PropertyPath, StringComparer.Ordinal)
+                    .ToArray();
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            var selectedChanges = new List<PrefabOverridePropertyChange>(requestedPropertyPaths.Count);
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < requestedPropertyPaths.Count; i++)
+            {
+                var propertyPath = requestedPropertyPaths[i];
+                if (string.IsNullOrWhiteSpace(propertyPath))
+                {
+                    errorMessage = "Prefab override property path must not be empty.";
+                    return false;
+                }
+
+                if (!seen.Add(propertyPath))
+                {
+                    errorMessage = $"Prefab override property path is duplicated: {propertyPath}.";
+                    return false;
+                }
+
+                if (!changesByPath.TryGetValue(propertyPath, out var change))
+                {
+                    errorMessage = $"Prefab override property path was not changed by a preceding effective set on the same edit step and current target: {propertyPath}.";
+                    return false;
+                }
+
+                if (!change.IsEffective)
+                {
+                    errorMessage = $"Prefab override property path was returned to its pre-request value by a later set on the same edit step and current target: {propertyPath}.";
+                    return false;
+                }
+
+                selectedChanges.Add(change);
+            }
+
+            if (selectedChanges.Count == 0)
+            {
+                errorMessage = "Prefab override propertyPaths must contain at least one path when specified.";
+                return false;
+            }
+
+            changes = selectedChanges;
+            errorMessage = string.Empty;
+            return true;
+        }
+
+        private static bool ContainsEffectivePrefabOverridePropertyChange (
+            IReadOnlyDictionary<string, PrefabOverridePropertyChange> changesByPath)
+        {
+            foreach (var pair in changesByPath)
+            {
+                if (pair.Value.IsEffective)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         /// <summary> Copies all request-attributed resources tracked for the current request into the destination collection. </summary>
         /// <param name="destination"> The destination collection that receives tracked resources. </param>
         internal void CopyRequestAttributedChangesTo (ICollection<OperationResource> destination)
@@ -494,6 +822,114 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         internal bool HasPlannedLivePrefabOpen (string prefabPath)
         {
             return plannedLivePrefabOpenPaths.Contains(prefabPath);
+        }
+
+        /// <summary> Tracks that one prior step planned to create a Prefab asset from the specified scene root. </summary>
+        /// <param name="sourceRoot"> The scene root that will become a Prefab instance when call execution reaches the create operation. </param>
+        /// <param name="prefabPath"> The Prefab asset path reserved by the create operation. </param>
+        /// <exception cref="ArgumentException"> <paramref name="prefabPath" /> is null, empty, or whitespace. </exception>
+        /// <exception cref="ArgumentNullException"> <paramref name="sourceRoot" /> is <see langword="null" />. </exception>
+        internal void TrackPlannedPrefabCreation (
+            GameObject sourceRoot,
+            string prefabPath)
+        {
+            if (sourceRoot == null)
+            {
+                throw new ArgumentNullException(nameof(sourceRoot));
+            }
+
+            if (string.IsNullOrWhiteSpace(prefabPath))
+            {
+                throw new ArgumentException("Prefab path must not be null, empty, or whitespace.", nameof(prefabPath));
+            }
+
+            var sourceGameObjectKeys = new HashSet<string>(StringComparer.Ordinal);
+            CollectHierarchyTrackingKeys(sourceRoot, sourceGameObjectKeys);
+            plannedPrefabCreations.Add(new PlannedPrefabCreation(sourceRoot, prefabPath, sourceGameObjectKeys));
+        }
+
+        /// <summary> Determines whether a scene Component belongs to a Prefab asset planned earlier in this request. </summary>
+        /// <param name="component"> The candidate scene component. </param>
+        /// <param name="prefabPath"> The expected Prefab asset path. </param>
+        /// <returns> <see langword="true" /> when the component is owned by a planned Prefab creation root for <paramref name="prefabPath" />; otherwise <see langword="false" />. </returns>
+        /// <exception cref="ArgumentNullException"> <paramref name="component" /> is <see langword="null" />. </exception>
+        internal bool IsPlannedPrefabInstanceLineage (
+            Component component,
+            string prefabPath)
+        {
+            if (component == null)
+            {
+                throw new ArgumentNullException(nameof(component));
+            }
+
+            return IsPlannedPrefabInstanceLineage(component, prefabPath, requirePrefabPath: true);
+        }
+
+        /// <summary> Determines whether a scene Component belongs to any Prefab creation planned earlier in this request. </summary>
+        /// <param name="component"> The candidate scene component. </param>
+        /// <returns> <see langword="true" /> when the component is owned by a planned Prefab creation root; otherwise <see langword="false" />. </returns>
+        /// <exception cref="ArgumentNullException"> <paramref name="component" /> is <see langword="null" />. </exception>
+        internal bool IsPlannedPrefabInstanceLineage (Component component)
+        {
+            if (component == null)
+            {
+                throw new ArgumentNullException(nameof(component));
+            }
+
+            return IsPlannedPrefabInstanceLineage(component, prefabPath: null, requirePrefabPath: false);
+        }
+
+        private bool IsPlannedPrefabInstanceLineage (
+            Component component,
+            string? prefabPath,
+            bool requirePrefabPath)
+        {
+            if (requirePrefabPath && string.IsNullOrWhiteSpace(prefabPath))
+            {
+                return false;
+            }
+
+            if (IsGameObjectInsidePlannedPrefabCreation(component.gameObject, prefabPath))
+            {
+                return true;
+            }
+
+            return TryResolveTrackedComponentOwnerGameObject(component, out var ownerGameObject)
+                   && ownerGameObject != null
+                   && IsGameObjectInsidePlannedPrefabCreation(ownerGameObject, prefabPath);
+        }
+
+        private bool IsGameObjectInsidePlannedPrefabCreation (
+            GameObject gameObject,
+            string? prefabPath)
+        {
+            if (gameObject == null)
+            {
+                throw new ArgumentNullException(nameof(gameObject));
+            }
+
+            for (var i = 0; i < plannedPrefabCreations.Count; i++)
+            {
+                var creation = plannedPrefabCreations[i];
+                if (creation.SourceRoot == null)
+                {
+                    continue;
+                }
+
+                if (prefabPath != null && !string.Equals(creation.PrefabPath, prefabPath, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var gameObjectKey = UnityObjectReferenceResolver.CreateTrackingKey(gameObject);
+                if (creation.SourceGameObjectKeys.Contains(gameObjectKey)
+                    && (gameObject == creation.SourceRoot || gameObject.transform.IsChildOf(creation.SourceRoot.transform)))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary> Stores or replaces one temporary asset shadow keyed by source GlobalObjectId. </summary>
@@ -700,9 +1136,91 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             assetSandboxRegistry.Clear();
             plannedAssetRegistry.Clear();
             requestAttributedChangeRegistry.ClearAll();
+            prefabOverridePropertyChanges.Clear();
             deletedGlobalObjectIdRegistry.Clear();
             plannedLiveSceneOpenPaths.Clear();
             plannedLivePrefabOpenPaths.Clear();
+            plannedPrefabCreations.Clear();
+        }
+
+        /// <summary> Describes one request-attributed Prefab instance property change. </summary>
+        internal readonly struct PrefabOverridePropertyChange
+        {
+            /// <summary> Initializes a new instance of the <see cref="PrefabOverridePropertyChange" /> struct. </summary>
+            /// <param name="propertyPath"> The exact <c>SerializedProperty.propertyPath</c> changed by a preceding set. </param>
+            /// <param name="wasPrefabOverrideBeforeRequest"> Whether the property was already a Prefab override before this request changed it. </param>
+            /// <param name="valueHashBeforeRequest"> The normalized property value hash captured before the first request-attributed set for this path. </param>
+            /// <param name="isEffective"> Whether the latest request-attributed value differs from <paramref name="valueHashBeforeRequest" />. </param>
+            /// <param name="requiresExplicitPrefabAssetMutation"> Whether apply/revert must mutate the explicit Prefab asset because Unity Prefab instance linkage is unavailable for this request-attributed change. </param>
+            public PrefabOverridePropertyChange (
+                string propertyPath,
+                bool wasPrefabOverrideBeforeRequest,
+                string valueHashBeforeRequest,
+                bool isEffective,
+                bool requiresExplicitPrefabAssetMutation)
+            {
+                PropertyPath = propertyPath;
+                WasPrefabOverrideBeforeRequest = wasPrefabOverrideBeforeRequest;
+                ValueHashBeforeRequest = valueHashBeforeRequest;
+                IsEffective = isEffective;
+                RequiresExplicitPrefabAssetMutation = requiresExplicitPrefabAssetMutation;
+            }
+
+            /// <summary> Gets the exact <c>SerializedProperty.propertyPath</c> changed by a preceding set. </summary>
+            public string PropertyPath { get; }
+
+            /// <summary> Gets a value indicating whether the property was already a Prefab override before this request changed it. </summary>
+            public bool WasPrefabOverrideBeforeRequest { get; }
+
+            /// <summary> Gets the normalized property value hash captured before the first request-attributed set for this path. </summary>
+            public string ValueHashBeforeRequest { get; }
+
+            /// <summary> Gets a value indicating whether the latest request-attributed value differs from the pre-request value. </summary>
+            public bool IsEffective { get; }
+
+            /// <summary> Gets a value indicating whether apply/revert must mutate the explicit Prefab asset because Unity Prefab instance linkage is unavailable. </summary>
+            public bool RequiresExplicitPrefabAssetMutation { get; }
+        }
+
+        private readonly struct PlannedPrefabCreation
+        {
+            public PlannedPrefabCreation (
+                GameObject sourceRoot,
+                string prefabPath,
+                HashSet<string> sourceGameObjectKeys)
+            {
+                SourceRoot = sourceRoot;
+                PrefabPath = prefabPath;
+                SourceGameObjectKeys = sourceGameObjectKeys;
+            }
+
+            public GameObject SourceRoot { get; }
+
+            public string PrefabPath { get; }
+
+            public HashSet<string> SourceGameObjectKeys { get; }
+        }
+
+        private static void CollectHierarchyTrackingKeys (
+            GameObject root,
+            ICollection<string> destination)
+        {
+            if (root == null)
+            {
+                throw new ArgumentNullException(nameof(root));
+            }
+
+            if (destination == null)
+            {
+                throw new ArgumentNullException(nameof(destination));
+            }
+
+            destination.Add(UnityObjectReferenceResolver.CreateTrackingKey(root));
+            var transform = root.transform;
+            for (var i = 0; i < transform.childCount; i++)
+            {
+                CollectHierarchyTrackingKeys(transform.GetChild(i).gameObject, destination);
+            }
         }
     }
 }

@@ -63,7 +63,8 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                         preparedRequest.RequestJson,
                         UcliCommandIds.Plan,
                         input.FailFast,
-                        input.AllowDangerous),
+                        input.AllowDangerous,
+                        allowPlayMode: input.AllowPlayMode),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!planExecutionResult.IsSuccess)
@@ -135,7 +136,8 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                     UcliCommandIds.Call,
                     input.FailFast,
                     input.AllowDangerous,
-                    effectivePlanToken),
+                    effectivePlanToken,
+                    input.AllowPlayMode),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!callExecutionResult.IsSuccess)
@@ -193,7 +195,8 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         UcliCommand command,
         bool failFast,
         bool allowDangerous = false,
-        string? planToken = null)
+        string? planToken = null,
+        bool allowPlayMode = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestJson);
         if (!command.IsValid)
@@ -202,7 +205,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         }
 
         using var document = JsonDocument.Parse(requestJson);
-        return new UnityRequestPayload.ExecuteJson(command, document.RootElement.Clone(), failFast, allowDangerous, planToken);
+        return new UnityRequestPayload.ExecuteJson(command, document.RootElement.Clone(), failFast, allowDangerous, planToken, allowPlayMode);
     }
 
     private static CallServiceResult CreateFailure (

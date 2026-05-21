@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Contracts.Ipc.EditSteps;
@@ -29,6 +30,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         /// <returns> <see langword="true" /> when every source step is valid for runtime compilation; otherwise <see langword="false" />. </returns>
         public bool TryPrepareSourceSteps (
             IpcRequestContract requestContract,
+            bool allowPlayMode,
             out IReadOnlyList<IpcRequestContractStep> sourceSteps,
             out ExecuteRequestNormalizationError error)
         {
@@ -57,6 +59,14 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 switch (step.Kind)
                 {
                     case IpcRequestStepKind.Op:
+                        if (allowPlayMode)
+                        {
+                            error = ExecuteRequestNormalizationError.InvalidArgument(
+                                "Play Mode mutation requests support only public edit steps.",
+                                step.Id);
+                            return false;
+                        }
+
                         if (!TryValidateOpStep(step, out error))
                         {
                             return false;
@@ -65,7 +75,12 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                         break;
 
                     case IpcRequestStepKind.Edit:
-                        if (!TryValidateEditStep(step, out error))
+                        if (!TryValidateEditStep(step, out var editStep, out error))
+                        {
+                            return false;
+                        }
+
+                        if (allowPlayMode && !TryValidatePlayModeEditStep(step.Id!, editStep, out error))
                         {
                             return false;
                         }
@@ -100,6 +115,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         public bool TryCompileExecutionStep (
             IpcRequestContractStep step,
             OperationExecutionContext executionContext,
+            bool allowPlayMode,
             out NormalizedRequestStep compiledStep,
             out IReadOnlyList<NormalizedOperation> operations,
             out IReadOnlyList<OperationDiagnostic> diagnostics,
@@ -111,12 +127,20 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
             if (step.Kind == IpcRequestStepKind.Op)
             {
+                if (allowPlayMode)
+                {
+                    error = ExecuteRequestNormalizationError.InvalidArgument(
+                        "Play Mode mutation requests support only public edit steps.",
+                        step.Id);
+                    return false;
+                }
+
                 return TryCompileOpStep(step, out compiledStep, out operations, out error);
             }
 
             if (step.Kind == IpcRequestStepKind.Edit)
             {
-                return TryCompileEditStep(step, executionContext, out compiledStep, out operations, out diagnostics, out error);
+                return TryCompileEditStep(step, executionContext, allowPlayMode, out compiledStep, out operations, out diagnostics, out error);
             }
 
             error = ExecuteRequestNormalizationError.InvalidArgument(
@@ -188,9 +212,11 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
         private bool TryValidateEditStep (
             IpcRequestContractStep step,
+            out IpcEditStepContract editStep,
             out ExecuteRequestNormalizationError error)
         {
-            if (!IpcEditStepContractReader.TryRead(step.Element, out var editStep, out var editErrorMessage))
+            editStep = default!;
+            if (!IpcEditStepContractReader.TryRead(step.Element, out editStep, out var editErrorMessage))
             {
                 error = ExecuteRequestNormalizationError.InvalidArgument(
                     message: editErrorMessage,
@@ -209,9 +235,53 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             return true;
         }
 
+        private static bool TryValidatePlayModeEditStep (
+            string stepId,
+            IpcEditStepContract editStep,
+            out ExecuteRequestNormalizationError error)
+        {
+            if (editStep.Commit == IpcEditStepContract.CommitKind.Project)
+            {
+                error = new ExecuteRequestNormalizationError(
+                    PlayModeErrorCodes.PlayModePersistenceForbidden,
+                    "Play Mode mutation does not allow project-wide commit.",
+                    stepId);
+                return false;
+            }
+
+            if (editStep.Context.Kind == IpcEditStepContract.ContextKind.Scene)
+            {
+                if (editStep.Commit != IpcEditStepContract.CommitKind.None)
+                {
+                    error = new ExecuteRequestNormalizationError(
+                        PlayModeErrorCodes.PlayModePersistenceForbidden,
+                        "Play Mode scene mutation must use commit:'none'.",
+                        stepId);
+                    return false;
+                }
+
+                for (var actionIndex = 0; actionIndex < editStep.Actions.Count; actionIndex++)
+                {
+                    var actionKind = editStep.Actions[actionIndex].Kind;
+                    if (actionKind == IpcEditStepContract.ActionKind.CreateAsset)
+                    {
+                        error = new ExecuteRequestNormalizationError(
+                            PlayModeErrorCodes.PlayModePersistenceForbidden,
+                            $"Play Mode scene mutation does not allow action '{ToActionLiteral(actionKind)}'.",
+                            stepId);
+                        return false;
+                    }
+                }
+            }
+
+            error = default!;
+            return true;
+        }
+
         private bool TryCompileEditStep (
             IpcRequestContractStep step,
             OperationExecutionContext executionContext,
+            bool allowPlayMode,
             out NormalizedRequestStep compiledStep,
             out IReadOnlyList<NormalizedOperation> operations,
             out IReadOnlyList<OperationDiagnostic> diagnostics,
@@ -231,7 +301,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             var stepOperations = new List<NormalizedOperation>(editStep.Actions.Count + 4);
             var shouldReleaseImplicitExecutionContextOnNoTargets =
                 ShouldReleaseImplicitExecutionContextOnNoTargets(editStep, executionContext);
-            if (!TryEnsureImplicitExecutionContext(editStep, executionContext, out error))
+            if (!TryEnsureImplicitExecutionContext(editStep, executionContext, allowPlayMode, out error))
             {
                 return false;
             }
@@ -243,7 +313,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
             if (selectedTargets.Count > 0)
             {
-                if (!TryValidateLiveEditContextAvailability(editStep, executionContext, out error))
+                if (!TryValidateLiveEditContextAvailability(editStep, executionContext, allowPlayMode, out error))
                 {
                     return false;
                 }
@@ -255,6 +325,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                             branchIndex,
                             selectedTargets[branchIndex],
                             stepOperations,
+                            allowPlayMode,
                             out error))
                     {
                         return false;
@@ -267,12 +338,12 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 ReleaseImplicitExecutionContext(editStep, executionContext);
             }
 
-            if (!TryValidateCommitContextAvailability(editStep, executionContext, out error))
+            if (!TryValidateCommitContextAvailability(editStep, executionContext, allowPlayMode, out error))
             {
                 return false;
             }
 
-            if (!TryAddCommitOperation(stepOperations, editStep, out error))
+            if (!TryAddCommitOperation(stepOperations, editStep, allowPlayMode, out error))
             {
                 return false;
             }
@@ -284,7 +355,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 PrimitiveCount: stepOperations.Count)
             {
                 Diagnostics = diagnostics,
-                PostReadSourceStep = CreateEditPostReadSourceStep(editStep),
+                PostReadSourceStep = CreateEditPostReadSourceStep(editStep, allowPlayMode),
             };
             operations = stepOperations;
             error = default!;
@@ -307,15 +378,22 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 ExpectedPostState: IpcExecuteExpectedPostStateNames.Unavailable);
         }
 
-        private static IpcExecutePostReadSourceStep CreateEditPostReadSourceStep (IpcEditStepContract editStep)
+        private static IpcExecutePostReadSourceStep CreateEditPostReadSourceStep (
+            IpcEditStepContract editStep,
+            bool allowPlayMode)
         {
+            var isPlayModeSceneMutation = allowPlayMode
+                && editStep.Context.Kind == IpcEditStepContract.ContextKind.Scene;
+            var persistenceExpected = IsPersistenceExpected(editStep);
             return new IpcExecutePostReadSourceStep(
                 OpId: editStep.Id,
                 SourceKind: IpcExecutePostReadSourceKindNames.Edit,
-                PlayModeMutation: false,
+                PlayModeMutation: isPlayModeSceneMutation,
                 Commit: ToPostReadCommitName(editStep.Commit),
-                PersistenceExpected: IsPersistenceExpected(editStep),
-                ExpectedPostState: IpcExecuteExpectedPostStateNames.Deterministic);
+                PersistenceExpected: persistenceExpected,
+                ExpectedPostState: isPlayModeSceneMutation
+                    ? IpcExecuteExpectedPostStateNames.Unavailable
+                    : IpcExecuteExpectedPostStateNames.Deterministic);
         }
 
         private static bool IsPersistenceExpected (IpcEditStepContract editStep)
@@ -329,7 +407,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             {
                 var actionKind = editStep.Actions[actionIndex].Kind;
                 if (actionKind == IpcEditStepContract.ActionKind.CreateAsset
-                    || actionKind == IpcEditStepContract.ActionKind.CreatePrefab)
+                    || actionKind == IpcEditStepContract.ActionKind.CreatePrefab
+                    || actionKind == IpcEditStepContract.ActionKind.ApplyPrefabOverrides)
                 {
                     return true;
                 }
@@ -359,6 +438,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         private static bool TryValidateLiveEditContextAvailability (
             IpcEditStepContract step,
             OperationExecutionContext executionContext,
+            bool allowPlayMode,
             out ExecuteRequestNormalizationError error)
         {
             error = default!;
@@ -382,6 +462,11 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                     return false;
 
                 case IpcEditStepContract.ContextKind.Prefab:
+                    if (allowPlayMode)
+                    {
+                        return true;
+                    }
+
                     if (PrefabOperationUtilities.TryGetOpenedPrefabStage(step.Context.Path!, out _, out _)
                         || executionContext.HasPlannedLivePrefabOpen(step.Context.Path!))
                     {
@@ -434,6 +519,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         private static bool TryValidateCommitContextAvailability (
             IpcEditStepContract step,
             OperationExecutionContext executionContext,
+            bool allowPlayMode,
             out ExecuteRequestNormalizationError error)
         {
             error = default!;
@@ -458,6 +544,11 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                     return false;
 
                 case UcliPrimitiveOperationNames.PrefabSave:
+                    if (allowPlayMode)
+                    {
+                        return true;
+                    }
+
                     if (PrefabOperationUtilities.TryGetOpenedPrefabStage(step.Context.Path!, out _, out _)
                         || executionContext.HasPlannedLivePrefabOpen(step.Context.Path!))
                     {
@@ -477,6 +568,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         private static bool TryEnsureImplicitExecutionContext (
             IpcEditStepContract step,
             OperationExecutionContext executionContext,
+            bool allowPlayMode,
             out ExecuteRequestNormalizationError error)
         {
             error = default!;
@@ -488,6 +580,11 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             switch (step.Context.Kind)
             {
                 case IpcEditStepContract.ContextKind.Scene:
+                    if (allowPlayMode)
+                    {
+                        return true;
+                    }
+
                     if (executionContext.TryEnsureSceneExecutionSession(step.Context.Path!, out var sceneErrorMessage))
                     {
                         return true;
@@ -703,6 +800,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             int branchIndex,
             SelectionTarget branchTarget,
             ICollection<NormalizedOperation> operations,
+            bool allowPlayMode,
             out ExecuteRequestNormalizationError error)
         {
             var aliases = new Dictionary<string, SelectionTarget>(StringComparer.Ordinal);
@@ -716,6 +814,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                     aliases,
                     action,
                     operations,
+                    allowPlayMode,
                     out error))
                 {
                     return false;
@@ -733,30 +832,37 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             IDictionary<string, SelectionTarget> aliases,
             IpcEditStepContract.EditAction action,
             ICollection<NormalizedOperation> operations,
+            bool allowPlayMode,
             out ExecuteRequestNormalizationError error)
         {
             switch (action.Kind)
             {
                 case IpcEditStepContract.ActionKind.Set:
-                    return TryCompileSetAction(step, branchTarget, aliases, action, operations, out error);
+                    return TryCompileSetAction(step, branchTarget, aliases, action, operations, allowPlayMode, out error);
 
                 case IpcEditStepContract.ActionKind.EnsureComponent:
-                    return TryCompileEnsureComponentAction(step, branchIndex, branchTarget, aliases, action, operations, out error);
+                    return TryCompileEnsureComponentAction(step, branchIndex, branchTarget, aliases, action, operations, allowPlayMode, out error);
 
                 case IpcEditStepContract.ActionKind.CreateObject:
-                    return TryCompileCreateObjectAction(step, branchIndex, branchTarget, aliases, action, operations, out error);
+                    return TryCompileCreateObjectAction(step, branchIndex, branchTarget, aliases, action, operations, allowPlayMode, out error);
 
                 case IpcEditStepContract.ActionKind.CreateAsset:
                     return TryCompileCreateAssetAction(step, action, operations, out error);
 
                 case IpcEditStepContract.ActionKind.CreatePrefab:
-                    return TryCompileCreatePrefabAction(step, branchTarget, aliases, action, operations, out error);
+                    return TryCompileCreatePrefabAction(step, branchTarget, aliases, action, operations, allowPlayMode, out error);
+
+                case IpcEditStepContract.ActionKind.ApplyPrefabOverrides:
+                    return TryCompilePrefabOverrideAction(step, branchTarget, aliases, action, operations, allowPlayMode, isRevert: false, out error);
+
+                case IpcEditStepContract.ActionKind.RevertPrefabOverrides:
+                    return TryCompilePrefabOverrideAction(step, branchTarget, aliases, action, operations, allowPlayMode, isRevert: true, out error);
 
                 case IpcEditStepContract.ActionKind.Delete:
-                    return TryCompileDeleteAction(step, branchTarget, aliases, action, operations, out error);
+                    return TryCompileDeleteAction(step, branchTarget, aliases, action, operations, allowPlayMode, out error);
 
                 case IpcEditStepContract.ActionKind.Reparent:
-                    return TryCompileReparentAction(step, branchTarget, aliases, action, operations, out error);
+                    return TryCompileReparentAction(step, branchTarget, aliases, action, operations, allowPlayMode, out error);
 
                 default:
                     error = ExecuteRequestNormalizationError.InvalidArgument(
@@ -772,6 +878,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             IDictionary<string, SelectionTarget> aliases,
             IpcEditStepContract.EditAction action,
             ICollection<NormalizedOperation> operations,
+            bool allowPlayMode,
             out ExecuteRequestNormalizationError error)
         {
             if (!TryResolveTarget(step, branchTarget, aliases, action.Target, out var target, out error))
@@ -800,7 +907,9 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 As: null,
                 Expect: null,
                 InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
-                SourceKind: NormalizedOperation.SourceStepKind.Edit));
+                SourceKind: NormalizedOperation.SourceStepKind.Edit,
+                SuppressPersistenceReporting: ShouldSuppressPlayModeLivePersistence(step, allowPlayMode),
+                AllowExplicitPrefabAssetMutation: ShouldAllowExplicitPrefabAssetMutation(step, allowPlayMode)));
             error = default!;
             return true;
         }
@@ -812,6 +921,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             IDictionary<string, SelectionTarget> aliases,
             IpcEditStepContract.EditAction action,
             ICollection<NormalizedOperation> operations,
+            bool allowPlayMode,
             out ExecuteRequestNormalizationError error)
         {
             if (!TryResolveTarget(step, branchTarget, aliases, action.Target, out var target, out error))
@@ -841,7 +951,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 As: internalAlias,
                 Expect: null,
                 InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
-                SourceKind: NormalizedOperation.SourceStepKind.Edit));
+                SourceKind: NormalizedOperation.SourceStepKind.Edit,
+                SuppressPersistenceReporting: ShouldSuppressPlayModeLivePersistence(step, allowPlayMode)));
 
             if (action.Alias != null)
             {
@@ -859,6 +970,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             IDictionary<string, SelectionTarget> aliases,
             IpcEditStepContract.EditAction action,
             ICollection<NormalizedOperation> operations,
+            bool allowPlayMode,
             out ExecuteRequestNormalizationError error)
         {
             if (!IpcEditStepLoweringRules.TryGetActionOperationName(
@@ -883,7 +995,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 As: internalAlias,
                 Expect: null,
                 InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
-                SourceKind: NormalizedOperation.SourceStepKind.Edit));
+                SourceKind: NormalizedOperation.SourceStepKind.Edit,
+                SuppressPersistenceReporting: ShouldSuppressPlayModeLivePersistence(step, allowPlayMode)));
 
             if (action.Alias != null)
             {
@@ -932,6 +1045,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             IDictionary<string, SelectionTarget> aliases,
             IpcEditStepContract.EditAction action,
             ICollection<NormalizedOperation> operations,
+            bool allowPlayMode,
             out ExecuteRequestNormalizationError error)
         {
             if (!TryResolveTarget(step, branchTarget, aliases, action.Target, out var target, out error))
@@ -960,7 +1074,50 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 As: null,
                 Expect: null,
                 InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
-                SourceKind: NormalizedOperation.SourceStepKind.Edit));
+                SourceKind: NormalizedOperation.SourceStepKind.Edit,
+                SuppressScenePersistenceReporting: ShouldSuppressPlayModeLivePersistence(step, allowPlayMode)));
+            error = default!;
+            return true;
+        }
+
+        private static bool TryCompilePrefabOverrideAction (
+            IpcEditStepContract step,
+            SelectionTarget branchTarget,
+            IDictionary<string, SelectionTarget> aliases,
+            IpcEditStepContract.EditAction action,
+            ICollection<NormalizedOperation> operations,
+            bool allowPlayMode,
+            bool isRevert,
+            out ExecuteRequestNormalizationError error)
+        {
+            if (!TryResolveTarget(step, branchTarget, aliases, action.Target, out var target, out error))
+            {
+                return false;
+            }
+
+            if (!IpcEditStepLoweringRules.TryGetActionOperationName(
+                    step.Context.Kind,
+                    action.Kind,
+                    target.Kind,
+                    parentTargetKind: null,
+                    out var operationName,
+                    out var errorMessage))
+            {
+                error = ExecuteRequestNormalizationError.InvalidArgument(
+                    errorMessage,
+                    step.Id);
+                return false;
+            }
+
+            operations.Add(new NormalizedOperation(
+                Id: step.Id,
+                Op: operationName,
+                Args: CreatePrefabOverrideArgs(target.Reference, action.TargetAssetPath!, action.PropertyPaths),
+                As: null,
+                Expect: null,
+                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
+                SourceKind: NormalizedOperation.SourceStepKind.Edit,
+                SuppressPersistenceReporting: isRevert && allowPlayMode));
             error = default!;
             return true;
         }
@@ -971,6 +1128,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             IDictionary<string, SelectionTarget> aliases,
             IpcEditStepContract.EditAction action,
             ICollection<NormalizedOperation> operations,
+            bool allowPlayMode,
             out ExecuteRequestNormalizationError error)
         {
             if (!TryResolveTarget(step, branchTarget, aliases, action.Target, out var target, out error))
@@ -999,7 +1157,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 As: null,
                 Expect: null,
                 InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
-                SourceKind: NormalizedOperation.SourceStepKind.Edit));
+                SourceKind: NormalizedOperation.SourceStepKind.Edit,
+                SuppressPersistenceReporting: ShouldSuppressPlayModeLivePersistence(step, allowPlayMode)));
             error = default!;
             return true;
         }
@@ -1010,6 +1169,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             IDictionary<string, SelectionTarget> aliases,
             IpcEditStepContract.EditAction action,
             ICollection<NormalizedOperation> operations,
+            bool allowPlayMode,
             out ExecuteRequestNormalizationError error)
         {
             if (!TryResolveTarget(step, branchTarget, aliases, action.Target, out var target, out error))
@@ -1043,7 +1203,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 As: null,
                 Expect: null,
                 InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
-                SourceKind: NormalizedOperation.SourceStepKind.Edit));
+                SourceKind: NormalizedOperation.SourceStepKind.Edit,
+                SuppressPersistenceReporting: ShouldSuppressPlayModeLivePersistence(step, allowPlayMode)));
             error = default!;
             return true;
         }
@@ -1051,6 +1212,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         private static bool TryAddCommitOperation (
             ICollection<NormalizedOperation> operations,
             IpcEditStepContract step,
+            bool allowPlayMode,
             out ExecuteRequestNormalizationError error)
         {
             var operationName = IpcEditStepLoweringRules.GetCommitOperationName(step.Context.Kind, step.Commit);
@@ -1063,6 +1225,14 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             var args = operationName == UcliPrimitiveOperationNames.ProjectSave
                 ? CreateEmptyArgs()
                 : CreatePathArgs(step.Context.Path!);
+            if (allowPlayMode
+                && operationName == UcliPrimitiveOperationNames.ProjectSave
+                && TryCreatePlayModeTargetSaveOperation(step, out var playModeSaveOperationName, out var playModeSaveArgs))
+            {
+                operationName = playModeSaveOperationName;
+                args = playModeSaveArgs;
+            }
+
             operations.Add(new NormalizedOperation(
                 Id: step.Id,
                 Op: operationName,
@@ -1073,6 +1243,44 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 SourceKind: NormalizedOperation.SourceStepKind.Edit));
             error = default!;
             return true;
+        }
+
+        private static bool TryCreatePlayModeTargetSaveOperation (
+            IpcEditStepContract step,
+            out string operationName,
+            out JsonElement args)
+        {
+            switch (step.Context.Kind)
+            {
+                case IpcEditStepContract.ContextKind.Asset:
+                    operationName = UcliPrimitiveOperationNames.AssetSave;
+                    args = CreateAssetSaveArgs(CreateAssetPathSelector(step.Context.Path!));
+                    return true;
+
+                case IpcEditStepContract.ContextKind.Project:
+                    operationName = UcliPrimitiveOperationNames.AssetSave;
+                    args = CreateAssetSaveArgs(CreateProjectAssetPathSelector(step.Selection.ProjectAssetPath!));
+                    return true;
+
+                default:
+                    operationName = string.Empty;
+                    args = default;
+                    return false;
+            }
+        }
+
+        private static bool ShouldSuppressPlayModeLivePersistence (
+            IpcEditStepContract step,
+            bool allowPlayMode)
+        {
+            return allowPlayMode && step.Context.Kind == IpcEditStepContract.ContextKind.Scene;
+        }
+
+        private static bool ShouldAllowExplicitPrefabAssetMutation (
+            IpcEditStepContract step,
+            bool allowPlayMode)
+        {
+            return allowPlayMode && step.Context.Kind == IpcEditStepContract.ContextKind.Scene;
         }
 
         private static bool TryBuildDirectSelectionTarget (
@@ -1293,6 +1501,20 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             return ParseElement(stream);
         }
 
+        private static JsonElement CreateAssetSaveArgs (JsonElement targetReference)
+        {
+            using var stream = new MemoryStream();
+            using (var writer = new Utf8JsonWriter(stream))
+            {
+                writer.WriteStartObject();
+                writer.WritePropertyName("target");
+                targetReference.WriteTo(writer);
+                writer.WriteEndObject();
+            }
+
+            return ParseElement(stream);
+        }
+
         private static JsonElement CreateProjectAssetPathSelector (string assetPath)
         {
             using var stream = new MemoryStream();
@@ -1414,6 +1636,36 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 writer.WriteString("path", path);
                 writer.WritePropertyName("target");
                 targetReference.WriteTo(writer);
+                writer.WriteEndObject();
+            }
+
+            return ParseElement(stream);
+        }
+
+        private static JsonElement CreatePrefabOverrideArgs (
+            JsonElement targetReference,
+            string targetAssetPath,
+            IReadOnlyList<string>? propertyPaths)
+        {
+            using var stream = new MemoryStream();
+            using (var writer = new Utf8JsonWriter(stream))
+            {
+                writer.WriteStartObject();
+                writer.WritePropertyName("target");
+                targetReference.WriteTo(writer);
+                writer.WriteString("targetAssetPath", targetAssetPath);
+                if (propertyPaths != null)
+                {
+                    writer.WritePropertyName("propertyPaths");
+                    writer.WriteStartArray();
+                    for (var i = 0; i < propertyPaths.Count; i++)
+                    {
+                        writer.WriteStringValue(propertyPaths[i]);
+                    }
+
+                    writer.WriteEndArray();
+                }
+
                 writer.WriteEndObject();
             }
 
@@ -1562,6 +1814,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 IpcEditStepContract.ActionKind.CreateObject => "createObject",
                 IpcEditStepContract.ActionKind.CreateAsset => "createAsset",
                 IpcEditStepContract.ActionKind.CreatePrefab => "createPrefab",
+                IpcEditStepContract.ActionKind.ApplyPrefabOverrides => "applyPrefabOverrides",
+                IpcEditStepContract.ActionKind.RevertPrefabOverrides => "revertPrefabOverrides",
                 IpcEditStepContract.ActionKind.Delete => "delete",
                 IpcEditStepContract.ActionKind.Reparent => "reparent",
                 _ => actionKind.ToString(),

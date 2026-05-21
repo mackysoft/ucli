@@ -118,7 +118,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                                 OpId: operation.Id)));
                         }
 
-                        executionContext.SetEnsuredComponent(targetReferenceKey, validationState.ComponentType, component!, validationState.Resource);
+                        executionContext.SetEnsuredComponent(
+                            targetReferenceKey,
+                            validationState.ComponentType,
+                            component!,
+                            validationState.Target!,
+                            validationState.Resource);
                     }
                 }
             }

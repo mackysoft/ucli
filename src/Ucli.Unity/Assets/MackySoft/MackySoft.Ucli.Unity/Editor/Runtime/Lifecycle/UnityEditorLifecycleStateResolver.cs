@@ -30,11 +30,6 @@ namespace MackySoft.Ucli.Unity.Runtime
                 return IpcEditorLifecycleStateCodec.ShuttingDown;
             }
 
-            if (isPlaymodeActive)
-            {
-                return IpcEditorLifecycleStateCodec.Playmode;
-            }
-
             if (isDomainReloading)
             {
                 return IpcEditorLifecycleStateCodec.DomainReloading;
@@ -63,6 +58,11 @@ namespace MackySoft.Ucli.Unity.Runtime
             if (isStartupPending)
             {
                 return IpcEditorLifecycleStateCodec.Starting;
+            }
+
+            if (isPlaymodeActive)
+            {
+                return IpcEditorLifecycleStateCodec.Playmode;
             }
 
             return IpcEditorLifecycleStateCodec.Ready;

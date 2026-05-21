@@ -527,6 +527,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(snapshot.Registrations.Count, Is.EqualTo(3));
             Assert.That(snapshot.Catalog.Operations!.Select(static entry => entry.Name), Is.EquivalentTo(new[] { "ucli.tests.public" }));
+            Assert.That(
+                snapshot.RequestValidationCatalog.Operations!.Select(static entry => entry.Name),
+                Is.EquivalentTo(new[] { "ucli.tests.public", "ucli.tests.edit-lowering-only" }));
+            var editOnlyEntry = snapshot.RequestValidationCatalog.Operations!.Single(static entry => entry.Name == "ucli.tests.edit-lowering-only");
+            Assert.That(editOnlyEntry.Exposure, Is.EqualTo(UcliOperationExposureValues.EditLoweringOnly));
         }
 
         [Test]
@@ -595,6 +600,25 @@ namespace MackySoft.Ucli.Unity.Tests
                 AssertContainsNoVarVariantField(snapshot.Catalog.Operations[i].Inputs);
                 Assert.That(snapshot.Catalog.Operations[i].Assurance!.PlanMode, Is.Not.EqualTo(UcliOperationPlanModeValues.MayCreatePreviewState));
             }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void BuildCatalog_WhenPrefabRevertOverridesIsExported_DescribesSceneTouchAndReadInvalidation ()
+        {
+            var operations = UcliOperationDiscoverer.Discover();
+
+            var snapshot = UcliOperationCatalogSnapshotBuilder.Build(operations);
+
+            Assert.That(
+                snapshot.Catalog.Operations!.Any(static entry => entry.Name == UcliPrimitiveOperationNames.PrefabRevertOverrides),
+                Is.False);
+            var entry = FindCatalogEntry(snapshot.RequestValidationCatalog.Operations!, UcliPrimitiveOperationNames.PrefabRevertOverrides);
+            Assert.That(entry.Exposure, Is.EqualTo(UcliOperationExposureValues.EditLoweringOnly));
+            Assert.That(entry.Assurance, Is.Not.Null);
+            Assert.That(entry.Assurance!.TouchedKinds, Does.Contain(IpcExecuteTouchedResourceKindNames.Scene));
+            Assert.That(entry.Assurance.TouchedContract, Does.Contain("scene resource"));
+            Assert.That(entry.Assurance.ReadPostconditionContract, Does.Contain("Scene tree"));
         }
 
         [Test]

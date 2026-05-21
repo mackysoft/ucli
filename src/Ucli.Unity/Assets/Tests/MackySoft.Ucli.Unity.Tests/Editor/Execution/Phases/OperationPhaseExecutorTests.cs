@@ -71,6 +71,94 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void PrefabOverridePropertyChanges_WhenCollectedFromDifferentEditStep_ReturnsError ()
+        {
+            using var executionContext = new OperationExecutionContext();
+            executionContext.RecordPrefabOverridePropertyChange(
+                "edit-step-a",
+                "target-1",
+                "m_Text",
+                wasPrefabOverrideBeforeRequest: false,
+                valueHashBeforeSet: "before",
+                valueHashAfterSet: "after",
+                requiresExplicitPrefabAssetMutation: false);
+
+            var result = executionContext.TryCollectPrefabOverridePropertyChanges(
+                "edit-step-b",
+                "target-1",
+                requestedPropertyPaths: null,
+                out var changes,
+                out var errorMessage);
+
+            Assert.That(result, Is.False);
+            Assert.That(changes, Is.Empty);
+            Assert.That(errorMessage, Does.Contain("same edit step"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void PrefabOverridePropertyChanges_WhenCollectedFromSameEditStep_ReturnsRecordedPath ()
+        {
+            using var executionContext = new OperationExecutionContext();
+            executionContext.RecordPrefabOverridePropertyChange(
+                "edit-step-a",
+                "target-1",
+                "m_Text",
+                wasPrefabOverrideBeforeRequest: false,
+                valueHashBeforeSet: "before",
+                valueHashAfterSet: "after",
+                requiresExplicitPrefabAssetMutation: false);
+
+            var result = executionContext.TryCollectPrefabOverridePropertyChanges(
+                "edit-step-a",
+                "target-1",
+                requestedPropertyPaths: null,
+                out var changes,
+                out var errorMessage);
+
+            Assert.That(result, Is.True);
+            Assert.That(errorMessage, Is.Empty);
+            Assert.That(changes.Count, Is.EqualTo(1));
+            Assert.That(changes[0].PropertyPath, Is.EqualTo("m_Text"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void PersistenceReportingPolicy_WhenSceneReportingIsSuppressed_PreservesNonScenePersistence ()
+        {
+            var operation = new NormalizedOperation(
+                Id: "op-create-prefab",
+                Op: UcliPrimitiveOperationNames.PrefabCreate,
+                Args: JsonSerializer.SerializeToElement(new { }),
+                As: null,
+                Expect: null,
+                SuppressScenePersistenceReporting: true);
+            var result = OperationPhaseStepResult.Success(
+                    applied: true,
+                    changed: true,
+                    touched: new[]
+                    {
+                        OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Scene, "Assets/Scene.unity")),
+                        OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Prefab, "Assets/Prefab.prefab")),
+                    })
+                .WithPersistence()
+                .WithReadInvalidations(new[]
+                {
+                    new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, "Assets/Scene.unity"),
+                    new OperationReadInvalidation(OperationReadInvalidationSurface.AssetSearch, null),
+                });
+
+            var filtered = OperationPhaseExecutionUtilities.ApplyPersistenceReportingPolicy(operation, result);
+
+            Assert.That(filtered.Persisted, Is.True);
+            Assert.That(filtered.Touched.Count, Is.EqualTo(1));
+            Assert.That(filtered.Touched[0].Kind, Is.EqualTo(OperationTouchKind.Prefab));
+            Assert.That(filtered.ReadInvalidations.Count, Is.EqualTo(1));
+            Assert.That(filtered.ReadInvalidations[0].Surface, Is.EqualTo(OperationReadInvalidationSurface.AssetSearch));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public async Task TypedOperation_WhenArgsFailContractValidation_ReturnsInvalidArgumentWithoutCallingBody ()
         {
             var operation = new RequiredTypedOperation();
@@ -1082,6 +1170,34 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void ValidateCall_WhenAllowPlayModeDiffers_ReturnsPlanTokenRequestMismatch ()
+        {
+            using var scope = new PlanTokenTestScope();
+            var environment = scope.CreateEnvironment();
+            var coordinator = new PlanTokenCoordinator(environment);
+            var originalRequest = CreateRequest(
+                operations: new[] { ("op-1", UcliPrimitiveOperationNames.Resolve) },
+                planToken: null,
+                canonicalPayloadJson: "{\"allowPlayMode\":false,\"protocolVersion\":1,\"steps\":[]}",
+                allowPlayMode: false);
+            var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, "Assets/Scenes/Main.unity");
+
+            var issueResult = coordinator.Issue(originalRequest, traces, CreateCompiledDigestPayloadUtf8());
+            Assert.That(issueResult.IsSuccess, Is.True);
+
+            var modifiedRequest = CreateRequest(
+                operations: new[] { ("op-1", UcliPrimitiveOperationNames.Resolve) },
+                planToken: issueResult.PlanToken,
+                canonicalPayloadJson: "{\"allowPlayMode\":true,\"protocolVersion\":1,\"steps\":[]}",
+                allowPlayMode: true);
+            var validationResult = coordinator.ValidateCall(modifiedRequest, traces, CreateCompiledDigestPayloadUtf8());
+
+            Assert.That(validationResult.IsSuccess, Is.False);
+            Assert.That(validationResult.Failure!.Code, Is.EqualTo(PlanTokenErrorCodes.PlanTokenRequestMismatch));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void ValidateCall_WhenCompiledExecutionDigestDiffers_ReturnsStateChangedSincePlan ()
         {
             using var scope = new PlanTokenTestScope();
@@ -1433,7 +1549,8 @@ namespace MackySoft.Ucli.Unity.Tests
             (string OpId, string Op)[] operations,
             string? planToken,
             string canonicalPayloadJson,
-            bool allowDangerous = false)
+            bool allowDangerous = false,
+            bool allowPlayMode = false)
         {
             var sourceSteps = new List<IpcRequestContractStep>(operations.Length);
             for (var i = 0; i < operations.Length; i++)
@@ -1457,6 +1574,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 SourceSteps: sourceSteps,
                 AllowDangerous: allowDangerous,
+                AllowPlayMode: allowPlayMode,
                 PlanToken: planToken,
                 CanonicalDigestPayloadUtf8: Encoding.UTF8.GetBytes(canonicalPayloadJson));
         }
@@ -1478,6 +1596,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         Element: document.RootElement.Clone()),
                 },
                 AllowDangerous: false,
+                AllowPlayMode: false,
                 PlanToken: null,
                 CanonicalDigestPayloadUtf8: Encoding.UTF8.GetBytes("{}"));
         }

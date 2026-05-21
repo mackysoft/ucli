@@ -1,6 +1,7 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan;
 using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan.Projection;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Options;
@@ -42,6 +43,7 @@ internal sealed class PlanCommand
     /// <param name="mode">Unity execution mode (auto|daemon|oneshot).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
     /// <param name="readIndexMode">--readIndexMode, readIndex mode (disabled|allowStale|requireFresh).</param>
+    /// <param name="allowPlayMode">--allowPlayMode, Allows Play Mode mutation when the target is a GUI Editor session in Play Mode.</param>
     /// <param name="failFast">--failFast, Fails immediately when Unity editor lifecycle is not yet ready.</param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
@@ -51,6 +53,7 @@ internal sealed class PlanCommand
         string? mode = null,
         string? timeout = null,
         string? readIndexMode = null,
+        bool allowPlayMode = false,
         bool failFast = false,
         CancellationToken cancellationToken = default)
     {
@@ -63,6 +66,15 @@ internal sealed class PlanCommand
             var errorResult = CommandResultFactory.FromExecutionError(
                 UcliCommandNames.Plan,
                 normalizedReadIndexModeResult.Error!);
+            commandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
+        if (allowPlayMode && readIndexMode != null)
+        {
+            var errorResult = CommandResultFactory.FromExecutionError(
+                UcliCommandNames.Plan,
+                ExecutionError.InvalidArgument("--allowPlayMode cannot be combined with --readIndexMode."));
             commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
@@ -122,7 +134,10 @@ internal sealed class PlanCommand
                     TimeoutMilliseconds: normalizedTimeoutResult.TimeoutMilliseconds,
                     ReadIndexMode: normalizedReadIndexModeResult.Mode,
                     FailFast: failFast,
-                    RequestJson: serviceRequestInputReadResult.Json!),
+                    RequestJson: serviceRequestInputReadResult.Json!)
+                {
+                    AllowPlayMode = allowPlayMode,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = PlanCommandResultFactory.Create(serviceResult);

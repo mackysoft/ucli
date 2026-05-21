@@ -9,11 +9,14 @@ internal static class EditLoweringOnlyPrimitiveOperationNames
     public static IReadOnlyList<string> All { get; } =
     [
         UcliPrimitiveOperationNames.AssetCreate,
+        UcliPrimitiveOperationNames.AssetSave,
         UcliPrimitiveOperationNames.AssetSet,
         UcliPrimitiveOperationNames.GoCreate,
         UcliPrimitiveOperationNames.CompEnsure,
         UcliPrimitiveOperationNames.CompSet,
+        UcliPrimitiveOperationNames.PrefabApplyOverrides,
         UcliPrimitiveOperationNames.PrefabCreate,
+        UcliPrimitiveOperationNames.PrefabRevertOverrides,
     ];
 
     /// <summary> Determines whether the operation name is an edit-lowering-only primitive. </summary>

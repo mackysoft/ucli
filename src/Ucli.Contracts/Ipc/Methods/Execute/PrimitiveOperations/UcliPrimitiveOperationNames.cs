@@ -15,6 +15,9 @@ public static class UcliPrimitiveOperationNames
     /// <summary> Gets the primitive operation name for <c>ucli.asset.set</c>. </summary>
     public const string AssetSet = "ucli.asset.set";
 
+    /// <summary> Gets the primitive operation name for <c>ucli.asset.save</c>. </summary>
+    public const string AssetSave = "ucli.asset.save";
+
     /// <summary> Gets the primitive operation name for <c>ucli.assets.find</c>. </summary>
     public const string AssetsFind = "ucli.assets.find";
 
@@ -45,8 +48,14 @@ public static class UcliPrimitiveOperationNames
     /// <summary> Gets the primitive operation name for <c>ucli.prefab.create</c>. </summary>
     public const string PrefabCreate = "ucli.prefab.create";
 
+    /// <summary> Gets the primitive operation name for <c>ucli.prefab.applyOverrides</c>. </summary>
+    public const string PrefabApplyOverrides = "ucli.prefab.applyOverrides";
+
     /// <summary> Gets the primitive operation name for <c>ucli.prefab.open</c>. </summary>
     public const string PrefabOpen = "ucli.prefab.open";
+
+    /// <summary> Gets the primitive operation name for <c>ucli.prefab.revertOverrides</c>. </summary>
+    public const string PrefabRevertOverrides = "ucli.prefab.revertOverrides";
 
     /// <summary> Gets the primitive operation name for <c>ucli.prefab.save</c>. </summary>
     public const string PrefabSave = "ucli.prefab.save";

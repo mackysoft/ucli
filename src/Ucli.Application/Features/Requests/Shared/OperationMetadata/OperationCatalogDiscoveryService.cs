@@ -56,6 +56,7 @@ internal sealed class OperationCatalogDiscoveryService : IOperationCatalogDiscov
                 resolvedTimeout,
                 failFast,
                 requireReadinessGate: false,
+                includeEditLoweringOnly: true,
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         if (!catalogResult.IsSuccess)

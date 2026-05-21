@@ -150,6 +150,56 @@ public sealed class IndexCatalogContractValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void TryValidateOpsEntries_ReturnsTrue_WhenEditLoweringOnlyPreviewStateIsAllowed ()
+    {
+        var entry = CreateEditLoweringOnlyOpsEntry();
+
+        var result = IndexCatalogContractValidator.TryValidateOpsEntries(
+            [entry],
+            "operations",
+            allowEditLoweringOnlyEntries: true,
+            out var error);
+
+        Assert.True(result, error);
+        Assert.Null(error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidateOpsEntries_ReturnsFalse_WhenEditLoweringOnlyEntryIsNotAllowed ()
+    {
+        var entry = CreateEditLoweringOnlyOpsEntry();
+
+        var result = IndexCatalogContractValidator.TryValidateOpsEntries(
+            [entry],
+            "operations",
+            out var error);
+
+        Assert.False(result);
+        Assert.NotNull(error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidateOpsEntries_ReturnsFalse_WhenInternalEntryIsIncluded ()
+    {
+        var entry = CreateEditLoweringOnlyOpsEntry() with
+        {
+            Exposure = UcliOperationExposureValues.Internal,
+        };
+
+        var result = IndexCatalogContractValidator.TryValidateOpsEntries(
+            [entry],
+            "operations",
+            allowEditLoweringOnlyEntries: true,
+            out var error);
+
+        Assert.False(result);
+        Assert.NotNull(error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IsValidOpsCatalog_ReturnsTrue_WhenDescribeContractHasMultiFieldVariant ()
     {
         var contract = new IndexOpsDescribeJsonContract(
@@ -800,6 +850,30 @@ public sealed class IndexCatalogContractValidatorTests
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Failure means the operation did not complete.",
                 dangerousNotes: Array.Empty<string>()),
+        };
+    }
+
+    private static IndexOpEntryJsonContract CreateEditLoweringOnlyOpsEntry ()
+    {
+        return CreateValidOpsEntry(
+            argsSchemaJson: """{"type":"object","additionalProperties":false,"properties":{"var":{"type":"string"}}}""",
+            inputs: Array.Empty<UcliOperationInputContract>()) with
+        {
+            Name = UcliPrimitiveOperationNames.CompSet,
+            Kind = UcliOperationKindValues.Mutation,
+            Policy = OperationPolicyValues.Advanced,
+            Exposure = UcliOperationExposureValues.EditLoweringOnly,
+            Description = "Assigns serialized property values on a component target.",
+            Assurance = new UcliOperationAssuranceContract(
+                sideEffects: [UcliOperationSideEffectValues.SceneContentMutation],
+                touchedKinds: [IpcExecuteTouchedResourceKindNames.Scene],
+                planMode: UcliOperationPlanModeValues.MayCreatePreviewState,
+                planSemantics: "Validate arguments and compute preview changes without persisting project data.",
+                callSemantics: "Apply serialized property values to the live component.",
+                touchedContract: "Reports the resource dirtied by the component mutation.",
+                readPostconditionContract: "Read surfaces covering touched resources may be stale until refreshed.",
+                failureSemantics: "Failure before apply leaves no requested mutation.",
+                dangerousNotes: ["This operation can dirty live Unity state without persisting it."]),
         };
     }
 

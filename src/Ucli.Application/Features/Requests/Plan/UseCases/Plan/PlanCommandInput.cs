@@ -15,4 +15,8 @@ internal sealed record PlanCommandInput (
     int? TimeoutMilliseconds,
     ReadIndexMode? ReadIndexMode,
     bool FailFast,
-    string RequestJson);
+    string RequestJson)
+{
+    /// <summary> Gets a value indicating whether Play Mode mutation is explicitly allowed by CLI input. </summary>
+    public bool AllowPlayMode { get; init; }
+}

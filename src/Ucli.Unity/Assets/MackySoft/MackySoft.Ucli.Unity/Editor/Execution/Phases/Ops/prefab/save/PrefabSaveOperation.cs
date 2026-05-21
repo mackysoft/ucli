@@ -152,6 +152,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
+            if (executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryPrefabContentsRoot)
+                && temporaryPrefabContentsRoot != null)
+            {
+                resolutionState = new ResolutionState(prefabPath, temporaryPrefabContentsRoot, prefabStage: null);
+                return true;
+            }
+
             var hasOpenedStage = PrefabOperationUtilities.TryGetOpenedPrefabStage(prefabPath, out var openedPrefabStage, out _);
             if (!hasOpenedStage
                 && !executionContext.HasPlannedLivePrefabOpen(prefabPath))
@@ -160,13 +167,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     operation.Id,
                     $"Prefab is not opened: {prefabPath}. Use 'ucli.prefab.open' first.");
                 return false;
-            }
-
-            if (executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryPrefabContentsRoot)
-                && temporaryPrefabContentsRoot != null)
-            {
-                resolutionState = new ResolutionState(prefabPath, temporaryPrefabContentsRoot, openedPrefabStage);
-                return true;
             }
 
             if (!hasOpenedStage)
@@ -204,23 +204,32 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!PrefabOperationUtilities.TryGetOpenedPrefabStage(prefabPath, out var prefabStage, out var errorMessage))
+            if (PrefabOperationUtilities.TryGetOpenedPrefabStage(prefabPath, out var prefabStage, out _))
             {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
-                return false;
+                var prefabContentsRoot = prefabStage!.prefabContentsRoot;
+                if (prefabContentsRoot == null)
+                {
+                    failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                        operation.Id,
+                        $"Opened prefab root is not available: {prefabPath}.");
+                    return false;
+                }
+
+                resolutionState = new ResolutionState(prefabPath, prefabContentsRoot, prefabStage);
+                return true;
             }
 
-            var prefabContentsRoot = prefabStage!.prefabContentsRoot;
-            if (prefabContentsRoot == null)
+            if (executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryPrefabContentsRoot)
+                && temporaryPrefabContentsRoot != null)
             {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
-                    operation.Id,
-                    $"Opened prefab root is not available: {prefabPath}.");
-                return false;
+                resolutionState = new ResolutionState(prefabPath, temporaryPrefabContentsRoot, prefabStage: null);
+                return true;
             }
 
-            resolutionState = new ResolutionState(prefabPath, prefabContentsRoot, prefabStage);
-            return true;
+            failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                operation.Id,
+                $"Prefab is not opened: {prefabPath}. Use 'ucli.prefab.open' first.");
+            return false;
         }
 
         private static bool TryParseAndValidatePrefabPath (

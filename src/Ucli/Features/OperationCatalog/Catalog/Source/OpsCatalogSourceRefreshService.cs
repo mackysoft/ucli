@@ -122,7 +122,7 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
                 timeout,
                 failFast,
                 requireReadinessGate: true,
-                cancellationToken)
+                cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         if (!fetchResult.IsSuccess)
         {
