@@ -47,6 +47,8 @@ internal static class DaemonServiceCollectionExtensions
 
     private static IServiceCollection AddUcliDaemonLifecycleServices (this IServiceCollection services)
     {
+        services.AddSingleton<IDaemonSessionSerializer, DaemonSessionJsonSerializer>();
+        services.AddSingleton<IDaemonSessionValidator, DaemonSessionValidator>();
         services.AddSingleton<IDaemonSessionStore, DaemonSessionStore>();
         services.AddSingleton<IDaemonDiagnosisStore, DaemonDiagnosisStore>();
         services.AddSingleton<IDaemonLaunchAttemptIdGenerator, DaemonLaunchAttemptIdGenerator>();

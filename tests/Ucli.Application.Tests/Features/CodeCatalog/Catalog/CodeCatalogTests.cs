@@ -1,6 +1,8 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Diagnostics;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Catalog;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
+using MackySoft.Ucli.Application.Features.Assurance.Verify.Catalog;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -83,6 +85,8 @@ public sealed class CodeCatalogTests
                 new ContractsCodeCatalogContributor(),
                 new ApplicationCodeCatalogContributor(),
                 new ReadyCodeCatalogContributor(),
+                new CompileCodeCatalogContributor(),
+                new VerifyCodeCatalogContributor(),
             ]);
 
         Assert.True(catalog.TryFind(ReadyClaimCodes.UnityReadyReadIndex, out var readyDescriptor));
@@ -94,6 +98,26 @@ public sealed class CodeCatalogTests
         Assert.Equal(
             daemonNotRunningDescriptor.AppliesTo.Count,
             daemonNotRunningDescriptor.AppliesTo.Distinct().Count());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WithProductionContributors_DoesNotExposePolicyReasonCodes ()
+    {
+        var catalog = new CodeCatalogModel(
+            [
+                new ContractsCodeCatalogContributor(),
+                new ApplicationCodeCatalogContributor(),
+                new ReadyCodeCatalogContributor(),
+                new CompileCodeCatalogContributor(),
+                new VerifyCodeCatalogContributor(),
+            ]);
+
+        foreach (var descriptor in catalog.Descriptors)
+        {
+            Assert.DoesNotContain("policyReason", descriptor.Code.Value, StringComparison.Ordinal);
+            Assert.DoesNotContain(descriptor.AppearsIn, static fieldPath => fieldPath.Contains("policyReason", StringComparison.Ordinal));
+        }
     }
 
     [Fact]

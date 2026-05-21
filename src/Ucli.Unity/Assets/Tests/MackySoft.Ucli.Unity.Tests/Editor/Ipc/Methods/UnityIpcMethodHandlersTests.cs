@@ -90,7 +90,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 isStartupPending: true);
             var handler = new PingUnityIpcMethodHandler(
                 new StubServerVersionProvider("1.2.3"),
-                new UnityEditorReadinessGate(
+                CreateReadinessGate(
                     telemetryState,
                     static () => false,
                     static () => false,
@@ -128,7 +128,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 isStartupPending: false);
             var handler = new PingUnityIpcMethodHandler(
                 new StubServerVersionProvider("1.2.3"),
-                new UnityEditorReadinessGate(
+                CreateReadinessGate(
                     telemetryState,
                     static () => false,
                     static () => false,
@@ -1036,6 +1036,27 @@ namespace MackySoft.Ucli.Unity.Tests
             object payload)
         {
             return CreateRequest(requestId, IpcMethodNames.Ping, payload);
+        }
+
+        private static UnityEditorReadinessGate CreateReadinessGate (
+            UnityEditorLifecycleTelemetryState lifecycleTelemetryState,
+            Func<bool> isCompilingProvider,
+            Func<bool> isUpdatingProvider,
+            Func<bool> isPlaymodeActiveProvider)
+        {
+            return new UnityEditorReadinessGate(
+                DaemonEditorMode.Batchmode,
+                new UnityEditorLifecycleMonitor(
+                    lifecycleTelemetryState,
+                    isCompilingProvider,
+                    isUpdatingProvider,
+                    isPlaymodeActiveProvider),
+                isPlaymodeActiveProvider,
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                subscribeToEditorEvents: false);
         }
 
         private static IpcRequest CreateExecuteRequest (

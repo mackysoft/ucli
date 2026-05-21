@@ -31,7 +31,7 @@ public sealed class SceneTreeLiteAccessServiceTests
             Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable),
         };
         var refreshService = new StubSceneTreeLiteSourceRefreshService();
-        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
+        var service = CreateService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
 
         var result = await service.ReadAsync(
             project,
@@ -89,7 +89,7 @@ public sealed class SceneTreeLiteAccessServiceTests
             Result = SceneTreeLiteDirtySourceProbeResult.DirtySource(dirtyResponse, "Dirty loaded scene is open in Unity daemon."),
         };
         var refreshService = new StubSceneTreeLiteSourceRefreshService();
-        var service = new SceneTreeLiteAccessService(
+        var service = CreateService(
             indexReader,
             new StubSceneTreeLiteFreshnessEvaluator(),
             new TestMutationReadPostconditionStore(),
@@ -143,7 +143,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         {
             Result = SceneTreeLiteDirtySourceProbeResult.NotAvailable("Unity daemon scene is not dirty loaded source."),
         };
-        var service = new SceneTreeLiteAccessService(
+        var service = CreateService(
             indexReader,
             freshnessEvaluator,
             new TestMutationReadPostconditionStore(),
@@ -191,7 +191,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         {
             Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh),
         };
-        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService(), new StubSceneTreeLiteSourceProbe());
+        var service = CreateService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService(), new StubSceneTreeLiteSourceProbe());
 
         var result = await service.ReadAsync(
             project,
@@ -229,7 +229,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         {
             Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh),
         };
-        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService(), new StubSceneTreeLiteSourceProbe());
+        var service = CreateService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService(), new StubSceneTreeLiteSourceProbe());
 
         var result = await service.ReadAsync(
             project,
@@ -280,7 +280,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                     ]),
                 "Existing scene-tree-lite index freshness is 'stale'."),
         };
-        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
+        var service = CreateService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
 
         var result = await service.ReadAsync(
             project,
@@ -346,7 +346,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                     ]),
                 "Existing scene-tree-lite index generatedAtUtc is older than mutation read postcondition."),
         };
-        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService, new StubSceneTreeLiteSourceProbe());
+        var service = CreateService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService, new StubSceneTreeLiteSourceProbe());
 
         var result = await service.ReadAsync(
             project,
@@ -407,7 +407,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                     ]),
                 "Existing scene-tree-lite index generatedAtUtc is older than mutation read postcondition."),
         };
-        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService, new StubSceneTreeLiteSourceProbe());
+        var service = CreateService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService, new StubSceneTreeLiteSourceProbe());
 
         var result = await service.ReadAsync(
             project,
@@ -460,7 +460,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                 ])),
         };
         var refreshService = new StubSceneTreeLiteSourceRefreshService();
-        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService, new StubSceneTreeLiteSourceProbe());
+        var service = CreateService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService, new StubSceneTreeLiteSourceProbe());
 
         var result = await service.ReadAsync(
             project,
@@ -495,7 +495,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                 "readIndex disabled by mode."),
         };
         var indexReader = new StubReadIndexArtifactReader();
-        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
+        var service = CreateService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
 
         var result = await service.ReadAsync(
             project,
@@ -533,7 +533,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                 "scene-tree-lite readIndex is unavailable for non-Assets scene paths."),
         };
         var indexReader = new StubReadIndexArtifactReader();
-        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
+        var service = CreateService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
 
         var result = await service.ReadAsync(
             project,
@@ -569,7 +569,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                     SourceInputsHash: "scene-hash",
                     Roots: CreateTree())),
         };
-        var service = new SceneTreeLiteAccessService(
+        var service = CreateService(
             indexReader,
             new StubSceneTreeLiteFreshnessEvaluator(),
             new TestMutationReadPostconditionStore(),
@@ -600,7 +600,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         using var scope = TestDirectories.CreateTempScope("scene-tree-lite-access", "traversal-scene");
         var project = CreateProject(scope);
         var indexReader = new StubReadIndexArtifactReader();
-        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService(), new StubSceneTreeLiteSourceProbe());
+        var service = CreateService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService(), new StubSceneTreeLiteSourceProbe());
 
         var result = await service.ReadAsync(
             project,
@@ -629,7 +629,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         using var scope = TestDirectories.CreateTempScope("scene-tree-lite-access", "windows-rooted-scene");
         var project = CreateProject(scope);
         var indexReader = new StubReadIndexArtifactReader();
-        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService(), new StubSceneTreeLiteSourceProbe());
+        var service = CreateService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService(), new StubSceneTreeLiteSourceProbe());
 
         var result = await service.ReadAsync(
             project,
@@ -670,7 +670,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                     Roots: CreateTree()),
                 "scene-tree-lite lookup is missing."),
         };
-        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
+        var service = CreateService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
 
         var result = await service.ReadAsync(
             project,
@@ -711,7 +711,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                     Roots: CreateTree()),
                 "Index contract file 'lookups/scene-tree-lite/*.lookup.json' is malformed."),
         };
-        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
+        var service = CreateService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService, new StubSceneTreeLiteSourceProbe());
 
         var result = await service.ReadAsync(
             project,
@@ -728,6 +728,23 @@ public sealed class SceneTreeLiteAccessServiceTests
         Assert.Contains("malformed", result.Output!.AccessInfo.FallbackReason, StringComparison.Ordinal);
         Assert.Equal(SceneTreeLiteSource.Source, result.Output.AccessInfo.Source);
         Assert.Equal(UnityExecutionMode.Auto, refreshService.LastMode);
+    }
+
+    private static SceneTreeLiteAccessService CreateService (
+        IReadIndexArtifactReader artifactReader,
+        IReadIndexFreshnessEvaluator freshnessEvaluator,
+        IMutationReadPostconditionStore mutationReadPostconditionStore,
+        ISceneTreeLiteSourceRefreshService sourceRefreshService,
+        ISceneTreeLiteSourceProbe sourceProbe,
+        ISceneTreeLiteDirtySourceProbeService? dirtySourceProbeService = null)
+    {
+        return new SceneTreeLiteAccessService(
+            artifactReader,
+            freshnessEvaluator,
+            mutationReadPostconditionStore,
+            sourceRefreshService,
+            sourceProbe,
+            dirtySourceProbeService ?? new StubSceneTreeLiteDirtySourceProbeService());
     }
 
     private static ResolvedUnityProjectContext CreateProject (TestDirectoryScope scope)

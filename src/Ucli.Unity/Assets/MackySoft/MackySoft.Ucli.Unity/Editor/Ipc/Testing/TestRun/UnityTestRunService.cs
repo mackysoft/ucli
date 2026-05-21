@@ -27,28 +27,6 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="unityTestRunner"> The Unity test runner dependency. </param>
         /// <param name="testResultsXmlWriter"> The test-results XML writer dependency. </param>
         /// <param name="editorLogRangeExporter"> The editor-log range exporter dependency. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
-        public UnityTestRunService (
-            IUnityTestRunRequestContextFactory requestContextFactory,
-            IUnityTestRunner unityTestRunner,
-            IUnityTestResultsXmlWriter testResultsXmlWriter,
-            IEditorLogRangeExporter editorLogRangeExporter,
-            IUnityEditorReadinessGate readinessGate)
-            : this(
-                requestContextFactory,
-                unityTestRunner,
-                testResultsXmlWriter,
-                editorLogRangeExporter,
-                readinessGate,
-                new InlineUnityMainThreadRequestExecutor())
-        {
-        }
-
-        /// <summary> Initializes a new instance of the <see cref="UnityTestRunService" /> class. </summary>
-        /// <param name="requestContextFactory"> The request-context factory dependency. </param>
-        /// <param name="unityTestRunner"> The Unity test runner dependency. </param>
-        /// <param name="testResultsXmlWriter"> The test-results XML writer dependency. </param>
-        /// <param name="editorLogRangeExporter"> The editor-log range exporter dependency. </param>
         /// <param name="readinessGate"> The editor-readiness gate dependency. </param>
         /// <param name="mainThreadRequestExecutor"> The Unity main-thread executor dependency. </param>
         /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
@@ -116,22 +94,6 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static long GetFileLengthOrZero (string path)
         {
             return File.Exists(path) ? new FileInfo(path).Length : 0L;
-        }
-
-        private sealed class InlineUnityMainThreadRequestExecutor : IUnityMainThreadRequestExecutor
-        {
-            public Task<T> ExecuteAsync<T> (
-                Func<Task<T>> workItem,
-                CancellationToken cancellationToken = default)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (workItem == null)
-                {
-                    throw new ArgumentNullException(nameof(workItem));
-                }
-
-                return workItem();
-            }
         }
     }
 }

@@ -192,7 +192,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 isShuttingDown: false,
                 isStartupPending: false,
                 isRecoveringPending: true);
-            var gate = new UnityEditorReadinessGate(
+            var gate = CreateGate(
                 DaemonEditorMode.Gui,
                 telemetryState,
                 static () => false,
@@ -223,7 +223,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 isDomainReloading: false,
                 isShuttingDown: false,
                 isStartupPending: false);
-            var gate = new UnityEditorReadinessGate(
+            var gate = CreateGate(
                 DaemonEditorMode.Gui,
                 telemetryState,
                 static () => false,
@@ -610,11 +610,17 @@ namespace MackySoft.Ucli.Unity.Tests
                 isStartupPending: false);
             return new UnityEditorReadinessGate(
                 editorMode,
-                telemetryState,
-                () => isCompiling,
-                static () => false,
-                () => isPlaymodeLifecycleActive,
-                () => isPlayModeMutationActive);
+                new UnityEditorLifecycleMonitor(
+                    telemetryState,
+                    () => isCompiling,
+                    static () => false,
+                    () => isPlaymodeLifecycleActive),
+                () => isPlayModeMutationActive,
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                subscribeToEditorEvents: false);
         }
 
         private static UnityEditorReadinessGate CreateGate (
@@ -694,14 +700,40 @@ namespace MackySoft.Ucli.Unity.Tests
                 isShuttingDown,
                 isStartupPending);
             return new UnityEditorReadinessGate(
-                lifecycleTelemetryState,
-                () => probe.IsCompiling,
-                () => probe.IsUpdating,
+                DaemonEditorMode.Batchmode,
+                new UnityEditorLifecycleMonitor(
+                    lifecycleTelemetryState,
+                    () => probe.IsCompiling,
+                    () => probe.IsUpdating,
+                    () => probe.IsPlaymodeActive),
                 () => probe.IsPlaymodeActive,
                 signalBus.SubscribeBeforeAssemblyReload,
                 signalBus.UnsubscribeBeforeAssemblyReload,
                 signalBus.SubscribeQuitting,
-                signalBus.UnsubscribeQuitting);
+                signalBus.UnsubscribeQuitting,
+                subscribeToEditorEvents: false);
+        }
+
+        private static UnityEditorReadinessGate CreateGate (
+            DaemonEditorMode editorMode,
+            UnityEditorLifecycleTelemetryState lifecycleTelemetryState,
+            Func<bool> isCompilingProvider,
+            Func<bool> isUpdatingProvider,
+            Func<bool> isPlaymodeActiveProvider)
+        {
+            return new UnityEditorReadinessGate(
+                editorMode,
+                new UnityEditorLifecycleMonitor(
+                    lifecycleTelemetryState,
+                    isCompilingProvider,
+                    isUpdatingProvider,
+                    isPlaymodeActiveProvider),
+                isPlaymodeActiveProvider,
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                subscribeToEditorEvents: false);
         }
 
         private sealed class EditorActivityProbe

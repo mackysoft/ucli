@@ -11,6 +11,14 @@ public sealed class OpsCliOutputContractTests
 {
     private const string UnknownOptionMessage = "Argument '--unknown' is not recognized.";
 
+    private static readonly string[] FreezeInternalOperationFields =
+    [
+        "policyDerivation",
+        "policyRestriction",
+        "exposure",
+        "policyReason",
+    ];
+
     [Fact]
     [Trait("Size", "Medium")]
     public async Task Ops_WithoutSubcommand_ReturnsJsonEnvelopeError ()
@@ -459,6 +467,49 @@ public sealed class OpsCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task OpsDescribe_WithVariantInputs_MatchesGoldenAndOmitsFreezeInternalFields ()
+    {
+        const string operationName = "custom.variant.describe";
+
+        using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "describe-variant-golden");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        SeedOpsCatalog(
+            unityProjectPath,
+            [
+                CreateDescribedEntry(
+                    name: operationName,
+                    kind: "query",
+                    policy: "safe",
+                    argsSchemaJson:
+                        """
+                        {"type":"object","additionalProperties":false,"required":["target"],"properties":{"target":{"type":"object"},"depth":{"type":["integer","null"]}}}
+                        """,
+                    resultSchemaJson: """{"type":"object"}""",
+                    describe: CreateVariantDescribeContract()),
+            ]);
+
+        var result = await CliProcessRunner.RunCommandAsync(
+            UcliCommandNames.Ops,
+            UcliCommandNames.DescribeSubcommand,
+            operationName,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath,
+            UcliContractConstants.CliOption.ReadIndexMode,
+            UcliContractConstants.Config.ReadIndexModeAllowStale);
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        JsonGoldenFileAssert.Matches(
+            CliOutputGoldenFiles.GetPath("ops", "describe-variant-success.json"),
+            result.StdOut,
+            CliOutputGoldenFiles.NormalizeGeneratedAtUtc());
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        var operation = outputJson.RootElement.GetProperty("payload").GetProperty("operation");
+        AssertNoFreezeInternalOperationTopLevelFields(operation);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task OpsList_WhenPublicCatalogIsRead_DoesNotEmitExposureField ()
     {
         using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "list-no-exposure-field");
@@ -775,6 +826,84 @@ public sealed class OpsCliOutputContractTests
                 dangerousNotes: Array.Empty<string>()));
     }
 
+    private static UcliOperationDescribeContract CreateVariantDescribeContract ()
+    {
+        return new UcliOperationDescribeContract(
+            "Returns a GameObject description including components and child hierarchy.",
+            [
+                new UcliOperationInputContract(
+                    name: "target",
+                    valueType: "object",
+                    description: "Target GameObject reference.",
+                    constraints:
+                    [
+                        new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.ReferenceResolvable)
+                        {
+                            TargetKind = UcliOperationReferenceTargetKindValues.GameObject,
+                        },
+                    ],
+                    argsPath: "$.target",
+                    variants:
+                    [
+                        new UcliOperationInputVariantContract(
+                            name: "byGlobalObjectId",
+                            description: "Use resolved Unity GlobalObjectId.",
+                            fields:
+                            [
+                                new UcliOperationInputVariantFieldContract(
+                                    name: "globalObjectId",
+                                    argsPath: "$.target.globalObjectId",
+                                    description: "Resolved Unity GlobalObjectId.",
+                                    constraints:
+                                    [
+                                        new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.GlobalObjectId),
+                                    ]),
+                            ]),
+                        new UcliOperationInputVariantContract(
+                            name: "bySceneHierarchyPath",
+                            description: "Use Scene asset path for a hierarchy selector and Unity hierarchy path inside the selected scene or prefab.",
+                            fields:
+                            [
+                                new UcliOperationInputVariantFieldContract(
+                                    name: "scene",
+                                    argsPath: "$.target.scene",
+                                    description: "Scene asset path for a hierarchy selector.",
+                                    constraints:
+                                    [
+                                        new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.AssetExists)
+                                        {
+                                            AssetKind = UcliOperationAssetKindValues.Scene,
+                                        },
+                                    ]),
+                                new UcliOperationInputVariantFieldContract(
+                                    name: "hierarchyPath",
+                                    argsPath: "$.target.hierarchyPath",
+                                    description: "Unity hierarchy path inside the selected scene or prefab.",
+                                    constraints:
+                                    [
+                                        new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.HierarchyPath),
+                                    ]),
+                            ]),
+                    ]),
+                new UcliOperationInputContract(
+                    name: "depth",
+                    valueType: "integer",
+                    description: "Maximum child hierarchy depth to include; null means unbounded.",
+                    constraints:
+                    [
+                        new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.Range)
+                        {
+                            Min = 0,
+                        },
+                    ]),
+            ],
+            new UcliOperationResultContract(
+                emitted: true,
+                resultType: "GameObjectDescriptionResult",
+                description: "GameObject describe operation result."),
+            CreateAssurance("query", "safe"));
+    }
+
     private static UcliOperationAssuranceContract CreateAssurance (
         string kind,
         string policy)
@@ -800,4 +929,11 @@ public sealed class OpsCliOutputContractTests
             dangerousNotes: isRiskyPolicy ? ["Fixture operation has policy-specific risk metadata for contract validation."] : Array.Empty<string>());
     }
 
+    private static void AssertNoFreezeInternalOperationTopLevelFields (JsonElement operation)
+    {
+        foreach (var property in operation.EnumerateObject())
+        {
+            Assert.DoesNotContain(property.Name, FreezeInternalOperationFields);
+        }
+    }
 }

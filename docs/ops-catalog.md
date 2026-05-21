@@ -143,6 +143,8 @@ catalog validation、golden、contract tests は、少なくとも次の matrix 
 
 `--allowPlayMode` 付きの Play Mode 変更では、`kind:"edit"` の lowering から発生する Scene / GameObject / Component / Prefab / Asset / ProjectSettings 操作だけを許可する。公開 query-only request を許可するための契約ではない。
 
+Play Mode enter / exit は primitive operation ではない。Editor lifecycle state を遷移させる操作は `ucli play enter` / `ucli play exit` で扱い、operation catalog に raw `kind:"op"` として公開しない。`ucli play` は uCLI content mutation を実行せず、`opResults[].touched` を返す content edit として扱わない。Play Mode 中に project code が起こす副作用は、operation attribution の対象外である。`--allowPlayMode` は Play Mode 中 mutation のガードであり、Play Mode lifecycle 制御の入場条件ではない。
+
 - Scene context は Play Mode の live object への変更だけを許可し、`ucli.scene.save` へ lower される形は許可しない
 - Prefab / asset / project context は通常の `edit` と同じ primitive、commit、dangerous guard を適用し、明示 `commit` に従って保存できる
 - `commit:"project"` は project-wide save であるため Play Mode 変更では許可しない

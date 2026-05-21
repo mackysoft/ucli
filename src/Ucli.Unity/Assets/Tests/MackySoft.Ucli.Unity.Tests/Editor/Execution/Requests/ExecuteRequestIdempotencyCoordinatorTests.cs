@@ -20,7 +20,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Execute_WhenSameRequestIdAndSameFingerprintAfterCompletion_ReusesCachedResponse () => UniTask.ToCoroutine(async () =>
         {
-            var coordinator = new ExecuteRequestIdempotencyCoordinator();
+            var coordinator = CreateCoordinator();
             var executeCount = 0;
             var requestId = "req-1";
             var firstResponse = await coordinator.ExecuteAsync(
@@ -53,7 +53,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Execute_WhenSameRequestIdAndDifferentFingerprintAfterCompletion_ReturnsConflict () => UniTask.ToCoroutine(async () =>
         {
-            var coordinator = new ExecuteRequestIdempotencyCoordinator();
+            var coordinator = CreateCoordinator();
             var executeCount = 0;
             var conflictCount = 0;
             var requestId = "req-1";
@@ -96,7 +96,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Execute_WhenSameRequestIdAndSameFingerprintInFlight_WaitsForOwnerResponse () => UniTask.ToCoroutine(async () =>
         {
-            var coordinator = new ExecuteRequestIdempotencyCoordinator();
+            var coordinator = CreateCoordinator();
             var requestId = "req-1";
             var ownerExecutionCount = 0;
             var waiterExecutionCount = 0;
@@ -150,7 +150,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Execute_WhenWaiterCancellationRequestedDuringInFlight_ThrowsWithoutCancelingOwner () => UniTask.ToCoroutine(async () =>
         {
-            var coordinator = new ExecuteRequestIdempotencyCoordinator();
+            var coordinator = CreateCoordinator();
             var requestId = "req-1";
             var ownerExecutionCount = 0;
             var waiterExecutionCount = 0;
@@ -215,7 +215,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Execute_WhenSameRequestIdAndDifferentFingerprintInFlight_ReturnsConflictWithoutExecuting () => UniTask.ToCoroutine(async () =>
         {
-            var coordinator = new ExecuteRequestIdempotencyCoordinator();
+            var coordinator = CreateCoordinator();
             var requestId = "req-1";
             var ownerStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var ownerRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -263,10 +263,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenEntryExpires_ReexecutesRequest () => UniTask.ToCoroutine(async () =>
         {
             var nowUtc = new DateTimeOffset(2026, 3, 3, 0, 0, 0, TimeSpan.Zero);
-            var coordinator = new ExecuteRequestIdempotencyCoordinator(
-                cacheTtl: TimeSpan.FromHours(24),
-                maxEntries: 10_000,
-                utcNowProvider: () => nowUtc);
+            var coordinator = CreateCoordinator(TimeSpan.FromHours(24), 10_000, () => nowUtc);
             var executeCount = 0;
             var requestId = "req-1";
 
@@ -301,10 +298,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenCacheExceedsMaxEntries_EvictsOldestEntry () => UniTask.ToCoroutine(async () =>
         {
             var nowUtc = new DateTimeOffset(2026, 3, 3, 0, 0, 0, TimeSpan.Zero);
-            var coordinator = new ExecuteRequestIdempotencyCoordinator(
-                cacheTtl: TimeSpan.FromHours(24),
-                maxEntries: 2,
-                utcNowProvider: () => nowUtc);
+            var coordinator = CreateCoordinator(TimeSpan.FromHours(24), 2, () => nowUtc);
             var executeCount = 0;
 
             await ExecuteAsync("req-1", "fingerprint-1", "first-1");
@@ -495,6 +489,25 @@ namespace MackySoft.Ucli.Unity.Tests
         private static string GetMarker (IpcResponse response)
         {
             return response.Payload.GetProperty("marker").GetString() ?? string.Empty;
+        }
+
+        private static ExecuteRequestIdempotencyCoordinator CreateCoordinator ()
+        {
+            return CreateCoordinator(
+                ExecuteRequestIdempotencyCoordinator.DefaultCacheTtl,
+                ExecuteRequestIdempotencyCoordinator.DefaultMaxEntries,
+                static () => DateTimeOffset.UtcNow);
+        }
+
+        private static ExecuteRequestIdempotencyCoordinator CreateCoordinator (
+            TimeSpan cacheTtl,
+            int maxEntries,
+            Func<DateTimeOffset> utcNowProvider)
+        {
+            return new ExecuteRequestIdempotencyCoordinator(new InMemoryExecuteRequestIdempotencyStore(
+                cacheTtl,
+                maxEntries,
+                utcNowProvider));
         }
     }
 }

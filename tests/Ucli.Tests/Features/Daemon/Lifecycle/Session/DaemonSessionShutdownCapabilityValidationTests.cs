@@ -12,7 +12,7 @@ public sealed class DaemonSessionShutdownCapabilityValidationTests
     public async Task Read_WhenCanShutdownProcessIsMissing_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "missing-can-shutdown-process");
-        var store = new DaemonSessionStore();
+        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
         var projectFingerprint = "fingerprint-missing-can-shutdown-process";
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
@@ -50,7 +50,7 @@ public sealed class DaemonSessionShutdownCapabilityValidationTests
     public async Task Write_WhenCanShutdownProcessIsFalse_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "can-shutdown-process-false");
-        var store = new DaemonSessionStore();
+        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
         var session = new DaemonSession(
             SchemaVersion: DaemonSession.CurrentSchemaVersion,
             SessionToken: "token-1",

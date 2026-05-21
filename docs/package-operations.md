@@ -53,12 +53,12 @@ NuGetForUnity のUIで導入した場合は依存パッケージも `packages.co
 ```
 
 ## Release Artifact Mirror
-`package-publish` workflow は、nuget.org への公開が成功した後に同じ `.nupkg` を GitHub Releases へミラーし、schema artifact zip も同じ `release/<version>` へ添付する。NuGet パッケージ配布の正は nuget.org とし、GitHub Releases はタグごとの公開成果物を確認する監査場所として扱う。
+`package-publish` workflow は、nuget.org への公開が成功した後に同じ `.nupkg` を GitHub Releases へミラーし、schema artifact zip も同じ `<version>` tag へ添付する。NuGet パッケージ配布の正は nuget.org とし、GitHub Releases はタグごとの公開成果物を確認する監査場所として扱う。
 
-- `release/<version>`: `MackySoft.Ucli.<version>.nupkg`
-- `release/<version>`: `MackySoft.Ucli.Contracts.<version>.nupkg` / `MackySoft.Ucli.Infrastructure.<version>.nupkg`
-- `release/<version>`: `MackySoft.Ucli.Unity.<version>.nupkg`
-- `release/<version>`: `MackySoft.Ucli.Schemas.<version>.zip`
+- `<version>`: `MackySoft.Ucli.<version>.nupkg`
+- `<version>`: `MackySoft.Ucli.Contracts.<version>.nupkg` / `MackySoft.Ucli.Infrastructure.<version>.nupkg`
+- `<version>`: `MackySoft.Ucli.Unity.<version>.nupkg`
+- `<version>`: `MackySoft.Ucli.Schemas.<version>.zip`
 
 ## Agent Skill Distribution
 uCLI 公式 SKILL は agent 向け workflow 配布物であり、operation contract の正本ではない。正本は `Ucli.Contracts`、operation metadata、`ucli ops describe`、[json-request-spec.md](json-request-spec.md) に置く。
@@ -91,7 +91,7 @@ dotnet tool install --global MackySoft.Ucli --version <version>
 dotnet tool update --global MackySoft.Ucli --version <version>
 ```
 
-CLI パッケージは `src/Ucli/Ucli.csproj` と root の `Directory.Build.props` を正として `dotnet pack` で生成する。公開 workflow は `release/<version>` tag の version を `Version` / `PackageVersion` に渡し、`ucli --version` が公開 version と一致することを検証してから nuget.org へ公開し、同じ `.nupkg` を GitHub Releases へミラーする。
+CLI パッケージは `src/Ucli/Ucli.csproj` と root の `Directory.Build.props` を正として `dotnet pack` で生成する。公開 workflow は `<version>` tag の version を `Version` / `PackageVersion` に渡し、`ucli --version` が公開 version と一致することを検証してから nuget.org へ公開し、同じ `.nupkg` を GitHub Releases へミラーする。
 
 ```bash
 dotnet pack "src/Ucli/Ucli.csproj" \
@@ -216,11 +216,11 @@ done
 - Unity 検証は `src/Ucli`、`src/Ucli.Application`、`src/Ucli.Unity`、`src/Ucli.Contracts`、`src/Ucli.Infrastructure`、`scripts/test-unity.sh`、`scripts/update-local-shared-packages.sh`、`verify` 自体の変更時に動く。`buildalon/unity-setup` と `buildalon/activate-unity-license` で各 OS の Unity Editor を用意した後、CI とローカル共通の `scripts/test-unity.sh` から `ucli test run --mode oneshot` を使って `EditMode` テストアセンブリを明示指定して実行する。workflow はプロセス終了コードだけでなく `command-result.json` の `status` / `exitCode` / `payload.result` も検証し、`pass` 以外を失敗として扱う。
 - CLI pack 検証は `Directory.Build.props`、`src/Ucli`、`src/Ucli.Contracts`、`src/Ucli.Infrastructure`、`README.md`、`LICENSE`、`package-publish`、`verify` 自体の変更時に動く。`dotnet pack` 後にローカル tool install、`ucli --version`、`ucli --help`、nupkg 内の `DotnetToolSettings.xml` / `README.md` / `LICENSE` を検証する。
 - Unity package pack 検証は `scripts/pack-unity-plugin.sh` で `MackySoft.Ucli.Unity` nupkg を作成し、`scripts/verify-unity-plugin-package.sh` で必須ファイル、依存定義、ローカル復元後の `ucli-plugin.json` 配置を検証する。
-- `package-publish`: `release/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、その同一 workflow run の中で version sync / pack / package verify / nuget.org publication state check / publish availability wait / GitHub Release mirror / repository version sync PR 作成まで継続する。
+- `package-publish`: `<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `release_tag` から同名タグを先に作成して push し、その同一 workflow run の中で version sync / pack / package verify / nuget.org publication state check / publish availability wait / GitHub Release mirror / repository version sync PR 作成まで継続する。
 - `package-publish` は公開後に `chore/release-sync-<version>` ブランチを作成し、`Directory.Build.props`、`schemas/v1/schema-manifest.json`、`src/Ucli.Unity/Assets/packages.config`、`src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec` の package version を同一値へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
-- タグは `v` プレフィックスを付けない（例: `release/x.y.z`）。
+- タグは `v` や `release/` のプレフィックスを付けない（例: `x.y.z`）。
 
 ```bash
-git tag release/x.y.z
-git push origin release/x.y.z
+git tag x.y.z
+git push origin x.y.z
 ```

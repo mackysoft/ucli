@@ -18,30 +18,10 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
 
         private readonly IExecuteRequestIdempotencyStore store;
 
-        /// <summary> Initializes a new instance of the <see cref="ExecuteRequestIdempotencyCoordinator" /> class with default options. </summary>
-        public ExecuteRequestIdempotencyCoordinator ()
-            : this(DefaultCacheTtl, DefaultMaxEntries, static () => DateTimeOffset.UtcNow)
-        {
-        }
-
-        /// <summary> Initializes a new instance of the <see cref="ExecuteRequestIdempotencyCoordinator" /> class. </summary>
-        /// <param name="cacheTtl"> The cache TTL duration. Must be greater than <see cref="TimeSpan.Zero" />. </param>
-        /// <param name="maxEntries"> The maximum number of completed entries retained in memory. Must be greater than zero. </param>
-        /// <param name="utcNowProvider"> The UTC clock provider. </param>
-        /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="cacheTtl" /> or <paramref name="maxEntries" /> is invalid. </exception>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="utcNowProvider" /> is <see langword="null" />. </exception>
-        public ExecuteRequestIdempotencyCoordinator (
-            TimeSpan cacheTtl,
-            int maxEntries,
-            Func<DateTimeOffset> utcNowProvider)
-            : this(new InMemoryExecuteRequestIdempotencyStore(cacheTtl, maxEntries, utcNowProvider))
-        {
-        }
-
         /// <summary> Initializes a new instance of the <see cref="ExecuteRequestIdempotencyCoordinator" /> class. </summary>
         /// <param name="store"> The request-id idempotency store dependency. </param>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="store" /> is <see langword="null" />. </exception>
-        internal ExecuteRequestIdempotencyCoordinator (IExecuteRequestIdempotencyStore store)
+        public ExecuteRequestIdempotencyCoordinator (IExecuteRequestIdempotencyStore store)
         {
             this.store = store ?? throw new ArgumentNullException(nameof(store));
         }

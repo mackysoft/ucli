@@ -18,6 +18,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Build(registrations);
         }
 
+        /// <summary> Discovers operations through dependency injection and builds one shared snapshot. </summary>
+        /// <param name="serviceProvider"> The service provider used to activate operation instances. </param>
+        /// <returns> The discovered operation snapshot. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="serviceProvider" /> is <see langword="null" />. </exception>
+        public static UcliOperationCatalogSnapshot Build (IServiceProvider serviceProvider)
+        {
+            if (serviceProvider == null)
+            {
+                throw new ArgumentNullException(nameof(serviceProvider));
+            }
+
+            var registrations = UcliOperationDiscoverer.Discover(serviceProvider);
+            return Build(registrations);
+        }
+
         /// <summary> Builds one shared snapshot from discovered registrations. </summary>
         /// <param name="registrations"> The discovered registrations. </param>
         /// <returns> The discovered operation snapshot. </returns>

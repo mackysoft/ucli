@@ -1,0 +1,135 @@
+{
+  "protocolVersion": 1,
+  "command": "ops.describe",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "uCLI ops describe completed for \u0027custom.variant.describe\u0027.",
+  "payload": {
+    "operation": {
+      "name": "custom.variant.describe",
+      "kind": "query",
+      "policy": "safe",
+      "description": "Returns a GameObject description including components and child hierarchy.",
+      "inputs": [
+        {
+          "name": "target",
+          "description": "Target GameObject reference.",
+          "valueType": "object",
+          "constraints": [
+            {
+              "kind": "referenceResolvable",
+              "targetKind": "gameObject"
+            }
+          ],
+          "argsPath": "$.target",
+          "variants": [
+            {
+              "name": "byGlobalObjectId",
+              "description": "Use resolved Unity GlobalObjectId.",
+              "fields": [
+                {
+                  "name": "globalObjectId",
+                  "argsPath": "$.target.globalObjectId",
+                  "description": "Resolved Unity GlobalObjectId.",
+                  "constraints": [
+                    {
+                      "kind": "globalObjectId"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "bySceneHierarchyPath",
+              "description": "Use Scene asset path for a hierarchy selector and Unity hierarchy path inside the selected scene or prefab.",
+              "fields": [
+                {
+                  "name": "scene",
+                  "argsPath": "$.target.scene",
+                  "description": "Scene asset path for a hierarchy selector.",
+                  "constraints": [
+                    {
+                      "kind": "assetExists",
+                      "assetKind": "scene"
+                    }
+                  ]
+                },
+                {
+                  "name": "hierarchyPath",
+                  "argsPath": "$.target.hierarchyPath",
+                  "description": "Unity hierarchy path inside the selected scene or prefab.",
+                  "constraints": [
+                    {
+                      "kind": "hierarchyPath"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "depth",
+          "description": "Maximum child hierarchy depth to include; null means unbounded.",
+          "valueType": "integer",
+          "constraints": [
+            {
+              "kind": "range",
+              "min": 0
+            }
+          ]
+        }
+      ],
+      "resultContract": {
+        "emitted": true,
+        "resultType": "GameObjectDescriptionResult",
+        "description": "GameObject describe operation result."
+      },
+      "assurance": {
+        "sideEffects": [
+          "observesUnityState"
+        ],
+        "mayDirty": false,
+        "mayPersist": false,
+        "touchedKinds": [],
+        "planMode": "observesLiveUnity",
+        "planSemantics": "Validate arguments and observe Unity state without applying mutation.",
+        "callSemantics": "Read Unity state without applying mutation.",
+        "touchedContract": "Returns no touched resources.",
+        "readPostconditionContract": "Does not stale read surfaces by itself.",
+        "failureSemantics": "Failure means the observation was not fully produced.",
+        "dangerousNotes": []
+      },
+      "argsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target"
+        ],
+        "properties": {
+          "target": {
+            "type": "object"
+          },
+          "depth": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        }
+      },
+      "resultSchema": {
+        "type": "object"
+      }
+    },
+    "readIndex": {
+      "used": true,
+      "hit": true,
+      "source": "index",
+      "freshness": "probable",
+      "generatedAtUtc": "<generatedAtUtc>",
+      "fallbackReason": null
+    }
+  },
+  "errors": []
+}

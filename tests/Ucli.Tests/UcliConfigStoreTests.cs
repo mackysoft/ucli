@@ -13,7 +13,7 @@ public sealed class UcliConfigStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-config-store", "load-default");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var configStore = new UcliConfigStore();
+        var configStore = new UcliConfigStore(UcliConfigCompiler.CreateDefault());
 
         var result = await configStore.LoadAsync(unityProjectPath, CancellationToken.None);
 
@@ -36,7 +36,7 @@ public sealed class UcliConfigStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-config-store", "save-round-trip");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var configStore = new UcliConfigStore();
+        var configStore = new UcliConfigStore(UcliConfigCompiler.CreateDefault());
         var config = new UcliConfig(
             SchemaVersion: 1,
             OperationPolicy: OperationPolicy.Dangerous,
@@ -104,7 +104,7 @@ public sealed class UcliConfigStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-config-store", "malformed-json");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var configStore = new UcliConfigStore();
+        var configStore = new UcliConfigStore(UcliConfigCompiler.CreateDefault());
         var configPath = configStore.GetConfigPath(unityProjectPath);
         var relativeConfigPath = Path.GetRelativePath(scope.FullPath, configPath);
         scope.WriteFile(relativeConfigPath, "{");
@@ -124,7 +124,7 @@ public sealed class UcliConfigStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-config-store", "multiple-schema-errors");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var configStore = new UcliConfigStore();
+        var configStore = new UcliConfigStore(UcliConfigCompiler.CreateDefault());
         var configPath = configStore.GetConfigPath(unityProjectPath);
         var relativeConfigPath = Path.GetRelativePath(scope.FullPath, configPath);
         scope.WriteFile(relativeConfigPath, """
@@ -154,7 +154,7 @@ public sealed class UcliConfigStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-config-store", "schema-version-mismatch");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var configStore = new UcliConfigStore();
+        var configStore = new UcliConfigStore(UcliConfigCompiler.CreateDefault());
         var configPath = configStore.GetConfigPath(unityProjectPath);
         var relativeConfigPath = Path.GetRelativePath(scope.FullPath, configPath);
         var invalidSchemaConfigJson = JsonSerializer.Serialize(
@@ -185,7 +185,7 @@ public sealed class UcliConfigStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-config-store", "invalid-allowlist-load");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var configStore = new UcliConfigStore();
+        var configStore = new UcliConfigStore(UcliConfigCompiler.CreateDefault());
         var configPath = configStore.GetConfigPath(unityProjectPath);
         var relativeConfigPath = Path.GetRelativePath(scope.FullPath, configPath);
         var invalidAllowlistConfigJson = JsonSerializer.Serialize(
@@ -215,7 +215,7 @@ public sealed class UcliConfigStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-config-store", "invalid-allowlist-save");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var configStore = new UcliConfigStore();
+        var configStore = new UcliConfigStore(UcliConfigCompiler.CreateDefault());
         var invalidConfig = new UcliConfig(
             SchemaVersion: UcliContractConstants.Config.SchemaVersion,
             OperationPolicy: OperationPolicy.Safe,
@@ -241,7 +241,7 @@ public sealed class UcliConfigStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-config-store", "invalid-read-index-default-mode");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var configStore = new UcliConfigStore();
+        var configStore = new UcliConfigStore(UcliConfigCompiler.CreateDefault());
         var configPath = configStore.GetConfigPath(unityProjectPath);
         var relativeConfigPath = Path.GetRelativePath(scope.FullPath, configPath);
         var invalidConfigJson = JsonSerializer.Serialize(
@@ -270,7 +270,7 @@ public sealed class UcliConfigStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-config-store", "invalid-ipc-timeout-load");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var configStore = new UcliConfigStore();
+        var configStore = new UcliConfigStore(UcliConfigCompiler.CreateDefault());
         var configPath = configStore.GetConfigPath(unityProjectPath);
         var relativeConfigPath = Path.GetRelativePath(scope.FullPath, configPath);
         var invalidConfigJson = JsonSerializer.Serialize(
@@ -300,7 +300,7 @@ public sealed class UcliConfigStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-config-store", "missing-ipc-timeout-by-command");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var configStore = new UcliConfigStore();
+        var configStore = new UcliConfigStore(UcliConfigCompiler.CreateDefault());
         var configPath = configStore.GetConfigPath(unityProjectPath);
         var relativeConfigPath = Path.GetRelativePath(scope.FullPath, configPath);
         var configJson = JsonSerializer.Serialize(
@@ -328,7 +328,7 @@ public sealed class UcliConfigStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-config-store", "invalid-ipc-timeout-save");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var configStore = new UcliConfigStore();
+        var configStore = new UcliConfigStore(UcliConfigCompiler.CreateDefault());
         var invalidConfig = new UcliConfig(
             SchemaVersion: UcliContractConstants.Config.SchemaVersion,
             OperationPolicy: OperationPolicy.Safe,
@@ -356,7 +356,7 @@ public sealed class UcliConfigStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-config-store", "empty-ipc-timeout-by-command");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var configStore = new UcliConfigStore();
+        var configStore = new UcliConfigStore(UcliConfigCompiler.CreateDefault());
         var configPath = configStore.GetConfigPath(unityProjectPath);
         var relativeConfigPath = Path.GetRelativePath(scope.FullPath, configPath);
         var configJson = JsonSerializer.Serialize(
@@ -385,7 +385,7 @@ public sealed class UcliConfigStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-config-store", "unsupported-ipc-timeout-command");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var configStore = new UcliConfigStore();
+        var configStore = new UcliConfigStore(UcliConfigCompiler.CreateDefault());
         var configPath = configStore.GetConfigPath(unityProjectPath);
         var relativeConfigPath = Path.GetRelativePath(scope.FullPath, configPath);
         var invalidConfigJson = JsonSerializer.Serialize(
@@ -420,7 +420,7 @@ public sealed class UcliConfigStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-config-store", "invalid-ipc-timeout-by-command-save");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var configStore = new UcliConfigStore();
+        var configStore = new UcliConfigStore(UcliConfigCompiler.CreateDefault());
         var invalidConfig = new UcliConfig(
             SchemaVersion: UcliContractConstants.Config.SchemaVersion,
             OperationPolicy: OperationPolicy.Safe,
@@ -452,7 +452,7 @@ public sealed class UcliConfigStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-config-store", "unsupported-ipc-timeout-command-save");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var configStore = new UcliConfigStore();
+        var configStore = new UcliConfigStore(UcliConfigCompiler.CreateDefault());
         var invalidConfig = new UcliConfig(
             SchemaVersion: UcliContractConstants.Config.SchemaVersion,
             OperationPolicy: OperationPolicy.Safe,
@@ -485,7 +485,7 @@ public sealed class UcliConfigStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-config-store", "multiple-save-diagnostics");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var configStore = new UcliConfigStore();
+        var configStore = new UcliConfigStore(UcliConfigCompiler.CreateDefault());
         var invalidConfig = new UcliConfig(
             SchemaVersion: 2,
             OperationPolicy: (OperationPolicy)999,
@@ -526,7 +526,7 @@ public sealed class UcliConfigStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-config-store", "unknown-property");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var configStore = new UcliConfigStore();
+        var configStore = new UcliConfigStore(UcliConfigCompiler.CreateDefault());
         var configPath = configStore.GetConfigPath(unityProjectPath);
         var relativeConfigPath = Path.GetRelativePath(scope.FullPath, configPath);
         var invalidConfigJson = JsonSerializer.Serialize(

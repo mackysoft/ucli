@@ -37,7 +37,7 @@ public sealed class ProjectContextResolverTests
     {
         using var scope = TestDirectories.CreateTempScope("init-status-context-resolver", "file-config");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var configStore = new UcliConfigStore();
+        var configStore = new UcliConfigStore(UcliConfigCompiler.CreateDefault());
         var saveResult = await configStore.SaveAsync(
             unityProjectPath,
             new UcliConfig(
@@ -89,7 +89,7 @@ public sealed class ProjectContextResolverTests
     {
         using var scope = TestDirectories.CreateTempScope("init-status-context-resolver", "invalid-config");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var configStore = new UcliConfigStore();
+        var configStore = new UcliConfigStore(UcliConfigCompiler.CreateDefault());
         var configPath = configStore.GetConfigPath(unityProjectPath);
         var relativeConfigPath = Path.GetRelativePath(scope.FullPath, configPath);
         scope.WriteFile(relativeConfigPath, "{");
@@ -131,6 +131,6 @@ public sealed class ProjectContextResolverTests
             new ProjectPathInputResolver(new StubEnvironmentVariableReader(
                 environmentVariables ?? new Dictionary<string, string?>(StringComparer.Ordinal))),
             new UnityProjectResolver(),
-            configStore ?? new UcliConfigStore());
+            configStore ?? new UcliConfigStore(UcliConfigCompiler.CreateDefault()));
     }
 }

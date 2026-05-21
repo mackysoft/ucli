@@ -1,6 +1,9 @@
 using System;
+using MackySoft.Ucli.Unity.Execution.CsEval;
 using MackySoft.Ucli.Unity.Execution.Dispatch;
 using MackySoft.Ucli.Unity.Execution.Phases;
+using MackySoft.Ucli.Unity.Execution.PlanToken;
+using MackySoft.Ucli.Unity.Execution.RequestIdempotency;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using MackySoft.Ucli.Unity.Runtime;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,23 +23,46 @@ namespace MackySoft.Ucli.Unity.Execution
                 throw new ArgumentNullException(nameof(services));
             }
 
-            services.AddSingleton(static _ => UcliOperationCatalogSnapshotBuilder.Build());
-            services.AddSingleton<IExecuteRequestDispatcher>(serviceProvider => CreateExecuteRequestDispatcher(
-                serviceProvider.GetRequiredService<UcliOperationCatalogSnapshot>(),
-                serviceProvider.GetRequiredService<IUnityEditorReadinessGate>(),
-                serviceProvider.GetRequiredService<IUnityMainThreadRequestExecutor>()));
+            services.AddUnityOperationServices();
+            services.AddSingleton(static serviceProvider => UcliOperationCatalogSnapshotBuilder.Build(serviceProvider));
+            services.AddSingleton<IPhaseOperationRegistry>(serviceProvider => new InMemoryPhaseOperationRegistry(
+                serviceProvider.GetRequiredService<UcliOperationCatalogSnapshot>().Registrations));
+            services.AddSingleton<OperationPlanStepRunner>();
+            services.AddSingleton<ExecuteRequestCompiler>();
+            services.AddSingleton<IOperationPlanPassExecutor, OperationPlanPassExecutor>();
+            services.AddSingleton<IOperationCallPassExecutor, OperationCallPassExecutor>();
+            services.AddSingleton<IPlanTokenEnvironment, DefaultPlanTokenEnvironment>();
+            services.AddSingleton<IPlanTokenCoordinator, PlanTokenCoordinator>();
+            services.AddSingleton<IDangerousOperationCallAuthorizer, DangerousOperationCallAuthorizer>();
+            services.AddSingleton<IOperationPhaseExecutor, OperationPhaseExecutor>();
+            services.AddSingleton<IExecuteRequestNormalizer, ExecuteRequestNormalizer>();
+            services.AddSingleton<IExecuteRequestIdempotencyStore>(static _ => new InMemoryExecuteRequestIdempotencyStore(
+                ExecuteRequestIdempotencyCoordinator.DefaultCacheTtl,
+                ExecuteRequestIdempotencyCoordinator.DefaultMaxEntries,
+                static () => DateTimeOffset.UtcNow));
+            services.AddSingleton<IExecuteRequestIdempotencyCoordinator, ExecuteRequestIdempotencyCoordinator>();
+            services.AddSingleton<IExecuteRequestDispatcher, ExecuteRequestDispatcher>();
             return services;
         }
 
-        private static IExecuteRequestDispatcher CreateExecuteRequestDispatcher (
-            UcliOperationCatalogSnapshot snapshot,
-            IUnityEditorReadinessGate readinessGate,
-            IUnityMainThreadRequestExecutor mainThreadRequestExecutor)
+        /// <summary> Registers built-in operation dependencies used by operation discovery. </summary>
+        /// <param name="services"> The target service collection. </param>
+        /// <returns> The updated service collection. </returns>
+        internal static IServiceCollection AddUnityOperationServices (this IServiceCollection services)
         {
-            var normalizer = new ExecuteRequestNormalizer();
-            var operationRegistry = new InMemoryPhaseOperationRegistry(snapshot.Registrations);
-            var phaseExecutor = new OperationPhaseExecutor(operationRegistry);
-            return new ExecuteRequestDispatcher(normalizer, phaseExecutor, readinessGate, mainThreadRequestExecutor);
+            if (services == null)
+            {
+                throw new ArgumentNullException(nameof(services));
+            }
+
+            services.AddSingleton<CsEvalReferenceResolver>();
+            services.AddSingleton<CsEvalEntryPointSymbolValidator>();
+            services.AddSingleton<CsEvalSourcePreparer>();
+            services.AddSingleton<CsEvalCompilationService>();
+            services.AddSingleton<CsEvalEntryPointReflectionResolver>();
+            services.AddSingleton<CsEvalReturnValueSerializer>();
+            services.AddSingleton<CsEvalOperation>();
+            return services;
         }
     }
 }

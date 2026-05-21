@@ -1,5 +1,7 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests.Schemas;
 
@@ -70,6 +72,12 @@ public sealed class CliOutputSchemaArtifactTests
         AssertSchemaValid(
             schemaSet.Validate(payloadSchemaPath!, root.GetProperty("payload"), "$.payload"),
             repositoryRelativeGoldenPath);
+
+        if (string.Equals(command, UcliCommandIds.OpsDescribe.Name, StringComparison.Ordinal)
+            && root.GetProperty("payload").TryGetProperty("operation", out var operation))
+        {
+            AssertOpsDescribeSchemasUseSupportedSubset(operation);
+        }
     }
 
     [Theory]
@@ -311,6 +319,91 @@ public sealed class CliOutputSchemaArtifactTests
         Assert.NotEmpty(errors);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void OpsDescribePayloadSchema_RestrictsPublicPlanModeEnum ()
+    {
+        var schemaPath = Path.Combine(
+            RepositoryRoot,
+            "schemas",
+            "v1",
+            "cli-output",
+            "payload",
+            "ops.describe.schema.json");
+
+        var schemaText = File.ReadAllText(schemaPath);
+        Assert.DoesNotContain("mayCreatePreviewState", schemaText, StringComparison.Ordinal);
+
+        using var document = JsonDocument.Parse(schemaText);
+        var planModeEnum = document.RootElement
+            .GetProperty("properties")
+            .GetProperty("operation")
+            .GetProperty("properties")
+            .GetProperty("assurance")
+            .GetProperty("properties")
+            .GetProperty("planMode")
+            .GetProperty("enum")
+            .EnumerateArray()
+            .Select(static value => value.GetString())
+            .ToArray();
+
+        Assert.Contains("validationOnly", planModeEnum);
+        Assert.Contains("observesLiveUnity", planModeEnum);
+        Assert.DoesNotContain("mayCreatePreviewState", planModeEnum);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void OpsDescribePayloadSchema_AcceptsVariantInputsAndClosedConstraintParameters ()
+    {
+        using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
+        using var document = JsonDocument.Parse(CreateOpsDescribePayload());
+
+        var errors = schemaSet.Validate(
+            "cli-output/payload/ops.describe.schema.json",
+            document.RootElement);
+
+        Assert.Empty(errors);
+    }
+
+    [Theory]
+    [MemberData(nameof(GetInvalidOpsDescribePayloadCases))]
+    [Trait("Size", "Small")]
+    public void OpsDescribePayloadSchema_RejectsNonPublicFreezeFields (
+        string caseName,
+        string payloadJson)
+    {
+        using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
+        using var document = JsonDocument.Parse(payloadJson);
+
+        var errors = schemaSet.Validate(
+            "cli-output/payload/ops.describe.schema.json",
+            document.RootElement);
+
+        Assert.True(errors.Count > 0, caseName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void OpsDescribePayloadSchema_AcceptsDocumentedFullExamples ()
+    {
+        using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
+        var examples = ReadOpsDescribeDocumentationPayloadExamples();
+
+        Assert.NotEmpty(examples);
+        foreach (var example in examples)
+        {
+            using var document = JsonDocument.Parse(example);
+
+            var errors = schemaSet.Validate(
+                "cli-output/payload/ops.describe.schema.json",
+                document.RootElement);
+
+            Assert.Empty(errors);
+            AssertOpsDescribeSchemasUseSupportedSubset(document.RootElement.GetProperty("operation"));
+        }
+    }
+
     public static IEnumerable<object[]> GetCliOutputGoldenFiles ()
     {
         var goldenRoot = Path.Combine(RepositoryRoot, "tests", "Ucli.Tests", "GoldenFiles", "Json", "CliOutput");
@@ -368,6 +461,80 @@ public sealed class CliOutputSchemaArtifactTests
         };
     }
 
+    public static IEnumerable<object[]> GetInvalidOpsDescribePayloadCases ()
+    {
+        yield return new object[]
+        {
+            "public planMode must not allow preview state",
+            CreateOpsDescribePayload(planMode: "mayCreatePreviewState"),
+        };
+        yield return new object[]
+        {
+            "policyDerivation must not be public",
+            CreateOpsDescribePayload(operationExtra: ",\"policyDerivation\":{}"),
+        };
+        yield return new object[]
+        {
+            "policyRestriction must not be public",
+            CreateOpsDescribePayload(operationExtra: ",\"policyRestriction\":\"advancedByOverride\""),
+        };
+        yield return new object[]
+        {
+            "exposure must not be public",
+            CreateOpsDescribePayload(operationExtra: ",\"exposure\":\"public\""),
+        };
+        yield return new object[]
+        {
+            "policyReason must not be public",
+            CreateOpsDescribePayload(operationExtra: ",\"policyReason\":\"exposureNotPublic\""),
+        };
+        yield return new object[]
+        {
+            "unknown constraint parameter must not be public",
+            CreateOpsDescribePayload(constraintExtra: ",\"unknownParameter\":true"),
+        };
+        yield return new object[]
+        {
+            "asset constraint must require assetKind",
+            CreateOpsDescribePayload(targetConstraintJson: """{"kind":"assetExists"}"""),
+        };
+        yield return new object[]
+        {
+            "nonEmpty constraint must not allow range parameter",
+            CreateOpsDescribePayload(targetConstraintJson: """{"kind":"nonEmpty","min":1}"""),
+        };
+        yield return new object[]
+        {
+            "range constraint must require a bound",
+            CreateOpsDescribePayload(targetConstraintJson: """{"kind":"range"}"""),
+        };
+        yield return new object[]
+        {
+            "cursor constraint must not allow serialized property access",
+            CreateOpsDescribePayload(targetConstraintJson: """{"kind":"cursor","access":"write"}"""),
+        };
+        yield return new object[]
+        {
+            "input argsPath must not expose request-local alias root branch",
+            CreateOpsDescribePayload(inputArgsPath: $"$.{UcliOperationContractPropertyNames.Alias}"),
+        };
+        yield return new object[]
+        {
+            "input argsPath must not expose request-local alias nested branch",
+            CreateOpsDescribePayload(inputArgsPath: $"$.target.{UcliOperationContractPropertyNames.Alias}"),
+        };
+        yield return new object[]
+        {
+            "variant field argsPath must not expose request-local alias branch",
+            CreateOpsDescribePayload(fieldArgsPath: $"$.target.{UcliOperationContractPropertyNames.Alias}"),
+        };
+        yield return new object[]
+        {
+            "variant field argsPath must use uCLI args path syntax",
+            CreateOpsDescribePayload(fieldArgsPath: "$.target[0].globalObjectId"),
+        };
+    }
+
     private static void AssertSchemaValid (
         IReadOnlyList<string> errors,
         string repositoryRelativeGoldenPath)
@@ -375,6 +542,173 @@ public sealed class CliOutputSchemaArtifactTests
         Assert.True(
             errors.Count == 0,
             $"Schema validation failed for {repositoryRelativeGoldenPath}:{Environment.NewLine}{string.Join(Environment.NewLine, errors)}");
+    }
+
+    private static string CreateOpsDescribePayload (
+        string planMode = "observesLiveUnity",
+        string operationExtra = "",
+        string constraintExtra = "",
+        string? targetConstraintJson = null,
+        string inputArgsPath = "$.target",
+        string fieldArgsPath = "$.target.globalObjectId")
+    {
+        targetConstraintJson ??= $$"""{"kind":"referenceResolvable","targetKind":"gameObject"{{constraintExtra}}}""";
+
+        return $$"""
+            {
+              "operation": {
+                "name": "ucli.go.describe",
+                "kind": "query",
+                "policy": "safe",
+                "description": "Returns a GameObject description including components and child hierarchy.",
+                "inputs": [
+                  {
+                    "name": "target",
+                    "description": "Target GameObject reference.",
+                    "valueType": "object",
+                    "constraints": [
+                      {{targetConstraintJson}}
+                    ],
+                    "argsPath": "{{inputArgsPath}}",
+                    "variants": [
+                      {
+                        "name": "byGlobalObjectId",
+                        "description": "Use resolved Unity GlobalObjectId.",
+                        "fields": [
+                          {
+                            "name": "globalObjectId",
+                            "argsPath": "{{fieldArgsPath}}",
+                            "description": "Resolved Unity GlobalObjectId.",
+                            "constraints": [
+                              {
+                                "kind": "globalObjectId"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "name": "bySceneHierarchyPath",
+                        "description": "Use Scene asset path for a hierarchy selector and Unity hierarchy path inside the selected scene or prefab.",
+                        "fields": [
+                          {
+                            "name": "scene",
+                            "argsPath": "$.target.scene",
+                            "description": "Scene asset path for a hierarchy selector.",
+                            "constraints": [
+                              {
+                                "kind": "assetExists",
+                                "assetKind": "scene"
+                              }
+                            ]
+                          },
+                          {
+                            "name": "hierarchyPath",
+                            "argsPath": "$.target.hierarchyPath",
+                            "description": "Unity hierarchy path inside the selected scene or prefab.",
+                            "constraints": [
+                              {
+                                "kind": "hierarchyPath"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "depth",
+                    "description": "Maximum child hierarchy depth to include; null means unbounded.",
+                    "valueType": "integer",
+                    "constraints": [
+                      {
+                        "kind": "range",
+                        "min": 0
+                      }
+                    ]
+                  }
+                ],
+                "resultContract": {
+                  "emitted": true,
+                  "resultType": "GameObjectDescriptionResult",
+                  "description": "GameObject describe operation result."
+                },
+                "assurance": {
+                  "sideEffects": [
+                    "observesUnityState"
+                  ],
+                  "mayDirty": false,
+                  "mayPersist": false,
+                  "touchedKinds": [],
+                  "planMode": "{{planMode}}",
+                  "planSemantics": "Validate arguments and observe Unity state without applying mutation.",
+                  "callSemantics": "Read Unity state without applying mutation.",
+                  "touchedContract": "Returns no touched resources.",
+                  "readPostconditionContract": "Does not stale read surfaces by itself.",
+                  "failureSemantics": "Failure means the observation was not fully produced.",
+                  "dangerousNotes": []
+                },
+                "argsSchema": {
+                  "type": "object"
+                },
+                "resultSchema": {
+                  "type": "object"
+                }{{operationExtra}}
+              },
+              "readIndex": {
+                "used": true,
+                "hit": true,
+                "source": "index",
+                "freshness": "fresh",
+                "generatedAtUtc": "2026-05-03T00:00:00Z",
+                "fallbackReason": null
+              }
+            }
+            """;
+    }
+
+    private static void AssertOpsDescribeSchemasUseSupportedSubset (JsonElement operation)
+    {
+        Assert.True(
+            IndexJsonSchemaSubsetValidator.IsValidPublicRawOpArgsSchema(operation.GetProperty("argsSchema").GetRawText()),
+            "Documented ops describe argsSchema must use the uCLI-supported public raw op schema subset.");
+
+        var resultSchema = operation.GetProperty("resultSchema");
+        if (resultSchema.ValueKind == JsonValueKind.Null)
+        {
+            return;
+        }
+
+        Assert.True(
+            IndexJsonSchemaSubsetValidator.IsValidObjectSchema(resultSchema.GetRawText()),
+            "Documented ops describe resultSchema must use the uCLI-supported schema subset.");
+    }
+
+    private static IReadOnlyList<string> ReadOpsDescribeDocumentationPayloadExamples ()
+    {
+        var propertyReferencePath = Path.Combine(RepositoryRoot, "docs", "uCLI-property-reference.md");
+        var text = File.ReadAllText(propertyReferencePath);
+        var examples = new List<string>();
+        foreach (Match match in Regex.Matches(text, "```json\\s*(?<json>.*?)\\s*```", RegexOptions.Singleline))
+        {
+            var json = match.Groups["json"].Value.Trim();
+            if (!json.Contains("\"operation\"", StringComparison.Ordinal)
+                || !json.Contains("\"readIndex\"", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            if (root.ValueKind == JsonValueKind.Object
+                && root.TryGetProperty("operation", out _)
+                && root.TryGetProperty("readIndex", out _))
+            {
+                examples.Add(json);
+            }
+        }
+
+        return examples;
     }
 
     private static string FindRepositoryRoot ()
