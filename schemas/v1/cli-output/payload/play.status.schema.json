@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/play.status.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "serverVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "editorMode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "unityVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "projectFingerprint": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lifecycleState": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "blockingReason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "compileState": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "compileGeneration": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "domainReloadGeneration": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "canAcceptExecutionRequests": {
+          "type": "boolean"
+        },
+        "observedAtUtc": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actionRequired": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "primaryDiagnostic": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "playMode": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "stopped",
+                    "entering",
+                    "playing",
+                    "exiting",
+                    "unknown"
+                  ]
+                },
+                "transition": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "entering",
+                    "exiting"
+                  ]
+                },
+                "isPlaying": {
+                  "type": "boolean"
+                },
+                "isPlayingOrWillChangePlaymode": {
+                  "type": "boolean"
+                },
+                "generation": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "state",
+                "transition",
+                "isPlaying",
+                "isPlayingOrWillChangePlaymode",
+                "generation"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "serverVersion",
+        "editorMode",
+        "unityVersion",
+        "projectFingerprint",
+        "lifecycleState",
+        "blockingReason",
+        "compileState",
+        "compileGeneration",
+        "domainReloadGeneration",
+        "canAcceptExecutionRequests",
+        "observedAtUtc",
+        "actionRequired",
+        "primaryDiagnostic",
+        "playMode"
+      ]
+    },
+    "timeoutMilliseconds": {
+      "type": "integer"
+    }
+  }
+}
