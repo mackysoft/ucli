@@ -3,11 +3,11 @@ name: package-publish
 on:
   push:
     tags:
-      - release/*
+      - "[0-9]*.[0-9]*.[0-9]*"
   workflow_dispatch:
     inputs:
-      package_version:
-        description: "SemVer package version (e.g. 1.2.3)"
+      release_tag:
+        description: "Release tag without prefix (e.g. 1.2.3)"
         required: true
         type: string
 
@@ -49,8 +49,8 @@ jobs:
         id: version
         shell: bash
         env:
-          DISPATCH_VERSION: ${{ github.event.inputs.package_version }}
-        run: ./scripts/resolve-release-version.sh --tag-prefix release --dispatch-version "${DISPATCH_VERSION}"
+          DISPATCH_TAG: ${{ github.event.inputs.release_tag }}
+        run: ./scripts/resolve-release-version.sh --dispatch-tag "${DISPATCH_TAG}"
 
       - name: Validate release source
         id: source
