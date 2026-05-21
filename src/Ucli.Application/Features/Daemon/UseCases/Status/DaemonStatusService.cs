@@ -119,18 +119,7 @@ internal sealed class DaemonStatusService : IDaemonStatusService
                 $"Daemon status returned unsupported status: {statusResult.Status}."));
         }
 
-        var daemonStatus = statusResult.Status;
-        var serverVersion = (string?)null;
-        var editorMode = (string?)null;
-        var lifecycleState = (string?)null;
-        var blockingReason = (string?)null;
-        var compileState = (string?)null;
-        var compileGeneration = (string?)null;
-        var domainReloadGeneration = (string?)null;
-        var observedAtUtc = (DateTimeOffset?)null;
-        var actionRequired = (string?)null;
-        var primaryDiagnostic = (DaemonPrimaryDiagnosticOutput?)null;
-        var canAcceptExecutionRequests = false;
+        var daemonObservation = StatusDaemonObservationCodec.CreateWithoutPing(statusResult.Status);
         var persistedDiagnosis = statusResult.Diagnosis;
         var diagnosis = statusResult.Status == DaemonStatusKind.Running
             ? null
@@ -143,21 +132,8 @@ internal sealed class DaemonStatusService : IDaemonStatusService
                     statusResult.Session,
                     cancellationToken)
                 .ConfigureAwait(false);
-            daemonStatus = unreachableObservation.DaemonStatus;
-            ApplyObservation(
-                unreachableObservation,
-                ref serverVersion,
-                ref editorMode,
-                ref lifecycleState,
-                ref blockingReason,
-                ref compileState,
-                ref compileGeneration,
-                ref domainReloadGeneration,
-                ref observedAtUtc,
-                ref actionRequired,
-                ref primaryDiagnostic,
-                ref canAcceptExecutionRequests);
-            diagnosis = daemonStatus == DaemonStatusKind.Running
+            daemonObservation = unreachableObservation;
+            diagnosis = daemonObservation.DaemonStatus == DaemonStatusKind.Running
                 ? null
                 : diagnosis;
         }
@@ -184,20 +160,7 @@ internal sealed class DaemonStatusService : IDaemonStatusService
                         statusResult.Session.SessionToken,
                         cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
-                var observation = StatusDaemonObservationCodec.CreateFromPing(statusResult.Status, pingResponse);
-                ApplyObservation(
-                    observation,
-                    ref serverVersion,
-                    ref editorMode,
-                    ref lifecycleState,
-                    ref blockingReason,
-                    ref compileState,
-                    ref compileGeneration,
-                    ref domainReloadGeneration,
-                    ref observedAtUtc,
-                    ref actionRequired,
-                    ref primaryDiagnostic,
-                    ref canAcceptExecutionRequests);
+                daemonObservation = StatusDaemonObservationCodec.CreateFromPing(statusResult.Status, pingResponse);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -217,20 +180,7 @@ internal sealed class DaemonStatusService : IDaemonStatusService
                     return DaemonStatusExecutionResult.Failure(unreachableResolution.Error!);
                 }
 
-                daemonStatus = unreachableResolution.Observation!.DaemonStatus;
-                ApplyObservation(
-                    unreachableResolution.Observation,
-                    ref serverVersion,
-                    ref editorMode,
-                    ref lifecycleState,
-                    ref blockingReason,
-                    ref compileState,
-                    ref compileGeneration,
-                    ref domainReloadGeneration,
-                    ref observedAtUtc,
-                    ref actionRequired,
-                    ref primaryDiagnostic,
-                    ref canAcceptExecutionRequests);
+                daemonObservation = unreachableResolution.Observation!;
                 diagnosis = unreachableResolution.Diagnosis;
             }
             catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
@@ -247,20 +197,7 @@ internal sealed class DaemonStatusService : IDaemonStatusService
                     return DaemonStatusExecutionResult.Failure(unreachableResolution.Error!);
                 }
 
-                daemonStatus = unreachableResolution.Observation!.DaemonStatus;
-                ApplyObservation(
-                    unreachableResolution.Observation,
-                    ref serverVersion,
-                    ref editorMode,
-                    ref lifecycleState,
-                    ref blockingReason,
-                    ref compileState,
-                    ref compileGeneration,
-                    ref domainReloadGeneration,
-                    ref observedAtUtc,
-                    ref actionRequired,
-                    ref primaryDiagnostic,
-                    ref canAcceptExecutionRequests);
+                daemonObservation = unreachableResolution.Observation!;
                 diagnosis = unreachableResolution.Diagnosis;
             }
             catch (Exception exception)
@@ -271,15 +208,15 @@ internal sealed class DaemonStatusService : IDaemonStatusService
         }
 
         var output = new DaemonStatusExecutionOutput(
-            DaemonStatus: daemonStatus,
-            ServerVersion: serverVersion,
-            EditorMode: editorMode,
-            LifecycleState: lifecycleState,
-            BlockingReason: blockingReason,
-            CompileState: compileState,
-            CompileGeneration: compileGeneration,
-            DomainReloadGeneration: domainReloadGeneration,
-            CanAcceptExecutionRequests: canAcceptExecutionRequests,
+            DaemonStatus: daemonObservation.DaemonStatus,
+            ServerVersion: daemonObservation.ServerVersion,
+            EditorMode: daemonObservation.EditorMode,
+            LifecycleState: daemonObservation.LifecycleState,
+            BlockingReason: daemonObservation.BlockingReason,
+            CompileState: daemonObservation.CompileState,
+            CompileGeneration: daemonObservation.CompileGeneration,
+            DomainReloadGeneration: daemonObservation.DomainReloadGeneration,
+            CanAcceptExecutionRequests: daemonObservation.CanAcceptExecutionRequests,
             TimeoutMilliseconds: checked((int)executionContext.Timeout.TotalMilliseconds),
             Session: statusResult.Session is null
                 ? null
@@ -290,9 +227,10 @@ internal sealed class DaemonStatusService : IDaemonStatusService
             LastLaunchAttempt: statusResult.LastLaunchAttempt is null || statusResult.Session is not null
                 ? null
                 : ToLaunchAttemptOutput(statusResult.LastLaunchAttempt),
-            ObservedAtUtc: observedAtUtc,
-            ActionRequired: actionRequired,
-            PrimaryDiagnostic: primaryDiagnostic);
+            ObservedAtUtc: daemonObservation.ObservedAtUtc,
+            ActionRequired: daemonObservation.ActionRequired,
+            PrimaryDiagnostic: daemonObservation.PrimaryDiagnostic,
+            PlayMode: daemonObservation.PlayMode);
         return DaemonStatusExecutionResult.Success(output);
     }
 
@@ -401,33 +339,6 @@ internal sealed class DaemonStatusService : IDaemonStatusService
 
         return processIdentityAssessor.AssessByProcessId(processId, session.ProcessStartedAtUtc).Status
             == DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess;
-    }
-
-    private static void ApplyObservation (
-        StatusDaemonObservation observation,
-        ref string? serverVersion,
-        ref string? editorMode,
-        ref string? lifecycleState,
-        ref string? blockingReason,
-        ref string? compileState,
-        ref string? compileGeneration,
-        ref string? domainReloadGeneration,
-        ref DateTimeOffset? observedAtUtc,
-        ref string? actionRequired,
-        ref DaemonPrimaryDiagnosticOutput? primaryDiagnostic,
-        ref bool canAcceptExecutionRequests)
-    {
-        serverVersion = observation.ServerVersion;
-        editorMode = observation.EditorMode;
-        lifecycleState = observation.LifecycleState;
-        blockingReason = observation.BlockingReason;
-        compileState = observation.CompileState;
-        compileGeneration = observation.CompileGeneration;
-        domainReloadGeneration = observation.DomainReloadGeneration;
-        observedAtUtc = observation.ObservedAtUtc;
-        actionRequired = observation.ActionRequired;
-        primaryDiagnostic = observation.PrimaryDiagnostic;
-        canAcceptExecutionRequests = observation.CanAcceptExecutionRequests;
     }
 
     private static bool IsSupportedDaemonStatus (DaemonStatusKind status)

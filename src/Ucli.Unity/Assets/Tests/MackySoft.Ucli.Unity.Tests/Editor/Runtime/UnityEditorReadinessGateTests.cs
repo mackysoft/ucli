@@ -255,7 +255,139 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Playmode));
             Assert.That(snapshot.BlockingReason, Is.EqualTo(IpcEditorBlockingReasonCodec.PlayMode));
             Assert.That(snapshot.CanAcceptExecutionRequests, Is.False);
+            Assert.That(snapshot.PlayMode, Is.Not.Null);
+            Assert.That(snapshot.PlayMode.State, Is.EqualTo(IpcPlayModeStateNames.Playing));
+            Assert.That(snapshot.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransitionNames.None));
+            Assert.That(snapshot.PlayMode.IsPlaying, Is.True);
+            Assert.That(snapshot.PlayMode.IsPlayingOrWillChangePlaymode, Is.True);
         });
+
+        [Test]
+        [Category("Size.Small")]
+        public void CaptureSnapshot_WhenBatchmodeIsStopped_ReturnsStoppedPlayModeSnapshot ()
+        {
+            var gate = CreateGate(
+                compileGeneration: 4,
+                domainReloadGeneration: 9,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false,
+                isPlaymodeActive: false,
+                out _);
+
+            var snapshot = gate.CaptureSnapshot();
+
+            Assert.That(snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Ready));
+            Assert.That(snapshot.PlayMode, Is.Not.Null);
+            Assert.That(snapshot.PlayMode.State, Is.EqualTo(IpcPlayModeStateNames.Stopped));
+            Assert.That(snapshot.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransitionNames.None));
+            Assert.That(snapshot.PlayMode.IsPlaying, Is.False);
+            Assert.That(snapshot.PlayMode.IsPlayingOrWillChangePlaymode, Is.False);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void CaptureSnapshot_WhenPlayModeChangeIsPending_ReturnsPlaymodeEnteringSnapshot ()
+        {
+            var monitor = CreateMonitor(
+                isPlaying: false,
+                isPlayingOrWillChangePlaymode: true);
+
+            var snapshot = monitor.CaptureSnapshot(DaemonEditorMode.Batchmode);
+
+            Assert.That(snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Playmode));
+            Assert.That(snapshot.BlockingReason, Is.EqualTo(IpcEditorBlockingReasonCodec.PlayMode));
+            Assert.That(snapshot.CanAcceptExecutionRequests, Is.False);
+            Assert.That(snapshot.PlayMode.State, Is.EqualTo(IpcPlayModeStateNames.Entering));
+            Assert.That(snapshot.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransitionNames.None));
+            Assert.That(snapshot.PlayMode.IsPlaying, Is.False);
+            Assert.That(snapshot.PlayMode.IsPlayingOrWillChangePlaymode, Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void CaptureSnapshot_WhenPlayModeFlagsAreInconsistent_ReturnsPlaymodeWithUnknownPlayModeState ()
+        {
+            var monitor = CreateMonitor(
+                isPlaying: true,
+                isPlayingOrWillChangePlaymode: false);
+
+            var snapshot = monitor.CaptureSnapshot(DaemonEditorMode.Batchmode);
+
+            Assert.That(snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Playmode));
+            Assert.That(snapshot.BlockingReason, Is.EqualTo(IpcEditorBlockingReasonCodec.PlayMode));
+            Assert.That(snapshot.CanAcceptExecutionRequests, Is.False);
+            Assert.That(snapshot.PlayMode.State, Is.EqualTo(IpcPlayModeStateNames.Unknown));
+            Assert.That(snapshot.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransitionNames.None));
+            Assert.That(snapshot.PlayMode.IsPlaying, Is.True);
+            Assert.That(snapshot.PlayMode.IsPlayingOrWillChangePlaymode, Is.False);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void CapturePlayModeSnapshot_WhenTransitionCallbacksAreObserved_ReturnsTransitionStatesWithoutAdvancingGeneration ()
+        {
+            UnityEditorPlayModeGenerationStore.SetPersistedValue(40);
+            var telemetryState = new UnityEditorLifecycleTelemetryState(
+                compileGeneration: 1,
+                domainReloadGeneration: 1,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false,
+                playModeGeneration: 40);
+
+            telemetryState.OnPlayModeStateChanged(PlayModeStateChange.ExitingEditMode);
+            var entering = telemetryState.CapturePlayModeSnapshot(
+                isPlaying: false,
+                isPlayingOrWillChangePlaymode: true);
+            telemetryState.OnPlayModeStateChanged(PlayModeStateChange.ExitingPlayMode);
+            var exiting = telemetryState.CapturePlayModeSnapshot(
+                isPlaying: true,
+                isPlayingOrWillChangePlaymode: true);
+
+            Assert.That(entering.State, Is.EqualTo(IpcPlayModeStateNames.Entering));
+            Assert.That(entering.Transition, Is.EqualTo(IpcPlayModeTransitionNames.Entering));
+            Assert.That(entering.Generation, Is.EqualTo("40"));
+            Assert.That(exiting.State, Is.EqualTo(IpcPlayModeStateNames.Exiting));
+            Assert.That(exiting.Transition, Is.EqualTo(IpcPlayModeTransitionNames.Exiting));
+            Assert.That(exiting.Generation, Is.EqualTo("40"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void CapturePlayModeSnapshot_WhenEnterAndExitComplete_AdvancesGeneration ()
+        {
+            UnityEditorPlayModeGenerationStore.SetPersistedValue(100);
+            var telemetryState = new UnityEditorLifecycleTelemetryState(
+                compileGeneration: 1,
+                domainReloadGeneration: 1,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false,
+                playModeGeneration: 100);
+
+            var before = telemetryState.CapturePlayModeSnapshot(
+                isPlaying: false,
+                isPlayingOrWillChangePlaymode: false);
+            telemetryState.OnPlayModeStateChanged(PlayModeStateChange.ExitingEditMode);
+            telemetryState.OnPlayModeStateChanged(PlayModeStateChange.EnteredPlayMode);
+            var entered = telemetryState.CapturePlayModeSnapshot(
+                isPlaying: true,
+                isPlayingOrWillChangePlaymode: true);
+            telemetryState.OnPlayModeStateChanged(PlayModeStateChange.ExitingPlayMode);
+            telemetryState.OnPlayModeStateChanged(PlayModeStateChange.EnteredEditMode);
+            var exited = telemetryState.CapturePlayModeSnapshot(
+                isPlaying: false,
+                isPlayingOrWillChangePlaymode: false);
+
+            Assert.That(before.Generation, Is.EqualTo("100"));
+            Assert.That(entered.State, Is.EqualTo(IpcPlayModeStateNames.Playing));
+            Assert.That(entered.Transition, Is.EqualTo(IpcPlayModeTransitionNames.None));
+            Assert.That(entered.Generation, Is.EqualTo("101"));
+            Assert.That(exited.State, Is.EqualTo(IpcPlayModeStateNames.Stopped));
+            Assert.That(exited.Transition, Is.EqualTo(IpcPlayModeTransitionNames.None));
+            Assert.That(exited.Generation, Is.EqualTo("102"));
+        }
 
         [UnityTest]
         [Category("Size.Small")]
@@ -614,6 +746,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     telemetryState,
                     () => isCompiling,
                     static () => false,
+                    () => isPlaymodeLifecycleActive,
                     () => isPlaymodeLifecycleActive),
                 () => isPlayModeMutationActive,
                 static _ => { },
@@ -705,6 +838,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     lifecycleTelemetryState,
                     () => probe.IsCompiling,
                     () => probe.IsUpdating,
+                    () => probe.IsPlaymodeActive,
                     () => probe.IsPlaymodeActive),
                 () => probe.IsPlaymodeActive,
                 signalBus.SubscribeBeforeAssemblyReload,
@@ -727,6 +861,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     lifecycleTelemetryState,
                     isCompilingProvider,
                     isUpdatingProvider,
+                    isPlaymodeActiveProvider,
                     isPlaymodeActiveProvider),
                 isPlaymodeActiveProvider,
                 static _ => { },
@@ -734,6 +869,25 @@ namespace MackySoft.Ucli.Unity.Tests
                 static _ => { },
                 static _ => { },
                 subscribeToEditorEvents: false);
+        }
+
+        private static UnityEditorLifecycleMonitor CreateMonitor (
+            bool isPlaying,
+            bool isPlayingOrWillChangePlaymode)
+        {
+            var lifecycleTelemetryState = new UnityEditorLifecycleTelemetryState(
+                compileGeneration: 4,
+                domainReloadGeneration: 9,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false);
+
+            return new UnityEditorLifecycleMonitor(
+                lifecycleTelemetryState,
+                static () => false,
+                static () => false,
+                () => isPlaying,
+                () => isPlayingOrWillChangePlaymode);
         }
 
         private sealed class EditorActivityProbe

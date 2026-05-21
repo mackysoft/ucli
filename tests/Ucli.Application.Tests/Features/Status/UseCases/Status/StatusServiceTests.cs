@@ -34,7 +34,13 @@ public sealed class StatusServiceTests
             BlockingReason: "busy",
             CompileGeneration: "12",
             DomainReloadGeneration: "7",
-            CanAcceptExecutionRequests: false));
+            CanAcceptExecutionRequests: false,
+            PlayMode: new IpcPlayModeSnapshot(
+                State: IpcPlayModeStateNames.Stopped,
+                Transition: IpcPlayModeTransitionNames.None,
+                IsPlaying: false,
+                IsPlayingOrWillChangePlaymode: false,
+                Generation: "2")));
         var service = CreateService(
             contextResolver,
             unityVersionResolver,
@@ -55,6 +61,12 @@ public sealed class StatusServiceTests
         Assert.Equal("7", output.DomainReloadGeneration);
         Assert.False(output.CanAcceptExecutionRequests);
         Assert.Equal("batchmode", output.EditorMode);
+        Assert.NotNull(output.PlayMode);
+        Assert.Equal(IpcPlayModeStateNames.Stopped, output.PlayMode.State);
+        Assert.Equal(IpcPlayModeTransitionNames.None, output.PlayMode.Transition);
+        Assert.False(output.PlayMode.IsPlaying);
+        Assert.False(output.PlayMode.IsPlayingOrWillChangePlaymode);
+        Assert.Equal("2", output.PlayMode.Generation);
         Assert.Equal(
             UcliConfig.CreateDefault().IpcTimeoutMillisecondsByCommand[UcliCommandIds.Status.Name],
             output.TimeoutMilliseconds);
@@ -96,6 +108,7 @@ public sealed class StatusServiceTests
         Assert.Null(output.DomainReloadGeneration);
         Assert.False(output.CanAcceptExecutionRequests);
         Assert.Null(output.EditorMode);
+        Assert.Null(output.PlayMode);
         Assert.Equal(0, daemonPingInfoClient.CallCount);
     }
 
@@ -132,6 +145,7 @@ public sealed class StatusServiceTests
         Assert.Null(output.DomainReloadGeneration);
         Assert.False(output.CanAcceptExecutionRequests);
         Assert.Null(output.EditorMode);
+        Assert.Null(output.PlayMode);
         Assert.NotNull(output.ObservedAtUtc);
         Assert.Equal(DaemonDiagnosisActionRequiredValues.InspectUnityLog, output.ActionRequired);
         Assert.Null(output.PrimaryDiagnostic);

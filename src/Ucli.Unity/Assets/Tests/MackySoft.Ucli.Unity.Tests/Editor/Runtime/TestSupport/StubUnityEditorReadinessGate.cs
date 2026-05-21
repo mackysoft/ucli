@@ -113,7 +113,22 @@ namespace MackySoft.Ucli.Unity.Tests
                 CompileState: IpcCompileStateCodec.Ready,
                 CompileGeneration: "1",
                 DomainReloadGeneration: "1",
-                CanAcceptExecutionRequests: canAcceptExecutionRequests);
+                CanAcceptExecutionRequests: canAcceptExecutionRequests,
+                PlayMode: CreatePlayModeSnapshot(lifecycleState));
+        }
+
+        private static IpcPlayModeSnapshot CreatePlayModeSnapshot (string lifecycleState)
+        {
+            var isPlaying = string.Equals(
+                lifecycleState,
+                IpcEditorLifecycleStateCodec.Playmode,
+                System.StringComparison.Ordinal);
+            return new IpcPlayModeSnapshot(
+                State: isPlaying ? IpcPlayModeStateNames.Playing : IpcPlayModeStateNames.Stopped,
+                Transition: IpcPlayModeTransitionNames.None,
+                IsPlaying: isPlaying,
+                IsPlayingOrWillChangePlaymode: isPlaying,
+                Generation: "1");
         }
     }
 }

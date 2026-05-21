@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Threading;
 using MackySoft.Ucli.Contracts.Ipc;
+using UnityEditor;
 using UnityEditor.Compilation;
 
 namespace MackySoft.Ucli.Unity.Runtime
@@ -11,6 +12,10 @@ namespace MackySoft.Ucli.Unity.Runtime
         private int compileGeneration;
 
         private int domainReloadGeneration;
+
+        private int playModeGeneration;
+
+        private string playModeTransition;
 
         private bool isDomainReloading;
 
@@ -29,6 +34,7 @@ namespace MackySoft.Ucli.Unity.Runtime
             : this(
                 compileGeneration: 0,
                 domainReloadGeneration: UnityEditorDomainReloadGenerationStore.Restore(),
+                playModeGeneration: UnityEditorPlayModeGenerationStore.Restore(),
                 isDomainReloading: false,
                 isShuttingDown: false,
                 isStartupPending: true)
@@ -41,6 +47,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <param name="isDomainReloading"> Whether domain reload is in progress. </param>
         /// <param name="isShuttingDown"> Whether editor shutdown has started. </param>
         /// <param name="isStartupPending"> Whether one startup transition still needs to be reported. </param>
+        /// <param name="playModeGeneration"> The initial Play Mode generation counter. </param>
         internal UnityEditorLifecycleTelemetryState (
             int compileGeneration,
             int domainReloadGeneration,
@@ -49,10 +56,13 @@ namespace MackySoft.Ucli.Unity.Runtime
             bool isStartupPending,
             bool isRecoveringPending = false,
             bool hasCompileFailure = false,
-            IpcPrimaryDiagnostic primaryDiagnostic = null)
+            IpcPrimaryDiagnostic primaryDiagnostic = null,
+            int? playModeGeneration = null)
         {
             this.compileGeneration = compileGeneration;
             this.domainReloadGeneration = domainReloadGeneration;
+            this.playModeGeneration = playModeGeneration ?? UnityEditorPlayModeGenerationStore.Restore();
+            playModeTransition = IpcPlayModeTransitionNames.None;
             this.isDomainReloading = isDomainReloading;
             this.isShuttingDown = isShuttingDown;
             this.isStartupPending = isStartupPending;
@@ -66,6 +76,9 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         /// <summary> Gets the current domain-reload generation counter. </summary>
         public string DomainReloadGeneration => Volatile.Read(ref domainReloadGeneration).ToString(CultureInfo.InvariantCulture);
+
+        /// <summary> Gets the current Play Mode generation counter. </summary>
+        public string PlayModeGeneration => Volatile.Read(ref playModeGeneration).ToString(CultureInfo.InvariantCulture);
 
         /// <summary> Gets a value indicating whether the latest completed script compilation failed. </summary>
         public bool HasCompileFailure => hasCompileFailure;
@@ -92,6 +105,23 @@ namespace MackySoft.Ucli.Unity.Runtime
                 hasCompileFailure,
                 isUpdating,
                 isRecoveringPending);
+        }
+
+        /// <summary> Captures the current Play Mode subsystem snapshot from observed Unity flags. </summary>
+        /// <param name="isPlaying"> Whether Unity reports active Play Mode. </param>
+        /// <param name="isPlayingOrWillChangePlaymode"> Whether Unity reports active or pending Play Mode. </param>
+        /// <returns> The current Play Mode subsystem snapshot. </returns>
+        public IpcPlayModeSnapshot CapturePlayModeSnapshot (
+            bool isPlaying,
+            bool isPlayingOrWillChangePlaymode)
+        {
+            var transition = playModeTransition;
+            return new IpcPlayModeSnapshot(
+                State: ResolvePlayModeState(transition, isPlaying, isPlayingOrWillChangePlaymode),
+                Transition: transition,
+                IsPlaying: isPlaying,
+                IsPlayingOrWillChangePlaymode: isPlayingOrWillChangePlaymode,
+                Generation: PlayModeGeneration);
         }
 
         /// <summary> Advances startup tracking after one editor update confirms no higher-priority blocking state remains. </summary>
@@ -174,6 +204,32 @@ namespace MackySoft.Ucli.Unity.Runtime
             isShuttingDown = true;
         }
 
+        /// <summary> Records a Unity Play Mode transition callback. </summary>
+        /// <param name="stateChange"> The Unity Play Mode transition callback value. </param>
+        public void OnPlayModeStateChanged (PlayModeStateChange stateChange)
+        {
+            switch (stateChange)
+            {
+                case PlayModeStateChange.ExitingEditMode:
+                    playModeTransition = IpcPlayModeTransitionNames.Entering;
+                    break;
+                case PlayModeStateChange.EnteredPlayMode:
+                    playModeTransition = IpcPlayModeTransitionNames.None;
+                    AdvancePlayModeGeneration();
+                    break;
+                case PlayModeStateChange.ExitingPlayMode:
+                    playModeTransition = IpcPlayModeTransitionNames.Exiting;
+                    break;
+                case PlayModeStateChange.EnteredEditMode:
+                    playModeTransition = IpcPlayModeTransitionNames.None;
+                    AdvancePlayModeGeneration();
+                    break;
+                default:
+                    playModeTransition = IpcPlayModeTransitionNames.None;
+                    break;
+            }
+        }
+
         /// <summary> Overrides the current domain-reload flag. </summary>
         /// <param name="value"> The next domain-reload flag. </param>
         internal void SetDomainReloading (bool value)
@@ -186,6 +242,49 @@ namespace MackySoft.Ucli.Unity.Runtime
         internal void SetShuttingDown (bool value)
         {
             isShuttingDown = value;
+        }
+
+        private static string ResolvePlayModeState (
+            string transition,
+            bool isPlaying,
+            bool isPlayingOrWillChangePlaymode)
+        {
+            return transition switch
+            {
+                IpcPlayModeTransitionNames.Entering => IpcPlayModeStateNames.Entering,
+                IpcPlayModeTransitionNames.Exiting => IpcPlayModeStateNames.Exiting,
+                IpcPlayModeTransitionNames.None => ResolveStablePlayModeState(isPlaying, isPlayingOrWillChangePlaymode),
+                _ => IpcPlayModeStateNames.Unknown,
+            };
+        }
+
+        private static string ResolveStablePlayModeState (
+            bool isPlaying,
+            bool isPlayingOrWillChangePlaymode)
+        {
+            if (isPlaying && isPlayingOrWillChangePlaymode)
+            {
+                return IpcPlayModeStateNames.Playing;
+            }
+
+            if (!isPlaying && !isPlayingOrWillChangePlaymode)
+            {
+                return IpcPlayModeStateNames.Stopped;
+            }
+
+            if (!isPlaying && isPlayingOrWillChangePlaymode)
+            {
+                return IpcPlayModeStateNames.Entering;
+            }
+
+            return IpcPlayModeStateNames.Unknown;
+        }
+
+        private void AdvancePlayModeGeneration ()
+        {
+            Interlocked.Exchange(
+                ref playModeGeneration,
+                UnityEditorPlayModeGenerationStore.Advance(Volatile.Read(ref playModeGeneration)));
         }
 
         private static IpcPrimaryDiagnostic CreateCompilerDiagnostic (CompilerMessage message)

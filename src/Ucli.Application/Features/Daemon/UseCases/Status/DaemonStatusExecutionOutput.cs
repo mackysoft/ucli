@@ -1,5 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
+using MackySoft.Ucli.Application.Shared.CommandContracts;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 
 /// <summary> Represents normalized payload values for one daemon-status command execution. </summary>
@@ -19,6 +21,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 /// <param name="Session"> The daemon session values when available; otherwise <see langword="null" />. </param>
 /// <param name="Diagnosis"> The daemon diagnosis values when available; otherwise <see langword="null" />. </param>
 /// <param name="LastLaunchAttempt"> The last session-less launch-attempt failure when available; otherwise <see langword="null" />. </param>
+/// <param name="PlayMode"> The Play Mode snapshot when daemon ping details are available. </param>
 internal sealed record DaemonStatusExecutionOutput (
     DaemonStatusKind DaemonStatus,
     string? ServerVersion,
@@ -35,4 +38,5 @@ internal sealed record DaemonStatusExecutionOutput (
     DaemonLaunchAttemptOutput? LastLaunchAttempt,
     DateTimeOffset? ObservedAtUtc = null,
     string? ActionRequired = null,
-    DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic = null);
+    DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic = null,
+    PlayModeSnapshotOutput? PlayMode = null);

@@ -18,6 +18,7 @@
     "observedAtUtc": null,
     "actionRequired": null,
     "primaryDiagnostic": null,
+    "playMode": null,
     "timeoutMilliseconds": 5000
   },
   "errors": []

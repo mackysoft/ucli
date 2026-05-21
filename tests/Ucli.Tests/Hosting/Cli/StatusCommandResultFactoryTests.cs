@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Status.Common.Contracts;
+using MackySoft.Ucli.Application.Shared.CommandContracts;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
@@ -11,6 +12,11 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class StatusCommandResultFactoryTests
 {
+    private static readonly JsonSerializerOptions SerializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
     [Fact]
     [Trait("Size", "Small")]
     public void Create_WithSuccessResult_ReturnsOkEnvelopeWithPayload ()
@@ -27,7 +33,13 @@ public sealed class StatusCommandResultFactoryTests
                 DomainReloadGeneration: "7",
                 CanAcceptExecutionRequests: false,
                 EditorMode: "batchmode",
-                TimeoutMilliseconds: 1234));
+                TimeoutMilliseconds: 1234,
+                PlayMode: new PlayModeSnapshotOutput(
+                    State: IpcPlayModeStateNames.Stopped,
+                    Transition: IpcPlayModeTransitionNames.None,
+                    IsPlaying: false,
+                    IsPlayingOrWillChangePlaymode: false,
+                    Generation: "2")));
 
         var result = StatusCommandResultFactory.Create(executionResult);
 
@@ -36,7 +48,7 @@ public sealed class StatusCommandResultFactoryTests
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         Assert.Empty(result.Errors);
 
-        var payload = JsonSerializer.SerializeToElement(result.Payload);
+        var payload = JsonSerializer.SerializeToElement(result.Payload, SerializerOptions);
         JsonAssert.For(payload)
             .HasString("daemonStatus", "running")
             .HasString("unityVersion", "6000.1.4f1")
@@ -48,6 +60,12 @@ public sealed class StatusCommandResultFactoryTests
             .HasString("domainReloadGeneration", "7")
             .HasBoolean("canAcceptExecutionRequests", false)
             .HasString("editorMode", "batchmode")
+            .HasProperty("playMode", playMode => playMode
+                .HasString("state", IpcPlayModeStateNames.Stopped)
+                .HasString("transition", IpcPlayModeTransitionNames.None)
+                .HasBoolean("isPlaying", false)
+                .HasBoolean("isPlayingOrWillChangePlaymode", false)
+                .HasString("generation", "2"))
             .HasInt32("timeoutMilliseconds", 1234);
         Assert.False(payload.TryGetProperty("runtime", out _));
     }

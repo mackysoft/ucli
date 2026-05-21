@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Shared.CommandContracts.Projection;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -11,34 +12,22 @@ internal static class ReadyLifecycleOutputFactory
     {
         ArgumentNullException.ThrowIfNull(pingResponse);
 
-        var lifecycleState = IpcEditorLifecycleStateCodec.TryParse(pingResponse.LifecycleState, out var normalizedLifecycleState)
-            ? normalizedLifecycleState
-            : null;
-        var blockingReason = lifecycleState is null || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
-            ? null
-            : IpcEditorBlockingReasonCodec.TryParse(pingResponse.BlockingReason, out var normalizedBlockingReason)
-                ? normalizedBlockingReason
-                : null;
-        var canAcceptExecutionRequests = string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
-            && pingResponse.CanAcceptExecutionRequests;
+        var projection = PingLifecycleProjectionFactory.Create(pingResponse);
 
         return new ReadyLifecycleOutput(
-            ServerVersion: StringValueNormalizer.TrimToNull(pingResponse.ServerVersion),
-            UnityVersion: StringValueNormalizer.TrimToNull(pingResponse.UnityVersion),
-            EditorMode: DaemonEditorModeCodec.TryParse(pingResponse.EditorMode, out var editorMode)
-                ? DaemonEditorModeCodec.ToValue(editorMode)
-                : null,
-            LifecycleState: lifecycleState,
-            BlockingReason: blockingReason,
-            CompileState: IpcCompileStateCodec.TryParse(pingResponse.CompileState, out var compileState)
-                ? compileState
-                : null,
-            CompileGeneration: StringValueNormalizer.TrimToNull(pingResponse.CompileGeneration),
-            DomainReloadGeneration: StringValueNormalizer.TrimToNull(pingResponse.DomainReloadGeneration),
-            CanAcceptExecutionRequests: canAcceptExecutionRequests,
-            ObservedAtUtc: pingResponse.ObservedAtUtc,
-            ActionRequired: StringValueNormalizer.TrimToNull(pingResponse.ActionRequired),
-            PrimaryDiagnostic: ToOutput(pingResponse.PrimaryDiagnostic));
+            ServerVersion: projection.ServerVersion,
+            UnityVersion: projection.UnityVersion,
+            EditorMode: projection.EditorMode,
+            LifecycleState: projection.LifecycleState,
+            BlockingReason: projection.BlockingReason,
+            CompileState: projection.CompileState,
+            CompileGeneration: projection.CompileGeneration,
+            DomainReloadGeneration: projection.DomainReloadGeneration,
+            CanAcceptExecutionRequests: projection.CanAcceptExecutionRequests,
+            ObservedAtUtc: projection.ObservedAtUtc,
+            ActionRequired: projection.ActionRequired,
+            PrimaryDiagnostic: ToOutput(projection.PrimaryDiagnostic),
+            PlayMode: projection.PlayMode);
     }
 
     private static ReadyPrimaryDiagnosticOutput? ToOutput (IpcPrimaryDiagnostic? diagnostic)

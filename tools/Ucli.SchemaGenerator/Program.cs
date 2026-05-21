@@ -395,6 +395,7 @@ internal static class Program
             Optional("observedAtUtc", NullableStringSchema()),
             Optional("actionRequired", NullableStringSchema()),
             Optional("primaryDiagnostic", NullableObjectSchema()),
+            Optional("playMode", NullablePlayModeSnapshotSchema()),
             Optional("timeoutMilliseconds", IntegerSchema()));
     }
 
@@ -441,6 +442,7 @@ internal static class Program
                 ["observedAtUtc"] = NullableStringSchema(),
                 ["actionRequired"] = NullableStringSchema(),
                 ["primaryDiagnostic"] = CreatePrimaryDiagnosticSchema(),
+                ["playMode"] = NullablePlayModeSnapshotSchema(),
             },
         };
     }
@@ -1217,6 +1219,7 @@ internal static class Program
             Optional("observedAtUtc", NullableStringSchema()),
             Optional("actionRequired", NullableStringSchema()),
             Optional("primaryDiagnostic", NullableObjectSchema()),
+            Optional("playMode", NullablePlayModeSnapshotSchema()),
             Optional("timeoutMilliseconds", IntegerSchema()),
             Optional("session", NullableObjectSchema()),
             Optional("diagnosis", NullableObjectSchema()),

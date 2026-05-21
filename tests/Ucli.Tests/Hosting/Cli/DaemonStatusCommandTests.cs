@@ -2,6 +2,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
+using MackySoft.Ucli.Application.Shared.CommandContracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
@@ -45,7 +46,13 @@ public sealed class DaemonStatusCommandTests
                 LastLaunchAttempt: null,
                 ObservedAtUtc: new DateTimeOffset(2026, 03, 12, 1, 3, 0, TimeSpan.Zero),
                 ActionRequired: null,
-                PrimaryDiagnostic: null)));
+                PrimaryDiagnostic: null,
+                PlayMode: new PlayModeSnapshotOutput(
+                    State: IpcPlayModeStateNames.Playing,
+                    Transition: IpcPlayModeTransitionNames.None,
+                    IsPlaying: true,
+                    IsPlayingOrWillChangePlaymode: true,
+                    Generation: "8"))));
         var command = new DaemonStatusCommand(service, CommandResultTestWriter.Create());
 
         CommandExecutionState.Reset();
@@ -69,6 +76,12 @@ public sealed class DaemonStatusCommandTests
                 .HasString("lifecycleState", IpcEditorLifecycleStateCodec.Playmode)
                 .HasString("blockingReason", IpcEditorBlockingReasonCodec.PlayMode)
                 .HasBoolean("canAcceptExecutionRequests", false)
+                .HasProperty("playMode", playMode => playMode
+                    .HasString("state", IpcPlayModeStateNames.Playing)
+                    .HasString("transition", IpcPlayModeTransitionNames.None)
+                    .HasBoolean("isPlaying", true)
+                    .HasBoolean("isPlayingOrWillChangePlaymode", true)
+                    .HasString("generation", "8"))
                 .HasProperty("session", sessionJson => sessionJson
                     .HasString("editorMode", DaemonEditorModeValues.Gui)
                     .HasString("ownerKind", DaemonSessionOwnerKindValues.User)

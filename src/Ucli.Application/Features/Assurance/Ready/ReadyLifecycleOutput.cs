@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Application.Shared.CommandContracts;
+
 namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 
 /// <summary> Represents normalized Unity lifecycle evidence emitted by ready. </summary>
@@ -13,4 +15,5 @@ internal sealed record ReadyLifecycleOutput (
     bool CanAcceptExecutionRequests,
     DateTimeOffset? ObservedAtUtc,
     string? ActionRequired,
-    ReadyPrimaryDiagnosticOutput? PrimaryDiagnostic);
+    ReadyPrimaryDiagnosticOutput? PrimaryDiagnostic,
+    PlayModeSnapshotOutput? PlayMode = null);

@@ -44,6 +44,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(payload.CompileGeneration, Is.EqualTo("1"));
             Assert.That(payload.DomainReloadGeneration, Is.EqualTo("1"));
             Assert.That(payload.CanAcceptExecutionRequests, Is.True);
+            Assert.That(payload.PlayMode, Is.Not.Null);
+            Assert.That(payload.PlayMode!.State, Is.EqualTo(IpcPlayModeStateNames.Stopped));
+            Assert.That(payload.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransitionNames.None));
+            Assert.That(payload.PlayMode.IsPlaying, Is.False);
+            Assert.That(payload.PlayMode.IsPlayingOrWillChangePlaymode, Is.False);
         });
 
         [UnityTest]
@@ -141,6 +146,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(payload.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Playmode));
             Assert.That(payload.BlockingReason, Is.EqualTo(IpcEditorBlockingReasonCodec.PlayMode));
             Assert.That(payload.CanAcceptExecutionRequests, Is.False);
+            Assert.That(payload.PlayMode, Is.Not.Null);
+            Assert.That(payload.PlayMode!.State, Is.EqualTo(IpcPlayModeStateNames.Playing));
+            Assert.That(payload.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransitionNames.None));
+            Assert.That(payload.PlayMode.IsPlaying, Is.True);
+            Assert.That(payload.PlayMode.IsPlayingOrWillChangePlaymode, Is.True);
         });
 
         [UnityTest]
@@ -1050,6 +1060,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     lifecycleTelemetryState,
                     isCompilingProvider,
                     isUpdatingProvider,
+                    isPlaymodeActiveProvider,
                     isPlaymodeActiveProvider),
                 isPlaymodeActiveProvider,
                 static _ => { },

@@ -70,7 +70,8 @@ internal sealed class StatusService : IStatusService
             TimeoutMilliseconds: checked((int)executionContext.Timeout.TotalMilliseconds),
             ObservedAtUtc: daemonObservation.ObservedAtUtc,
             ActionRequired: daemonObservation.ActionRequired,
-            PrimaryDiagnostic: daemonObservation.PrimaryDiagnostic);
+            PrimaryDiagnostic: daemonObservation.PrimaryDiagnostic,
+            PlayMode: daemonObservation.PlayMode);
         return StatusExecutionResult.Success(output);
     }
 }

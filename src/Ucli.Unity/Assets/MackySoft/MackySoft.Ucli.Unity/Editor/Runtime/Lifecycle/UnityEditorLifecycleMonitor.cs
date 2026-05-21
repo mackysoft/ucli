@@ -15,19 +15,23 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         private readonly Func<bool> isUpdatingProvider;
 
-        private readonly Func<bool> isPlaymodeActiveProvider;
+        private readonly Func<bool> isPlayingProvider;
+
+        private readonly Func<bool> isPlayingOrWillChangePlaymodeProvider;
 
         /// <summary> Initializes a new instance of the <see cref="UnityEditorLifecycleMonitor" /> class. </summary>
         public UnityEditorLifecycleMonitor (
             UnityEditorLifecycleTelemetryState lifecycleTelemetryState,
             Func<bool> isCompilingProvider,
             Func<bool> isUpdatingProvider,
-            Func<bool> isPlaymodeActiveProvider)
+            Func<bool> isPlayingProvider,
+            Func<bool> isPlayingOrWillChangePlaymodeProvider)
         {
             this.lifecycleTelemetryState = lifecycleTelemetryState ?? throw new ArgumentNullException(nameof(lifecycleTelemetryState));
             this.isCompilingProvider = isCompilingProvider ?? throw new ArgumentNullException(nameof(isCompilingProvider));
             this.isUpdatingProvider = isUpdatingProvider ?? throw new ArgumentNullException(nameof(isUpdatingProvider));
-            this.isPlaymodeActiveProvider = isPlaymodeActiveProvider ?? throw new ArgumentNullException(nameof(isPlaymodeActiveProvider));
+            this.isPlayingProvider = isPlayingProvider ?? throw new ArgumentNullException(nameof(isPlayingProvider));
+            this.isPlayingOrWillChangePlaymodeProvider = isPlayingOrWillChangePlaymodeProvider ?? throw new ArgumentNullException(nameof(isPlayingOrWillChangePlaymodeProvider));
         }
 
         /// <summary> Captures one lifecycle snapshot for the specified daemon editor mode. </summary>
@@ -35,7 +39,9 @@ namespace MackySoft.Ucli.Unity.Runtime
         {
             var isCompiling = isCompilingProvider();
             var isUpdating = isUpdatingProvider();
-            var isPlaymodeActive = isPlaymodeActiveProvider();
+            var isPlaying = isPlayingProvider();
+            var isPlayingOrWillChangePlaymode = isPlayingOrWillChangePlaymodeProvider();
+            var isPlaymodeActive = isPlaying || isPlayingOrWillChangePlaymode;
             var lifecycleState = lifecycleTelemetryState.ResolveLifecycleState(isPlaymodeActive, isCompiling, isUpdating);
             var blockingReason = UnityEditorExecutionReadinessPolicy.ResolveBlockingReason(lifecycleState);
             var canAcceptExecutionRequests = string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal);
@@ -50,14 +56,17 @@ namespace MackySoft.Ucli.Unity.Runtime
                 CanAcceptExecutionRequests: canAcceptExecutionRequests,
                 ObservedAtUtc: DateTimeOffset.UtcNow,
                 ActionRequired: ResolveActionRequired(lifecycleState),
-                PrimaryDiagnostic: lifecycleTelemetryState.PrimaryDiagnostic);
+                PrimaryDiagnostic: lifecycleTelemetryState.PrimaryDiagnostic,
+                PlayMode: lifecycleTelemetryState.CapturePlayModeSnapshot(
+                    isPlaying,
+                    isPlayingOrWillChangePlaymode));
         }
 
         /// <summary> Records one editor update observation. </summary>
         public void ObserveEditorUpdate ()
         {
             lifecycleTelemetryState.ObserveEditorUpdate(
-                isPlaymodeActiveProvider(),
+                isPlayingOrWillChangePlaymodeProvider(),
                 isCompilingProvider(),
                 isUpdatingProvider());
         }
@@ -96,6 +105,12 @@ namespace MackySoft.Ucli.Unity.Runtime
         public void OnShutdownStarted ()
         {
             lifecycleTelemetryState.OnShutdownStarted();
+        }
+
+        /// <summary> Records one Play Mode state transition callback. </summary>
+        public void OnPlayModeStateChanged (UnityEditor.PlayModeStateChange stateChange)
+        {
+            lifecycleTelemetryState.OnPlayModeStateChanged(stateChange);
         }
 
         private static string ResolveActionRequired (string lifecycleState)
