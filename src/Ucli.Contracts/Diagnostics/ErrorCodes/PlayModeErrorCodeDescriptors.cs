@@ -78,12 +78,20 @@ internal static class PlayModeErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.No,
-            inspect: ["status", "payload.daemon", "payload.playMode"],
+            inspect:
+            [
+                "status",
+                "payload.daemon",
+                "payload.playMode",
+                "payload.snapshot.playMode",
+                "payload.transition.before.playMode",
+                "payload.transition.observed.playMode",
+            ],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
                     When: null,
-                    Action: "Use a GUI Editor daemon session that is in Play Mode."),
+                    Action: "Start or attach a GUI Editor daemon session, then rerun the command."),
             ],
             relatedCodes:
             [
@@ -123,7 +131,14 @@ internal static class PlayModeErrorCodeDescriptors
             true,
             false,
             UcliErrorRetryClassValues.No,
-            ["payload.daemonStatus", "payload.editorMode", UcliErrorInspectTargets.DaemonStatusCommand],
+            [
+                "payload.daemonStatus",
+                "payload.editorMode",
+                "payload.snapshot.editorMode",
+                "payload.transition.before.editorMode",
+                "payload.transition.observed.editorMode",
+                UcliErrorInspectTargets.DaemonStatusCommand,
+            ],
             "Start or attach a GUI daemon session with daemon start --editorMode gui, then rerun the Play Mode command.",
             [PlayModeErrorCodes.PlayModeRequiresGuiEditor, DaemonErrorCodes.DaemonEndpointNotRegistered]),
 
@@ -136,7 +151,13 @@ internal static class PlayModeErrorCodeDescriptors
             false,
             true,
             UcliErrorRetryClassValues.ContextDependent,
-            ["payload.playMode", "payload.observed", "payload.applicationState", UcliErrorInspectTargets.UnityErrorLogsCommand],
+            [
+                "payload.transition.before.playMode",
+                "payload.transition.observed",
+                "payload.transition.observed.playMode",
+                "payload.transition.applicationState",
+                UcliErrorInspectTargets.UnityErrorLogsCommand,
+            ],
             "Inspect the latest playMode snapshot and Unity logs before deciding whether retrying the transition is safe.",
             [IpcTransportErrorCodes.IpcTimeout, PlayModeErrorCodes.PlayModeTransitionBlocked]),
 
@@ -149,7 +170,15 @@ internal static class PlayModeErrorCodeDescriptors
             true,
             false,
             UcliErrorRetryClassValues.ContextDependent,
-            ["payload.lifecycleState", "payload.blockingReason", "payload.playMode", "payload.observed", UcliErrorInspectTargets.UnityErrorLogsCommand],
+            [
+                "payload.transition.before.lifecycleState",
+                "payload.transition.before.blockingReason",
+                "payload.transition.before.playMode",
+                "payload.transition.observed.lifecycleState",
+                "payload.transition.observed.blockingReason",
+                "payload.transition.observed.playMode",
+                UcliErrorInspectTargets.UnityErrorLogsCommand,
+            ],
             "Resolve the reported Editor blocker, then rerun the Play Mode command if the transition is still required.",
             [EditorLifecycleErrorCodes.EditorBusy, EditorLifecycleErrorCodes.EditorModalBlocked, PlayModeErrorCodes.PlayModeStateUnknown]),
 
@@ -162,7 +191,7 @@ internal static class PlayModeErrorCodeDescriptors
             true,
             false,
             UcliErrorRetryClassValues.WaitThenRetry,
-            ["payload.playMode", "payload.observed"],
+            ["payload.transition.before.playMode", "payload.transition.observed.playMode"],
             "Wait for the current Play Mode transition to finish, then rerun the command if needed.",
             [PlayModeErrorCodes.PlayModeTransitionTimeout]),
 
@@ -175,7 +204,13 @@ internal static class PlayModeErrorCodeDescriptors
             true,
             false,
             UcliErrorRetryClassValues.ContextDependent,
-            ["payload.lifecycleState", "payload.playMode", "payload.observed", UcliErrorInspectTargets.UnityErrorLogsCommand],
+            [
+                "payload.transition.before.lifecycleState",
+                "payload.transition.before.playMode",
+                "payload.transition.observed.lifecycleState",
+                "payload.transition.observed.playMode",
+                UcliErrorInspectTargets.UnityErrorLogsCommand,
+            ],
             "Inspect the lifecycle snapshot and Unity logs, resolve the rejection cause, then retry only if entering Play Mode is still required.",
             [PlayModeErrorCodes.PlayModeTransitionBlocked, PlayModeErrorCodes.PlayModeStateUnknown]),
 
@@ -188,7 +223,13 @@ internal static class PlayModeErrorCodeDescriptors
             true,
             false,
             UcliErrorRetryClassValues.ContextDependent,
-            ["payload.lifecycleState", "payload.playMode", "payload.observed", UcliErrorInspectTargets.UnityErrorLogsCommand],
+            [
+                "payload.transition.before.lifecycleState",
+                "payload.transition.before.playMode",
+                "payload.transition.observed.lifecycleState",
+                "payload.transition.observed.playMode",
+                UcliErrorInspectTargets.UnityErrorLogsCommand,
+            ],
             "Inspect the lifecycle snapshot and Unity logs, resolve the rejection cause, then retry only if exiting Play Mode is still required.",
             [PlayModeErrorCodes.PlayModeTransitionBlocked, PlayModeErrorCodes.PlayModeStateUnknown]),
 
@@ -201,7 +242,15 @@ internal static class PlayModeErrorCodeDescriptors
             null,
             true,
             UcliErrorRetryClassValues.ContextDependent,
-            ["payload.lifecycleState", "payload.playMode", "payload.observed", UcliErrorInspectTargets.UnityErrorLogsCommand],
+            [
+                "payload.snapshot.lifecycleState",
+                "payload.snapshot.playMode",
+                "payload.transition.before.lifecycleState",
+                "payload.transition.before.playMode",
+                "payload.transition.observed.lifecycleState",
+                "payload.transition.observed.playMode",
+                UcliErrorInspectTargets.UnityErrorLogsCommand,
+            ],
             "Inspect daemon status and Unity logs, wait for a classified lifecycle state, then retry only after the state is understood.",
             [EditorLifecycleErrorCodes.EditorUnavailable, PlayModeErrorCodes.PlayModeTransitionBlocked]),
     ];

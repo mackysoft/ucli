@@ -39,12 +39,15 @@ public sealed class PlayCliOutputContractTests
         var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Play,
             UcliCommandNames.WaitSubcommand,
+            "--projectPath",
+            "/tmp/ucli-play-contract",
             "--until",
             "entered",
             "--timeout",
             "1000");
 
         AssertPlayStubResult(result, UcliCommandNames.PlayWait);
+        Assert.DoesNotContain("Argument '--projectPath' is not recognized.", result.StdErr, StringComparison.Ordinal);
         Assert.DoesNotContain("Argument '--until' is not recognized.", result.StdErr, StringComparison.Ordinal);
         Assert.DoesNotContain("Argument '--timeout' is not recognized.", result.StdErr, StringComparison.Ordinal);
     }

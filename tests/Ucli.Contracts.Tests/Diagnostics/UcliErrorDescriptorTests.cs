@@ -210,6 +210,35 @@ public sealed class UcliErrorDescriptorTests
         Assert.Contains(UcliCommandIds.PlayEnter, descriptor.AppliesTo);
         Assert.Contains(UcliCommandIds.PlayExit, descriptor.AppliesTo);
         Assert.Contains(UcliCommandIds.PlayWait, descriptor.AppliesTo);
+        Assert.DoesNotContain(
+            descriptor.NextActions,
+            static action => action.Action.Contains("in Play Mode", StringComparison.Ordinal));
+        Assert.Contains("payload.snapshot.playMode", descriptor.Inspect);
+        Assert.Contains("payload.transition.observed.playMode", descriptor.Inspect);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void PlayModeTransitionDescriptors_InspectPublishedPayloadPaths ()
+    {
+        var timeoutDescriptor = FindDescriptor(PlayModeErrorCodes.PlayModeTransitionTimeout);
+        var blockedDescriptor = FindDescriptor(PlayModeErrorCodes.PlayModeTransitionBlocked);
+        var stateUnknownDescriptor = FindDescriptor(PlayModeErrorCodes.PlayModeStateUnknown);
+
+        Assert.Contains("payload.transition.before.playMode", timeoutDescriptor.Inspect);
+        Assert.Contains("payload.transition.observed", timeoutDescriptor.Inspect);
+        Assert.Contains("payload.transition.applicationState", timeoutDescriptor.Inspect);
+        Assert.DoesNotContain("payload.playMode", timeoutDescriptor.Inspect);
+        Assert.DoesNotContain("payload.observed", timeoutDescriptor.Inspect);
+        Assert.DoesNotContain("payload.applicationState", timeoutDescriptor.Inspect);
+
+        Assert.Contains("payload.transition.before.lifecycleState", blockedDescriptor.Inspect);
+        Assert.Contains("payload.transition.observed.blockingReason", blockedDescriptor.Inspect);
+        Assert.DoesNotContain("payload.lifecycleState", blockedDescriptor.Inspect);
+        Assert.DoesNotContain("payload.blockingReason", blockedDescriptor.Inspect);
+
+        Assert.Contains("payload.snapshot.playMode", stateUnknownDescriptor.Inspect);
+        Assert.Contains("payload.transition.observed.playMode", stateUnknownDescriptor.Inspect);
     }
 
     [Fact]

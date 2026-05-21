@@ -10,20 +10,13 @@
       "properties": {
         "transition": {
           "type": "string",
-          "enum": [
-            "enter",
-            "exit",
-            "wait"
-          ]
+          "const": "exit"
         },
         "result": {
           "type": "string",
           "enum": [
-            "entered",
-            "alreadyEntered",
             "exited",
             "alreadyExited",
-            "waited",
             "timeout",
             "blocked"
           ]
@@ -105,6 +98,45 @@
               "type": [
                 "object",
                 "null"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "file": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "line": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "column": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "message": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
               ]
             },
             "playMode": {
@@ -173,14 +205,6 @@
             "actionRequired",
             "primaryDiagnostic",
             "playMode"
-          ]
-        },
-        "until": {
-          "type": "string",
-          "enum": [
-            "entered",
-            "exited",
-            "ready"
           ]
         },
         "after": {
@@ -260,6 +284,45 @@
               "type": [
                 "object",
                 "null"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "file": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "line": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "column": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "message": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
               ]
             },
             "playMode": {
@@ -407,6 +470,45 @@
               "type": [
                 "object",
                 "null"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "file": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "line": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "column": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "message": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
               ]
             },
             "playMode": {

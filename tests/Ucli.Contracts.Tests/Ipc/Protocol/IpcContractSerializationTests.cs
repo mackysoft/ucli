@@ -378,15 +378,25 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("exiting", IpcPlayModeStateNames.Exiting);
         Assert.Equal("unknown", IpcPlayModeStateNames.Unknown);
         Assert.Equal("none", IpcPlayModeTransitionNames.None);
+        Assert.Equal("entering", IpcPlayModeTransitionNames.Entering);
+        Assert.Equal("exiting", IpcPlayModeTransitionNames.Exiting);
+        Assert.Equal("enter", IpcPlayTransitionCommandNames.Enter);
+        Assert.Equal("exit", IpcPlayTransitionCommandNames.Exit);
+        Assert.Equal("wait", IpcPlayTransitionCommandNames.Wait);
         Assert.Equal("entered", IpcPlayWaitTargetNames.Entered);
         Assert.Equal("exited", IpcPlayWaitTargetNames.Exited);
         Assert.Equal("ready", IpcPlayWaitTargetNames.Ready);
+        Assert.Equal("entered", IpcPlayTransitionResultNames.Entered);
         Assert.Equal("alreadyEntered", IpcPlayTransitionResultNames.AlreadyEntered);
+        Assert.Equal("exited", IpcPlayTransitionResultNames.Exited);
         Assert.Equal("alreadyExited", IpcPlayTransitionResultNames.AlreadyExited);
+        Assert.Equal("waited", IpcPlayTransitionResultNames.Waited);
+        Assert.Equal("timeout", IpcPlayTransitionResultNames.Timeout);
         Assert.Equal("blocked", IpcPlayTransitionResultNames.Blocked);
         Assert.Equal("notApplied", IpcPlayApplicationStateNames.NotApplied);
         Assert.Equal("applied", IpcPlayApplicationStateNames.Applied);
         Assert.Equal("indeterminate", IpcPlayApplicationStateNames.Indeterminate);
+        Assert.Equal("unknown", IpcPlayApplicationStateNames.Unknown);
     }
 
     [Fact]
