@@ -103,6 +103,8 @@ internal static class UcliContractConstants
 
         public const int IpcTimeoutDefaultLogsUnityClearMilliseconds = 3000;
 
+        public const int IpcTimeoutDefaultPlayStatusMilliseconds = 3000;
+
         public const string IpcTimeoutCommandTest = "test";
 
         public const string IpcTimeoutCommandReady = "ready";
@@ -140,6 +142,8 @@ internal static class UcliContractConstants
         public const string IpcTimeoutCommandLogsUnityRead = "logs.unity.read";
 
         public const string IpcTimeoutCommandLogsUnityClear = "logs.unity.clear";
+
+        public const string IpcTimeoutCommandPlayStatus = "play.status";
     }
 
     internal static class TestProfile
