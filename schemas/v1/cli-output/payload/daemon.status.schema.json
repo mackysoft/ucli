@@ -70,6 +70,56 @@
         "null"
       ]
     },
+    "playMode": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "stopped",
+                "entering",
+                "playing",
+                "exiting",
+                "unknown"
+              ]
+            },
+            "transition": {
+              "type": "string",
+              "enum": [
+                "none",
+                "entering",
+                "exiting"
+              ]
+            },
+            "isPlaying": {
+              "type": "boolean"
+            },
+            "isPlayingOrWillChangePlaymode": {
+              "type": "boolean"
+            },
+            "generation": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "state",
+            "transition",
+            "isPlaying",
+            "isPlayingOrWillChangePlaymode",
+            "generation"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "timeoutMilliseconds": {
       "type": "integer"
     },
