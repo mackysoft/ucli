@@ -3,7 +3,7 @@
   "skillName": "ucli-read-project",
   "displayName": "uCLI Read Project",
   "description": "Use when inspecting a Unity project with uCLI before choosing selectors, operation metadata, schemas, or readIndex freshness. Guides read-first discovery without hard-coding operation contracts.",
-  "contentDigest": "sha256:6174b9ae774744e33961d73924c11df77b618998d8fa7ddd511cf9c2c4dbb135",
+  "contentDigest": "sha256:83b22557264afc9cab9190764c503159731609fe662fed35000ea9dff5228474",
   "hostArtifacts": [
     {
       "host": "claude",

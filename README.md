@@ -426,6 +426,7 @@ Input constraints describe the meaning of values in `ops describe`; they are not
 | `TypeAssignableTo` | `TypeKind` | Unity type identifiers assignable to a specific Unity kind, such as component. |
 | `SerializedProperty` | `Access` | SerializedProperty paths that must be writable for the operation. |
 | `AssetGuid` | none | Unity asset GUID strings. |
+| `Cursor` | none | Opaque bounded-window cursors returned by read operations. |
 
 For object references and selectors, prefer existing contract types such as `AssetReferenceArgs`, `GameObjectReferenceArgs`, `SceneGameObjectReferenceArgs`, `ComponentReferenceArgs`, and `ResolveSelectorArgs`. If an operation needs a new reference object, use `[UcliExclusiveRequiredPropertySet]` on the object type to define mutually exclusive selector shapes, and `[UcliPropertyRequires]` when one property requires other properties.
 
@@ -435,7 +436,7 @@ Declare operation contract facts deliberately:
 | --- | --- | --- |
 | `declaredKind` | `Query`, `Command`, `Mutation` | The author-declared operation intent. The catalog builder validates it against contract facts and publishes the validated public kind. |
 | `UcliOperationAssuranceContract` | side effects, dirty/persist flags, touched kinds, plan mode | Machine-readable behavior facts used to derive admission policy and let runners decide whether an operation is acceptable. |
-| `UcliOperationPlanMode` | `ValidationOnly`, `ObservesLiveUnity` for public v1 operations | How much the `Plan` phase may do before `Call`. `MayCreatePreviewState` is reserved for internal or experimental work and is not part of the public raw catalog. |
+| `UcliOperationPlanMode` | `ValidationOnly`, `ObservesLiveUnity` for public v1 operations | How much the `Plan` phase may do before `Call`. `MayCreatePreviewState` remains an internal metadata literal and is not part of the public `ops describe` payload or schema. |
 | `UcliOperationCodeContract` | source forms, entry point, source-visible API, return constraints | Required for operations that accept source code. Arbitrary source execution derives `dangerous` policy. |
 | `UcliOperationExposure` | `Public`, `EditLoweringOnly`, `Internal` | Whether the operation can be called as a public raw `kind:"op"` step or only through lowering/internal flows. |
 
@@ -443,7 +444,7 @@ Declare operation contract facts deliberately:
 
 Safe operations are bounded observations that cannot dirty, persist, or change Editor state, and do not execute arbitrary code or external processes. Advanced operations include deterministic Unity Editor API writes, Editor state changes, dirty or persisted Unity content, AssetDatabase refresh/import/compile effects, and broader project effects. Dangerous operations are escape hatches such as arbitrary C# execution, arbitrary shell/process/filesystem writes, unbounded destructive operations, or operations whose touched/save boundary cannot be sufficiently guaranteed.
 
-An operation with `MayCreatePreviewState` must not be published as a public raw operation in v1. If an internal or experimental operation can create preview state during `Plan`, it must derive at least `advanced` and document cleanup evidence and residual risk. If cleanup or the application boundary cannot be guaranteed, it is `dangerous`.
+An operation with `MayCreatePreviewState` must not appear in the public `ops describe` payload or schema in v1. If an internal or experimental operation can create preview state during `Plan`, it must derive at least `advanced` and document cleanup evidence and residual risk. If cleanup or the application boundary cannot be guaranteed, it is `dangerous`.
 
 Keep phase behavior consistent:
 

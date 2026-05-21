@@ -48,7 +48,7 @@ public sealed class JsonSchemaArtifactSetTests
               "$defs": {
                 "unused": {
                   "type": "string",
-                  "pattern": "^ready$"
+                  "minLength": 1
                 }
               }
             }
@@ -56,7 +56,7 @@ public sealed class JsonSchemaArtifactSetTests
 
         var exception = Assert.Throws<InvalidOperationException>(() => JsonSchemaArtifactSet.Load(scope.FullPath));
 
-        Assert.Contains("unsupported keyword 'pattern'", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("unsupported keyword 'minLength'", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]

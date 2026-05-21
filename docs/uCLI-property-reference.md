@@ -921,6 +921,7 @@ field の `name` は `argsPath` の最後の property segment と一致しなけ
 | `typeExists` | none | Unity runtime type として解決できる |
 | `typeAssignableTo` | `typeKind` | 指定 kind に代入可能な Unity type である |
 | `serializedProperty` | `access` | serialized property path として書き込みに使える |
+| `cursor` | none | bounded window の続きを読むための opaque cursor として扱う |
 
 kind ごとの parameter 規則:
 
@@ -938,6 +939,7 @@ kind ごとの parameter 規則:
 | `typeExists` | none | `min`, `max`, `assetKind`, `targetKind`, `typeKind`, `access` |
 | `typeAssignableTo` | `typeKind` | `min`, `max`, `assetKind`, `targetKind`, `access` |
 | `serializedProperty` | `access` | `min`, `max`, `assetKind`, `targetKind`, `typeKind` |
+| `cursor` | none | `min`, `max`, `assetKind`, `targetKind`, `typeKind`, `access` |
 
 #### `ucli ops describe payload.operation.resultContract`
 
@@ -1069,7 +1071,7 @@ public v1 catalog の `planMode` は次の値だけを使う。
 | `validationOnly` | Plan は typed args と静的 contract の検証だけを行う |
 | `observesLiveUnity` | Plan は live Unity state または readIndex を観測して結果を作る |
 
-`mayCreatePreviewState` は registered metadata では有効な planMode だが、public raw catalog では validation failure とする。`editLoweringOnly` / `internal` primitive では使用でき、最低 `advanced` に導出する。cleanup evidence と residual risk が不十分な場合は `dangerous` とする。
+`mayCreatePreviewState` は registered metadata では有効な planMode だが、public `ops describe` payload / schema では validation failure とする。`editLoweringOnly` / `internal` primitive では使用でき、最低 `advanced` に導出する。cleanup evidence と residual risk が不十分な場合は `dangerous` とする。
 
 `kind` と `assurance` の整合は次を満たす。
 
@@ -1312,13 +1314,7 @@ subset で使用できる語彙は `type`、`properties`、`required`、`additio
               }
             },
             "childrenState": {
-              "type": "string",
-              "enum": [
-                "complete",
-                "notExpandedByDepth",
-                "truncatedByWindow",
-                "unknown"
-              ]
+              "type": "string"
             }
           }
         },
