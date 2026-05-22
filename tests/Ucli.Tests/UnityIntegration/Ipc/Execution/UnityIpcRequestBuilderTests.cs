@@ -71,6 +71,20 @@ public sealed class UnityIpcRequestBuilderTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Build_WithPlayEnter_CreatesPlayEnterPayload ()
+    {
+        var builder = new UnityIpcRequestBuilder();
+
+        var request = builder.Build(new UnityRequestPayload.PlayEnter(1500));
+
+        Assert.Equal(IpcMethodNames.PlayEnter, request.Method);
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayEnterRequest payload, out _));
+        Assert.Equal(1500, payload.TimeoutMilliseconds);
+        Assert.Empty(request.AllowedStartupLifecycleStates);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void UnityIpcRequestFactory_WithCompileDispatchTimeout_InjectsTimeoutPayload ()
     {
         var payload = IpcPayloadCodec.SerializeToElement(new IpcCompileRequest("run-1"));

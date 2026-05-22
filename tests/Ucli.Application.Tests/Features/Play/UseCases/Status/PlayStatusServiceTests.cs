@@ -1,6 +1,7 @@
 using System.Globalization;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
+using MackySoft.Ucli.Application.Features.Play.Common;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Status;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
@@ -257,9 +258,11 @@ public sealed class PlayStatusServiceTests
         IDaemonSessionStore sessionStore,
         IUnityRequestExecutor requestExecutor)
     {
-        return new PlayStatusService(
+        var contextResolver = new PlayCommandExecutionContextResolver(
             new StubProjectContextResolver(contextResult),
-            sessionStore,
+            sessionStore);
+        return new PlayStatusService(
+            contextResolver,
             requestExecutor);
     }
 

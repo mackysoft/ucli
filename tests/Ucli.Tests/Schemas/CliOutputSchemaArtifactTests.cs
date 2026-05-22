@@ -256,61 +256,15 @@ public sealed class CliOutputSchemaArtifactTests
     {
         using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
         using var statusDocument = JsonDocument.Parse(CreatePlayStatusPayloadJson());
-        using var enterDocument = JsonDocument.Parse(
-            """
+        using var enterDocument = JsonDocument.Parse(CreatePlayEnterPayloadJson(
+            $$"""
             {
-              "transition": {
-                "transition": "enter",
-                "result": "entered",
-                "before": {
-                  "serverVersion": "0.5.0",
-                  "editorMode": "gui",
-                  "unityVersion": "6000.1.4f1",
-                  "projectFingerprint": "project-fingerprint",
-                  "lifecycleState": "ready",
-                  "blockingReason": "none",
-                  "compileState": "idle",
-                  "compileGeneration": "12",
-                  "domainReloadGeneration": "7",
-                  "canAcceptExecutionRequests": true,
-                  "observedAtUtc": "2026-05-21T00:00:00+00:00",
-                  "actionRequired": null,
-                  "primaryDiagnostic": null,
-                  "playMode": {
-                    "state": "stopped",
-                    "transition": "none",
-                    "isPlaying": false,
-                    "isPlayingOrWillChangePlaymode": false,
-                    "generation": "42"
-                  }
-                },
-                "after": {
-                  "serverVersion": "0.5.0",
-                  "editorMode": "gui",
-                  "unityVersion": "6000.1.4f1",
-                  "projectFingerprint": "project-fingerprint",
-                  "lifecycleState": "ready",
-                  "blockingReason": "none",
-                  "compileState": "idle",
-                  "compileGeneration": "12",
-                  "domainReloadGeneration": "7",
-                  "canAcceptExecutionRequests": true,
-                  "observedAtUtc": "2026-05-21T00:00:01+00:00",
-                  "actionRequired": null,
-                  "primaryDiagnostic": null,
-                  "playMode": {
-                    "state": "playing",
-                    "transition": "none",
-                    "isPlaying": true,
-                    "isPlayingOrWillChangePlaymode": true,
-                    "generation": "43"
-                  }
-                },
-                "applicationState": "applied"
-              },
-              "timeoutMilliseconds": 1000
+              "transition": "enter",
+              "result": "entered",
+              "before": {{CreatePlayLifecycleSnapshotJson()}},
+              "after": {{CreatePlayingPlayLifecycleSnapshotJson()}}
             }
-            """);
+            """));
         using var exitDocument = JsonDocument.Parse(
             $$"""
             {
@@ -348,27 +302,24 @@ public sealed class CliOutputSchemaArtifactTests
     public void PlayTransitionPayloadSchemas_RejectMismatchedLeafContracts ()
     {
         using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
-        using var enterWithExitTransitionDocument = JsonDocument.Parse(
+        using var enterWithExitTransitionDocument = JsonDocument.Parse(CreatePlayEnterPayloadJson(
             $$"""
             {
-              "transition": {
-                "transition": "exit",
-                "result": "exited",
-                "before": {{CreatePlayLifecycleSnapshotJson()}}
-              }
+              "transition": "exit",
+              "result": "exited",
+              "before": {{CreatePlayLifecycleSnapshotJson()}}
             }
-            """);
-        using var enterWithWaitTargetDocument = JsonDocument.Parse(
+            """));
+        using var enterWithWaitTargetDocument = JsonDocument.Parse(CreatePlayEnterPayloadJson(
             $$"""
             {
-              "transition": {
-                "transition": "enter",
-                "result": "entered",
-                "before": {{CreatePlayLifecycleSnapshotJson()}},
-                "until": "entered"
-              }
+              "transition": "enter",
+              "result": "entered",
+              "before": {{CreatePlayLifecycleSnapshotJson()}},
+              "after": {{CreatePlayingPlayLifecycleSnapshotJson()}},
+              "until": "entered"
             }
-            """);
+            """));
         using var waitWithoutTargetDocument = JsonDocument.Parse(
             $$"""
             {
@@ -383,6 +334,92 @@ public sealed class CliOutputSchemaArtifactTests
         Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", enterWithExitTransitionDocument.RootElement));
         Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", enterWithWaitTargetDocument.RootElement));
         Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.wait.schema.json", waitWithoutTargetDocument.RootElement));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void PlayEnterPayloadSchema_ValidatesSuccessAndFailureTransitionShapes ()
+    {
+        using var schemaSet = JsonSchemaArtifactSet.Load(Path.Combine(RepositoryRoot, "schemas", "v1"));
+        using var successDocument = JsonDocument.Parse(CreatePlayEnterPayloadJson(
+            $$"""
+            {
+              "transition": "enter",
+              "result": "alreadyEntered",
+              "before": {{CreatePlayingPlayLifecycleSnapshotJson()}},
+              "after": {{CreatePlayingPlayLifecycleSnapshotJson()}}
+            }
+            """));
+        using var timeoutDocument = JsonDocument.Parse(CreatePlayEnterPayloadJson(
+            $$"""
+            {
+              "transition": "enter",
+              "result": "timeout",
+              "before": {{CreatePlayLifecycleSnapshotJson()}},
+              "observed": {{CreatePlayLifecycleSnapshotJson(playModeState: "entering", playModeTransition: "entering", isPlayingOrWillChangePlaymode: true)}},
+              "applicationState": "indeterminate"
+            }
+            """));
+        using var successWithoutAfterDocument = JsonDocument.Parse(CreatePlayEnterPayloadJson(
+            $$"""
+            {
+              "transition": "enter",
+              "result": "entered",
+              "before": {{CreatePlayLifecycleSnapshotJson()}}
+            }
+            """));
+        using var timeoutWithoutObservedDocument = JsonDocument.Parse(CreatePlayEnterPayloadJson(
+            $$"""
+            {
+              "transition": "enter",
+              "result": "timeout",
+              "before": {{CreatePlayLifecycleSnapshotJson()}},
+              "applicationState": "indeterminate"
+            }
+            """));
+        using var enterWithOpResultsDocument = JsonDocument.Parse(
+            $$"""
+            {
+              "project": {
+                "projectPath": "/repo/UnityProject",
+                "projectFingerprint": "project-fingerprint",
+                "unityVersion": "6000.1.4f1"
+              },
+              "daemonStatus": "running",
+              "serverVersion": "0.5.0",
+              "editorMode": "gui",
+              "lifecycleState": "playmode",
+              "blockingReason": "playMode",
+              "compileState": "idle",
+              "compileGeneration": "12",
+              "domainReloadGeneration": "7",
+              "canAcceptExecutionRequests": false,
+              "observedAtUtc": "2026-05-21T00:00:00+00:00",
+              "actionRequired": null,
+              "primaryDiagnostic": null,
+              "playMode": {
+                "state": "playing",
+                "transition": "none",
+                "isPlaying": true,
+                "isPlayingOrWillChangePlaymode": true,
+                "generation": "43"
+              },
+              "transition": {
+                "transition": "enter",
+                "result": "entered",
+                "before": {{CreatePlayLifecycleSnapshotJson()}},
+                "after": {{CreatePlayingPlayLifecycleSnapshotJson()}}
+              },
+              "timeoutMilliseconds": 1000,
+              "opResults": []
+            }
+            """);
+
+        Assert.Empty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", successDocument.RootElement));
+        Assert.Empty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", timeoutDocument.RootElement));
+        Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", successWithoutAfterDocument.RootElement));
+        Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", timeoutWithoutObservedDocument.RootElement));
+        Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", enterWithOpResultsDocument.RootElement));
     }
 
     [Fact]
@@ -922,7 +959,13 @@ public sealed class CliOutputSchemaArtifactTests
     private static string CreatePlayLifecycleSnapshotJson (
         string playModeState = "stopped",
         string playModeTransition = "none",
-        string primaryDiagnosticJson = "null")
+        string primaryDiagnosticJson = "null",
+        string lifecycleState = "ready",
+        string blockingReasonJson = "null",
+        bool canAcceptExecutionRequests = true,
+        bool isPlaying = false,
+        bool isPlayingOrWillChangePlaymode = false,
+        string generation = "42")
     {
         return $$"""
             {
@@ -930,22 +973,69 @@ public sealed class CliOutputSchemaArtifactTests
               "editorMode": "gui",
               "unityVersion": "6000.1.4f1",
               "projectFingerprint": "project-fingerprint",
-              "lifecycleState": "ready",
-              "blockingReason": "none",
+              "lifecycleState": "{{lifecycleState}}",
+              "blockingReason": {{blockingReasonJson}},
               "compileState": "idle",
               "compileGeneration": "12",
               "domainReloadGeneration": "7",
-              "canAcceptExecutionRequests": true,
+              "canAcceptExecutionRequests": {{JsonSerializer.Serialize(canAcceptExecutionRequests)}},
               "observedAtUtc": "2026-05-21T00:00:00+00:00",
               "actionRequired": null,
               "primaryDiagnostic": {{primaryDiagnosticJson}},
               "playMode": {
                 "state": "{{playModeState}}",
                 "transition": "{{playModeTransition}}",
-                "isPlaying": false,
-                "isPlayingOrWillChangePlaymode": false,
-                "generation": "42"
+                "isPlaying": {{JsonSerializer.Serialize(isPlaying)}},
+                "isPlayingOrWillChangePlaymode": {{JsonSerializer.Serialize(isPlayingOrWillChangePlaymode)}},
+                "generation": "{{generation}}"
               }
+            }
+            """;
+    }
+
+    private static string CreatePlayingPlayLifecycleSnapshotJson ()
+    {
+        return CreatePlayLifecycleSnapshotJson(
+            playModeState: "playing",
+            playModeTransition: "none",
+            lifecycleState: "playmode",
+            blockingReasonJson: "\"playMode\"",
+            canAcceptExecutionRequests: false,
+            isPlaying: true,
+            isPlayingOrWillChangePlaymode: true,
+            generation: "43");
+    }
+
+    private static string CreatePlayEnterPayloadJson (string transitionJson)
+    {
+        return $$"""
+            {
+              "project": {
+                "projectPath": "/repo/UnityProject",
+                "projectFingerprint": "project-fingerprint",
+                "unityVersion": "6000.1.4f1"
+              },
+              "daemonStatus": "running",
+              "serverVersion": "0.5.0",
+              "editorMode": "gui",
+              "lifecycleState": "playmode",
+              "blockingReason": "playMode",
+              "compileState": "idle",
+              "compileGeneration": "12",
+              "domainReloadGeneration": "7",
+              "canAcceptExecutionRequests": false,
+              "observedAtUtc": "2026-05-21T00:00:00+00:00",
+              "actionRequired": null,
+              "primaryDiagnostic": null,
+              "playMode": {
+                "state": "playing",
+                "transition": "none",
+                "isPlaying": true,
+                "isPlayingOrWillChangePlaymode": true,
+                "generation": "43"
+              },
+              "transition": {{transitionJson}},
+              "timeoutMilliseconds": 1000
             }
             """;
     }

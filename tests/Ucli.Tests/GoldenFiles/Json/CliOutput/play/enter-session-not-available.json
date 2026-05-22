@@ -1,0 +1,15 @@
+{
+  "protocolVersion": 1,
+  "command": "play.enter",
+  "status": "error",
+  "exitCode": 4,
+  "message": "Registered GUI daemon session is not available for Play Mode enter.",
+  "payload": {},
+  "errors": [
+    {
+      "code": "PLAYMODE_SESSION_NOT_AVAILABLE",
+      "message": "Registered GUI daemon session is not available for Play Mode enter.",
+      "opId": null
+    }
+  ]
+}
