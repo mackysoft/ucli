@@ -9,6 +9,8 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorStabilityVerifierTests
 {
+    private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task EnsureStable_WhenRemainingTimeoutIsExhausted_ReturnsTimeout ()
@@ -77,7 +79,7 @@ public sealed class SupervisorStabilityVerifierTests
             .AsTask();
         for (var i = 0; i < 8 && !verificationTask.IsCompleted; i++)
         {
-            await WaitForActiveTimerAsync(timeProvider, verificationTask);
+            await WaitForActiveTimerAsync(timeProvider, verificationTask, SignalWaitTimeout);
             timeProvider.Advance(TimeSpan.FromMilliseconds(700));
             await Task.Yield();
         }
@@ -173,13 +175,15 @@ public sealed class SupervisorStabilityVerifierTests
 
     private static async Task WaitForActiveTimerAsync (
         ManualTimeProvider timeProvider,
-        Task observedTask)
+        Task observedTask,
+        TimeSpan timeout)
     {
         // NOTE: The verifier creates one timer for each retry delay. Waiting for the timer
         // before advancing manual time keeps this test independent from scheduler timing.
-        for (var i = 0; i < 8 && timeProvider.ActiveTimerCount == 0 && !observedTask.IsCompleted; i++)
+        using var timeoutCancellationTokenSource = new CancellationTokenSource(timeout);
+        while (timeProvider.ActiveTimerCount == 0 && !observedTask.IsCompleted)
         {
-            await Task.Yield();
+            await Task.Delay(TimeSpan.FromMilliseconds(1), timeoutCancellationTokenSource.Token).ConfigureAwait(false);
         }
     }
 
