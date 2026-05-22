@@ -14,9 +14,9 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static readonly TimeSpan WaitForTerminationRaceGracePeriod = TimeSpan.FromMilliseconds(10);
 
         private readonly object syncRoot = new object();
-        private readonly IUnityIpcRequestProcessor requestProcessor;
         private readonly IUnityIpcConnectionHandler connectionHandler;
         private readonly IReadOnlyList<IUnityIpcTransportListener> transportListeners;
+        private readonly IDaemonShutdownSignal daemonShutdownSignal;
         private readonly IDaemonLogger daemonLogger;
 
         private CancellationTokenSource? listenerCancellationTokenSource;
@@ -25,19 +25,19 @@ namespace MackySoft.Ucli.Unity.Ipc
         private bool isRunning;
 
         /// <summary> Initializes a new instance of the <see cref="UnityIpcServer" /> class. </summary>
-        /// <param name="requestProcessor"> The shared request-processor dependency. </param>
         /// <param name="connectionHandler"> The connection-handler dependency. </param>
         /// <param name="transportListeners"> The transport-listener dependencies. </param>
+        /// <param name="daemonShutdownSignal"> The daemon shutdown signal dependency. </param>
         /// <exception cref="ArgumentNullException"> Thrown when any dependency is <see langword="null" />. </exception>
         public UnityIpcServer (
-            IUnityIpcRequestProcessor requestProcessor,
             IUnityIpcConnectionHandler connectionHandler,
             IReadOnlyList<IUnityIpcTransportListener> transportListeners,
+            IDaemonShutdownSignal daemonShutdownSignal,
             IDaemonLogger daemonLogger = null)
         {
-            this.requestProcessor = requestProcessor ?? throw new ArgumentNullException(nameof(requestProcessor));
             this.connectionHandler = connectionHandler ?? throw new ArgumentNullException(nameof(connectionHandler));
             this.transportListeners = transportListeners ?? throw new ArgumentNullException(nameof(transportListeners));
+            this.daemonShutdownSignal = daemonShutdownSignal ?? throw new ArgumentNullException(nameof(daemonShutdownSignal));
             this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
         }
 
@@ -198,17 +198,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                 .ConfigureAwait(false);
         }
 
-        /// <summary> Handles one IPC request through the configured request-handler pipeline. </summary>
-        /// <param name="request"> The incoming IPC request envelope. </param>
-        /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
-        /// <returns> The IPC response envelope. </returns>
-        public Task<IpcResponse> HandleRequestAsync (
-            IpcRequest request,
-            CancellationToken cancellationToken = default)
-        {
-            return requestProcessor.ProcessAsync(request, cancellationToken);
-        }
-
         /// <summary> Runs endpoint-specific listener loop. </summary>
         /// <param name="endpoint"> The configured IPC endpoint. </param>
         /// <param name="cancellationToken"> The cancellation token for listener lifecycle. </param>
@@ -224,6 +213,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     endpoint.Address,
                     connectionHandler,
                     startupCoordinator.Complete,
+                    HandleConnectionCompleted,
                     cancellationToken);
                 startupCoordinator.FailOnUnexpectedExit(cancellationToken.IsCancellationRequested, IsRunning);
             }
@@ -280,6 +270,23 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             throw new InvalidOperationException($"Unsupported transport kind '{transportKind}'.");
+        }
+
+        private void HandleConnectionCompleted (UnityIpcConnectionHandleResult result)
+        {
+            if (ShouldSignalDaemonShutdown(result))
+            {
+                daemonShutdownSignal.Signal();
+            }
+        }
+
+        private static bool ShouldSignalDaemonShutdown (UnityIpcConnectionHandleResult result)
+        {
+            return result.Request != null
+                && result.Response != null
+                && string.Equals(result.Request.Method, IpcMethodNames.Shutdown, StringComparison.Ordinal)
+                && string.Equals(result.Response.Status, IpcProtocol.StatusOk, StringComparison.Ordinal)
+                && result.Response.Errors.Count == 0;
         }
 
         /// <summary> Cancels and joins listener resources after start-up failure path. </summary>

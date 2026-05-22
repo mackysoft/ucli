@@ -15,6 +15,60 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class PlayEnterUnityIpcMethodHandlerTests
     {
+        private const string RequestPayloadHash = "request-payload-hash";
+
+        [Test]
+        [Category("Size.Small")]
+        public void TryCreateRecoverableRequestPayloadHash_WhenTimeoutDiffers_ReturnsDifferentHash ()
+        {
+            var readinessGate = new MutableUnityEditorReadinessGate(CreateReadyStoppedSnapshot());
+            var handler = CreateHandler(readinessGate);
+            var firstRequest = CreatePlayEnterRequest("req-play-enter-hash-1", new IpcPlayEnterRequest
+            {
+                TimeoutMilliseconds = 1000,
+            });
+            var secondRequest = CreatePlayEnterRequest("req-play-enter-hash-2", new IpcPlayEnterRequest
+            {
+                TimeoutMilliseconds = 2000,
+            });
+
+            var firstResult = handler.TryCreateRecoverableRequestPayloadHash(
+                firstRequest,
+                out var firstHash,
+                out var firstError);
+            var secondResult = handler.TryCreateRecoverableRequestPayloadHash(
+                secondRequest,
+                out var secondHash,
+                out var secondError);
+
+            Assert.That(firstResult, Is.True, firstError?.Errors[0].Message);
+            Assert.That(secondResult, Is.True, secondError?.Errors[0].Message);
+            Assert.That(firstHash, Is.Not.Null.And.Not.Empty);
+            Assert.That(secondHash, Is.Not.EqualTo(firstHash));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void TryCreateRecoverableRequestPayloadHash_WhenTimeoutIsInvalid_ReturnsInvalidArgument ()
+        {
+            var readinessGate = new MutableUnityEditorReadinessGate(CreateReadyStoppedSnapshot());
+            var handler = CreateHandler(readinessGate);
+            var request = CreatePlayEnterRequest("req-play-enter-invalid-timeout", new IpcPlayEnterRequest
+            {
+                TimeoutMilliseconds = 0,
+            });
+
+            var result = handler.TryCreateRecoverableRequestPayloadHash(
+                request,
+                out var requestPayloadHash,
+                out var errorResponse);
+
+            Assert.That(result, Is.False);
+            Assert.That(requestPayloadHash, Is.Null);
+            Assert.That(errorResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(errorResponse.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+        }
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Handler_WhenPayloadIsInvalid_ReturnsInvalidArgumentWithoutCapturingSnapshot () => UniTask.ToCoroutine(async () =>
@@ -112,6 +166,79 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Response.Transition.Result, Is.EqualTo(IpcPlayTransitionResultNames.Entered));
             Assert.That(result.Response.Transition.Before.PlayMode!.Generation, Is.EqualTo("21"));
             Assert.That(result.Response.Transition.After!.PlayMode!.Generation, Is.EqualTo("22"));
+            Assert.That(recoverableStore.PendingWriteCallCount, Is.EqualTo(0));
+            Assert.That(enterRequestCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Runner_WhenNewRecoverableEnterStarts_PersistsBeforeSnapshotBeforeRequestingEnter () => UniTask.ToCoroutine(async () =>
+        {
+            var readinessGate = new MutableUnityEditorReadinessGate(CreateReadyStoppedSnapshot(generation: "21"));
+            var recoverableStore = new StubRecoverableIpcOperationStore();
+            var recoverableContext = CreateEmptyRecoverableContext(recoverableStore);
+            var enterRequestCount = 0;
+            var runner = CreateRunner(
+                readinessGate,
+                enterPlayModeRequester: () =>
+                {
+                    Assert.That(recoverableStore.PendingWriteCallCount, Is.EqualTo(1));
+                    enterRequestCount++;
+                    readinessGate.Snapshot = CreatePlayingSnapshot(generation: "22");
+                });
+
+            var result = await runner.EnterAsync(1000, recoverableContext, CancellationToken.None);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Response.Transition.Result, Is.EqualTo(IpcPlayTransitionResultNames.Entered));
+            Assert.That(recoverableStore.PendingWriteCallCount, Is.EqualTo(1));
+            Assert.That(recoverableStore.PendingPayload, Is.Not.Null);
+            Assert.That(recoverableStore.PendingPayload.Before.PlayMode!.Generation, Is.EqualTo("21"));
+            Assert.That(enterRequestCount, Is.EqualTo(1));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Runner_WhenPendingRecordWriteFails_DoesNotRequestEnter () => UniTask.ToCoroutine(async () =>
+        {
+            var readinessGate = new MutableUnityEditorReadinessGate(CreateReadyStoppedSnapshot(generation: "21"));
+            var recoverableStore = new StubRecoverableIpcOperationStore
+            {
+                PendingWriteResult = false,
+                PendingWriteErrorMessage = "write failed",
+            };
+            var recoverableContext = CreateEmptyRecoverableContext(recoverableStore);
+            var enterRequestCount = 0;
+            var runner = CreateRunner(
+                readinessGate,
+                enterPlayModeRequester: () => enterRequestCount++);
+
+            var result = await runner.EnterAsync(1000, recoverableContext, CancellationToken.None);
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error.Code, Is.EqualTo(PlayModeErrorCodes.PlayModeEnterRejected));
+            Assert.That(result.Response.Transition.ApplicationState, Is.EqualTo(IpcPlayApplicationStateNames.NotApplied));
+            Assert.That(recoverableStore.PendingWriteCallCount, Is.EqualTo(1));
+            Assert.That(enterRequestCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Runner_WhenPendingRecordPayloadIsInvalid_DoesNotRequestEnterAgain () => UniTask.ToCoroutine(async () =>
+        {
+            var readinessGate = new MutableUnityEditorReadinessGate(CreateReadyStoppedSnapshot(generation: "21"));
+            var recoverableStore = new StubRecoverableIpcOperationStore();
+            var recoverableContext = CreateRecoverableContext(recoverableStore, new PlayEnterRecoveryPayload());
+            var enterRequestCount = 0;
+            var runner = CreateRunner(
+                readinessGate,
+                enterPlayModeRequester: () => enterRequestCount++);
+
+            var result = await runner.EnterAsync(1000, recoverableContext, CancellationToken.None);
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error.Code, Is.EqualTo(PlayModeErrorCodes.PlayModeStateUnknown));
+            Assert.That(result.Response.Transition.ApplicationState, Is.EqualTo(IpcPlayApplicationStateNames.Unknown));
             Assert.That(recoverableStore.PendingWriteCallCount, Is.EqualTo(0));
             Assert.That(enterRequestCount, Is.EqualTo(0));
         });
@@ -265,6 +392,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 store,
                 IpcMethodNames.PlayEnter,
                 "req-play-enter-recoverable",
+                RequestPayloadHash,
                 new RecoverableIpcOperationRecord
                 {
                     SchemaVersion = 1,
@@ -275,6 +403,16 @@ namespace MackySoft.Ucli.Unity.Tests
                     StartedAtUtc = DateTimeOffset.UtcNow,
                     RecoveryPayload = IpcPayloadCodec.SerializeToElement(payload),
                 });
+        }
+
+        private static RecoverableIpcOperationContext CreateEmptyRecoverableContext (IRecoverableIpcOperationStore store)
+        {
+            return new RecoverableIpcOperationContext(
+                store,
+                IpcMethodNames.PlayEnter,
+                "req-play-enter-recoverable",
+                RequestPayloadHash,
+                null);
         }
 
         private static Task CompleteEditorUpdateAsync (CancellationToken cancellationToken)
@@ -427,9 +565,16 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             public int PendingWriteCallCount { get; private set; }
 
+            public bool PendingWriteResult { get; set; } = true;
+
+            public string PendingWriteErrorMessage { get; set; }
+
+            public PlayEnterRecoveryPayload PendingPayload { get; private set; }
+
             public bool TryRead (
                 string method,
                 string requestId,
+                string requestPayloadHash,
                 out RecoverableIpcOperationRecord record,
                 out string errorMessage)
             {
@@ -441,18 +586,22 @@ namespace MackySoft.Ucli.Unity.Tests
             public bool TryWritePending (
                 string method,
                 string requestId,
+                string requestPayloadHash,
                 DateTimeOffset startedAtUtc,
                 System.Text.Json.JsonElement recoveryPayload,
                 out string errorMessage)
             {
                 PendingWriteCallCount++;
-                errorMessage = null;
-                return true;
+                IpcPayloadCodec.TryDeserialize(recoveryPayload, out PlayEnterRecoveryPayload pendingPayload, out _);
+                PendingPayload = pendingPayload;
+                errorMessage = PendingWriteErrorMessage;
+                return PendingWriteResult;
             }
 
             public bool TryWriteCompleted (
                 string method,
                 string requestId,
+                string requestPayloadHash,
                 DateTimeOffset startedAtUtc,
                 DateTimeOffset completedAtUtc,
                 System.Text.Json.JsonElement recoveryPayload,
@@ -463,7 +612,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return true;
             }
 
-            public bool TryPurgeExpiredCompletedRecords (
+            public bool TryPurgeExpiredRecords (
                 DateTimeOffset nowUtc,
                 out string errorMessage)
             {

@@ -11,6 +11,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         bool TryRead (
             string method,
             string requestId,
+            string requestPayloadHash,
             out RecoverableIpcOperationRecord record,
             out string errorMessage);
 
@@ -18,6 +19,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         bool TryWritePending (
             string method,
             string requestId,
+            string requestPayloadHash,
             DateTimeOffset startedAtUtc,
             JsonElement recoveryPayload,
             out string errorMessage);
@@ -26,14 +28,15 @@ namespace MackySoft.Ucli.Unity.Ipc
         bool TryWriteCompleted (
             string method,
             string requestId,
+            string requestPayloadHash,
             DateTimeOffset startedAtUtc,
             DateTimeOffset completedAtUtc,
             JsonElement recoveryPayload,
             IpcResponse response,
             out string errorMessage);
 
-        /// <summary> Removes expired completed operation records. </summary>
-        bool TryPurgeExpiredCompletedRecords (
+        /// <summary> Removes expired operation records retained by the store. </summary>
+        bool TryPurgeExpiredRecords (
             DateTimeOffset nowUtc,
             out string errorMessage);
     }

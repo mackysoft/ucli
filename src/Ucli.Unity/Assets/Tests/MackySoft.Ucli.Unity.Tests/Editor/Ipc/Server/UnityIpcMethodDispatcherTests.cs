@@ -1,9 +1,9 @@
 using System;
-using MackySoft.Ucli.Contracts;
 using System.Collections;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
@@ -161,6 +161,55 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response, Is.SameAs(completedResponse));
             Assert.That(handler.RecoverableCallCount, Is.EqualTo(0));
             Assert.That(store.PurgeCallCount, Is.EqualTo(1));
+            Assert.That(store.LastReadRequestPayloadHash, Is.EqualTo(handler.RecoverableRequestPayloadHash));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenRecoverableRecordPayloadHashDoesNotMatch_ReturnsInternalErrorWithoutCallingHandler () => UniTask.ToCoroutine(async () =>
+        {
+            var store = new StubRecoverableIpcOperationStore
+            {
+                ExpectedReadRequestPayloadHash = "other-hash",
+            };
+            var handler = new StubRecoverableMethodHandler(IpcMethodNames.PlayEnter, static (_, _, _) =>
+                new ValueTask<IpcResponse>(CreateSuccessResponse("unexpected")));
+            var dispatcher = new UnityIpcMethodDispatcher(new IUnityIpcMethodHandler[] { handler }, store);
+            var request = CreateRequest("req-recovered-hash-mismatch", IpcMethodNames.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 });
+
+            var response = await TestAwaiter.WaitAsync(
+                dispatcher.DispatchAsync(request, CancellationToken.None).AsUniTask(),
+                "Hash-mismatched recoverable IPC method dispatch",
+                AsyncWaitTimeout);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InternalError));
+            Assert.That(handler.RecoverableCallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenRecoverableStoreExistsAndHandlerDoesNotSupportRecovery_DelegatesNormally () => UniTask.ToCoroutine(async () =>
+        {
+            var store = new StubRecoverableIpcOperationStore();
+            var handler = new StubMethodHandler(IpcMethodNames.PlayEnter, static (request, cancellationToken) =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return new ValueTask<IpcResponse>(CreateSuccessResponse(request.RequestId));
+            });
+            var dispatcher = new UnityIpcMethodDispatcher(new IUnityIpcMethodHandler[] { handler }, store);
+            var request = CreateRequest("req-plain-handler-with-store", IpcMethodNames.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 });
+
+            var response = await TestAwaiter.WaitAsync(
+                dispatcher.DispatchAsync(request, CancellationToken.None).AsUniTask(),
+                "Plain method handler with recoverable store dispatch",
+                AsyncWaitTimeout);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(response.RequestId, Is.EqualTo("req-plain-handler-with-store"));
+            Assert.That(handler.CallCount, Is.EqualTo(1));
+            Assert.That(store.ReadCallCount, Is.EqualTo(0));
         });
 
         [UnityTest]
@@ -298,6 +347,18 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public string Method { get; }
 
+            public string RecoverableRequestPayloadHash { get; set; } = "stub-recoverable-hash";
+
+            public bool TryCreateRecoverableRequestPayloadHash (
+                IpcRequest request,
+                out string requestPayloadHash,
+                out IpcResponse errorResponse)
+            {
+                requestPayloadHash = RecoverableRequestPayloadHash;
+                errorResponse = null;
+                return true;
+            }
+
             public ValueTask<IpcResponse> HandleAsync (
                 IpcRequest request,
                 CancellationToken cancellationToken)
@@ -322,7 +383,13 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public string ReadErrorMessage { get; set; }
 
+            public string ExpectedReadRequestPayloadHash { get; set; }
+
+            public string LastReadRequestPayloadHash { get; private set; }
+
             public int PurgeCallCount { get; private set; }
+
+            public int ReadCallCount { get; private set; }
 
             public int PendingWriteCallCount { get; private set; }
 
@@ -333,9 +400,20 @@ namespace MackySoft.Ucli.Unity.Tests
             public bool TryRead (
                 string method,
                 string requestId,
+                string requestPayloadHash,
                 out RecoverableIpcOperationRecord record,
                 out string errorMessage)
             {
+                ReadCallCount++;
+                LastReadRequestPayloadHash = requestPayloadHash;
+                if (!string.IsNullOrWhiteSpace(ExpectedReadRequestPayloadHash)
+                    && !string.Equals(ExpectedReadRequestPayloadHash, requestPayloadHash, StringComparison.Ordinal))
+                {
+                    record = null;
+                    errorMessage = "identity mismatch";
+                    return false;
+                }
+
                 record = ReadRecord;
                 errorMessage = ReadErrorMessage;
                 return record != null;
@@ -344,6 +422,7 @@ namespace MackySoft.Ucli.Unity.Tests
             public bool TryWritePending (
                 string method,
                 string requestId,
+                string requestPayloadHash,
                 DateTimeOffset startedAtUtc,
                 System.Text.Json.JsonElement recoveryPayload,
                 out string errorMessage)
@@ -356,6 +435,7 @@ namespace MackySoft.Ucli.Unity.Tests
             public bool TryWriteCompleted (
                 string method,
                 string requestId,
+                string requestPayloadHash,
                 DateTimeOffset startedAtUtc,
                 DateTimeOffset completedAtUtc,
                 System.Text.Json.JsonElement recoveryPayload,
@@ -368,7 +448,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return true;
             }
 
-            public bool TryPurgeExpiredCompletedRecords (
+            public bool TryPurgeExpiredRecords (
                 DateTimeOffset nowUtc,
                 out string errorMessage)
             {

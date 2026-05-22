@@ -12,6 +12,7 @@ using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -61,13 +62,15 @@ namespace MackySoft.Ucli.Unity.Ipc
             using var currentProcess = Process.GetCurrentProcess();
             var currentProcessId = currentProcess.Id;
             var currentProcessStartedAtUtc = currentProcess.StartTime.ToUniversalTime();
+            var currentEditorInstanceId = UnityEditorProcessIdentity.GetEditorInstanceId();
             DeleteCurrentProcessGuiSessionIfPresent(
                 sessionPath,
                 projectFingerprint,
                 endpoint,
                 sessionOptions,
                 currentProcessId,
-                currentProcessStartedAtUtc);
+                currentProcessStartedAtUtc,
+                currentEditorInstanceId);
 
             var issuedAtUtc = DateTimeOffset.UtcNow;
             var sessionToken = CreateSessionToken();
@@ -83,7 +86,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 EndpointAddress: endpoint.Address,
                 ProcessId: currentProcessId,
                 ProcessStartedAtUtc: currentProcessStartedAtUtc,
-                OwnerProcessId: sessionOptions.OwnerProcessId);
+                OwnerProcessId: sessionOptions.OwnerProcessId)
+            {
+                EditorInstanceId = currentEditorInstanceId,
+            };
             var json = DaemonSessionJsonContractSerializer.Serialize(sessionContract) + Environment.NewLine;
             await WriteSessionJsonCreateNewAsync(sessionPath, json, cancellationToken).ConfigureAwait(false);
             FileSystemAccessBoundary.EnsureSecureFile(sessionPath);
@@ -148,7 +154,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcEndpoint expectedEndpoint,
             UnityGuiBootstrapSessionOptions sessionOptions,
             int currentProcessId,
-            DateTimeOffset currentProcessStartedAtUtc)
+            DateTimeOffset currentProcessStartedAtUtc,
+            string currentEditorInstanceId)
         {
             if (!File.Exists(sessionPath))
             {
@@ -172,7 +179,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     expectedEndpoint,
                     sessionOptions,
                     currentProcessId,
-                    currentProcessStartedAtUtc))
+                    currentProcessStartedAtUtc,
+                    currentEditorInstanceId))
             {
                 return;
             }
@@ -217,7 +225,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcEndpoint expectedEndpoint,
             UnityGuiBootstrapSessionOptions sessionOptions,
             int currentProcessId,
-            DateTimeOffset currentProcessStartedAtUtc)
+            DateTimeOffset currentProcessStartedAtUtc,
+            string currentEditorInstanceId)
         {
             return sessionContract.SchemaVersion == DaemonSessionStorageContract.CurrentSchemaVersion
                 && string.Equals(sessionContract.ProjectFingerprint, projectFingerprint, StringComparison.Ordinal)
@@ -230,8 +239,22 @@ namespace MackySoft.Ucli.Unity.Ipc
                     StringComparison.Ordinal)
                 && string.Equals(sessionContract.EndpointAddress, expectedEndpoint.Address, StringComparison.Ordinal)
                 && sessionContract.ProcessId == currentProcessId
-                && sessionContract.ProcessStartedAtUtc == currentProcessStartedAtUtc
+                && MatchesCurrentProcessIdentity(sessionContract, currentProcessStartedAtUtc, currentEditorInstanceId)
                 && sessionContract.OwnerProcessId == sessionOptions.OwnerProcessId;
+        }
+
+        private static bool MatchesCurrentProcessIdentity (
+            DaemonSessionJsonContract sessionContract,
+            DateTimeOffset currentProcessStartedAtUtc,
+            string currentEditorInstanceId)
+        {
+            if (!string.IsNullOrWhiteSpace(sessionContract.EditorInstanceId)
+                && !string.IsNullOrWhiteSpace(currentEditorInstanceId))
+            {
+                return string.Equals(sessionContract.EditorInstanceId, currentEditorInstanceId, StringComparison.Ordinal);
+            }
+
+            return sessionContract.ProcessStartedAtUtc == currentProcessStartedAtUtc;
         }
 
         private static void DeleteUnixEndpointResidue (
@@ -258,10 +281,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             UnityGuiSessionRegistration registration,
             DaemonSessionJsonContract sessionContract)
         {
+            using var currentProcess = Process.GetCurrentProcess();
             return sessionContract.SchemaVersion == DaemonSessionStorageContract.CurrentSchemaVersion
                 && sessionContract.IssuedAtUtc == registration.IssuedAtUtc
                 && sessionContract.CanShutdownProcess == registration.CanShutdownProcess
-                && sessionContract.ProcessId == Process.GetCurrentProcess().Id
+                && sessionContract.ProcessId == currentProcess.Id
                 && string.Equals(sessionContract.EditorMode, DaemonEditorModeValues.Gui, StringComparison.Ordinal)
                 && string.Equals(
                     sessionContract.EndpointTransportKind,

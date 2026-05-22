@@ -171,7 +171,10 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
             DomainReloadGeneration: StringValueNormalizer.TrimToNull(contract.DomainReloadGeneration),
             ObservedAtUtc: observedAtUtc,
             ActionRequired: actionRequired,
-            PrimaryDiagnostic: primaryDiagnostic);
+            PrimaryDiagnostic: primaryDiagnostic)
+        {
+            EditorInstanceId = StringValueNormalizer.TrimToNull(contract.EditorInstanceId),
+        };
         return true;
     }
 

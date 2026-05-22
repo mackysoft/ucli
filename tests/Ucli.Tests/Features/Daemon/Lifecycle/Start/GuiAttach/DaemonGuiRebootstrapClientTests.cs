@@ -90,6 +90,39 @@ public sealed class DaemonGuiRebootstrapClientTests
         Assert.Empty(transportClient.Calls);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task RequestRebootstrapAsync_WhenManifestStartTimeDiffersWithinTolerance_RequestsSupervisor ()
+    {
+        using var scope = DaemonServiceTestContext.CreateTempScope(nameof(RequestRebootstrapAsync_WhenManifestStartTimeDiffersWithinTolerance_RequestsSupervisor));
+        var unityProject = CreateUnityProject(scope);
+        var manifest = CreateManifest() with
+        {
+            ProcessStartedAtUtc = ProcessStartedAtUtc.AddMilliseconds(1),
+        };
+        await WriteManifestAsync(scope.FullPath, unityProject.ProjectFingerprint, manifest);
+        var transportClient = new DaemonServiceTestContext.StubIpcTransportClient
+        {
+            SendHandler = (_, request, _, _) => ValueTask.FromResult(DaemonServiceTestContext.CreateSuccessResponse(
+                request,
+                new IpcGuiRebootstrapResponse(
+                    Accepted: true,
+                    ProjectFingerprint: unityProject.ProjectFingerprint,
+                    ProcessId: manifest.ProcessId))),
+        };
+        var client = CreateClient(transportClient);
+
+        var result = await client.RequestRebootstrapAsync(
+            unityProject,
+            manifest.ProcessId,
+            ProcessStartedAtUtc,
+            TimeSpan.FromMilliseconds(500),
+            CancellationToken.None);
+
+        Assert.True(result.IsAccepted);
+        Assert.Single(transportClient.Calls);
+    }
+
     public static TheoryData<string, int, string, string, string, string, DateTimeOffset?> InvalidManifestCases => new()
     {
         {
@@ -117,7 +150,7 @@ public sealed class DaemonGuiRebootstrapClientTests
             "supervisor-token",
             IpcTransportKindCodec.ToValue(IpcTransportKind.UnixDomainSocket),
             "/tmp/ucli-gui-supervisor.sock",
-            ProcessStartedAtUtc.AddSeconds(1)
+            ProcessStartedAtUtc.Add(DaemonProcessStartTimeMatcher.Tolerance).AddMilliseconds(1)
         },
         {
             "session-token",

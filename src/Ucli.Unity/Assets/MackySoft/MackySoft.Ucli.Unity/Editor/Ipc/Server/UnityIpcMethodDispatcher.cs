@@ -1,5 +1,5 @@
-using System.Collections.Generic;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
@@ -92,7 +92,24 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcRequest request,
             CancellationToken cancellationToken)
         {
-            if (!recoverableOperationStore.TryPurgeExpiredCompletedRecords(DateTimeOffset.UtcNow, out var purgeErrorMessage))
+            if (!methodHandler.TryCreateRecoverableRequestPayloadHash(
+                    request,
+                    out var requestPayloadHash,
+                    out var hashErrorResponse))
+            {
+                return hashErrorResponse;
+            }
+
+            if (string.IsNullOrWhiteSpace(requestPayloadHash))
+            {
+                return UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    UcliCoreErrorCodes.InternalError,
+                    $"IPC method '{request.Method}' returned an empty recoverable request payload hash.",
+                    null);
+            }
+
+            if (!recoverableOperationStore.TryPurgeExpiredRecords(DateTimeOffset.UtcNow, out var purgeErrorMessage))
             {
                 daemonLogger.Warning(
                     DaemonLogCategories.Ipc,
@@ -102,6 +119,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             var hasRecord = recoverableOperationStore.TryRead(
                 request.Method,
                 request.RequestId,
+                requestPayloadHash,
                 out var record,
                 out var readErrorMessage);
             if (!string.IsNullOrWhiteSpace(readErrorMessage))
@@ -123,6 +141,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 && string.Equals(record.State, RecoverableIpcOperationStateNames.Completed, StringComparison.Ordinal)
                 && record.Response != null)
             {
+                // NOTE: Replays after response loss must be idempotent. Returning the
+                // completed response prevents the method handler from repeating Unity state changes.
                 return record.Response;
             }
 
@@ -130,6 +150,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 recoverableOperationStore,
                 request.Method,
                 request.RequestId,
+                requestPayloadHash,
                 record);
             var response = await methodHandler.HandleRecoverableAsync(request, context, cancellationToken);
             if (context.HasOperationRecord

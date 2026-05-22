@@ -1,9 +1,10 @@
 using System;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Cryptography;
 using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -45,6 +46,27 @@ namespace MackySoft.Ucli.Unity.Ipc
         public string Method => IpcMethodNames.PlayEnter;
 
         /// <inheritdoc />
+        public bool TryCreateRecoverableRequestPayloadHash (
+            IpcRequest request,
+            out string requestPayloadHash,
+            out IpcResponse errorResponse)
+        {
+            if (!TryReadPlayEnterRequest(
+                    request,
+                    logDecodeFailure: false,
+                    out IpcPlayEnterRequest enterRequest,
+                    out errorResponse))
+            {
+                requestPayloadHash = null;
+                return false;
+            }
+
+            var stablePayload = IpcPayloadCodec.SerializeToElement(enterRequest);
+            requestPayloadHash = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(stablePayload.GetRawText()));
+            return true;
+        }
+
+        /// <inheritdoc />
         public async ValueTask<IpcResponse> HandleAsync (
             IpcRequest request,
             CancellationToken cancellationToken)
@@ -72,24 +94,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(request));
             }
 
-            if (!UnityIpcRequestCodec.TryDecodePlayEnterRequest(
+            if (!TryReadPlayEnterRequest(
                     request,
+                    logDecodeFailure: true,
                     out IpcPlayEnterRequest enterRequest,
                     out var errorResponse))
             {
-                daemonLogger.Warning(
-                    DaemonLogCategories.Health,
-                    "Play enter payload decode failed.");
                 return errorResponse!;
-            }
-
-            if (!TryValidateTimeoutMilliseconds(enterRequest!.TimeoutMilliseconds, out var timeoutErrorMessage))
-            {
-                return UnityIpcResponseFactory.CreateErrorResponse(
-                    request,
-                    UcliCoreErrorCodes.InvalidArgument,
-                    timeoutErrorMessage,
-                    null);
             }
 
             var result = await transitionRunner.EnterAsync(
@@ -107,6 +118,41 @@ namespace MackySoft.Ucli.Unity.Ipc
                 result.Error.Message,
                 result.Error.OpId,
                 result.Response);
+        }
+
+        private bool TryReadPlayEnterRequest (
+            IpcRequest request,
+            bool logDecodeFailure,
+            out IpcPlayEnterRequest enterRequest,
+            out IpcResponse errorResponse)
+        {
+            if (!UnityIpcRequestCodec.TryDecodePlayEnterRequest(
+                    request,
+                    out enterRequest,
+                    out errorResponse))
+            {
+                if (logDecodeFailure)
+                {
+                    daemonLogger.Warning(
+                        DaemonLogCategories.Health,
+                        "Play enter payload decode failed.");
+                }
+
+                return false;
+            }
+
+            if (!TryValidateTimeoutMilliseconds(enterRequest!.TimeoutMilliseconds, out var timeoutErrorMessage))
+            {
+                errorResponse = UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    UcliCoreErrorCodes.InvalidArgument,
+                    timeoutErrorMessage,
+                    null);
+                return false;
+            }
+
+            errorResponse = null;
+            return true;
         }
 
         private static bool TryValidateTimeoutMilliseconds (

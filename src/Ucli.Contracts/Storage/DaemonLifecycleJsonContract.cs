@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Contracts.Storage;
@@ -25,4 +26,9 @@ internal sealed record DaemonLifecycleJsonContract (
     string? DomainReloadGeneration,
     DateTimeOffset? ObservedAtUtc,
     string? ActionRequired,
-    IpcPrimaryDiagnostic? PrimaryDiagnostic);
+    IpcPrimaryDiagnostic? PrimaryDiagnostic)
+{
+    /// <summary> Gets the Unity Editor process instance identifier that survives domain reloads within the process. </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? EditorInstanceId { get; init; }
+}

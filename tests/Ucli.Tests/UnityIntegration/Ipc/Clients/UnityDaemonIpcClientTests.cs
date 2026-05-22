@@ -1,8 +1,12 @@
 using System.Text.Json;
+using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
+using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Ipc;
@@ -67,7 +71,7 @@ public sealed class UnityDaemonIpcClientTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.ErrorCode);
         Assert.Equal(1, sessionTokenProvider.CallCount);
         Assert.Equal(0, transportClient.CallCount);
     }
@@ -121,6 +125,46 @@ public sealed class UnityDaemonIpcClientTests
         Assert.StartsWith($"{IpcMethodNames.PlayEnter}-", transportClient.Requests[0].RequestId, StringComparison.Ordinal);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenRecoverableSessionTokenIsTemporarilyUnavailableDuringRecovery_WaitsAndSendsRecoveredSessionToken ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var transportClient = new StubUnityIpcTransportClient();
+        transportClient.EnqueueResponse(CreateResponse("req-recovered-session"));
+        var session = CreateRecoveringSession();
+        var recoveryWaiter = new UnityDaemonRecoveryWaiter(
+            new StubDaemonSessionStore(DaemonSessionReadResult.Success(session)),
+            new StubDaemonLifecycleStore(DaemonLifecycleObservationReadResult.Success(CreateRecoveringObservation(session))),
+            new StubDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess),
+            timeProvider);
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
+            DaemonSessionTokenResolutionResult.SessionNotAvailable(),
+            DaemonSessionTokenResolutionResult.Success("daemon-token-2"));
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            sessionTokenProvider,
+            recoveryWaiter,
+            timeProvider);
+
+        var sendTask = client.SendAsync(
+                CreateContext(),
+                new UnityIpcDispatchRequest(IpcMethodNames.PlayEnter, CreateDispatchPayload(), isRecoverable: true),
+                TimeSpan.FromSeconds(5),
+                CancellationToken.None)
+            .AsTask();
+        Assert.False(sendTask.IsCompleted);
+
+        timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        var result = await sendTask;
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, sessionTokenProvider.CallCount);
+        Assert.Single(transportClient.Requests);
+        Assert.Equal("daemon-token-2", transportClient.Requests[0].SessionToken);
+        Assert.StartsWith($"{IpcMethodNames.PlayEnter}-", transportClient.Requests[0].RequestId, StringComparison.Ordinal);
+    }
+
     private static ResolvedUnityProjectContext CreateContext ()
     {
         return new ResolvedUnityProjectContext(
@@ -153,6 +197,45 @@ public sealed class UnityDaemonIpcClientTests
             Status: IpcProtocol.StatusOk,
             Payload: EmptyPayload(),
             Errors: Array.Empty<IpcError>());
+    }
+
+    private static DaemonSession CreateRecoveringSession ()
+    {
+        return new DaemonSession(
+            SchemaVersion: DaemonSession.CurrentSchemaVersion,
+            SessionToken: "session-token",
+            ProjectFingerprint: "project-fingerprint",
+            IssuedAtUtc: DateTimeOffset.UtcNow,
+            EditorMode: DaemonEditorModeValues.Gui,
+            OwnerKind: "user",
+            CanShutdownProcess: false,
+            EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
+            EndpointAddress: "/tmp/ucli.sock",
+            ProcessId: 1234,
+            ProcessStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10),
+            OwnerProcessId: null)
+        {
+            EditorInstanceId = "editor-instance-1",
+        };
+    }
+
+    private static DaemonLifecycleObservation CreateRecoveringObservation (DaemonSession session)
+    {
+        return new DaemonLifecycleObservation(
+            ProcessId: session.ProcessId!.Value,
+            ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value,
+            EditorMode: session.EditorMode,
+            LifecycleState: IpcEditorLifecycleStateCodec.DomainReloading,
+            BlockingReason: IpcEditorBlockingReasonCodec.DomainReload,
+            CompileState: IpcCompileStateCodec.Ready,
+            CompileGeneration: "1",
+            DomainReloadGeneration: "2",
+            ObservedAtUtc: DateTimeOffset.UtcNow,
+            ActionRequired: null,
+            PrimaryDiagnostic: null)
+        {
+            EditorInstanceId = session.EditorInstanceId,
+        };
     }
 
     private sealed class StubUnityIpcTransportClient : IUnityIpcTransportClient
@@ -235,6 +318,88 @@ public sealed class UnityDaemonIpcClientTests
             }
 
             return ValueTask.FromResult(lastResult);
+        }
+    }
+
+    private sealed class StubDaemonSessionStore : IDaemonSessionStore
+    {
+        private readonly DaemonSessionReadResult readResult;
+
+        public StubDaemonSessionStore (DaemonSessionReadResult readResult)
+        {
+            this.readResult = readResult;
+        }
+
+        public ValueTask<DaemonSessionReadResult> ReadAsync (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(readResult);
+        }
+
+        public ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
+            string storageRoot,
+            DaemonSession session,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(DaemonSessionStoreOperationResult.Success());
+        }
+
+        public ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(DaemonSessionStoreOperationResult.Success());
+        }
+    }
+
+    private sealed class StubDaemonLifecycleStore : IDaemonLifecycleStore
+    {
+        private readonly DaemonLifecycleObservationReadResult readResult;
+
+        public StubDaemonLifecycleStore (DaemonLifecycleObservationReadResult readResult)
+        {
+            this.readResult = readResult;
+        }
+
+        public ValueTask<DaemonLifecycleObservationReadResult> ReadAsync (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(readResult);
+        }
+
+        public ValueTask<DaemonLifecycleStoreOperationResult> DeleteAsync (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(DaemonLifecycleStoreOperationResult.Success());
+        }
+    }
+
+    private sealed class StubDaemonProcessIdentityAssessor : IDaemonProcessIdentityAssessor
+    {
+        private readonly DaemonProcessIdentityAssessmentStatus status;
+
+        public StubDaemonProcessIdentityAssessor (DaemonProcessIdentityAssessmentStatus status)
+        {
+            this.status = status;
+        }
+
+        public DaemonProcessIdentityAssessment AssessByProcessId (
+            int processId,
+            DateTimeOffset? expectedProcessStartedAtUtc)
+        {
+            return new DaemonProcessIdentityAssessment(status, expectedProcessStartedAtUtc, null);
         }
     }
 }

@@ -31,4 +31,7 @@ internal sealed record DaemonSession (
 {
     /// <summary> Gets the schema version used by daemon session persistence. </summary>
     public const int CurrentSchemaVersion = DaemonSessionStorageContract.CurrentSchemaVersion;
+
+    /// <summary> Gets the Unity Editor process instance identifier that survives domain reloads within the process. </summary>
+    public string? EditorInstanceId { get; init; }
 }

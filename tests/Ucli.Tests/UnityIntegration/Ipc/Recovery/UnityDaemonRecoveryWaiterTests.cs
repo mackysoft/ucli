@@ -49,6 +49,53 @@ public sealed class UnityDaemonRecoveryWaiterTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task DelayIfRecoveringAsync_WhenEditorInstanceMatchesAndStartTimeDiffers_DelaysAndReturnsTrue ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var session = CreateSession();
+        var observation = CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading) with
+        {
+            ProcessStartedAtUtc = session.ProcessStartedAtUtc!.Value.AddMilliseconds(1),
+        };
+        var waiter = CreateWaiter(
+            session,
+            observation,
+            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
+            timeProvider);
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
+
+        var delayTask = waiter.DelayIfRecoveringAsync(CreateContext(), deadline, CancellationToken.None).AsTask();
+        Assert.False(delayTask.IsCompleted);
+
+        timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+
+        Assert.True(await delayTask);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task DelayIfRecoveringAsync_WhenEditorInstanceDiffers_ReturnsFalseWithoutDelay ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var session = CreateSession();
+        var observation = CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading) with
+        {
+            EditorInstanceId = "other-editor-instance",
+        };
+        var waiter = CreateWaiter(
+            session,
+            observation,
+            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
+            timeProvider);
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
+
+        var result = await waiter.DelayIfRecoveringAsync(CreateContext(), deadline, CancellationToken.None);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task DelayIfRecoveringAsync_WhenProcessIdentityDiffers_ReturnsFalseWithoutDelay ()
     {
         var timeProvider = new ManualTimeProvider();
@@ -119,7 +166,10 @@ public sealed class UnityDaemonRecoveryWaiterTests
             EndpointAddress: "/tmp/ucli.sock",
             ProcessId: 1234,
             ProcessStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10),
-            OwnerProcessId: null);
+            OwnerProcessId: null)
+        {
+            EditorInstanceId = "editor-instance-1",
+        };
     }
 
     private static DaemonLifecycleObservation CreateObservation (
@@ -137,7 +187,10 @@ public sealed class UnityDaemonRecoveryWaiterTests
             DomainReloadGeneration: "2",
             ObservedAtUtc: DateTimeOffset.UtcNow,
             ActionRequired: null,
-            PrimaryDiagnostic: null);
+            PrimaryDiagnostic: null)
+        {
+            EditorInstanceId = session.EditorInstanceId,
+        };
     }
 
     private sealed class StubDaemonSessionStore : IDaemonSessionStore

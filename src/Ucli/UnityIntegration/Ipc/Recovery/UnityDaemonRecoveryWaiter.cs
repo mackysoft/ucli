@@ -82,6 +82,9 @@ internal sealed class UnityDaemonRecoveryWaiter
             return false;
         }
 
+        // NOTE: A missing daemon endpoint is recoverable only when the lifecycle sidecar
+        // proves the same GUI session is inside domain-reload recovery. Other gaps remain
+        // ordinary DAEMON_NOT_RUNNING failures.
         var lifecycleReadResult = await daemonLifecycleStore.ReadAsync(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,

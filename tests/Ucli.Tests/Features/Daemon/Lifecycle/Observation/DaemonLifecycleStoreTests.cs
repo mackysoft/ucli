@@ -91,6 +91,26 @@ public sealed class DaemonLifecycleStoreTests
         Assert.Equal("Missing parameter", diagnostic.Message);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenLifecycleJsonContainsEditorInstanceId_NormalizesField ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "editor-instance-id");
+        var store = new DaemonLifecycleStore();
+        await WriteContractAsync(
+            scope.FullPath,
+            "fingerprint-editor-instance",
+            CreateContract() with
+            {
+                EditorInstanceId = " editor-instance-1 ",
+            });
+
+        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-editor-instance", CancellationToken.None);
+
+        Assert.True(readResult.IsSuccess);
+        Assert.Equal("editor-instance-1", readResult.Observation!.EditorInstanceId);
+    }
+
     private static DaemonLifecycleJsonContract CreateContract ()
     {
         return new DaemonLifecycleJsonContract(

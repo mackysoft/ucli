@@ -54,6 +54,9 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
+        // NOTE: Recoverable replay must keep one requestId so Unity can find the same
+        // operation record after domain reload. The session token is still resolved on
+        // every attempt because the daemon endpoint can be re-registered.
         var requestId = UnityIpcRequestFactory.CreateRequestId(dispatchRequest.Method);
 
         while (true)
@@ -75,10 +78,15 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                     continue;
                 }
 
-                var message = sessionTokenResult.IsSessionNotAvailable
-                    ? "Daemon session token is not available."
-                    : $"Daemon session token could not be resolved. {sessionTokenResult.Error!.Message}";
-                return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.InternalError(message));
+                if (sessionTokenResult.IsSessionNotAvailable)
+                {
+                    return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.FromCodeAndMessage(
+                        UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
+                        "Daemon session token is not available."));
+                }
+
+                return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.InternalError(
+                    $"Daemon session token could not be resolved. {sessionTokenResult.Error!.Message}"));
             }
 
             try

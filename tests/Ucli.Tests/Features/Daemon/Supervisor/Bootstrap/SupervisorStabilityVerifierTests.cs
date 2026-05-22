@@ -52,6 +52,47 @@ public sealed class SupervisorStabilityVerifierTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task EnsureStable_WhenSuccessfulPingsSpanBeyondStabilityWindow_UsesCommandTimeoutBudget ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var pingClient = new StubDaemonPingClient
+        {
+            PingHandler = (_, timeout, cancellationToken) =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                Assert.Equal(TimeSpan.FromSeconds(1), timeout);
+                timeProvider.Advance(TimeSpan.FromMilliseconds(700));
+                return ValueTask.CompletedTask;
+            },
+        };
+        var verifier = new SupervisorStabilityVerifier(
+            pingClient,
+            new SupervisorDiagnosisWriter(new StubDaemonDiagnosisStore()),
+            timeProvider);
+
+        var verificationTask = verifier.EnsureStableAsync(
+                CreateUnityProject(),
+                CreateSession(),
+                TimeSpan.FromSeconds(5),
+                CancellationToken.None)
+            .AsTask();
+        for (var i = 0; i < 8 && !verificationTask.IsCompleted; i++)
+        {
+            timeProvider.Advance(TimeSpan.FromMilliseconds(700));
+            await Task.Yield();
+        }
+
+        var result = await TestAwaiter.WaitAsync(
+            verificationTask,
+            "Supervisor stability verification",
+            TimeSpan.FromSeconds(5));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(3, pingClient.Timeouts.Count);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task EnsureStable_WhenPingFails_ReturnsFailureWithoutCompensationStop ()
     {
         var pingClient = new StubDaemonPingClient

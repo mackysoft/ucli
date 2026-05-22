@@ -4,12 +4,12 @@ using System.IO;
 using System.Text.Json;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Project;
-using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using UnityEngine.TestTools;
 
@@ -18,6 +18,88 @@ namespace MackySoft.Ucli.Unity.Tests
     public sealed class CompileUnityIpcMethodHandlerTests
     {
         private const string ProjectFingerprint = "project-fingerprint";
+        private const string RequestPayloadHash = "request-payload-hash";
+
+        [Test]
+        [Category("Size.Small")]
+        public void TryCreateRecoverableRequestPayloadHash_WhenOnlyTimeoutDiffers_ReturnsSameHash ()
+        {
+            var handler = CreateHandler();
+            var firstRequest = CreateCompileRequest("req-compile-hash-1", "run-hash", timeoutMilliseconds: 1000);
+            var secondRequest = CreateCompileRequest("req-compile-hash-2", "run-hash", timeoutMilliseconds: 2000);
+
+            var firstResult = handler.TryCreateRecoverableRequestPayloadHash(
+                firstRequest,
+                out var firstHash,
+                out var firstError);
+            var secondResult = handler.TryCreateRecoverableRequestPayloadHash(
+                secondRequest,
+                out var secondHash,
+                out var secondError);
+
+            Assert.That(firstResult, Is.True, firstError?.Errors[0].Message);
+            Assert.That(secondResult, Is.True, secondError?.Errors[0].Message);
+            Assert.That(firstHash, Is.Not.Null.And.Not.Empty);
+            Assert.That(secondHash, Is.EqualTo(firstHash));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void TryCreateRecoverableRequestPayloadHash_WhenRunIdDiffers_ReturnsDifferentHash ()
+        {
+            var handler = CreateHandler();
+            var firstRequest = CreateCompileRequest("req-compile-hash-1", "run-hash-1");
+            var secondRequest = CreateCompileRequest("req-compile-hash-2", "run-hash-2");
+
+            var firstResult = handler.TryCreateRecoverableRequestPayloadHash(
+                firstRequest,
+                out var firstHash,
+                out var firstError);
+            var secondResult = handler.TryCreateRecoverableRequestPayloadHash(
+                secondRequest,
+                out var secondHash,
+                out var secondError);
+
+            Assert.That(firstResult, Is.True, firstError?.Errors[0].Message);
+            Assert.That(secondResult, Is.True, secondError?.Errors[0].Message);
+            Assert.That(secondHash, Is.Not.EqualTo(firstHash));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void TryCreateRecoverableRequestPayloadHash_WhenRunIdIsInvalid_ReturnsInvalidArgument ()
+        {
+            var handler = CreateHandler();
+            var request = CreateCompileRequest("req-compile-invalid-run", "../run");
+
+            var result = handler.TryCreateRecoverableRequestPayloadHash(
+                request,
+                out var requestPayloadHash,
+                out var errorResponse);
+
+            Assert.That(result, Is.False);
+            Assert.That(requestPayloadHash, Is.Null);
+            Assert.That(errorResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(errorResponse.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void TryCreateRecoverableRequestPayloadHash_WhenTimeoutIsInvalid_ReturnsInvalidArgument ()
+        {
+            var handler = CreateHandler();
+            var request = CreateCompileRequest("req-compile-invalid-timeout", "run-hash", timeoutMilliseconds: 0);
+
+            var result = handler.TryCreateRecoverableRequestPayloadHash(
+                request,
+                out var requestPayloadHash,
+                out var errorResponse);
+
+            Assert.That(result, Is.False);
+            Assert.That(requestPayloadHash, Is.Null);
+            Assert.That(errorResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(errorResponse.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+        }
 
         [UnityTest]
         [Category("Size.Small")]
@@ -29,23 +111,28 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 var request = CreateCompileRequest("req-compile-recover", runId);
                 var pendingSummary = CreatePendingSummary(runId);
+                Directory.CreateDirectory(artifactsDirectory);
+                var staleSummary = pendingSummary with
+                {
+                    Completed = true,
+                    StartedAtUtc = pendingSummary.StartedAtUtc.AddMinutes(-10),
+                    CompletedAtUtc = pendingSummary.StartedAtUtc.AddMinutes(-9),
+                };
+                File.WriteAllText(
+                    Path.Combine(artifactsDirectory, UcliStoragePathNames.CompileSummaryFileName),
+                    JsonSerializer.Serialize(staleSummary, IpcJsonSerializerOptions.Default));
                 var context = new RecoverableIpcOperationContext(
                     new StubRecoverableIpcOperationStore(),
                     IpcMethodNames.Compile,
                     request.RequestId,
+                    RequestPayloadHash,
                     new RecoverableIpcOperationRecord
                     {
                         State = RecoverableIpcOperationStateNames.Pending,
                         StartedAtUtc = pendingSummary.StartedAtUtc,
                         RecoveryPayload = IpcPayloadCodec.SerializeToElement(pendingSummary),
                     });
-                var handler = new CompileUnityIpcMethodHandler(
-                    new StubUnityEditorReadinessGate(),
-                    new IpcProjectIdentity(
-                        UnityProjectPathResolver.ResolveProjectRootPath(),
-                        ProjectFingerprint,
-                        "6000.1.4f1"),
-                    new StubServerVersionProvider("1.2.3"));
+                var handler = CreateHandler();
 
                 var response = await handler.HandleRecoverableAsync(request, context, CancellationToken.None);
 
@@ -53,9 +140,17 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcCompileResponse payload, out _), Is.True);
                 Assert.That(payload.RunId, Is.EqualTo(runId));
                 Assert.That(payload.Summary.Completed, Is.True);
+                Assert.That(payload.Summary.StartedAtUtc, Is.EqualTo(pendingSummary.StartedAtUtc));
                 Assert.That(payload.Summary.DomainReload.ReloadObserved, Is.True);
                 Assert.That(payload.Summary.ScriptCompilation.Completed, Is.True);
-                Assert.That(File.Exists(Path.Combine(artifactsDirectory, UcliStoragePathNames.CompileSummaryFileName)), Is.True);
+                var summaryJsonPath = Path.Combine(artifactsDirectory, UcliStoragePathNames.CompileSummaryFileName);
+                Assert.That(File.Exists(summaryJsonPath), Is.True);
+                var persistedSummary = JsonSerializer.Deserialize<IpcCompileSummary>(
+                    File.ReadAllText(summaryJsonPath),
+                    IpcJsonSerializerOptions.Default);
+                Assert.That(persistedSummary, Is.Not.Null);
+                Assert.That(persistedSummary!.Completed, Is.True);
+                Assert.That(persistedSummary.StartedAtUtc, Is.EqualTo(pendingSummary.StartedAtUtc));
                 Assert.That(File.Exists(Path.Combine(artifactsDirectory, UcliStoragePathNames.CompileDiagnosticsFileName)), Is.True);
             }
             finally
@@ -66,7 +161,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static IpcRequest CreateCompileRequest (
             string requestId,
-            string runId)
+            string runId,
+            int timeoutMilliseconds = 5000)
         {
             return new IpcRequest(
                 ProtocolVersion: IpcProtocol.CurrentVersion,
@@ -75,8 +171,19 @@ namespace MackySoft.Ucli.Unity.Tests
                 Method: IpcMethodNames.Compile,
                 Payload: IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(runId)
                 {
-                    TimeoutMilliseconds = 5000,
+                    TimeoutMilliseconds = timeoutMilliseconds,
                 }));
+        }
+
+        private static CompileUnityIpcMethodHandler CreateHandler ()
+        {
+            return new CompileUnityIpcMethodHandler(
+                new StubUnityEditorReadinessGate(),
+                new IpcProjectIdentity(
+                    UnityProjectPathResolver.ResolveProjectRootPath(),
+                    ProjectFingerprint,
+                    "6000.1.4f1"),
+                new StubServerVersionProvider("1.2.3"));
         }
 
         private static IpcCompileSummary CreatePendingSummary (string runId)
@@ -165,6 +272,7 @@ namespace MackySoft.Ucli.Unity.Tests
             public bool TryRead (
                 string method,
                 string requestId,
+                string requestPayloadHash,
                 out RecoverableIpcOperationRecord record,
                 out string errorMessage)
             {
@@ -176,6 +284,7 @@ namespace MackySoft.Ucli.Unity.Tests
             public bool TryWritePending (
                 string method,
                 string requestId,
+                string requestPayloadHash,
                 DateTimeOffset startedAtUtc,
                 JsonElement recoveryPayload,
                 out string errorMessage)
@@ -187,6 +296,7 @@ namespace MackySoft.Ucli.Unity.Tests
             public bool TryWriteCompleted (
                 string method,
                 string requestId,
+                string requestPayloadHash,
                 DateTimeOffset startedAtUtc,
                 DateTimeOffset completedAtUtc,
                 JsonElement recoveryPayload,
@@ -197,7 +307,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return true;
             }
 
-            public bool TryPurgeExpiredCompletedRecords (
+            public bool TryPurgeExpiredRecords (
                 DateTimeOffset nowUtc,
                 out string errorMessage)
             {

@@ -19,6 +19,15 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Gets or sets the IPC request id. </summary>
         public string RequestId { get; set; }
 
+        /// <summary> Gets or sets the hash of the stable request payload identity. </summary>
+        public string RequestPayloadHash { get; set; }
+
+        /// <summary> Gets or sets the Unity host process id that created this record. </summary>
+        public int HostProcessId { get; set; }
+
+        /// <summary> Gets or sets the Unity Editor process instance identifier that created this record. </summary>
+        public string HostEditorInstanceId { get; set; }
+
         /// <summary> Gets or sets the operation state. </summary>
         public string State { get; set; }
 

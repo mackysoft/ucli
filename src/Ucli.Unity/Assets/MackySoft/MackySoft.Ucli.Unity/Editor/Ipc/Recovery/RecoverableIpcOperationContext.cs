@@ -10,6 +10,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         private readonly IRecoverableIpcOperationStore store;
         private readonly string method;
         private readonly string requestId;
+        private readonly string requestPayloadHash;
 
         private DateTimeOffset startedAtUtc;
         private JsonElement recoveryPayload;
@@ -20,6 +21,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             IRecoverableIpcOperationStore store,
             string method,
             string requestId,
+            string requestPayloadHash,
             RecoverableIpcOperationRecord record)
         {
             this.store = store ?? throw new ArgumentNullException(nameof(store));
@@ -33,8 +35,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("Request id must not be empty.", nameof(requestId));
             }
 
+            if (string.IsNullOrWhiteSpace(requestPayloadHash))
+            {
+                throw new ArgumentException("Request payload hash must not be empty.", nameof(requestPayloadHash));
+            }
+
             this.method = method;
             this.requestId = requestId;
+            this.requestPayloadHash = requestPayloadHash;
             if (record != null)
             {
                 hasRecord = true;
@@ -83,7 +91,9 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var nextRecoveryPayload = IpcPayloadCodec.SerializeToElement(payload);
-            if (!store.TryWritePending(method, requestId, startedAtUtc, nextRecoveryPayload, out errorMessage))
+            // NOTE: Pending state is written before the handler performs its Unity
+            // state-changing action. Domain reload recovery depends on this payload.
+            if (!store.TryWritePending(method, requestId, requestPayloadHash, startedAtUtc, nextRecoveryPayload, out errorMessage))
             {
                 return false;
             }
@@ -112,6 +122,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             return store.TryWriteCompleted(
                 method,
                 requestId,
+                requestPayloadHash,
                 startedAtUtc,
                 DateTimeOffset.UtcNow,
                 recoveryPayload,

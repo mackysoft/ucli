@@ -41,6 +41,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string address,
             IUnityIpcConnectionHandler connectionHandler,
             Action onStarted,
+            Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
             CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(address))
@@ -58,56 +59,72 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(onStarted));
             }
 
+            if (onConnectionCompleted == null)
+            {
+                throw new ArgumentNullException(nameof(onConnectionCompleted));
+            }
+
             var started = false;
             while (!cancellationToken.IsCancellationRequested)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                using var serverStream = PipeServerStreamFactory.Create(address, daemonLogger);
-
-                lock (syncRoot)
-                {
-                    activeServerStream = serverStream;
-                }
-
-                if (!started)
-                {
-                    onStarted();
-                    started = true;
-                }
-
-                try
-                {
-                    await serverStream.WaitForConnectionAsync(cancellationToken);
-                    cancellationToken.ThrowIfCancellationRequested();
-                    await connectionHandler.HandleAsync(serverStream, cancellationToken);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (IOException exception) when (cancellationToken.IsCancellationRequested)
-                {
-                    daemonLogger.Info(
-                        DaemonLogCategories.Transport,
-                        $"Named pipe listener stopped: {exception.Message}");
-                    return;
-                }
-                catch (Exception exception) when (!cancellationToken.IsCancellationRequested && (exception is IOException or InvalidDataException))
-                {
-                    // NOTE: Probe callers may close timed-out streams while Unity is busy on the main thread.
-                    // Emitting these expected connection-local failures to the Unity console can make recovery slower.
-                }
-                finally
+                UnityIpcConnectionHandleResult result = default;
+                using (var serverStream = PipeServerStreamFactory.Create(address, daemonLogger))
                 {
                     lock (syncRoot)
                     {
-                        if (ReferenceEquals(activeServerStream, serverStream))
+                        activeServerStream = serverStream;
+                    }
+
+                    if (!started)
+                    {
+                        onStarted();
+                        started = true;
+                    }
+
+                    try
+                    {
+                        await serverStream.WaitForConnectionAsync(cancellationToken);
+                        cancellationToken.ThrowIfCancellationRequested();
+                        result = await connectionHandler.HandleAsync(serverStream, cancellationToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (IOException exception) when (cancellationToken.IsCancellationRequested)
+                    {
+                        daemonLogger.Info(
+                            DaemonLogCategories.Transport,
+                            $"Named pipe listener stopped: {exception.Message}");
+                        return;
+                    }
+                    catch (ObjectDisposedException exception) when (cancellationToken.IsCancellationRequested)
+                    {
+                        daemonLogger.Info(
+                            DaemonLogCategories.Transport,
+                            $"Named pipe listener disposed during shutdown: {exception.Message}");
+                        return;
+                    }
+                    catch (Exception exception) when (!cancellationToken.IsCancellationRequested && (exception is IOException or InvalidDataException))
+                    {
+                        // NOTE: Probe callers may close timed-out streams while Unity is busy on the main thread.
+                        // Emitting these expected connection-local failures to the Unity console can make recovery slower.
+                    }
+                    finally
+                    {
+                        lock (syncRoot)
                         {
-                            activeServerStream = null;
+                            if (ReferenceEquals(activeServerStream, serverStream))
+                            {
+                                activeServerStream = null;
+                            }
                         }
                     }
                 }
+
+                onConnectionCompleted(result);
             }
         }
 

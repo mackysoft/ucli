@@ -8,6 +8,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Infrastructure.Cryptography;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.Runtime;
@@ -49,6 +50,29 @@ namespace MackySoft.Ucli.Unity.Ipc
         public string Method => IpcMethodNames.Compile;
 
         /// <inheritdoc />
+        public bool TryCreateRecoverableRequestPayloadHash (
+            IpcRequest request,
+            out string requestPayloadHash,
+            out IpcResponse errorResponse)
+        {
+            if (!TryReadCompileRequest(
+                    request,
+                    logDecodeFailure: false,
+                    out IpcCompileRequest? compileRequest,
+                    out errorResponse))
+            {
+                requestPayloadHash = null;
+                return false;
+            }
+
+            // NOTE: compile retry identity is the requested run. The caller may resend with a
+            // refreshed dispatch timeout while recovering the same run after domain reload.
+            var stablePayload = IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(compileRequest!.RunId));
+            requestPayloadHash = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(stablePayload.GetRawText()));
+            return true;
+        }
+
+        /// <inheritdoc />
         public async ValueTask<IpcResponse> HandleAsync (
             IpcRequest request,
             CancellationToken cancellationToken)
@@ -76,33 +100,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(request));
             }
 
-            if (!UnityIpcRequestCodec.TryDecodeCompileRequest(
+            if (!TryReadCompileRequest(
                     request,
+                    logDecodeFailure: true,
                     out IpcCompileRequest? compileRequest,
                     out var errorResponse))
             {
-                daemonLogger.Warning(
-                    DaemonLogCategories.Ipc,
-                    "Compile payload decode failed.");
                 return errorResponse!;
-            }
-
-            if (!IsValidRunId(compileRequest!.RunId))
-            {
-                return UnityIpcResponseFactory.CreateErrorResponse(
-                    request,
-                    UcliCoreErrorCodes.InvalidArgument,
-                    "Compile runId must be one non-empty path segment.",
-                    null);
-            }
-
-            if (!TryValidateTimeoutMilliseconds(compileRequest.TimeoutMilliseconds, out var timeoutErrorMessage))
-            {
-                return UnityIpcResponseFactory.CreateErrorResponse(
-                    request,
-                    UcliCoreErrorCodes.InvalidArgument,
-                    timeoutErrorMessage,
-                    null);
             }
 
             CompileArtifactPaths paths = null;
@@ -186,6 +190,51 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
+        private bool TryReadCompileRequest (
+            IpcRequest request,
+            bool logDecodeFailure,
+            out IpcCompileRequest? compileRequest,
+            out IpcResponse errorResponse)
+        {
+            if (!UnityIpcRequestCodec.TryDecodeCompileRequest(
+                    request,
+                    out compileRequest,
+                    out errorResponse))
+            {
+                if (logDecodeFailure)
+                {
+                    daemonLogger.Warning(
+                        DaemonLogCategories.Ipc,
+                        "Compile payload decode failed.");
+                }
+
+                return false;
+            }
+
+            if (!IsValidRunId(compileRequest!.RunId))
+            {
+                errorResponse = UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    UcliCoreErrorCodes.InvalidArgument,
+                    "Compile runId must be one non-empty path segment.",
+                    null);
+                return false;
+            }
+
+            if (!TryValidateTimeoutMilliseconds(compileRequest.TimeoutMilliseconds, out var timeoutErrorMessage))
+            {
+                errorResponse = UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    UcliCoreErrorCodes.InvalidArgument,
+                    timeoutErrorMessage,
+                    null);
+                return false;
+            }
+
+            errorResponse = null;
+            return true;
+        }
+
         private async Task<IpcResponse> TryRecoverPendingRunAsync (
             IpcRequest request,
             IpcCompileRequest compileRequest,
@@ -219,8 +268,11 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (TryReadPendingSummary(paths.SummaryJsonPath, daemonLogger, out var completedSummary)
                 && completedSummary != null
-                && completedSummary.Completed)
+                && completedSummary.Completed
+                && MatchesPendingSummaryIdentity(completedSummary, pendingSummary))
             {
+                // NOTE: summary.json is a public compile artifact, so recovery may reuse it
+                // only when it belongs to the same pending run that the operation store restored.
                 return CreateCompileSuccessResponse(request, compileRequest.RunId, completedSummary);
             }
 
@@ -290,6 +342,17 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             errorMessage = null;
             return true;
+        }
+
+        private static bool MatchesPendingSummaryIdentity (
+            IpcCompileSummary completedSummary,
+            IpcCompileSummary pendingSummary)
+        {
+            return completedSummary != null
+                && pendingSummary != null
+                && string.Equals(completedSummary.RunId, pendingSummary.RunId, StringComparison.Ordinal)
+                && string.Equals(completedSummary.ProjectFingerprint, pendingSummary.ProjectFingerprint, StringComparison.Ordinal)
+                && completedSummary.StartedAtUtc == pendingSummary.StartedAtUtc;
         }
 
         private static bool TryReadPendingSummary (
@@ -459,7 +522,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             IServerVersionProvider serverVersionProvider,
             IDaemonLogger daemonLogger)
         {
-            if (paths == null || File.Exists(paths.SummaryJsonPath))
+            if (paths == null)
             {
                 return;
             }
@@ -467,6 +530,14 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (!TryReadPendingSummary(paths.RequestJsonPath, daemonLogger, out var pendingSummary)
                 || pendingSummary == null
                 || pendingSummary.Completed)
+            {
+                return;
+            }
+
+            if (TryReadPendingSummary(paths.SummaryJsonPath, daemonLogger, out var existingSummary)
+                && existingSummary != null
+                && existingSummary.Completed
+                && MatchesPendingSummaryIdentity(existingSummary, pendingSummary))
             {
                 return;
             }
@@ -685,14 +756,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     return snapshot;
                 }
 
-                await WaitForNextEditorUpdateAsync(cancellationToken);
+                await UnityEditorUpdateAwaiter.WaitForNextUpdateAsync(cancellationToken);
             }
-        }
-
-        private static Task WaitForNextEditorUpdateAsync (CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return new EditorUpdateWaitState(cancellationToken).Attach();
         }
 
         private static void WriteDiagnostics (
@@ -782,82 +847,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private sealed class EditorUpdateWaitState
-        {
-            private readonly CancellationToken cancellationToken;
-
-            private readonly SynchronizationContext synchronizationContext;
-
-            private readonly TaskCompletionSource<object> completionSource =
-                new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-            private CancellationTokenRegistration cancellationRegistration;
-
-            private int detached;
-
-            public EditorUpdateWaitState (CancellationToken cancellationToken)
-            {
-                this.cancellationToken = cancellationToken;
-                synchronizationContext = SynchronizationContext.Current;
-            }
-
-            public Task Attach ()
-            {
-                EditorApplication.update += CompleteOnEditorUpdate;
-                if (cancellationToken.CanBeCanceled)
-                {
-                    cancellationRegistration = cancellationToken.Register(static state =>
-                    {
-                        var waitState = (EditorUpdateWaitState)state;
-                        waitState.Cancel();
-                    }, this);
-                    if (Volatile.Read(ref detached) != 0)
-                    {
-                        cancellationRegistration.Dispose();
-                    }
-                }
-
-                return completionSource.Task;
-            }
-
-            private void CompleteOnEditorUpdate ()
-            {
-                DetachOnMainThread();
-                completionSource.TrySetResult(null);
-            }
-
-            private void Cancel ()
-            {
-                completionSource.TrySetCanceled(cancellationToken);
-                if (synchronizationContext == null)
-                {
-                    return;
-                }
-
-                if (SynchronizationContext.Current == synchronizationContext)
-                {
-                    DetachOnMainThread();
-                    return;
-                }
-
-                synchronizationContext.Post(static state =>
-                {
-                    var waitState = (EditorUpdateWaitState)state;
-                    waitState.DetachOnMainThread();
-                }, this);
-            }
-
-            private void DetachOnMainThread ()
-            {
-                if (Interlocked.Exchange(ref detached, 1) != 0)
-                {
-                    return;
-                }
-
-                EditorApplication.update -= CompleteOnEditorUpdate;
-                cancellationRegistration.Dispose();
-            }
-        }
 
         private sealed class SettledLifecycleObservationWindow
         {
@@ -978,6 +967,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                     throw new InvalidOperationException($"Compile recovery state could not be persisted. {recoveryErrorMessage}");
                 }
 
+                // NOTE: Remove completed outputs only after pending recovery state is durable.
+                // A domain reload here can still resume from request.json and the operation store.
+                DeleteCompletedRunArtifacts(paths);
                 WriteJsonAtomically(paths.RequestJsonPath, pendingSummary);
 
                 Subscribe();
@@ -1035,6 +1027,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 diagnostics.Add(messages);
             }
+        }
+
+        private static void DeleteCompletedRunArtifacts (CompileArtifactPaths paths)
+        {
+            FileUtilities.DeleteIfExists(paths.SummaryJsonPath);
+            FileUtilities.DeleteIfExists(paths.DiagnosticsJsonPath);
         }
 
         private sealed class DiagnosticAccumulator

@@ -30,7 +30,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(snapshot));
             }
 
-            var currentProcess = Process.GetCurrentProcess();
+            using var currentProcess = Process.GetCurrentProcess();
             var path = UcliStoragePathResolver.ResolveDaemonLifecyclePath(storageRoot, projectFingerprint);
             var contract = new DaemonLifecycleJsonContract(
                 ProcessId: currentProcess.Id,
@@ -43,7 +43,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 DomainReloadGeneration: snapshot.DomainReloadGeneration,
                 ObservedAtUtc: snapshot.ObservedAtUtc ?? DateTimeOffset.UtcNow,
                 ActionRequired: snapshot.ActionRequired,
-                PrimaryDiagnostic: snapshot.PrimaryDiagnostic);
+                PrimaryDiagnostic: snapshot.PrimaryDiagnostic)
+            {
+                EditorInstanceId = UnityEditorProcessIdentity.GetEditorInstanceId(),
+            };
             FileUtilities.WriteAllTextAtomically(path, DaemonLifecycleJsonContractSerializer.Serialize(contract));
         }
     }

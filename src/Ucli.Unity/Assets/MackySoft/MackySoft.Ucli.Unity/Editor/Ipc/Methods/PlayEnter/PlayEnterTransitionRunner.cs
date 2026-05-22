@@ -35,8 +35,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 serverVersionProvider,
                 readinessGate,
                 projectIdentity,
-                WaitForNextEditorUpdateAsync,
-                static () => EditorApplication.isPlaying = true,
+                UnityEditorUpdateAwaiter.WaitForNextUpdateAsync,
+                static () => EditorApplication.EnterPlaymode(),
                 daemonLogger)
         {
         }
@@ -77,8 +77,18 @@ namespace MackySoft.Ucli.Unity.Ipc
             cancellationToken.ThrowIfCancellationRequested();
             var before = CaptureSnapshot();
 
-            if (TryReadPendingEnter(recoverableContext, out var pendingBefore))
+            if (recoverableContext != null && recoverableContext.HasOperationRecord)
             {
+                if (!TryReadPendingEnter(recoverableContext, out var pendingBefore, out var pendingReadErrorMessage))
+                {
+                    return CreateFailure(
+                        PlayModeErrorCodes.PlayModeStateUnknown,
+                        $"Recoverable Play Mode enter state is invalid. {pendingReadErrorMessage}",
+                        before,
+                        before,
+                        IpcPlayApplicationStateNames.Unknown);
+                }
+
                 return await ResumePendingEnterAsync(
                     pendingBefore,
                     before,
@@ -98,6 +108,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return CreateSuccess(IpcPlayTransitionResultNames.AlreadyEntered, before, before);
             }
 
+            // NOTE: This must be persisted before EditorApplication.EnterPlaymode is called.
+            // Entering Play Mode can trigger domain reload before this daemon can respond.
             var persistFailure = TryPersistPendingEnter(recoverableContext, before);
             if (persistFailure != null)
             {
@@ -205,28 +217,40 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private bool TryReadPendingEnter (
             RecoverableIpcOperationContext recoverableContext,
-            out IpcPlayLifecycleSnapshot before)
+            out IpcPlayLifecycleSnapshot before,
+            out string errorMessage)
         {
             before = null;
             if (recoverableContext == null)
             {
+                errorMessage = null;
                 return false;
             }
 
-            if (!recoverableContext.TryReadPendingPayload<PlayEnterRecoveryPayload>(out var recoveryPayload, out var errorMessage))
+            if (!recoverableContext.TryReadPendingPayload<PlayEnterRecoveryPayload>(out var recoveryPayload, out var pendingPayloadErrorMessage))
             {
-                if (!string.IsNullOrWhiteSpace(errorMessage))
+                errorMessage = string.IsNullOrWhiteSpace(pendingPayloadErrorMessage)
+                    ? "Pending Play Mode enter payload is missing."
+                    : pendingPayloadErrorMessage;
+                if (!string.IsNullOrWhiteSpace(pendingPayloadErrorMessage))
                 {
                     daemonLogger.Warning(
                         DaemonLogCategories.Lifecycle,
-                        $"Play Mode enter pending transition read failed. {errorMessage}");
+                        $"Play Mode enter pending transition read failed. {pendingPayloadErrorMessage}");
                 }
 
                 return false;
             }
 
             before = recoveryPayload.Before;
-            return before != null;
+            if (before == null)
+            {
+                errorMessage = "Pending Play Mode enter before snapshot is missing.";
+                return false;
+            }
+
+            errorMessage = null;
+            return true;
         }
 
         private PlayEnterTransitionExecutionResult TryPersistPendingEnter (
@@ -505,87 +529,5 @@ namespace MackySoft.Ucli.Unity.Ipc
                 && HasGenerationChanged(pendingBefore, current);
         }
 
-        private static Task WaitForNextEditorUpdateAsync (CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return new EditorUpdateWaitState(cancellationToken).Attach();
-        }
-
-        private sealed class EditorUpdateWaitState
-        {
-            private readonly CancellationToken cancellationToken;
-
-            private readonly SynchronizationContext synchronizationContext;
-
-            private readonly TaskCompletionSource<object> completionSource =
-                new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-            private CancellationTokenRegistration cancellationRegistration;
-
-            private int detached;
-
-            public EditorUpdateWaitState (CancellationToken cancellationToken)
-            {
-                this.cancellationToken = cancellationToken;
-                synchronizationContext = SynchronizationContext.Current;
-            }
-
-            public Task Attach ()
-            {
-                EditorApplication.update += CompleteOnEditorUpdate;
-                if (cancellationToken.CanBeCanceled)
-                {
-                    cancellationRegistration = cancellationToken.Register(static state =>
-                    {
-                        var waitState = (EditorUpdateWaitState)state;
-                        waitState.Cancel();
-                    }, this);
-                    if (Volatile.Read(ref detached) != 0)
-                    {
-                        cancellationRegistration.Dispose();
-                    }
-                }
-
-                return completionSource.Task;
-            }
-
-            private void CompleteOnEditorUpdate ()
-            {
-                DetachOnMainThread();
-                completionSource.TrySetResult(null);
-            }
-
-            private void Cancel ()
-            {
-                completionSource.TrySetCanceled(cancellationToken);
-                if (synchronizationContext == null)
-                {
-                    return;
-                }
-
-                if (SynchronizationContext.Current == synchronizationContext)
-                {
-                    DetachOnMainThread();
-                    return;
-                }
-
-                synchronizationContext.Post(static state =>
-                {
-                    var waitState = (EditorUpdateWaitState)state;
-                    waitState.DetachOnMainThread();
-                }, this);
-            }
-
-            private void DetachOnMainThread ()
-            {
-                if (Interlocked.Exchange(ref detached, 1) != 0)
-                {
-                    return;
-                }
-
-                EditorApplication.update -= CompleteOnEditorUpdate;
-                cancellationRegistration.Dispose();
-            }
-        }
     }
 }

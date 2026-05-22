@@ -39,6 +39,11 @@ internal sealed class UnityIpcExecutionTargetResolver
         ArgumentNullException.ThrowIfNull(budget);
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (mode == UnityExecutionMode.Daemon)
+        {
+            return UnityIpcExecutionTargetResolutionResult.Success(UnityExecutionTarget.Daemon);
+        }
+
         if (!budget.TryGetRemainingTimeout(out var modeDecisionTimeout))
         {
             return UnityIpcExecutionTargetResolutionResult.FailureResult(UnityIpcFailureClassifier.Timeout(

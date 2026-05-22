@@ -1,5 +1,6 @@
 using System.Net.Sockets;
 using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Identity;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiAttach;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -143,7 +144,10 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
         }
 
         if (expectedProcessStartedAtUtc is not null
-            && manifest.ProcessStartedAtUtc != expectedProcessStartedAtUtc)
+            && (manifest.ProcessStartedAtUtc is not DateTimeOffset manifestProcessStartedAtUtc
+                || !DaemonProcessStartTimeMatcher.Matches(
+                    manifestProcessStartedAtUtc,
+                    expectedProcessStartedAtUtc.Value)))
         {
             return ExecutionError.InternalError(
                 "GUI supervisor manifest process start timestamp does not match the detected GUI process.",
