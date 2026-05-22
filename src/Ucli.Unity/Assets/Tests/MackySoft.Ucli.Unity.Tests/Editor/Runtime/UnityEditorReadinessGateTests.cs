@@ -389,6 +389,54 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(exited.Generation, Is.EqualTo("102"));
         }
 
+        [Test]
+        [Category("Size.Small")]
+        public void CapturePlayModeSnapshot_WhenStableStateChangesAfterReload_AdvancesGeneration ()
+        {
+            UnityEditorPlayModeGenerationStore.SetPersistedValue(200);
+            UnityEditorPlayModeGenerationStore.SetPersistedStableState(IpcPlayModeStateNames.Stopped);
+            var telemetryState = new UnityEditorLifecycleTelemetryState(
+                compileGeneration: 1,
+                domainReloadGeneration: 2,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false);
+
+            var entered = telemetryState.CapturePlayModeSnapshot(
+                isPlaying: true,
+                isPlayingOrWillChangePlaymode: true);
+            var repeated = telemetryState.CapturePlayModeSnapshot(
+                isPlaying: true,
+                isPlayingOrWillChangePlaymode: true);
+
+            Assert.That(entered.State, Is.EqualTo(IpcPlayModeStateNames.Playing));
+            Assert.That(entered.Transition, Is.EqualTo(IpcPlayModeTransitionNames.None));
+            Assert.That(entered.Generation, Is.EqualTo("201"));
+            Assert.That(repeated.Generation, Is.EqualTo("201"));
+            Assert.That(UnityEditorPlayModeGenerationStore.RestoreStableState(), Is.EqualTo(IpcPlayModeStateNames.Playing));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void CapturePlayModeSnapshot_WhenNoPriorStableState_SeedsStateWithoutAdvancingGeneration ()
+        {
+            UnityEditorPlayModeGenerationStore.SetPersistedValue(300);
+            var telemetryState = new UnityEditorLifecycleTelemetryState(
+                compileGeneration: 1,
+                domainReloadGeneration: 2,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false);
+
+            var entered = telemetryState.CapturePlayModeSnapshot(
+                isPlaying: true,
+                isPlayingOrWillChangePlaymode: true);
+
+            Assert.That(entered.State, Is.EqualTo(IpcPlayModeStateNames.Playing));
+            Assert.That(entered.Generation, Is.EqualTo("300"));
+            Assert.That(UnityEditorPlayModeGenerationStore.RestoreStableState(), Is.EqualTo(IpcPlayModeStateNames.Playing));
+        }
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator CaptureSnapshot_WhenEditorIsIdle_ReturnsReadySnapshot () => UniTask.ToCoroutine(async () =>

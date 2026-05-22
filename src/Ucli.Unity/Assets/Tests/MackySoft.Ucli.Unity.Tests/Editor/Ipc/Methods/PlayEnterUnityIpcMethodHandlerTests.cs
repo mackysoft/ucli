@@ -94,6 +94,29 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Runner_WhenAlreadyPlayingWithPendingEnter_ReturnsRecoveredEntered () => UniTask.ToCoroutine(async () =>
+        {
+            var readinessGate = new MutableUnityEditorReadinessGate(CreatePlayingSnapshot(generation: "22"));
+            var pendingStore = new StubPlayEnterPendingTransitionStore(
+                CreatePlayLifecycleSnapshot(CreateReadyStoppedSnapshot(generation: "21")));
+            var enterRequestCount = 0;
+            var runner = CreateRunner(
+                readinessGate,
+                enterPlayModeRequester: () => enterRequestCount++,
+                pendingTransitionStore: pendingStore);
+
+            var result = await runner.EnterAsync(1000, CancellationToken.None);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Response.Transition.Result, Is.EqualTo(IpcPlayTransitionResultNames.Entered));
+            Assert.That(result.Response.Transition.Before.PlayMode!.Generation, Is.EqualTo("21"));
+            Assert.That(result.Response.Transition.After!.PlayMode!.Generation, Is.EqualTo("22"));
+            Assert.That(pendingStore.DeleteCallCount, Is.EqualTo(1));
+            Assert.That(enterRequestCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Runner_WhenPreconditionIsBlocked_ReturnsBlockedWithoutRequestingEnter () => UniTask.ToCoroutine(async () =>
         {
             var readinessGate = new MutableUnityEditorReadinessGate(CreateLifecycleSnapshot(
@@ -193,14 +216,16 @@ namespace MackySoft.Ucli.Unity.Tests
         private static PlayEnterTransitionRunner CreateRunner (
             MutableUnityEditorReadinessGate readinessGate,
             Func<CancellationToken, Task> editorUpdateAwaiter = null,
-            Action enterPlayModeRequester = null)
+            Action enterPlayModeRequester = null,
+            IPlayEnterPendingTransitionStore pendingTransitionStore = null)
         {
             return new PlayEnterTransitionRunner(
                 new StubServerVersionProvider("1.2.3"),
                 readinessGate,
                 new IpcProjectIdentity("/repo/UnityProject", "project-fingerprint", "6000.1.4f1"),
                 editorUpdateAwaiter ?? CompleteEditorUpdateAsync,
-                enterPlayModeRequester ?? RequestNoop);
+                enterPlayModeRequester ?? RequestNoop,
+                pendingTransitionStore);
         }
 
         private static Task CompleteEditorUpdateAsync (CancellationToken cancellationToken)
@@ -273,6 +298,15 @@ namespace MackySoft.Ucli.Unity.Tests
                 PlayMode: playMode);
         }
 
+        private static IpcPlayLifecycleSnapshot CreatePlayLifecycleSnapshot (UnityEditorLifecycleSnapshot snapshot)
+        {
+            return UnityLifecycleResponseCodec.CreatePlayLifecycleSnapshot(
+                "6000.1.4f1",
+                "1.2.3",
+                "project-fingerprint",
+                snapshot);
+        }
+
         private static IpcPlayModeSnapshot CreateStoppedPlayMode (string generation)
         {
             return new IpcPlayModeSnapshot(
@@ -322,6 +356,42 @@ namespace MackySoft.Ucli.Unity.Tests
             public string GetVersion ()
             {
                 return version;
+            }
+        }
+
+        private sealed class StubPlayEnterPendingTransitionStore : IPlayEnterPendingTransitionStore
+        {
+            private readonly IpcPlayLifecycleSnapshot before;
+
+            public StubPlayEnterPendingTransitionStore (IpcPlayLifecycleSnapshot before)
+            {
+                this.before = before;
+            }
+
+            public int DeleteCallCount { get; private set; }
+
+            public bool TryWrite (
+                IpcPlayLifecycleSnapshot before,
+                out string errorMessage)
+            {
+                errorMessage = null;
+                return true;
+            }
+
+            public bool TryRead (
+                out IpcPlayLifecycleSnapshot before,
+                out string errorMessage)
+            {
+                before = this.before;
+                errorMessage = null;
+                return true;
+            }
+
+            public bool TryDelete (out string errorMessage)
+            {
+                DeleteCallCount++;
+                errorMessage = null;
+                return true;
             }
         }
     }

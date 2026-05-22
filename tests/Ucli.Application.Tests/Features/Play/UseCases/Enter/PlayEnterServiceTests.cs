@@ -106,6 +106,26 @@ public sealed class PlayEnterServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenEnterResponseIsLostDuringDomainReload_RetriesAndReturnsRecoveredTransition ()
+    {
+        var requestExecutor = new StubUnityRequestExecutor(
+            UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+                UcliCoreErrorCodes.InternalError,
+                "Failed to execute Unity daemon IPC request. IPC stream ended before a complete frame was read.")),
+            UnityRequestExecutionResult.Success(CreateResponse(CreateEnteredResponse())));
+        var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
+
+        var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, 1500), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, requestExecutor.CallCount);
+        Assert.Equal(IpcPlayTransitionResultNames.Entered, result.Output!.Transition.Result);
+        Assert.Equal(IpcPlayModeStateNames.Playing, result.Output.PlayMode.State);
+        Assert.Equal(1500, result.Output.TimeoutMilliseconds);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenAlreadyPlaying_ReturnsAlreadyEnteredWithoutGenerationChange ()
     {
         var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayMode(
@@ -804,11 +824,16 @@ public sealed class PlayEnterServiceTests
 
     private sealed class StubUnityRequestExecutor : IUnityRequestExecutor
     {
-        private readonly UnityRequestExecutionResult result;
+        private readonly Queue<UnityRequestExecutionResult> results;
 
-        public StubUnityRequestExecutor (UnityRequestExecutionResult result)
+        public StubUnityRequestExecutor (params UnityRequestExecutionResult[] results)
         {
-            this.result = result;
+            if (results.Length == 0)
+            {
+                throw new ArgumentException("At least one result is required.", nameof(results));
+            }
+
+            this.results = new Queue<UnityRequestExecutionResult>(results);
         }
 
         public int CallCount { get; private set; }
@@ -835,6 +860,7 @@ public sealed class PlayEnterServiceTests
             CapturedMode = mode;
             CapturedTimeout = timeout;
             CapturedPayload = payload;
+            var result = results.Count == 1 ? results.Peek() : results.Dequeue();
             return ValueTask.FromResult(result);
         }
     }

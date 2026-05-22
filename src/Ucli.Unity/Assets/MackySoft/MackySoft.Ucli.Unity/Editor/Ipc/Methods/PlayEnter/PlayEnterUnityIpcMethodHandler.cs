@@ -25,7 +25,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcProjectIdentity projectIdentity,
             IDaemonLogger daemonLogger = null)
             : this(
-                new PlayEnterTransitionRunner(serverVersionProvider, readinessGate, projectIdentity),
+                new PlayEnterTransitionRunner(serverVersionProvider, readinessGate, projectIdentity, daemonLogger),
                 daemonLogger)
         {
         }

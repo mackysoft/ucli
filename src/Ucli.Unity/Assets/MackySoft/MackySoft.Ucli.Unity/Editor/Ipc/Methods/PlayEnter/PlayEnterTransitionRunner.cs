@@ -19,21 +19,27 @@ namespace MackySoft.Ucli.Unity.Ipc
         private readonly IpcProjectIdentity projectIdentity;
         private readonly Func<CancellationToken, Task> editorUpdateAwaiter;
         private readonly Action enterPlayModeRequester;
+        private readonly IPlayEnterPendingTransitionStore pendingTransitionStore;
+        private readonly IDaemonLogger daemonLogger;
 
         /// <summary> Initializes a new instance of the <see cref="PlayEnterTransitionRunner" /> class. </summary>
         /// <param name="serverVersionProvider"> The server-version provider dependency. </param>
         /// <param name="readinessGate"> The lifecycle snapshot provider dependency. </param>
         /// <param name="projectIdentity"> The project identity served by this IPC host. </param>
+        /// <param name="daemonLogger"> The daemon logger dependency. </param>
         public PlayEnterTransitionRunner (
             IServerVersionProvider serverVersionProvider,
             IUnityEditorReadinessGate readinessGate,
-            IpcProjectIdentity projectIdentity)
+            IpcProjectIdentity projectIdentity,
+            IDaemonLogger daemonLogger = null)
             : this(
                 serverVersionProvider,
                 readinessGate,
                 projectIdentity,
                 WaitForNextEditorUpdateAsync,
-                static () => EditorApplication.isPlaying = true)
+                static () => EditorApplication.isPlaying = true,
+                FilePlayEnterPendingTransitionStore.Create(projectIdentity),
+                daemonLogger)
         {
         }
 
@@ -43,18 +49,24 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="projectIdentity"> The project identity served by this IPC host. </param>
         /// <param name="editorUpdateAwaiter"> The editor update awaiter dependency. </param>
         /// <param name="enterPlayModeRequester"> The Unity Play Mode enter requester dependency. </param>
+        /// <param name="pendingTransitionStore"> Optional pending-transition store used by tests and recovery. </param>
+        /// <param name="daemonLogger"> The daemon logger dependency. </param>
         internal PlayEnterTransitionRunner (
             IServerVersionProvider serverVersionProvider,
             IUnityEditorReadinessGate readinessGate,
             IpcProjectIdentity projectIdentity,
             Func<CancellationToken, Task> editorUpdateAwaiter,
-            Action enterPlayModeRequester)
+            Action enterPlayModeRequester,
+            IPlayEnterPendingTransitionStore pendingTransitionStore = null,
+            IDaemonLogger daemonLogger = null)
         {
             this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
             this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
             this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
             this.editorUpdateAwaiter = editorUpdateAwaiter ?? throw new ArgumentNullException(nameof(editorUpdateAwaiter));
             this.enterPlayModeRequester = enterPlayModeRequester ?? throw new ArgumentNullException(nameof(enterPlayModeRequester));
+            this.pendingTransitionStore = pendingTransitionStore;
+            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
         }
 
         /// <summary> Executes Play Mode enter and waits until Unity reports an entered snapshot. </summary>
@@ -76,7 +88,19 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (IsEnteredSnapshot(before))
             {
+                var pendingCompletion = TryCompletePendingEnter(before);
+                if (pendingCompletion != null)
+                {
+                    return pendingCompletion;
+                }
+
                 return CreateSuccess(IpcPlayTransitionResultNames.AlreadyEntered, before, before);
+            }
+
+            var persistFailure = TryPersistPendingEnter(before);
+            if (persistFailure != null)
+            {
+                return persistFailure;
             }
 
             try
@@ -85,6 +109,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
             catch (Exception exception)
             {
+                DeletePendingEnter();
                 return CreateFailure(
                     PlayModeErrorCodes.PlayModeEnterRejected,
                     $"Unity rejected Play Mode enter. {exception.Message}",
@@ -107,19 +132,83 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                     if (IsEnteredSnapshot(observed) && HasGenerationChanged(before, observed))
                     {
+                        DeletePendingEnter();
                         return CreateSuccess(IpcPlayTransitionResultNames.Entered, before, observed);
                     }
 
                     var observedFailure = ClassifyObservedFailure(before, observed, ref stoppedObservations);
                     if (observedFailure != null)
                     {
+                        DeletePendingEnter();
                         return observedFailure;
                     }
                 }
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
+                DeletePendingEnter();
                 return CreateTimeout(before, observed, timeoutMilliseconds);
+            }
+        }
+
+        private PlayEnterTransitionExecutionResult TryCompletePendingEnter (IpcPlayLifecycleSnapshot current)
+        {
+            if (pendingTransitionStore == null)
+            {
+                return null;
+            }
+
+            if (!pendingTransitionStore.TryRead(out var pendingBefore, out var errorMessage))
+            {
+                if (!string.IsNullOrWhiteSpace(errorMessage))
+                {
+                    daemonLogger.Warning(
+                        DaemonLogCategories.Lifecycle,
+                        $"Play Mode enter pending transition read failed. {errorMessage}");
+                }
+
+                return null;
+            }
+
+            if (!IsRecoverablePendingEnter(pendingBefore, current))
+            {
+                DeletePendingEnter();
+                return null;
+            }
+
+            DeletePendingEnter();
+            return CreateSuccess(IpcPlayTransitionResultNames.Entered, pendingBefore, current);
+        }
+
+        private PlayEnterTransitionExecutionResult TryPersistPendingEnter (IpcPlayLifecycleSnapshot before)
+        {
+            if (pendingTransitionStore == null)
+            {
+                return null;
+            }
+
+            return pendingTransitionStore.TryWrite(before, out var errorMessage)
+                ? null
+                : CreateFailure(
+                    PlayModeErrorCodes.PlayModeEnterRejected,
+                    $"Unity Play Mode enter could not persist transition recovery state. {errorMessage}",
+                    before,
+                    before,
+                    IpcPlayApplicationStateNames.NotApplied);
+        }
+
+        private void DeletePendingEnter ()
+        {
+            if (pendingTransitionStore == null)
+            {
+                return;
+            }
+
+            if (!pendingTransitionStore.TryDelete(out var errorMessage))
+            {
+                daemonLogger.Warning(
+                    DaemonLogCategories.Lifecycle,
+                    $"Play Mode enter pending transition cleanup failed. {errorMessage}");
             }
         }
 
@@ -350,6 +439,18 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             return string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
                 || string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Playmode, StringComparison.Ordinal);
+        }
+
+        private static bool IsRecoverablePendingEnter (
+            IpcPlayLifecycleSnapshot pendingBefore,
+            IpcPlayLifecycleSnapshot current)
+        {
+            return pendingBefore != null
+                && current != null
+                && IsReadyStoppedSnapshot(pendingBefore)
+                && IsEnteredSnapshot(current)
+                && string.Equals(pendingBefore.ProjectFingerprint, current.ProjectFingerprint, StringComparison.Ordinal)
+                && HasGenerationChanged(pendingBefore, current);
         }
 
         private static Task WaitForNextEditorUpdateAsync (CancellationToken cancellationToken)
