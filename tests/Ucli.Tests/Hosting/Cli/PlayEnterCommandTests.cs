@@ -1,6 +1,7 @@
 using System.Globalization;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
+using MackySoft.Ucli.Application.Features.Play.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Enter;
 using MackySoft.Ucli.Application.Shared.CommandContracts;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -94,6 +95,10 @@ public sealed class PlayEnterCommandTests
                 .HasProperty("before", _ => { })
                 .HasProperty("after", _ => { }))
             .HasInt32("timeoutMilliseconds", 1000);
+        var transitionPayload = outputJson.RootElement.GetProperty("payload").GetProperty("transition");
+        Assert.False(transitionPayload.TryGetProperty("observed", out _));
+        Assert.False(transitionPayload.TryGetProperty("applicationState", out _));
+        Assert.False(transitionPayload.TryGetProperty("until", out _));
         Assert.False(outputJson.RootElement.GetProperty("payload").TryGetProperty("opResults", out _));
         Assert.DoesNotContain("\"touched\"", standardOutput, StringComparison.Ordinal);
     }
@@ -128,9 +133,45 @@ public sealed class PlayEnterCommandTests
         Assert.False(outputJson.RootElement.GetProperty("payload").GetProperty("transition").TryGetProperty("after", out _));
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Enter_WhenServiceReturnsBlockedTransition_EmitsObservedErrorPayloadWithoutAfterOrOpResults ()
+    {
+        var output = CreateOutput(
+            IpcPlayTransitionResultNames.Blocked,
+            includeAfter: false,
+            applicationState: IpcPlayApplicationStateNames.NotApplied);
+        var failure = ApplicationFailure.FromCode(
+            PlayModeErrorCodes.PlayModeTransitionBlocked,
+            "Unity Play Mode enter is blocked.");
+        var service = new StubPlayEnterService((_, _) => ValueTask.FromResult(PlayEnterExecutionResult.Failure(failure, output)));
+        var command = new PlayEnterCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.EnterAsync(
+            timeout: "1000",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.ToolError, exitCode);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.PlayEnter,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.ToolError);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, PlayModeErrorCodes.PlayModeTransitionBlocked);
+        JsonAssert.For(outputJson.RootElement.GetProperty("payload").GetProperty("transition"))
+            .HasString("result", IpcPlayTransitionResultNames.Blocked)
+            .HasString("applicationState", IpcPlayApplicationStateNames.NotApplied)
+            .HasProperty("observed", _ => { });
+        Assert.False(outputJson.RootElement.GetProperty("payload").GetProperty("transition").TryGetProperty("after", out _));
+        Assert.False(outputJson.RootElement.GetProperty("payload").TryGetProperty("opResults", out _));
+        Assert.DoesNotContain("\"touched\"", standardOutput, StringComparison.Ordinal);
+    }
+
     private static PlayEnterExecutionOutput CreateOutput (
         string result = IpcPlayTransitionResultNames.Entered,
-        bool includeAfter = true)
+        bool includeAfter = true,
+        string applicationState = IpcPlayApplicationStateNames.Indeterminate)
     {
         var before = CreateSnapshot(
             IpcEditorLifecycleStateCodec.Ready,
@@ -142,23 +183,26 @@ public sealed class PlayEnterCommandTests
             IpcEditorBlockingReasonCodec.PlayMode,
             false,
             CreatePlayMode(IpcPlayModeStateNames.Playing, IpcPlayModeTransitionNames.None, true, true, "3"));
-        var transition = new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Enter,
-            result,
-            before);
+        var transition = new PlayEnterTransitionOutput(
+            Transition: IpcPlayTransitionCommandNames.Enter,
+            Result: result,
+            Before: CreateSnapshotOutput(before),
+            After: null,
+            Observed: null,
+            ApplicationState: null);
         if (includeAfter)
         {
             transition = transition with
             {
-                After = current,
+                After = CreateSnapshotOutput(current),
             };
         }
         else
         {
             transition = transition with
             {
-                Observed = current,
-                ApplicationState = IpcPlayApplicationStateNames.Indeterminate,
+                Observed = CreateSnapshotOutput(current),
+                ApplicationState = applicationState,
             };
         }
 
@@ -187,6 +231,30 @@ public sealed class PlayEnterCommandTests
                 Generation: "3"),
             Transition: transition,
             TimeoutMilliseconds: 1000);
+    }
+
+    private static PlayLifecycleSnapshotOutput CreateSnapshotOutput (IpcPlayLifecycleSnapshot snapshot)
+    {
+        return new PlayLifecycleSnapshotOutput(
+            ServerVersion: snapshot.ServerVersion,
+            EditorMode: snapshot.EditorMode,
+            UnityVersion: snapshot.UnityVersion,
+            ProjectFingerprint: snapshot.ProjectFingerprint,
+            LifecycleState: snapshot.LifecycleState,
+            BlockingReason: snapshot.BlockingReason,
+            CompileState: snapshot.CompileState,
+            CompileGeneration: snapshot.CompileGeneration,
+            DomainReloadGeneration: snapshot.DomainReloadGeneration,
+            CanAcceptExecutionRequests: snapshot.CanAcceptExecutionRequests,
+            ObservedAtUtc: snapshot.ObservedAtUtc,
+            ActionRequired: snapshot.ActionRequired,
+            PrimaryDiagnostic: null,
+            PlayMode: new PlayModeSnapshotOutput(
+                State: snapshot.PlayMode!.State,
+                Transition: snapshot.PlayMode.Transition,
+                IsPlaying: snapshot.PlayMode.IsPlaying,
+                IsPlayingOrWillChangePlaymode: snapshot.PlayMode.IsPlayingOrWillChangePlaymode,
+                Generation: snapshot.PlayMode.Generation));
     }
 
     private static IpcPlayLifecycleSnapshot CreateSnapshot (

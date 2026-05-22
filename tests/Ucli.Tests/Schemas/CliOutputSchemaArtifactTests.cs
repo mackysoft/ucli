@@ -360,6 +360,23 @@ public sealed class CliOutputSchemaArtifactTests
               "applicationState": "indeterminate"
             }
             """));
+        using var blockedDocument = JsonDocument.Parse(CreatePlayEnterPayloadJson(
+            $$"""
+            {
+              "transition": "enter",
+              "result": "blocked",
+              "before": {{CreatePlayLifecycleSnapshotJson()}},
+              "observed": {{CreatePlayLifecycleSnapshotJson(lifecycleState: "compiling", blockingReasonJson: "\"compile\"", canAcceptExecutionRequests: false)}},
+              "applicationState": "notApplied"
+            }
+            """,
+            lifecycleState: "compiling",
+            blockingReasonJson: "\"compile\"",
+            canAcceptExecutionRequests: false,
+            playModeState: "stopped",
+            playModeTransition: "none",
+            isPlaying: false,
+            isPlayingOrWillChangePlaymode: false));
         using var successWithoutAfterDocument = JsonDocument.Parse(CreatePlayEnterPayloadJson(
             $$"""
             {
@@ -377,6 +394,72 @@ public sealed class CliOutputSchemaArtifactTests
               "applicationState": "indeterminate"
             }
             """));
+        using var successWithErrorFieldsDocument = JsonDocument.Parse(CreatePlayEnterPayloadJson(
+            $$"""
+            {
+              "transition": "enter",
+              "result": "entered",
+              "before": {{CreatePlayLifecycleSnapshotJson()}},
+              "after": {{CreatePlayingPlayLifecycleSnapshotJson()}},
+              "observed": {{CreatePlayLifecycleSnapshotJson()}},
+              "applicationState": "notApplied"
+            }
+            """));
+        using var timeoutWithAfterDocument = JsonDocument.Parse(CreatePlayEnterPayloadJson(
+            $$"""
+            {
+              "transition": "enter",
+              "result": "timeout",
+              "before": {{CreatePlayLifecycleSnapshotJson()}},
+              "after": {{CreatePlayingPlayLifecycleSnapshotJson()}},
+              "observed": {{CreatePlayLifecycleSnapshotJson(playModeState: "entering", playModeTransition: "entering", isPlayingOrWillChangePlaymode: true)}},
+              "applicationState": "indeterminate"
+            }
+            """));
+        using var timeoutWithNotAppliedApplicationStateDocument = JsonDocument.Parse(CreatePlayEnterPayloadJson(
+            $$"""
+            {
+              "transition": "enter",
+              "result": "timeout",
+              "before": {{CreatePlayLifecycleSnapshotJson()}},
+              "observed": {{CreatePlayLifecycleSnapshotJson(playModeState: "entering", playModeTransition: "entering", isPlayingOrWillChangePlaymode: true)}},
+              "applicationState": "notApplied"
+            }
+            """));
+        using var successWithStoppedAfterDocument = JsonDocument.Parse(CreatePlayEnterPayloadJson(
+            $$"""
+            {
+              "transition": "enter",
+              "result": "entered",
+              "before": {{CreatePlayLifecycleSnapshotJson()}},
+              "after": {{CreatePlayLifecycleSnapshotJson()}}
+            }
+            """));
+        using var alreadyEnteredWithStoppedBeforeDocument = JsonDocument.Parse(CreatePlayEnterPayloadJson(
+            $$"""
+            {
+              "transition": "enter",
+              "result": "alreadyEntered",
+              "before": {{CreatePlayLifecycleSnapshotJson()}},
+              "after": {{CreatePlayingPlayLifecycleSnapshotJson()}}
+            }
+            """));
+        using var successWithStoppedTopLevelDocument = JsonDocument.Parse(CreatePlayEnterPayloadJson(
+            $$"""
+            {
+              "transition": "enter",
+              "result": "entered",
+              "before": {{CreatePlayLifecycleSnapshotJson()}},
+              "after": {{CreatePlayingPlayLifecycleSnapshotJson()}}
+            }
+            """,
+            lifecycleState: "ready",
+            blockingReasonJson: "null",
+            canAcceptExecutionRequests: true,
+            playModeState: "stopped",
+            playModeTransition: "none",
+            isPlaying: false,
+            isPlayingOrWillChangePlaymode: false));
         using var enterWithOpResultsDocument = JsonDocument.Parse(
             $$"""
             {
@@ -417,8 +500,15 @@ public sealed class CliOutputSchemaArtifactTests
 
         Assert.Empty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", successDocument.RootElement));
         Assert.Empty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", timeoutDocument.RootElement));
+        Assert.Empty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", blockedDocument.RootElement));
         Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", successWithoutAfterDocument.RootElement));
         Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", timeoutWithoutObservedDocument.RootElement));
+        Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", successWithErrorFieldsDocument.RootElement));
+        Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", timeoutWithAfterDocument.RootElement));
+        Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", timeoutWithNotAppliedApplicationStateDocument.RootElement));
+        Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", successWithStoppedAfterDocument.RootElement));
+        Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", alreadyEnteredWithStoppedBeforeDocument.RootElement));
+        Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", successWithStoppedTopLevelDocument.RootElement));
         Assert.NotEmpty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", enterWithOpResultsDocument.RootElement));
     }
 
@@ -1006,7 +1096,15 @@ public sealed class CliOutputSchemaArtifactTests
             generation: "43");
     }
 
-    private static string CreatePlayEnterPayloadJson (string transitionJson)
+    private static string CreatePlayEnterPayloadJson (
+        string transitionJson,
+        string lifecycleState = "playmode",
+        string blockingReasonJson = "\"playMode\"",
+        bool canAcceptExecutionRequests = false,
+        string playModeState = "playing",
+        string playModeTransition = "none",
+        bool isPlaying = true,
+        bool isPlayingOrWillChangePlaymode = true)
     {
         return $$"""
             {
@@ -1018,20 +1116,20 @@ public sealed class CliOutputSchemaArtifactTests
               "daemonStatus": "running",
               "serverVersion": "0.5.0",
               "editorMode": "gui",
-              "lifecycleState": "playmode",
-              "blockingReason": "playMode",
+              "lifecycleState": "{{lifecycleState}}",
+              "blockingReason": {{blockingReasonJson}},
               "compileState": "idle",
               "compileGeneration": "12",
               "domainReloadGeneration": "7",
-              "canAcceptExecutionRequests": false,
+              "canAcceptExecutionRequests": {{JsonSerializer.Serialize(canAcceptExecutionRequests)}},
               "observedAtUtc": "2026-05-21T00:00:00+00:00",
               "actionRequired": null,
               "primaryDiagnostic": null,
               "playMode": {
-                "state": "playing",
-                "transition": "none",
-                "isPlaying": true,
-                "isPlayingOrWillChangePlaymode": true,
+                "state": "{{playModeState}}",
+                "transition": "{{playModeTransition}}",
+                "isPlaying": {{JsonSerializer.Serialize(isPlaying)}},
+                "isPlayingOrWillChangePlaymode": {{JsonSerializer.Serialize(isPlayingOrWillChangePlaymode)}},
                 "generation": "43"
               },
               "transition": {{transitionJson}},
