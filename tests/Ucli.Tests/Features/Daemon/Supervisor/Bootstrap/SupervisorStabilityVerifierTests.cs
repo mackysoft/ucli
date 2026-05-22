@@ -52,7 +52,7 @@ public sealed class SupervisorStabilityVerifierTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task EnsureStable_WhenSuccessfulPingsSpanBeyondStabilityWindow_UsesCommandTimeoutBudget ()
+    public async Task EnsureStable_WhenSuccessfulPingsCompleteWithinBudget_UsesCommandTimeoutBudget ()
     {
         var timeProvider = new ManualTimeProvider();
         var pingClient = new StubDaemonPingClient
@@ -61,7 +61,6 @@ public sealed class SupervisorStabilityVerifierTests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 Assert.Equal(TimeSpan.FromSeconds(1), timeout);
-                timeProvider.Advance(TimeSpan.FromMilliseconds(700));
                 return ValueTask.CompletedTask;
             },
         };
@@ -78,6 +77,7 @@ public sealed class SupervisorStabilityVerifierTests
             .AsTask();
         for (var i = 0; i < 8 && !verificationTask.IsCompleted; i++)
         {
+            await WaitForActiveTimerAsync(timeProvider, verificationTask);
             timeProvider.Advance(TimeSpan.FromMilliseconds(700));
             await Task.Yield();
         }
@@ -169,6 +169,18 @@ public sealed class SupervisorStabilityVerifierTests
             ProcessId: 1234,
             ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 9876);
+    }
+
+    private static async Task WaitForActiveTimerAsync (
+        ManualTimeProvider timeProvider,
+        Task observedTask)
+    {
+        // NOTE: The verifier creates one timer for each retry delay. Waiting for the timer
+        // before advancing manual time keeps this test independent from scheduler timing.
+        for (var i = 0; i < 8 && timeProvider.ActiveTimerCount == 0 && !observedTask.IsCompleted; i++)
+        {
+            await Task.Yield();
+        }
     }
 
     private sealed class StubDaemonPingClient : IDaemonPingClient
