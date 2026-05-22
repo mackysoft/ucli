@@ -48,6 +48,32 @@ namespace MackySoft.Ucli.Unity.Ipc
                 });
         }
 
+        /// <summary> Creates one error response envelope with a structured payload. </summary>
+        /// <typeparam name="TPayload"> The payload type. </typeparam>
+        /// <param name="request"> The request envelope used as response context. </param>
+        /// <param name="code"> The machine-readable error code. </param>
+        /// <param name="message"> The human-readable error message. </param>
+        /// <param name="opId"> The related operation identifier when available. </param>
+        /// <param name="payload"> The structured payload model. </param>
+        /// <returns> The error response envelope. </returns>
+        public static IpcResponse CreateErrorResponse<TPayload> (
+            IpcRequest request,
+            UcliCode code,
+            string message,
+            string opId,
+            TPayload payload)
+        {
+            return new IpcResponse(
+                ProtocolVersion: request.ProtocolVersion,
+                RequestId: request.RequestId,
+                Status: IpcProtocol.StatusError,
+                Payload: IpcPayloadCodec.SerializeToElement(payload),
+                Errors: new[]
+                {
+                    new IpcError(code, message, opId),
+                });
+        }
+
         /// <summary> Creates one malformed-frame response when request envelope cannot be deserialized. </summary>
         /// <param name="errorKind"> The machine-readable frame read error kind. </param>
         /// <param name="errorMessage"> The diagnostic frame read error message. </param>

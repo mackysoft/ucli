@@ -35,6 +35,12 @@ internal sealed class UnityIpcRequestBuilder
             UnityRequestPayload.PlayStatus => new UnityIpcDispatchRequest(
                 IpcMethodNames.PlayStatus,
                 IpcPayloadCodec.SerializeToElement(new IpcPlayStatusRequest())),
+            UnityRequestPayload.PlayEnter playEnter => new UnityIpcDispatchRequest(
+                IpcMethodNames.PlayEnter,
+                IpcPayloadCodec.SerializeToElement(new IpcPlayEnterRequest
+                {
+                    TimeoutMilliseconds = playEnter.TimeoutMilliseconds,
+                })),
             UnityRequestPayload.ExecuteJson executeJson => new UnityIpcDispatchRequest(
                 IpcMethodNames.Execute,
                 CreateExecutePayload(

@@ -1,8 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
+using MackySoft.Ucli.Application.Features.Play.Common;
 using MackySoft.Ucli.Application.Shared.CommandContracts.Projection;
-using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -15,23 +14,18 @@ internal sealed class PlayStatusService : IPlayStatusService
     private const string SessionNotAvailableMessage = "Registered GUI daemon session is not available for Play Mode status.";
     private const string RequiresGuiEditorMessage = "Play Mode status requires a registered GUI daemon session.";
 
-    private readonly IProjectContextResolver projectContextResolver;
-
-    private readonly IDaemonSessionStore daemonSessionStore;
+    private readonly IPlayCommandExecutionContextResolver contextResolver;
 
     private readonly IUnityRequestExecutor unityRequestExecutor;
 
     /// <summary> Initializes a new instance of the <see cref="PlayStatusService" /> class. </summary>
-    /// <param name="projectContextResolver"> The project-context resolver dependency. </param>
-    /// <param name="daemonSessionStore"> The daemon session-store dependency. </param>
+    /// <param name="contextResolver"> The Play Mode command context resolver dependency. </param>
     /// <param name="unityRequestExecutor"> The Unity IPC request executor dependency. </param>
     public PlayStatusService (
-        IProjectContextResolver projectContextResolver,
-        IDaemonSessionStore daemonSessionStore,
+        IPlayCommandExecutionContextResolver contextResolver,
         IUnityRequestExecutor unityRequestExecutor)
     {
-        this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
-        this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
+        this.contextResolver = contextResolver ?? throw new ArgumentNullException(nameof(contextResolver));
         this.unityRequestExecutor = unityRequestExecutor ?? throw new ArgumentNullException(nameof(unityRequestExecutor));
     }
 
@@ -43,50 +37,26 @@ internal sealed class PlayStatusService : IPlayStatusService
         ArgumentNullException.ThrowIfNull(input);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var contextResult = await projectContextResolver.ResolveAsync(input.ProjectPath, cancellationToken).ConfigureAwait(false);
+        var contextResult = await contextResolver.ResolveAsync(
+                input.ProjectPath,
+                input.TimeoutMilliseconds,
+                UcliCommandIds.PlayStatus,
+                SessionNotAvailableMessage,
+                RequiresGuiEditorMessage,
+                cancellationToken)
+            .ConfigureAwait(false);
         if (!contextResult.IsSuccess)
         {
             return PlayStatusExecutionResult.Failure(contextResult.Error!);
         }
 
-        var context = contextResult.Context!;
-        var project = ProjectIdentityInfo.From(context.UnityProject);
-        var timeoutResult = IpcCommandTimeoutResolver.ResolveNormalized(
-            input.TimeoutMilliseconds,
-            UcliCommandIds.PlayStatus,
-            context.Config);
-        if (!timeoutResult.IsSuccess)
-        {
-            return PlayStatusExecutionResult.Failure(timeoutResult.Error!);
-        }
-
-        var timeout = timeoutResult.Timeout!.Value;
-        var sessionResult = await daemonSessionStore.ReadAsync(
-                context.UnityProject.RepositoryRoot,
-                context.UnityProject.ProjectFingerprint,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!sessionResult.IsSuccess)
-        {
-            return PlayStatusExecutionResult.Failure(sessionResult.Error!);
-        }
-
-        if (!sessionResult.Exists)
-        {
-            return PlayStatusExecutionResult.Failure(CreateSessionNotAvailableError());
-        }
-
-        if (!IsGuiSession(sessionResult.Session!))
-        {
-            return PlayStatusExecutionResult.Failure(CreateRequiresGuiEditorError());
-        }
-
+        var playContext = contextResult.Context!;
         var executionResult = await unityRequestExecutor.ExecuteAsync(
                 UcliCommandIds.PlayStatus,
                 UnityExecutionMode.Daemon,
-                timeout,
-                context.Config,
-                context.UnityProject,
+                playContext.Timeout,
+                playContext.ProjectContext.Config,
+                playContext.ProjectContext.UnityProject,
                 new UnityRequestPayload.PlayStatus(),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -113,10 +83,10 @@ internal sealed class PlayStatusService : IPlayStatusService
         }
 
         var snapshot = statusResponse.Snapshot;
-        if (!string.Equals(snapshot.ProjectFingerprint, context.UnityProject.ProjectFingerprint, StringComparison.Ordinal))
+        if (!string.Equals(snapshot.ProjectFingerprint, playContext.Project.ProjectFingerprint, StringComparison.Ordinal))
         {
             return PlayStatusExecutionResult.Failure(ExecutionError.InternalError(
-                $"Unity play status projectFingerprint mismatch. Requested={context.UnityProject.ProjectFingerprint}, Actual={snapshot.ProjectFingerprint}."));
+                $"Unity play status projectFingerprint mismatch. Requested={playContext.Project.ProjectFingerprint}, Actual={snapshot.ProjectFingerprint}."));
         }
 
         var lifecycle = LifecycleProjectionFactory.Create(snapshot);
@@ -132,7 +102,7 @@ internal sealed class PlayStatusService : IPlayStatusService
         }
 
         var output = new PlayStatusExecutionOutput(
-            Project: project,
+            Project: playContext.Project,
             DaemonStatus: DaemonStatusKind.Running,
             ServerVersion: lifecycle.ServerVersion,
             EditorMode: guiEditorMode,
@@ -146,28 +116,8 @@ internal sealed class PlayStatusService : IPlayStatusService
             ActionRequired: lifecycle.ActionRequired,
             PrimaryDiagnostic: ToOutput(lifecycle.PrimaryDiagnostic),
             PlayMode: lifecycle.PlayMode,
-            TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds));
+            TimeoutMilliseconds: playContext.TimeoutMilliseconds);
         return PlayStatusExecutionResult.Success(output);
-    }
-
-    private static bool IsGuiSession (DaemonSession session)
-    {
-        return IsGuiEditorMode(session.EditorMode, out _);
-    }
-
-    private static bool IsGuiEditorMode (
-        string? value,
-        out string editorMode)
-    {
-        if (DaemonEditorModeCodec.TryParse(value, out var parsedMode)
-            && parsedMode == DaemonEditorMode.Gui)
-        {
-            editorMode = DaemonEditorModeCodec.ToValue(parsedMode);
-            return true;
-        }
-
-        editorMode = string.Empty;
-        return false;
     }
 
     private static DaemonPrimaryDiagnosticOutput? ToOutput (IpcPrimaryDiagnostic? diagnostic)
@@ -204,13 +154,6 @@ internal sealed class PlayStatusService : IPlayStatusService
         return code == ExecutionErrorCodes.IpcTimeout
             ? ExecutionError.Timeout(message, code)
             : ExecutionError.InternalError(message, code);
-    }
-
-    private static ExecutionError CreateSessionNotAvailableError ()
-    {
-        return ExecutionError.InternalError(
-            SessionNotAvailableMessage,
-            PlayModeErrorCodes.PlayModeSessionNotAvailable);
     }
 
     private static ExecutionError CreateRequiresGuiEditorError ()

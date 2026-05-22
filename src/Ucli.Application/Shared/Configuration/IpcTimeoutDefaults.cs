@@ -28,6 +28,7 @@ internal static class IpcTimeoutDefaults
         (UcliCommandIds.LogsUnityRead, 3000),
         (UcliCommandIds.LogsUnityClear, 3000),
         (UcliCommandIds.PlayStatus, 3000),
+        (UcliCommandIds.PlayEnter, 30000),
     ];
 
     private static readonly HashSet<UcliCommand> SupportedCommandSet = CreateSupportedCommandSet();

@@ -1039,39 +1039,16 @@ internal static class Program
     {
         return ObjectSchema(
             additionalProperties: false,
-            Required("project", ReferenceSchema("../defs/project.schema.json")),
-            Required("daemonStatus", ConstString("running")),
-            Required("serverVersion", NullableStringSchema()),
-            Required("editorMode", ConstString(DaemonEditorModeValues.Gui)),
-            Required("lifecycleState", NullableStringSchema()),
-            Required("blockingReason", NullableStringSchema()),
-            Required("compileState", NullableStringSchema()),
-            Required("compileGeneration", NullableStringSchema()),
-            Required("domainReloadGeneration", NullableStringSchema()),
-            Required("canAcceptExecutionRequests", BooleanSchema()),
-            Required("observedAtUtc", NullableStringSchema()),
-            Required("actionRequired", NullableStringSchema()),
-            Required("primaryDiagnostic", CreatePrimaryDiagnosticSchema()),
-            Required("playMode", CreatePlayModeSnapshotSchema()),
-            Required("timeoutMilliseconds", IntegerSchema()));
+            CreatePlayLifecyclePayloadProperties(Required("timeoutMilliseconds", IntegerSchema())));
     }
 
     private static Dictionary<string, object?> CreatePlayEnterPayloadSchema ()
     {
         return ObjectSchema(
             additionalProperties: false,
-            Optional(
-                "transition",
-                CreatePlayTransitionResultSchema(
-                    IpcPlayTransitionCommandNames.Enter,
-                    [
-                        IpcPlayTransitionResultNames.Entered,
-                        IpcPlayTransitionResultNames.AlreadyEntered,
-                        IpcPlayTransitionResultNames.Timeout,
-                        IpcPlayTransitionResultNames.Blocked,
-                    ],
-                    includeUntil: false)),
-            Optional("timeoutMilliseconds", IntegerSchema()));
+            CreatePlayLifecyclePayloadProperties(
+                Required("transition", CreatePlayEnterTransitionResultSchema()),
+                Required("timeoutMilliseconds", IntegerSchema())));
     }
 
     private static Dictionary<string, object?> CreatePlayExitPayloadSchema ()
@@ -1107,6 +1084,63 @@ internal static class Program
                     ],
                     includeUntil: true)),
             Optional("timeoutMilliseconds", IntegerSchema()));
+    }
+
+    private static SchemaProperty[] CreatePlayLifecyclePayloadProperties (params SchemaProperty[] extraProperties)
+    {
+        var properties = new List<SchemaProperty>
+        {
+            Required("project", ReferenceSchema("../defs/project.schema.json")),
+            Required("daemonStatus", ConstString("running")),
+            Required("serverVersion", NullableStringSchema()),
+            Required("editorMode", ConstString(DaemonEditorModeValues.Gui)),
+            Required("lifecycleState", NullableStringSchema()),
+            Required("blockingReason", NullableStringSchema()),
+            Required("compileState", NullableStringSchema()),
+            Required("compileGeneration", NullableStringSchema()),
+            Required("domainReloadGeneration", NullableStringSchema()),
+            Required("canAcceptExecutionRequests", BooleanSchema()),
+            Required("observedAtUtc", NullableStringSchema()),
+            Required("actionRequired", NullableStringSchema()),
+            Required("primaryDiagnostic", CreatePrimaryDiagnosticSchema()),
+            Required("playMode", CreatePlayModeSnapshotSchema()),
+        };
+
+        properties.AddRange(extraProperties);
+        return properties.ToArray();
+    }
+
+    private static Dictionary<string, object?> CreatePlayEnterTransitionResultSchema ()
+    {
+        return OneOfSchema(
+            ObjectSchema(
+                additionalProperties: false,
+                Required("transition", ConstString(IpcPlayTransitionCommandNames.Enter)),
+                Required("result", EnumSchema(
+                    IpcPlayTransitionResultNames.Entered,
+                    IpcPlayTransitionResultNames.AlreadyEntered)),
+                Required("before", CreatePlayLifecycleSnapshotSchema()),
+                Required("after", CreatePlayLifecycleSnapshotSchema())),
+            ObjectSchema(
+                additionalProperties: false,
+                Required("transition", ConstString(IpcPlayTransitionCommandNames.Enter)),
+                Required("result", ConstString(IpcPlayTransitionResultNames.Timeout)),
+                Required("before", CreatePlayLifecycleSnapshotSchema()),
+                Required("observed", CreatePlayLifecycleSnapshotSchema()),
+                Required("applicationState", ConstString(IpcPlayApplicationStateNames.Indeterminate))),
+            ObjectSchema(
+                additionalProperties: false,
+                Required("transition", ConstString(IpcPlayTransitionCommandNames.Enter)),
+                Required("result", ConstString(IpcPlayTransitionResultNames.Blocked)),
+                Required("before", CreatePlayLifecycleSnapshotSchema()),
+                Required("observed", CreatePlayLifecycleSnapshotSchema()),
+                Required(
+                    "applicationState",
+                    EnumSchema(
+                        IpcPlayApplicationStateNames.NotApplied,
+                        IpcPlayApplicationStateNames.Applied,
+                        IpcPlayApplicationStateNames.Indeterminate,
+                        IpcPlayApplicationStateNames.Unknown))));
     }
 
     private static Dictionary<string, object?> CreatePlayTransitionResultSchema (
