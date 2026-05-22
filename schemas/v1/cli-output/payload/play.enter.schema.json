@@ -1,162 +1,150 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/play.enter.schema.json",
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "project": {
-      "$ref": "../defs/project.schema.json"
-    },
-    "daemonStatus": {
-      "type": "string",
-      "const": "running"
-    },
-    "serverVersion": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "editorMode": {
-      "type": "string",
-      "const": "gui"
-    },
-    "lifecycleState": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "blockingReason": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "compileState": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "compileGeneration": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "domainReloadGeneration": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "canAcceptExecutionRequests": {
-      "type": "boolean"
-    },
-    "observedAtUtc": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "actionRequired": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "primaryDiagnostic": {
-      "type": [
-        "object",
-        "null"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "type": "string"
-        },
-        "code": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "file": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "line": {
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "column": {
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "message": {
-          "type": [
-            "string",
-            "null"
-          ]
-        }
-      },
-      "required": [
-        "kind"
-      ]
-    },
-    "playMode": {
+  "oneOf": [
+    {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "state": {
+        "project": {
+          "$ref": "../defs/project.schema.json"
+        },
+        "daemonStatus": {
           "type": "string",
-          "enum": [
-            "stopped",
-            "entering",
-            "playing",
-            "exiting",
-            "unknown"
-          ]
+          "const": "running"
         },
-        "transition": {
-          "type": "string",
-          "enum": [
-            "none",
-            "entering",
-            "exiting"
-          ]
-        },
-        "isPlaying": {
-          "type": "boolean"
-        },
-        "isPlayingOrWillChangePlaymode": {
-          "type": "boolean"
-        },
-        "generation": {
+        "serverVersion": {
           "type": [
             "string",
             "null"
           ]
-        }
-      },
-      "required": [
-        "state",
-        "transition",
-        "isPlaying",
-        "isPlayingOrWillChangePlaymode",
-        "generation"
-      ]
-    },
-    "transition": {
-      "oneOf": [
-        {
+        },
+        "editorMode": {
+          "type": "string",
+          "const": "gui"
+        },
+        "lifecycleState": {
+          "type": "string",
+          "const": "playmode"
+        },
+        "blockingReason": {
+          "type": "string",
+          "const": "playMode"
+        },
+        "compileState": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "compileGeneration": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "domainReloadGeneration": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "canAcceptExecutionRequests": {
+          "type": "boolean",
+          "const": false
+        },
+        "observedAtUtc": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actionRequired": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "primaryDiagnostic": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string"
+            },
+            "code": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "file": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "line": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "column": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "message": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        "playMode": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "type": "string",
+              "const": "playing"
+            },
+            "transition": {
+              "type": "string",
+              "const": "none"
+            },
+            "isPlaying": {
+              "type": "boolean",
+              "const": true
+            },
+            "isPlayingOrWillChangePlaymode": {
+              "type": "boolean"
+            },
+            "generation": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "state",
+            "transition",
+            "isPlaying",
+            "isPlayingOrWillChangePlaymode",
+            "generation"
+          ]
+        },
+        "transition": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
@@ -166,10 +154,7 @@
             },
             "result": {
               "type": "string",
-              "enum": [
-                "entered",
-                "alreadyEntered"
-              ]
+              "const": "entered"
             },
             "before": {
               "type": "object",
@@ -386,16 +371,12 @@
                   ]
                 },
                 "lifecycleState": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                  "type": "string",
+                  "const": "playmode"
                 },
                 "blockingReason": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                  "type": "string",
+                  "const": "playMode"
                 },
                 "compileState": {
                   "type": [
@@ -416,7 +397,8 @@
                   ]
                 },
                 "canAcceptExecutionRequests": {
-                  "type": "boolean"
+                  "type": "boolean",
+                  "const": false
                 },
                 "observedAtUtc": {
                   "type": [
@@ -476,53 +458,37 @@
                   ]
                 },
                 "playMode": {
-                  "oneOf": [
-                    {
-                      "type": "object",
-                      "additionalProperties": false,
-                      "properties": {
-                        "state": {
-                          "type": "string",
-                          "enum": [
-                            "stopped",
-                            "entering",
-                            "playing",
-                            "exiting",
-                            "unknown"
-                          ]
-                        },
-                        "transition": {
-                          "type": "string",
-                          "enum": [
-                            "none",
-                            "entering",
-                            "exiting"
-                          ]
-                        },
-                        "isPlaying": {
-                          "type": "boolean"
-                        },
-                        "isPlayingOrWillChangePlaymode": {
-                          "type": "boolean"
-                        },
-                        "generation": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "state",
-                        "transition",
-                        "isPlaying",
-                        "isPlayingOrWillChangePlaymode",
-                        "generation"
-                      ]
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "state": {
+                      "type": "string",
+                      "const": "playing"
                     },
-                    {
-                      "type": "null"
+                    "transition": {
+                      "type": "string",
+                      "const": "none"
+                    },
+                    "isPlaying": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "isPlayingOrWillChangePlaymode": {
+                      "type": "boolean"
+                    },
+                    "generation": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
+                  },
+                  "required": [
+                    "state",
+                    "transition",
+                    "isPlaying",
+                    "isPlayingOrWillChangePlaymode",
+                    "generation"
                   ]
                 }
               },
@@ -551,7 +517,703 @@
             "after"
           ]
         },
-        {
+        "timeoutMilliseconds": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "project",
+        "daemonStatus",
+        "serverVersion",
+        "editorMode",
+        "lifecycleState",
+        "blockingReason",
+        "compileState",
+        "compileGeneration",
+        "domainReloadGeneration",
+        "canAcceptExecutionRequests",
+        "observedAtUtc",
+        "actionRequired",
+        "primaryDiagnostic",
+        "playMode",
+        "transition",
+        "timeoutMilliseconds"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "project": {
+          "$ref": "../defs/project.schema.json"
+        },
+        "daemonStatus": {
+          "type": "string",
+          "const": "running"
+        },
+        "serverVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "editorMode": {
+          "type": "string",
+          "const": "gui"
+        },
+        "lifecycleState": {
+          "type": "string",
+          "const": "playmode"
+        },
+        "blockingReason": {
+          "type": "string",
+          "const": "playMode"
+        },
+        "compileState": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "compileGeneration": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "domainReloadGeneration": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "canAcceptExecutionRequests": {
+          "type": "boolean",
+          "const": false
+        },
+        "observedAtUtc": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actionRequired": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "primaryDiagnostic": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string"
+            },
+            "code": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "file": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "line": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "column": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "message": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        "playMode": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "type": "string",
+              "const": "playing"
+            },
+            "transition": {
+              "type": "string",
+              "const": "none"
+            },
+            "isPlaying": {
+              "type": "boolean",
+              "const": true
+            },
+            "isPlayingOrWillChangePlaymode": {
+              "type": "boolean"
+            },
+            "generation": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "state",
+            "transition",
+            "isPlaying",
+            "isPlayingOrWillChangePlaymode",
+            "generation"
+          ]
+        },
+        "transition": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "transition": {
+              "type": "string",
+              "const": "enter"
+            },
+            "result": {
+              "type": "string",
+              "const": "alreadyEntered"
+            },
+            "before": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "serverVersion": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "editorMode": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "unityVersion": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "projectFingerprint": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "lifecycleState": {
+                  "type": "string",
+                  "const": "playmode"
+                },
+                "blockingReason": {
+                  "type": "string",
+                  "const": "playMode"
+                },
+                "compileState": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "compileGeneration": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "domainReloadGeneration": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "canAcceptExecutionRequests": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "observedAtUtc": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "actionRequired": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "primaryDiagnostic": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "file": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "line": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "column": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "message": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "playMode": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "state": {
+                      "type": "string",
+                      "const": "playing"
+                    },
+                    "transition": {
+                      "type": "string",
+                      "const": "none"
+                    },
+                    "isPlaying": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "isPlayingOrWillChangePlaymode": {
+                      "type": "boolean"
+                    },
+                    "generation": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "state",
+                    "transition",
+                    "isPlaying",
+                    "isPlayingOrWillChangePlaymode",
+                    "generation"
+                  ]
+                }
+              },
+              "required": [
+                "serverVersion",
+                "editorMode",
+                "unityVersion",
+                "projectFingerprint",
+                "lifecycleState",
+                "blockingReason",
+                "compileState",
+                "compileGeneration",
+                "domainReloadGeneration",
+                "canAcceptExecutionRequests",
+                "observedAtUtc",
+                "actionRequired",
+                "primaryDiagnostic",
+                "playMode"
+              ]
+            },
+            "after": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "serverVersion": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "editorMode": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "unityVersion": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "projectFingerprint": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "lifecycleState": {
+                  "type": "string",
+                  "const": "playmode"
+                },
+                "blockingReason": {
+                  "type": "string",
+                  "const": "playMode"
+                },
+                "compileState": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "compileGeneration": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "domainReloadGeneration": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "canAcceptExecutionRequests": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "observedAtUtc": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "actionRequired": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "primaryDiagnostic": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "file": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "line": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "column": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "message": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "playMode": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "state": {
+                      "type": "string",
+                      "const": "playing"
+                    },
+                    "transition": {
+                      "type": "string",
+                      "const": "none"
+                    },
+                    "isPlaying": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "isPlayingOrWillChangePlaymode": {
+                      "type": "boolean"
+                    },
+                    "generation": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "state",
+                    "transition",
+                    "isPlaying",
+                    "isPlayingOrWillChangePlaymode",
+                    "generation"
+                  ]
+                }
+              },
+              "required": [
+                "serverVersion",
+                "editorMode",
+                "unityVersion",
+                "projectFingerprint",
+                "lifecycleState",
+                "blockingReason",
+                "compileState",
+                "compileGeneration",
+                "domainReloadGeneration",
+                "canAcceptExecutionRequests",
+                "observedAtUtc",
+                "actionRequired",
+                "primaryDiagnostic",
+                "playMode"
+              ]
+            }
+          },
+          "required": [
+            "transition",
+            "result",
+            "before",
+            "after"
+          ]
+        },
+        "timeoutMilliseconds": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "project",
+        "daemonStatus",
+        "serverVersion",
+        "editorMode",
+        "lifecycleState",
+        "blockingReason",
+        "compileState",
+        "compileGeneration",
+        "domainReloadGeneration",
+        "canAcceptExecutionRequests",
+        "observedAtUtc",
+        "actionRequired",
+        "primaryDiagnostic",
+        "playMode",
+        "transition",
+        "timeoutMilliseconds"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "project": {
+          "$ref": "../defs/project.schema.json"
+        },
+        "daemonStatus": {
+          "type": "string",
+          "const": "running"
+        },
+        "serverVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "editorMode": {
+          "type": "string",
+          "const": "gui"
+        },
+        "lifecycleState": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "blockingReason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "compileState": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "compileGeneration": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "domainReloadGeneration": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "canAcceptExecutionRequests": {
+          "type": "boolean"
+        },
+        "observedAtUtc": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actionRequired": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "primaryDiagnostic": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string"
+            },
+            "code": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "file": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "line": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "column": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "message": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        "playMode": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "stopped",
+                "entering",
+                "playing",
+                "exiting",
+                "unknown"
+              ]
+            },
+            "transition": {
+              "type": "string",
+              "enum": [
+                "none",
+                "entering",
+                "exiting"
+              ]
+            },
+            "isPlaying": {
+              "type": "boolean"
+            },
+            "isPlayingOrWillChangePlaymode": {
+              "type": "boolean"
+            },
+            "generation": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "state",
+            "transition",
+            "isPlaying",
+            "isPlayingOrWillChangePlaymode",
+            "generation"
+          ]
+        },
+        "transition": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
@@ -948,7 +1610,184 @@
             "applicationState"
           ]
         },
-        {
+        "timeoutMilliseconds": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "project",
+        "daemonStatus",
+        "serverVersion",
+        "editorMode",
+        "lifecycleState",
+        "blockingReason",
+        "compileState",
+        "compileGeneration",
+        "domainReloadGeneration",
+        "canAcceptExecutionRequests",
+        "observedAtUtc",
+        "actionRequired",
+        "primaryDiagnostic",
+        "playMode",
+        "transition",
+        "timeoutMilliseconds"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "project": {
+          "$ref": "../defs/project.schema.json"
+        },
+        "daemonStatus": {
+          "type": "string",
+          "const": "running"
+        },
+        "serverVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "editorMode": {
+          "type": "string",
+          "const": "gui"
+        },
+        "lifecycleState": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "blockingReason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "compileState": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "compileGeneration": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "domainReloadGeneration": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "canAcceptExecutionRequests": {
+          "type": "boolean"
+        },
+        "observedAtUtc": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actionRequired": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "primaryDiagnostic": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string"
+            },
+            "code": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "file": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "line": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "column": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "message": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        "playMode": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "stopped",
+                "entering",
+                "playing",
+                "exiting",
+                "unknown"
+              ]
+            },
+            "transition": {
+              "type": "string",
+              "enum": [
+                "none",
+                "entering",
+                "exiting"
+              ]
+            },
+            "isPlaying": {
+              "type": "boolean"
+            },
+            "isPlayingOrWillChangePlaymode": {
+              "type": "boolean"
+            },
+            "generation": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "state",
+            "transition",
+            "isPlaying",
+            "isPlayingOrWillChangePlaymode",
+            "generation"
+          ]
+        },
+        "transition": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
@@ -1349,29 +2188,29 @@
             "observed",
             "applicationState"
           ]
+        },
+        "timeoutMilliseconds": {
+          "type": "integer"
         }
+      },
+      "required": [
+        "project",
+        "daemonStatus",
+        "serverVersion",
+        "editorMode",
+        "lifecycleState",
+        "blockingReason",
+        "compileState",
+        "compileGeneration",
+        "domainReloadGeneration",
+        "canAcceptExecutionRequests",
+        "observedAtUtc",
+        "actionRequired",
+        "primaryDiagnostic",
+        "playMode",
+        "transition",
+        "timeoutMilliseconds"
       ]
-    },
-    "timeoutMilliseconds": {
-      "type": "integer"
     }
-  },
-  "required": [
-    "project",
-    "daemonStatus",
-    "serverVersion",
-    "editorMode",
-    "lifecycleState",
-    "blockingReason",
-    "compileState",
-    "compileGeneration",
-    "domainReloadGeneration",
-    "canAcceptExecutionRequests",
-    "observedAtUtc",
-    "actionRequired",
-    "primaryDiagnostic",
-    "playMode",
-    "transition",
-    "timeoutMilliseconds"
   ]
 }

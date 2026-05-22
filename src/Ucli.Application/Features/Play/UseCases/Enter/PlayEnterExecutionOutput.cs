@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.CommandContracts;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Play.UseCases.Enter;
 
@@ -21,5 +20,5 @@ internal sealed record PlayEnterExecutionOutput (
     string? ActionRequired,
     DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic,
     PlayModeSnapshotOutput PlayMode,
-    IpcPlayTransitionResult Transition,
+    PlayEnterTransitionOutput Transition,
     int TimeoutMilliseconds);
