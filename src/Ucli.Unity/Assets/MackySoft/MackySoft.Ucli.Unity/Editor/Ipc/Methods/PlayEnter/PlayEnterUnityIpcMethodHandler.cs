@@ -9,7 +9,7 @@ using MackySoft.Ucli.Unity.Runtime;
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Handles <c>play.enter</c> IPC method requests. </summary>
-    internal sealed class PlayEnterUnityIpcMethodHandler : IUnityIpcMethodHandler
+    internal sealed class PlayEnterUnityIpcMethodHandler : IRecoverableUnityIpcMethodHandler
     {
         private readonly PlayEnterTransitionRunner transitionRunner;
         private readonly IDaemonLogger daemonLogger;
@@ -49,6 +49,23 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcRequest request,
             CancellationToken cancellationToken)
         {
+            return await HandleCoreAsync(request, null, cancellationToken);
+        }
+
+        /// <inheritdoc />
+        public async ValueTask<IpcResponse> HandleRecoverableAsync (
+            IpcRequest request,
+            RecoverableIpcOperationContext context,
+            CancellationToken cancellationToken)
+        {
+            return await HandleCoreAsync(request, context, cancellationToken);
+        }
+
+        private async ValueTask<IpcResponse> HandleCoreAsync (
+            IpcRequest request,
+            RecoverableIpcOperationContext recoverableContext,
+            CancellationToken cancellationToken)
+        {
             cancellationToken.ThrowIfCancellationRequested();
             if (request == null)
             {
@@ -77,6 +94,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             var result = await transitionRunner.EnterAsync(
                 enterRequest.TimeoutMilliseconds!.Value,
+                recoverableContext,
                 cancellationToken);
             if (result.IsSuccess)
             {

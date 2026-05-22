@@ -6,6 +6,15 @@ namespace MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 /// <summary> Creates IPC request envelopes for Unity request execution clients. </summary>
 internal static class UnityIpcRequestFactory
 {
+    /// <summary> Creates one stable request identifier for one IPC method dispatch. </summary>
+    /// <param name="method"> The IPC method name. </param>
+    /// <returns> The created request identifier. </returns>
+    public static string CreateRequestId (string method)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(method);
+        return $"{method}-{Guid.NewGuid():N}";
+    }
+
     /// <summary> Creates one request envelope with a generated request identifier. </summary>
     /// <param name="sessionToken"> The session token written into the request envelope. </param>
     /// <param name="method"> The IPC method name. </param>
@@ -18,12 +27,35 @@ internal static class UnityIpcRequestFactory
         JsonElement payload,
         TimeSpan? dispatchTimeout = null)
     {
+        return Create(
+            sessionToken,
+            method,
+            payload,
+            CreateRequestId(method),
+            dispatchTimeout);
+    }
+
+    /// <summary> Creates one request envelope with the supplied request identifier. </summary>
+    /// <param name="sessionToken"> The session token written into the request envelope. </param>
+    /// <param name="method"> The IPC method name. </param>
+    /// <param name="payload"> The payload element. </param>
+    /// <param name="requestId"> The stable request identifier. </param>
+    /// <param name="dispatchTimeout"> The final dispatch timeout budget when the method needs server-side cancellation. </param>
+    /// <returns> The created request envelope. </returns>
+    public static IpcRequest Create (
+        string sessionToken,
+        string method,
+        JsonElement payload,
+        string requestId,
+        TimeSpan? dispatchTimeout = null)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionToken);
         ArgumentException.ThrowIfNullOrWhiteSpace(method);
+        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
 
         return new IpcRequest(
             ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: $"{method}-{Guid.NewGuid():N}",
+            RequestId: requestId,
             SessionToken: sessionToken,
             Method: method,
             Payload: ApplyDispatchTimeout(method, payload, dispatchTimeout));

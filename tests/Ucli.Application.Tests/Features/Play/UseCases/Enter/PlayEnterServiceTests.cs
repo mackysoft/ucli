@@ -106,22 +106,20 @@ public sealed class PlayEnterServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenEnterResponseIsLostDuringDomainReload_RetriesAndReturnsRecoveredTransition ()
+    public async Task Execute_WhenEnterResponseIsLostDuringDomainReload_ReturnsFailureWithoutServiceRetry ()
     {
         var requestExecutor = new StubUnityRequestExecutor(
             UnityRequestExecutionResult.Failure(new UnityRequestFailure(
                 UcliCoreErrorCodes.InternalError,
-                "Failed to execute Unity daemon IPC request. IPC stream ended before a complete frame was read.")),
-            UnityRequestExecutionResult.Success(CreateResponse(CreateEnteredResponse())));
+                "Failed to execute Unity daemon IPC request. IPC stream ended before a complete frame was read.")));
         var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
 
         var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, 1500), CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(2, requestExecutor.CallCount);
-        Assert.Equal(IpcPlayTransitionResultNames.Entered, result.Output!.Transition.Result);
-        Assert.Equal(IpcPlayModeStateNames.Playing, result.Output.PlayMode.State);
-        Assert.Equal(1500, result.Output.TimeoutMilliseconds);
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Output);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.Error!.Code);
+        Assert.Equal(1, requestExecutor.CallCount);
     }
 
     [Fact]

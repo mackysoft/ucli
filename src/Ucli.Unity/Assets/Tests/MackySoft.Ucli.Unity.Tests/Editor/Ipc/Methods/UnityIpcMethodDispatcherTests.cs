@@ -137,6 +137,85 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenRecoverableRecordIsCompleted_ReturnsStoredResponseWithoutCallingHandler () => UniTask.ToCoroutine(async () =>
+        {
+            var completedResponse = CreateSuccessResponse("req-recovered-completed");
+            var store = new StubRecoverableIpcOperationStore
+            {
+                ReadRecord = new RecoverableIpcOperationRecord
+                {
+                    State = RecoverableIpcOperationStateNames.Completed,
+                    Response = completedResponse,
+                },
+            };
+            var handler = new StubRecoverableMethodHandler(IpcMethodNames.PlayEnter, static (_, _, _) =>
+                new ValueTask<IpcResponse>(CreateSuccessResponse("unexpected")));
+            var dispatcher = new UnityIpcMethodDispatcher(new IUnityIpcMethodHandler[] { handler }, store);
+            var request = CreateRequest("req-recovered-completed", IpcMethodNames.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 });
+
+            var response = await TestAwaiter.WaitAsync(
+                dispatcher.DispatchAsync(request, CancellationToken.None).AsUniTask(),
+                "Completed recoverable IPC method dispatch",
+                AsyncWaitTimeout);
+
+            Assert.That(response, Is.SameAs(completedResponse));
+            Assert.That(handler.RecoverableCallCount, Is.EqualTo(0));
+            Assert.That(store.PurgeCallCount, Is.EqualTo(1));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenRecoverableHandlerCreatesPendingRecord_WritesCompletedResponse () => UniTask.ToCoroutine(async () =>
+        {
+            var store = new StubRecoverableIpcOperationStore();
+            var handler = new StubRecoverableMethodHandler(IpcMethodNames.PlayEnter, static (request, context, cancellationToken) =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                Assert.That(context.TryMarkPending(new { checkpoint = "before" }, out var errorMessage), Is.True, errorMessage);
+                return new ValueTask<IpcResponse>(CreateSuccessResponse(request.RequestId));
+            });
+            var dispatcher = new UnityIpcMethodDispatcher(new IUnityIpcMethodHandler[] { handler }, store);
+            var request = CreateRequest("req-recovered-pending", IpcMethodNames.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 });
+
+            var response = await TestAwaiter.WaitAsync(
+                dispatcher.DispatchAsync(request, CancellationToken.None).AsUniTask(),
+                "Pending recoverable IPC method dispatch",
+                AsyncWaitTimeout);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(handler.RecoverableCallCount, Is.EqualTo(1));
+            Assert.That(store.PendingWriteCallCount, Is.EqualTo(1));
+            Assert.That(store.CompletedWriteCallCount, Is.EqualTo(1));
+            Assert.That(store.CompletedResponse, Is.SameAs(response));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenRecoverableRecordIsInvalid_ReturnsInternalErrorWithoutCallingHandler () => UniTask.ToCoroutine(async () =>
+        {
+            var store = new StubRecoverableIpcOperationStore
+            {
+                ReadErrorMessage = "invalid record",
+            };
+            var handler = new StubRecoverableMethodHandler(IpcMethodNames.PlayEnter, static (_, _, _) =>
+                new ValueTask<IpcResponse>(CreateSuccessResponse("unexpected")));
+            var dispatcher = new UnityIpcMethodDispatcher(new IUnityIpcMethodHandler[] { handler }, store);
+            var request = CreateRequest("req-invalid-record", IpcMethodNames.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 });
+
+            var response = await TestAwaiter.WaitAsync(
+                dispatcher.DispatchAsync(request, CancellationToken.None).AsUniTask(),
+                "Invalid recoverable IPC record dispatch",
+                AsyncWaitTimeout);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InternalError));
+            Assert.That(handler.RecoverableCallCount, Is.EqualTo(0));
+            Assert.That(store.CompletedWriteCallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Dispatch_WhenCancellationIsRequested_ThrowsOperationCanceledException () => UniTask.ToCoroutine(async () =>
         {
             var handler = new StubMethodHandler(IpcMethodNames.Ping, static (_, _) =>
@@ -198,6 +277,104 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 CallCount++;
                 return handle(request, cancellationToken);
+            }
+        }
+
+        private sealed class StubRecoverableMethodHandler : IRecoverableUnityIpcMethodHandler
+        {
+            private readonly Func<IpcRequest, RecoverableIpcOperationContext, CancellationToken, ValueTask<IpcResponse>> handle;
+
+            public StubRecoverableMethodHandler (
+                string method,
+                Func<IpcRequest, RecoverableIpcOperationContext, CancellationToken, ValueTask<IpcResponse>> handle)
+            {
+                Method = method;
+                this.handle = handle;
+            }
+
+            public int PlainCallCount { get; private set; }
+
+            public int RecoverableCallCount { get; private set; }
+
+            public string Method { get; }
+
+            public ValueTask<IpcResponse> HandleAsync (
+                IpcRequest request,
+                CancellationToken cancellationToken)
+            {
+                PlainCallCount++;
+                return handle(request, null, cancellationToken);
+            }
+
+            public ValueTask<IpcResponse> HandleRecoverableAsync (
+                IpcRequest request,
+                RecoverableIpcOperationContext context,
+                CancellationToken cancellationToken)
+            {
+                RecoverableCallCount++;
+                return handle(request, context, cancellationToken);
+            }
+        }
+
+        private sealed class StubRecoverableIpcOperationStore : IRecoverableIpcOperationStore
+        {
+            public RecoverableIpcOperationRecord ReadRecord { get; set; }
+
+            public string ReadErrorMessage { get; set; }
+
+            public int PurgeCallCount { get; private set; }
+
+            public int PendingWriteCallCount { get; private set; }
+
+            public int CompletedWriteCallCount { get; private set; }
+
+            public IpcResponse CompletedResponse { get; private set; }
+
+            public bool TryRead (
+                string method,
+                string requestId,
+                out RecoverableIpcOperationRecord record,
+                out string errorMessage)
+            {
+                record = ReadRecord;
+                errorMessage = ReadErrorMessage;
+                return record != null;
+            }
+
+            public bool TryWritePending (
+                string method,
+                string requestId,
+                DateTimeOffset startedAtUtc,
+                System.Text.Json.JsonElement recoveryPayload,
+                out string errorMessage)
+            {
+                PendingWriteCallCount++;
+                errorMessage = null;
+                return true;
+            }
+
+            public bool TryWriteCompleted (
+                string method,
+                string requestId,
+                DateTimeOffset startedAtUtc,
+                DateTimeOffset completedAtUtc,
+                System.Text.Json.JsonElement recoveryPayload,
+                IpcResponse response,
+                out string errorMessage)
+            {
+                CompletedWriteCallCount++;
+                CompletedResponse = response;
+                errorMessage = null;
+                return true;
+            }
+
+            public bool TryPurgeExpiredCompletedRecords (
+                DateTimeOffset nowUtc,
+                out string errorMessage)
+            {
+                PurgeCallCount++;
+                errorMessage = null;
+                return true;
             }
         }
     }

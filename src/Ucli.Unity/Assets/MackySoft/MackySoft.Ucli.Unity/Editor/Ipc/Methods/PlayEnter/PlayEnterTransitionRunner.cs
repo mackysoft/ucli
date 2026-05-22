@@ -19,7 +19,6 @@ namespace MackySoft.Ucli.Unity.Ipc
         private readonly IpcProjectIdentity projectIdentity;
         private readonly Func<CancellationToken, Task> editorUpdateAwaiter;
         private readonly Action enterPlayModeRequester;
-        private readonly IPlayEnterPendingTransitionStore pendingTransitionStore;
         private readonly IDaemonLogger daemonLogger;
 
         /// <summary> Initializes a new instance of the <see cref="PlayEnterTransitionRunner" /> class. </summary>
@@ -38,7 +37,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                 projectIdentity,
                 WaitForNextEditorUpdateAsync,
                 static () => EditorApplication.isPlaying = true,
-                FilePlayEnterPendingTransitionStore.Create(projectIdentity),
                 daemonLogger)
         {
         }
@@ -49,7 +47,6 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="projectIdentity"> The project identity served by this IPC host. </param>
         /// <param name="editorUpdateAwaiter"> The editor update awaiter dependency. </param>
         /// <param name="enterPlayModeRequester"> The Unity Play Mode enter requester dependency. </param>
-        /// <param name="pendingTransitionStore"> Optional pending-transition store used by tests and recovery. </param>
         /// <param name="daemonLogger"> The daemon logger dependency. </param>
         internal PlayEnterTransitionRunner (
             IServerVersionProvider serverVersionProvider,
@@ -57,7 +54,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcProjectIdentity projectIdentity,
             Func<CancellationToken, Task> editorUpdateAwaiter,
             Action enterPlayModeRequester,
-            IPlayEnterPendingTransitionStore pendingTransitionStore = null,
             IDaemonLogger daemonLogger = null)
         {
             this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
@@ -65,20 +61,31 @@ namespace MackySoft.Ucli.Unity.Ipc
             this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
             this.editorUpdateAwaiter = editorUpdateAwaiter ?? throw new ArgumentNullException(nameof(editorUpdateAwaiter));
             this.enterPlayModeRequester = enterPlayModeRequester ?? throw new ArgumentNullException(nameof(enterPlayModeRequester));
-            this.pendingTransitionStore = pendingTransitionStore;
             this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
         }
 
         /// <summary> Executes Play Mode enter and waits until Unity reports an entered snapshot. </summary>
         /// <param name="timeoutMilliseconds"> The transition timeout in milliseconds. </param>
+        /// <param name="recoverableContext"> The persisted operation context used to resume after domain reload. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by the IPC request. </param>
         /// <returns> The structured transition result. </returns>
         public async Task<PlayEnterTransitionExecutionResult> EnterAsync (
             int timeoutMilliseconds,
+            RecoverableIpcOperationContext recoverableContext,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var before = CaptureSnapshot();
+
+            if (TryReadPendingEnter(recoverableContext, out var pendingBefore))
+            {
+                return await ResumePendingEnterAsync(
+                    pendingBefore,
+                    before,
+                    recoverableContext,
+                    timeoutMilliseconds,
+                    cancellationToken);
+            }
 
             var preconditionFailure = ValidatePreconditions(before);
             if (preconditionFailure != null)
@@ -88,16 +95,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (IsEnteredSnapshot(before))
             {
-                var pendingCompletion = TryCompletePendingEnter(before);
-                if (pendingCompletion != null)
-                {
-                    return pendingCompletion;
-                }
-
                 return CreateSuccess(IpcPlayTransitionResultNames.AlreadyEntered, before, before);
             }
 
-            var persistFailure = TryPersistPendingEnter(before);
+            var persistFailure = TryPersistPendingEnter(recoverableContext, before);
             if (persistFailure != null)
             {
                 return persistFailure;
@@ -109,7 +110,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
             catch (Exception exception)
             {
-                DeletePendingEnter();
                 return CreateFailure(
                     PlayModeErrorCodes.PlayModeEnterRejected,
                     $"Unity rejected Play Mode enter. {exception.Message}",
@@ -118,12 +118,67 @@ namespace MackySoft.Ucli.Unity.Ipc
                     IpcPlayApplicationStateNames.NotApplied);
             }
 
-            var observed = before;
+            return await ObserveRequestedEnterAsync(
+                before,
+                before,
+                TimeSpan.FromMilliseconds(timeoutMilliseconds),
+                timeoutMilliseconds,
+                classifyInitialObservation: false,
+                cancellationToken);
+        }
+
+        private async Task<PlayEnterTransitionExecutionResult> ResumePendingEnterAsync (
+            IpcPlayLifecycleSnapshot pendingBefore,
+            IpcPlayLifecycleSnapshot current,
+            RecoverableIpcOperationContext recoverableContext,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
+        {
+            if (IsRecoverablePendingEnter(pendingBefore, current))
+            {
+                return CreateSuccess(IpcPlayTransitionResultNames.Entered, pendingBefore, current);
+            }
+
+            var remainingTimeout = ResolveRemainingPendingTimeout(
+                recoverableContext,
+                timeoutMilliseconds);
+            if (remainingTimeout <= TimeSpan.Zero)
+            {
+                return CreateTimeout(pendingBefore, current, timeoutMilliseconds);
+            }
+
+            return await ObserveRequestedEnterAsync(
+                pendingBefore,
+                current,
+                remainingTimeout,
+                timeoutMilliseconds,
+                classifyInitialObservation: true,
+                cancellationToken);
+        }
+
+        private async Task<PlayEnterTransitionExecutionResult> ObserveRequestedEnterAsync (
+            IpcPlayLifecycleSnapshot before,
+            IpcPlayLifecycleSnapshot initialObserved,
+            TimeSpan remainingTimeout,
+            int timeoutMilliseconds,
+            bool classifyInitialObservation,
+            CancellationToken cancellationToken)
+        {
+            var observed = initialObserved;
             var stoppedObservations = 0;
             using var timeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCancellationTokenSource.CancelAfter(timeoutMilliseconds);
+            timeoutCancellationTokenSource.CancelAfter(remainingTimeout);
             try
             {
+                if (classifyInitialObservation)
+                {
+                    var initialFailure = ClassifyObservedFailure(before, observed, ref stoppedObservations);
+                    if (initialFailure != null)
+                    {
+                        return initialFailure;
+                    }
+                }
+
                 while (true)
                 {
                     timeoutCancellationTokenSource.Token.ThrowIfCancellationRequested();
@@ -132,33 +187,33 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                     if (IsEnteredSnapshot(observed) && HasGenerationChanged(before, observed))
                     {
-                        DeletePendingEnter();
                         return CreateSuccess(IpcPlayTransitionResultNames.Entered, before, observed);
                     }
 
                     var observedFailure = ClassifyObservedFailure(before, observed, ref stoppedObservations);
                     if (observedFailure != null)
                     {
-                        DeletePendingEnter();
                         return observedFailure;
                     }
                 }
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                DeletePendingEnter();
                 return CreateTimeout(before, observed, timeoutMilliseconds);
             }
         }
 
-        private PlayEnterTransitionExecutionResult TryCompletePendingEnter (IpcPlayLifecycleSnapshot current)
+        private bool TryReadPendingEnter (
+            RecoverableIpcOperationContext recoverableContext,
+            out IpcPlayLifecycleSnapshot before)
         {
-            if (pendingTransitionStore == null)
+            before = null;
+            if (recoverableContext == null)
             {
-                return null;
+                return false;
             }
 
-            if (!pendingTransitionStore.TryRead(out var pendingBefore, out var errorMessage))
+            if (!recoverableContext.TryReadPendingPayload<PlayEnterRecoveryPayload>(out var recoveryPayload, out var errorMessage))
             {
                 if (!string.IsNullOrWhiteSpace(errorMessage))
                 {
@@ -167,27 +222,23 @@ namespace MackySoft.Ucli.Unity.Ipc
                         $"Play Mode enter pending transition read failed. {errorMessage}");
                 }
 
-                return null;
+                return false;
             }
 
-            if (!IsRecoverablePendingEnter(pendingBefore, current))
-            {
-                DeletePendingEnter();
-                return null;
-            }
-
-            DeletePendingEnter();
-            return CreateSuccess(IpcPlayTransitionResultNames.Entered, pendingBefore, current);
+            before = recoveryPayload.Before;
+            return before != null;
         }
 
-        private PlayEnterTransitionExecutionResult TryPersistPendingEnter (IpcPlayLifecycleSnapshot before)
+        private PlayEnterTransitionExecutionResult TryPersistPendingEnter (
+            RecoverableIpcOperationContext recoverableContext,
+            IpcPlayLifecycleSnapshot before)
         {
-            if (pendingTransitionStore == null)
+            if (recoverableContext == null)
             {
                 return null;
             }
 
-            return pendingTransitionStore.TryWrite(before, out var errorMessage)
+            return recoverableContext.TryMarkPending(new PlayEnterRecoveryPayload(before), out var errorMessage)
                 ? null
                 : CreateFailure(
                     PlayModeErrorCodes.PlayModeEnterRejected,
@@ -197,19 +248,20 @@ namespace MackySoft.Ucli.Unity.Ipc
                     IpcPlayApplicationStateNames.NotApplied);
         }
 
-        private void DeletePendingEnter ()
+        private static TimeSpan ResolveRemainingPendingTimeout (
+            RecoverableIpcOperationContext recoverableContext,
+            int timeoutMilliseconds)
         {
-            if (pendingTransitionStore == null)
+            var totalTimeout = TimeSpan.FromMilliseconds(timeoutMilliseconds);
+            if (recoverableContext?.StartedAtUtc == null)
             {
-                return;
+                return totalTimeout;
             }
 
-            if (!pendingTransitionStore.TryDelete(out var errorMessage))
-            {
-                daemonLogger.Warning(
-                    DaemonLogCategories.Lifecycle,
-                    $"Play Mode enter pending transition cleanup failed. {errorMessage}");
-            }
+            var elapsed = DateTimeOffset.UtcNow - recoverableContext.StartedAtUtc.Value;
+            return elapsed >= totalTimeout
+                ? TimeSpan.Zero
+                : totalTimeout - elapsed;
         }
 
         private PlayEnterTransitionExecutionResult ValidatePreconditions (IpcPlayLifecycleSnapshot before)

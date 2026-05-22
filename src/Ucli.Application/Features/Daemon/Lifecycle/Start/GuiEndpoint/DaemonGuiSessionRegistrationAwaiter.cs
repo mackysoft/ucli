@@ -159,10 +159,17 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
             return false;
         }
 
-        if (expectedProcessStartedAtUtc is not null
-            && candidate.ProcessStartedAtUtc != expectedProcessStartedAtUtc)
+        if (expectedProcessStartedAtUtc is not null)
         {
-            return false;
+            if (candidate.ProcessStartedAtUtc is not DateTimeOffset candidateProcessStartedAtUtc)
+            {
+                return false;
+            }
+
+            if (!DaemonProcessStartTimeMatcher.Matches(candidateProcessStartedAtUtc, expectedProcessStartedAtUtc.Value))
+            {
+                return false;
+            }
         }
 
         if (!string.Equals(candidate.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))

@@ -54,6 +54,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddUnityIndexServices();
             services.AddUnityExecutionServices();
             services.AddSingleton(CreateProjectIdentity(projectFingerprint));
+            services.AddSingleton<IRecoverableIpcOperationStore>(serviceProvider =>
+                FileRecoverableIpcOperationStore.Create(serviceProvider.GetRequiredService<IpcProjectIdentity>()));
             services.AddSingleton<ISessionTokenValidator>(sessionTokenValidator);
             services.AddSingleton<IDaemonLogger>(daemonLogger);
             services.AddSingleton<IEditorLogRangeExporter, EditorLogRangeExporter>();

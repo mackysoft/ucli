@@ -31,7 +31,8 @@ internal sealed class UnityIpcRequestBuilder
             UnityRequestPayload.Compile compile => new UnityIpcDispatchRequest(
                 IpcMethodNames.Compile,
                 IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(compile.RunId)),
-                CompileAllowedStartupLifecycleStates),
+                CompileAllowedStartupLifecycleStates,
+                isRecoverable: true),
             UnityRequestPayload.PlayStatus => new UnityIpcDispatchRequest(
                 IpcMethodNames.PlayStatus,
                 IpcPayloadCodec.SerializeToElement(new IpcPlayStatusRequest())),
@@ -40,7 +41,8 @@ internal sealed class UnityIpcRequestBuilder
                 IpcPayloadCodec.SerializeToElement(new IpcPlayEnterRequest
                 {
                     TimeoutMilliseconds = playEnter.TimeoutMilliseconds,
-                })),
+                }),
+                isRecoverable: true),
             UnityRequestPayload.ExecuteJson executeJson => new UnityIpcDispatchRequest(
                 IpcMethodNames.Execute,
                 CreateExecutePayload(

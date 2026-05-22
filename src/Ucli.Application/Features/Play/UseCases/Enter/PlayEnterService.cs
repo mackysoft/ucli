@@ -16,25 +16,19 @@ internal sealed class PlayEnterService : IPlayEnterService
     private const string SessionNotAvailableMessage = "Registered GUI daemon session is not available for Play Mode enter.";
     private const string RequiresGuiEditorMessage = "Play Mode enter requires a registered GUI daemon session.";
 
-    private static readonly TimeSpan RecoveryRetryDelay = TimeSpan.FromMilliseconds(250);
-
     private readonly IPlayCommandExecutionContextResolver contextResolver;
 
     private readonly IUnityRequestExecutor unityRequestExecutor;
-
-    private readonly TimeProvider timeProvider;
 
     /// <summary> Initializes a new instance of the <see cref="PlayEnterService" /> class. </summary>
     /// <param name="contextResolver"> The Play Mode command context resolver dependency. </param>
     /// <param name="unityRequestExecutor"> The Unity IPC request executor dependency. </param>
     public PlayEnterService (
         IPlayCommandExecutionContextResolver contextResolver,
-        IUnityRequestExecutor unityRequestExecutor,
-        TimeProvider? timeProvider = null)
+        IUnityRequestExecutor unityRequestExecutor)
     {
         this.contextResolver = contextResolver ?? throw new ArgumentNullException(nameof(contextResolver));
         this.unityRequestExecutor = unityRequestExecutor ?? throw new ArgumentNullException(nameof(unityRequestExecutor));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <inheritdoc />
@@ -60,33 +54,7 @@ internal sealed class PlayEnterService : IPlayEnterService
 
         var context = contextResult.Context!;
         var requestTimeout = context.Timeout + TimeSpan.FromMilliseconds(ResponseGraceMilliseconds);
-        var recoveryDeadline = ExecutionDeadline.Start(requestTimeout, timeProvider);
-        var executionResult = await ExecutePlayEnterAsync(context, requestTimeout, cancellationToken).ConfigureAwait(false);
-        if (!executionResult.IsSuccess)
-        {
-            if (IsLostTransitionResponseFailure(executionResult.FailureInfo!))
-            {
-                return await RecoverLostTransitionResponseAsync(
-                        context,
-                        recoveryDeadline,
-                        executionResult.FailureInfo!,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            }
-
-            return PlayEnterExecutionResult.Failure(CreateErrorFromUnityRequestFailure(executionResult.FailureInfo!));
-        }
-
-        return CreateResultFromResponse(context, executionResult.Response!);
-    }
-
-    private async ValueTask<UnityRequestExecutionResult> ExecutePlayEnterAsync (
-        PlayCommandExecutionContext context,
-        TimeSpan requestTimeout,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return await unityRequestExecutor.ExecuteAsync(
+        var executionResult = await unityRequestExecutor.ExecuteAsync(
                 UcliCommandIds.PlayEnter,
                 UnityExecutionMode.Daemon,
                 requestTimeout,
@@ -95,55 +63,12 @@ internal sealed class PlayEnterService : IPlayEnterService
                 new UnityRequestPayload.PlayEnter(context.TimeoutMilliseconds),
                 cancellationToken)
             .ConfigureAwait(false);
-    }
-
-    private async ValueTask<PlayEnterExecutionResult> RecoverLostTransitionResponseAsync (
-        PlayCommandExecutionContext context,
-        ExecutionDeadline recoveryDeadline,
-        UnityRequestFailure initialFailure,
-        CancellationToken cancellationToken)
-    {
-        var retryImmediately = true;
-        while (recoveryDeadline.TryGetRemainingTimeout(out var remainingTimeout))
+        if (!executionResult.IsSuccess)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (!retryImmediately)
-            {
-                await TimeProviderDelay.DelayAsync(
-                        GetRecoveryRetryDelay(remainingTimeout),
-                        timeProvider,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            }
-
-            retryImmediately = false;
-            if (!recoveryDeadline.TryGetRemainingTimeout(out remainingTimeout))
-            {
-                break;
-            }
-
-            var retryResult = await ExecutePlayEnterAsync(context, remainingTimeout, cancellationToken).ConfigureAwait(false);
-            if (!retryResult.IsSuccess)
-            {
-                if (IsRecoverableTransitionRecoveryFailure(retryResult.FailureInfo!))
-                {
-                    continue;
-                }
-
-                return PlayEnterExecutionResult.Failure(CreateErrorFromUnityRequestFailure(retryResult.FailureInfo!));
-            }
-
-            if (IsRecoverableAlreadyChangingResponse(retryResult.Response!))
-            {
-                continue;
-            }
-
-            return CreateResultFromResponse(context, retryResult.Response!);
+            return PlayEnterExecutionResult.Failure(CreateErrorFromUnityRequestFailure(executionResult.FailureInfo!));
         }
 
-        return PlayEnterExecutionResult.Failure(ApplicationFailure.Timeout(
-            $"Unity Play Mode enter response was lost and recovery did not complete before {context.TimeoutMilliseconds} milliseconds.",
-            initialFailure.Code == ExecutionErrorCodes.IpcTimeout ? initialFailure.Code : ExecutionErrorCodes.IpcTimeout));
+        return CreateResultFromResponse(context, executionResult.Response!);
     }
 
     private PlayEnterExecutionResult CreateResultFromResponse (
@@ -196,33 +121,6 @@ internal sealed class PlayEnterService : IPlayEnterService
             _ => PlayEnterExecutionResult.Failure(CreateStateUnknownFailure(
                 $"Unity play enter returned unsupported result '{output.Transition.Result}'.")),
         };
-    }
-
-    private static TimeSpan GetRecoveryRetryDelay (TimeSpan remainingTimeout)
-    {
-        return remainingTimeout < RecoveryRetryDelay ? remainingTimeout : RecoveryRetryDelay;
-    }
-
-    private static bool IsLostTransitionResponseFailure (UnityRequestFailure failure)
-    {
-        ArgumentNullException.ThrowIfNull(failure);
-        return failure.Code == UcliCoreErrorCodes.InternalError
-            && failure.Message.Contains("stream ended", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsRecoverableTransitionRecoveryFailure (UnityRequestFailure failure)
-    {
-        ArgumentNullException.ThrowIfNull(failure);
-        return IsLostTransitionResponseFailure(failure)
-            || failure.Code == UnityExecutionModeDecisionErrorCodes.DaemonNotRunning
-            || failure.Code == ExecutionErrorCodes.IpcTimeout;
-    }
-
-    private static bool IsRecoverableAlreadyChangingResponse (UnityRequestResponse response)
-    {
-        ArgumentNullException.ThrowIfNull(response);
-        return (response.HasFailureStatus || response.Errors.Count != 0)
-            && response.Errors.Any(static error => error.Code == PlayModeErrorCodes.PlayModeAlreadyChanging);
     }
 
     private static bool TryReadTransitionResponse (

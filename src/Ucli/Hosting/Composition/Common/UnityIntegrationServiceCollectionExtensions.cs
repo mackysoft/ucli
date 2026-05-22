@@ -13,6 +13,7 @@ using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
+using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin.Cache;
@@ -67,6 +68,7 @@ internal static class UnityIntegrationServiceCollectionExtensions
         services.AddSingleton<IIpcEndpointResolver, IpcEndpointResolver>();
         services.AddSingleton<IIpcTransportClient, IpcTransportClient>();
         services.AddSingleton<IUnityIpcTransportClient, UnityIpcTransportClient>();
+        services.AddSingleton<UnityDaemonRecoveryWaiter>();
         services.AddSingleton<IUnityIpcClient, UnityDaemonIpcClient>();
         services.AddSingleton<IUnityIpcClient, UnityOneshotIpcClient>();
         services.AddSingleton<UnityIpcRequestBuilder>();

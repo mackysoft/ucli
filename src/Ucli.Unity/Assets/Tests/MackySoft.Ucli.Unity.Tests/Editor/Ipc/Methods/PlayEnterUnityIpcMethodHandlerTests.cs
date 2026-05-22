@@ -83,7 +83,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 readinessGate,
                 enterPlayModeRequester: () => enterRequestCount++);
 
-            var result = await runner.EnterAsync(1000, CancellationToken.None);
+            var result = await runner.EnterAsync(1000, null, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Response.Transition.Result, Is.EqualTo(IpcPlayTransitionResultNames.AlreadyEntered));
@@ -97,21 +97,52 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Runner_WhenAlreadyPlayingWithPendingEnter_ReturnsRecoveredEntered () => UniTask.ToCoroutine(async () =>
         {
             var readinessGate = new MutableUnityEditorReadinessGate(CreatePlayingSnapshot(generation: "22"));
-            var pendingStore = new StubPlayEnterPendingTransitionStore(
-                CreatePlayLifecycleSnapshot(CreateReadyStoppedSnapshot(generation: "21")));
+            var recoverableStore = new StubRecoverableIpcOperationStore();
+            var recoverableContext = CreateRecoverableContext(
+                recoverableStore,
+                new PlayEnterRecoveryPayload(CreatePlayLifecycleSnapshot(CreateReadyStoppedSnapshot(generation: "21"))));
             var enterRequestCount = 0;
             var runner = CreateRunner(
                 readinessGate,
-                enterPlayModeRequester: () => enterRequestCount++,
-                pendingTransitionStore: pendingStore);
+                enterPlayModeRequester: () => enterRequestCount++);
 
-            var result = await runner.EnterAsync(1000, CancellationToken.None);
+            var result = await runner.EnterAsync(1000, recoverableContext, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Response.Transition.Result, Is.EqualTo(IpcPlayTransitionResultNames.Entered));
             Assert.That(result.Response.Transition.Before.PlayMode!.Generation, Is.EqualTo("21"));
             Assert.That(result.Response.Transition.After!.PlayMode!.Generation, Is.EqualTo("22"));
-            Assert.That(pendingStore.DeleteCallCount, Is.EqualTo(1));
+            Assert.That(recoverableStore.PendingWriteCallCount, Is.EqualTo(0));
+            Assert.That(enterRequestCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Runner_WhenPendingEnterIsStillChanging_ResumesObservationWithoutRequestingEnterAgain () => UniTask.ToCoroutine(async () =>
+        {
+            var readinessGate = new MutableUnityEditorReadinessGate(CreateEnteringSnapshot(generation: "21"));
+            var recoverableStore = new StubRecoverableIpcOperationStore();
+            var recoverableContext = CreateRecoverableContext(
+                recoverableStore,
+                new PlayEnterRecoveryPayload(CreatePlayLifecycleSnapshot(CreateReadyStoppedSnapshot(generation: "21"))));
+            var enterRequestCount = 0;
+            var runner = CreateRunner(
+                readinessGate,
+                editorUpdateAwaiter: cancellationToken =>
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    readinessGate.Snapshot = CreatePlayingSnapshot(generation: "22");
+                    return Task.CompletedTask;
+                },
+                enterPlayModeRequester: () => enterRequestCount++);
+
+            var result = await runner.EnterAsync(1000, recoverableContext, CancellationToken.None);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Response.Transition.Result, Is.EqualTo(IpcPlayTransitionResultNames.Entered));
+            Assert.That(result.Response.Transition.Before.PlayMode!.Generation, Is.EqualTo("21"));
+            Assert.That(result.Response.Transition.After!.PlayMode!.Generation, Is.EqualTo("22"));
+            Assert.That(recoverableStore.PendingWriteCallCount, Is.EqualTo(0));
             Assert.That(enterRequestCount, Is.EqualTo(0));
         });
 
@@ -130,7 +161,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 readinessGate,
                 enterPlayModeRequester: () => enterRequestCount++);
 
-            var result = await runner.EnterAsync(1000, CancellationToken.None);
+            var result = await runner.EnterAsync(1000, null, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error.Code, Is.EqualTo(PlayModeErrorCodes.PlayModeTransitionBlocked));
@@ -159,7 +190,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 readinessGate,
                 enterPlayModeRequester: () => enterRequestCount++);
 
-            var result = await runner.EnterAsync(1000, CancellationToken.None);
+            var result = await runner.EnterAsync(1000, null, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error.Code, Is.EqualTo(PlayModeErrorCodes.PlayModeAlreadyChanging));
@@ -177,7 +208,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 readinessGate,
                 enterPlayModeRequester: () => enterRequestCount++);
 
-            var result = await runner.EnterAsync(1000, CancellationToken.None);
+            var result = await runner.EnterAsync(1000, null, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error.Code, Is.EqualTo(PlayModeErrorCodes.PlayModeEnterRejected));
@@ -195,7 +226,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 readinessGate,
                 editorUpdateAwaiter: DelayUntilCanceledAsync);
 
-            var result = await runner.EnterAsync(1, CancellationToken.None);
+            var result = await runner.EnterAsync(1, null, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error.Code, Is.EqualTo(PlayModeErrorCodes.PlayModeTransitionTimeout));
@@ -216,16 +247,34 @@ namespace MackySoft.Ucli.Unity.Tests
         private static PlayEnterTransitionRunner CreateRunner (
             MutableUnityEditorReadinessGate readinessGate,
             Func<CancellationToken, Task> editorUpdateAwaiter = null,
-            Action enterPlayModeRequester = null,
-            IPlayEnterPendingTransitionStore pendingTransitionStore = null)
+            Action enterPlayModeRequester = null)
         {
             return new PlayEnterTransitionRunner(
                 new StubServerVersionProvider("1.2.3"),
                 readinessGate,
                 new IpcProjectIdentity("/repo/UnityProject", "project-fingerprint", "6000.1.4f1"),
                 editorUpdateAwaiter ?? CompleteEditorUpdateAsync,
-                enterPlayModeRequester ?? RequestNoop,
-                pendingTransitionStore);
+                enterPlayModeRequester ?? RequestNoop);
+        }
+
+        private static RecoverableIpcOperationContext CreateRecoverableContext (
+            IRecoverableIpcOperationStore store,
+            PlayEnterRecoveryPayload payload)
+        {
+            return new RecoverableIpcOperationContext(
+                store,
+                IpcMethodNames.PlayEnter,
+                "req-play-enter-recoverable",
+                new RecoverableIpcOperationRecord
+                {
+                    SchemaVersion = 1,
+                    ProjectFingerprint = "project-fingerprint",
+                    Method = IpcMethodNames.PlayEnter,
+                    RequestId = "req-play-enter-recoverable",
+                    State = RecoverableIpcOperationStateNames.Pending,
+                    StartedAtUtc = DateTimeOffset.UtcNow,
+                    RecoveryPayload = IpcPayloadCodec.SerializeToElement(payload),
+                });
         }
 
         private static Task CompleteEditorUpdateAsync (CancellationToken cancellationToken)
@@ -276,6 +325,21 @@ namespace MackySoft.Ucli.Unity.Tests
                     State: IpcPlayModeStateNames.Playing,
                     Transition: IpcPlayModeTransitionNames.None,
                     IsPlaying: true,
+                    IsPlayingOrWillChangePlaymode: true,
+                    Generation: generation));
+        }
+
+        private static UnityEditorLifecycleSnapshot CreateEnteringSnapshot (string generation = "2")
+        {
+            return CreateLifecycleSnapshot(
+                DaemonEditorMode.Gui,
+                IpcEditorLifecycleStateCodec.Playmode,
+                IpcEditorBlockingReasonCodec.PlayMode,
+                canAcceptExecutionRequests: false,
+                new IpcPlayModeSnapshot(
+                    State: IpcPlayModeStateNames.Entering,
+                    Transition: IpcPlayModeTransitionNames.Entering,
+                    IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: true,
                     Generation: generation));
         }
@@ -359,37 +423,50 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private sealed class StubPlayEnterPendingTransitionStore : IPlayEnterPendingTransitionStore
+        private sealed class StubRecoverableIpcOperationStore : IRecoverableIpcOperationStore
         {
-            private readonly IpcPlayLifecycleSnapshot before;
-
-            public StubPlayEnterPendingTransitionStore (IpcPlayLifecycleSnapshot before)
-            {
-                this.before = before;
-            }
-
-            public int DeleteCallCount { get; private set; }
-
-            public bool TryWrite (
-                IpcPlayLifecycleSnapshot before,
-                out string errorMessage)
-            {
-                errorMessage = null;
-                return true;
-            }
+            public int PendingWriteCallCount { get; private set; }
 
             public bool TryRead (
-                out IpcPlayLifecycleSnapshot before,
+                string method,
+                string requestId,
+                out RecoverableIpcOperationRecord record,
                 out string errorMessage)
             {
-                before = this.before;
+                record = null;
+                errorMessage = null;
+                return false;
+            }
+
+            public bool TryWritePending (
+                string method,
+                string requestId,
+                DateTimeOffset startedAtUtc,
+                System.Text.Json.JsonElement recoveryPayload,
+                out string errorMessage)
+            {
+                PendingWriteCallCount++;
                 errorMessage = null;
                 return true;
             }
 
-            public bool TryDelete (out string errorMessage)
+            public bool TryWriteCompleted (
+                string method,
+                string requestId,
+                DateTimeOffset startedAtUtc,
+                DateTimeOffset completedAtUtc,
+                System.Text.Json.JsonElement recoveryPayload,
+                IpcResponse response,
+                out string errorMessage)
             {
-                DeleteCallCount++;
+                errorMessage = null;
+                return true;
+            }
+
+            public bool TryPurgeExpiredCompletedRecords (
+                DateTimeOffset nowUtc,
+                out string errorMessage)
+            {
                 errorMessage = null;
                 return true;
             }

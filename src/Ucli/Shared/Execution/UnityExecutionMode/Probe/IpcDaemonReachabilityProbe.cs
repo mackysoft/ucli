@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
@@ -15,16 +16,21 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
 
     private readonly IDaemonPingClient daemonPingClient;
 
+    private readonly UnityDaemonRecoveryWaiter? recoveryWaiter;
+
     /// <summary> Initializes a new instance of the <see cref="IpcDaemonReachabilityProbe" /> class. </summary>
     /// <param name="endpointResolver"> The endpoint resolver dependency. </param>
     /// <param name="daemonPingClient"> The daemon ping client dependency. </param>
+    /// <param name="recoveryWaiter"> The daemon lifecycle recovery waiter dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="endpointResolver" /> or <paramref name="daemonPingClient" /> is <see langword="null" />. </exception>
     public IpcDaemonReachabilityProbe (
         IIpcEndpointResolver endpointResolver,
-        IDaemonPingClient daemonPingClient)
+        IDaemonPingClient daemonPingClient,
+        UnityDaemonRecoveryWaiter? recoveryWaiter = null)
     {
         this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
         this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
+        this.recoveryWaiter = recoveryWaiter;
     }
 
     /// <summary> Probes whether daemon for the specified project is reachable. </summary>
@@ -54,7 +60,11 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
         if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket
             && !File.Exists(endpoint.Address))
         {
-            return DaemonReachabilityProbeResult.NotRunning();
+            if (recoveryWaiter == null
+                || !await recoveryWaiter.DelayIfRecoveringAsync(unityProject, deadline, cancellationToken).ConfigureAwait(false))
+            {
+                return DaemonReachabilityProbeResult.NotRunning();
+            }
         }
 
         if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
@@ -90,6 +100,12 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
             }
             catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
             {
+                if (recoveryWaiter != null
+                    && await recoveryWaiter.DelayIfRecoveringAsync(unityProject, deadline, cancellationToken).ConfigureAwait(false))
+                {
+                    continue;
+                }
+
                 return DaemonReachabilityProbeResult.NotRunning();
             }
             catch (TimeoutException)

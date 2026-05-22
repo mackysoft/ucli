@@ -94,7 +94,38 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task WaitForSession_WhenStoredProcessStartTimeDoesNotMatch_DoesNotProbeAndTimesOut ()
+    public async Task WaitForSession_WhenStoredProcessStartTimeDiffersWithinTolerance_ProbesAndReturnsSuccess ()
+    {
+        var expectedProcessStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
+        var unityProject = DaemonServiceTestContext.CreateExecutionContext(1000).Context.UnityProject;
+        var session = CreateGuiSession(
+            unityProject.ProjectFingerprint,
+            processId: 4321,
+            processStartedAtUtc: expectedProcessStartedAtUtc.AddMilliseconds(1));
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Success(session),
+        };
+        var pingClient = new DaemonServiceTestContext.StubDaemonPingInfoClient
+        {
+            Response = CreatePingResponse(unityProject.ProjectFingerprint, DaemonEditorModeValues.Gui),
+        };
+        var awaiter = CreateAwaiter(sessionStore, pingClient);
+
+        var result = await awaiter.WaitForSessionAsync(
+            unityProject,
+            expectedProcessId: 4321,
+            WaitTimeout,
+            expectedProcessStartedAtUtc: expectedProcessStartedAtUtc);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(session, result.Session);
+        Assert.Equal(1, pingClient.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WaitForSession_WhenStoredProcessStartTimeExceedsTolerance_DoesNotProbeAndTimesOut ()
     {
         var timeProvider = new ManualTimeProvider();
         var firstRead = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -105,7 +136,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             ReadResult = DaemonSessionReadResult.Success(CreateGuiSession(
                 unityProject.ProjectFingerprint,
                 processId: 4321,
-                processStartedAtUtc: expectedProcessStartedAtUtc.AddSeconds(1))),
+                processStartedAtUtc: expectedProcessStartedAtUtc.Add(DaemonProcessStartTimeMatcher.Tolerance).AddMilliseconds(1))),
             OnRead = () => firstRead.TrySetResult(),
         };
         var pingClient = new DaemonServiceTestContext.StubDaemonPingInfoClient();
