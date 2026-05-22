@@ -116,23 +116,29 @@ public sealed class UnityProjectProcessScannerTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task FindProcessesForProject_WhenProcessScanIsUnsupported_ReturnsFailureWithoutRunningProcessListCommand ()
+    public async Task FindProcessesForProject_WhenRunningOnWindows_UsesPowerShellProcessList ()
     {
         if (!OperatingSystem.IsWindows())
         {
             return;
         }
 
-        using var scope = TestDirectories.CreateTempScope("unity-project-process-scanner", "unsupported-platform");
+        using var scope = TestDirectories.CreateTempScope("unity-project-process-scanner", "windows-process-list");
         var projectPath = scope.CreateDirectory("UnityProject");
-        var processRunner = new StubProcessRunner(ProcessRunResult.Exited(0, standardOutput: string.Empty));
+        var processOutput = $"  12345\t\"C:\\Program Files\\Unity\\Hub\\Editor\\2023.2.22f1\\Editor\\Unity.exe\" -batchmode -projectPath \"{projectPath}\" -logFile editor.log\r\n";
+        var processRunner = new StubProcessRunner(ProcessRunResult.Exited(
+            0,
+            standardOutput: processOutput));
         var scanner = new UnityProjectProcessScanner(processRunner);
 
         var result = await scanner.FindProcessesForProjectAsync(projectPath, CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Contains("not implemented for this operating system", result.ErrorMessage, StringComparison.Ordinal);
-        Assert.Null(processRunner.LastRequest);
+        Assert.True(result.IsSuccess);
+        var match = Assert.Single(result.Matches);
+        Assert.Equal(12345, match.ProcessId);
+        Assert.NotNull(processRunner.LastRequest);
+        Assert.Equal("powershell.exe", processRunner.LastRequest.FileName);
+        Assert.Contains("-Command", processRunner.LastRequest.Arguments);
     }
 
     [Fact]

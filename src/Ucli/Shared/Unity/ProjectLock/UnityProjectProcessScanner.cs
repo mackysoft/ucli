@@ -53,6 +53,26 @@ internal sealed class UnityProjectProcessScanner : IUnityProjectProcessScanner
 
     private static ProcessRunRequest? CreateProcessListRequest ()
     {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            // NOTE: Unity can leave Temp/UnityLockfile behind after a native crash. Windows does not expose
+            // a Unity-specific lock owner API, so stale-lock cleanup uses the process command line as the
+            // same project ownership signal used by Unix ps output.
+            return new ProcessRunRequest(
+                FileName: "powershell.exe",
+                Arguments:
+                [
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-Command",
+                    "$ErrorActionPreference = 'Stop'; Get-CimInstance Win32_Process | Where-Object { $_.CommandLine } | ForEach-Object { '{0}`t{1}' -f $_.ProcessId, $_.CommandLine }",
+                ],
+                Timeout: ProcessScanTimeout,
+                CaptureStandardOutput: true);
+        }
+
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
             || RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
