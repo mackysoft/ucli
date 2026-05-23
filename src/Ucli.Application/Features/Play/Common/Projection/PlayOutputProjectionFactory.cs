@@ -1,9 +1,10 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
+using MackySoft.Ucli.Application.Features.Play.Common.Contracts;
 using MackySoft.Ucli.Application.Shared.CommandContracts.Projection;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
-namespace MackySoft.Ucli.Application.Features.Play.Common.Contracts;
+namespace MackySoft.Ucli.Application.Features.Play.Common.Projection;
 
 /// <summary> Creates public Play Mode command projection values from IPC lifecycle contracts. </summary>
 internal static class PlayOutputProjectionFactory

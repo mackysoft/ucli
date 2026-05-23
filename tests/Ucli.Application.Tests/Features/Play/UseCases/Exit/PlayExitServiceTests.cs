@@ -115,6 +115,36 @@ public sealed class PlayExitServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenAlreadyExitedChangesGeneration_ReturnsStateUnknown ()
+    {
+        var before = CreateSnapshot(
+            IpcEditorLifecycleStateCodec.Compiling,
+            IpcEditorBlockingReasonCodec.Compile,
+            false,
+            CreateStoppedPlayMode("9"));
+        var after = CreateSnapshot(
+            IpcEditorLifecycleStateCodec.Compiling,
+            IpcEditorBlockingReasonCodec.Compile,
+            false,
+            CreateStoppedPlayMode("10"));
+        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
+            IpcPlayTransitionCommandNames.Exit,
+            IpcPlayTransitionResultNames.AlreadyExited,
+            before)
+        {
+            After = after,
+        });
+        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
+        var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
+
+        var result = await service.ExecuteAsync(new PlayExitCommandInput(null, null), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(PlayModeErrorCodes.PlayModeStateUnknown, result.Error!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenUnityReturnsTransitionTimeout_ReturnsFailureWithObservedPayload ()
     {
         var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayingPlayMode("2"));
@@ -251,6 +281,94 @@ public sealed class PlayExitServiceTests
             After = after,
         });
         var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
+        var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
+
+        var result = await service.ExecuteAsync(new PlayExitCommandInput(null, null), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(PlayModeErrorCodes.PlayModeStateUnknown, result.Error!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenSuccessTransitionContainsErrorFields_ReturnsStateUnknown ()
+    {
+        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayingPlayMode("2"));
+        var after = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("3"));
+        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
+            IpcPlayTransitionCommandNames.Exit,
+            IpcPlayTransitionResultNames.Exited,
+            before)
+        {
+            After = after,
+            Observed = before,
+            ApplicationState = IpcPlayApplicationStateNames.NotApplied,
+        });
+        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
+        var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
+
+        var result = await service.ExecuteAsync(new PlayExitCommandInput(null, null), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(PlayModeErrorCodes.PlayModeStateUnknown, result.Error!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenTimeoutTransitionContainsAfter_ReturnsStateUnknown ()
+    {
+        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayingPlayMode("2"));
+        var observed = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, new IpcPlayModeSnapshot(
+            State: IpcPlayModeStateNames.Exiting,
+            Transition: IpcPlayModeTransitionNames.Exiting,
+            IsPlaying: true,
+            IsPlayingOrWillChangePlaymode: true,
+            Generation: "2"));
+        var after = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("3"));
+        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
+            IpcPlayTransitionCommandNames.Exit,
+            IpcPlayTransitionResultNames.Timeout,
+            before)
+        {
+            After = after,
+            Observed = observed,
+            ApplicationState = IpcPlayApplicationStateNames.Indeterminate,
+        });
+        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateErrorResponse(
+            response,
+            PlayModeErrorCodes.PlayModeTransitionTimeout,
+            "Unity Play Mode exit timed out.")));
+        var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
+
+        var result = await service.ExecuteAsync(new PlayExitCommandInput(null, null), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(PlayModeErrorCodes.PlayModeStateUnknown, result.Error!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenTimeoutApplicationStateIsNotIndeterminate_ReturnsStateUnknown ()
+    {
+        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayingPlayMode("2"));
+        var observed = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, new IpcPlayModeSnapshot(
+            State: IpcPlayModeStateNames.Exiting,
+            Transition: IpcPlayModeTransitionNames.Exiting,
+            IsPlaying: true,
+            IsPlayingOrWillChangePlaymode: true,
+            Generation: "2"));
+        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
+            IpcPlayTransitionCommandNames.Exit,
+            IpcPlayTransitionResultNames.Timeout,
+            before)
+        {
+            Observed = observed,
+            ApplicationState = IpcPlayApplicationStateNames.NotApplied,
+        });
+        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateErrorResponse(
+            response,
+            PlayModeErrorCodes.PlayModeTransitionTimeout,
+            "Unity Play Mode exit timed out.")));
         var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
 
         var result = await service.ExecuteAsync(new PlayExitCommandInput(null, null), CancellationToken.None);

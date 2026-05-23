@@ -107,6 +107,8 @@ internal static class UcliContractConstants
 
         public const int IpcTimeoutDefaultPlayEnterMilliseconds = 30000;
 
+        public const int IpcTimeoutDefaultPlayExitMilliseconds = 30000;
+
         public const string IpcTimeoutCommandTest = "test";
 
         public const string IpcTimeoutCommandReady = "ready";
@@ -148,6 +150,8 @@ internal static class UcliContractConstants
         public const string IpcTimeoutCommandPlayStatus = "play.status";
 
         public const string IpcTimeoutCommandPlayEnter = "play.enter";
+
+        public const string IpcTimeoutCommandPlayExit = "play.exit";
     }
 
     internal static class TestProfile

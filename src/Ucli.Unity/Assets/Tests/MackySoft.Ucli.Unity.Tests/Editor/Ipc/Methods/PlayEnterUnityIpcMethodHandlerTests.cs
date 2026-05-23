@@ -377,8 +377,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubServerVersionProvider("1.2.3"),
                 readinessGate,
                 new IpcProjectIdentity("/repo/UnityProject", "project-fingerprint", "6000.1.4f1"),
-                editorUpdateAwaiter ?? CompleteEditorUpdateAsync,
-                enterPlayModeRequester ?? RequestNoop);
+                new StubUnityEditorUpdateAwaiter(editorUpdateAwaiter ?? CompleteEditorUpdateAsync),
+                new StubUnityPlayModeController(enterPlayModeRequester ?? RequestNoop));
         }
 
         private static RecoverableIpcOperationContext CreateRecoverableContext (
@@ -555,6 +555,41 @@ namespace MackySoft.Ucli.Unity.Tests
             public string GetVersion ()
             {
                 return version;
+            }
+        }
+
+        private sealed class StubUnityEditorUpdateAwaiter : IUnityEditorUpdateAwaiter
+        {
+            private readonly Func<CancellationToken, Task> awaiter;
+
+            public StubUnityEditorUpdateAwaiter (Func<CancellationToken, Task> awaiter)
+            {
+                this.awaiter = awaiter ?? throw new ArgumentNullException(nameof(awaiter));
+            }
+
+            public Task WaitForNextUpdateAsync (CancellationToken cancellationToken)
+            {
+                return awaiter(cancellationToken);
+            }
+        }
+
+        private sealed class StubUnityPlayModeController : IUnityPlayModeController
+        {
+            private readonly Action enterPlayModeRequester;
+
+            public StubUnityPlayModeController (Action enterPlayModeRequester)
+            {
+                this.enterPlayModeRequester = enterPlayModeRequester ?? throw new ArgumentNullException(nameof(enterPlayModeRequester));
+            }
+
+            public void EnterPlayMode ()
+            {
+                enterPlayModeRequester();
+            }
+
+            public void ExitPlayMode ()
+            {
+                throw new NotSupportedException();
             }
         }
 

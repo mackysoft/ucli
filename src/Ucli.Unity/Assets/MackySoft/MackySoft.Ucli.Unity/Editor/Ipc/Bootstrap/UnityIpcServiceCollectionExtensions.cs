@@ -62,6 +62,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityTestResultsXmlWriter, UnityTestResultsXmlWriter>();
             services.AddSingleton<IUnityTestRunService, UnityTestRunService>();
             services.AddSingleton<IServerVersionProvider, AssemblyServerVersionProvider>();
+            services.AddSingleton<IUnityEditorUpdateAwaiter, UnityEditorUpdateAwaiterAdapter>();
+            services.AddSingleton<IUnityPlayModeController, UnityEditorPlayModeController>();
             services.AddSingleton<PlayEnterTransitionRunner>();
             services.AddSingleton<PlayExitTransitionRunner>();
             services.AddSingleton<IUnityIpcMethodHandler>(serviceProvider =>

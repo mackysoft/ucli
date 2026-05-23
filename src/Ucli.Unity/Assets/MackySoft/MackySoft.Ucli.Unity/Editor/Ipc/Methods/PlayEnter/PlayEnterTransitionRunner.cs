@@ -5,7 +5,6 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
-using UnityEditor;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -17,50 +16,30 @@ namespace MackySoft.Ucli.Unity.Ipc
         private readonly IServerVersionProvider serverVersionProvider;
         private readonly IUnityEditorReadinessGate readinessGate;
         private readonly IpcProjectIdentity projectIdentity;
-        private readonly Func<CancellationToken, Task> editorUpdateAwaiter;
-        private readonly Action enterPlayModeRequester;
+        private readonly IUnityEditorUpdateAwaiter editorUpdateAwaiter;
+        private readonly IUnityPlayModeController playModeController;
         private readonly IDaemonLogger daemonLogger;
 
         /// <summary> Initializes a new instance of the <see cref="PlayEnterTransitionRunner" /> class. </summary>
         /// <param name="serverVersionProvider"> The server-version provider dependency. </param>
         /// <param name="readinessGate"> The lifecycle snapshot provider dependency. </param>
         /// <param name="projectIdentity"> The project identity served by this IPC host. </param>
+        /// <param name="editorUpdateAwaiter"> The editor update awaiter dependency. </param>
+        /// <param name="playModeController"> The Play Mode controller dependency. </param>
         /// <param name="daemonLogger"> The daemon logger dependency. </param>
         public PlayEnterTransitionRunner (
             IServerVersionProvider serverVersionProvider,
             IUnityEditorReadinessGate readinessGate,
             IpcProjectIdentity projectIdentity,
-            IDaemonLogger daemonLogger = null)
-            : this(
-                serverVersionProvider,
-                readinessGate,
-                projectIdentity,
-                UnityEditorUpdateAwaiter.WaitForNextUpdateAsync,
-                static () => EditorApplication.EnterPlaymode(),
-                daemonLogger)
-        {
-        }
-
-        /// <summary> Initializes a new instance of the <see cref="PlayEnterTransitionRunner" /> class. </summary>
-        /// <param name="serverVersionProvider"> The server-version provider dependency. </param>
-        /// <param name="readinessGate"> The lifecycle snapshot provider dependency. </param>
-        /// <param name="projectIdentity"> The project identity served by this IPC host. </param>
-        /// <param name="editorUpdateAwaiter"> The editor update awaiter dependency. </param>
-        /// <param name="enterPlayModeRequester"> The Unity Play Mode enter requester dependency. </param>
-        /// <param name="daemonLogger"> The daemon logger dependency. </param>
-        internal PlayEnterTransitionRunner (
-            IServerVersionProvider serverVersionProvider,
-            IUnityEditorReadinessGate readinessGate,
-            IpcProjectIdentity projectIdentity,
-            Func<CancellationToken, Task> editorUpdateAwaiter,
-            Action enterPlayModeRequester,
+            IUnityEditorUpdateAwaiter editorUpdateAwaiter,
+            IUnityPlayModeController playModeController,
             IDaemonLogger daemonLogger = null)
         {
             this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
             this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
             this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
             this.editorUpdateAwaiter = editorUpdateAwaiter ?? throw new ArgumentNullException(nameof(editorUpdateAwaiter));
-            this.enterPlayModeRequester = enterPlayModeRequester ?? throw new ArgumentNullException(nameof(enterPlayModeRequester));
+            this.playModeController = playModeController ?? throw new ArgumentNullException(nameof(playModeController));
             this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
         }
 
@@ -108,7 +87,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return CreateSuccess(IpcPlayTransitionResultNames.AlreadyEntered, before, before);
             }
 
-            // NOTE: This must be persisted before EditorApplication.EnterPlaymode is called.
+            // NOTE: This must be persisted before Unity is asked to enter Play Mode.
             // Entering Play Mode can trigger domain reload before this daemon can respond.
             var persistFailure = TryPersistPendingEnter(recoverableContext, before);
             if (persistFailure != null)
@@ -118,7 +97,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             try
             {
-                enterPlayModeRequester();
+                playModeController.EnterPlayMode();
             }
             catch (Exception exception)
             {
@@ -194,7 +173,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 while (true)
                 {
                     timeoutCancellationTokenSource.Token.ThrowIfCancellationRequested();
-                    await editorUpdateAwaiter(timeoutCancellationTokenSource.Token);
+                    await editorUpdateAwaiter.WaitForNextUpdateAsync(timeoutCancellationTokenSource.Token);
                     observed = CaptureSnapshot();
 
                     if (IsEnteredSnapshot(observed) && HasGenerationChanged(before, observed))
