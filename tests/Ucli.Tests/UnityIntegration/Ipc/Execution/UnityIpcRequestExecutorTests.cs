@@ -23,7 +23,7 @@ public sealed class UnityIpcRequestExecutorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenModeDecisionReturnsContractError_ReturnsContractFailureWithoutCallingClients ()
+    public async Task Execute_WhenAutoModeDecisionReturnsContractError_ReturnsContractFailureWithoutCallingClients ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "contract-error");
         var daemonTransportClient = new StubUnityIpcTransportClient(_ => CreateResponse("unused"));
@@ -41,7 +41,7 @@ public sealed class UnityIpcRequestExecutorTests
 
         var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
-            UnityExecutionMode.Daemon,
+            UnityExecutionMode.Auto,
             DefaultTimeout,
             UcliConfig.CreateDefault(),
             CreateContext(scope),
@@ -54,6 +54,53 @@ public sealed class UnityIpcRequestExecutorTests
         Assert.Equal(0, daemonTransportClient.CallCount);
         Assert.Equal(0, oneshotTransportClient.CallCount);
         Assert.Equal(0, launcher.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenExplicitDaemonModeIsRequested_DispatchesWithoutReachabilityProbe ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "explicit-daemon");
+        var response = CreateResponse("req-explicit-daemon");
+        var daemonTransportClient = new StubUnityIpcTransportClient(_ => response);
+        var oneshotTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider
+        {
+            Result = DaemonSessionTokenResolutionResult.Success("daemon-token"),
+        };
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
+        var modeDecisionService = new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+            new UnityExecutionModeDecision(
+                UnityExecutionMode.Auto,
+                false,
+                UnityExecutionTarget.Oneshot,
+                DefaultTimeout)))
+        {
+            OnDecide = static _ => throw new Xunit.Sdk.XunitException("Explicit daemon dispatch must not probe reachability."),
+        };
+        var executor = CreateExecutor(
+            modeDecisionService,
+            new StubDaemonPingInfoClient(),
+            new StubUnityUcliPluginLocator(),
+            CreateClients(daemonTransportClient, oneshotTransportClient, sessionTokenProvider, launcher));
+
+        var result = await executor.ExecuteAsync(
+            UcliCommandIds.Ops,
+            UnityExecutionMode.Daemon,
+            DefaultTimeout,
+            UcliConfig.CreateDefault(),
+            CreateContext(scope),
+            new UnityRequestPayload.Raw(
+                IpcMethodNames.OpsRead,
+                EmptyPayload()));
+
+        Assert.True(result.IsSuccess);
+        AssertUnityResponse(response, result.Response);
+        Assert.Equal(1, daemonTransportClient.CallCount);
+        Assert.Equal(0, oneshotTransportClient.CallCount);
+        Assert.Equal(1, sessionTokenProvider.CallCount);
+        Assert.Equal(0, launcher.CallCount);
+        Assert.Equal(TimeSpan.Zero, modeDecisionService.LastTimeout);
     }
 
     [Fact]
@@ -394,7 +441,7 @@ public sealed class UnityIpcRequestExecutorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenDaemonModeReportsNotRunningAndUnityPluginMarkerIsMissing_ReturnsPluginFailure ()
+    public async Task Execute_WhenDaemonModeSessionIsMissing_ReturnsDaemonNotRunningWithoutPluginVerification ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "daemon-plugin-missing");
         var daemonTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Daemon transport must not be called."));
@@ -426,8 +473,8 @@ public sealed class UnityIpcRequestExecutorTests
                 EmptyPayload()));
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
-        Assert.Equal(1, pluginLocator.CallCount);
+        Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.ErrorCode);
+        Assert.Equal(0, pluginLocator.CallCount);
         Assert.Equal(0, daemonTransportClient.CallCount);
         Assert.Equal(0, oneshotTransportClient.CallCount);
         Assert.Equal(0, launcher.CallCount);

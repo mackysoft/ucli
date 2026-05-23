@@ -122,7 +122,10 @@ public sealed class DaemonExistingSessionGateServiceTests
     public async Task TryHandleExistingSession_WhenPingTimesOutDuringRecovery_WaitsForSameProcessAndReturnsAlreadyRunning ()
     {
         var context = CreateContext("fingerprint-existing-timeout-recovery");
-        var session = CreateSession(processId: 4009, projectFingerprint: context.ProjectFingerprint);
+        var session = CreateSession(processId: 4009, projectFingerprint: context.ProjectFingerprint) with
+        {
+            EditorInstanceId = "editor-instance-recovering",
+        };
         var pingClient = new StubDaemonPingClient(_ =>
         {
             return ValueTask.FromException(new TimeoutException("recovering"));
@@ -163,6 +166,42 @@ public sealed class DaemonExistingSessionGateServiceTests
         Assert.Equal(session, result.Session);
         Assert.Equal(0, cleanupService.CleanupStaleSessionArtifactsCallCount);
         Assert.Equal(2, pingClient.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task TryHandleExistingSession_WhenRecoveringSidecarLacksEditorInstanceId_ReturnsTimeoutFailure ()
+    {
+        var context = CreateContext("fingerprint-existing-timeout-recovery-missing-editor-instance");
+        var session = CreateSession(processId: 4011, projectFingerprint: context.ProjectFingerprint);
+        var lifecycleStore = new StubDaemonLifecycleStore
+        {
+            ReadResult = DaemonLifecycleObservationReadResult.Success(CreateRecoveringObservation(session)),
+        };
+        var service = new DaemonExistingSessionGateService(
+            daemonPingInfoClient: new StubDaemonPingClient(static _ => ValueTask.FromException(new TimeoutException("recovering"))),
+            reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => false),
+            daemonSessionCleanupService: new StubDaemonSessionCleanupService(),
+            daemonLifecycleStore: lifecycleStore,
+            processIdentityAssessor: new StubDaemonProcessIdentityAssessor
+            {
+                Assessment = new DaemonProcessIdentityAssessment(
+                    DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
+                    session.ProcessStartedAtUtc,
+                    Error: null),
+            });
+
+        var result = await service.TryHandleExistingSessionAsync(
+            context,
+            session,
+            TimeSpan.FromMilliseconds(500),
+            editorMode: null,
+            cancellationToken: CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(DaemonStartStatus.Failed, result!.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
     }
 
     [Fact]
@@ -351,7 +390,10 @@ public sealed class DaemonExistingSessionGateServiceTests
             DomainReloadGeneration: "2",
             ObservedAtUtc: DateTimeOffset.UtcNow,
             ActionRequired: null,
-            PrimaryDiagnostic: null);
+            PrimaryDiagnostic: null)
+        {
+            EditorInstanceId = session.EditorInstanceId,
+        };
     }
 
     private static IpcPingResponse CreatePingResponse (

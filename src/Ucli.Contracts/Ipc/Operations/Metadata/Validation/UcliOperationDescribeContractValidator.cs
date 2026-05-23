@@ -99,7 +99,7 @@ internal static class UcliOperationDescribeContractValidator
             operationKind,
             operationPolicy: null,
             ownerName,
-            allowMayCreatePreviewState: exposure != UcliOperationExposure.Public,
+            allowMayCreatePreviewState: CanUseEditLoweringOnlyPlanModes(exposure),
             out derivedPolicy,
             out errorMessage);
     }
@@ -125,9 +125,14 @@ internal static class UcliOperationDescribeContractValidator
             operationKind,
             operationPolicy,
             ownerName,
-            allowMayCreatePreviewState: exposure != UcliOperationExposure.Public,
+            allowMayCreatePreviewState: CanUseEditLoweringOnlyPlanModes(exposure),
             out _,
             out errorMessage);
+    }
+
+    private static bool CanUseEditLoweringOnlyPlanModes (UcliOperationExposure exposure)
+    {
+        return exposure == UcliOperationExposure.EditLoweringOnly;
     }
 
     private static bool TryValidatePublicRawOpDescribeContractCore (

@@ -22,6 +22,10 @@ internal abstract record UnityRequestPayload
     /// <summary> Represents a Play Mode status request prepared by application orchestration. </summary>
     internal sealed record PlayStatus : UnityRequestPayload;
 
+    /// <summary> Represents a Play Mode enter request prepared by application orchestration. </summary>
+    internal sealed record PlayEnter (
+        int TimeoutMilliseconds) : UnityRequestPayload;
+
     /// <summary> Represents an execute request whose execute-arguments JSON was already prepared. </summary>
     internal sealed record ExecuteJson (
         UcliCommand Command,

@@ -10,7 +10,6 @@ public sealed class OperationExposureCodecContractTests
     {
         Assert.Equal(0, (int)UcliOperationExposure.Public);
         Assert.Equal(1, (int)UcliOperationExposure.EditLoweringOnly);
-        Assert.Equal(2, (int)UcliOperationExposure.Internal);
     }
 
     [Fact]
@@ -19,7 +18,6 @@ public sealed class OperationExposureCodecContractTests
     {
         Assert.Equal(UcliOperationExposureValues.Public, UcliOperationExposureCodec.ToValue(UcliOperationExposure.Public));
         Assert.Equal(UcliOperationExposureValues.EditLoweringOnly, UcliOperationExposureCodec.ToValue(UcliOperationExposure.EditLoweringOnly));
-        Assert.Equal(UcliOperationExposureValues.Internal, UcliOperationExposureCodec.ToValue(UcliOperationExposure.Internal));
     }
 
     [Theory]
@@ -27,8 +25,6 @@ public sealed class OperationExposureCodecContractTests
     [InlineData("public", UcliOperationExposure.Public)]
     [InlineData("PUBLIC", UcliOperationExposure.Public)]
     [InlineData("editLoweringOnly", UcliOperationExposure.EditLoweringOnly)]
-    [InlineData("INTERNAL", UcliOperationExposure.Internal)]
-    [InlineData("internal", UcliOperationExposure.Internal)]
     public void UcliOperationExposureCodec_TryParse_ParsesCaseInsensitiveLiterals (
         string value,
         UcliOperationExposure expected)

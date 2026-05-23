@@ -37,14 +37,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("Session token must not be empty.", nameof(sessionToken));
             }
 
+            using var currentProcess = Process.GetCurrentProcess();
             var manifest = new GuiSupervisorManifestJsonContract(
                 SchemaVersion: GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
                 SessionToken: sessionToken,
                 ProjectFingerprint: projectFingerprint,
                 EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
                 EndpointAddress: endpoint.Address,
-                ProcessId: Process.GetCurrentProcess().Id,
-                ProcessStartedAtUtc: TryGetCurrentProcessStartedAtUtc(),
+                ProcessId: currentProcess.Id,
+                ProcessStartedAtUtc: TryGetProcessStartedAtUtc(currentProcess),
                 IssuedAtUtc: issuedAtUtc);
             var manifestPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestPath(storageRoot, projectFingerprint);
             var manifestDirectory = Path.GetDirectoryName(manifestPath);
@@ -72,11 +73,16 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private static DateTimeOffset? TryGetCurrentProcessStartedAtUtc ()
+        private static DateTimeOffset? TryGetProcessStartedAtUtc (Process process)
         {
+            if (process == null)
+            {
+                throw new ArgumentNullException(nameof(process));
+            }
+
             try
             {
-                return new DateTimeOffset(Process.GetCurrentProcess().StartTime).ToUniversalTime();
+                return new DateTimeOffset(process.StartTime).ToUniversalTime();
             }
             catch (Exception exception) when (exception is InvalidOperationException or NotSupportedException)
             {

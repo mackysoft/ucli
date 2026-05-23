@@ -48,6 +48,7 @@ public sealed class UnityIpcRequestBuilderTests
         var request = builder.Build(new UnityRequestPayload.Compile("run-1"));
 
         Assert.Equal(IpcMethodNames.Compile, request.Method);
+        Assert.True(request.IsRecoverable);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcCompileRequest payload, out _));
         Assert.Equal("run-1", payload.RunId);
         Assert.Null(payload.TimeoutMilliseconds);
@@ -66,6 +67,21 @@ public sealed class UnityIpcRequestBuilderTests
 
         Assert.Equal(IpcMethodNames.PlayStatus, request.Method);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayStatusRequest _, out _));
+        Assert.Empty(request.AllowedStartupLifecycleStates);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Build_WithPlayEnter_CreatesPlayEnterPayload ()
+    {
+        var builder = new UnityIpcRequestBuilder();
+
+        var request = builder.Build(new UnityRequestPayload.PlayEnter(1500));
+
+        Assert.Equal(IpcMethodNames.PlayEnter, request.Method);
+        Assert.True(request.IsRecoverable);
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayEnterRequest payload, out _));
+        Assert.Equal(1500, payload.TimeoutMilliseconds);
         Assert.Empty(request.AllowedStartupLifecycleStates);
     }
 

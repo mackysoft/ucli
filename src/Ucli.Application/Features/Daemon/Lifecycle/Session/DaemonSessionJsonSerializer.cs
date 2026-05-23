@@ -29,7 +29,10 @@ internal sealed class DaemonSessionJsonSerializer : IDaemonSessionSerializer
             EndpointAddress: StringValueNormalizer.TrimOrEmpty(contract.EndpointAddress),
             ProcessId: contract.ProcessId,
             ProcessStartedAtUtc: contract.ProcessStartedAtUtc,
-            OwnerProcessId: contract.OwnerProcessId);
+            OwnerProcessId: contract.OwnerProcessId)
+        {
+            EditorInstanceId = StringValueNormalizer.TrimToNull(contract.EditorInstanceId),
+        };
     }
 
     /// <summary> Serializes daemon session model to JSON text. </summary>
@@ -52,7 +55,10 @@ internal sealed class DaemonSessionJsonSerializer : IDaemonSessionSerializer
             EndpointAddress: session.EndpointAddress,
             ProcessId: session.ProcessId,
             ProcessStartedAtUtc: session.ProcessStartedAtUtc,
-            OwnerProcessId: session.OwnerProcessId);
+            OwnerProcessId: session.OwnerProcessId)
+        {
+            EditorInstanceId = session.EditorInstanceId,
+        };
 
         return DaemonSessionJsonContractSerializer.Serialize(contract);
     }

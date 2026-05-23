@@ -42,16 +42,17 @@ namespace MackySoft.Ucli.Unity.Ipc
             var diagnosisPath = UcliStoragePathResolver.ResolveDaemonDiagnosisPath(
                 bootstrapArguments.RepositoryRoot,
                 bootstrapArguments.ProjectFingerprint);
+            using var currentProcess = Process.GetCurrentProcess();
             var diagnosisContract = new DaemonDiagnosisJsonContract(
                 Reason: reason,
                 Message: message,
                 ReportedBy: DaemonDiagnosisReportedByValues.Unity,
                 IsInferred: false,
                 UpdatedAtUtc: DateTimeOffset.UtcNow,
-                ProcessId: Process.GetCurrentProcess().Id,
+                ProcessId: currentProcess.Id,
                 EditorInstancePath: null,
                 SessionIssuedAtUtc: bootstrapArguments.SessionIssuedAtUtc,
-                ProcessStartedAtUtc: new DateTimeOffset(Process.GetCurrentProcess().StartTime.ToUniversalTime()));
+                ProcessStartedAtUtc: new DateTimeOffset(currentProcess.StartTime.ToUniversalTime()));
             var json = DaemonDiagnosisJsonContractSerializer.Serialize(diagnosisContract) + Environment.NewLine;
             var diagnosisDirectoryPath = Path.GetDirectoryName(diagnosisPath)
                 ?? throw new InvalidOperationException($"Daemon diagnosis directory path could not be resolved: {diagnosisPath}");

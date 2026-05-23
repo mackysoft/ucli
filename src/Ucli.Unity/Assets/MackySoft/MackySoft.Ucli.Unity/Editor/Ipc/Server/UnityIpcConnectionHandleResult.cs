@@ -1,4 +1,3 @@
-using System;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -22,12 +21,5 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <summary> Gets the response envelope written for the decoded request when available. </summary>
         internal IpcResponse Response { get; }
-
-        /// <summary> Gets a value indicating whether the connection exchange completed with one successful response. </summary>
-        internal bool HasSuccessfulResponse =>
-            Request != null
-            && Response != null
-            && string.Equals(Response.Status, IpcProtocol.StatusOk, StringComparison.Ordinal)
-            && Response.Errors.Count == 0;
     }
 }

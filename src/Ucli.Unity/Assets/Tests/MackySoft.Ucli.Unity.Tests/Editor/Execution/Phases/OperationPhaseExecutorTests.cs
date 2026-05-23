@@ -599,33 +599,6 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Execute_WhenInternalRawOperationAllowsDangerous_DoesNotExecuteValidatePlanOrCallPhase () => UniTask.ToCoroutine(async () =>
-        {
-            var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
-                policy: OperationPolicy.Dangerous,
-                exposure: UcliOperationExposure.Internal);
-            var executor = CreateExecutor(CreateRegistry(("ucli.tests.internal", operation)));
-            var request = CreateRequest(
-                operations: new[] { ("op-1", "ucli.tests.internal") },
-                planToken: null,
-                canonicalPayloadJson: "{}",
-                allowDangerous: true);
-
-            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Internal raw operation denied execution");
-
-            Assert.That(trace.IsSuccess, Is.False);
-            Assert.That(trace.Errors.Count, Is.EqualTo(1));
-            Assert.That(trace.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(trace.Errors[0].Message, Does.Contain("internal"));
-            Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Validate));
-            CollectionAssert.IsEmpty(operation.CalledPhases);
-        });
-
-        [UnityTest]
-        [Category("Size.Small")]
         public IEnumerator Execute_WhenPlanRawOperationIsEditLoweringOnly_DoesNotIssuePlanTokenOrExecutePhase () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
@@ -648,35 +621,6 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(trace.Errors.Count, Is.EqualTo(1));
             Assert.That(trace.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(trace.Errors[0].Message, Does.Contain("available only through edit lowering"));
-            Assert.That(trace.PlanToken, Is.Null);
-            Assert.That(coordinator.IssueCallCount, Is.EqualTo(0));
-            CollectionAssert.IsEmpty(operation.CalledPhases);
-        });
-
-        [UnityTest]
-        [Category("Size.Small")]
-        public IEnumerator Execute_WhenPlanRawOperationIsInternal_DoesNotIssuePlanTokenOrExecutePhase () => UniTask.ToCoroutine(async () =>
-        {
-            var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
-                exposure: UcliOperationExposure.Internal);
-            var coordinator = new StubPlanTokenCoordinator(
-                issueResultFactory: _ => PlanTokenIssueResult.Success("unused-token"),
-                requestValidationResultFactory: _ => PlanTokenValidationResult.Success(),
-                validationResultFactory: _ => PlanTokenValidationResult.Success());
-            var executor = CreateExecutor(
-                CreateRegistry(("ucli.tests.internal", operation)),
-                coordinator);
-            var request = CreateRequest("op-1", "ucli.tests.internal");
-
-            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Plan, request, "Internal raw operation plan denied execution");
-
-            Assert.That(trace.IsSuccess, Is.False);
-            Assert.That(trace.Errors.Count, Is.EqualTo(1));
-            Assert.That(trace.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(trace.Errors[0].Message, Does.Contain("internal"));
             Assert.That(trace.PlanToken, Is.Null);
             Assert.That(coordinator.IssueCallCount, Is.EqualTo(0));
             CollectionAssert.IsEmpty(operation.CalledPhases);

@@ -24,7 +24,7 @@ Unity 生成 -> contract facts 導出 -> kind / policy 検証 -> source snapshot
 - `ops.describe/<opKey>.json` は public raw operation の `description` / `inputs` / `resultContract` / `assurance` / `codeContract` / schema object を持ち、`ops describe` の単一 operation detail として使う
 - `opKey` は operation name から決定論的に作る不透明な safe key であり、利用者は path を直接組み立てず `ucli ops describe <opName>` を正本として読む
 - `ops list` は exposure が `public` の軽量 descriptor から `name` / `kind` / `policy` / `description` を表示用 model へ投影し、`--nameRegex` / `--kind` / `--maxPolicy` の AND 条件で絞り込める
-- `editLoweringOnly` と `internal` の operation は内部 catalog validation の対象にするが、public `ops list` と public `ops describe` には出さない
+- `editLoweringOnly` の operation は内部 catalog validation の対象にするが、public `ops list` と public `ops describe` には出さない
 - persisted catalog の読み込み失敗は access policy で分類し、CLI projection は永続化ファイルや freshness 計算の詳細へ依存しない
 
 ## Metadata derivation
@@ -72,7 +72,7 @@ policy 導出の基準は次の通りである。
 | `advanced` | Unity Editor API 経由の決定論的 write、`mayDirty=true` または `mayPersist=true`、Scene / Prefab / Asset / ProjectSettings 変更、AssetDatabase refresh / import / compile など broader project effect |
 | `dangerous` | arbitrary C# execution、arbitrary shell / process / filesystem write、unbounded delete / overwrite、typed context / save boundary / touched contract を十分に保証できない escape hatch |
 
-`mayCreatePreviewState` は Plan が review gate 前に一時 Scene / Prefab Stage などの状態を作るため、`policy` を最低 `advanced` に導出する。public raw catalog では `mayCreatePreviewState` を禁止し、metadata / catalog validation failure とする。preview state が必要な primitive は `editLoweringOnly` または `internal` に置く。
+`mayCreatePreviewState` は Plan が review gate 前に一時 Scene / Prefab Stage などの状態を作るため、`policy` を最低 `advanced` に導出する。public raw catalog では `mayCreatePreviewState` を禁止し、metadata / catalog validation failure とする。preview state が必要な primitive は `editLoweringOnly` に置く。
 
 `sideEffects` は public JSON では string tag として出るが、仕様上は `Ucli.Contracts` 内の descriptor-backed closed vocabulary である。descriptor は minimum policy、dirty/persist projection、query 許可、required touchedKinds を持つ。複数の side effect がある場合、policy は最も厳しい minimum policy を採用する。
 
@@ -107,9 +107,8 @@ policy 導出の基準は次の通りである。
 | --- | --- |
 | `public` | public raw `kind:"op"` と edit lowering の両方から利用できる |
 | `editLoweringOnly` | edit DSL lowering からだけ利用でき、public raw `kind:"op"` では拒否する |
-| `internal` | catalog projection と public request からは利用できない内部 primitive |
 
-public `ops list` と public `ops describe` は `exposure=public` の operation だけを返す。`editLoweringOnly` は edit lowering から呼ばれた場合だけ使用でき、public raw `kind:"op"` から呼ばれた場合は `INVALID_ARGUMENT` とする。`internal` は public request surface から到達できない。
+public `ops list` と public `ops describe` は `exposure=public` の operation だけを返す。`editLoweringOnly` は edit lowering から呼ばれた場合だけ使用でき、public raw `kind:"op"` から呼ばれた場合は `INVALID_ARGUMENT` とする。
 
 operation の valid args によって policy や sideEffects、planMode、result 解釈が変わる場合、その operation は分割対象である。分割できない場合は valid args 全体の worst-case policy を採用する。
 
@@ -120,7 +119,6 @@ catalog validation、golden、contract tests は、少なくとも次の matrix 
 - public `ops list` は `exposure=public` の operation だけを返す
 - public `ops describe` は `exposure=public` の operation だけを返し、operation field set を `name`、`kind`、`policy`、`description`、`inputs[]`、`resultContract`、`assurance`、`codeContract?`、`argsSchema`、`resultSchema` に固定する
 - `editLoweringOnly` を public raw `kind:"op"` で呼ぶと `INVALID_ARGUMENT`
-- `internal` operation は public request surface から到達できない
 - derived `mayDirty=false`、derived `mayPersist=false`、advanced / dangerous side effect なしは `safe`
 - `assetDatabaseRefresh`、`assetImport`、`scriptCompilation`、`domainReload` は `advanced`
 - derived `mayDirty=true` または derived `mayPersist=true` の Unity Editor API write は `advanced`
@@ -137,7 +135,7 @@ catalog validation、golden、contract tests は、少なくとも次の matrix 
 - 新しい `sideEffects` value は descriptor と contract test fixture を同時に持つ
 - execution result validation は `assurance` と `opResults[]` の不整合を contract violation として検出する
 - `dangerous` policy の raw operation は `--allowDangerous` 無しでは拒否し、`--allowDangerous` 有りでは policy gate だけを通過する
-- `--allowDangerous` は exposure gate を解除しない。`editLoweringOnly` と `internal` は `--allowDangerous` があっても public raw `kind:"op"` から呼べない
+- `--allowDangerous` は exposure gate を解除しない。`editLoweringOnly` は `--allowDangerous` があっても public raw `kind:"op"` から呼べない
 
 ## Play Mode 変更での扱い
 
@@ -198,7 +196,7 @@ Play Mode enter / exit は primitive operation ではない。Editor lifecycle s
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `ucli.cs.eval` | mutation | dangerous | v1.0 | C# source を Unity Editor process 内で Roslyn によりインメモリコンパイルし、同期 entry point を呼び出す。 | `CsEvalArgs` | `CsEvalResult` | compile 情報、digest、call 時のログ、戻り値、touched resource 宣言 |
 
-`ucli.cs.eval` は metadata と internal execution を維持するが、`arbitrarySourceExecution` を持つため v1 の public raw catalog には出さない。public `ops list` / `ops describe` / public request validation の対象ではない。
+`ucli.cs.eval` は public raw `kind:"op"` として `ops list` / `ops describe` / public request validation の対象に含める。`arbitrarySourceExecution` を持つため `policy=dangerous` とし、`call` は project config の dangerous 許可と `--allowDangerous` の明示 opt-in を要求する。
 
 - `args.source` は完全な C# コンパイル単位、または `Run` method body だけを書く snippet のどちらかである
 - 完全なコンパイル単位では source 内の `public static object? Run(UcliCsEvalContext context)` に一致するメソッドを自動解決する。一致数が 1 件以外の場合は失敗する

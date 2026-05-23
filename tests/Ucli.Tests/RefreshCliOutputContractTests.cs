@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 
@@ -125,9 +126,9 @@ public sealed class RefreshCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Refresh_WithModeDaemonAndPluginMissing_ReturnsCommandResultInvalidArgument ()
+    public async Task Refresh_WithModeDaemonAndDaemonSessionMissing_ReturnsDaemonNotRunning ()
     {
-        using var scope = TestDirectories.CreateTempScope("refresh-cli-output-contract", "plugin-missing");
+        using var scope = TestDirectories.CreateTempScope("refresh-cli-output-contract", "daemon-session-missing");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         WriteRefreshAllowedConfig(scope, unityProjectPath);
         var result = await CliProcessRunner.RunCommandAsync(
@@ -138,13 +139,13 @@ public sealed class RefreshCliOutputContractTests
             "daemon");
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Refresh,
             IpcProtocol.StatusError,
-            (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
+            (int)CliExitCode.ToolError);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UnityExecutionModeDecisionErrorCodes.DaemonNotRunning);
     }
 
     [Fact]

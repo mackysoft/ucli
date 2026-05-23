@@ -1,8 +1,8 @@
 using System;
-using MackySoft.Ucli.Contracts;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -12,11 +12,18 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly IReadOnlyDictionary<string, IUnityIpcMethodHandler> methodHandlers;
 
+        private readonly IRecoverableIpcOperationStore recoverableOperationStore;
+
+        private readonly IDaemonLogger daemonLogger;
+
         /// <summary> Initializes a new instance of the <see cref="UnityIpcMethodDispatcher" /> class. </summary>
         /// <param name="methodHandlers"> Registered method handlers resolved by DI. </param>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="methodHandlers" /> is <see langword="null" />. </exception>
         /// <exception cref="ArgumentException"> Thrown when method handlers are empty or invalid. </exception>
-        public UnityIpcMethodDispatcher (IEnumerable<IUnityIpcMethodHandler> methodHandlers)
+        public UnityIpcMethodDispatcher (
+            IEnumerable<IUnityIpcMethodHandler> methodHandlers,
+            IRecoverableIpcOperationStore recoverableOperationStore = null,
+            IDaemonLogger daemonLogger = null)
         {
             if (methodHandlers == null)
             {
@@ -24,6 +31,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             this.methodHandlers = CreateMethodHandlers(methodHandlers);
+            this.recoverableOperationStore = recoverableOperationStore;
+            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
         }
 
         /// <summary> Dispatches one IPC request envelope by method contract. </summary>
@@ -53,6 +62,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                         null);
                 }
 
+                if (methodHandler is IRecoverableUnityIpcMethodHandler recoverableMethodHandler
+                    && recoverableOperationStore != null)
+                {
+                    return await DispatchRecoverableAsync(
+                        recoverableMethodHandler,
+                        request,
+                        cancellationToken);
+                }
+
                 return await methodHandler.HandleAsync(request, cancellationToken);
             }
             catch (OperationCanceledException)
@@ -67,6 +85,83 @@ namespace MackySoft.Ucli.Unity.Ipc
                     $"Unexpected error occurred while handling IPC request. {exception.Message}",
                     null);
             }
+        }
+
+        private async Task<IpcResponse> DispatchRecoverableAsync (
+            IRecoverableUnityIpcMethodHandler methodHandler,
+            IpcRequest request,
+            CancellationToken cancellationToken)
+        {
+            if (!methodHandler.TryCreateRecoverableRequestPayloadHash(
+                    request,
+                    out var requestPayloadHash,
+                    out var hashErrorResponse))
+            {
+                return hashErrorResponse;
+            }
+
+            if (string.IsNullOrWhiteSpace(requestPayloadHash))
+            {
+                return UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    UcliCoreErrorCodes.InternalError,
+                    $"IPC method '{request.Method}' returned an empty recoverable request payload hash.",
+                    null);
+            }
+
+            if (!recoverableOperationStore.TryPurgeExpiredRecords(DateTimeOffset.UtcNow, out var purgeErrorMessage))
+            {
+                daemonLogger.Warning(
+                    DaemonLogCategories.Ipc,
+                    $"Recoverable IPC operation purge failed. {purgeErrorMessage}");
+            }
+
+            var hasRecord = recoverableOperationStore.TryRead(
+                request.Method,
+                request.RequestId,
+                requestPayloadHash,
+                out var record,
+                out var readErrorMessage);
+            if (!string.IsNullOrWhiteSpace(readErrorMessage))
+            {
+                daemonLogger.Warning(
+                    DaemonLogCategories.Ipc,
+                    $"Recoverable IPC operation read failed. {readErrorMessage}");
+                if (!hasRecord)
+                {
+                    return UnityIpcResponseFactory.CreateErrorResponse(
+                        request,
+                        UcliCoreErrorCodes.InternalError,
+                        $"Recoverable IPC operation state could not be read. {readErrorMessage}",
+                        null);
+                }
+            }
+
+            if (record != null
+                && record.State == RecoverableIpcOperationState.Completed
+                && record.Response != null)
+            {
+                // NOTE: Replays after response loss must be idempotent. Returning the
+                // completed response prevents the method handler from repeating Unity state changes.
+                return record.Response;
+            }
+
+            var context = new RecoverableIpcOperationContext(
+                recoverableOperationStore,
+                request.Method,
+                request.RequestId,
+                requestPayloadHash,
+                record);
+            var response = await methodHandler.HandleRecoverableAsync(request, context, cancellationToken);
+            if (context.HasOperationRecord
+                && !context.TryMarkCompleted(response, out var completeErrorMessage))
+            {
+                daemonLogger.Warning(
+                    DaemonLogCategories.Ipc,
+                    $"Recoverable IPC operation completion write failed. {completeErrorMessage}");
+            }
+
+            return response;
         }
 
         /// <summary> Creates one immutable method-handler map keyed by IPC method name. </summary>

@@ -20,6 +20,8 @@ internal sealed class StatusDaemonObservationService : IStatusDaemonObservationS
 
     private readonly IDaemonProcessIdentityAssessor processIdentityAssessor;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="StatusDaemonObservationService" /> class. </summary>
     /// <param name="daemonStatusOperation"> The daemon status-operation dependency. </param>
     /// <param name="daemonPingInfoClient"> The daemon ping-info client dependency. </param>
@@ -32,13 +34,15 @@ internal sealed class StatusDaemonObservationService : IStatusDaemonObservationS
         IDaemonPingInfoClient daemonPingInfoClient,
         IDaemonReachabilityClassifier reachabilityClassifier,
         IDaemonLifecycleStore daemonLifecycleStore,
-        IDaemonProcessIdentityAssessor processIdentityAssessor)
+        IDaemonProcessIdentityAssessor processIdentityAssessor,
+        TimeProvider? timeProvider = null)
     {
         this.daemonStatusOperation = daemonStatusOperation ?? throw new ArgumentNullException(nameof(daemonStatusOperation));
         this.daemonPingInfoClient = daemonPingInfoClient ?? throw new ArgumentNullException(nameof(daemonPingInfoClient));
         this.reachabilityClassifier = reachabilityClassifier ?? throw new ArgumentNullException(nameof(reachabilityClassifier));
         this.daemonLifecycleStore = daemonLifecycleStore ?? throw new ArgumentNullException(nameof(daemonLifecycleStore));
         this.processIdentityAssessor = processIdentityAssessor ?? throw new ArgumentNullException(nameof(processIdentityAssessor));
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary> Resolves daemon status and optional ping diagnostics for one status execution. </summary>
@@ -133,30 +137,23 @@ internal sealed class StatusDaemonObservationService : IStatusDaemonObservationS
                 unityProject.ProjectFingerprint,
                 cancellationToken)
             .ConfigureAwait(false);
+        var observation = lifecycleReadResult.Observation;
         if (lifecycleReadResult.IsSuccess
             && lifecycleReadResult.Exists
-            && lifecycleReadResult.Observation!.IsRecovering
-            && DaemonLifecycleObservationMatcher.MatchesSession(lifecycleReadResult.Observation, session)
-            && IsMatchingLiveProcess(session))
+            && observation is not null
+            && DaemonLifecycleObservationAvailability.IsUsableForSession(
+                observation,
+                session,
+                processIdentityAssessor,
+                timeProvider))
         {
             return StatusDaemonObservationResult.Success(
                 StatusDaemonObservationCodec.CreateFromLifecycleObservation(
                     DaemonStatusKind.Running,
-                    lifecycleReadResult.Observation));
+                    observation));
         }
 
         return StatusDaemonObservationResult.Success(
             StatusDaemonObservationCodec.CreateUnavailable(DaemonStatusKind.Stale));
-    }
-
-    private bool IsMatchingLiveProcess (DaemonSession session)
-    {
-        if (session.ProcessId is not int processId)
-        {
-            return false;
-        }
-
-        return processIdentityAssessor.AssessByProcessId(processId, session.ProcessStartedAtUtc).Status
-            == DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess;
     }
 }

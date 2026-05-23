@@ -154,6 +154,11 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
             return false;
         }
 
+        if (!TryValidatePlayMode(contract.PlayMode, path, out var playMode, out error))
+        {
+            return false;
+        }
+
         if (contract.ObservedAtUtc is not DateTimeOffset observedAtUtc || observedAtUtc == default)
         {
             error = ExecutionError.InvalidArgument($"Daemon lifecycle observedAtUtc is invalid: {path}.");
@@ -171,7 +176,57 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
             DomainReloadGeneration: StringValueNormalizer.TrimToNull(contract.DomainReloadGeneration),
             ObservedAtUtc: observedAtUtc,
             ActionRequired: actionRequired,
-            PrimaryDiagnostic: primaryDiagnostic);
+            PrimaryDiagnostic: primaryDiagnostic)
+        {
+            ServerVersion = StringValueNormalizer.TrimToNull(contract.ServerVersion),
+            CanAcceptExecutionRequests = contract.CanAcceptExecutionRequests
+                ?? string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal),
+            EditorInstanceId = StringValueNormalizer.TrimToNull(contract.EditorInstanceId),
+            PlayMode = playMode,
+        };
+        return true;
+    }
+
+    private static bool TryValidatePlayMode (
+        IpcPlayModeSnapshot? playMode,
+        string path,
+        out IpcPlayModeSnapshot? normalizedPlayMode,
+        out ExecutionError? error)
+    {
+        normalizedPlayMode = null;
+        if (playMode is null)
+        {
+            error = null;
+            return true;
+        }
+
+        var state = StringValueNormalizer.TrimToNull(playMode.State);
+        if (state is not (IpcPlayModeStateNames.Stopped
+            or IpcPlayModeStateNames.Entering
+            or IpcPlayModeStateNames.Playing
+            or IpcPlayModeStateNames.Exiting
+            or IpcPlayModeStateNames.Unknown))
+        {
+            error = ExecutionError.InvalidArgument($"Daemon lifecycle playMode.state is invalid: {path}.");
+            return false;
+        }
+
+        var transition = StringValueNormalizer.TrimToNull(playMode.Transition);
+        if (transition is not (IpcPlayModeTransitionNames.None
+            or IpcPlayModeTransitionNames.Entering
+            or IpcPlayModeTransitionNames.Exiting))
+        {
+            error = ExecutionError.InvalidArgument($"Daemon lifecycle playMode.transition is invalid: {path}.");
+            return false;
+        }
+
+        normalizedPlayMode = new IpcPlayModeSnapshot(
+            State: state,
+            Transition: transition,
+            IsPlaying: playMode.IsPlaying,
+            IsPlayingOrWillChangePlaymode: playMode.IsPlayingOrWillChangePlaymode,
+            Generation: StringValueNormalizer.TrimToNull(playMode.Generation));
+        error = null;
         return true;
     }
 

@@ -91,6 +91,60 @@ public sealed class DaemonLifecycleStoreTests
         Assert.Equal("Missing parameter", diagnostic.Message);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenLifecycleJsonContainsEditorInstanceId_NormalizesField ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "editor-instance-id");
+        var store = new DaemonLifecycleStore();
+        await WriteContractAsync(
+            scope.FullPath,
+            "fingerprint-editor-instance",
+            CreateContract() with
+            {
+                EditorInstanceId = " editor-instance-1 ",
+            });
+
+        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-editor-instance", CancellationToken.None);
+
+        Assert.True(readResult.IsSuccess);
+        Assert.Equal("editor-instance-1", readResult.Observation!.EditorInstanceId);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenLifecycleJsonContainsPlayMode_NormalizesSnapshot ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "play-mode");
+        var store = new DaemonLifecycleStore();
+        await WriteContractAsync(
+            scope.FullPath,
+            "fingerprint-play-mode",
+            CreateContract() with
+            {
+                ServerVersion = " 0.5.0 ",
+                CanAcceptExecutionRequests = false,
+                PlayMode = new IpcPlayModeSnapshot(
+                    State: $" {IpcPlayModeStateNames.Playing} ",
+                    Transition: $" {IpcPlayModeTransitionNames.None} ",
+                    IsPlaying: true,
+                    IsPlayingOrWillChangePlaymode: true,
+                    Generation: " 3 "),
+            });
+
+        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-play-mode", CancellationToken.None);
+
+        Assert.True(readResult.IsSuccess);
+        Assert.Equal("0.5.0", readResult.Observation!.ServerVersion);
+        Assert.False(readResult.Observation!.CanAcceptExecutionRequests);
+        var playMode = Assert.IsType<IpcPlayModeSnapshot>(readResult.Observation.PlayMode);
+        Assert.Equal(IpcPlayModeStateNames.Playing, playMode.State);
+        Assert.Equal(IpcPlayModeTransitionNames.None, playMode.Transition);
+        Assert.True(playMode.IsPlaying);
+        Assert.True(playMode.IsPlayingOrWillChangePlaymode);
+        Assert.Equal("3", playMode.Generation);
+    }
+
     private static DaemonLifecycleJsonContract CreateContract ()
     {
         return new DaemonLifecycleJsonContract(

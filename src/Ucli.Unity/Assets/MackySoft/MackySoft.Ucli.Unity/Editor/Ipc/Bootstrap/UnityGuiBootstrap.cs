@@ -23,6 +23,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static ActiveGuiBootstrapState activeState;
 
+        private static DateTimeOffset lastLifecycleSidecarWriteUtc;
+
         /// <summary> Starts or replaces the active GUI daemon session registration. </summary>
         /// <param name="bootstrapArguments"> Optional CLI GUI bootstrap arguments. </param>
         /// <returns> A task that produces the GUI endpoint registration result. </returns>
@@ -105,14 +107,18 @@ namespace MackySoft.Ucli.Unity.Ipc
                 server = serviceProvider.GetRequiredService<IUnityIpcServer>();
                 var readinessGate = serviceProvider.GetRequiredService<IUnityEditorReadinessGate>();
                 var shutdownSignal = serviceProvider.GetRequiredService<IDaemonShutdownSignal>();
+                var serverVersion = serviceProvider.GetRequiredService<IServerVersionProvider>().GetVersion();
                 unityLogCaptureService = serviceProvider.GetRequiredService<UnityLogCaptureService>();
                 unityLogCaptureService.Start();
 
                 await server.StartAsync(endpoint, CancellationToken.None);
+                var initialSnapshot = readinessGate.CaptureSnapshot();
                 UnityLifecycleSidecarPersistence.Write(
                     storageRoot,
                     projectFingerprint,
-                    readinessGate.CaptureSnapshot());
+                    serverVersion,
+                    initialSnapshot);
+                lastLifecycleSidecarWriteUtc = initialSnapshot.ObservedAtUtc ?? DateTimeOffset.UtcNow;
                 nextState = new ActiveGuiBootstrapState(
                     registration,
                     server,
@@ -122,6 +128,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     daemonLogger,
                     storageRoot,
                     projectFingerprint,
+                    serverVersion,
                     readinessGate);
                 lock (SyncRoot)
                 {
@@ -462,9 +469,67 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static void EnsureEditorLifecycleSubscriptions ()
         {
             AssemblyReloadEvents.beforeAssemblyReload -= StopForDomainReloadSynchronously;
+            EditorApplication.playModeStateChanged -= PersistLifecycleSidecarOnPlayModeStateChanged;
+            EditorApplication.update -= PersistLifecycleSidecarOnEditorUpdate;
             EditorApplication.quitting -= StopSynchronously;
             AssemblyReloadEvents.beforeAssemblyReload += StopForDomainReloadSynchronously;
+            EditorApplication.playModeStateChanged += PersistLifecycleSidecarOnPlayModeStateChanged;
+            EditorApplication.update += PersistLifecycleSidecarOnEditorUpdate;
             EditorApplication.quitting += StopSynchronously;
+        }
+
+        private static void PersistLifecycleSidecarOnPlayModeStateChanged (PlayModeStateChange _)
+        {
+            PersistActiveLifecycleSidecar(force: true);
+        }
+
+        private static void PersistLifecycleSidecarOnEditorUpdate ()
+        {
+            PersistActiveLifecycleSidecar(force: false);
+        }
+
+        private static void PersistActiveLifecycleSidecar (bool force)
+        {
+            var now = DateTimeOffset.UtcNow;
+            if (!force && now - lastLifecycleSidecarWriteUtc < DaemonLifecycleObservationTimings.SidecarRefreshInterval)
+            {
+                return;
+            }
+
+            ActiveGuiBootstrapState capturedState;
+            lock (SyncRoot)
+            {
+                capturedState = activeState;
+            }
+
+            if (capturedState == null || capturedState.ShutdownSignal.IsSignaled)
+            {
+                return;
+            }
+
+            try
+            {
+                // NOTE:
+                // CLI status commands may time out while Unity is in Play Mode or recovering, but Unity main-thread
+                // callbacks still own the authoritative lifecycle snapshot. Keep the sidecar fresh enough to serve as
+                // the read-only observation path without moving Unity API access off the main thread.
+                var snapshot = capturedState.ReadinessGate.CaptureSnapshot() with
+                {
+                    ObservedAtUtc = now,
+                };
+                UnityLifecycleSidecarPersistence.Write(
+                    capturedState.StorageRoot,
+                    capturedState.ProjectFingerprint,
+                    capturedState.ServerVersion,
+                    snapshot);
+                lastLifecycleSidecarWriteUtc = now;
+            }
+            catch (Exception exception)
+            {
+                capturedState.DaemonLogger.Warning(
+                    DaemonLogCategories.Lifecycle,
+                    $"GUI lifecycle sidecar refresh failed. {exception.Message}");
+            }
         }
 
         private static void StopSynchronously ()
@@ -516,6 +581,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 UnityLifecycleSidecarPersistence.Write(
                     capturedState.StorageRoot,
                     capturedState.ProjectFingerprint,
+                    capturedState.ServerVersion,
                     snapshot);
             }
             catch (Exception exception)
@@ -552,6 +618,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 IDaemonLogger daemonLogger,
                 string storageRoot,
                 string projectFingerprint,
+                string serverVersion,
                 IUnityEditorReadinessGate readinessGate)
             {
                 Registration = registration ?? throw new ArgumentNullException(nameof(registration));
@@ -562,6 +629,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 DaemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
                 StorageRoot = storageRoot ?? throw new ArgumentNullException(nameof(storageRoot));
                 ProjectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
+                ServerVersion = serverVersion ?? throw new ArgumentNullException(nameof(serverVersion));
                 ReadinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
             }
 
@@ -580,6 +648,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             public string StorageRoot { get; }
 
             public string ProjectFingerprint { get; }
+
+            public string ServerVersion { get; }
 
             public IUnityEditorReadinessGate ReadinessGate { get; }
 

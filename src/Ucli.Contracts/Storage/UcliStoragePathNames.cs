@@ -72,6 +72,9 @@ public static class UcliStoragePathNames
     /// <summary> Gets the compile-artifacts directory name under one fingerprint artifacts directory. </summary>
     public const string CompileArtifactsDirectoryName = "compile";
 
+    /// <summary> Gets the recoverable IPC operation directory name under one fingerprint directory. </summary>
+    public const string IpcOperationsDirectoryName = "ipc-operations";
+
     /// <summary> Gets the compile-run request artifact file name. </summary>
     public const string CompileRequestFileName = "request.json";
 

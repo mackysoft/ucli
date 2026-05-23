@@ -161,6 +161,7 @@ public sealed class SupervisorBootstrapperTests
                     request,
                     new SupervisorIpcContracts.PingResponse(manifest.ProcessId, manifest.IssuedAtUtc))),
         };
+        var launchStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var launcher = new StubSupervisorProcessLauncher
         {
             LaunchHandler = _ =>
@@ -168,6 +169,7 @@ public sealed class SupervisorBootstrapperTests
                 launchCount++;
                 return ValueTask.FromResult<ExecutionError?>(null);
             },
+            LaunchStarted = launchStarted,
         };
         var bootstrapper = new SupervisorBootstrapper(
             manifestStore,
@@ -182,13 +184,13 @@ public sealed class SupervisorBootstrapperTests
                 TimeSpan.FromSeconds(30),
                 CancellationToken.None)
             .AsTask();
+        await TestAwaiter.WaitAsync(launchStarted.Task, "Supervisor delayed manifest launch start", SignalWaitTimeout);
         for (var i = 0; i < 40 && !resultTask.IsCompleted; i++)
         {
-            await WaitForActiveTimerAsync(timeProvider, resultTask, SignalWaitTimeout, CancellationToken.None);
-            if (!resultTask.IsCompleted)
-            {
-                timeProvider.Advance(SupervisorConstants.BootstrapPollDelay);
-            }
+            // NOTE: This test only needs to move through bootstrap polling after the launch
+            // started. Waiting for a specific timer creates a scheduler race in full-suite runs.
+            timeProvider.Advance(SupervisorConstants.BootstrapPollDelay);
+            await Task.Yield();
         }
 
         var result = await TestAwaiter.WaitAsync(resultTask, "Supervisor delayed manifest result", SignalWaitTimeout);

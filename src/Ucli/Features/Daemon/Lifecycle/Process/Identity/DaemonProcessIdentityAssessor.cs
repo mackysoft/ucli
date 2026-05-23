@@ -7,8 +7,6 @@ namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Process.Identity;
 /// <summary> Assesses whether one operating-system process still matches expected daemon session identity. </summary>
 internal sealed class DaemonProcessIdentityAssessor : IDaemonProcessIdentityAssessor
 {
-    private static readonly TimeSpan ProcessStartTimeTolerance = TimeSpan.FromSeconds(2);
-
     /// <summary> Resolves one process by identifier and assesses whether it matches expected daemon identity. </summary>
     /// <param name="processId"> The process identifier to assess. </param>
     /// <param name="expectedProcessStartedAtUtc"> The expected process start timestamp. </param>
@@ -82,15 +80,14 @@ internal sealed class DaemonProcessIdentityAssessor : IDaemonProcessIdentityAsse
         }
 
         var expectedStartTimeUtc = expectedProcessStartedAtUtc.Value.ToUniversalTime();
-        var delta = processStartTimeUtc - expectedStartTimeUtc;
-        if (delta.Duration() > ProcessStartTimeTolerance)
+        if (!DaemonProcessStartTimeMatcher.Matches(processStartTimeUtc, expectedStartTimeUtc))
         {
             return new DaemonProcessIdentityAssessment(
                 DaemonProcessIdentityAssessmentStatus.DifferentProcess,
                 processStartTimeUtc,
                 ExecutionError.InternalError(
                     $"Daemon process identity mismatch for process '{processId}'. " +
-                    $"ExpectedStart={expectedStartTimeUtc:O} ActualStart={processStartTimeUtc:O} Tolerance={ProcessStartTimeTolerance}."));
+                    $"ExpectedStart={expectedStartTimeUtc:O} ActualStart={processStartTimeUtc:O} Tolerance={DaemonProcessStartTimeMatcher.Tolerance}."));
         }
 
         return new DaemonProcessIdentityAssessment(

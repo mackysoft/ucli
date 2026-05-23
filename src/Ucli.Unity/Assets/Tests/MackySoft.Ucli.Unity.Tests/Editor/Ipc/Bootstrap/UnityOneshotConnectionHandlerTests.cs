@@ -9,7 +9,6 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
-using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using UnityEngine.TestTools;
 
@@ -136,9 +135,7 @@ namespace MackySoft.Ucli.Unity.Tests
             OneshotRequestCompletionSignal completionSignal)
         {
             return new UnityOneshotConnectionHandler(
-                new UnityIpcConnectionHandler(
-                    new StubRequestProcessor(expectedRequest, response),
-                    new StubDaemonShutdownSignal()),
+                new UnityIpcConnectionHandler(new StubRequestProcessor(expectedRequest, response)),
                 completionSignal);
         }
 
@@ -216,19 +213,5 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
         }
 
-        private sealed class StubDaemonShutdownSignal : IDaemonShutdownSignal
-        {
-            public bool IsSignaled => false;
-
-            public void Signal ()
-            {
-            }
-
-            public Task WaitAsync (CancellationToken cancellationToken = default)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                return Task.CompletedTask;
-            }
-        }
     }
 }

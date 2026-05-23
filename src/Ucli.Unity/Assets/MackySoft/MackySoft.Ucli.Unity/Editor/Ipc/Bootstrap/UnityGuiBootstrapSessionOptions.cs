@@ -29,10 +29,11 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static UnityGuiBootstrapSessionOptions CreateUserOwned ()
         {
+            using var currentProcess = Process.GetCurrentProcess();
             return new UnityGuiBootstrapSessionOptions(
                 OwnerKind: DaemonSessionOwnerKindCodec.ToValue(DaemonSessionOwnerKind.User),
                 CanShutdownProcess: false,
-                OwnerProcessId: Process.GetCurrentProcess().Id);
+                OwnerProcessId: currentProcess.Id);
         }
     }
 }

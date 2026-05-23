@@ -80,10 +80,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                 daemonLogger.Info(
                     DaemonLogCategories.Lifecycle,
                     "GUI daemon rebootstrap request accepted.");
+                using var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
                 var response = new IpcGuiRebootstrapResponse(
                     Accepted: true,
                     ProjectFingerprint: projectFingerprint,
-                    ProcessId: System.Diagnostics.Process.GetCurrentProcess().Id);
+                    ProcessId: currentProcess.Id);
                 return UnityIpcResponseFactory.CreateSuccessResponse(request, response);
             }
             catch (Exception exception)

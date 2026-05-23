@@ -123,6 +123,45 @@ public sealed class DaemonStopServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Stop_WhenSupervisorStopTimesOut_FallsBackToDirectStopOperation ()
+    {
+        using var scope = DaemonServiceTestContext.CreateTempScope("stop-supervisor-timeout-fallback");
+        var timeProvider = new ManualTimeProvider();
+        var context = DaemonServiceTestContext.CreateExecutionContext(
+            timeoutMilliseconds: 15000,
+            repositoryRoot: scope.FullPath);
+        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var daemonStopOperation = new DaemonServiceTestContext.StubDaemonStopOperation
+        {
+            StopResult = DaemonStopResult.Stopped(),
+        };
+        var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway
+        {
+            TryStopProjectHandler = (_, timeout, cancellationToken) =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                timeProvider.Advance(timeout);
+                return ValueTask.FromResult<DaemonStopResult?>(DaemonStopResult.Failure(ExecutionError.Timeout(
+                    "supervisor stopProject timed out")));
+            },
+        };
+        var service = CreateService(resolver, supervisorProjectGateway, daemonStopOperation, timeProvider: timeProvider);
+
+        var result = await service.StopAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var output = Assert.IsType<DaemonStopExecutionOutput>(result.Output);
+        Assert.Equal(DaemonStopStatus.Stopped, output.StopStatus);
+        Assert.Equal(1, supervisorProjectGateway.TryStopProjectCallCount);
+        Assert.Equal(TimeSpan.FromSeconds(5), supervisorProjectGateway.LastTryStopProjectTimeout);
+        Assert.Equal(1, daemonStopOperation.StopCallCount);
+        Assert.True(daemonStopOperation.LastTimeout > TimeSpan.Zero);
+        Assert.True(daemonStopOperation.LastTimeout <= DaemonTimeouts.StopCompensationTimeout);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Stop_WhenSupervisorProbeConsumesBudget_PropagatesRemainingTimeoutToStopProject ()
     {
         using var scope = DaemonServiceTestContext.CreateTempScope("stop-remaining-timeout");

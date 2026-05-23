@@ -842,7 +842,7 @@ final `daemon start` failure payload では原則として `retryDisposition=wai
 | `policy` | string | yes | contract facts から導出された admission policy。`safe`、`advanced`、または `dangerous` |
 | `description` | string | yes | operation の目的、使いどころ、注意点 |
 
-`ucli ops list` は public raw `kind:"op"` として呼べる operation だけを返す。`editLoweringOnly` と `internal` の operation は public `ops list` に出さない。一覧は絞り込みに必要な `name` / `kind` / `policy` と、operation 選択に必要な短い `description` だけを返す。`inputs`、`resultContract`、`assurance`、`argsSchema`、`resultSchema` は含めない。operation の詳細契約は `ucli ops describe <opName>` を参照する。
+`ucli ops list` は public raw `kind:"op"` として呼べる operation だけを返す。`editLoweringOnly` の operation は public `ops list` に出さない。一覧は絞り込みに必要な `name` / `kind` / `policy` と、operation 選択に必要な短い `description` だけを返す。`inputs`、`resultContract`、`assurance`、`argsSchema`、`resultSchema` は含めない。operation の詳細契約は `ucli ops describe <opName>` を参照する。
 
 ### `ucli ops describe`
 
@@ -851,7 +851,7 @@ final `daemon start` failure payload では原則として `retryDisposition=wai
 | `operation` | object | yes | 対象 operation の詳細 |
 | `readIndex` | object | yes | catalog / detail の観測元。shape は `payload.readIndex` を参照 |
 
-`ucli ops describe` は指定した単一 public raw operation の detail を返す。`editLoweringOnly` と `internal` の operation は public `ops describe` の対象外であり、public CLI から指定された場合は見つからない operation として扱う。readIndex の永続化形式が list descriptor と describe detail に分かれていても、公開 payload の shape は変えない。
+`ucli ops describe` は指定した単一 public raw operation の detail を返す。`editLoweringOnly` の operation は public `ops describe` の対象外であり、public CLI から指定された場合は見つからない operation として扱う。readIndex の永続化形式が list descriptor と describe detail に分かれていても、公開 payload の shape は変えない。
 
 #### `ucli ops describe payload.operation`
 
@@ -1116,7 +1116,7 @@ public v1 catalog の `planMode` は次の値だけを使う。
 | `validationOnly` | Plan は typed args と静的 contract の検証だけを行う |
 | `observesLiveUnity` | Plan は live Unity state または readIndex を観測して結果を作る |
 
-`mayCreatePreviewState` は registered metadata では有効な planMode だが、public `ops describe` payload / schema では validation failure とする。`editLoweringOnly` / `internal` primitive では使用でき、最低 `advanced` に導出する。cleanup evidence と residual risk が不十分な場合は `dangerous` とする。
+`mayCreatePreviewState` は registered metadata では有効な planMode だが、public `ops describe` payload / schema では validation failure とする。`editLoweringOnly` primitive では使用でき、最低 `advanced` に導出する。cleanup evidence と residual risk が不十分な場合は `dangerous` とする。
 
 `kind` と `assurance` の整合は次を満たす。
 

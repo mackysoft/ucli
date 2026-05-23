@@ -87,6 +87,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                     serviceProvider.GetRequiredService<IpcProjectIdentity>(),
                     serviceProvider.GetRequiredService<IDaemonLogger>());
             });
+            services.AddSingleton<IUnityIpcMethodHandler>(serviceProvider =>
+            {
+                return new PlayEnterUnityIpcMethodHandler(
+                    serviceProvider.GetRequiredService<IServerVersionProvider>(),
+                    serviceProvider.GetRequiredService<IUnityEditorReadinessGate>(),
+                    serviceProvider.GetRequiredService<IpcProjectIdentity>(),
+                    serviceProvider.GetRequiredService<IDaemonLogger>());
+            });
             services.AddSingleton<IUnityIpcMethodHandler, TestRunUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, OpsReadUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, IndexAssetsReadUnityIpcMethodHandler>();
@@ -136,6 +144,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             services.AddSingleton(bootstrapArguments);
             services.AddSingleton<IDaemonLogStream>(daemonLogStream);
+            services.AddSingleton<IRecoverableIpcOperationStore>(serviceProvider =>
+                FileRecoverableIpcOperationStore.Create(serviceProvider.GetRequiredService<IpcProjectIdentity>()));
             services.AddSingleton<IUnityLogStream, UnityLogRingBuffer>();
             services.AddSingleton<UnityCompileMessageDedupeCache>();
             services.AddSingleton<UnityLogCollector>();
@@ -158,13 +168,13 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityIpcServer>(serviceProvider =>
             {
                 return new UnityIpcServer(
-                    serviceProvider.GetRequiredService<IUnityIpcRequestProcessor>(),
                     serviceProvider.GetRequiredService<IUnityIpcConnectionHandler>(),
                     new IUnityIpcTransportListener[]
                     {
                         serviceProvider.GetRequiredService<NamedPipeUnityIpcTransportListener>(),
                         serviceProvider.GetRequiredService<UnixDomainSocketUnityIpcTransportListener>(),
                     },
+                    serviceProvider.GetRequiredService<IDaemonShutdownSignal>(),
                     serviceProvider.GetRequiredService<IDaemonLogger>());
             });
             return services;
@@ -190,13 +200,13 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityIpcServer>(serviceProvider =>
             {
                 return new UnityIpcServer(
-                    serviceProvider.GetRequiredService<IUnityIpcRequestProcessor>(),
                     serviceProvider.GetRequiredService<IUnityIpcConnectionHandler>(),
                     new IUnityIpcTransportListener[]
                     {
                         serviceProvider.GetRequiredService<NamedPipeUnityIpcTransportListener>(),
                         serviceProvider.GetRequiredService<UnixDomainSocketUnityIpcTransportListener>(),
                     },
+                    serviceProvider.GetRequiredService<IDaemonShutdownSignal>(),
                     serviceProvider.GetRequiredService<IDaemonLogger>());
             });
             return services;
@@ -248,13 +258,13 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityIpcServer>(serviceProvider =>
             {
                 return new UnityIpcServer(
-                    serviceProvider.GetRequiredService<IUnityIpcRequestProcessor>(),
                     serviceProvider.GetRequiredService<IUnityIpcConnectionHandler>(),
                     new IUnityIpcTransportListener[]
                     {
                         serviceProvider.GetRequiredService<NamedPipeUnityIpcTransportListener>(),
                         serviceProvider.GetRequiredService<UnixDomainSocketUnityIpcTransportListener>(),
                     },
+                    serviceProvider.GetRequiredService<IDaemonShutdownSignal>(),
                     serviceProvider.GetRequiredService<IDaemonLogger>());
             });
             return services;

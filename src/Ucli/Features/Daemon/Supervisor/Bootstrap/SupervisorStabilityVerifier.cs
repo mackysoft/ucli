@@ -7,7 +7,7 @@ using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Bootstrap;
 
-/// <summary> Verifies that one started Unity daemon remains reachable across the supervisor stability window. </summary>
+/// <summary> Verifies that one started Unity daemon remains reachable through supervisor stability probes. </summary>
 internal sealed class SupervisorStabilityVerifier
 {
     private readonly IDaemonPingClient daemonPingClient;
@@ -30,7 +30,7 @@ internal sealed class SupervisorStabilityVerifier
         this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
-    /// <summary> Ensures that one started daemon stays reachable for the fixed supervisor stability window. </summary>
+    /// <summary> Ensures that one started daemon stays reachable for the supervisor stability probe sequence. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="session"> The daemon session returned by daemon start. </param>
     /// <param name="timeout"> The remaining command timeout. </param>
@@ -47,26 +47,23 @@ internal sealed class SupervisorStabilityVerifier
         ArgumentNullException.ThrowIfNull(session);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        var stabilityBudget = timeout < SupervisorConstants.StabilityWindow
-            ? timeout
-            : SupervisorConstants.StabilityWindow;
-        var stabilityDeadline = ExecutionDeadline.Start(stabilityBudget, timeProvider);
+        var stabilityDeadline = ExecutionDeadline.Start(timeout, timeProvider);
         var successCount = 0;
         var retryDelay = TimeSpan.FromMilliseconds(
             Math.Max(1, (int)Math.Ceiling(
-                stabilityBudget.TotalMilliseconds
+                SupervisorConstants.StabilityWindow.TotalMilliseconds
                 / SupervisorConstants.StabilitySuccessCount)));
 
         while (successCount < SupervisorConstants.StabilitySuccessCount)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!stabilityDeadline.TryGetRemainingTimeout(out var remainingStabilityTimeout))
+            if (!stabilityDeadline.TryGetRemainingTimeout(out var remainingTimeout))
             {
                 return await FailStabilityTimeoutCheckAsync(unityProject, session).ConfigureAwait(false);
             }
 
-            var attemptTimeout = remainingStabilityTimeout < SupervisorConstants.PingTimeout
-                ? remainingStabilityTimeout
+            var attemptTimeout = remainingTimeout < SupervisorConstants.PingTimeout
+                ? remainingTimeout
                 : SupervisorConstants.PingTimeout;
 
             try

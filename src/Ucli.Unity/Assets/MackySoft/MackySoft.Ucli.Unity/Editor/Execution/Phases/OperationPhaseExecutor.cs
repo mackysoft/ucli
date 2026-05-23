@@ -220,7 +220,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             var message = exposure == UcliOperationExposure.EditLoweringOnly
                 ? $"Operation '{operation.Op}' is available only through edit lowering."
-                : $"Operation '{operation.Op}' is internal and is not available through public requests.";
+                : $"Operation '{operation.Op}' has unsupported exposure '{exposure}'.";
             failure = new OperationFailure(
                 Code: UcliCoreErrorCodes.InvalidArgument,
                 Message: message,

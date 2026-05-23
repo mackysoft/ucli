@@ -256,26 +256,22 @@ public sealed class RequestStaticValidatorTests
         AssertContainsError(result, ValidationErrorCodes.OperationArgsInvalid);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData(UcliOperationExposure.EditLoweringOnly, "available only through edit lowering")]
-    [InlineData(UcliOperationExposure.Internal, "internal")]
-    public async Task Validate_WhenRawOperationExposureIsNotPublic_AddsInvalidArgumentError (
-        UcliOperationExposure exposure,
-        string expectedMessageFragment)
+    public async Task Validate_WhenRawOperationExposureIsEditLoweringOnly_AddsInvalidArgumentError ()
     {
         var validator = CreateValidator();
-        var operationName = "ucli.tests.non-public";
+        var operationName = "ucli.tests.edit-lowering-only";
         var request = CreateRequest(
             steps:
             [
-                CreateOpStep("step-non-public", operationName, new
+                CreateOpStep("step-edit-lowering-only", operationName, new
                 {
                 }),
             ]);
         var operations = new[]
         {
-            CreateDescriptor(operationName, exposure: exposure),
+            CreateDescriptor(operationName, exposure: UcliOperationExposure.EditLoweringOnly),
         };
 
         var result = await validator.ValidateAsync(
@@ -289,7 +285,7 @@ public sealed class RequestStaticValidatorTests
         Assert.Contains(
             result.Errors,
             error => error.Code == UcliCoreErrorCodes.InvalidArgument
-                     && error.Message.Contains(expectedMessageFragment, StringComparison.Ordinal));
+                     && error.Message.Contains("available only through edit lowering", StringComparison.Ordinal));
     }
 
     [Theory]
@@ -1215,39 +1211,6 @@ public sealed class RequestStaticValidatorTests
             error => error.Code == OperationAuthorizationErrorCodes.OperationNotAllowed
                      && error.Message.Contains("Edit step 'edit-comp-ensure' requires operation 'ucli.comp.ensure'.", StringComparison.Ordinal)
                      && error.Message.Contains("operationAllowlist", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Validate_WhenEditLoweringReferencesInternalOperation_AddsInvalidArgumentError ()
-    {
-        var validator = CreateValidator();
-        var request = CreateRequest(
-            steps:
-            [
-                CreateSceneEnsureEditStep("edit-comp-ensure"),
-            ]);
-        var operations = new[]
-        {
-            CreateDescriptor(
-                UcliPrimitiveOperationNames.CompEnsure,
-                policy: OperationPolicy.Advanced,
-                exposure: UcliOperationExposure.Internal),
-        };
-
-        var result = await validator.ValidateAsync(
-            request,
-            operations,
-            CreateConfig(OperationPolicy.Advanced, "^ucli\\.comp\\.ensure$"),
-            CancellationToken.None);
-
-        Assert.False(result.IsValid);
-        AssertContainsError(result, UcliCoreErrorCodes.InvalidArgument);
-        Assert.Contains(
-            result.Errors,
-            error => error.Code == UcliCoreErrorCodes.InvalidArgument
-                     && error.Message.Contains("internal", StringComparison.Ordinal)
-                     && error.Message.Contains("Edit step 'edit-comp-ensure'", StringComparison.Ordinal));
     }
 
     [Fact]

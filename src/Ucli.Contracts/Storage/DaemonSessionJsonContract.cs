@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace MackySoft.Ucli.Contracts.Storage;
 
 /// <summary> Represents persisted daemon <c>session.json</c> contract fields. </summary>
@@ -25,4 +27,9 @@ internal sealed record DaemonSessionJsonContract (
     string? EndpointAddress,
     int? ProcessId,
     DateTimeOffset? ProcessStartedAtUtc,
-    int? OwnerProcessId);
+    int? OwnerProcessId)
+{
+    /// <summary> Gets the Unity Editor process instance identifier that survives domain reloads within the process. </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? EditorInstanceId { get; init; }
+}

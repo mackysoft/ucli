@@ -9,6 +9,8 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorStabilityVerifierTests
 {
+    private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task EnsureStable_WhenRemainingTimeoutIsExhausted_ReturnsTimeout ()
@@ -48,6 +50,47 @@ public sealed class SupervisorStabilityVerifierTests
         {
             Assert.True(pingClient.Timeouts[^1] < pingClient.Timeouts[0]);
         }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureStable_WhenSuccessfulPingsCompleteWithinBudget_UsesCommandTimeoutBudget ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var pingClient = new StubDaemonPingClient
+        {
+            PingHandler = (_, timeout, cancellationToken) =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                Assert.Equal(TimeSpan.FromSeconds(1), timeout);
+                return ValueTask.CompletedTask;
+            },
+        };
+        var verifier = new SupervisorStabilityVerifier(
+            pingClient,
+            new SupervisorDiagnosisWriter(new StubDaemonDiagnosisStore()),
+            timeProvider);
+
+        var verificationTask = verifier.EnsureStableAsync(
+                CreateUnityProject(),
+                CreateSession(),
+                TimeSpan.FromSeconds(5),
+                CancellationToken.None)
+            .AsTask();
+        for (var i = 0; i < 8 && !verificationTask.IsCompleted; i++)
+        {
+            await WaitForActiveTimerAsync(timeProvider, verificationTask, SignalWaitTimeout);
+            timeProvider.Advance(TimeSpan.FromMilliseconds(700));
+            await Task.Yield();
+        }
+
+        var result = await TestAwaiter.WaitAsync(
+            verificationTask,
+            "Supervisor stability verification",
+            TimeSpan.FromSeconds(5));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(3, pingClient.Timeouts.Count);
     }
 
     [Fact]
@@ -128,6 +171,20 @@ public sealed class SupervisorStabilityVerifierTests
             ProcessId: 1234,
             ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 9876);
+    }
+
+    private static async Task WaitForActiveTimerAsync (
+        ManualTimeProvider timeProvider,
+        Task observedTask,
+        TimeSpan timeout)
+    {
+        // NOTE: The verifier creates one timer for each retry delay. Waiting for the timer
+        // before advancing manual time keeps this test independent from scheduler timing.
+        using var timeoutCancellationTokenSource = new CancellationTokenSource(timeout);
+        while (timeProvider.ActiveTimerCount == 0 && !observedTask.IsCompleted)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(1), timeoutCancellationTokenSource.Token).ConfigureAwait(false);
+        }
     }
 
     private sealed class StubDaemonPingClient : IDaemonPingClient

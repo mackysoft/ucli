@@ -36,6 +36,8 @@ using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Preflight;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
+using MackySoft.Ucli.Application.Features.Play.Common;
+using MackySoft.Ucli.Application.Features.Play.UseCases.Enter;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Status;
 using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call;
 using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan;
@@ -214,6 +216,8 @@ public static class UcliApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddUcliApplicationPlayServices (this IServiceCollection services)
     {
+        services.AddSingleton<IPlayCommandExecutionContextResolver, PlayCommandExecutionContextResolver>();
+        services.AddSingleton<IPlayEnterService, PlayEnterService>();
         services.AddSingleton<IPlayStatusService, PlayStatusService>();
         return services;
     }

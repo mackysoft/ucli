@@ -121,9 +121,9 @@ no-op request は envelope、pipeline、smoke check のために有効な reques
 - primitive `ucli.scene.tree` も `limit` と `cursor` を持つ。raw `kind:"op"` でも bounded-by-default とし、既定 `limit=100`、最大 `10000` とする。hierarchy traversal order は deterministic とし、cursor はその順序に対する opaque token とする
 - result は deterministic order の bounded window を返し、続きがある場合は cursor を返す
 
-### 内部 diagnostic 例: `ucli.cs.eval`
+### dangerous op 例: `ucli.cs.eval`
 
-`ucli.cs.eval` は任意 C# source を実行し得るため、v1 の public raw catalog には出さない。metadata と internal execution は維持するが、public `ops list` / `ops describe` / public request validation の対象にはしない。以下は internal diagnostic 用の JSON shape 例であり、agent が public raw `kind:"op"` として選択する代表例ではない。
+`ucli.cs.eval` は任意 C# source を実行し得る public raw `kind:"op"` である。`ops list` / `ops describe` / public request validation の対象に含め、`call` 実行には project config の dangerous 許可と `--allowDangerous` の明示 opt-in を要求する。
 
 ```json
 {

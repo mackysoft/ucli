@@ -13,6 +13,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         public static void Write (
             string storageRoot,
             string projectFingerprint,
+            string serverVersion,
             UnityEditorLifecycleSnapshot snapshot)
         {
             if (string.IsNullOrWhiteSpace(storageRoot))
@@ -25,12 +26,17 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("projectFingerprint must not be empty.", nameof(projectFingerprint));
             }
 
+            if (string.IsNullOrWhiteSpace(serverVersion))
+            {
+                throw new ArgumentException("serverVersion must not be empty.", nameof(serverVersion));
+            }
+
             if (snapshot == null)
             {
                 throw new ArgumentNullException(nameof(snapshot));
             }
 
-            var currentProcess = Process.GetCurrentProcess();
+            using var currentProcess = Process.GetCurrentProcess();
             var path = UcliStoragePathResolver.ResolveDaemonLifecyclePath(storageRoot, projectFingerprint);
             var contract = new DaemonLifecycleJsonContract(
                 ProcessId: currentProcess.Id,
@@ -43,7 +49,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                 DomainReloadGeneration: snapshot.DomainReloadGeneration,
                 ObservedAtUtc: snapshot.ObservedAtUtc ?? DateTimeOffset.UtcNow,
                 ActionRequired: snapshot.ActionRequired,
-                PrimaryDiagnostic: snapshot.PrimaryDiagnostic);
+                PrimaryDiagnostic: snapshot.PrimaryDiagnostic)
+            {
+                ServerVersion = serverVersion,
+                CanAcceptExecutionRequests = snapshot.CanAcceptExecutionRequests,
+                EditorInstanceId = UnityEditorSessionStateStore.GetOrCreateEditorInstanceId(),
+                PlayMode = snapshot.PlayMode,
+            };
             FileUtilities.WriteAllTextAtomically(path, DaemonLifecycleJsonContractSerializer.Serialize(contract));
         }
     }

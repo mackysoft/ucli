@@ -1,10 +1,10 @@
-using MackySoft.Ucli.Infrastructure.Ipc;
 using System;
 using System.IO;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -37,6 +37,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string address,
             IUnityIpcConnectionHandler connectionHandler,
             Action onStarted,
+            Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
             CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(address))
@@ -52,6 +53,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (onStarted == null)
             {
                 throw new ArgumentNullException(nameof(onStarted));
+            }
+
+            if (onConnectionCompleted == null)
+            {
+                throw new ArgumentNullException(nameof(onConnectionCompleted));
             }
 
             var accessBoundary = new UnixSocketAccessBoundary(address, UcliIpcEndpointNames.DaemonAddressPrefix);
@@ -79,9 +85,14 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                     try
                     {
-                        using var acceptedSocket = await listener.AcceptAsync();
-                        using var networkStream = new NetworkStream(acceptedSocket, ownsSocket: false);
-                        await connectionHandler.HandleAsync(networkStream, cancellationToken);
+                        UnityIpcConnectionHandleResult result;
+                        using (var acceptedSocket = await listener.AcceptAsync())
+                        using (var networkStream = new NetworkStream(acceptedSocket, ownsSocket: false))
+                        {
+                            result = await connectionHandler.HandleAsync(networkStream, cancellationToken);
+                        }
+
+                        onConnectionCompleted(result);
                     }
                     catch (OperationCanceledException)
                     {
@@ -125,5 +136,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
             }
         }
+
     }
 }

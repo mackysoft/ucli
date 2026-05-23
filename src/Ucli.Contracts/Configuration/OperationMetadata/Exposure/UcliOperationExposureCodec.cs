@@ -9,7 +9,6 @@ public static class UcliOperationExposureCodec
     {
         (UcliOperationExposure.Public, UcliOperationExposureValues.Public),
         (UcliOperationExposure.EditLoweringOnly, UcliOperationExposureValues.EditLoweringOnly),
-        (UcliOperationExposure.Internal, UcliOperationExposureValues.Internal),
     };
 
     /// <summary> Converts one operation-exposure enum value to contract literal. </summary>

@@ -349,7 +349,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
 
         var message = operation.Exposure == UcliOperationExposure.EditLoweringOnly
             ? $"Operation '{operation.Name}' is available only through edit lowering."
-            : $"Operation '{operation.Name}' is internal and is not available through public requests.";
+            : $"Operation '{operation.Name}' has unsupported exposure '{operation.Exposure}'.";
         if (isImplicitEditOperation)
         {
             message = $"Edit step '{stepId ?? string.Empty}' requires operation '{operation.Name}'. {message}";

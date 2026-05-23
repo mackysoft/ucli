@@ -181,11 +181,11 @@ public sealed class IndexCatalogContractValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryValidateOpsEntries_ReturnsFalse_WhenInternalEntryIsIncluded ()
+    public void TryValidateOpsEntries_ReturnsFalse_WhenUnknownExposureEntryIsIncluded ()
     {
         var entry = CreateEditLoweringOnlyOpsEntry() with
         {
-            Exposure = UcliOperationExposureValues.Internal,
+            Exposure = "diagnosticOnly",
         };
 
         var result = IndexCatalogContractValidator.TryValidateOpsEntries(
