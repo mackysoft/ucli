@@ -265,18 +265,27 @@ public sealed class CliOutputSchemaArtifactTests
               "after": {{CreatePlayingPlayLifecycleSnapshotJson()}}
             }
             """));
-        using var exitDocument = JsonDocument.Parse(
+        using var exitDocument = JsonDocument.Parse(CreatePlayExitPayloadJson(
             $$"""
             {
-              "transition": {
-                "transition": "exit",
-                "result": "exited",
-                "before": {{CreatePlayLifecycleSnapshotJson()}},
-                "applicationState": "applied"
-              },
-              "timeoutMilliseconds": 1000
+              "transition": "exit",
+              "result": "exited",
+              "before": {{CreatePlayingPlayLifecycleSnapshotJson()}},
+              "after": {{CreateReadyStoppedPlayLifecycleSnapshotJson()}}
             }
-            """);
+            """));
+        using var alreadyExitedDocument = JsonDocument.Parse(CreatePlayExitPayloadJson(
+            $$"""
+            {
+              "transition": "exit",
+              "result": "alreadyExited",
+              "before": {{CreateCompilingStoppedPlayLifecycleSnapshotJson()}},
+              "after": {{CreateCompilingStoppedPlayLifecycleSnapshotJson()}}
+            }
+            """,
+            lifecycleState: "compiling",
+            blockingReasonJson: "\"compile\"",
+            canAcceptExecutionRequests: false));
         using var waitDocument = JsonDocument.Parse(
             $$"""
             {
@@ -294,6 +303,7 @@ public sealed class CliOutputSchemaArtifactTests
         Assert.Empty(schemaSet.Validate("cli-output/payload/play.status.schema.json", statusDocument.RootElement));
         Assert.Empty(schemaSet.Validate("cli-output/payload/play.enter.schema.json", enterDocument.RootElement));
         Assert.Empty(schemaSet.Validate("cli-output/payload/play.exit.schema.json", exitDocument.RootElement));
+        Assert.Empty(schemaSet.Validate("cli-output/payload/play.exit.schema.json", alreadyExitedDocument.RootElement));
         Assert.Empty(schemaSet.Validate("cli-output/payload/play.wait.schema.json", waitDocument.RootElement));
     }
 
@@ -1096,6 +1106,20 @@ public sealed class CliOutputSchemaArtifactTests
             generation: "43");
     }
 
+    private static string CreateReadyStoppedPlayLifecycleSnapshotJson ()
+    {
+        return CreatePlayLifecycleSnapshotJson(generation: "44");
+    }
+
+    private static string CreateCompilingStoppedPlayLifecycleSnapshotJson ()
+    {
+        return CreatePlayLifecycleSnapshotJson(
+            lifecycleState: "compiling",
+            blockingReasonJson: "\"compile\"",
+            canAcceptExecutionRequests: false,
+            generation: "44");
+    }
+
     private static string CreatePlayEnterPayloadJson (
         string transitionJson,
         string lifecycleState = "playmode",
@@ -1131,6 +1155,44 @@ public sealed class CliOutputSchemaArtifactTests
                 "isPlaying": {{JsonSerializer.Serialize(isPlaying)}},
                 "isPlayingOrWillChangePlaymode": {{JsonSerializer.Serialize(isPlayingOrWillChangePlaymode)}},
                 "generation": "43"
+              },
+              "transition": {{transitionJson}},
+              "timeoutMilliseconds": 1000
+            }
+            """;
+    }
+
+    private static string CreatePlayExitPayloadJson (
+        string transitionJson,
+        string lifecycleState = "ready",
+        string blockingReasonJson = "null",
+        bool canAcceptExecutionRequests = true)
+    {
+        return $$"""
+            {
+              "project": {
+                "projectPath": "/repo/UnityProject",
+                "projectFingerprint": "project-fingerprint",
+                "unityVersion": "6000.1.4f1"
+              },
+              "daemonStatus": "running",
+              "serverVersion": "0.5.0",
+              "editorMode": "gui",
+              "lifecycleState": "{{lifecycleState}}",
+              "blockingReason": {{blockingReasonJson}},
+              "compileState": "idle",
+              "compileGeneration": "12",
+              "domainReloadGeneration": "7",
+              "canAcceptExecutionRequests": {{JsonSerializer.Serialize(canAcceptExecutionRequests)}},
+              "observedAtUtc": "2026-05-21T00:00:00+00:00",
+              "actionRequired": null,
+              "primaryDiagnostic": null,
+              "playMode": {
+                "state": "stopped",
+                "transition": "none",
+                "isPlaying": false,
+                "isPlayingOrWillChangePlaymode": false,
+                "generation": "44"
               },
               "transition": {{transitionJson}},
               "timeoutMilliseconds": 1000
