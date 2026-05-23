@@ -185,7 +185,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
         if (!lifecycleReadResult.IsSuccess
             || !lifecycleReadResult.Exists
             || !lifecycleReadResult.Observation!.IsRecovering
-            || !DaemonLifecycleObservationMatcher.MatchesSession(lifecycleReadResult.Observation, session)
+            || !DaemonLifecycleObservationMatcher.MatchesSessionByEditorInstance(lifecycleReadResult.Observation, session)
             || !IsMatchingLiveProcess(session))
         {
             return null;

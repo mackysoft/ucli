@@ -101,6 +101,37 @@ public sealed class DaemonLifecycleObservationMatcherTests
         Assert.False(result);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void MatchesSessionByEditorInstance_WhenIdsMatchAndProcessStartDiffers_ReturnsTrue ()
+    {
+        var session = CreateSession(processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10)) with
+        {
+            EditorInstanceId = "editor-instance-1",
+        };
+        var observation = CreateObservation(processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(20)) with
+        {
+            EditorInstanceId = "editor-instance-1",
+        };
+
+        var result = DaemonLifecycleObservationMatcher.MatchesSessionByEditorInstance(observation, session);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void MatchesSessionByEditorInstance_WhenBothEditorInstanceIdsAreMissing_ReturnsFalseWithoutProcessStartFallback ()
+    {
+        var startedAtUtc = DateTimeOffset.UnixEpoch.AddSeconds(10);
+        var session = CreateSession(processStartedAtUtc: startedAtUtc);
+        var observation = CreateObservation(processStartedAtUtc: startedAtUtc);
+
+        var result = DaemonLifecycleObservationMatcher.MatchesSessionByEditorInstance(observation, session);
+
+        Assert.False(result);
+    }
+
     private static DaemonSession CreateSession (DateTimeOffset processStartedAtUtc)
     {
         return new DaemonSession(

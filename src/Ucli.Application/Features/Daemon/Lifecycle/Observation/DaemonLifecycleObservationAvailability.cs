@@ -20,20 +20,9 @@ internal static class DaemonLifecycleObservationAvailability
         // NOTE:
         // The lifecycle sidecar is written by Unity main-thread callbacks. The sidecar path intentionally requires
         // editorInstanceId so file ownership is deterministic; process start time is only a live-process guard here.
-        return MatchesEditorInstance(observation, session)
+        return DaemonLifecycleObservationMatcher.MatchesSessionByEditorInstance(observation, session)
             && IsFresh(observation, timeProvider)
             && IsMatchingLiveProcess(session, processIdentityAssessor);
-    }
-
-    private static bool MatchesEditorInstance (
-        DaemonLifecycleObservation observation,
-        DaemonSession session)
-    {
-        return session.ProcessId == observation.ProcessId
-            && string.Equals(session.EditorMode, observation.EditorMode, StringComparison.Ordinal)
-            && !string.IsNullOrWhiteSpace(session.EditorInstanceId)
-            && !string.IsNullOrWhiteSpace(observation.EditorInstanceId)
-            && string.Equals(session.EditorInstanceId, observation.EditorInstanceId, StringComparison.Ordinal);
     }
 
     private static bool IsFresh (

@@ -96,6 +96,28 @@ public sealed class UnityDaemonRecoveryWaiterTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task DelayIfRecoveringAsync_WhenEditorInstanceIdsAreMissing_ReturnsFalseWithoutDelay ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var session = CreateSession() with
+        {
+            EditorInstanceId = null,
+        };
+        var observation = CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading);
+        var waiter = CreateWaiter(
+            session,
+            observation,
+            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
+            timeProvider);
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
+
+        var result = await waiter.DelayIfRecoveringAsync(CreateContext(), deadline, CancellationToken.None);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task DelayIfRecoveringAsync_WhenProcessIdentityDiffers_ReturnsFalseWithoutDelay ()
     {
         var timeProvider = new ManualTimeProvider();
