@@ -1073,20 +1073,31 @@ internal static class Program
 
     private static Dictionary<string, object?> CreatePlayExitPayloadSchema ()
     {
+        return OneOfSchema(
+            CreatePlayExitPayloadVariantSchema(
+                PlayLifecyclePayloadState.ReadyStopped,
+                CreatePlayExitExitedTransitionResultSchema()),
+            CreatePlayExitPayloadVariantSchema(
+                PlayLifecyclePayloadState.Stopped,
+                CreatePlayExitAlreadyExitedTransitionResultSchema()),
+            CreatePlayExitPayloadVariantSchema(
+                PlayLifecyclePayloadState.Any,
+                CreatePlayExitTimeoutTransitionResultSchema()),
+            CreatePlayExitPayloadVariantSchema(
+                PlayLifecyclePayloadState.Any,
+                CreatePlayExitBlockedTransitionResultSchema()));
+    }
+
+    private static Dictionary<string, object?> CreatePlayExitPayloadVariantSchema (
+        PlayLifecyclePayloadState payloadState,
+        Dictionary<string, object?> transitionSchema)
+    {
         return ObjectSchema(
             additionalProperties: false,
-            Optional(
-                "transition",
-                CreatePlayTransitionResultSchema(
-                    IpcPlayTransitionCommandNames.Exit,
-                    [
-                        IpcPlayTransitionResultNames.Exited,
-                        IpcPlayTransitionResultNames.AlreadyExited,
-                        IpcPlayTransitionResultNames.Timeout,
-                        IpcPlayTransitionResultNames.Blocked,
-                    ],
-                    includeUntil: false)),
-            Optional("timeoutMilliseconds", IntegerSchema()));
+            CreatePlayLifecyclePayloadProperties(
+                payloadState,
+                Required("transition", transitionSchema),
+                Required("timeoutMilliseconds", IntegerSchema())));
     }
 
     private static Dictionary<string, object?> CreatePlayWaitPayloadSchema ()
@@ -1108,11 +1119,20 @@ internal static class Program
 
     private static SchemaProperty[] CreatePlayLifecyclePayloadProperties (params SchemaProperty[] extraProperties)
     {
-        return CreatePlayLifecyclePayloadProperties(constrainEnteredState: false, extraProperties);
+        return CreatePlayLifecyclePayloadProperties(PlayLifecyclePayloadState.Any, extraProperties);
     }
 
     private static SchemaProperty[] CreatePlayLifecyclePayloadProperties (
         bool constrainEnteredState,
+        params SchemaProperty[] extraProperties)
+    {
+        return CreatePlayLifecyclePayloadProperties(
+            constrainEnteredState ? PlayLifecyclePayloadState.Entered : PlayLifecyclePayloadState.Any,
+            extraProperties);
+    }
+
+    private static SchemaProperty[] CreatePlayLifecyclePayloadProperties (
+        PlayLifecyclePayloadState payloadState,
         params SchemaProperty[] extraProperties)
     {
         var properties = new List<SchemaProperty>
@@ -1121,16 +1141,16 @@ internal static class Program
             Required("daemonStatus", ConstString("running")),
             Required("serverVersion", NullableStringSchema()),
             Required("editorMode", ConstString(DaemonEditorModeValues.Gui)),
-            Required("lifecycleState", constrainEnteredState ? ConstString(IpcEditorLifecycleStateCodec.Playmode) : NullableStringSchema()),
-            Required("blockingReason", constrainEnteredState ? ConstString(IpcEditorBlockingReasonCodec.PlayMode) : NullableStringSchema()),
+            Required("lifecycleState", CreateLifecycleStateSchema(payloadState)),
+            Required("blockingReason", CreateBlockingReasonSchema(payloadState)),
             Required("compileState", NullableStringSchema()),
             Required("compileGeneration", NullableStringSchema()),
             Required("domainReloadGeneration", NullableStringSchema()),
-            Required("canAcceptExecutionRequests", constrainEnteredState ? ConstBoolean(false) : BooleanSchema()),
+            Required("canAcceptExecutionRequests", CreateCanAcceptExecutionRequestsSchema(payloadState)),
             Required("observedAtUtc", NullableStringSchema()),
             Required("actionRequired", NullableStringSchema()),
             Required("primaryDiagnostic", CreatePrimaryDiagnosticSchema()),
-            Required("playMode", constrainEnteredState ? CreateEnteredPlayModeSnapshotSchema() : CreatePlayModeSnapshotSchema()),
+            Required("playMode", CreatePlayModeSnapshotSchema(payloadState)),
         };
 
         properties.AddRange(extraProperties);
@@ -1194,6 +1214,54 @@ internal static class Program
                     IpcPlayApplicationStateNames.Unknown)));
     }
 
+    private static Dictionary<string, object?> CreatePlayExitExitedTransitionResultSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("transition", ConstString(IpcPlayTransitionCommandNames.Exit)),
+            Required("result", ConstString(IpcPlayTransitionResultNames.Exited)),
+            Required("before", CreateEnteredPlayLifecycleSnapshotSchema()),
+            Required("after", CreateReadyStoppedPlayLifecycleSnapshotSchema()));
+    }
+
+    private static Dictionary<string, object?> CreatePlayExitAlreadyExitedTransitionResultSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("transition", ConstString(IpcPlayTransitionCommandNames.Exit)),
+            Required("result", ConstString(IpcPlayTransitionResultNames.AlreadyExited)),
+            Required("before", CreateStoppedPlayLifecycleSnapshotSchema()),
+            Required("after", CreateStoppedPlayLifecycleSnapshotSchema()));
+    }
+
+    private static Dictionary<string, object?> CreatePlayExitTimeoutTransitionResultSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("transition", ConstString(IpcPlayTransitionCommandNames.Exit)),
+            Required("result", ConstString(IpcPlayTransitionResultNames.Timeout)),
+            Required("before", CreatePlayLifecycleSnapshotSchema()),
+            Required("observed", CreatePlayLifecycleSnapshotSchema()),
+            Required("applicationState", ConstString(IpcPlayApplicationStateNames.Indeterminate)));
+    }
+
+    private static Dictionary<string, object?> CreatePlayExitBlockedTransitionResultSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("transition", ConstString(IpcPlayTransitionCommandNames.Exit)),
+            Required("result", ConstString(IpcPlayTransitionResultNames.Blocked)),
+            Required("before", CreatePlayLifecycleSnapshotSchema()),
+            Required("observed", CreatePlayLifecycleSnapshotSchema()),
+            Required(
+                "applicationState",
+                EnumSchema(
+                    IpcPlayApplicationStateNames.NotApplied,
+                    IpcPlayApplicationStateNames.Applied,
+                    IpcPlayApplicationStateNames.Indeterminate,
+                    IpcPlayApplicationStateNames.Unknown)));
+    }
+
     private static Dictionary<string, object?> CreatePlayTransitionResultSchema (
         string transitionCommand,
         string[] results,
@@ -1236,15 +1304,25 @@ internal static class Program
 
     private static Dictionary<string, object?> CreatePlayLifecycleSnapshotSchema ()
     {
-        return CreatePlayLifecycleSnapshotSchema(constrainEnteredState: false);
+        return CreatePlayLifecycleSnapshotSchema(PlayLifecyclePayloadState.Any);
     }
 
     private static Dictionary<string, object?> CreateEnteredPlayLifecycleSnapshotSchema ()
     {
-        return CreatePlayLifecycleSnapshotSchema(constrainEnteredState: true);
+        return CreatePlayLifecycleSnapshotSchema(PlayLifecyclePayloadState.Entered);
     }
 
-    private static Dictionary<string, object?> CreatePlayLifecycleSnapshotSchema (bool constrainEnteredState)
+    private static Dictionary<string, object?> CreateReadyStoppedPlayLifecycleSnapshotSchema ()
+    {
+        return CreatePlayLifecycleSnapshotSchema(PlayLifecyclePayloadState.ReadyStopped);
+    }
+
+    private static Dictionary<string, object?> CreateStoppedPlayLifecycleSnapshotSchema ()
+    {
+        return CreatePlayLifecycleSnapshotSchema(PlayLifecyclePayloadState.Stopped);
+    }
+
+    private static Dictionary<string, object?> CreatePlayLifecycleSnapshotSchema (PlayLifecyclePayloadState payloadState)
     {
         return ObjectSchema(
             additionalProperties: false,
@@ -1252,16 +1330,16 @@ internal static class Program
             Required("editorMode", NullableStringSchema()),
             Required("unityVersion", NullableStringSchema()),
             Required("projectFingerprint", NullableStringSchema()),
-            Required("lifecycleState", constrainEnteredState ? ConstString(IpcEditorLifecycleStateCodec.Playmode) : NullableStringSchema()),
-            Required("blockingReason", constrainEnteredState ? ConstString(IpcEditorBlockingReasonCodec.PlayMode) : NullableStringSchema()),
+            Required("lifecycleState", CreateLifecycleStateSchema(payloadState)),
+            Required("blockingReason", CreateBlockingReasonSchema(payloadState)),
             Required("compileState", NullableStringSchema()),
             Required("compileGeneration", NullableStringSchema()),
             Required("domainReloadGeneration", NullableStringSchema()),
-            Required("canAcceptExecutionRequests", constrainEnteredState ? ConstBoolean(false) : BooleanSchema()),
+            Required("canAcceptExecutionRequests", CreateCanAcceptExecutionRequestsSchema(payloadState)),
             Required("observedAtUtc", NullableStringSchema()),
             Required("actionRequired", NullableStringSchema()),
             Required("primaryDiagnostic", CreatePrimaryDiagnosticSchema()),
-            Required("playMode", constrainEnteredState ? CreateEnteredPlayModeSnapshotSchema() : NullablePlayModeSnapshotSchema()));
+            Required("playMode", payloadState == PlayLifecyclePayloadState.Any ? NullablePlayModeSnapshotSchema() : CreatePlayModeSnapshotSchema(payloadState)));
     }
 
     private static Dictionary<string, object?> NullablePlayModeSnapshotSchema ()
@@ -1278,39 +1356,96 @@ internal static class Program
 
     private static Dictionary<string, object?> CreatePlayModeSnapshotSchema ()
     {
-        return CreatePlayModeSnapshotSchema(constrainEnteredState: false);
+        return CreatePlayModeSnapshotSchema(PlayLifecyclePayloadState.Any);
     }
 
     private static Dictionary<string, object?> CreateEnteredPlayModeSnapshotSchema ()
     {
-        return CreatePlayModeSnapshotSchema(constrainEnteredState: true);
+        return CreatePlayModeSnapshotSchema(PlayLifecyclePayloadState.Entered);
     }
 
-    private static Dictionary<string, object?> CreatePlayModeSnapshotSchema (bool constrainEnteredState)
+    private static Dictionary<string, object?> CreatePlayModeSnapshotSchema (PlayLifecyclePayloadState payloadState)
     {
         return ObjectSchema(
             additionalProperties: false,
             Required(
                 "state",
-                constrainEnteredState
-                    ? ConstString(IpcPlayModeStateNames.Playing)
-                    : EnumSchema(
-                        IpcPlayModeStateNames.Stopped,
-                        IpcPlayModeStateNames.Entering,
-                        IpcPlayModeStateNames.Playing,
-                        IpcPlayModeStateNames.Exiting,
-                        IpcPlayModeStateNames.Unknown)),
+                CreatePlayModeStateSchema(payloadState)),
             Required(
                 "transition",
-                constrainEnteredState
-                    ? ConstString(IpcPlayModeTransitionNames.None)
-                    : EnumSchema(
+                payloadState == PlayLifecyclePayloadState.Any
+                    ? EnumSchema(
                         IpcPlayModeTransitionNames.None,
                         IpcPlayModeTransitionNames.Entering,
-                        IpcPlayModeTransitionNames.Exiting)),
-            Required("isPlaying", constrainEnteredState ? ConstBoolean(true) : BooleanSchema()),
-            Required("isPlayingOrWillChangePlaymode", BooleanSchema()),
+                        IpcPlayModeTransitionNames.Exiting)
+                    : ConstString(IpcPlayModeTransitionNames.None)),
+            Required("isPlaying", CreateIsPlayingSchema(payloadState)),
+            Required("isPlayingOrWillChangePlaymode", CreateIsPlayingOrWillChangePlaymodeSchema(payloadState)),
             Required("generation", NullableStringSchema()));
+    }
+
+    private static Dictionary<string, object?> CreateLifecycleStateSchema (PlayLifecyclePayloadState payloadState)
+    {
+        return payloadState switch
+        {
+            PlayLifecyclePayloadState.Entered => ConstString(IpcEditorLifecycleStateCodec.Playmode),
+            PlayLifecyclePayloadState.ReadyStopped => ConstString(IpcEditorLifecycleStateCodec.Ready),
+            _ => NullableStringSchema(),
+        };
+    }
+
+    private static Dictionary<string, object?> CreateBlockingReasonSchema (PlayLifecyclePayloadState payloadState)
+    {
+        return payloadState switch
+        {
+            PlayLifecyclePayloadState.Entered => ConstString(IpcEditorBlockingReasonCodec.PlayMode),
+            PlayLifecyclePayloadState.ReadyStopped => NullSchema(),
+            _ => NullableStringSchema(),
+        };
+    }
+
+    private static Dictionary<string, object?> CreateCanAcceptExecutionRequestsSchema (PlayLifecyclePayloadState payloadState)
+    {
+        return payloadState switch
+        {
+            PlayLifecyclePayloadState.Entered => ConstBoolean(false),
+            PlayLifecyclePayloadState.ReadyStopped => ConstBoolean(true),
+            _ => BooleanSchema(),
+        };
+    }
+
+    private static Dictionary<string, object?> CreatePlayModeStateSchema (PlayLifecyclePayloadState payloadState)
+    {
+        return payloadState switch
+        {
+            PlayLifecyclePayloadState.Entered => ConstString(IpcPlayModeStateNames.Playing),
+            PlayLifecyclePayloadState.Stopped => ConstString(IpcPlayModeStateNames.Stopped),
+            PlayLifecyclePayloadState.ReadyStopped => ConstString(IpcPlayModeStateNames.Stopped),
+            _ => EnumSchema(
+                IpcPlayModeStateNames.Stopped,
+                IpcPlayModeStateNames.Entering,
+                IpcPlayModeStateNames.Playing,
+                IpcPlayModeStateNames.Exiting,
+                IpcPlayModeStateNames.Unknown),
+        };
+    }
+
+    private static Dictionary<string, object?> CreateIsPlayingSchema (PlayLifecyclePayloadState payloadState)
+    {
+        return payloadState switch
+        {
+            PlayLifecyclePayloadState.Entered => ConstBoolean(true),
+            PlayLifecyclePayloadState.Stopped => ConstBoolean(false),
+            PlayLifecyclePayloadState.ReadyStopped => ConstBoolean(false),
+            _ => BooleanSchema(),
+        };
+    }
+
+    private static Dictionary<string, object?> CreateIsPlayingOrWillChangePlaymodeSchema (PlayLifecyclePayloadState payloadState)
+    {
+        return payloadState is PlayLifecyclePayloadState.Stopped or PlayLifecyclePayloadState.ReadyStopped
+            ? ConstBoolean(false)
+            : BooleanSchema();
     }
 
     private static Dictionary<string, object?> CreateDaemonStartPayloadSchema ()
@@ -1730,4 +1865,12 @@ internal static class Program
         string Name,
         Dictionary<string, object?> Schema,
         bool Required);
+
+    private enum PlayLifecyclePayloadState
+    {
+        Any,
+        Entered,
+        Stopped,
+        ReadyStopped,
+    }
 }

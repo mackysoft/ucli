@@ -1,0 +1,622 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Daemon;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Unity.Runtime;
+using UnityEditor;
+
+namespace MackySoft.Ucli.Unity.Ipc
+{
+    /// <summary> Executes and observes a Unity Editor Play Mode exit transition. </summary>
+    internal sealed class PlayExitTransitionRunner
+    {
+        private const int RejectedPlayingObservationThreshold = 2;
+        private const int StoppedWithoutGenerationChangeObservationThreshold = 2;
+
+        private readonly IServerVersionProvider serverVersionProvider;
+        private readonly IUnityEditorReadinessGate readinessGate;
+        private readonly IpcProjectIdentity projectIdentity;
+        private readonly Func<CancellationToken, Task> editorUpdateAwaiter;
+        private readonly Action exitPlayModeRequester;
+        private readonly IDaemonLogger daemonLogger;
+
+        /// <summary> Initializes a new instance of the <see cref="PlayExitTransitionRunner" /> class. </summary>
+        /// <param name="serverVersionProvider"> The server-version provider dependency. </param>
+        /// <param name="readinessGate"> The lifecycle snapshot provider dependency. </param>
+        /// <param name="projectIdentity"> The project identity served by this IPC host. </param>
+        /// <param name="daemonLogger"> The daemon logger dependency. </param>
+        public PlayExitTransitionRunner (
+            IServerVersionProvider serverVersionProvider,
+            IUnityEditorReadinessGate readinessGate,
+            IpcProjectIdentity projectIdentity,
+            IDaemonLogger daemonLogger = null)
+            : this(
+                serverVersionProvider,
+                readinessGate,
+                projectIdentity,
+                UnityEditorUpdateAwaiter.WaitForNextUpdateAsync,
+                static () => EditorApplication.ExitPlaymode(),
+                daemonLogger)
+        {
+        }
+
+        /// <summary> Initializes a new instance of the <see cref="PlayExitTransitionRunner" /> class. </summary>
+        /// <param name="serverVersionProvider"> The server-version provider dependency. </param>
+        /// <param name="readinessGate"> The lifecycle snapshot provider dependency. </param>
+        /// <param name="projectIdentity"> The project identity served by this IPC host. </param>
+        /// <param name="editorUpdateAwaiter"> The editor update awaiter dependency. </param>
+        /// <param name="exitPlayModeRequester"> The Unity Play Mode exit requester dependency. </param>
+        /// <param name="daemonLogger"> The daemon logger dependency. </param>
+        internal PlayExitTransitionRunner (
+            IServerVersionProvider serverVersionProvider,
+            IUnityEditorReadinessGate readinessGate,
+            IpcProjectIdentity projectIdentity,
+            Func<CancellationToken, Task> editorUpdateAwaiter,
+            Action exitPlayModeRequester,
+            IDaemonLogger daemonLogger = null)
+        {
+            this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
+            this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
+            this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
+            this.editorUpdateAwaiter = editorUpdateAwaiter ?? throw new ArgumentNullException(nameof(editorUpdateAwaiter));
+            this.exitPlayModeRequester = exitPlayModeRequester ?? throw new ArgumentNullException(nameof(exitPlayModeRequester));
+            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
+        }
+
+        /// <summary> Executes Play Mode exit and waits until Unity reports a ready edit-mode snapshot. </summary>
+        /// <param name="timeoutMilliseconds"> The transition timeout in milliseconds. </param>
+        /// <param name="recoverableContext"> The persisted operation context used to resume after domain reload. </param>
+        /// <param name="cancellationToken"> The cancellation token propagated by the IPC request. </param>
+        /// <returns> The structured transition result. </returns>
+        public async Task<PlayExitTransitionExecutionResult> ExitAsync (
+            int timeoutMilliseconds,
+            RecoverableIpcOperationContext recoverableContext,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var before = CaptureSnapshot();
+
+            if (recoverableContext != null && recoverableContext.HasOperationRecord)
+            {
+                if (!TryReadPendingExit(recoverableContext, out var pendingBefore, out var pendingReadErrorMessage))
+                {
+                    return CreateFailure(
+                        PlayModeErrorCodes.PlayModeStateUnknown,
+                        $"Recoverable Play Mode exit state is invalid. {pendingReadErrorMessage}",
+                        before,
+                        before,
+                        IpcPlayApplicationStateNames.Unknown);
+                }
+
+                return await ResumePendingExitAsync(
+                    pendingBefore,
+                    before,
+                    recoverableContext,
+                    timeoutMilliseconds,
+                    cancellationToken);
+            }
+
+            var preconditionFailure = ValidatePreconditions(before);
+            if (preconditionFailure != null)
+            {
+                return preconditionFailure;
+            }
+
+            if (IsStoppedPlayModeSnapshot(before))
+            {
+                return CreateSuccess(IpcPlayTransitionResultNames.AlreadyExited, before, before);
+            }
+
+            // NOTE: This must be persisted before EditorApplication.ExitPlaymode is called.
+            // Leaving Play Mode can trigger domain reload before this daemon can respond.
+            var persistFailure = TryPersistPendingExit(recoverableContext, before);
+            if (persistFailure != null)
+            {
+                return persistFailure;
+            }
+
+            try
+            {
+                exitPlayModeRequester();
+            }
+            catch (Exception exception)
+            {
+                return CreateFailure(
+                    PlayModeErrorCodes.PlayModeExitRejected,
+                    $"Unity rejected Play Mode exit. {exception.Message}",
+                    before,
+                    before,
+                    IpcPlayApplicationStateNames.NotApplied);
+            }
+
+            return await ObserveRequestedExitAsync(
+                before,
+                before,
+                TimeSpan.FromMilliseconds(timeoutMilliseconds),
+                timeoutMilliseconds,
+                classifyInitialObservation: false,
+                cancellationToken);
+        }
+
+        private async Task<PlayExitTransitionExecutionResult> ResumePendingExitAsync (
+            IpcPlayLifecycleSnapshot pendingBefore,
+            IpcPlayLifecycleSnapshot current,
+            RecoverableIpcOperationContext recoverableContext,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
+        {
+            if (IsRecoverablePendingExit(pendingBefore, current))
+            {
+                return CreateSuccess(IpcPlayTransitionResultNames.Exited, pendingBefore, current);
+            }
+
+            var remainingTimeout = ResolveRemainingPendingTimeout(
+                recoverableContext,
+                timeoutMilliseconds);
+            if (remainingTimeout <= TimeSpan.Zero)
+            {
+                return CreateTimeout(pendingBefore, current, timeoutMilliseconds);
+            }
+
+            return await ObserveRequestedExitAsync(
+                pendingBefore,
+                current,
+                remainingTimeout,
+                timeoutMilliseconds,
+                classifyInitialObservation: true,
+                cancellationToken);
+        }
+
+        private async Task<PlayExitTransitionExecutionResult> ObserveRequestedExitAsync (
+            IpcPlayLifecycleSnapshot before,
+            IpcPlayLifecycleSnapshot initialObserved,
+            TimeSpan remainingTimeout,
+            int timeoutMilliseconds,
+            bool classifyInitialObservation,
+            CancellationToken cancellationToken)
+        {
+            var observed = initialObserved;
+            var playingObservations = 0;
+            var stoppedWithoutGenerationChangeObservations = 0;
+            using var timeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCancellationTokenSource.CancelAfter(remainingTimeout);
+            try
+            {
+                if (classifyInitialObservation)
+                {
+                    var initialFailure = ClassifyObservedFailure(before, observed, ref playingObservations, ref stoppedWithoutGenerationChangeObservations);
+                    if (initialFailure != null)
+                    {
+                        return initialFailure;
+                    }
+                }
+
+                while (true)
+                {
+                    timeoutCancellationTokenSource.Token.ThrowIfCancellationRequested();
+                    await editorUpdateAwaiter(timeoutCancellationTokenSource.Token);
+                    observed = CaptureSnapshot();
+
+                    if (IsReadyStoppedSnapshot(observed) && HasGenerationChanged(before, observed))
+                    {
+                        return CreateSuccess(IpcPlayTransitionResultNames.Exited, before, observed);
+                    }
+
+                    var observedFailure = ClassifyObservedFailure(before, observed, ref playingObservations, ref stoppedWithoutGenerationChangeObservations);
+                    if (observedFailure != null)
+                    {
+                        return observedFailure;
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return CreateTimeout(before, observed, timeoutMilliseconds);
+            }
+        }
+
+        private bool TryReadPendingExit (
+            RecoverableIpcOperationContext recoverableContext,
+            out IpcPlayLifecycleSnapshot before,
+            out string errorMessage)
+        {
+            before = null;
+            if (recoverableContext == null)
+            {
+                errorMessage = null;
+                return false;
+            }
+
+            if (!recoverableContext.TryReadPendingPayload<PlayExitRecoveryPayload>(out var recoveryPayload, out var pendingPayloadErrorMessage))
+            {
+                errorMessage = string.IsNullOrWhiteSpace(pendingPayloadErrorMessage)
+                    ? "Pending Play Mode exit payload is missing."
+                    : pendingPayloadErrorMessage;
+                if (!string.IsNullOrWhiteSpace(pendingPayloadErrorMessage))
+                {
+                    daemonLogger.Warning(
+                        DaemonLogCategories.Lifecycle,
+                        $"Play Mode exit pending transition read failed. {pendingPayloadErrorMessage}");
+                }
+
+                return false;
+            }
+
+            before = recoveryPayload.Before;
+            if (before == null)
+            {
+                errorMessage = "Pending Play Mode exit before snapshot is missing.";
+                return false;
+            }
+
+            errorMessage = null;
+            return true;
+        }
+
+        private PlayExitTransitionExecutionResult TryPersistPendingExit (
+            RecoverableIpcOperationContext recoverableContext,
+            IpcPlayLifecycleSnapshot before)
+        {
+            if (recoverableContext == null)
+            {
+                return null;
+            }
+
+            return recoverableContext.TryMarkPending(new PlayExitRecoveryPayload(before), out var errorMessage)
+                ? null
+                : CreateFailure(
+                    PlayModeErrorCodes.PlayModeExitRejected,
+                    $"Unity Play Mode exit could not persist transition recovery state. {errorMessage}",
+                    before,
+                    before,
+                    IpcPlayApplicationStateNames.NotApplied);
+        }
+
+        private static TimeSpan ResolveRemainingPendingTimeout (
+            RecoverableIpcOperationContext recoverableContext,
+            int timeoutMilliseconds)
+        {
+            var totalTimeout = TimeSpan.FromMilliseconds(timeoutMilliseconds);
+            if (recoverableContext?.StartedAtUtc == null)
+            {
+                return totalTimeout;
+            }
+
+            var elapsed = DateTimeOffset.UtcNow - recoverableContext.StartedAtUtc.Value;
+            return elapsed >= totalTimeout
+                ? TimeSpan.Zero
+                : totalTimeout - elapsed;
+        }
+
+        private PlayExitTransitionExecutionResult ValidatePreconditions (IpcPlayLifecycleSnapshot before)
+        {
+            if (!string.Equals(before.EditorMode, DaemonEditorModeValues.Gui, StringComparison.Ordinal))
+            {
+                return CreateFailure(
+                    PlayModeErrorCodes.PlayModeRequiresGuiEditor,
+                    "Play Mode exit requires a GUI Editor session.",
+                    before,
+                    before,
+                    IpcPlayApplicationStateNames.NotApplied);
+            }
+
+            if (before.PlayMode == null || IsUnknownPlayMode(before))
+            {
+                return CreateFailure(
+                    PlayModeErrorCodes.PlayModeStateUnknown,
+                    "Unity Play Mode state is unknown before exiting Play Mode.",
+                    before,
+                    before,
+                    IpcPlayApplicationStateNames.Unknown);
+            }
+
+            if (IsPlayModeChanging(before))
+            {
+                return CreateFailure(
+                    PlayModeErrorCodes.PlayModeAlreadyChanging,
+                    "Unity Play Mode is already changing.",
+                    before,
+                    before,
+                    IpcPlayApplicationStateNames.NotApplied);
+            }
+
+            if (IsStoppedPlayModeSnapshot(before))
+            {
+                return null;
+            }
+
+            if (!IsEnteredSnapshot(before))
+            {
+                return CreateFailure(
+                    PlayModeErrorCodes.PlayModeTransitionBlocked,
+                    $"Unity Play Mode exit is blocked by lifecycleState={before.LifecycleState ?? "null"}.",
+                    before,
+                    before,
+                    IpcPlayApplicationStateNames.NotApplied);
+            }
+
+            return null;
+        }
+
+        private PlayExitTransitionExecutionResult ClassifyObservedFailure (
+            IpcPlayLifecycleSnapshot before,
+            IpcPlayLifecycleSnapshot observed,
+            ref int playingObservations,
+            ref int stoppedWithoutGenerationChangeObservations)
+        {
+            if (observed.PlayMode == null || IsUnknownPlayMode(observed))
+            {
+                return CreateFailure(
+                    PlayModeErrorCodes.PlayModeStateUnknown,
+                    "Unity Play Mode state became unknown while exiting Play Mode.",
+                    before,
+                    observed,
+                    IpcPlayApplicationStateNames.Unknown);
+            }
+
+            TryReadPlayModeSnapshot(
+                observed,
+                out _,
+                out var observedPlayModeState,
+                out var observedPlayModeTransition);
+
+            if (observedPlayModeState == IpcPlayModeState.Exiting
+                || observedPlayModeTransition == IpcPlayModeTransition.Exiting)
+            {
+                playingObservations = 0;
+                stoppedWithoutGenerationChangeObservations = 0;
+                return null;
+            }
+
+            if (observedPlayModeState == IpcPlayModeState.Entering
+                || observedPlayModeTransition == IpcPlayModeTransition.Entering)
+            {
+                return CreateFailure(
+                    PlayModeErrorCodes.PlayModeAlreadyChanging,
+                    "Unity Play Mode started entering while exit was requested.",
+                    before,
+                    observed,
+                    IpcPlayApplicationStateNames.Unknown);
+            }
+
+            if (IsStoppedPlayModeSnapshot(observed) && HasGenerationChanged(before, observed))
+            {
+                if (IsExitWaitLifecycle(observed))
+                {
+                    playingObservations = 0;
+                    stoppedWithoutGenerationChangeObservations = 0;
+                    return null;
+                }
+
+                return CreateFailure(
+                    PlayModeErrorCodes.PlayModeTransitionBlocked,
+                    $"Unity Play Mode exit completed but lifecycleState={observed.LifecycleState ?? "null"} blocked readiness.",
+                    before,
+                    observed,
+                    IpcPlayApplicationStateNames.Applied);
+            }
+
+            if (!IsExitWaitLifecycle(observed))
+            {
+                return CreateFailure(
+                    PlayModeErrorCodes.PlayModeTransitionBlocked,
+                    $"Unity Play Mode exit was blocked by lifecycleState={observed.LifecycleState ?? "null"}.",
+                    before,
+                    observed,
+                    IpcPlayApplicationStateNames.Unknown);
+            }
+
+            if (IsEnteredSnapshot(observed))
+            {
+                playingObservations++;
+                if (playingObservations >= RejectedPlayingObservationThreshold)
+                {
+                    return CreateFailure(
+                        PlayModeErrorCodes.PlayModeExitRejected,
+                        "Unity did not accept the Play Mode exit request.",
+                        before,
+                        observed,
+                        IpcPlayApplicationStateNames.NotApplied);
+                }
+            }
+            else
+            {
+                playingObservations = 0;
+            }
+
+            if (IsStoppedPlayModeSnapshot(observed) && !HasGenerationChanged(before, observed))
+            {
+                stoppedWithoutGenerationChangeObservations++;
+                if (stoppedWithoutGenerationChangeObservations >= StoppedWithoutGenerationChangeObservationThreshold)
+                {
+                    return CreateFailure(
+                        PlayModeErrorCodes.PlayModeStateUnknown,
+                        "Unity Play Mode stopped without advancing playMode.generation.",
+                        before,
+                        observed,
+                        IpcPlayApplicationStateNames.Unknown);
+                }
+            }
+            else
+            {
+                stoppedWithoutGenerationChangeObservations = 0;
+            }
+
+            return null;
+        }
+
+        private IpcPlayLifecycleSnapshot CaptureSnapshot ()
+        {
+            return UnityLifecycleResponseCodec.CreatePlayLifecycleSnapshot(
+                projectIdentity.UnityVersion,
+                serverVersionProvider.GetVersion(),
+                projectIdentity.ProjectFingerprint,
+                readinessGate.CaptureSnapshot());
+        }
+
+        private static PlayExitTransitionExecutionResult CreateSuccess (
+            string result,
+            IpcPlayLifecycleSnapshot before,
+            IpcPlayLifecycleSnapshot after)
+        {
+            return PlayExitTransitionExecutionResult.Success(new IpcPlayTransitionResponse(
+                new IpcPlayTransitionResult(
+                    Transition: IpcPlayTransitionCommandNames.Exit,
+                    Result: result,
+                    Before: before)
+                {
+                    After = after,
+                }));
+        }
+
+        private static PlayExitTransitionExecutionResult CreateFailure (
+            UcliCode code,
+            string message,
+            IpcPlayLifecycleSnapshot before,
+            IpcPlayLifecycleSnapshot observed,
+            string applicationState)
+        {
+            var response = new IpcPlayTransitionResponse(
+                new IpcPlayTransitionResult(
+                    Transition: IpcPlayTransitionCommandNames.Exit,
+                    Result: IpcPlayTransitionResultNames.Blocked,
+                    Before: before)
+                {
+                    Observed = observed,
+                    ApplicationState = applicationState,
+                });
+            return PlayExitTransitionExecutionResult.Failure(response, new IpcError(code, message, null));
+        }
+
+        private static PlayExitTransitionExecutionResult CreateTimeout (
+            IpcPlayLifecycleSnapshot before,
+            IpcPlayLifecycleSnapshot observed,
+            int timeoutMilliseconds)
+        {
+            var response = new IpcPlayTransitionResponse(
+                new IpcPlayTransitionResult(
+                    Transition: IpcPlayTransitionCommandNames.Exit,
+                    Result: IpcPlayTransitionResultNames.Timeout,
+                    Before: before)
+                {
+                    Observed = observed,
+                    ApplicationState = IpcPlayApplicationStateNames.Indeterminate,
+                });
+            return PlayExitTransitionExecutionResult.Failure(
+                response,
+                new IpcError(
+                    PlayModeErrorCodes.PlayModeTransitionTimeout,
+                    $"Unity Play Mode exit timed out after {timeoutMilliseconds} milliseconds.",
+                    null));
+        }
+
+        private static bool IsEnteredSnapshot (IpcPlayLifecycleSnapshot snapshot)
+        {
+            return TryReadPlayModeSnapshot(
+                    snapshot,
+                    out var playMode,
+                    out var playModeState,
+                    out var playModeTransition)
+                && string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Playmode, StringComparison.Ordinal)
+                && playModeState == IpcPlayModeState.Playing
+                && playModeTransition == IpcPlayModeTransition.None
+                && playMode.IsPlaying
+                && !snapshot.CanAcceptExecutionRequests;
+        }
+
+        private static bool HasGenerationChanged (
+            IpcPlayLifecycleSnapshot before,
+            IpcPlayLifecycleSnapshot after)
+        {
+            return !string.Equals(before.PlayMode?.Generation, after.PlayMode?.Generation, StringComparison.Ordinal);
+        }
+
+        private static bool IsReadyStoppedSnapshot (IpcPlayLifecycleSnapshot snapshot)
+        {
+            return IsStoppedPlayModeSnapshot(snapshot)
+                && string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
+                && string.IsNullOrWhiteSpace(snapshot.BlockingReason)
+                && snapshot.CanAcceptExecutionRequests;
+        }
+
+        private static bool IsStoppedPlayModeSnapshot (IpcPlayLifecycleSnapshot snapshot)
+        {
+            return TryReadPlayModeSnapshot(
+                    snapshot,
+                    out var playMode,
+                    out var playModeState,
+                    out var playModeTransition)
+                && playModeState == IpcPlayModeState.Stopped
+                && playModeTransition == IpcPlayModeTransition.None
+                && !playMode.IsPlaying
+                && !playMode.IsPlayingOrWillChangePlaymode;
+        }
+
+        private static bool IsPlayModeChanging (IpcPlayLifecycleSnapshot snapshot)
+        {
+            return TryReadPlayModeSnapshot(
+                    snapshot,
+                    out _,
+                    out var playModeState,
+                    out var playModeTransition)
+                && (playModeState == IpcPlayModeState.Entering
+                    || playModeState == IpcPlayModeState.Exiting
+                    || playModeTransition == IpcPlayModeTransition.Entering
+                    || playModeTransition == IpcPlayModeTransition.Exiting);
+        }
+
+        private static bool IsUnknownPlayMode (IpcPlayLifecycleSnapshot snapshot)
+        {
+            if (!TryReadPlayModeSnapshot(
+                    snapshot,
+                    out _,
+                    out var playModeState,
+                    out _))
+            {
+                return true;
+            }
+
+            return playModeState == IpcPlayModeState.Unknown;
+        }
+
+        private static bool IsExitWaitLifecycle (IpcPlayLifecycleSnapshot snapshot)
+        {
+            return string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
+                || string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Playmode, StringComparison.Ordinal)
+                || string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Starting, StringComparison.Ordinal)
+                || string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Recovering, StringComparison.Ordinal)
+                || string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Busy, StringComparison.Ordinal)
+                || string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Compiling, StringComparison.Ordinal)
+                || string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.DomainReloading, StringComparison.Ordinal)
+                || string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Reimporting, StringComparison.Ordinal);
+        }
+
+        private static bool IsRecoverablePendingExit (
+            IpcPlayLifecycleSnapshot pendingBefore,
+            IpcPlayLifecycleSnapshot current)
+        {
+            return pendingBefore != null
+                && current != null
+                && IsEnteredSnapshot(pendingBefore)
+                && IsReadyStoppedSnapshot(current)
+                && string.Equals(pendingBefore.ProjectFingerprint, current.ProjectFingerprint, StringComparison.Ordinal)
+                && HasGenerationChanged(pendingBefore, current);
+        }
+
+        private static bool TryReadPlayModeSnapshot (
+            IpcPlayLifecycleSnapshot snapshot,
+            out IpcPlayModeSnapshot playMode,
+            out IpcPlayModeState state,
+            out IpcPlayModeTransition transition)
+        {
+            playMode = snapshot.PlayMode;
+            state = default;
+            transition = default;
+            return playMode != null
+                && IpcPlayModeStateCodec.TryParse(playMode.State, out state)
+                && IpcPlayModeTransitionCodec.TryParse(playMode.Transition, out transition);
+        }
+    }
+}

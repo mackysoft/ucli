@@ -5,23 +5,23 @@ using MackySoft.Ucli.Application.Shared.CommandContracts.Projection;
 using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 
-namespace MackySoft.Ucli.Application.Features.Play.UseCases.Enter;
+namespace MackySoft.Ucli.Application.Features.Play.UseCases.Exit;
 
-/// <summary> Executes Play Mode enter against an existing registered GUI daemon session. </summary>
-internal sealed class PlayEnterService : IPlayEnterService
+/// <summary> Executes Play Mode exit against an existing registered GUI daemon session. </summary>
+internal sealed class PlayExitService : IPlayExitService
 {
     private const int ResponseGraceMilliseconds = 1000;
-    private const string SessionNotAvailableMessage = "Registered GUI daemon session is not available for Play Mode enter.";
-    private const string RequiresGuiEditorMessage = "Play Mode enter requires a registered GUI daemon session.";
+    private const string SessionNotAvailableMessage = "Registered GUI daemon session is not available for Play Mode exit.";
+    private const string RequiresGuiEditorMessage = "Play Mode exit requires a registered GUI daemon session.";
 
     private readonly IPlayCommandExecutionContextResolver contextResolver;
 
     private readonly IUnityRequestExecutor unityRequestExecutor;
 
-    /// <summary> Initializes a new instance of the <see cref="PlayEnterService" /> class. </summary>
+    /// <summary> Initializes a new instance of the <see cref="PlayExitService" /> class. </summary>
     /// <param name="contextResolver"> The Play Mode command context resolver dependency. </param>
     /// <param name="unityRequestExecutor"> The Unity IPC request executor dependency. </param>
-    public PlayEnterService (
+    public PlayExitService (
         IPlayCommandExecutionContextResolver contextResolver,
         IUnityRequestExecutor unityRequestExecutor)
     {
@@ -30,8 +30,8 @@ internal sealed class PlayEnterService : IPlayEnterService
     }
 
     /// <inheritdoc />
-    public async ValueTask<PlayEnterExecutionResult> ExecuteAsync (
-        PlayEnterCommandInput input,
+    public async ValueTask<PlayExitExecutionResult> ExecuteAsync (
+        PlayExitCommandInput input,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
@@ -40,36 +40,36 @@ internal sealed class PlayEnterService : IPlayEnterService
         var contextResult = await contextResolver.ResolveAsync(
                 input.ProjectPath,
                 input.TimeoutMilliseconds,
-                UcliCommandIds.PlayEnter,
+                UcliCommandIds.PlayExit,
                 SessionNotAvailableMessage,
                 RequiresGuiEditorMessage,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!contextResult.IsSuccess)
         {
-            return PlayEnterExecutionResult.Failure(contextResult.Error!);
+            return PlayExitExecutionResult.Failure(contextResult.Error!);
         }
 
         var context = contextResult.Context!;
         var requestTimeout = context.Timeout + TimeSpan.FromMilliseconds(ResponseGraceMilliseconds);
         var executionResult = await unityRequestExecutor.ExecuteAsync(
-                UcliCommandIds.PlayEnter,
+                UcliCommandIds.PlayExit,
                 UnityExecutionMode.Daemon,
                 requestTimeout,
                 context.ProjectContext.Config,
                 context.ProjectContext.UnityProject,
-                new UnityRequestPayload.PlayEnter(context.TimeoutMilliseconds),
+                new UnityRequestPayload.PlayExit(context.TimeoutMilliseconds),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
-            return PlayEnterExecutionResult.Failure(CreateErrorFromUnityRequestFailure(executionResult.FailureInfo!));
+            return PlayExitExecutionResult.Failure(CreateErrorFromUnityRequestFailure(executionResult.FailureInfo!));
         }
 
         return CreateResultFromResponse(context, executionResult.Response!);
     }
 
-    private PlayEnterExecutionResult CreateResultFromResponse (
+    private PlayExitExecutionResult CreateResultFromResponse (
         PlayCommandExecutionContext context,
         UnityRequestResponse response)
     {
@@ -77,47 +77,47 @@ internal sealed class PlayEnterService : IPlayEnterService
         {
             if (!TryReadTransitionResponse(response, out var errorTransitionResponse, out _))
             {
-                return PlayEnterExecutionResult.Failure(CreateErrorFromResponse(response));
+                return PlayExitExecutionResult.Failure(CreateErrorFromResponse(response));
             }
 
             var errorOutputResult = CreateOutput(context, errorTransitionResponse!.Transition);
             if (!errorOutputResult.IsSuccess)
             {
-                return PlayEnterExecutionResult.Failure(errorOutputResult.Error!);
+                return PlayExitExecutionResult.Failure(errorOutputResult.Error!);
             }
 
             var errorOutput = errorOutputResult.Output!;
-            return PlayEnterExecutionResult.Failure(CreateErrorFromResponse(response, errorOutput.Transition), errorOutput);
+            return PlayExitExecutionResult.Failure(CreateErrorFromResponse(response, errorOutput.Transition), errorOutput);
         }
 
         if (!TryReadTransitionResponse(response, out var transitionResponse, out var payloadFailure))
         {
-            return PlayEnterExecutionResult.Failure(payloadFailure!);
+            return PlayExitExecutionResult.Failure(payloadFailure!);
         }
 
         var outputResult = CreateOutput(context, transitionResponse!.Transition);
         if (!outputResult.IsSuccess)
         {
-            return PlayEnterExecutionResult.Failure(outputResult.Error!);
+            return PlayExitExecutionResult.Failure(outputResult.Error!);
         }
 
         var output = outputResult.Output!;
         return output.Transition.Result switch
         {
-            IpcPlayTransitionResultNames.Entered or IpcPlayTransitionResultNames.AlreadyEntered
-                => PlayEnterExecutionResult.Success(output),
+            IpcPlayTransitionResultNames.Exited or IpcPlayTransitionResultNames.AlreadyExited
+                => PlayExitExecutionResult.Success(output),
             IpcPlayTransitionResultNames.Timeout
-                => PlayEnterExecutionResult.Failure(CreateTransitionFailure(
+                => PlayExitExecutionResult.Failure(CreateTransitionFailure(
                     PlayModeErrorCodes.PlayModeTransitionTimeout,
-                    $"Unity Play Mode enter timed out after {context.TimeoutMilliseconds} milliseconds."),
+                    $"Unity Play Mode exit timed out after {context.TimeoutMilliseconds} milliseconds."),
                     output),
             IpcPlayTransitionResultNames.Blocked
-                => PlayEnterExecutionResult.Failure(CreateTransitionFailure(
+                => PlayExitExecutionResult.Failure(CreateTransitionFailure(
                     PlayModeErrorCodes.PlayModeTransitionBlocked,
-                    "Unity Play Mode enter was blocked by the current editor lifecycle state."),
+                    "Unity Play Mode exit was blocked by the current editor lifecycle state."),
                     output),
-            _ => PlayEnterExecutionResult.Failure(CreateStateUnknownFailure(
-                $"Unity play enter returned unsupported result '{output.Transition.Result}'.")),
+            _ => PlayExitExecutionResult.Failure(CreateStateUnknownFailure(
+                $"Unity play exit returned unsupported result '{output.Transition.Result}'.")),
         };
     }
 
@@ -134,57 +134,57 @@ internal sealed class PlayEnterService : IPlayEnterService
         }
 
         transitionResponse = null;
-        failure = ApplicationFailure.InternalError($"Unity play enter payload is invalid. {payloadError.Message}");
+        failure = ApplicationFailure.InternalError($"Unity play exit payload is invalid. {payloadError.Message}");
         return false;
     }
 
-    private static PlayEnterOutputCreationResult CreateOutput (
+    private static PlayExitOutputCreationResult CreateOutput (
         PlayCommandExecutionContext context,
         IpcPlayTransitionResult transition)
     {
-        if (!string.Equals(transition.Transition, IpcPlayTransitionCommandNames.Enter, StringComparison.Ordinal))
+        if (!string.Equals(transition.Transition, IpcPlayTransitionCommandNames.Exit, StringComparison.Ordinal))
         {
-            return PlayEnterOutputCreationResult.Failure(ApplicationFailure.InternalError(
-                $"Unity play enter transition mismatch. Actual={transition.Transition}."));
+            return PlayExitOutputCreationResult.Failure(ApplicationFailure.InternalError(
+                $"Unity play exit transition mismatch. Actual={transition.Transition}."));
         }
 
         if (transition.Before is null)
         {
-            return PlayEnterOutputCreationResult.Failure(CreateStateUnknownFailure("Unity play enter transition before snapshot is missing."));
+            return PlayExitOutputCreationResult.Failure(CreateStateUnknownFailure("Unity play exit transition before snapshot is missing."));
         }
 
         var shapeFailure = ValidateTransitionShape(transition);
         if (shapeFailure is not null)
         {
-            return PlayEnterOutputCreationResult.Failure(shapeFailure);
+            return PlayExitOutputCreationResult.Failure(shapeFailure);
         }
 
         var currentSnapshot = ResolveCurrentSnapshot(transition);
         if (currentSnapshot is null)
         {
-            return PlayEnterOutputCreationResult.Failure(CreateStateUnknownFailure("Unity play enter current lifecycle snapshot is missing."));
+            return PlayExitOutputCreationResult.Failure(CreateStateUnknownFailure("Unity play exit current lifecycle snapshot is missing."));
         }
 
         var validationFailure = ValidateTransitionSnapshots(context, transition, currentSnapshot);
         if (validationFailure is not null)
         {
-            return PlayEnterOutputCreationResult.Failure(validationFailure);
+            return PlayExitOutputCreationResult.Failure(validationFailure);
         }
 
         var lifecycle = LifecycleProjectionFactory.Create(currentSnapshot);
         if (!string.Equals(lifecycle.EditorMode, DaemonEditorModeValues.Gui, StringComparison.Ordinal))
         {
-            return PlayEnterOutputCreationResult.Failure(ApplicationFailure.InternalError(
+            return PlayExitOutputCreationResult.Failure(ApplicationFailure.InternalError(
                 RequiresGuiEditorMessage,
                 PlayModeErrorCodes.PlayModeRequiresGuiEditor));
         }
 
         if (lifecycle.PlayMode is null)
         {
-            return PlayEnterOutputCreationResult.Failure(CreateStateUnknownFailure("Unity play enter playMode snapshot is missing or invalid."));
+            return PlayExitOutputCreationResult.Failure(CreateStateUnknownFailure("Unity play exit playMode snapshot is missing or invalid."));
         }
 
-        return PlayEnterOutputCreationResult.Success(new PlayEnterExecutionOutput(
+        return PlayExitOutputCreationResult.Success(new PlayExitExecutionOutput(
             Project: context.Project,
             DaemonStatus: DaemonStatusKind.Running,
             ServerVersion: lifecycle.ServerVersion,
@@ -207,19 +207,19 @@ internal sealed class PlayEnterService : IPlayEnterService
     {
         if (!string.IsNullOrWhiteSpace(transition.Until))
         {
-            return CreateStateUnknownFailure("Unity play enter transition unexpectedly included a wait target.");
+            return CreateStateUnknownFailure("Unity play exit transition unexpectedly included a wait target.");
         }
 
         return transition.Result switch
         {
-            IpcPlayTransitionResultNames.Entered or IpcPlayTransitionResultNames.AlreadyEntered
+            IpcPlayTransitionResultNames.Exited or IpcPlayTransitionResultNames.AlreadyExited
                 => transition.After is null
-                    ? CreateStateUnknownFailure("Unity play enter success omitted the after snapshot.")
+                    ? CreateStateUnknownFailure("Unity play exit success omitted the after snapshot.")
                     : transition.Observed is not null || !string.IsNullOrWhiteSpace(transition.ApplicationState)
-                        ? CreateStateUnknownFailure("Unity play enter success included transition error fields.")
+                        ? CreateStateUnknownFailure("Unity play exit success included transition error fields.")
                         : null,
             IpcPlayTransitionResultNames.Timeout or IpcPlayTransitionResultNames.Blocked => ValidateTransitionErrorShape(transition),
-            _ => CreateStateUnknownFailure($"Unity play enter returned unsupported result '{transition.Result}'."),
+            _ => CreateStateUnknownFailure($"Unity play exit returned unsupported result '{transition.Result}'."),
         };
     }
 
@@ -227,27 +227,27 @@ internal sealed class PlayEnterService : IPlayEnterService
     {
         if (transition.After is not null)
         {
-            return CreateStateUnknownFailure("Unity play enter transition error included the after snapshot.");
+            return CreateStateUnknownFailure("Unity play exit transition error included the after snapshot.");
         }
 
         return IsValidApplicationState(transition.ApplicationState)
             ? null
-            : CreateStateUnknownFailure($"Unity play enter transition error applicationState is invalid. Actual={transition.ApplicationState}.");
+            : CreateStateUnknownFailure($"Unity play exit transition error applicationState is invalid. Actual={transition.ApplicationState}.");
     }
 
     private static IpcPlayLifecycleSnapshot? ResolveCurrentSnapshot (IpcPlayTransitionResult transition)
     {
         return transition.Result switch
         {
-            IpcPlayTransitionResultNames.Entered or IpcPlayTransitionResultNames.AlreadyEntered => transition.After,
+            IpcPlayTransitionResultNames.Exited or IpcPlayTransitionResultNames.AlreadyExited => transition.After,
             IpcPlayTransitionResultNames.Timeout or IpcPlayTransitionResultNames.Blocked => transition.Observed,
             _ => null,
         };
     }
 
-    private static PlayEnterTransitionOutput CreateTransitionOutput (IpcPlayTransitionResult transition)
+    private static PlayExitTransitionOutput CreateTransitionOutput (IpcPlayTransitionResult transition)
     {
-        return new PlayEnterTransitionOutput(
+        return new PlayExitTransitionOutput(
             Transition: transition.Transition,
             Result: transition.Result,
             Before: PlayOutputProjectionFactory.CreateSnapshotOutput(transition.Before),
@@ -275,11 +275,11 @@ internal sealed class PlayEnterService : IPlayEnterService
 
         return transition.Result switch
         {
-            IpcPlayTransitionResultNames.Entered => ValidateEntered(transition.Before, currentSnapshot),
-            IpcPlayTransitionResultNames.AlreadyEntered => ValidateAlreadyEntered(transition.Before, currentSnapshot),
+            IpcPlayTransitionResultNames.Exited => ValidateExited(transition.Before, currentSnapshot),
+            IpcPlayTransitionResultNames.AlreadyExited => ValidateAlreadyExited(transition.Before, currentSnapshot),
             IpcPlayTransitionResultNames.Timeout => ValidateErrorTransition(transition, IpcPlayApplicationStateNames.Indeterminate),
             IpcPlayTransitionResultNames.Blocked => ValidateErrorTransition(transition, expectedApplicationState: null),
-            _ => CreateStateUnknownFailure($"Unity play enter returned unsupported result '{transition.Result}'."),
+            _ => CreateStateUnknownFailure($"Unity play exit returned unsupported result '{transition.Result}'."),
         };
     }
 
@@ -291,48 +291,48 @@ internal sealed class PlayEnterService : IPlayEnterService
         if (!string.Equals(snapshot.ProjectFingerprint, context.Project.ProjectFingerprint, StringComparison.Ordinal))
         {
             return ApplicationFailure.InternalError(
-                $"Unity play enter {label} projectFingerprint mismatch. Requested={context.Project.ProjectFingerprint}, Actual={snapshot.ProjectFingerprint}.");
+                $"Unity play exit {label} projectFingerprint mismatch. Requested={context.Project.ProjectFingerprint}, Actual={snapshot.ProjectFingerprint}.");
         }
 
         return PlayModeSnapshotOutputFactory.Create(snapshot.PlayMode) is null
-            ? CreateStateUnknownFailure($"Unity play enter {label} playMode snapshot is missing or invalid.")
+            ? CreateStateUnknownFailure($"Unity play exit {label} playMode snapshot is missing or invalid.")
             : null;
     }
 
-    private static ApplicationFailure? ValidateEntered (
+    private static ApplicationFailure? ValidateExited (
         IpcPlayLifecycleSnapshot before,
         IpcPlayLifecycleSnapshot after)
     {
-        if (!IsReadyStoppedSnapshot(before))
+        if (!IsEnteredSnapshot(before))
         {
-            return CreateStateUnknownFailure("Unity play enter reported entered without a ready stopped before snapshot.");
+            return CreateStateUnknownFailure("Unity play exit reported exited without a playing before snapshot.");
         }
 
-        if (!IsEnteredSnapshot(after))
+        if (!IsReadyStoppedSnapshot(after))
         {
-            return CreateStateUnknownFailure("Unity play enter reported entered without a playing snapshot.");
+            return CreateStateUnknownFailure("Unity play exit reported exited without a ready stopped snapshot.");
         }
 
         if (string.Equals(before.PlayMode?.Generation, after.PlayMode?.Generation, StringComparison.Ordinal))
         {
-            return CreateStateUnknownFailure("Unity play enter reported entered without changing playMode.generation.");
+            return CreateStateUnknownFailure("Unity play exit reported exited without changing playMode.generation.");
         }
 
         return null;
     }
 
-    private static ApplicationFailure? ValidateAlreadyEntered (
+    private static ApplicationFailure? ValidateAlreadyExited (
         IpcPlayLifecycleSnapshot before,
         IpcPlayLifecycleSnapshot after)
     {
-        if (!IsEnteredSnapshot(before) || !IsEnteredSnapshot(after))
+        if (!IsStoppedPlayModeSnapshot(before) || !IsStoppedPlayModeSnapshot(after))
         {
-            return CreateStateUnknownFailure("Unity play enter reported alreadyEntered without a playing snapshot.");
+            return CreateStateUnknownFailure("Unity play exit reported alreadyExited without a stopped snapshot.");
         }
 
         if (!string.Equals(before.PlayMode?.Generation, after.PlayMode?.Generation, StringComparison.Ordinal))
         {
-            return CreateStateUnknownFailure("Unity play enter reported alreadyEntered after changing playMode.generation.");
+            return CreateStateUnknownFailure("Unity play exit reported alreadyExited after changing playMode.generation.");
         }
 
         return null;
@@ -344,25 +344,25 @@ internal sealed class PlayEnterService : IPlayEnterService
     {
         if (transition.Observed is null)
         {
-            return CreateStateUnknownFailure("Unity play enter transition error omitted the observed snapshot.");
+            return CreateStateUnknownFailure("Unity play exit transition error omitted the observed snapshot.");
         }
 
         if (expectedApplicationState is not null
             && !string.Equals(transition.ApplicationState, expectedApplicationState, StringComparison.Ordinal))
         {
             return CreateStateUnknownFailure(
-                $"Unity play enter transition error applicationState mismatch. Expected={expectedApplicationState}, Actual={transition.ApplicationState}.");
+                $"Unity play exit transition error applicationState mismatch. Expected={expectedApplicationState}, Actual={transition.ApplicationState}.");
         }
 
         if (string.IsNullOrWhiteSpace(transition.ApplicationState))
         {
-            return CreateStateUnknownFailure("Unity play enter transition error omitted applicationState.");
+            return CreateStateUnknownFailure("Unity play exit transition error omitted applicationState.");
         }
 
         if (!IsValidApplicationState(transition.ApplicationState))
         {
             return CreateStateUnknownFailure(
-                $"Unity play enter transition error applicationState is invalid. Actual={transition.ApplicationState}.");
+                $"Unity play exit transition error applicationState is invalid. Actual={transition.ApplicationState}.");
         }
 
         return null;
@@ -378,14 +378,19 @@ internal sealed class PlayEnterService : IPlayEnterService
 
     private static bool IsReadyStoppedSnapshot (IpcPlayLifecycleSnapshot snapshot)
     {
+        return IsStoppedPlayModeSnapshot(snapshot)
+            && string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
+            && string.IsNullOrWhiteSpace(snapshot.BlockingReason)
+            && snapshot.CanAcceptExecutionRequests;
+    }
+
+    private static bool IsStoppedPlayModeSnapshot (IpcPlayLifecycleSnapshot snapshot)
+    {
         return TryReadPlayModeSnapshot(
                 snapshot,
                 out var playMode,
                 out var playModeState,
                 out var playModeTransition)
-            && string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
-            && string.IsNullOrWhiteSpace(snapshot.BlockingReason)
-            && snapshot.CanAcceptExecutionRequests
             && playModeState == IpcPlayModeState.Stopped
             && playModeTransition == IpcPlayModeTransition.None
             && !playMode.IsPlaying
@@ -433,7 +438,7 @@ internal sealed class PlayEnterService : IPlayEnterService
     {
         var firstError = response.Errors.FirstOrDefault();
         var message = string.IsNullOrWhiteSpace(firstError?.Message)
-            ? $"Unity play enter IPC failed with status '{response.FailureStatus}'."
+            ? $"Unity play exit IPC failed with status '{response.FailureStatus}'."
             : firstError!.Message;
         var code = firstError?.Code;
         if (code == PlayModeErrorCodes.PlayModeTransitionTimeout)
@@ -448,7 +453,7 @@ internal sealed class PlayEnterService : IPlayEnterService
 
     private static ApplicationFailure CreateErrorFromResponse (
         UnityRequestResponse response,
-        PlayEnterTransitionOutput transition)
+        PlayExitTransitionOutput transition)
     {
         var responseCode = response.Errors.FirstOrDefault()?.Code;
         var failure = CreateErrorFromResponse(response);
@@ -476,20 +481,20 @@ internal sealed class PlayEnterService : IPlayEnterService
         return ApplicationFailure.InternalError(message, PlayModeErrorCodes.PlayModeStateUnknown);
     }
 
-    private sealed record PlayEnterOutputCreationResult (
-        PlayEnterExecutionOutput? Output,
+    private sealed record PlayExitOutputCreationResult (
+        PlayExitExecutionOutput? Output,
         ApplicationFailure? Error)
     {
         public bool IsSuccess => Output is not null && Error is null;
 
-        public static PlayEnterOutputCreationResult Success (PlayEnterExecutionOutput output)
+        public static PlayExitOutputCreationResult Success (PlayExitExecutionOutput output)
         {
-            return new PlayEnterOutputCreationResult(output, null);
+            return new PlayExitOutputCreationResult(output, null);
         }
 
-        public static PlayEnterOutputCreationResult Failure (ApplicationFailure error)
+        public static PlayExitOutputCreationResult Failure (ApplicationFailure error)
         {
-            return new PlayEnterOutputCreationResult(null, error);
+            return new PlayExitOutputCreationResult(null, error);
         }
     }
 }

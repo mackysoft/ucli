@@ -43,6 +43,13 @@ internal sealed class UnityIpcRequestBuilder
                     TimeoutMilliseconds = playEnter.TimeoutMilliseconds,
                 }),
                 isRecoverable: true),
+            UnityRequestPayload.PlayExit playExit => new UnityIpcDispatchRequest(
+                IpcMethodNames.PlayExit,
+                IpcPayloadCodec.SerializeToElement(new IpcPlayExitRequest
+                {
+                    TimeoutMilliseconds = playExit.TimeoutMilliseconds,
+                }),
+                isRecoverable: true),
             UnityRequestPayload.ExecuteJson executeJson => new UnityIpcDispatchRequest(
                 IpcMethodNames.Execute,
                 CreateExecutePayload(
