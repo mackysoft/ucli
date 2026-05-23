@@ -21,8 +21,6 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static readonly SemaphoreSlim LifecycleGate = new SemaphoreSlim(1, 1);
 
-        private static readonly TimeSpan LifecycleSidecarRefreshInterval = TimeSpan.FromSeconds(1);
-
         private static ActiveGuiBootstrapState activeState;
 
         private static DateTimeOffset lastLifecycleSidecarWriteUtc;
@@ -493,7 +491,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static void PersistActiveLifecycleSidecar (bool force)
         {
             var now = DateTimeOffset.UtcNow;
-            if (!force && now - lastLifecycleSidecarWriteUtc < LifecycleSidecarRefreshInterval)
+            if (!force && now - lastLifecycleSidecarWriteUtc < DaemonLifecycleObservationTimings.SidecarRefreshInterval)
             {
                 return;
             }
