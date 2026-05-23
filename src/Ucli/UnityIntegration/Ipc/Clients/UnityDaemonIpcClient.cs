@@ -91,6 +91,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
 
             try
             {
+                var attemptTimeout = ResolveAttemptTimeout(dispatchRequest, remainingTimeout);
                 var response = await transportClient.SendAsync(
                         unityProject.RepositoryRoot,
                         unityProject.ProjectFingerprint,
@@ -100,7 +101,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                             dispatchRequest.Payload,
                             requestId,
                             remainingTimeout),
-                        remainingTimeout,
+                        attemptTimeout,
                         cancellationToken)
                     .ConfigureAwait(false);
                 return UnityRequestExecutionResult.Success(UnityRequestResponseFactory.Create(response));
@@ -156,6 +157,20 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
     private static bool IsResponseLossOrTimeout (Exception exception)
     {
         return exception is TimeoutException or EndOfStreamException or IOException or ObjectDisposedException or InvalidOperationException;
+    }
+
+    private static TimeSpan ResolveAttemptTimeout (
+        UnityIpcDispatchRequest dispatchRequest,
+        TimeSpan remainingTimeout)
+    {
+        if (!dispatchRequest.IsRecoverable
+            || !dispatchRequest.RecoverableResponseAttemptTimeout.HasValue
+            || dispatchRequest.RecoverableResponseAttemptTimeout.Value >= remainingTimeout)
+        {
+            return remainingTimeout;
+        }
+
+        return dispatchRequest.RecoverableResponseAttemptTimeout.Value;
     }
 
     private static TimeSpan GetRetryDelay (TimeSpan remainingTimeout)

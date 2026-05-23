@@ -18,6 +18,9 @@
     "ops": 120000,
     "daemon.start": null,
     "daemon.stop": null,
-    "daemon.status": null
+    "daemon.status": null,
+    "play.status": null,
+    "play.enter": 30000,
+    "play.exit": 30000
   }
 }
