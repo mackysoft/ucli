@@ -36,7 +36,7 @@
   - `list` の複数フィルタは AND 条件で評価する。該当 operation がない場合も成功とし、`payload.operations: []` を返す。
   - `list` の出力順は operation name の ordinal 昇順とする。
   - `list` の各 operation は `name` / `kind` / `policy` / `description` を返す。
-  - `list` は public raw `kind:"op"` として呼べる operation だけを返し、edit lowering 専用または internal operation は返さない。
+  - `list` は public raw `kind:"op"` として呼べる operation だけを返し、`editLoweringOnly` operation は返さない。
   - 無効な regex / kind / maxPolicy は `INVALID_ARGUMENT` を返す。
   - `describe <opName>` は特定の public raw operation の agent 向け contract と検証用 schema を返す。
   - `description` / `inputs[].constraints` / `inputs[].variants[].fields[].constraints` / `resultContract` / `assurance` は operation 選択、入力構築、結果解釈の主契約である。
@@ -781,7 +781,7 @@ ucli plan --projectPath ./UnityProject --mode daemon --allowPlayMode < playmode-
 - ユーザー入力 JSON のトップレベルは `steps` のみを受け付ける。`protocolVersion` と `requestId` は CLI が Unity IPC 送信前に生成する。
 - `--readIndexMode` は受け付けない。
 - `dangerous` operation は、設定上許可されていても `--allowDangerous` が無ければ `OPERATION_NOT_ALLOWED` で失敗する。
-- `--allowDangerous` は dangerous policy の gate だけを開き、edit lowering 専用または internal operation の exposure gate は解除しない。
+- `--allowDangerous` は dangerous policy の gate だけを開き、edit lowering 専用 operation の exposure gate は解除しない。
 - `kind:"edit"` step の dangerous 判定は、public DSL を lower した primitive operation 群に対して行う。
 - `--withPlan` 指定時、CLI は Unity IPC `execute(command=plan)` を先に 1 回送り、その結果を `payload.plan` に保持する。
 - `--planToken` 未指定で `--withPlan` が plan token を発行した場合、CLI はその token を後続の `call` request に転送する。
