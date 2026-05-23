@@ -197,6 +197,39 @@ public sealed class PlayStatusServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenIpcExecutionTimesOutAndLifecycleSidecarLacksEditorInstanceId_ReturnsTimeoutError ()
+    {
+        var session = CreateSession(DaemonEditorModeValues.Gui);
+        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(session));
+        var lifecycleStore = new StubDaemonLifecycleStore(DaemonLifecycleObservationReadResult.Success(
+            CreateLifecycleObservation(session) with
+            {
+                EditorInstanceId = null,
+            }));
+        var processIdentityAssessor = new StubDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
+        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+            ExecutionErrorCodes.IpcTimeout,
+            "play status timed out")));
+        var service = CreateService(
+            CreateContext(),
+            sessionStore,
+            requestExecutor,
+            lifecycleStore,
+            processIdentityAssessor);
+
+        var result = await service.ExecuteAsync(new PlayStatusCommandInput(null, null), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
+        Assert.Equal(2, lifecycleStore.ReadCallCount);
+        Assert.Equal(0, processIdentityAssessor.CallCount);
+        Assert.Equal(1, requestExecutor.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenFreshLifecycleSidecarReportsPlayMode_ReturnsWithoutIpcCall ()
     {
         var session = CreateSession(DaemonEditorModeValues.Gui);
@@ -375,7 +408,10 @@ public sealed class PlayStatusServiceTests
             EndpointAddress: "ucli-play-status",
             ProcessId: 1234,
             ProcessStartedAtUtc: DateTimeOffset.UtcNow,
-            OwnerProcessId: 9876);
+            OwnerProcessId: 9876)
+        {
+            EditorInstanceId = "editor-instance-1",
+        };
     }
 
     private static DaemonLifecycleObservation CreateLifecycleObservation (
@@ -402,6 +438,7 @@ public sealed class PlayStatusServiceTests
         {
             ServerVersion = "0.5.0",
             CanAcceptExecutionRequests = canAcceptExecutionRequests,
+            EditorInstanceId = session.EditorInstanceId,
             PlayMode = new IpcPlayModeSnapshot(
                 State: playModeState,
                 Transition: IpcPlayModeTransitionNames.None,

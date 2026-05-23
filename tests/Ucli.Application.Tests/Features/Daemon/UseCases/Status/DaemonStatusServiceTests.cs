@@ -324,7 +324,11 @@ public sealed class DaemonStatusServiceTests
         var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 2450);
         var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
-        var session = DaemonServiceTestContext.CreateSession();
+        var session = DaemonServiceTestContext.CreateSession() with
+        {
+            EditorMode = DaemonEditorModeValues.Gui,
+            EditorInstanceId = "editor-instance-1",
+        };
         var persistedDiagnosis = DaemonServiceTestContext.CreateDiagnosis();
         var daemonStatusOperation = new DaemonServiceTestContext.StubDaemonStatusOperation
         {
@@ -575,7 +579,11 @@ public sealed class DaemonStatusServiceTests
         var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 2485);
         var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
-        var session = DaemonServiceTestContext.CreateSession();
+        var session = DaemonServiceTestContext.CreateSession() with
+        {
+            EditorMode = DaemonEditorModeValues.Gui,
+            EditorInstanceId = "editor-instance-1",
+        };
         var lifecycleStore = new DaemonServiceTestContext.StubDaemonLifecycleStore
         {
             ReadResult = DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(session)),
@@ -618,6 +626,60 @@ public sealed class DaemonStatusServiceTests
         Assert.Equal(IpcPlayModeStateNames.Playing, output.PlayMode!.State);
         Assert.Equal(1, lifecycleStore.ReadCallCount);
         Assert.Equal(1, processIdentityAssessor.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task GetStatus_WhenRunningPingInfoTimesOutAndLifecycleSidecarLacksEditorInstanceId_ReturnsStaleStatus ()
+    {
+        var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 2485);
+        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var session = DaemonServiceTestContext.CreateSession() with
+        {
+            EditorMode = DaemonEditorModeValues.Gui,
+            EditorInstanceId = "editor-instance-1",
+        };
+        var lifecycleStore = new DaemonServiceTestContext.StubDaemonLifecycleStore
+        {
+            ReadResult = DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(session) with
+            {
+                EditorInstanceId = null,
+            }),
+        };
+        var processIdentityAssessor = new DaemonServiceTestContext.StubDaemonProcessIdentityAssessor
+        {
+            Assessment = new DaemonProcessIdentityAssessment(
+                DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
+                ObservedStartTimeUtc: session.ProcessStartedAtUtc,
+                Error: null),
+        };
+        var daemonStatusOperation = new DaemonServiceTestContext.StubDaemonStatusOperation
+        {
+            StatusResult = DaemonStatusResult.Running(session),
+        };
+        var pingInfoClient = new DaemonServiceTestContext.StubDaemonPingInfoClient
+        {
+            Exception = new TimeoutException("ping timeout"),
+        };
+        var service = CreateService(
+            resolver,
+            daemonStatusOperation,
+            pingInfoClient,
+            new DaemonServiceTestContext.StubDaemonReachabilityClassifier(static _ => false),
+            new DaemonServiceTestContext.StubDaemonSessionDiagnosisResolver(),
+            new DaemonServiceTestContext.StubDaemonSessionOutputMapper(),
+            new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper(),
+            lifecycleStore: lifecycleStore,
+            processIdentityAssessor: processIdentityAssessor);
+
+        var result = await service.GetStatusAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
+        Assert.Equal(DaemonStatusKind.Stale, output.DaemonStatus);
+        Assert.Equal(1, lifecycleStore.ReadCallCount);
+        Assert.Equal(0, processIdentityAssessor.CallCount);
     }
 
     [Fact]
@@ -896,6 +958,7 @@ public sealed class DaemonStatusServiceTests
         {
             ServerVersion = "0.5.0",
             CanAcceptExecutionRequests = false,
+            EditorInstanceId = session.EditorInstanceId,
             PlayMode = new IpcPlayModeSnapshot(
                 State: IpcPlayModeStateNames.Playing,
                 Transition: IpcPlayModeTransitionNames.None,
