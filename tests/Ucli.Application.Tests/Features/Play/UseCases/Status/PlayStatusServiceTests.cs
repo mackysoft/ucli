@@ -1,4 +1,5 @@
 using System.Globalization;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Play.Common;
@@ -154,6 +155,75 @@ public sealed class PlayStatusServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenIpcExecutionTimesOutAndFreshLifecycleSidecarExists_ReturnsSidecarStatus ()
+    {
+        var session = CreateSession(DaemonEditorModeValues.Gui);
+        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(session));
+        var lifecycleStore = new StubDaemonLifecycleStore(DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(
+            session,
+            IpcEditorLifecycleStateCodec.Ready,
+            blockingReason: null,
+            canAcceptExecutionRequests: true,
+            playModeState: IpcPlayModeStateNames.Stopped,
+            isPlaying: false,
+            isPlayingOrWillChangePlaymode: false)));
+        var processIdentityAssessor = new StubDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
+        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+            ExecutionErrorCodes.IpcTimeout,
+            "play status timed out")));
+        var service = CreateService(
+            CreateContext(),
+            sessionStore,
+            requestExecutor,
+            lifecycleStore,
+            processIdentityAssessor);
+
+        var result = await service.ExecuteAsync(new PlayStatusCommandInput(null, null), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var output = Assert.IsType<PlayStatusExecutionOutput>(result.Output);
+        Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
+        Assert.Equal(IpcEditorLifecycleStateCodec.Ready, output.LifecycleState);
+        Assert.Null(output.BlockingReason);
+        Assert.True(output.CanAcceptExecutionRequests);
+        Assert.Equal("0.5.0", output.ServerVersion);
+        Assert.Equal(IpcPlayModeStateNames.Stopped, output.PlayMode.State);
+        Assert.Equal(IpcPlayModeTransitionNames.None, output.PlayMode.Transition);
+        Assert.False(output.PlayMode.IsPlaying);
+        Assert.Equal(1, lifecycleStore.ReadCallCount);
+        Assert.Equal(1, processIdentityAssessor.CallCount);
+        Assert.Equal(1, requestExecutor.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenFreshLifecycleSidecarReportsPlayMode_ReturnsWithoutIpcCall ()
+    {
+        var session = CreateSession(DaemonEditorModeValues.Gui);
+        var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(session));
+        var lifecycleStore = new StubDaemonLifecycleStore(DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(session)));
+        var processIdentityAssessor = new StubDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
+        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateStatusResponse())));
+        var service = CreateService(
+            CreateContext(),
+            sessionStore,
+            requestExecutor,
+            lifecycleStore,
+            processIdentityAssessor);
+
+        var result = await service.ExecuteAsync(new PlayStatusCommandInput(null, null), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var output = Assert.IsType<PlayStatusExecutionOutput>(result.Output);
+        Assert.Equal("0.5.0", output.ServerVersion);
+        Assert.Equal(IpcEditorLifecycleStateCodec.Playmode, output.LifecycleState);
+        Assert.Equal(IpcPlayModeStateNames.Playing, output.PlayMode.State);
+        Assert.Equal(0, requestExecutor.CallCount);
+        Assert.Equal(1, lifecycleStore.ReadCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenIpcExecutionFailsWithoutTimeout_PreservesFailureCodeAndMessage ()
     {
         var sessionStore = new StubDaemonSessionStore(DaemonSessionReadResult.Success(CreateSession(DaemonEditorModeValues.Gui)));
@@ -248,22 +318,33 @@ public sealed class PlayStatusServiceTests
     private static PlayStatusService CreateService (
         ProjectContext context,
         IDaemonSessionStore sessionStore,
-        IUnityRequestExecutor requestExecutor)
+        IUnityRequestExecutor requestExecutor,
+        IDaemonLifecycleStore? daemonLifecycleStore = null,
+        IDaemonProcessIdentityAssessor? processIdentityAssessor = null)
     {
-        return CreateService(ProjectContextResolutionResult.Success(context), sessionStore, requestExecutor);
+        return CreateService(
+            ProjectContextResolutionResult.Success(context),
+            sessionStore,
+            requestExecutor,
+            daemonLifecycleStore,
+            processIdentityAssessor);
     }
 
     private static PlayStatusService CreateService (
         ProjectContextResolutionResult contextResult,
         IDaemonSessionStore sessionStore,
-        IUnityRequestExecutor requestExecutor)
+        IUnityRequestExecutor requestExecutor,
+        IDaemonLifecycleStore? daemonLifecycleStore = null,
+        IDaemonProcessIdentityAssessor? processIdentityAssessor = null)
     {
         var contextResolver = new PlayCommandExecutionContextResolver(
             new StubProjectContextResolver(contextResult),
             sessionStore);
         return new PlayStatusService(
             contextResolver,
-            requestExecutor);
+            requestExecutor,
+            daemonLifecycleStore ?? new StubDaemonLifecycleStore(DaemonLifecycleObservationReadResult.Success(null)),
+            processIdentityAssessor ?? new StubDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.NotRunning));
     }
 
     private static ProjectContext CreateContext ()
@@ -295,6 +376,39 @@ public sealed class PlayStatusServiceTests
             ProcessId: 1234,
             ProcessStartedAtUtc: DateTimeOffset.UtcNow,
             OwnerProcessId: 9876);
+    }
+
+    private static DaemonLifecycleObservation CreateLifecycleObservation (
+        DaemonSession session,
+        string lifecycleState = IpcEditorLifecycleStateCodec.Playmode,
+        string? blockingReason = IpcEditorBlockingReasonCodec.PlayMode,
+        bool canAcceptExecutionRequests = false,
+        string playModeState = IpcPlayModeStateNames.Playing,
+        bool isPlaying = true,
+        bool isPlayingOrWillChangePlaymode = true)
+    {
+        return new DaemonLifecycleObservation(
+            ProcessId: session.ProcessId!.Value,
+            ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value,
+            EditorMode: DaemonEditorModeValues.Gui,
+            LifecycleState: lifecycleState,
+            BlockingReason: blockingReason,
+            CompileState: IpcCompileStateCodec.Ready,
+            CompileGeneration: "12",
+            DomainReloadGeneration: "7",
+            ObservedAtUtc: DateTimeOffset.UtcNow,
+            ActionRequired: null,
+            PrimaryDiagnostic: null)
+        {
+            ServerVersion = "0.5.0",
+            CanAcceptExecutionRequests = canAcceptExecutionRequests,
+            PlayMode = new IpcPlayModeSnapshot(
+                State: playModeState,
+                Transition: IpcPlayModeTransitionNames.None,
+                IsPlaying: isPlaying,
+                IsPlayingOrWillChangePlaymode: isPlayingOrWillChangePlaymode,
+                Generation: "9"),
+        };
     }
 
     private static IpcPlayStatusResponse CreateStatusResponse (
@@ -405,6 +519,58 @@ public sealed class PlayStatusServiceTests
             CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
+        }
+    }
+
+    private sealed class StubDaemonLifecycleStore : IDaemonLifecycleStore
+    {
+        private readonly DaemonLifecycleObservationReadResult readResult;
+
+        public StubDaemonLifecycleStore (DaemonLifecycleObservationReadResult readResult)
+        {
+            this.readResult = readResult;
+        }
+
+        public int ReadCallCount { get; private set; }
+
+        public ValueTask<DaemonLifecycleObservationReadResult> ReadAsync (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            ReadCallCount++;
+            return ValueTask.FromResult(readResult);
+        }
+
+        public ValueTask<DaemonLifecycleStoreOperationResult> DeleteAsync (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+    }
+
+    private sealed class StubDaemonProcessIdentityAssessor : IDaemonProcessIdentityAssessor
+    {
+        private readonly DaemonProcessIdentityAssessmentStatus status;
+
+        public StubDaemonProcessIdentityAssessor (DaemonProcessIdentityAssessmentStatus status)
+        {
+            this.status = status;
+        }
+
+        public int CallCount { get; private set; }
+
+        public DaemonProcessIdentityAssessment AssessByProcessId (
+            int processId,
+            DateTimeOffset? expectedProcessStartedAtUtc)
+        {
+            CallCount++;
+            return new DaemonProcessIdentityAssessment(
+                status,
+                ObservedStartTimeUtc: expectedProcessStartedAtUtc,
+                Error: null);
         }
     }
 

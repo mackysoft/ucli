@@ -4,6 +4,8 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
@@ -568,6 +570,58 @@ public sealed class DaemonStatusServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task GetStatus_WhenRunningPingInfoTimesOutAndFreshLifecycleSidecarExists_ReturnsRunningObservation ()
+    {
+        var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 2485);
+        var resolver = new DaemonServiceTestContext.StubDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var session = DaemonServiceTestContext.CreateSession();
+        var lifecycleStore = new DaemonServiceTestContext.StubDaemonLifecycleStore
+        {
+            ReadResult = DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(session)),
+        };
+        var processIdentityAssessor = new DaemonServiceTestContext.StubDaemonProcessIdentityAssessor
+        {
+            Assessment = new DaemonProcessIdentityAssessment(
+                DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
+                ObservedStartTimeUtc: session.ProcessStartedAtUtc,
+                Error: null),
+        };
+        var daemonStatusOperation = new DaemonServiceTestContext.StubDaemonStatusOperation
+        {
+            StatusResult = DaemonStatusResult.Running(session),
+        };
+        var pingInfoClient = new DaemonServiceTestContext.StubDaemonPingInfoClient
+        {
+            Exception = new TimeoutException("ping timeout"),
+        };
+        var service = CreateService(
+            resolver,
+            daemonStatusOperation,
+            pingInfoClient,
+            new DaemonServiceTestContext.StubDaemonReachabilityClassifier(static _ => false),
+            new DaemonServiceTestContext.StubDaemonSessionDiagnosisResolver(),
+            new DaemonServiceTestContext.StubDaemonSessionOutputMapper(),
+            new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper(),
+            lifecycleStore: lifecycleStore,
+            processIdentityAssessor: processIdentityAssessor);
+
+        var result = await service.GetStatusAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
+        Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
+        Assert.Equal("0.5.0", output.ServerVersion);
+        Assert.Equal(IpcEditorLifecycleStateCodec.Playmode, output.LifecycleState);
+        Assert.Equal(IpcEditorBlockingReasonCodec.PlayMode, output.BlockingReason);
+        Assert.False(output.CanAcceptExecutionRequests);
+        Assert.Equal(IpcPlayModeStateNames.Playing, output.PlayMode!.State);
+        Assert.Equal(1, lifecycleStore.ReadCallCount);
+        Assert.Equal(1, processIdentityAssessor.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task GetStatus_WhenRunningPingInfoReadFailsUnexpectedly_ReturnsInternalError ()
     {
         var context = DaemonServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 2490);
@@ -808,18 +862,46 @@ public sealed class DaemonStatusServiceTests
         IDaemonSessionDiagnosisResolver diagnosisResolver,
         IDaemonSessionOutputMapper sessionOutputMapper,
         IDaemonDiagnosisOutputMapper diagnosisOutputMapper,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IDaemonLifecycleStore? lifecycleStore = null,
+        IDaemonProcessIdentityAssessor? processIdentityAssessor = null)
     {
         return new DaemonStatusService(
             resolver,
             daemonStatusOperation,
             pingInfoClient,
             reachabilityClassifier,
-            new DaemonServiceTestContext.StubDaemonLifecycleStore(),
-            new DaemonServiceTestContext.StubDaemonProcessIdentityAssessor(),
+            lifecycleStore ?? new DaemonServiceTestContext.StubDaemonLifecycleStore(),
+            processIdentityAssessor ?? new DaemonServiceTestContext.StubDaemonProcessIdentityAssessor(),
             diagnosisResolver,
             sessionOutputMapper,
             diagnosisOutputMapper,
             timeProvider);
+    }
+
+    private static DaemonLifecycleObservation CreateLifecycleObservation (DaemonSession session)
+    {
+        return new DaemonLifecycleObservation(
+            ProcessId: session.ProcessId!.Value,
+            ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value,
+            EditorMode: session.EditorMode,
+            LifecycleState: IpcEditorLifecycleStateCodec.Playmode,
+            BlockingReason: IpcEditorBlockingReasonCodec.PlayMode,
+            CompileState: IpcCompileStateCodec.Ready,
+            CompileGeneration: "12",
+            DomainReloadGeneration: "7",
+            ObservedAtUtc: DateTimeOffset.UtcNow,
+            ActionRequired: null,
+            PrimaryDiagnostic: null)
+        {
+            ServerVersion = "0.5.0",
+            CanAcceptExecutionRequests = false,
+            PlayMode = new IpcPlayModeSnapshot(
+                State: IpcPlayModeStateNames.Playing,
+                Transition: IpcPlayModeTransitionNames.None,
+                IsPlaying: true,
+                IsPlayingOrWillChangePlaymode: true,
+                Generation: "9"),
+        };
     }
 }

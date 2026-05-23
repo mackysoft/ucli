@@ -13,6 +13,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         public static void Write (
             string storageRoot,
             string projectFingerprint,
+            string serverVersion,
             UnityEditorLifecycleSnapshot snapshot)
         {
             if (string.IsNullOrWhiteSpace(storageRoot))
@@ -23,6 +24,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (string.IsNullOrWhiteSpace(projectFingerprint))
             {
                 throw new ArgumentException("projectFingerprint must not be empty.", nameof(projectFingerprint));
+            }
+
+            if (string.IsNullOrWhiteSpace(serverVersion))
+            {
+                throw new ArgumentException("serverVersion must not be empty.", nameof(serverVersion));
             }
 
             if (snapshot == null)
@@ -45,7 +51,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ActionRequired: snapshot.ActionRequired,
                 PrimaryDiagnostic: snapshot.PrimaryDiagnostic)
             {
+                ServerVersion = serverVersion,
+                CanAcceptExecutionRequests = snapshot.CanAcceptExecutionRequests,
                 EditorInstanceId = UnityEditorProcessIdentity.GetEditorInstanceId(),
+                PlayMode = snapshot.PlayMode,
             };
             FileUtilities.WriteAllTextAtomically(path, DaemonLifecycleJsonContractSerializer.Serialize(contract));
         }

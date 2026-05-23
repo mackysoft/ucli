@@ -28,7 +28,19 @@ internal sealed record DaemonLifecycleJsonContract (
     string? ActionRequired,
     IpcPrimaryDiagnostic? PrimaryDiagnostic)
 {
+    /// <summary> Gets the daemon server version that wrote the observation. </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ServerVersion { get; init; }
+
+    /// <summary> Gets whether the observed daemon accepted normal execution requests at observation time. </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? CanAcceptExecutionRequests { get; init; }
+
     /// <summary> Gets the Unity Editor process instance identifier that survives domain reloads within the process. </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? EditorInstanceId { get; init; }
+
+    /// <summary> Gets the Play Mode subsystem snapshot captured with the lifecycle observation. </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IpcPlayModeSnapshot? PlayMode { get; init; }
 }

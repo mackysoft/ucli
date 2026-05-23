@@ -316,31 +316,23 @@ internal sealed class DaemonStatusService : IDaemonStatusService
                 unityProject.ProjectFingerprint,
                 cancellationToken)
             .ConfigureAwait(false);
+        var observation = lifecycleReadResult.Observation;
         if (lifecycleReadResult.IsSuccess
             && lifecycleReadResult.Exists
-            && lifecycleReadResult.Observation!.IsRecovering
-            && DaemonLifecycleObservationMatcher.MatchesSession(lifecycleReadResult.Observation, session)
-            && IsMatchingLiveProcess(session))
+            && observation is not null
+            && DaemonLifecycleObservationAvailability.IsUsableForSession(
+                observation,
+                session,
+                processIdentityAssessor,
+                timeProvider))
         {
             return StatusDaemonObservationCodec.CreateFromLifecycleObservation(
                 DaemonStatusKind.Running,
-                lifecycleReadResult.Observation);
+                observation);
         }
 
         return StatusDaemonObservationCodec.CreateUnavailable(DaemonStatusKind.Stale);
     }
-
-    private bool IsMatchingLiveProcess (DaemonSession session)
-    {
-        if (session.ProcessId is not int processId)
-        {
-            return false;
-        }
-
-        return processIdentityAssessor.AssessByProcessId(processId, session.ProcessStartedAtUtc).Status
-            == DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess;
-    }
-
     private static bool IsSupportedDaemonStatus (DaemonStatusKind status)
     {
         return status is DaemonStatusKind.Running

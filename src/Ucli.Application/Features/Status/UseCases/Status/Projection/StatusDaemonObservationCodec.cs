@@ -42,18 +42,18 @@ internal static class StatusDaemonObservationCodec
 
         return new StatusDaemonObservation(
             DaemonStatus: daemonStatus,
-            ServerVersion: null,
+            ServerVersion: observation.ServerVersion,
             LifecycleState: observation.LifecycleState,
             BlockingReason: observation.BlockingReason,
             CompileState: observation.CompileState,
             CompileGeneration: observation.CompileGeneration,
             DomainReloadGeneration: observation.DomainReloadGeneration,
-            CanAcceptExecutionRequests: false,
+            CanAcceptExecutionRequests: observation.CanAcceptExecutionRequests,
             EditorMode: observation.EditorMode,
             ObservedAtUtc: observation.ObservedAtUtc,
             ActionRequired: observation.ActionRequired,
             PrimaryDiagnostic: ToOutput(observation.PrimaryDiagnostic),
-            PlayMode: null);
+            PlayMode: PlayModeSnapshotOutputFactory.Create(observation.PlayMode));
     }
 
     /// <summary> Creates observation values for an unreachable daemon whose lifecycle cannot be inferred. </summary>

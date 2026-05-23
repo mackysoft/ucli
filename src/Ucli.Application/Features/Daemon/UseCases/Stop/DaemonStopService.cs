@@ -60,19 +60,30 @@ internal sealed class DaemonStopService : IDaemonStopService
         var executionContext = contextResult.Context!;
         var deadline = ExecutionDeadline.Start(executionContext.Timeout, timeProvider);
         DaemonStopResult? stopResult = null;
+        DaemonStopResult? supervisorStopFailure = null;
         if (deadline.TryGetRemainingTimeout(out var projectLifecycleTimeout))
         {
             stopResult = await daemonProjectLifecycleGateway.TryStopProjectAsync(
                     executionContext.Context.UnityProject,
-                    projectLifecycleTimeout,
+                    ResolveSupervisorStopTimeout(projectLifecycleTimeout),
                     cancellationToken)
                 .ConfigureAwait(false);
+            if (ShouldFallbackToDirectStop(stopResult))
+            {
+                supervisorStopFailure = stopResult;
+                stopResult = null;
+            }
         }
 
         if (stopResult == null)
         {
             if (!deadline.TryGetRemainingTimeout(out var directStopTimeout))
             {
+                if (supervisorStopFailure?.Error is not null)
+                {
+                    return DaemonStopExecutionResult.Failure(supervisorStopFailure.Error);
+                }
+
                 return DaemonStopExecutionResult.Failure(ExecutionError.Timeout(
                     "Timed out before daemon stop fallback could begin."));
             }
@@ -96,6 +107,21 @@ internal sealed class DaemonStopService : IDaemonStopService
             TimeoutMilliseconds: checked((int)executionContext.Timeout.TotalMilliseconds),
             Session: null);
         return DaemonStopExecutionResult.Success(output);
+    }
+
+    private static TimeSpan ResolveSupervisorStopTimeout (TimeSpan remainingTimeout)
+    {
+        // NOTE:
+        // The supervisor is a convenience control plane. Stop must keep enough budget for the direct daemon
+        // termination path, otherwise a Play Mode-stalled supervisor can prevent the owned process cleanup.
+        return remainingTimeout > DaemonTimeouts.StopCompensationTimeout
+            ? remainingTimeout - DaemonTimeouts.StopCompensationTimeout
+            : remainingTimeout;
+    }
+
+    private static bool ShouldFallbackToDirectStop (DaemonStopResult? stopResult)
+    {
+        return stopResult is { IsSuccess: false, Error.Kind: ExecutionErrorKind.Timeout };
     }
 
 }

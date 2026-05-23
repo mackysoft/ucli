@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Play.Common;
 using MackySoft.Ucli.Application.Shared.CommandContracts.Projection;
@@ -18,15 +19,27 @@ internal sealed class PlayStatusService : IPlayStatusService
 
     private readonly IUnityRequestExecutor unityRequestExecutor;
 
+    private readonly IDaemonLifecycleStore daemonLifecycleStore;
+
+    private readonly IDaemonProcessIdentityAssessor processIdentityAssessor;
+
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="PlayStatusService" /> class. </summary>
     /// <param name="contextResolver"> The Play Mode command context resolver dependency. </param>
     /// <param name="unityRequestExecutor"> The Unity IPC request executor dependency. </param>
     public PlayStatusService (
         IPlayCommandExecutionContextResolver contextResolver,
-        IUnityRequestExecutor unityRequestExecutor)
+        IUnityRequestExecutor unityRequestExecutor,
+        IDaemonLifecycleStore daemonLifecycleStore,
+        IDaemonProcessIdentityAssessor processIdentityAssessor,
+        TimeProvider? timeProvider = null)
     {
         this.contextResolver = contextResolver ?? throw new ArgumentNullException(nameof(contextResolver));
         this.unityRequestExecutor = unityRequestExecutor ?? throw new ArgumentNullException(nameof(unityRequestExecutor));
+        this.daemonLifecycleStore = daemonLifecycleStore ?? throw new ArgumentNullException(nameof(daemonLifecycleStore));
+        this.processIdentityAssessor = processIdentityAssessor ?? throw new ArgumentNullException(nameof(processIdentityAssessor));
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <inheritdoc />
@@ -51,6 +64,15 @@ internal sealed class PlayStatusService : IPlayStatusService
         }
 
         var playContext = contextResult.Context!;
+        var observedOutput = await TryCreateOutputFromLifecycleObservationAsync(
+                playContext,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (observedOutput is not null && ShouldUseObservedOutputBeforeIpc(observedOutput))
+        {
+            return PlayStatusExecutionResult.Success(observedOutput);
+        }
+
         var executionResult = await unityRequestExecutor.ExecuteAsync(
                 UcliCommandIds.PlayStatus,
                 UnityExecutionMode.Daemon,
@@ -62,6 +84,19 @@ internal sealed class PlayStatusService : IPlayStatusService
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
+            if (executionResult.FailureInfo!.Code == ExecutionErrorCodes.IpcTimeout)
+            {
+                var fallbackOutput = observedOutput
+                    ?? await TryCreateOutputFromLifecycleObservationAsync(
+                            playContext,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                if (fallbackOutput is not null)
+                {
+                    return PlayStatusExecutionResult.Success(fallbackOutput);
+                }
+            }
+
             return PlayStatusExecutionResult.Failure(CreateErrorFromUnityRequestFailure(executionResult.FailureInfo!));
         }
 
@@ -118,6 +153,66 @@ internal sealed class PlayStatusService : IPlayStatusService
             PlayMode: lifecycle.PlayMode,
             TimeoutMilliseconds: playContext.TimeoutMilliseconds);
         return PlayStatusExecutionResult.Success(output);
+    }
+
+    private async ValueTask<PlayStatusExecutionOutput?> TryCreateOutputFromLifecycleObservationAsync (
+        PlayCommandExecutionContext playContext,
+        CancellationToken cancellationToken)
+    {
+        var lifecycleReadResult = await daemonLifecycleStore.ReadAsync(
+                playContext.ProjectContext.UnityProject.RepositoryRoot,
+                playContext.ProjectContext.UnityProject.ProjectFingerprint,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var observation = lifecycleReadResult.Observation;
+        if (!lifecycleReadResult.IsSuccess
+            || !lifecycleReadResult.Exists
+            || observation is null
+            || !DaemonLifecycleObservationAvailability.IsUsableForSession(
+                observation,
+                playContext.Session,
+                processIdentityAssessor,
+                timeProvider))
+        {
+            return null;
+        }
+
+        var guiEditorMode = DaemonEditorModeCodec.ToValue(DaemonEditorMode.Gui);
+        if (!string.Equals(observation.EditorMode, guiEditorMode, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var playMode = PlayModeSnapshotOutputFactory.Create(observation.PlayMode);
+        if (playMode is null)
+        {
+            return null;
+        }
+
+        return new PlayStatusExecutionOutput(
+            Project: playContext.Project,
+            DaemonStatus: DaemonStatusKind.Running,
+            ServerVersion: observation.ServerVersion,
+            EditorMode: guiEditorMode,
+            LifecycleState: observation.LifecycleState,
+            BlockingReason: observation.BlockingReason,
+            CompileState: observation.CompileState,
+            CompileGeneration: observation.CompileGeneration,
+            DomainReloadGeneration: observation.DomainReloadGeneration,
+            CanAcceptExecutionRequests: observation.CanAcceptExecutionRequests,
+            ObservedAtUtc: observation.ObservedAtUtc,
+            ActionRequired: observation.ActionRequired,
+            PrimaryDiagnostic: ToOutput(observation.PrimaryDiagnostic),
+            PlayMode: playMode,
+            TimeoutMilliseconds: playContext.TimeoutMilliseconds);
+    }
+
+    private static bool ShouldUseObservedOutputBeforeIpc (PlayStatusExecutionOutput output)
+    {
+        // NOTE:
+        // A fresh sidecar is written by Unity main-thread lifecycle callbacks. Once the editor is not ready,
+        // waiting for a normal daemon IPC status response only delays the same authoritative observation.
+        return !string.Equals(output.LifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal);
     }
 
     private static DaemonPrimaryDiagnosticOutput? ToOutput (IpcPrimaryDiagnostic? diagnostic)
