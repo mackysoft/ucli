@@ -55,6 +55,19 @@ public sealed class IpcCommandTimeoutResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Resolve_WithoutOption_UsesDefaultPlayExitOverride ()
+    {
+        var config = UcliConfig.CreateDefault();
+
+        var result = IpcCommandTimeoutResolver.ResolveNormalized(null, UcliCommandIds.PlayExit, config);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(TimeSpan.FromMilliseconds(30000), result.Timeout);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Resolve_WithoutOption_UsesConfigDefaultWhenCommandOverrideIsNull ()
     {
         var config = CreateConfig(

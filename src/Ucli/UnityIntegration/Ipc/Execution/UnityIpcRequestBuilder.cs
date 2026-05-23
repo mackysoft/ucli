@@ -8,6 +8,8 @@ namespace MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 /// <summary> Converts application Unity request payloads into IPC method dispatch requests. </summary>
 internal sealed class UnityIpcRequestBuilder
 {
+    private static readonly TimeSpan PlayExitRecoverableResponseAttemptTimeout = TimeSpan.FromMilliseconds(1000);
+
     private static readonly IReadOnlyList<string> CompileAllowedStartupLifecycleStates =
     [
         IpcEditorLifecycleStateCodec.CompileFailed,
@@ -43,6 +45,14 @@ internal sealed class UnityIpcRequestBuilder
                     TimeoutMilliseconds = playEnter.TimeoutMilliseconds,
                 }),
                 isRecoverable: true),
+            UnityRequestPayload.PlayExit playExit => new UnityIpcDispatchRequest(
+                IpcMethodNames.PlayExit,
+                IpcPayloadCodec.SerializeToElement(new IpcPlayExitRequest
+                {
+                    TimeoutMilliseconds = playExit.TimeoutMilliseconds,
+                }),
+                isRecoverable: true,
+                recoverableResponseAttemptTimeout: PlayExitRecoverableResponseAttemptTimeout),
             UnityRequestPayload.ExecuteJson executeJson => new UnityIpcDispatchRequest(
                 IpcMethodNames.Execute,
                 CreateExecutePayload(

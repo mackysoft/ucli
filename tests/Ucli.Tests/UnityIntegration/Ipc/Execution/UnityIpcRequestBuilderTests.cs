@@ -87,6 +87,22 @@ public sealed class UnityIpcRequestBuilderTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Build_WithPlayExit_CreatesPlayExitPayload ()
+    {
+        var builder = new UnityIpcRequestBuilder();
+
+        var request = builder.Build(new UnityRequestPayload.PlayExit(2500));
+
+        Assert.Equal(IpcMethodNames.PlayExit, request.Method);
+        Assert.True(request.IsRecoverable);
+        Assert.Equal(TimeSpan.FromMilliseconds(1000), request.RecoverableResponseAttemptTimeout);
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayExitRequest payload, out _));
+        Assert.Equal(2500, payload.TimeoutMilliseconds);
+        Assert.Empty(request.AllowedStartupLifecycleStates);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void UnityIpcRequestFactory_WithCompileDispatchTimeout_InjectsTimeoutPayload ()
     {
         var payload = IpcPayloadCodec.SerializeToElement(new IpcCompileRequest("run-1"));

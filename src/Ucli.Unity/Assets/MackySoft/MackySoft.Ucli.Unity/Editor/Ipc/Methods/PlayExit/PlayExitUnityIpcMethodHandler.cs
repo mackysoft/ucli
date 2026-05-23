@@ -9,17 +9,17 @@ using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
-    /// <summary> Handles <c>play.enter</c> IPC method requests. </summary>
-    internal sealed class PlayEnterUnityIpcMethodHandler : IRecoverableUnityIpcMethodHandler
+    /// <summary> Handles <c>play.exit</c> IPC method requests. </summary>
+    internal sealed class PlayExitUnityIpcMethodHandler : IRecoverableUnityIpcMethodHandler
     {
-        private readonly PlayEnterTransitionRunner transitionRunner;
+        private readonly PlayExitTransitionRunner transitionRunner;
         private readonly IDaemonLogger daemonLogger;
 
-        /// <summary> Initializes a new instance of the <see cref="PlayEnterUnityIpcMethodHandler" /> class. </summary>
+        /// <summary> Initializes a new instance of the <see cref="PlayExitUnityIpcMethodHandler" /> class. </summary>
         /// <param name="transitionRunner"> The transition runner dependency. </param>
         /// <param name="daemonLogger"> The daemon logger dependency. </param>
-        public PlayEnterUnityIpcMethodHandler (
-            PlayEnterTransitionRunner transitionRunner,
+        public PlayExitUnityIpcMethodHandler (
+            PlayExitTransitionRunner transitionRunner,
             IDaemonLogger daemonLogger = null)
         {
             this.transitionRunner = transitionRunner ?? throw new ArgumentNullException(nameof(transitionRunner));
@@ -27,7 +27,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <inheritdoc />
-        public string Method => IpcMethodNames.PlayEnter;
+        public string Method => IpcMethodNames.PlayExit;
 
         /// <inheritdoc />
         public bool TryCreateRecoverableRequestPayloadHash (
@@ -35,17 +35,17 @@ namespace MackySoft.Ucli.Unity.Ipc
             out string requestPayloadHash,
             out IpcResponse errorResponse)
         {
-            if (!TryReadPlayEnterRequest(
+            if (!TryReadPlayExitRequest(
                     request,
                     logDecodeFailure: false,
-                    out IpcPlayEnterRequest enterRequest,
+                    out IpcPlayExitRequest exitRequest,
                     out errorResponse))
             {
                 requestPayloadHash = null;
                 return false;
             }
 
-            var stablePayload = IpcPayloadCodec.SerializeToElement(enterRequest);
+            var stablePayload = IpcPayloadCodec.SerializeToElement(exitRequest);
             requestPayloadHash = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(stablePayload.GetRawText()));
             return true;
         }
@@ -78,17 +78,17 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(request));
             }
 
-            if (!TryReadPlayEnterRequest(
+            if (!TryReadPlayExitRequest(
                     request,
                     logDecodeFailure: true,
-                    out IpcPlayEnterRequest enterRequest,
+                    out IpcPlayExitRequest exitRequest,
                     out var errorResponse))
             {
                 return errorResponse!;
             }
 
-            var result = await transitionRunner.EnterAsync(
-                enterRequest.TimeoutMilliseconds!.Value,
+            var result = await transitionRunner.ExitAsync(
+                exitRequest.TimeoutMilliseconds!.Value,
                 recoverableContext,
                 cancellationToken);
             if (result.IsSuccess)
@@ -104,28 +104,28 @@ namespace MackySoft.Ucli.Unity.Ipc
                 result.Response);
         }
 
-        private bool TryReadPlayEnterRequest (
+        private bool TryReadPlayExitRequest (
             IpcRequest request,
             bool logDecodeFailure,
-            out IpcPlayEnterRequest enterRequest,
+            out IpcPlayExitRequest exitRequest,
             out IpcResponse errorResponse)
         {
-            if (!UnityIpcRequestCodec.TryDecodePlayEnterRequest(
+            if (!UnityIpcRequestCodec.TryDecodePlayExitRequest(
                     request,
-                    out enterRequest,
+                    out exitRequest,
                     out errorResponse))
             {
                 if (logDecodeFailure)
                 {
                     daemonLogger.Warning(
                         DaemonLogCategories.Health,
-                        "Play enter payload decode failed.");
+                        "Play exit payload decode failed.");
                 }
 
                 return false;
             }
 
-            if (!TryValidateTimeoutMilliseconds(enterRequest!.TimeoutMilliseconds, out var timeoutErrorMessage))
+            if (!TryValidateTimeoutMilliseconds(exitRequest!.TimeoutMilliseconds, out var timeoutErrorMessage))
             {
                 errorResponse = UnityIpcResponseFactory.CreateErrorResponse(
                     request,
@@ -145,13 +145,13 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             if (!timeoutMilliseconds.HasValue)
             {
-                errorMessage = "PlayEnter timeoutMilliseconds is required.";
+                errorMessage = "PlayExit timeoutMilliseconds is required.";
                 return false;
             }
 
             if (timeoutMilliseconds.Value <= 0)
             {
-                errorMessage = "PlayEnter timeoutMilliseconds must be greater than zero.";
+                errorMessage = "PlayExit timeoutMilliseconds must be greater than zero.";
                 return false;
             }
 

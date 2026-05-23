@@ -574,7 +574,7 @@ public sealed class UcliConfigStoreTests
 
     private static void AssertDefaultIpcTimeouts (IReadOnlyDictionary<string, int?> actual)
     {
-        Assert.Equal(21, actual.Count);
+        Assert.Equal(22, actual.Count);
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandTest));
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandReady));
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandVerify));
@@ -596,6 +596,7 @@ public sealed class UcliConfigStoreTests
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandLogsUnityClear));
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandPlayStatus));
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandPlayEnter));
+        Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandPlayExit));
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultTestMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandTest]);
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultReadyMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandReady]);
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultVerifyMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandVerify]);
@@ -617,5 +618,6 @@ public sealed class UcliConfigStoreTests
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultLogsUnityClearMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandLogsUnityClear]);
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultPlayStatusMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandPlayStatus]);
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultPlayEnterMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandPlayEnter]);
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultPlayExitMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandPlayExit]);
     }
 }

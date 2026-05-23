@@ -85,6 +85,19 @@ namespace MackySoft.Ucli.Unity.Ipc
             return TryDecodePayload(request, "PlayEnter", out payload, out errorResponse);
         }
 
+        /// <summary> Tries to decode one Play Mode exit request payload. </summary>
+        /// <param name="request"> The incoming request envelope. </param>
+        /// <param name="payload"> The decoded payload when successful. </param>
+        /// <param name="errorResponse"> The invalid-argument response when decoding fails. </param>
+        /// <returns> <see langword="true" /> when decoding succeeded; otherwise <see langword="false" />. </returns>
+        public static bool TryDecodePlayExitRequest (
+            IpcRequest request,
+            out IpcPlayExitRequest? payload,
+            out IpcResponse? errorResponse)
+        {
+            return TryDecodePayload(request, "PlayExit", out payload, out errorResponse);
+        }
+
         /// <summary> Tries to decode one ops-read request payload. </summary>
         /// <param name="request"> The incoming request envelope. </param>
         /// <param name="payload"> The decoded payload when successful. </param>

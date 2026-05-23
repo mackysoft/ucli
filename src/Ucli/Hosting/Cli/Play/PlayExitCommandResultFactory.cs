@@ -1,37 +1,37 @@
-using MackySoft.Ucli.Application.Features.Play.UseCases.Enter;
+using MackySoft.Ucli.Application.Features.Play.UseCases.Exit;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Projection;
 
 namespace MackySoft.Ucli.Hosting.Cli.Play;
 
-/// <summary> Creates command-level JSON results from Play Mode enter execution results. </summary>
-internal static class PlayEnterCommandResultFactory
+/// <summary> Creates command-level JSON results from Play Mode exit execution results. </summary>
+internal static class PlayExitCommandResultFactory
 {
-    /// <summary> Creates one command result for <c>play enter</c>. </summary>
-    /// <param name="executionResult"> The Play Mode enter execution result. </param>
+    /// <summary> Creates one command result for <c>play exit</c>. </summary>
+    /// <param name="executionResult"> The Play Mode exit execution result. </param>
     /// <returns> The command result serialized to stdout. </returns>
-    public static CommandResult Create (PlayEnterExecutionResult executionResult)
+    public static CommandResult Create (PlayExitExecutionResult executionResult)
     {
         ArgumentNullException.ThrowIfNull(executionResult);
 
         if (executionResult.IsSuccess)
         {
             return CommandResult.Success(
-                command: UcliCommandNames.PlayEnter,
+                command: UcliCommandNames.PlayExit,
                 message: executionResult.Message,
                 payload: CreatePayload(executionResult.Output!));
         }
 
         var payload = executionResult.Output is null ? null : CreatePayload(executionResult.Output);
         return CommandFailureProjector.Create(
-            UcliCommandNames.PlayEnter,
+            UcliCommandNames.PlayExit,
             executionResult.Message,
             payload,
             [executionResult.Error!]);
     }
 
-    private static object CreatePayload (PlayEnterExecutionOutput output)
+    private static object CreatePayload (PlayExitExecutionOutput output)
     {
         return new
         {
@@ -54,7 +54,7 @@ internal static class PlayEnterCommandResultFactory
         };
     }
 
-    private static object CreateTransitionPayload (PlayEnterTransitionOutput transition)
+    private static object CreateTransitionPayload (PlayExitTransitionOutput transition)
     {
         return PlayTransitionPayloadProjector.Create(
             transition.Transition,

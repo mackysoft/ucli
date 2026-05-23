@@ -127,6 +127,49 @@ public sealed class UnityDaemonIpcClientTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task SendAsync_WhenRecoverableResponseAttemptTimesOutBeforeDeadline_RetriesWithSameRequestId ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var transportClient = new StubUnityIpcTransportClient();
+        transportClient.EnqueueException(new TimeoutException("response wait timed out"));
+        transportClient.EnqueueResponse(CreateResponse("req-recovered"));
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
+            DaemonSessionTokenResolutionResult.Success("daemon-token-1"),
+            DaemonSessionTokenResolutionResult.Success("daemon-token-2"));
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            sessionTokenProvider,
+            timeProvider: timeProvider);
+        var attemptTimeout = TimeSpan.FromMilliseconds(250);
+
+        var sendTask = client.SendAsync(
+                CreateContext(),
+                new UnityIpcDispatchRequest(
+                    IpcMethodNames.PlayExit,
+                    CreateDispatchPayload(),
+                    isRecoverable: true,
+                    recoverableResponseAttemptTimeout: attemptTimeout),
+                TimeSpan.FromSeconds(5),
+                CancellationToken.None)
+            .AsTask();
+        Assert.False(sendTask.IsCompleted);
+        Assert.Equal(attemptTimeout, transportClient.Timeouts[0]);
+
+        timeProvider.Advance(TimeSpan.FromMilliseconds(100));
+        var result = await sendTask;
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, sessionTokenProvider.CallCount);
+        Assert.Equal(2, transportClient.CallCount);
+        Assert.Equal("daemon-token-1", transportClient.Requests[0].SessionToken);
+        Assert.Equal("daemon-token-2", transportClient.Requests[1].SessionToken);
+        Assert.Equal(transportClient.Requests[0].RequestId, transportClient.Requests[1].RequestId);
+        Assert.Equal(attemptTimeout, transportClient.Timeouts[1]);
+        Assert.StartsWith($"{IpcMethodNames.PlayExit}-", transportClient.Requests[0].RequestId, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task SendAsync_WhenRecoverableSessionTokenIsTemporarilyUnavailableDuringRecovery_WaitsAndSendsRecoveredSessionToken ()
     {
         var timeProvider = new ManualTimeProvider();
@@ -244,6 +287,8 @@ public sealed class UnityDaemonIpcClientTests
 
         public List<IpcRequest> Requests { get; } = new();
 
+        public List<TimeSpan> Timeouts { get; } = new();
+
         public Exception? Exception { get; set; }
 
         public IpcRequest? LastRequest { get; private set; }
@@ -275,6 +320,7 @@ public sealed class UnityDaemonIpcClientTests
             CallCount++;
             LastRequest = request;
             Requests.Add(request);
+            Timeouts.Add(timeout);
 
             if (QueuedExceptions.Count != 0)
             {

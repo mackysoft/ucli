@@ -62,6 +62,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityTestResultsXmlWriter, UnityTestResultsXmlWriter>();
             services.AddSingleton<IUnityTestRunService, UnityTestRunService>();
             services.AddSingleton<IServerVersionProvider, AssemblyServerVersionProvider>();
+            services.AddSingleton<IUnityEditorUpdateAwaiter, UnityEditorUpdateAwaiterAdapter>();
+            services.AddSingleton<IUnityPlayModeController, UnityEditorPlayModeController>();
+            services.AddSingleton<PlayEnterTransitionRunner>();
+            services.AddSingleton<PlayExitTransitionRunner>();
             services.AddSingleton<IUnityIpcMethodHandler>(serviceProvider =>
             {
                 return new PingUnityIpcMethodHandler(
@@ -87,14 +91,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     serviceProvider.GetRequiredService<IpcProjectIdentity>(),
                     serviceProvider.GetRequiredService<IDaemonLogger>());
             });
-            services.AddSingleton<IUnityIpcMethodHandler>(serviceProvider =>
-            {
-                return new PlayEnterUnityIpcMethodHandler(
-                    serviceProvider.GetRequiredService<IServerVersionProvider>(),
-                    serviceProvider.GetRequiredService<IUnityEditorReadinessGate>(),
-                    serviceProvider.GetRequiredService<IpcProjectIdentity>(),
-                    serviceProvider.GetRequiredService<IDaemonLogger>());
-            });
+            services.AddSingleton<IUnityIpcMethodHandler, PlayEnterUnityIpcMethodHandler>();
+            services.AddSingleton<IUnityIpcMethodHandler, PlayExitUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, TestRunUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, OpsReadUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, IndexAssetsReadUnityIpcMethodHandler>();

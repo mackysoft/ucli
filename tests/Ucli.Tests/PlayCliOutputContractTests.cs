@@ -94,22 +94,23 @@ public sealed class PlayCliOutputContractTests
         Assert.DoesNotContain("Argument '--timeout' is not recognized.", result.StdErr, StringComparison.Ordinal);
     }
 
-    [Theory]
-    [InlineData(UcliCommandNames.ExitSubcommand, UcliCommandNames.PlayExit)]
+    [Fact]
     [Trait("Size", "Medium")]
-    public async Task PlayCommand_WithProjectPathAndTimeoutOptions_ReturnsRegisteredStubResult (
-        string subcommand,
-        string expectedCommand)
+    public async Task PlayExit_WithProjectPathAndTimeoutOptions_WhenGuiSessionIsMissing_ReturnsSessionNotAvailable ()
     {
+        using var scope = TestDirectories.CreateTempScope("play-cli-output-contract", "exit-session-not-available");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+
         var result = await CliProcessRunner.RunCommandAsync(
             UcliCommandNames.Play,
-            subcommand,
+            UcliCommandNames.ExitSubcommand,
             "--projectPath",
-            "/tmp/ucli-play-contract",
+            unityProjectPath,
             "--timeout",
             "1000");
 
-        AssertPlayStubResult(result, expectedCommand);
+        JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("play", "exit-session-not-available.json"), result.StdOut);
+        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
         Assert.DoesNotContain("Argument '--projectPath' is not recognized.", result.StdErr, StringComparison.Ordinal);
         Assert.DoesNotContain("Argument '--timeout' is not recognized.", result.StdErr, StringComparison.Ordinal);
     }
