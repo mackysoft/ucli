@@ -128,7 +128,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     RequestPayloadHash,
                     new RecoverableIpcOperationRecord
                     {
-                        State = RecoverableIpcOperationStateNames.Pending,
+                        State = RecoverableIpcOperationState.Pending,
                         StartedAtUtc = pendingSummary.StartedAtUtc,
                         RecoveryPayload = IpcPayloadCodec.SerializeToElement(pendingSummary),
                     });

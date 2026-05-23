@@ -139,7 +139,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void UcliOperationMetadata_WhenNonPublicOperationMayCreatePreviewState_ReturnsMetadata ()
+        public void UcliOperationMetadata_WhenEditLoweringOnlyOperationMayCreatePreviewState_ReturnsMetadata ()
         {
             var editLoweringOnlyMetadata = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
                 operationName: "ucli.tests.edit-preview-state",
@@ -147,15 +147,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 description: "Edit-only preview-state operation.",
                 assurance: CreatePreviewStateAssurance(),
                 exposure: UcliOperationExposure.EditLoweringOnly);
-            var internalMetadata = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
-                operationName: "ucli.tests.internal-preview-state",
-                kind: UcliOperationKind.Command,
-                description: "Internal preview-state operation.",
-                assurance: CreatePreviewStateAssurance(),
-                exposure: UcliOperationExposure.Internal);
 
             Assert.That(editLoweringOnlyMetadata.Exposure, Is.EqualTo(UcliOperationExposure.EditLoweringOnly));
-            Assert.That(internalMetadata.Exposure, Is.EqualTo(UcliOperationExposure.Internal));
         }
 
         [Test]
@@ -468,7 +461,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void BuildCatalog_WhenCsEvalOperationIsDiscovered_ExcludesFromPublicCatalogAndKeepsRegistration ()
+        public void BuildCatalog_WhenCsEvalOperationIsDiscovered_IncludesPublicDangerousOperation ()
         {
             var operations = UcliOperationDiscoverer.Discover();
             var metadata = FindMetadata(operations, UcliPrimitiveOperationNames.CsEval);
@@ -479,8 +472,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 registration => registration.Metadata.OperationName == UcliPrimitiveOperationNames.CsEval));
             Assert.That(
                 snapshot.Catalog.Operations!.Any(operation => operation.Name == UcliPrimitiveOperationNames.CsEval),
-                Is.False);
-            Assert.That(metadata.Exposure, Is.EqualTo(UcliOperationExposure.Internal));
+                Is.True);
+            Assert.That(metadata.Exposure, Is.EqualTo(UcliOperationExposure.Public));
             Assert.That(metadata.Kind, Is.EqualTo(UcliOperationKind.Mutation));
             Assert.That(metadata.Policy, Is.EqualTo(OperationPolicy.Dangerous));
             Assert.That(metadata.ArgsSchemaJson, Does.Contain("\"source\""));
@@ -513,19 +506,18 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void BuildCatalog_WhenOperationExposureIsNotPublic_ExcludesFromPublicCatalogAndKeepsRegistration ()
+        public void BuildCatalog_WhenOperationExposureIsEditLoweringOnly_ExcludesFromPublicCatalogAndKeepsRegistration ()
         {
             var operation = new DiscoverableOperation();
             var registrations = new[]
             {
                 CreateRegistration("ucli.tests.public", UcliOperationExposure.Public, operation),
                 CreateRegistration("ucli.tests.edit-lowering-only", UcliOperationExposure.EditLoweringOnly, operation),
-                CreateRegistration("ucli.tests.internal", UcliOperationExposure.Internal, operation),
             };
 
             var snapshot = UcliOperationCatalogSnapshotBuilder.Build(registrations);
 
-            Assert.That(snapshot.Registrations.Count, Is.EqualTo(3));
+            Assert.That(snapshot.Registrations.Count, Is.EqualTo(2));
             Assert.That(snapshot.Catalog.Operations!.Select(static entry => entry.Name), Is.EquivalentTo(new[] { "ucli.tests.public" }));
             Assert.That(
                 snapshot.RequestValidationCatalog.Operations!.Select(static entry => entry.Name),

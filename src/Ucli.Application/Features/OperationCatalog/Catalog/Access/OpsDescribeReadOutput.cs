@@ -1,8 +1,8 @@
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 
-/// <summary> Represents the internal operation detail used by <c>ops describe</c>. </summary>
+/// <summary> Represents the catalog detail selected for <c>ops describe</c>. </summary>
 /// <param name="Operation"> The selected full operation entry. </param>
-/// <param name="AccessInfo"> The internal access metadata. </param>
+/// <param name="AccessInfo"> The access metadata used to enforce catalog visibility. </param>
 internal sealed record OpsDescribeReadOutput (
     IndexOpEntryJsonContract Operation,
     OpsCatalogAccessInfo AccessInfo);

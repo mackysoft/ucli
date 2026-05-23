@@ -353,15 +353,20 @@ namespace MackySoft.Ucli.Unity.Ipc
                     IpcPlayApplicationStateNames.Unknown);
             }
 
-            if (string.Equals(observed.PlayMode.State, IpcPlayModeStateNames.Entering, StringComparison.Ordinal)
-                || string.Equals(observed.PlayMode.Transition, IpcPlayModeTransitionNames.Entering, StringComparison.Ordinal))
+            TryReadPlayModeSnapshot(
+                observed,
+                out _,
+                out var observedPlayModeState,
+                out var observedPlayModeTransition);
+            if (observedPlayModeState == IpcPlayModeState.Entering
+                || observedPlayModeTransition == IpcPlayModeTransition.Entering)
             {
                 stoppedObservations = 0;
                 return null;
             }
 
-            if (string.Equals(observed.PlayMode.State, IpcPlayModeStateNames.Exiting, StringComparison.Ordinal)
-                || string.Equals(observed.PlayMode.Transition, IpcPlayModeTransitionNames.Exiting, StringComparison.Ordinal))
+            if (observedPlayModeState == IpcPlayModeState.Exiting
+                || observedPlayModeTransition == IpcPlayModeTransition.Exiting)
             {
                 return CreateFailure(
                     PlayModeErrorCodes.PlayModeAlreadyChanging,
@@ -469,11 +474,14 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static bool IsEnteredSnapshot (IpcPlayLifecycleSnapshot snapshot)
         {
-            var playMode = snapshot.PlayMode;
-            return playMode != null
+            return TryReadPlayModeSnapshot(
+                    snapshot,
+                    out var playMode,
+                    out var playModeState,
+                    out var playModeTransition)
                 && string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Playmode, StringComparison.Ordinal)
-                && string.Equals(playMode.State, IpcPlayModeStateNames.Playing, StringComparison.Ordinal)
-                && string.Equals(playMode.Transition, IpcPlayModeTransitionNames.None, StringComparison.Ordinal)
+                && playModeState == IpcPlayModeState.Playing
+                && playModeTransition == IpcPlayModeTransition.None
                 && playMode.IsPlaying
                 && !snapshot.CanAcceptExecutionRequests;
         }
@@ -487,28 +495,43 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static bool IsReadyStoppedSnapshot (IpcPlayLifecycleSnapshot snapshot)
         {
-            var playMode = snapshot.PlayMode;
-            return playMode != null
+            return TryReadPlayModeSnapshot(
+                    snapshot,
+                    out var playMode,
+                    out var playModeState,
+                    out var playModeTransition)
                 && string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
-                && string.Equals(playMode.State, IpcPlayModeStateNames.Stopped, StringComparison.Ordinal)
-                && string.Equals(playMode.Transition, IpcPlayModeTransitionNames.None, StringComparison.Ordinal)
+                && playModeState == IpcPlayModeState.Stopped
+                && playModeTransition == IpcPlayModeTransition.None
                 && !playMode.IsPlaying
                 && !playMode.IsPlayingOrWillChangePlaymode;
         }
 
         private static bool IsPlayModeChanging (IpcPlayLifecycleSnapshot snapshot)
         {
-            var playMode = snapshot.PlayMode;
-            return playMode != null
-                && (string.Equals(playMode.State, IpcPlayModeStateNames.Entering, StringComparison.Ordinal)
-                    || string.Equals(playMode.State, IpcPlayModeStateNames.Exiting, StringComparison.Ordinal)
-                    || string.Equals(playMode.Transition, IpcPlayModeTransitionNames.Entering, StringComparison.Ordinal)
-                    || string.Equals(playMode.Transition, IpcPlayModeTransitionNames.Exiting, StringComparison.Ordinal));
+            return TryReadPlayModeSnapshot(
+                    snapshot,
+                    out _,
+                    out var playModeState,
+                    out var playModeTransition)
+                && (playModeState == IpcPlayModeState.Entering
+                    || playModeState == IpcPlayModeState.Exiting
+                    || playModeTransition == IpcPlayModeTransition.Entering
+                    || playModeTransition == IpcPlayModeTransition.Exiting);
         }
 
         private static bool IsUnknownPlayMode (IpcPlayLifecycleSnapshot snapshot)
         {
-            return string.Equals(snapshot.PlayMode?.State, IpcPlayModeStateNames.Unknown, StringComparison.Ordinal);
+            if (!TryReadPlayModeSnapshot(
+                    snapshot,
+                    out _,
+                    out var playModeState,
+                    out _))
+            {
+                return true;
+            }
+
+            return playModeState == IpcPlayModeState.Unknown;
         }
 
         private static bool IsReadyOrPlayModeLifecycle (IpcPlayLifecycleSnapshot snapshot)
@@ -527,6 +550,20 @@ namespace MackySoft.Ucli.Unity.Ipc
                 && IsEnteredSnapshot(current)
                 && string.Equals(pendingBefore.ProjectFingerprint, current.ProjectFingerprint, StringComparison.Ordinal)
                 && HasGenerationChanged(pendingBefore, current);
+        }
+
+        private static bool TryReadPlayModeSnapshot (
+            IpcPlayLifecycleSnapshot snapshot,
+            out IpcPlayModeSnapshot playMode,
+            out IpcPlayModeState state,
+            out IpcPlayModeTransition transition)
+        {
+            playMode = snapshot.PlayMode;
+            state = default;
+            transition = default;
+            return playMode != null
+                && IpcPlayModeStateCodec.TryParse(playMode.State, out state)
+                && IpcPlayModeTransitionCodec.TryParse(playMode.Transition, out transition);
         }
 
     }

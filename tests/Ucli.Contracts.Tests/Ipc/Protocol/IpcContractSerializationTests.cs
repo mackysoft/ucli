@@ -435,6 +435,14 @@ public sealed class IpcContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcPlayLiteralContracts_ExposeExpectedLiterals ()
     {
+        Assert.Equal(0, (int)IpcPlayModeState.Stopped);
+        Assert.Equal(1, (int)IpcPlayModeState.Entering);
+        Assert.Equal(2, (int)IpcPlayModeState.Playing);
+        Assert.Equal(3, (int)IpcPlayModeState.Exiting);
+        Assert.Equal(4, (int)IpcPlayModeState.Unknown);
+        Assert.Equal(0, (int)IpcPlayModeTransition.None);
+        Assert.Equal(1, (int)IpcPlayModeTransition.Entering);
+        Assert.Equal(2, (int)IpcPlayModeTransition.Exiting);
         Assert.Equal("stopped", IpcPlayModeStateNames.Stopped);
         Assert.Equal("entering", IpcPlayModeStateNames.Entering);
         Assert.Equal("playing", IpcPlayModeStateNames.Playing);
@@ -460,6 +468,21 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("applied", IpcPlayApplicationStateNames.Applied);
         Assert.Equal("indeterminate", IpcPlayApplicationStateNames.Indeterminate);
         Assert.Equal("unknown", IpcPlayApplicationStateNames.Unknown);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcPlayModeCodecs_RoundTripStableLiterals ()
+    {
+        Assert.True(IpcPlayModeStateCodec.TryParse(" playing ", out var state));
+        Assert.Equal(IpcPlayModeState.Playing, state);
+        Assert.Equal(IpcPlayModeStateNames.Playing, IpcPlayModeStateCodec.ToValue(state));
+        Assert.False(IpcPlayModeStateCodec.TryParse("unsupported", out _));
+
+        Assert.True(IpcPlayModeTransitionCodec.TryParse(" none ", out var transition));
+        Assert.Equal(IpcPlayModeTransition.None, transition);
+        Assert.Equal(IpcPlayModeTransitionNames.None, IpcPlayModeTransitionCodec.ToValue(transition));
+        Assert.False(IpcPlayModeTransitionCodec.TryParse("unsupported", out _));
     }
 
     [Fact]

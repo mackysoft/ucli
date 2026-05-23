@@ -67,7 +67,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 Path.Combine(fingerprintDirectory, UcliStoragePathNames.IpcOperationsDirectoryName),
                 projectIdentity.ProjectFingerprint,
                 process.Id,
-                UnityEditorProcessIdentity.GetEditorInstanceId());
+                UnityEditorSessionStateStore.GetOrCreateEditorInstanceId());
         }
 
         /// <inheritdoc />
@@ -138,7 +138,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 RequestPayloadHash = requestPayloadHash,
                 HostProcessId = hostProcessId,
                 HostEditorInstanceId = hostEditorInstanceId,
-                State = RecoverableIpcOperationStateNames.Pending,
+                State = RecoverableIpcOperationState.Pending,
                 StartedAtUtc = startedAtUtc,
                 RecoveryPayload = recoveryPayload.Clone(),
             };
@@ -176,7 +176,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 RequestPayloadHash = requestPayloadHash,
                 HostProcessId = hostProcessId,
                 HostEditorInstanceId = hostEditorInstanceId,
-                State = RecoverableIpcOperationStateNames.Completed,
+                State = RecoverableIpcOperationState.Completed,
                 StartedAtUtc = startedAtUtc,
                 CompletedAtUtc = completedAtUtc,
                 RecoveryPayload = recoveryPayload.Clone(),
@@ -305,7 +305,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (string.Equals(record.State, RecoverableIpcOperationStateNames.Pending, StringComparison.Ordinal))
+            if (!record.HasState)
+            {
+                errorMessage = record.HasPersistedState
+                    ? $"Recoverable IPC operation state is unsupported: {record.UnsupportedPersistedState}."
+                    : "Recoverable IPC operation state is missing.";
+                return false;
+            }
+
+            if (record.State == RecoverableIpcOperationState.Pending)
             {
                 if (record.RecoveryPayload.ValueKind == JsonValueKind.Undefined)
                 {
@@ -317,7 +325,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return true;
             }
 
-            if (string.Equals(record.State, RecoverableIpcOperationStateNames.Completed, StringComparison.Ordinal))
+            if (record.State == RecoverableIpcOperationState.Completed)
             {
                 if (record.Response == null || !record.CompletedAtUtc.HasValue)
                 {
@@ -507,7 +515,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             DateTimeOffset nowUtc)
         {
             return record != null
-                && string.Equals(record.State, RecoverableIpcOperationStateNames.Completed, StringComparison.Ordinal)
+                && record.HasState
+                && record.State == RecoverableIpcOperationState.Completed
                 && record.CompletedAtUtc.HasValue
                 && nowUtc - record.CompletedAtUtc.Value > CompletedRecordTtl;
         }
@@ -517,7 +526,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             DateTimeOffset nowUtc)
         {
             return record != null
-                && string.Equals(record.State, RecoverableIpcOperationStateNames.Pending, StringComparison.Ordinal)
+                && record.HasState
+                && record.State == RecoverableIpcOperationState.Pending
                 && nowUtc - record.StartedAtUtc > PendingRecordTtl;
         }
 
@@ -536,13 +546,17 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return true;
             }
 
-            if (!string.Equals(record.State, RecoverableIpcOperationStateNames.Pending, StringComparison.Ordinal)
-                && !string.Equals(record.State, RecoverableIpcOperationStateNames.Completed, StringComparison.Ordinal))
+            if (!record.HasState || !IsSupportedState(record.State))
             {
                 return IsRecordFileOlderThan(recordPath, nowUtc, InvalidRecordTtl);
             }
 
             return false;
+        }
+
+        private static bool IsSupportedState (RecoverableIpcOperationState state)
+        {
+            return state is RecoverableIpcOperationState.Pending or RecoverableIpcOperationState.Completed;
         }
 
         private static bool IsRecordFileOlderThan (

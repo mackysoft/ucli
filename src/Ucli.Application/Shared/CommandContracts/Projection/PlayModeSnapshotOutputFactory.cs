@@ -11,40 +11,20 @@ internal static class PlayModeSnapshotOutputFactory
     /// <returns> The normalized output snapshot, or <see langword="null" /> when the snapshot is missing or malformed. </returns>
     public static PlayModeSnapshotOutput? Create (IpcPlayModeSnapshot? snapshot)
     {
+        // NOTE: IpcPlayModeSnapshot is a wire contract and therefore stores literals.
+        // Command logic parses them here so downstream decisions use typed values.
         if (snapshot is null
-            || !TryNormalizeState(snapshot.State, out var state)
-            || !TryNormalizeTransition(snapshot.Transition, out var transition))
+            || !IpcPlayModeStateCodec.TryParse(snapshot.State, out var state)
+            || !IpcPlayModeTransitionCodec.TryParse(snapshot.Transition, out var transition))
         {
             return null;
         }
 
         return new PlayModeSnapshotOutput(
-            State: state!,
-            Transition: transition!,
+            State: IpcPlayModeStateCodec.ToValue(state),
+            Transition: IpcPlayModeTransitionCodec.ToValue(transition),
             IsPlaying: snapshot.IsPlaying,
             IsPlayingOrWillChangePlaymode: snapshot.IsPlayingOrWillChangePlaymode,
             Generation: StringValueNormalizer.TrimToNull(snapshot.Generation));
-    }
-
-    private static bool TryNormalizeState (
-        string? value,
-        out string? normalized)
-    {
-        normalized = StringValueNormalizer.TrimToNull(value);
-        return normalized is IpcPlayModeStateNames.Stopped
-            or IpcPlayModeStateNames.Entering
-            or IpcPlayModeStateNames.Playing
-            or IpcPlayModeStateNames.Exiting
-            or IpcPlayModeStateNames.Unknown;
-    }
-
-    private static bool TryNormalizeTransition (
-        string? value,
-        out string? normalized)
-    {
-        normalized = StringValueNormalizer.TrimToNull(value);
-        return normalized is IpcPlayModeTransitionNames.None
-            or IpcPlayModeTransitionNames.Entering
-            or IpcPlayModeTransitionNames.Exiting;
     }
 }

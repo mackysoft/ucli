@@ -53,7 +53,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 ServerVersion = serverVersion,
                 CanAcceptExecutionRequests = snapshot.CanAcceptExecutionRequests,
-                EditorInstanceId = UnityEditorProcessIdentity.GetEditorInstanceId(),
+                EditorInstanceId = UnityEditorSessionStateStore.GetOrCreateEditorInstanceId(),
                 PlayMode = snapshot.PlayMode,
             };
             FileUtilities.WriteAllTextAtomically(path, DaemonLifecycleJsonContractSerializer.Serialize(contract));

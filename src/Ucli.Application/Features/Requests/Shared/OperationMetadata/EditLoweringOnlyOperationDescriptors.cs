@@ -67,7 +67,7 @@ internal static class EditLoweringOnlyOperationDescriptors
     private static UcliOperationDescriptor Create (string operationName)
     {
         // NOTE: Request static validation uses these descriptors only for exposure and authorization.
-        // Public raw argument validation never uses this non-public overlay.
+        // Public raw argument validation never uses this edit-lowering-only overlay.
         return new UcliOperationDescriptor(
             Name: operationName,
             Kind: UcliOperationKind.Mutation,

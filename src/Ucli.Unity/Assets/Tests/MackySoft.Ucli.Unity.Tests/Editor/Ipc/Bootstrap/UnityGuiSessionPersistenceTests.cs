@@ -20,7 +20,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [TearDown]
         public void TearDown ()
         {
-            UnityEditorProcessIdentity.SetEditorInstanceIdForTests(null);
+            UnityEditorSessionStateStore.SetEditorInstanceIdForTests(null);
         }
 
         [UnityTest]
@@ -30,7 +30,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                UnityEditorProcessIdentity.SetEditorInstanceIdForTests("editor-instance-user-owned");
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-user-owned");
                 await WriteSessionAsync(
                     storageRoot,
                     UnityGuiBootstrapSessionOptions.Create(null));
@@ -65,7 +65,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                UnityEditorProcessIdentity.SetEditorInstanceIdForTests("editor-instance-cli-owned");
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-cli-owned");
                 await WriteSessionAsync(
                     storageRoot,
                     UnityGuiBootstrapSessionOptions.Create(new IpcGuiBootstrapArguments(
@@ -91,7 +91,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                UnityEditorProcessIdentity.SetEditorInstanceIdForTests("editor-instance-token-validation");
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-token-validation");
                 var registration = await WriteSessionAsync(
                     storageRoot,
                     UnityGuiBootstrapSessionOptions.Create(null));
@@ -125,7 +125,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                UnityEditorProcessIdentity.SetEditorInstanceIdForTests("editor-instance-replace-current");
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-replace-current");
                 var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, "fingerprint");
                 var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
@@ -175,7 +175,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                UnityEditorProcessIdentity.SetEditorInstanceIdForTests("editor-instance-replace-current-missing-id");
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-replace-current-missing-id");
                 var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, "fingerprint");
                 var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
@@ -219,7 +219,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                UnityEditorProcessIdentity.SetEditorInstanceIdForTests("editor-instance-current");
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-current");
                 var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, "fingerprint");
                 var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
@@ -275,7 +275,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                UnityEditorProcessIdentity.SetEditorInstanceIdForTests("editor-instance-unexpected-endpoint");
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-unexpected-endpoint");
                 var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, "fingerprint");
                 var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
@@ -335,7 +335,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                UnityEditorProcessIdentity.SetEditorInstanceIdForTests("editor-instance-already-exists");
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-already-exists");
                 var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, "fingerprint");
                 var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
@@ -388,7 +388,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                UnityEditorProcessIdentity.SetEditorInstanceIdForTests("editor-instance-delete-replaced");
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-delete-replaced");
                 var endpointResiduePath = Path.Combine(storageRoot, "ipc.sock");
                 var registration = await WriteSessionAsync(
                     storageRoot,
@@ -430,7 +430,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                UnityEditorProcessIdentity.SetEditorInstanceIdForTests("editor-instance-reregister");
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-reregister");
                 var firstRegistration = await WriteSessionAsync(
                     storageRoot,
                     UnityGuiBootstrapSessionOptions.Create(null));

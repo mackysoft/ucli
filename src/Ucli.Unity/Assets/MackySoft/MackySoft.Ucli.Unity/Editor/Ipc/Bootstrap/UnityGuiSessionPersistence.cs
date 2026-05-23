@@ -62,7 +62,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             using var currentProcess = Process.GetCurrentProcess();
             var currentProcessId = currentProcess.Id;
             var currentProcessStartedAtUtc = currentProcess.StartTime.ToUniversalTime();
-            var currentEditorInstanceId = UnityEditorProcessIdentity.GetEditorInstanceId();
+            var currentEditorInstanceId = UnityEditorSessionStateStore.GetOrCreateEditorInstanceId();
             DeleteCurrentProcessGuiSessionIfPresent(
                 sessionPath,
                 projectFingerprint,

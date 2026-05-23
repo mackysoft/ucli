@@ -15,9 +15,9 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         private int playModeGeneration;
 
-        private string playModeTransition;
+        private IpcPlayModeTransition playModeTransition;
 
-        private string lastStablePlayModeState;
+        private IpcPlayModeState? lastStablePlayModeState;
 
         private bool isDomainReloading;
 
@@ -35,8 +35,8 @@ namespace MackySoft.Ucli.Unity.Runtime
         public UnityEditorLifecycleTelemetryState ()
             : this(
                 compileGeneration: 0,
-                domainReloadGeneration: UnityEditorDomainReloadGenerationStore.Restore(),
-                playModeGeneration: UnityEditorPlayModeGenerationStore.Restore(),
+                domainReloadGeneration: UnityEditorSessionStateStore.RestoreDomainReloadGeneration(),
+                playModeGeneration: UnityEditorSessionStateStore.RestorePlayModeGeneration(),
                 isDomainReloading: false,
                 isShuttingDown: false,
                 isStartupPending: true)
@@ -63,9 +63,9 @@ namespace MackySoft.Ucli.Unity.Runtime
         {
             this.compileGeneration = compileGeneration;
             this.domainReloadGeneration = domainReloadGeneration;
-            this.playModeGeneration = playModeGeneration ?? UnityEditorPlayModeGenerationStore.Restore();
-            playModeTransition = IpcPlayModeTransitionNames.None;
-            lastStablePlayModeState = UnityEditorPlayModeGenerationStore.RestoreStableState();
+            this.playModeGeneration = playModeGeneration ?? UnityEditorSessionStateStore.RestorePlayModeGeneration();
+            playModeTransition = IpcPlayModeTransition.None;
+            lastStablePlayModeState = UnityEditorSessionStateStore.RestorePlayModeStableState();
             this.isDomainReloading = isDomainReloading;
             this.isShuttingDown = isShuttingDown;
             this.isStartupPending = isStartupPending;
@@ -120,15 +120,14 @@ namespace MackySoft.Ucli.Unity.Runtime
         {
             var transition = playModeTransition;
             var state = ResolvePlayModeState(transition, isPlaying, isPlayingOrWillChangePlaymode);
-            if (string.Equals(transition, IpcPlayModeTransitionNames.None, System.StringComparison.Ordinal)
-                && IsStablePlayModeState(state))
+            if (transition == IpcPlayModeTransition.None && IsStablePlayModeState(state))
             {
                 ObserveStablePlayModeState(state, advanceWhenUnknown: false);
             }
 
             return new IpcPlayModeSnapshot(
-                State: state,
-                Transition: transition,
+                State: IpcPlayModeStateCodec.ToValue(state),
+                Transition: IpcPlayModeTransitionCodec.ToValue(transition),
                 IsPlaying: isPlaying,
                 IsPlayingOrWillChangePlaymode: isPlayingOrWillChangePlaymode,
                 Generation: PlayModeGeneration);
@@ -196,14 +195,14 @@ namespace MackySoft.Ucli.Unity.Runtime
             isRecoveringPending = false;
             Interlocked.Exchange(
                 ref domainReloadGeneration,
-                UnityEditorDomainReloadGenerationStore.Advance(Volatile.Read(ref domainReloadGeneration)));
+                UnityEditorSessionStateStore.AdvanceDomainReloadGeneration(Volatile.Read(ref domainReloadGeneration)));
         }
 
         /// <summary> Records the completion of one domain reload. </summary>
         public void OnAfterAssemblyReload ()
         {
             isDomainReloading = false;
-            domainReloadGeneration = UnityEditorDomainReloadGenerationStore.Restore();
+            domainReloadGeneration = UnityEditorSessionStateStore.RestoreDomainReloadGeneration();
             isStartupPending = false;
             isRecoveringPending = true;
         }
@@ -221,21 +220,21 @@ namespace MackySoft.Ucli.Unity.Runtime
             switch (stateChange)
             {
                 case PlayModeStateChange.ExitingEditMode:
-                    playModeTransition = IpcPlayModeTransitionNames.Entering;
+                    playModeTransition = IpcPlayModeTransition.Entering;
                     break;
                 case PlayModeStateChange.EnteredPlayMode:
-                    playModeTransition = IpcPlayModeTransitionNames.None;
-                    ObserveStablePlayModeState(IpcPlayModeStateNames.Playing, advanceWhenUnknown: true);
+                    playModeTransition = IpcPlayModeTransition.None;
+                    ObserveStablePlayModeState(IpcPlayModeState.Playing, advanceWhenUnknown: true);
                     break;
                 case PlayModeStateChange.ExitingPlayMode:
-                    playModeTransition = IpcPlayModeTransitionNames.Exiting;
+                    playModeTransition = IpcPlayModeTransition.Exiting;
                     break;
                 case PlayModeStateChange.EnteredEditMode:
-                    playModeTransition = IpcPlayModeTransitionNames.None;
-                    ObserveStablePlayModeState(IpcPlayModeStateNames.Stopped, advanceWhenUnknown: true);
+                    playModeTransition = IpcPlayModeTransition.None;
+                    ObserveStablePlayModeState(IpcPlayModeState.Stopped, advanceWhenUnknown: true);
                     break;
                 default:
-                    playModeTransition = IpcPlayModeTransitionNames.None;
+                    playModeTransition = IpcPlayModeTransition.None;
                     break;
             }
         }
@@ -254,53 +253,52 @@ namespace MackySoft.Ucli.Unity.Runtime
             isShuttingDown = value;
         }
 
-        private static string ResolvePlayModeState (
-            string transition,
+        private static IpcPlayModeState ResolvePlayModeState (
+            IpcPlayModeTransition transition,
             bool isPlaying,
             bool isPlayingOrWillChangePlaymode)
         {
             return transition switch
             {
-                IpcPlayModeTransitionNames.Entering => IpcPlayModeStateNames.Entering,
-                IpcPlayModeTransitionNames.Exiting => IpcPlayModeStateNames.Exiting,
-                IpcPlayModeTransitionNames.None => ResolveStablePlayModeState(isPlaying, isPlayingOrWillChangePlaymode),
-                _ => IpcPlayModeStateNames.Unknown,
+                IpcPlayModeTransition.Entering => IpcPlayModeState.Entering,
+                IpcPlayModeTransition.Exiting => IpcPlayModeState.Exiting,
+                IpcPlayModeTransition.None => ResolveStablePlayModeState(isPlaying, isPlayingOrWillChangePlaymode),
+                _ => IpcPlayModeState.Unknown,
             };
         }
 
-        private static string ResolveStablePlayModeState (
+        private static IpcPlayModeState ResolveStablePlayModeState (
             bool isPlaying,
             bool isPlayingOrWillChangePlaymode)
         {
             if (isPlaying && isPlayingOrWillChangePlaymode)
             {
-                return IpcPlayModeStateNames.Playing;
+                return IpcPlayModeState.Playing;
             }
 
             if (!isPlaying && !isPlayingOrWillChangePlaymode)
             {
-                return IpcPlayModeStateNames.Stopped;
+                return IpcPlayModeState.Stopped;
             }
 
             if (!isPlaying && isPlayingOrWillChangePlaymode)
             {
-                return IpcPlayModeStateNames.Entering;
+                return IpcPlayModeState.Entering;
             }
 
-            return IpcPlayModeStateNames.Unknown;
+            return IpcPlayModeState.Unknown;
         }
 
-        private static bool IsStablePlayModeState (string state)
+        private static bool IsStablePlayModeState (IpcPlayModeState state)
         {
-            return string.Equals(state, IpcPlayModeStateNames.Playing, System.StringComparison.Ordinal)
-                || string.Equals(state, IpcPlayModeStateNames.Stopped, System.StringComparison.Ordinal);
+            return state is IpcPlayModeState.Playing or IpcPlayModeState.Stopped;
         }
 
         private void ObserveStablePlayModeState (
-            string state,
+            IpcPlayModeState state,
             bool advanceWhenUnknown)
         {
-            if (string.IsNullOrWhiteSpace(lastStablePlayModeState))
+            if (!lastStablePlayModeState.HasValue)
             {
                 if (advanceWhenUnknown)
                 {
@@ -311,24 +309,24 @@ namespace MackySoft.Ucli.Unity.Runtime
                 return;
             }
 
-            if (!string.Equals(lastStablePlayModeState, state, System.StringComparison.Ordinal))
+            if (lastStablePlayModeState.Value != state)
             {
                 AdvancePlayModeGeneration();
                 StoreStablePlayModeState(state);
             }
         }
 
-        private void StoreStablePlayModeState (string state)
+        private void StoreStablePlayModeState (IpcPlayModeState state)
         {
             lastStablePlayModeState = state;
-            UnityEditorPlayModeGenerationStore.SetStableState(state);
+            UnityEditorSessionStateStore.SetPlayModeStableState(state);
         }
 
         private void AdvancePlayModeGeneration ()
         {
             Interlocked.Exchange(
                 ref playModeGeneration,
-                UnityEditorPlayModeGenerationStore.Advance(Volatile.Read(ref playModeGeneration)));
+                UnityEditorSessionStateStore.AdvancePlayModeGeneration(Volatile.Read(ref playModeGeneration)));
         }
 
         private static IpcPrimaryDiagnostic CreateCompilerDiagnostic (CompilerMessage message)

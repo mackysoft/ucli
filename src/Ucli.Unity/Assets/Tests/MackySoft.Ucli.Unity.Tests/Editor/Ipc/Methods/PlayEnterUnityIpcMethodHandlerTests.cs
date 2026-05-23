@@ -399,7 +399,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     ProjectFingerprint = "project-fingerprint",
                     Method = IpcMethodNames.PlayEnter,
                     RequestId = "req-play-enter-recoverable",
-                    State = RecoverableIpcOperationStateNames.Pending,
+                    State = RecoverableIpcOperationState.Pending,
                     StartedAtUtc = DateTimeOffset.UtcNow,
                     RecoveryPayload = IpcPayloadCodec.SerializeToElement(payload),
                 });

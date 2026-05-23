@@ -400,27 +400,47 @@ internal sealed class PlayEnterService : IPlayEnterService
 
     private static bool IsReadyStoppedSnapshot (IpcPlayLifecycleSnapshot snapshot)
     {
-        var playMode = snapshot.PlayMode;
-        return playMode is not null
+        return TryReadPlayModeSnapshot(
+                snapshot,
+                out var playMode,
+                out var playModeState,
+                out var playModeTransition)
             && string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
             && string.IsNullOrWhiteSpace(snapshot.BlockingReason)
             && snapshot.CanAcceptExecutionRequests
-            && string.Equals(playMode.State, IpcPlayModeStateNames.Stopped, StringComparison.Ordinal)
-            && string.Equals(playMode.Transition, IpcPlayModeTransitionNames.None, StringComparison.Ordinal)
+            && playModeState == IpcPlayModeState.Stopped
+            && playModeTransition == IpcPlayModeTransition.None
             && !playMode.IsPlaying
             && !playMode.IsPlayingOrWillChangePlaymode;
     }
 
     private static bool IsEnteredSnapshot (IpcPlayLifecycleSnapshot snapshot)
     {
-        var playMode = snapshot.PlayMode;
-        return playMode is not null
+        return TryReadPlayModeSnapshot(
+                snapshot,
+                out var playMode,
+                out var playModeState,
+                out var playModeTransition)
             && string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Playmode, StringComparison.Ordinal)
             && string.Equals(snapshot.BlockingReason, IpcEditorBlockingReasonCodec.PlayMode, StringComparison.Ordinal)
-            && string.Equals(playMode.State, IpcPlayModeStateNames.Playing, StringComparison.Ordinal)
-            && string.Equals(playMode.Transition, IpcPlayModeTransitionNames.None, StringComparison.Ordinal)
+            && playModeState == IpcPlayModeState.Playing
+            && playModeTransition == IpcPlayModeTransition.None
             && playMode.IsPlaying
             && !snapshot.CanAcceptExecutionRequests;
+    }
+
+    private static bool TryReadPlayModeSnapshot (
+        IpcPlayLifecycleSnapshot snapshot,
+        out IpcPlayModeSnapshot playMode,
+        out IpcPlayModeState state,
+        out IpcPlayModeTransition transition)
+    {
+        playMode = snapshot.PlayMode!;
+        state = default;
+        transition = default;
+        return playMode is not null
+            && IpcPlayModeStateCodec.TryParse(playMode.State, out state)
+            && IpcPlayModeTransitionCodec.TryParse(playMode.Transition, out transition);
     }
 
     private static DaemonPrimaryDiagnosticOutput? ToOutput (IpcPrimaryDiagnostic? diagnostic)

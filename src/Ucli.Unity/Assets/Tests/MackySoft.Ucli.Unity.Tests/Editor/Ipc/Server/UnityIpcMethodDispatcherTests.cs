@@ -144,7 +144,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 ReadRecord = new RecoverableIpcOperationRecord
                 {
-                    State = RecoverableIpcOperationStateNames.Completed,
+                    State = RecoverableIpcOperationState.Completed,
                     Response = completedResponse,
                 },
             };

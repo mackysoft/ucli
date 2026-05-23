@@ -18,7 +18,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [TearDown]
         public void TearDown ()
         {
-            UnityEditorProcessIdentity.SetEditorInstanceIdForTests(null);
+            UnityEditorSessionStateStore.SetEditorInstanceIdForTests(null);
         }
 
         [Test]
@@ -28,7 +28,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorProcessIdentity.SetEditorInstanceIdForTests("editor-instance-pending");
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-pending");
                 var store = CreateStore(projectPath);
                 var startedAtUtc = DateTimeOffset.UtcNow;
                 var payload = IpcPayloadCodec.SerializeToElement(new { before = "snapshot" });
@@ -49,7 +49,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(writeResult, Is.True, writeError);
                 Assert.That(readResult, Is.True, readError);
-                Assert.That(record.State, Is.EqualTo(RecoverableIpcOperationStateNames.Pending));
+                Assert.That(record.State, Is.EqualTo(RecoverableIpcOperationState.Pending));
+                Assert.That(ReadOperationRecordText(projectPath), Does.Contain("\"state\":\"pending\""));
                 Assert.That(record.ProjectFingerprint, Is.EqualTo(ProjectFingerprint));
                 Assert.That(record.Method, Is.EqualTo(IpcMethodNames.PlayEnter));
                 Assert.That(record.RequestId, Is.EqualTo("req-pending"));
@@ -72,7 +73,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorProcessIdentity.SetEditorInstanceIdForTests("editor-instance-completed");
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-completed");
                 var store = CreateStore(projectPath);
                 var response = CreateSuccessResponse("req-completed");
 
@@ -94,7 +95,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(writeResult, Is.True, writeError);
                 Assert.That(readResult, Is.True, readError);
-                Assert.That(record.State, Is.EqualTo(RecoverableIpcOperationStateNames.Completed));
+                Assert.That(record.State, Is.EqualTo(RecoverableIpcOperationState.Completed));
+                Assert.That(ReadOperationRecordText(projectPath), Does.Contain("\"state\":\"completed\""));
                 Assert.That(record.Response, Is.Not.Null);
                 Assert.That(record.Response.RequestId, Is.EqualTo(response.RequestId));
                 Assert.That(record.Response.Payload.GetRawText(), Is.EqualTo(response.Payload.GetRawText()));
@@ -112,7 +114,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorProcessIdentity.SetEditorInstanceIdForTests("editor-instance-invalid-record");
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-invalid-record");
                 var store = CreateStore(projectPath);
                 Assert.That(store.TryWritePending(
                     IpcMethodNames.PlayEnter,
@@ -142,12 +144,49 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void TryRead_WhenRecordStateIsUnsupported_RejectsRecord ()
+        {
+            var projectPath = CreateTemporaryProjectPath();
+            try
+            {
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-unsupported-state");
+                var store = CreateStore(projectPath);
+                Assert.That(store.TryWritePending(
+                    IpcMethodNames.PlayEnter,
+                    "req-unsupported-state",
+                    RequestPayloadHash,
+                    DateTimeOffset.UtcNow,
+                    IpcPayloadCodec.SerializeToElement(new { before = "snapshot" }),
+                    out var writeError), Is.True, writeError);
+                RewriteOperationRecordText(
+                    projectPath,
+                    text => text.Replace("\"state\":\"pending\"", "\"state\":\"unsupported\"", StringComparison.Ordinal));
+
+                var readResult = store.TryRead(
+                    IpcMethodNames.PlayEnter,
+                    "req-unsupported-state",
+                    RequestPayloadHash,
+                    out var readRecord,
+                    out var readError);
+
+                Assert.That(readResult, Is.False);
+                Assert.That(readRecord, Is.Null);
+                Assert.That(readError, Does.Contain("unsupported"));
+            }
+            finally
+            {
+                DeleteDirectoryIfExists(projectPath);
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void TryRead_WhenHostProcessIdDiffers_RejectsRecord ()
         {
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorProcessIdentity.SetEditorInstanceIdForTests("editor-instance-host-process");
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-host-process");
                 var store = CreateStore(projectPath);
                 Assert.That(store.TryWritePending(
                     IpcMethodNames.PlayEnter,
@@ -182,7 +221,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorProcessIdentity.SetEditorInstanceIdForTests("editor-instance-host-1");
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-host-1");
                 var store = CreateStore(projectPath);
                 Assert.That(store.TryWriteCompleted(
                     IpcMethodNames.Compile,
@@ -219,7 +258,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorProcessIdentity.SetEditorInstanceIdForTests("editor-instance-hash");
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-hash");
                 var store = CreateStore(projectPath);
                 Assert.That(store.TryWriteCompleted(
                     IpcMethodNames.PlayEnter,
@@ -255,7 +294,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorProcessIdentity.SetEditorInstanceIdForTests("editor-instance-purge");
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-purge");
                 var store = CreateStore(projectPath);
                 var nowUtc = DateTimeOffset.UtcNow;
                 Assert.That(store.TryWriteCompleted(
@@ -293,7 +332,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorProcessIdentity.SetEditorInstanceIdForTests("editor-instance-purge-pending");
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-purge-pending");
                 var store = CreateStore(projectPath);
                 var nowUtc = DateTimeOffset.UtcNow;
                 Assert.That(store.TryWritePending(
@@ -329,7 +368,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorProcessIdentity.SetEditorInstanceIdForTests("editor-instance-purge-invalid");
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-purge-invalid");
                 var store = CreateStore(projectPath);
                 var nowUtc = DateTimeOffset.UtcNow;
                 Assert.That(store.TryWritePending(
@@ -361,7 +400,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectPath = CreateTemporaryProjectPath();
             try
             {
-                UnityEditorProcessIdentity.SetEditorInstanceIdForTests("editor-instance-large-record");
+                UnityEditorSessionStateStore.SetEditorInstanceIdForTests("editor-instance-large-record");
                 var store = CreateStore(projectPath);
                 Assert.That(store.TryWritePending(
                     IpcMethodNames.PlayEnter,
@@ -412,6 +451,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 .Single();
         }
 
+        private static string ReadOperationRecordText (string projectPath)
+        {
+            return File.ReadAllText(FindOperationRecordPath(projectPath));
+        }
+
         private static void RewriteOperationRecord (
             string projectPath,
             Action<RecoverableIpcOperationRecord> update)
@@ -424,6 +468,14 @@ namespace MackySoft.Ucli.Unity.Tests
             File.WriteAllText(
                 recordPath,
                 JsonSerializer.Serialize(record, IpcJsonSerializerOptions.Default));
+        }
+
+        private static void RewriteOperationRecordText (
+            string projectPath,
+            Func<string, string> update)
+        {
+            var recordPath = FindOperationRecordPath(projectPath);
+            File.WriteAllText(recordPath, update(File.ReadAllText(recordPath)));
         }
 
         private static IpcResponse CreateSuccessResponse (string requestId)

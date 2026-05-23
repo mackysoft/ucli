@@ -19,7 +19,6 @@ public sealed class ConfigValueLiteralContractTests
     {
         Assert.Equal("public", UcliOperationExposureValues.Public);
         Assert.Equal("editLoweringOnly", UcliOperationExposureValues.EditLoweringOnly);
-        Assert.Equal("internal", UcliOperationExposureValues.Internal);
     }
 
     [Fact]

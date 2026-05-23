@@ -138,7 +138,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             if (record != null
-                && string.Equals(record.State, RecoverableIpcOperationStateNames.Completed, StringComparison.Ordinal)
+                && record.State == RecoverableIpcOperationState.Completed
                 && record.Response != null)
             {
                 // NOTE: Replays after response loss must be idempotent. Returning the
