@@ -76,7 +76,7 @@ NuGetForUnity は現在の Unity plugin 配布経路の一つであり、uCLI pl
 | `doNotRetry` | 同じ入力では再試行しても成功しない | Unity executable 解決失敗、project path invalid、permission hard failure |
 | `unknown` | 安全な再試行判断ができない | 分類不能 timeout、endpoint 登録前 process exit |
 
-final `daemon start` failure payload では、原則として `waitThenRetry` を返さない。`daemon start` は endpoint 登録完了、blocker 検出、timeout、process exit、preflight failure のいずれかまで待つ request-response command であるため、途中観測状態は最終 failure として返さない。`waitThenRetry` は `daemon status.lastLaunchAttempt` 以外の進行中 observation、将来の watch/diagnose 系 command、または timeout 前に観測途中状態を返す command のために予約する。
+final `daemon start` failure payload では、原則として `waitThenRetry` を返さない。`daemon start` は endpoint 登録完了、blocker 検出、timeout、process exit、preflight failure のいずれかまで待つ entry stream なしの command であるため、途中観測状態は最終 failure として返さない。`waitThenRetry` は `daemon status.lastLaunchAttempt` 以外の進行中 observation、将来の watch/diagnose 系 command、または timeout 前に観測途中状態を返す command のために予約する。
 
 複数 signal が同時に検出された場合、`startupBlockingReason` は次の優先順位で 1 つに正規化する。より具体的で復帰行動が限定される分類を優先し、残りの根拠は `secondaryDiagnostics` または `detectedSignals` に残す。
 
@@ -146,7 +146,7 @@ artifact 書き込み失敗は startup blocker とは別の失敗であり、分
 - oneshot 実行系 command は request 未成立の startup failure として各 command の payload に投影してよい
 - `test.run` は test runner 未起動の startup failure または infrastructure failure として投影してよい
 
-他 command が同じ startup diagnosis を使う場合でも、stdout contract は各 command の request-response envelope を維持する。
+他 command が同じ startup diagnosis を使う場合でも、stdout contract は各 command の最終 `CommandResult` envelope を維持する。
 
 ## Contract Test Requirements
 startup lifecycle の契約は golden file または contract tests で固定する。
@@ -165,6 +165,6 @@ startup lifecycle の契約は golden file または contract tests で固定す
 - 分類済み blocker と artifact 書き込み失敗が同時に起きた場合、blocker 情報を維持して artifact failure を secondary diagnostic にする
 
 ## Output Contract
-`daemon start` は request-response 型であり、stdout には最終 JSON envelope を 1 件だけ出力する。Unity 起動進行、blocker 検出、log tail 要約は stderr に出してよいが、stderr を機械判定の正本にしない。
+`daemon start` は entry stream を持たず、stdout には最終 `CommandResult` を 1 件だけ出力する。Unity 起動進行、blocker 検出、log tail 要約は stderr に出してよいが、stderr を機械判定の正本にしない。
 
-stream 型は `logs` 成功時の契約であり、`daemon start` は NDJSON stream にしない。長い起動を観測する利用者は `daemon status` の `lastLaunchAttempt` と `logs` を併用する。
+長い起動を観測する利用者は `daemon status` の `lastLaunchAttempt` と `logs` を併用する。

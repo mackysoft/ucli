@@ -49,7 +49,7 @@ uCLI は Unity Editor の live state、Scene / Prefab / Asset / Project mutation
 静的な C# / asmdef / package graph / architecture review は uCLI の責務ではなく、外部の静的解析ツールまたは外部 supervisor の責務である。
 
 uCLI が他ツールと共有するべきものは JSON shape ではなく、契約の硬さである。
-stdout JSON を正本にすること、stderr を診断 text に限定すること、free-form `message` で分岐しないこと、code を tool 内で global unique にすること、partial / indeterminate / unverified / out-of-scope を clean pass に混ぜないことは、他ツールと合わせるべき共通原則である。
+stdout の最終 `CommandResult` JSON を正本にすること、stderr を診断 text または明示された entry stream に限定すること、free-form `message` で分岐しないこと、code を tool 内で global unique にすること、partial / indeterminate / unverified / out-of-scope を clean pass に混ぜないことは、他ツールと合わせるべき共通原則である。
 
 uCLI の bare code は uCLI 内で一意な identity とし、tool 横断の identity は外部 supervisor が `ucli:<CODE>` のように `tool:code` として扱う。
 uCLI の runtime JSON は cross-tool prefix を埋め込まず、Unity 側の claim packet を機械判定可能な形で出すことに集中する。

@@ -4,12 +4,12 @@
 
 ## 公開 CLI 出力契約
 
-公開 CLI 出力の種別と意味は [uCLI.md](uCLI.md) を正本とする。ここでは `request-response` 型で使う JSON shape だけを定義する。
+公開 CLI 出力の種別と意味は [uCLI.md](uCLI.md) を正本とする。ここでは最終 `CommandResult` と JSON entry の shape を定義する。
 公開 CLI JSON の固定対象は専用 JSON writer、command output DTO、Golden files であり、この文書は property の意味と参照先を説明する。
 公開 CLI payload schema は command output DTO、専用 JSON writer、Golden files から生成される contract artifact であり、この文書を手書き schema の正本にはしない。JSON Schema は構造検証を担い、verdict 再計算、参照解決、required claim 整合などの cross-field invariant は semantic invariant validator と Golden tests で検証する。
 
-### request-response 型の共通エンベロープ
-`request-response` 型の CLI JSON 出力は、次の共通エンベロープを返す。
+### 最終 `CommandResult` の共通エンベロープ
+CLI 契約コマンドは、最後に `stdout` へ次の共通エンベロープを返す。
 
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
@@ -22,6 +22,21 @@
 | `errors` | array | yes | CLI エラー配列。正常時は空配列 |
 
 `requestId` は CLI 共通エンベロープには含めない。必要な場合だけ各コマンドの `payload` に含める。
+
+### JSON entry の共通エンベロープ
+entry stream を持つコマンドで `--format json` を指定した場合、`stderr` に1行1JSONオブジェクトの NDJSON を出力する。`--format text` の entry は人間向け表示であり、安定パース対象にしない。
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `protocolVersion` | integer | yes | プロトコルメジャーバージョン |
+| `command` | string | yes | コマンド識別子。例: `logs.unity.read`、`test.run` |
+| `streamId` | string | yes | 1回の CLI invocation 内で entry stream を識別する ID |
+| `sequence` | integer | yes | 同一 `streamId` 内で1から始まる gap-free / duplicate-free な連番。CLI の出力順を表す |
+| `timestamp` | string | yes | entry を CLI が出力した時刻。ISO 8601 形式 |
+| `event` | string | yes | command-specific event 名。code catalog の対象ではなく、entry schema と command reference の enum で固定する |
+| `payload` | object | yes | command-specific entry payload |
+
+uCLI v1 は entry stream の JSONL artifact を自動保存しない。`entryLogJsonlPath` のような保存先 field は公開 `CommandResult` payload に含めない。将来 work journal が raw `stderr` や stream NDJSON を保存する場合も、それは公開 payload ではなく作業 artifact として扱う。
 
 ### Payload schema family
 
@@ -781,8 +796,44 @@ final `daemon start` failure payload では原則として `retryDisposition=wai
 | `endpointAddress` | `string \| null` | yes | valid session を読めた場合のみ値を持つ |
 | `diagnosis` | `object \| null` | yes | `running` は `null` |
 
+### `ucli logs unity read` / `ucli logs daemon read`
+
+`ucli logs unity read` と `ucli logs daemon read` は、ログ entry を `stderr` に出力し、最後に `stdout` へ `CommandResult` を返す。最終 `CommandResult.payload` は次の shape を持つ。
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `count` | integer | yes | この invocation で `stderr` に出力したログ entry 件数 |
+| `nextCursor` | `string \| null` | yes | 次回増分取得に渡す cursor。取得前に失敗した場合や cursor を確定できない場合は `null` |
+| `completionReason` | `completed \| idleTimeout \| untilReached \| canceled \| error` | yes | 読み取り終了理由 |
+
+`status=error` の場合も同じ payload shape を返す。読み取り前に失敗した場合は `count=0`、`nextCursor=null`、`completionReason=error` とする。
+
+#### `logs.unity.entry`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `timestamp` | string | yes | Unity log event の時刻 |
+| `level` | string | yes | `error`、`warning`、`info` などのログレベル |
+| `source` | string | yes | `compile`、`runtime` などの発生源 |
+| `message` | string | yes | ログ本文 |
+| `stackTrace` | `string \| null` | yes | stack trace。要求条件により省略される場合は `null` |
+| `cursor` | string | yes | このログ event の cursor |
+| `nextCursor` | string | yes | この batch の次回取得 cursor |
+
+#### `logs.daemon.entry`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `timestamp` | string | yes | daemon log event の時刻 |
+| `level` | string | yes | `error`、`warning`、`info` などのログレベル |
+| `category` | string | yes | `lifecycle`、`ipc`、`auth`、`transport`、`health` などのカテゴリ |
+| `message` | string | yes | 正規化済みログ本文 |
+| `raw` | `string \| null` | yes | 元ログの raw payload。無い場合は `null` |
+| `cursor` | string | yes | このログ event の cursor |
+| `nextCursor` | string | yes | この batch の次回取得 cursor |
+
 ### `ucli logs unity clear`
-`ucli logs unity clear` は `command=logs.unity.clear` の `request-response` 型公開 CLI JSON 出力を返す。取得系の `ucli logs unity read` / `ucli logs daemon read` は stream 型であり、この payload 契約を使わない。
+`ucli logs unity clear` は `command=logs.unity.clear` の公開 CLI JSON 出力を返す。
 
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
@@ -1828,6 +1879,8 @@ schema の property に説明文や意味制約を置かない。説明は `inpu
 
 ### `ucli test run`
 
+`ucli test run` は、最後に `stdout` へ `CommandResult` を返す。`--stream` 指定時は、最終 `CommandResult` の前にテスト進捗 entry を `stderr` に出力してよい。進捗 entry は progress view であり、最終判定は常に `CommandResult.payload` と artifacts を正とする。
+
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
 | `result` | `pass \| fail \| null` | yes | テスト結果。`status=error` のときは `null` |
@@ -1835,6 +1888,64 @@ schema の property に説明文や意味制約を置かない。説明は `inpu
 | `runId` | string | yes | 実行 ID |
 | `artifactsDir` | string | yes | 成果物ディレクトリ |
 | `summaryJsonPath` | string | yes | サマリー JSON のパス |
+
+#### `test.run` entry events
+
+v1 の `test.run` JSON entry event は closed enum とし、次だけを出力する。
+
+| Event | Payload | Description |
+| --- | --- | --- |
+| `test.run.started` | `TestRunStartedEntry` | run identity と実行条件を観測した |
+| `test.case.started` | `TestCaseStartedEntry` | 1 test case の実行開始を観測した |
+| `test.case.finished` | `TestCaseFinishedEntry` | 1 test case の実行完了を観測した |
+| `test.run.diagnostic` | `TestRunDiagnosticEntry` | 進捗 stream に関する診断を出力した |
+
+全 test entry payload は `runId` を必須とする。`runId` 確定前の test entry は出力しない。
+
+##### `TestRunStartedEntry`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `runId` | string | yes | 実行 ID |
+| `testPlatform` | string | yes | 実行対象 test platform |
+| `testFilter` | `string \| null` | yes | test name filter |
+| `assemblyNames` | array | yes | 対象 test assembly 名 |
+| `testCategories` | array | yes | 対象 test category |
+
+##### `TestCaseStartedEntry`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `runId` | string | yes | 実行 ID |
+| `testId` | string | yes | Unity Test Framework が返す test identity |
+| `testName` | string | yes | test case 名 |
+| `assemblyName` | `string \| null` | yes | test assembly 名。判定不能な場合は `null` |
+| `testPlatform` | string | yes | 実行対象 test platform |
+| `categories` | array | yes | test case の category |
+
+##### `TestCaseFinishedEntry`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `runId` | string | yes | 実行 ID |
+| `testId` | string | yes | Unity Test Framework が返す test identity |
+| `testName` | string | yes | test case 名 |
+| `assemblyName` | `string \| null` | yes | test assembly 名。判定不能な場合は `null` |
+| `testPlatform` | string | yes | 実行対象 test platform |
+| `categories` | array | yes | test case の category |
+| `result` | `pass \| fail \| skipped \| inconclusive` | yes | test case の結果 |
+| `durationMilliseconds` | integer | yes | test case 実行時間 |
+| `message` | `string \| null` | yes | 失敗または skipped / inconclusive の説明。無い場合は `null` |
+| `stackTrace` | `string \| null` | yes | 失敗 stack trace。無い場合は `null` |
+
+##### `TestRunDiagnosticEntry`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `runId` | string | yes | 実行 ID |
+| `code` | string | yes | 診断 code。event 名とは異なり code catalog の対象 |
+| `message` | string | yes | 人間向け説明 |
+| `severity` | `info \| warning \| error` | yes | 診断 severity |
 
 ### テストプロファイル JSON
 
