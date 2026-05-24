@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
@@ -141,7 +142,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
             return true;
         }
 
-        if (!IsResponseLossOrTimeout(exception))
+        if (!IsRecoverableTransportInterruption(exception))
         {
             return false;
         }
@@ -154,9 +155,16 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
         return true;
     }
 
-    private static bool IsResponseLossOrTimeout (Exception exception)
+    private static bool IsRecoverableTransportInterruption (Exception exception)
     {
-        return exception is TimeoutException or EndOfStreamException or IOException or ObjectDisposedException or InvalidOperationException;
+        return exception is TimeoutException or EndOfStreamException or IOException or ObjectDisposedException or InvalidOperationException
+            || IsRecoverableEndpointAbsence(exception);
+    }
+
+    private static bool IsRecoverableEndpointAbsence (Exception exception)
+    {
+        return exception is SocketException socketException
+            && DaemonEndpointAbsenceClassifier.IsDirectEndpointAbsence(socketException);
     }
 
     private static TimeSpan ResolveAttemptTimeout (
