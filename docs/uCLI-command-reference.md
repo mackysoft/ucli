@@ -12,7 +12,7 @@
 | `ucli ready` | 次の操作へ進める readiness claim を返す | 状態観測と bounded wait だけを行い、暗黙修復は行わない |
 | `ucli refresh` | プロジェクト更新を独立コマンドとして実行する | 固定の `ucli.project.refresh` を実行する |
 | `ucli compile` | script compilation と domain reload の保証 claim を返す | 専用 top-level command とし、`refresh` の拡張や primitive operation wrapper にはしない |
-| `ucli play` | Unity Editor Play Mode を明示制御する | `status` / `enter` / `exit` / `wait` を持つ lifecycle command |
+| `ucli play` | Unity Editor Play Mode を明示制御する | `status` / `enter` / `exit` を持つ lifecycle command |
 | `ucli resolve` | selector 1 件を GlobalObjectId へ解決する | scene-tree-lite index を優先し、必要時だけ Unity IPC へ fallback する |
 | `ucli query` | 型付きサブコマンドで検索・構造取得・スキーマ取得を行う | `assets find` / `scene tree` / `go describe` / `comp schema` / `asset schema` を持つ |
 | `ucli validate` | JSON リクエストを静的に lint する | Unity へ接続せず readIndex snapshot を参照する |
@@ -27,6 +27,50 @@
 | `ucli test` | Unity Test Framework 実行と結果正規化を扱う | `run` / `profile init` |
 
 ## 公開コマンド
+
+### 実行可能 command paths
+
+| Command |
+| --- |
+| `ucli init` |
+| `ucli status` |
+| `ucli ready` |
+| `ucli compile` |
+| `ucli verify` |
+| `ucli refresh` |
+| `ucli resolve` |
+| `ucli validate` |
+| `ucli plan` |
+| `ucli call` |
+| `ucli daemon start` |
+| `ucli daemon stop` |
+| `ucli daemon cleanup` |
+| `ucli daemon status` |
+| `ucli daemon list` |
+| `ucli logs daemon read` |
+| `ucli logs unity read` |
+| `ucli logs unity clear` |
+| `ucli ops list` |
+| `ucli ops describe` |
+| `ucli codes list` |
+| `ucli codes describe` |
+| `ucli play status` |
+| `ucli play enter` |
+| `ucli play exit` |
+| `ucli skills list` |
+| `ucli skills export` |
+| `ucli skills install` |
+| `ucli skills update` |
+| `ucli skills uninstall` |
+| `ucli skills doctor` |
+| `ucli query assets find` |
+| `ucli query scene tree` |
+| `ucli query go describe` |
+| `ucli query comp schema` |
+| `ucli query asset schema` |
+| `ucli test run` |
+| `ucli test profile init` |
+
 - `ucli ops`
   - `list` は利用可能なオペレーション一覧を返す。
   - `list` は `--nameRegex <regex>`、`--kind <query|mutation|command>`、`--maxPolicy <safe|advanced|dangerous>` による絞り込みを受け付ける。
@@ -71,7 +115,7 @@
   - 専用 top-level command とし、`refresh` の拡張や primitive operation wrapper にはしない。
 - `ucli play`
   - Unity Editor Play Mode の状態観測と明示遷移を行う。
-  - `status` / `enter` / `exit` / `wait` を持つ。
+  - `status` / `enter` / `exit` を持つ。
   - `--projectPath <string?>`、`--timeout <int>` を受け付ける。
   - Play Mode enter / exit は primitive operation や JSON request step として扱わない。
 - `ucli verify`
