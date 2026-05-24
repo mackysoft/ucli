@@ -59,7 +59,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 switch (step.Kind)
                 {
                     case IpcRequestStepKind.Op:
-                        if (allowPlayMode)
+                        if (allowPlayMode && !IsPlayModeRawOperationAllowed(step))
                         {
                             error = ExecuteRequestNormalizationError.InvalidArgument(
                                 "Play Mode mutation requests support only public edit steps.",
@@ -127,7 +127,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
             if (step.Kind == IpcRequestStepKind.Op)
             {
-                if (allowPlayMode)
+                if (allowPlayMode && !IsPlayModeRawOperationAllowed(step))
                 {
                     error = ExecuteRequestNormalizationError.InvalidArgument(
                         "Play Mode mutation requests support only public edit steps.",
@@ -172,6 +172,13 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
             error = default!;
             return true;
+        }
+
+        private static bool IsPlayModeRawOperationAllowed (IpcRequestContractStep step)
+        {
+            // NOTE: ucli.cs.eval is already protected by dangerous policy and --allowDangerous.
+            // Keep other raw operations out of Play Mode mutation requests.
+            return string.Equals(step.OperationName, UcliPrimitiveOperationNames.CsEval, StringComparison.Ordinal);
         }
 
         private static bool TryCompileOpStep (
