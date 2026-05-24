@@ -15,9 +15,6 @@ public static class IpcPlayTransitionResultNames
     /// <summary> Gets the result used when Play Mode was already stopped. </summary>
     public const string AlreadyExited = "alreadyExited";
 
-    /// <summary> Gets the result used when a wait request reached its target. </summary>
-    public const string Waited = "waited";
-
     /// <summary> Gets the result used when the requested Play Mode transition exceeded its timeout. </summary>
     public const string Timeout = "timeout";
 

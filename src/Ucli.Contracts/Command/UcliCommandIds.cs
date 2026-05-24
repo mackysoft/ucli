@@ -75,9 +75,6 @@ public static class UcliCommandIds
     /// <summary> Gets command identifier for <c>play.exit</c>. </summary>
     public static UcliCommand PlayExit { get; } = new("play.exit");
 
-    /// <summary> Gets command identifier for <c>play.wait</c>. </summary>
-    public static UcliCommand PlayWait { get; } = new("play.wait");
-
     /// <summary> Gets command identifier for <c>test</c>. </summary>
     public static UcliCommand Test { get; } = new("test");
 

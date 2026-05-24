@@ -120,9 +120,6 @@ internal static class UcliCommandNames
     /// <summary> Gets the command name for <c>play exit</c> result payloads. </summary>
     public const string PlayExit = "play.exit";
 
-    /// <summary> Gets the command name for <c>play wait</c> result payloads. </summary>
-    public const string PlayWait = "play.wait";
-
     /// <summary> Gets the command name for <c>skills list</c> result payloads. </summary>
     public const string SkillsList = "skills.list";
 
@@ -194,9 +191,6 @@ internal static class UcliCommandNames
 
     /// <summary> Gets the nested command name for play exit. </summary>
     public const string ExitSubcommand = "exit";
-
-    /// <summary> Gets the nested command name for play wait. </summary>
-    public const string WaitSubcommand = "wait";
 
     /// <summary> Gets the nested command name for logs unity target. </summary>
     public const string UnitySubcommand = "unity";

@@ -205,11 +205,6 @@ internal sealed class PlayEnterService : IPlayEnterService
 
     private static ApplicationFailure? ValidateTransitionShape (IpcPlayTransitionResult transition)
     {
-        if (!string.IsNullOrWhiteSpace(transition.Until))
-        {
-            return CreateStateUnknownFailure("Unity play enter transition unexpectedly included a wait target.");
-        }
-
         return transition.Result switch
         {
             IpcPlayTransitionResultNames.Entered or IpcPlayTransitionResultNames.AlreadyEntered

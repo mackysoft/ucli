@@ -49,7 +49,6 @@ public static class UcliPublicCommandCatalog
         UcliCommandIds.PlayStatus,
         UcliCommandIds.PlayEnter,
         UcliCommandIds.PlayExit,
-        UcliCommandIds.PlayWait,
         UcliCommandIds.Skills,
         UcliCommandIds.SkillsList,
         UcliCommandIds.SkillsExport,

@@ -13,14 +13,12 @@ internal static class PlayModeErrorCodeDescriptors
         UcliCommandIds.PlayStatus,
         UcliCommandIds.PlayEnter,
         UcliCommandIds.PlayExit,
-        UcliCommandIds.PlayWait,
     ];
 
     private static readonly UcliCommand[] PlayModeTransitionCommands =
     [
         UcliCommandIds.PlayEnter,
         UcliCommandIds.PlayExit,
-        UcliCommandIds.PlayWait,
     ];
 
     private static readonly UcliCommand[] PlayModeMutationLifecycleCommands =
@@ -72,7 +70,6 @@ internal static class PlayModeErrorCodeDescriptors
                 UcliCommandIds.PlayStatus,
                 UcliCommandIds.PlayEnter,
                 UcliCommandIds.PlayExit,
-                UcliCommandIds.PlayWait,
             ],
             possiblePhases: ["modeDecision", "operationAuthorization", "playModeControl"],
             impliesNotApplied: true,
