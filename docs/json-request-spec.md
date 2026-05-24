@@ -438,7 +438,7 @@ no-op request は envelope、pipeline、smoke check のために有効な reques
 - `ucli.project.save` は project-wide save であり、request 中に追跡した open Scene / opened Prefab の変更もあわせて保存し得る
 
 ## Play Mode 変更
-Play Mode 中の変更は、通常の Play Mode 拒否契約に対する明示例外である。`--allowPlayMode` を指定しない `plan` / `call` は、Play Mode 中の request を lifecycle error として拒否する。`--allowPlayMode` は変更 request 用であり、query-only の `kind:"op"` step を許可するためには使わない。
+Play Mode 中の変更は、通常の Play Mode 拒否契約に対する明示例外である。`--allowPlayMode` を指定しない `plan` / `call` は、Play Mode 中の request を lifecycle error として拒否する。`ucli.cs.eval` は dangerous guard と `--allowPlayMode` の両方を通過した場合だけ、Play Mode 変更における raw `kind:"op"` 例外として実行できる。`--allowPlayMode` は変更 request 用であり、query-only の `kind:"op"` step を許可するためには使わない。
 
 Play Mode enter / exit は JSON request の責務ではない。Editor lifecycle state を遷移させる操作は `ucli play enter` / `ucli play exit` の command surface で扱い、`kind:"op"` や `kind:"edit"` の step として表現しない。`ucli play` は uCLI content mutation を実行せず、`opResults[].touched` を返す content edit として扱わない。Play Mode 中に project code が起こす副作用は、uCLI request-step mutation attribution の対象外である。`--allowPlayMode` は Play Mode 中 mutation の明示ガードであり、Play Mode lifecycle 制御を許可する option ではない。
 
@@ -605,7 +605,7 @@ Play Mode 変更で許可される step は `kind: "edit"` のみである。
 
 ### 制約
 - `on` は `scene` / `prefab` / `asset` / `project` を許可する
-- Play Mode 変更で許可される public step は `kind: "edit"` のみとし、raw `kind: "op"` は `--allowPlayMode` 指定時も許可しない
+- Play Mode 変更で許可される public step は原則として `kind: "edit"` のみとし、raw `kind: "op"` は `--allowPlayMode` 指定時も許可しない。ただし `ucli.cs.eval` は dangerous guard と `--allowPlayMode` を通過した場合に限り明示例外として許可する
 - `scene` context は `commit: "none"` のみ許可し、Scene 保存へ lower される形は許可しない
 - `commit: "project"` は project-wide save であるため Play Mode 変更では許可しない
 - Scene 上の Prefab instance は `scene` context として扱い、Prefab asset 自体は `prefab` context として扱う
