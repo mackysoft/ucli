@@ -256,6 +256,31 @@ public sealed class IpcRequestContractReaderTests
         Assert.Equal("unknown", error.UnknownPropertyName);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("""{"kind":"op","id":"op-1","op":"ucli.resolve","args":{},"commit":"context"}""", "commit")]
+    [InlineData("""{"kind":"edit","id":"edit-1","op":"ucli.resolve","on":{"scene":"Assets/Scenes/Main.unity"},"select":{"gameObject":"Root","cardinality":"one"},"actions":[{"kind":"delete"}],"commit":"context"}""", "op")]
+    [InlineData("""{"kind":"edit","id":"edit-1","args":{},"on":{"scene":"Assets/Scenes/Main.unity"},"select":{"gameObject":"Root","cardinality":"one"},"actions":[{"kind":"delete"}],"commit":"context"}""", "args")]
+    public void TryRead_StrictExecute_ReturnsUnknownStepPropertyError_WhenStepKindDisallowsProperty (
+        string stepJson,
+        string expectedUnknownProperty)
+    {
+        using var document = JsonDocument.Parse(
+            """{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[__STEP__]}"""
+                .Replace("__STEP__", stepJson, StringComparison.Ordinal));
+
+        var result = IpcRequestContractReader.TryRead(
+            requestObject: document.RootElement,
+            profile: IpcRequestContractReadProfile.StrictExecute,
+            requestContract: out _,
+            error: out var error);
+
+        Assert.False(result);
+        Assert.Equal(IpcRequestContractReadErrorKind.UnknownStepProperty, error.Kind);
+        Assert.Equal(0, error.StepIndex);
+        Assert.Equal(expectedUnknownProperty, error.UnknownPropertyName);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void TryRead_StrictExecute_ReadsEditStepWithDirectSelection ()

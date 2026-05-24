@@ -40,37 +40,11 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
         switch (arguments)
         {
             case IpcDaemonBootstrapArguments daemonArguments:
-                destination.Add(IpcBatchmodeBootstrapArgumentNames.Target);
-                destination.Add(IpcBatchmodeBootstrapTargetValues.Daemon);
-                destination.Add(IpcDaemonBootstrapArgumentNames.RepositoryRoot);
-                destination.Add(daemonArguments.RepositoryRoot);
-                destination.Add(IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint);
-                destination.Add(daemonArguments.ProjectFingerprint);
-                destination.Add(IpcDaemonBootstrapArgumentNames.SessionPath);
-                destination.Add(daemonArguments.SessionPath);
-                destination.Add(IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc);
-                destination.Add(daemonArguments.SessionIssuedAtUtc.ToString("O", CultureInfo.InvariantCulture));
-                destination.Add(IpcEndpointBootstrapArgumentNames.TransportKind);
-                destination.Add(daemonArguments.EndpointTransportKind);
-                destination.Add(IpcEndpointBootstrapArgumentNames.Address);
-                destination.Add(daemonArguments.EndpointAddress);
+                IpcBatchmodeBootstrapTokenAppender.AppendDaemon(destination, daemonArguments);
                 return;
 
             case IpcOneshotBootstrapArguments oneshotArguments:
-                destination.Add(IpcBatchmodeBootstrapArgumentNames.Target);
-                destination.Add(IpcBatchmodeBootstrapTargetValues.Oneshot);
-                destination.Add(IpcOneshotBootstrapArgumentNames.ParentProcessId);
-                destination.Add(oneshotArguments.ParentProcessId.ToString(CultureInfo.InvariantCulture));
-                destination.Add(IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint);
-                destination.Add(oneshotArguments.ProjectFingerprint);
-                destination.Add(IpcOneshotBootstrapArgumentNames.SessionToken);
-                destination.Add(oneshotArguments.SessionToken);
-                destination.Add(IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc);
-                destination.Add(oneshotArguments.ExitDeadlineUtc.ToString("O", CultureInfo.InvariantCulture));
-                destination.Add(IpcEndpointBootstrapArgumentNames.TransportKind);
-                destination.Add(oneshotArguments.EndpointTransportKind);
-                destination.Add(IpcEndpointBootstrapArgumentNames.Address);
-                destination.Add(oneshotArguments.EndpointAddress);
+                IpcBatchmodeBootstrapTokenAppender.AppendOneshot(destination, oneshotArguments);
                 return;
 
             default:
@@ -127,42 +101,23 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
         out IpcBatchmodeBootstrapParseError error)
     {
         arguments = default!;
-        if (!IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcDaemonBootstrapArgumentNames.RepositoryRoot, out var repositoryRoot)
-            || !IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, out var projectFingerprint)
-            || !IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcDaemonBootstrapArgumentNames.SessionPath, out var sessionPath)
-            || !IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, out var sessionIssuedAtUtcText)
-            || !IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcEndpointBootstrapArgumentNames.TransportKind, out var endpointTransportKind)
-            || !IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcEndpointBootstrapArgumentNames.Address, out var endpointAddress))
+        if (!IpcBatchmodeBootstrapArgumentReader.TryReadDaemon(args, KnownArgumentNames, out var values, out error))
         {
-            error = MissingRequiredArguments("uCLI daemon bootstrap arguments are missing.");
             return false;
         }
 
-        if (string.IsNullOrWhiteSpace(repositoryRoot)
-            || string.IsNullOrWhiteSpace(projectFingerprint)
-            || string.IsNullOrWhiteSpace(sessionPath)
-            || string.IsNullOrWhiteSpace(sessionIssuedAtUtcText)
-            || string.IsNullOrWhiteSpace(endpointTransportKind)
-            || string.IsNullOrWhiteSpace(endpointAddress))
+        if (!TryParseTimestamp(values.SessionIssuedAtUtcText, "uCLI daemon bootstrap session issued-at timestamp must be a valid ISO 8601 timestamp with explicit timezone offset.", out var sessionIssuedAtUtc, out error))
         {
-            error = EmptyRequiredValue("uCLI daemon bootstrap arguments must not be empty.");
-            return false;
-        }
-
-        if (!IpcIso8601TimestampCodec.TryParseOptionalWithTimezoneOffset(sessionIssuedAtUtcText, out var sessionIssuedAtUtc)
-            || sessionIssuedAtUtc is not DateTimeOffset parsedSessionIssuedAtUtc)
-        {
-            error = EmptyRequiredValue("uCLI daemon bootstrap session issued-at timestamp must be a valid ISO 8601 timestamp with explicit timezone offset.");
             return false;
         }
 
         arguments = new IpcDaemonBootstrapArguments(
-            RepositoryRoot: repositoryRoot,
-            ProjectFingerprint: projectFingerprint,
-            SessionPath: sessionPath,
-            SessionIssuedAtUtc: parsedSessionIssuedAtUtc,
-            EndpointTransportKind: endpointTransportKind,
-            EndpointAddress: endpointAddress);
+            RepositoryRoot: values.RepositoryRoot,
+            ProjectFingerprint: values.ProjectFingerprint,
+            SessionPath: values.SessionPath,
+            SessionIssuedAtUtc: sessionIssuedAtUtc,
+            EndpointTransportKind: values.EndpointTransportKind,
+            EndpointAddress: values.EndpointAddress);
         error = IpcBatchmodeBootstrapParseError.None;
         return true;
     }
@@ -173,51 +128,66 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
         out IpcBatchmodeBootstrapParseError error)
     {
         arguments = default!;
-        if (!IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcOneshotBootstrapArgumentNames.ParentProcessId, out var parentProcessIdText)
-            || !IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, out var projectFingerprint)
-            || !IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcOneshotBootstrapArgumentNames.SessionToken, out var sessionToken)
-            || !IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, out var exitDeadlineUtcText)
-            || !IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcEndpointBootstrapArgumentNames.TransportKind, out var endpointTransportKind)
-            || !IpcBootstrapArgumentReader.TryGetArgumentValue(args, KnownArgumentNames, IpcEndpointBootstrapArgumentNames.Address, out var endpointAddress))
+        if (!IpcBatchmodeBootstrapArgumentReader.TryReadOneshot(args, KnownArgumentNames, out var values, out error))
         {
-            error = MissingRequiredArguments("uCLI oneshot bootstrap arguments are missing.");
             return false;
         }
 
-        if (string.IsNullOrWhiteSpace(parentProcessIdText)
-            || string.IsNullOrWhiteSpace(projectFingerprint)
-            || string.IsNullOrWhiteSpace(sessionToken)
-            || string.IsNullOrWhiteSpace(exitDeadlineUtcText)
-            || string.IsNullOrWhiteSpace(endpointTransportKind)
-            || string.IsNullOrWhiteSpace(endpointAddress))
+        if (!TryParsePositiveInt32(values.ParentProcessIdText, "uCLI oneshot bootstrap parent process identifier must be a positive integer.", out var parentProcessId, out error))
         {
-            error = EmptyRequiredValue("uCLI oneshot bootstrap arguments must not be empty.");
             return false;
         }
 
-        if (!int.TryParse(parentProcessIdText, NumberStyles.None, CultureInfo.InvariantCulture, out var parentProcessId)
-            || parentProcessId <= 0)
+        if (!TryParseTimestamp(values.ExitDeadlineUtcText, "uCLI oneshot bootstrap exit deadline timestamp must be a valid ISO 8601 timestamp with explicit timezone offset.", out var exitDeadlineUtc, out error))
         {
-            error = EmptyRequiredValue("uCLI oneshot bootstrap parent process identifier must be a positive integer.");
-            return false;
-        }
-
-        if (!IpcIso8601TimestampCodec.TryParseOptionalWithTimezoneOffset(exitDeadlineUtcText, out var exitDeadlineUtc)
-            || exitDeadlineUtc is not DateTimeOffset parsedExitDeadlineUtc)
-        {
-            error = EmptyRequiredValue("uCLI oneshot bootstrap exit deadline timestamp must be a valid ISO 8601 timestamp with explicit timezone offset.");
             return false;
         }
 
         arguments = new IpcOneshotBootstrapArguments(
             parentProcessId,
-            projectFingerprint,
-            sessionToken,
-            parsedExitDeadlineUtc,
-            endpointTransportKind,
-            endpointAddress);
+            values.ProjectFingerprint,
+            values.SessionToken,
+            exitDeadlineUtc,
+            values.EndpointTransportKind,
+            values.EndpointAddress);
         error = IpcBatchmodeBootstrapParseError.None;
         return true;
+    }
+
+    private static bool TryParseTimestamp (
+        string text,
+        string errorMessage,
+        out DateTimeOffset value,
+        out IpcBatchmodeBootstrapParseError error)
+    {
+        if (IpcIso8601TimestampCodec.TryParseOptionalWithTimezoneOffset(text, out var parsed)
+            && parsed is DateTimeOffset timestamp)
+        {
+            value = timestamp;
+            error = IpcBatchmodeBootstrapParseError.None;
+            return true;
+        }
+
+        value = default;
+        error = EmptyRequiredValue(errorMessage);
+        return false;
+    }
+
+    private static bool TryParsePositiveInt32 (
+        string text,
+        string errorMessage,
+        out int value,
+        out IpcBatchmodeBootstrapParseError error)
+    {
+        if (int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out value) && value > 0)
+        {
+            error = IpcBatchmodeBootstrapParseError.None;
+            return true;
+        }
+
+        value = 0;
+        error = EmptyRequiredValue(errorMessage);
+        return false;
     }
 
     private static IpcBatchmodeBootstrapParseError MissingTarget ()

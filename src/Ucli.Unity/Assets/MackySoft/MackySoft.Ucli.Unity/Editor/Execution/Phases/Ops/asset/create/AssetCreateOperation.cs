@@ -7,6 +7,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor;
 using UnityEngine;
+using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
 
@@ -22,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Creates a Unity asset at a project-relative path.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.AssetContentMutation, UcliOperationSideEffect.AssetSave },
-                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Asset },
+                touchedKinds: new[] { UcliTouchedResourceKindNames.Asset },
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Validate the asset creation target and compute preview creation state without persisting project data.",
                 callSemantics: "Create and persist the requested asset at the project-relative path.",

@@ -6,6 +6,7 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEngine;
+using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
 
@@ -21,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Ensures that a GameObject has a component of the requested type.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.SceneContentMutation, UcliOperationSideEffect.PrefabContentMutation },
-                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                touchedKinds: new[] { UcliTouchedResourceKindNames.Scene, UcliTouchedResourceKindNames.Prefab },
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Validate the target GameObject and component type, then compute preview changes without persisting project data.",
                 callSemantics: "Add the component to live Unity state when missing and leave saving to explicit save operations.",

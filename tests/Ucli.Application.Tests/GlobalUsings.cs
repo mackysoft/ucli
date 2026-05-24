@@ -23,3 +23,4 @@ global using MackySoft.Ucli.Application.Shared.Unity.Resolution;
 global using MackySoft.Ucli.Contracts;
 global using MackySoft.Ucli.Contracts.Daemon;
 global using MackySoft.Ucli.Contracts.Index;
+global using MackySoft.Ucli.Contracts.Operations;

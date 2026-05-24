@@ -1,10 +1,12 @@
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor;
 using UnityEngine;
+using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
 
@@ -25,7 +27,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     UcliOperationSideEffect.PrefabContentMutation,
                     UcliOperationSideEffect.PrefabSave,
                 },
-                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                touchedKinds: new[] { UcliTouchedResourceKindNames.Scene, UcliTouchedResourceKindNames.Prefab },
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Validate the source GameObject and prefab path, then compute preview creation state without persisting project data.",
                 callSemantics: "Create and persist the prefab asset from the live GameObject, and dirty related scene state when Unity creates prefab linkage.",

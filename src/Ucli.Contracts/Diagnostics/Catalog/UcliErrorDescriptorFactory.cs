@@ -24,19 +24,50 @@ internal static class UcliErrorDescriptorFactory
         IReadOnlyList<UcliErrorNextActionDescriptor>? nextActions,
         IReadOnlyList<UcliCode>? relatedCodes)
     {
+        var lists = ResolveLists(appliesTo, possiblePhases, inspect, nextActions, relatedCodes);
         return new UcliErrorDescriptor(
             Code: code,
             Category: category,
             Summary: summary,
             Meaning: meaning,
+            AppliesTo: lists.AppliesTo,
+            PossiblePhases: lists.PossiblePhases,
+            ExecutionSemantics: CreateExecutionSemantics(impliesNotApplied, mayBeIndeterminate, safeToRetry),
+            Inspect: lists.Inspect,
+            NextActions: lists.NextActions,
+            RelatedCodes: lists.RelatedCodes);
+    }
+
+    private static UcliErrorExecutionSemantics CreateExecutionSemantics (
+        bool? impliesNotApplied,
+        bool mayBeIndeterminate,
+        string safeToRetry)
+    {
+        return new UcliErrorExecutionSemantics(
+            ImpliesNotApplied: impliesNotApplied,
+            MayBeIndeterminate: mayBeIndeterminate,
+            SafeToRetry: safeToRetry);
+    }
+
+    private static DescriptorLists ResolveLists (
+        IReadOnlyList<UcliCommand>? appliesTo,
+        IReadOnlyList<string>? possiblePhases,
+        IReadOnlyList<string>? inspect,
+        IReadOnlyList<UcliErrorNextActionDescriptor>? nextActions,
+        IReadOnlyList<UcliCode>? relatedCodes)
+    {
+        return new DescriptorLists(
             AppliesTo: appliesTo ?? EmptyCommands,
             PossiblePhases: possiblePhases ?? EmptyStrings,
-            ExecutionSemantics: new UcliErrorExecutionSemantics(
-                ImpliesNotApplied: impliesNotApplied,
-                MayBeIndeterminate: mayBeIndeterminate,
-                SafeToRetry: safeToRetry),
             Inspect: inspect ?? EmptyStrings,
             NextActions: nextActions ?? EmptyActions,
             RelatedCodes: relatedCodes ?? EmptyCodes);
     }
+
+    private readonly record struct DescriptorLists (
+        IReadOnlyList<UcliCommand> AppliesTo,
+        IReadOnlyList<string> PossiblePhases,
+        IReadOnlyList<string> Inspect,
+        IReadOnlyList<UcliErrorNextActionDescriptor> NextActions,
+        IReadOnlyList<UcliCode> RelatedCodes);
 }

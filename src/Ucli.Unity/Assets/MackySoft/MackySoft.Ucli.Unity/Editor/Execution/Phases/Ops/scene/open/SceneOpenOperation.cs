@@ -1,10 +1,12 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor.SceneManagement;
+using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
 
@@ -20,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Opens a Unity scene asset in the editor.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.EditorStateChange, UcliOperationSideEffect.OpensSceneInEditor },
-                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene },
+                touchedKinds: new[] { UcliTouchedResourceKindNames.Scene },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the scene path and observe whether the scene can be opened without creating preview state or changing the live editor context.",
                 callSemantics: "Open the requested scene in the Unity Editor without saving project data.",

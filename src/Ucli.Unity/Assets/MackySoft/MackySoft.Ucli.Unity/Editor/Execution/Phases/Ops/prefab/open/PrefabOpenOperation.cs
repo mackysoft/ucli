@@ -1,11 +1,13 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
 
@@ -21,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Opens a prefab asset in the Unity editor.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.EditorStateChange, UcliOperationSideEffect.OpensPrefabStage },
-                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Prefab },
+                touchedKinds: new[] { UcliTouchedResourceKindNames.Prefab },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the prefab path and observe whether the prefab stage can be opened without creating preview state or changing the live editor context.",
                 callSemantics: "Open the requested prefab stage in the Unity Editor without saving project data.",

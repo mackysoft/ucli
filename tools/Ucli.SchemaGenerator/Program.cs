@@ -5,6 +5,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.SchemaGenerator;
 
@@ -801,10 +802,10 @@ internal static class Program
             Required("mayDirty", BooleanSchema()),
             Required("mayPersist", BooleanSchema()),
             Required("touchedKinds", ArraySchema(EnumSchema(
-                IpcExecuteTouchedResourceKindNames.Scene,
-                IpcExecuteTouchedResourceKindNames.Prefab,
-                IpcExecuteTouchedResourceKindNames.Asset,
-                IpcExecuteTouchedResourceKindNames.ProjectSettings))),
+                UcliTouchedResourceKindNames.Scene,
+                UcliTouchedResourceKindNames.Prefab,
+                UcliTouchedResourceKindNames.Asset,
+                UcliTouchedResourceKindNames.ProjectSettings))),
             Required("planMode", EnumSchema(
                 UcliOperationPlanModeValues.ValidationOnly,
                 UcliOperationPlanModeValues.ObservesLiveUnity)),

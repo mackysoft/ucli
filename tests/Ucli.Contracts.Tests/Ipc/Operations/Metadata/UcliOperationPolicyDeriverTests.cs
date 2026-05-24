@@ -26,7 +26,7 @@ public sealed class UcliOperationPolicyDeriverTests
             UcliOperationSideEffectValues.ObservesUnityState,
             UcliOperationSideEffectValues.SceneSave,
         ],
-        touchedKinds: [IpcExecuteTouchedResourceKindNames.Scene]);
+        touchedKinds: [UcliTouchedResourceKindNames.Scene]);
 
         var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
 

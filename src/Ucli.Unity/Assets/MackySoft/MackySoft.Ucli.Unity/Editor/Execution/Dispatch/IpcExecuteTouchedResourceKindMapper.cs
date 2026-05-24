@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 
@@ -18,16 +19,16 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             switch (kind)
             {
                 case OperationTouchKind.Scene:
-                    return IpcExecuteTouchedResourceKindNames.Scene;
+                    return UcliTouchedResourceKindNames.Scene;
 
                 case OperationTouchKind.Prefab:
-                    return IpcExecuteTouchedResourceKindNames.Prefab;
+                    return UcliTouchedResourceKindNames.Prefab;
 
                 case OperationTouchKind.Asset:
-                    return IpcExecuteTouchedResourceKindNames.Asset;
+                    return UcliTouchedResourceKindNames.Asset;
 
                 case OperationTouchKind.ProjectSettings:
-                    return IpcExecuteTouchedResourceKindNames.ProjectSettings;
+                    return UcliTouchedResourceKindNames.ProjectSettings;
 
                 default:
                     throw new InvalidOperationException($"Unsupported touched resource kind '{kind}'.");

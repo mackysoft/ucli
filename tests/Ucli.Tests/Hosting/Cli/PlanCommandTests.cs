@@ -308,7 +308,7 @@ public sealed class PlanCommandTests
             Touched:
             [
                 new OperationExecutionTouchedResource(
-                    Kind: IpcExecuteTouchedResourceKindNames.Asset,
+                    Kind: UcliTouchedResourceKindNames.Asset,
                     Path: "Assets/Example.txt",
                     Guid: null),
             ]);

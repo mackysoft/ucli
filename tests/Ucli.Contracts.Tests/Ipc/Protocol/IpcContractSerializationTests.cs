@@ -963,7 +963,7 @@ public sealed class IpcContractSerializationTests
                 Touched: new[]
                 {
                     new IpcExecuteTouchedResource(
-                        Kind: IpcExecuteTouchedResourceKindNames.Scene,
+                        Kind: UcliTouchedResourceKindNames.Scene,
                         Path: "Assets/Scenes/Main.unity",
                         Guid: "11111111111111111111111111111111"),
                 }),
@@ -993,7 +993,7 @@ public sealed class IpcContractSerializationTests
                 .HasArrayLength("touched", 1)
                 .HasArrayLength("diagnostics", 0)
                 .HasProperty("touched", 0, touched => touched
-                    .HasString("kind", IpcExecuteTouchedResourceKindNames.Scene)
+                    .HasString("kind", UcliTouchedResourceKindNames.Scene)
                     .HasString("path", "Assets/Scenes/Main.unity")
                     .HasString("guid", "11111111111111111111111111111111")));
     }
@@ -1324,16 +1324,6 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("plan", IpcExecuteOperationPhaseNames.Plan);
         Assert.Equal("call", IpcExecuteOperationPhaseNames.Call);
         Assert.Equal("skipped", IpcExecuteOperationPhaseNames.Skipped);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IpcExecuteTouchedResourceKindNames_ExposeExpectedLiterals ()
-    {
-        Assert.Equal("scene", IpcExecuteTouchedResourceKindNames.Scene);
-        Assert.Equal("prefab", IpcExecuteTouchedResourceKindNames.Prefab);
-        Assert.Equal("asset", IpcExecuteTouchedResourceKindNames.Asset);
-        Assert.Equal("projectSettings", IpcExecuteTouchedResourceKindNames.ProjectSettings);
     }
 
     private static UcliOperationDescribeContract CreateGoDescribeContract ()

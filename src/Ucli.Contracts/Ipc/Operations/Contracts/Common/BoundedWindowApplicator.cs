@@ -20,16 +20,28 @@ internal static class BoundedWindowApplicator
 
         if (options.All)
         {
-            return new BoundedWindowResult<T>(
-                Items: CopyRange(items, start: 0, count: items.Count),
-                Window: new BoundedWindow(
-                    limit: null,
-                    cursor: null,
-                    nextCursor: null,
-                    isComplete: true,
-                    totalCount: items.Count));
+            return ApplyAll(items);
         }
 
+        return ApplyPage(items, options);
+    }
+
+    private static BoundedWindowResult<T> ApplyAll<T> (IReadOnlyList<T> items)
+    {
+        return new BoundedWindowResult<T>(
+            Items: CopyRange(items, start: 0, count: items.Count),
+            Window: new BoundedWindow(
+                limit: null,
+                cursor: null,
+                nextCursor: null,
+                isComplete: true,
+                totalCount: items.Count));
+    }
+
+    private static BoundedWindowResult<T> ApplyPage<T> (
+        IReadOnlyList<T> items,
+        BoundedWindowOptions options)
+    {
         var offset = Math.Min(options.Offset, items.Count);
         var remaining = items.Count - offset;
         var count = Math.Min(options.Limit, remaining);

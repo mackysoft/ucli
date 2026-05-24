@@ -1,10 +1,12 @@
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
+using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
 
@@ -20,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Saves a loaded or previewed Unity scene asset.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.SceneSave },
-                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene },
+                touchedKinds: new[] { UcliTouchedResourceKindNames.Scene },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the scene path and observe whether the loaded or previewed scene has save-relevant changes.",
                 callSemantics: "Persist the loaded or previewed scene asset when dirty or request-attributed changes exist.",

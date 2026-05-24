@@ -13,36 +13,6 @@ internal static class IpcRequestContractReader
         "steps",
     };
 
-    private static readonly HashSet<string> AllowedStepProperties = new(StringComparer.Ordinal)
-    {
-        "kind",
-        "id",
-        "op",
-        "args",
-        "on",
-        "select",
-        "actions",
-        "commit",
-    };
-
-    private static readonly HashSet<string> AllowedOpStepProperties = new(StringComparer.Ordinal)
-    {
-        "kind",
-        "id",
-        "op",
-        "args",
-    };
-
-    private static readonly HashSet<string> AllowedEditStepProperties = new(StringComparer.Ordinal)
-    {
-        "kind",
-        "id",
-        "on",
-        "select",
-        "actions",
-        "commit",
-    };
-
     public static bool TryRead (
         JsonElement requestObject,
         in IpcRequestContractReadProfile profile,
@@ -50,16 +20,8 @@ internal static class IpcRequestContractReader
         out IpcRequestContractReadError error)
     {
         requestContract = default!;
-        if (requestObject.ValueKind != JsonValueKind.Object)
+        if (!TryValidateRequestObject(requestObject, out error))
         {
-            error = IpcRequestContractReadError.RequestMustBeObject();
-            return false;
-        }
-
-        var unknownRequestProperty = JsonObjectPropertyReader.FindUnknownProperty(requestObject, AllowedRequestProperties);
-        if (unknownRequestProperty is not null)
-        {
-            error = IpcRequestContractReadError.UnknownRequestProperty(unknownRequestProperty);
             return false;
         }
 
@@ -82,6 +44,27 @@ internal static class IpcRequestContractReader
             ProtocolVersion: protocolVersion,
             RequestId: requestId,
             Steps: steps);
+        error = IpcRequestContractReadError.None;
+        return true;
+    }
+
+    private static bool TryValidateRequestObject (
+        JsonElement requestObject,
+        out IpcRequestContractReadError error)
+    {
+        if (requestObject.ValueKind != JsonValueKind.Object)
+        {
+            error = IpcRequestContractReadError.RequestMustBeObject();
+            return false;
+        }
+
+        var unknownRequestProperty = JsonObjectPropertyReader.FindUnknownProperty(requestObject, AllowedRequestProperties);
+        if (unknownRequestProperty is not null)
+        {
+            error = IpcRequestContractReadError.UnknownRequestProperty(unknownRequestProperty);
+            return false;
+        }
+
         error = IpcRequestContractReadError.None;
         return true;
     }
@@ -177,23 +160,29 @@ internal static class IpcRequestContractReader
             return false;
         }
 
-        var parsedSteps = new List<IpcRequestContractStep?>();
-        HashSet<string>? duplicateStepIdDetector = profile.RejectDuplicatedStepId
-            ? new HashSet<string>(StringComparer.Ordinal)
-            : null;
+        if (!TryReadStepArray(stepsElement, profile, out steps, out error))
+        {
+            return false;
+        }
 
+        error = IpcRequestContractReadError.None;
+        return true;
+    }
+
+    private static bool TryReadStepArray (
+        JsonElement stepsElement,
+        in IpcRequestContractReadProfile profile,
+        out IReadOnlyList<IpcRequestContractStep?> steps,
+        out IpcRequestContractReadError error)
+    {
+        var parsedSteps = new List<IpcRequestContractStep?>();
+        var duplicateStepIdDetector = CreateDuplicateStepIdDetector(profile);
         var stepIndex = 0;
         foreach (var stepElement in stepsElement.EnumerateArray())
         {
-            if (!TryReadStepElement(
-                stepElement,
-                stepIndex,
-                profile,
-                duplicateStepIdDetector,
-                out var parsedStep,
-                out error))
+            if (!IpcRequestStepElementReader.TryRead(stepElement, stepIndex, profile, duplicateStepIdDetector, out var parsedStep, out error))
             {
-                steps = null;
+                steps = Array.Empty<IpcRequestContractStep?>();
                 return false;
             }
 
@@ -206,324 +195,11 @@ internal static class IpcRequestContractReader
         return true;
     }
 
-    private static bool TryReadStepElement (
-        JsonElement stepElement,
-        int stepIndex,
-        in IpcRequestContractReadProfile profile,
-        HashSet<string>? duplicateStepIdDetector,
-        out IpcRequestContractStep? step,
-        out IpcRequestContractReadError error)
+    private static HashSet<string>? CreateDuplicateStepIdDetector (in IpcRequestContractReadProfile profile)
     {
-        step = null;
-        if (stepElement.ValueKind != JsonValueKind.Object)
-        {
-            if (profile.RequireStepObject)
-            {
-                error = IpcRequestContractReadError.StepMustBeObject(stepIndex);
-                return false;
-            }
-
-            error = IpcRequestContractReadError.None;
-            return true;
-        }
-
-        if (!TryReadStepKind(stepElement, stepIndex, profile, out var stepKind, out error))
-        {
-            return false;
-        }
-
-        var allowedProperties = ResolveAllowedStepProperties(stepKind);
-        var unknownStepProperty = JsonObjectPropertyReader.FindUnknownProperty(stepElement, allowedProperties);
-        if (unknownStepProperty is not null)
-        {
-            error = IpcRequestContractReadError.UnknownStepProperty(stepIndex, unknownStepProperty);
-            return false;
-        }
-
-        if (!TryReadStepId(stepElement, stepIndex, profile, out var stepId, out error))
-        {
-            return false;
-        }
-
-        string? operationName = null;
-        if (stepKind == IpcRequestStepKind.Op)
-        {
-            if (!TryReadStepOp(stepElement, stepIndex, stepId, profile, out operationName, out error))
-            {
-                return false;
-            }
-        }
-        else if (stepKind == IpcRequestStepKind.Edit && !TryReadEditShape(stepElement, stepIndex, stepId, profile, out error))
-        {
-            return false;
-        }
-
-        if (stepId is not null
-            && duplicateStepIdDetector is not null
-            && !duplicateStepIdDetector.Add(stepId))
-        {
-            error = IpcRequestContractReadError.DuplicatedStepIdError(stepIndex, stepId);
-            return false;
-        }
-
-        step = new IpcRequestContractStep(
-            Kind: stepKind,
-            Id: stepId,
-            OperationName: operationName,
-            Element: stepElement.Clone());
-        error = IpcRequestContractReadError.None;
-        return true;
-    }
-
-    private static bool TryReadStepKind (
-        JsonElement stepElement,
-        int stepIndex,
-        in IpcRequestContractReadProfile profile,
-        out IpcRequestStepKind? stepKind,
-        out IpcRequestContractReadError error)
-    {
-        stepKind = null;
-        if (!JsonStringContractReader.TryRead(
-            jsonObject: stepElement,
-            propertyName: "kind",
-            presenceRequirement: ResolveStringPresenceRequirement(profile.RequireStepObject),
-            rejectEmptyOrWhitespace: true,
-            rejectOuterWhitespace: true,
-            value: out var kindLiteral,
-            error: out var readError))
-        {
-            error = IpcRequestContractReadError.StepKindContractViolation(stepIndex, readError);
-            return false;
-        }
-
-        if (kindLiteral is null)
-        {
-            error = IpcRequestContractReadError.None;
-            return true;
-        }
-
-        if (string.Equals(kindLiteral, "op", StringComparison.Ordinal))
-        {
-            stepKind = IpcRequestStepKind.Op;
-            error = IpcRequestContractReadError.None;
-            return true;
-        }
-
-        if (string.Equals(kindLiteral, "edit", StringComparison.Ordinal))
-        {
-            stepKind = IpcRequestStepKind.Edit;
-            error = IpcRequestContractReadError.None;
-            return true;
-        }
-
-        error = IpcRequestContractReadError.StepKindUnsupported(stepIndex, kindLiteral);
-        return false;
-    }
-
-    private static bool TryReadStepId (
-        JsonElement stepElement,
-        int stepIndex,
-        in IpcRequestContractReadProfile profile,
-        out string? stepId,
-        out IpcRequestContractReadError error)
-    {
-        if (!JsonStringContractReader.TryRead(
-            jsonObject: stepElement,
-            propertyName: "id",
-            presenceRequirement: ResolveStringPresenceRequirement(profile.RequireStepObject),
-            rejectEmptyOrWhitespace: true,
-            rejectOuterWhitespace: true,
-            value: out stepId,
-            error: out var readError))
-        {
-            error = IpcRequestContractReadError.StepIdContractViolation(stepIndex, readError);
-            return false;
-        }
-
-        error = IpcRequestContractReadError.None;
-        return true;
-    }
-
-    private static bool TryReadStepOp (
-        JsonElement stepElement,
-        int stepIndex,
-        string? stepId,
-        in IpcRequestContractReadProfile profile,
-        out string? operationName,
-        out IpcRequestContractReadError error)
-    {
-        if (!JsonStringContractReader.TryRead(
-            jsonObject: stepElement,
-            propertyName: "op",
-            presenceRequirement: ResolveStringPresenceRequirement(profile.RequireStepObject),
-            rejectEmptyOrWhitespace: true,
-            rejectOuterWhitespace: true,
-            value: out operationName,
-            error: out var readError))
-        {
-            error = IpcRequestContractReadError.StepOpContractViolation(stepIndex, stepId, readError);
-            return false;
-        }
-
-        if (!TryReadRequiredObject(stepElement, "args", profile.RequireStepObject, out _, out var propertyErrorKind))
-        {
-            if (profile.RequireStepObject || propertyErrorKind == StepPropertyReadErrorKind.TypeMismatch)
-            {
-                error = IpcRequestContractReadError.StepArgsContractViolation(stepIndex, stepId, propertyErrorKind);
-                return false;
-            }
-        }
-
-        error = IpcRequestContractReadError.None;
-        return true;
-    }
-
-    private static bool TryReadEditShape (
-        JsonElement stepElement,
-        int stepIndex,
-        string? stepId,
-        in IpcRequestContractReadProfile profile,
-        out IpcRequestContractReadError error)
-    {
-        if (!TryReadRequiredObject(stepElement, "on", profile.RequireStepObject, out _, out var onErrorKind))
-        {
-            if (profile.RequireStepObject || onErrorKind == StepPropertyReadErrorKind.TypeMismatch)
-            {
-                error = IpcRequestContractReadError.StepOnContractViolation(stepIndex, stepId, onErrorKind);
-                return false;
-            }
-        }
-
-        if (!TryReadRequiredObject(stepElement, "select", profile.RequireStepObject, out _, out var selectErrorKind))
-        {
-            if (profile.RequireStepObject || selectErrorKind == StepPropertyReadErrorKind.TypeMismatch)
-            {
-                error = IpcRequestContractReadError.StepSelectContractViolation(stepIndex, stepId, selectErrorKind);
-                return false;
-            }
-        }
-
-        if (!TryReadRequiredArray(stepElement, "actions", profile.RequireStepObject, out var actionsElement, out var actionsErrorKind))
-        {
-            if (profile.RequireStepObject || actionsErrorKind == StepPropertyReadErrorKind.TypeMismatch)
-            {
-                error = IpcRequestContractReadError.StepActionsContractViolation(stepIndex, stepId, actionsErrorKind);
-                return false;
-            }
-        }
-        else if (!ValidateActionElements(actionsElement, stepIndex, stepId, out error))
-        {
-            return false;
-        }
-
-        if (!JsonStringContractReader.TryRead(
-            jsonObject: stepElement,
-            propertyName: "commit",
-            presenceRequirement: ResolveStringPresenceRequirement(profile.RequireStepObject),
-            rejectEmptyOrWhitespace: true,
-            rejectOuterWhitespace: true,
-            value: out _,
-            error: out var readError))
-        {
-            error = IpcRequestContractReadError.StepCommitContractViolation(stepIndex, stepId, readError);
-            return false;
-        }
-
-        if (profile.RequireStepObject
-            && !IpcEditStepContractReader.TryRead(stepElement, out _, out var editErrorMessage))
-        {
-            error = IpcRequestContractReadError.StepEditContractViolation(stepIndex, stepId, editErrorMessage);
-            return false;
-        }
-
-        error = IpcRequestContractReadError.None;
-        return true;
-    }
-
-    private static bool ValidateActionElements (
-        JsonElement actionsElement,
-        int stepIndex,
-        string? stepId,
-        out IpcRequestContractReadError error)
-    {
-        foreach (var actionElement in actionsElement.EnumerateArray())
-        {
-            if (actionElement.ValueKind != JsonValueKind.Object)
-            {
-                error = IpcRequestContractReadError.StepActionMustBeObject(stepIndex, stepId);
-                return false;
-            }
-        }
-
-        error = IpcRequestContractReadError.None;
-        return true;
-    }
-
-    private static HashSet<string> ResolveAllowedStepProperties (IpcRequestStepKind? stepKind)
-    {
-        if (stepKind == IpcRequestStepKind.Op)
-        {
-            return AllowedOpStepProperties;
-        }
-
-        if (stepKind == IpcRequestStepKind.Edit)
-        {
-            return AllowedEditStepProperties;
-        }
-
-        return AllowedStepProperties;
-    }
-
-    private static bool TryReadRequiredObject (
-        JsonElement jsonObject,
-        string propertyName,
-        bool requireProperty,
-        out JsonElement propertyElement,
-        out StepPropertyReadErrorKind errorKind)
-    {
-        propertyElement = default;
-        if (!jsonObject.TryGetProperty(propertyName, out propertyElement))
-        {
-            errorKind = requireProperty
-                ? StepPropertyReadErrorKind.Missing
-                : StepPropertyReadErrorKind.None;
-            return false;
-        }
-
-        if (propertyElement.ValueKind != JsonValueKind.Object)
-        {
-            errorKind = StepPropertyReadErrorKind.TypeMismatch;
-            return false;
-        }
-
-        errorKind = StepPropertyReadErrorKind.None;
-        return true;
-    }
-
-    private static bool TryReadRequiredArray (
-        JsonElement jsonObject,
-        string propertyName,
-        bool requireProperty,
-        out JsonElement propertyElement,
-        out StepPropertyReadErrorKind errorKind)
-    {
-        propertyElement = default;
-        if (!jsonObject.TryGetProperty(propertyName, out propertyElement))
-        {
-            errorKind = requireProperty
-                ? StepPropertyReadErrorKind.Missing
-                : StepPropertyReadErrorKind.None;
-            return false;
-        }
-
-        if (propertyElement.ValueKind != JsonValueKind.Array)
-        {
-            errorKind = StepPropertyReadErrorKind.TypeMismatch;
-            return false;
-        }
-
-        errorKind = StepPropertyReadErrorKind.None;
-        return true;
+        return profile.RejectDuplicatedStepId
+            ? new HashSet<string>(StringComparer.Ordinal)
+            : null;
     }
 
     private static JsonStringPresenceRequirement ResolveStringPresenceRequirement (bool requireProperty)

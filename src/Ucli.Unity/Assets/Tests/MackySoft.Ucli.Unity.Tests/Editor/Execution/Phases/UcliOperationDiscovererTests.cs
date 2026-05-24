@@ -6,12 +6,14 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using NUnit.Framework;
+using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -608,7 +610,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var entry = FindCatalogEntry(snapshot.RequestValidationCatalog.Operations!, UcliPrimitiveOperationNames.PrefabRevertOverrides);
             Assert.That(entry.Exposure, Is.EqualTo(UcliOperationExposureValues.EditLoweringOnly));
             Assert.That(entry.Assurance, Is.Not.Null);
-            Assert.That(entry.Assurance!.TouchedKinds, Does.Contain(IpcExecuteTouchedResourceKindNames.Scene));
+            Assert.That(entry.Assurance!.TouchedKinds, Does.Contain(UcliTouchedResourceKindNames.Scene));
             Assert.That(entry.Assurance.TouchedContract, Does.Contain("scene resource"));
             Assert.That(entry.Assurance.ReadPostconditionContract, Does.Contain("Scene tree"));
         }

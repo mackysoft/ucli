@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Operations;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Maps input constraint authoring attributes to describe payload constraint contracts. </summary>
@@ -15,12 +17,37 @@ internal static class UcliOperationInputConstraintContractMapper
 
         return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindCodec.ToValue(attribute.Kind))
         {
-            AssetKind = attribute.AssetKind == UcliOperationAssetKind.Unspecified ? null : UcliOperationAssetKindCodec.ToValue(attribute.AssetKind),
-            TargetKind = attribute.TargetKind == UcliOperationReferenceTargetKind.Unspecified ? null : UcliOperationReferenceTargetKindCodec.ToValue(attribute.TargetKind),
-            TypeKind = attribute.TypeKind == UcliOperationTypeKind.Unspecified ? null : UcliOperationTypeKindCodec.ToValue(attribute.TypeKind),
-            Access = attribute.Access == UcliOperationSerializedPropertyAccess.Unspecified ? null : UcliOperationSerializedPropertyAccessCodec.ToValue(attribute.Access),
-            Min = double.IsNaN(attribute.Min) ? null : attribute.Min,
-            Max = double.IsNaN(attribute.Max) ? null : attribute.Max,
+            AssetKind = MapAssetKind(attribute.AssetKind),
+            TargetKind = MapTargetKind(attribute.TargetKind),
+            TypeKind = MapTypeKind(attribute.TypeKind),
+            Access = MapAccess(attribute.Access),
+            Min = MapOptionalNumber(attribute.Min),
+            Max = MapOptionalNumber(attribute.Max),
         };
+    }
+
+    private static string? MapAssetKind (UcliOperationAssetKind value)
+    {
+        return value == UcliOperationAssetKind.Unspecified ? null : UcliOperationAssetKindCodec.ToValue(value);
+    }
+
+    private static string? MapTargetKind (UcliOperationReferenceTargetKind value)
+    {
+        return value == UcliOperationReferenceTargetKind.Unspecified ? null : UcliOperationReferenceTargetKindCodec.ToValue(value);
+    }
+
+    private static string? MapTypeKind (UcliOperationTypeKind value)
+    {
+        return value == UcliOperationTypeKind.Unspecified ? null : UcliOperationTypeKindCodec.ToValue(value);
+    }
+
+    private static string? MapAccess (UcliOperationSerializedPropertyAccess value)
+    {
+        return value == UcliOperationSerializedPropertyAccess.Unspecified ? null : UcliOperationSerializedPropertyAccessCodec.ToValue(value);
+    }
+
+    private static double? MapOptionalNumber (double value)
+    {
+        return double.IsNaN(value) ? null : value;
     }
 }

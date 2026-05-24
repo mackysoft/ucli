@@ -200,20 +200,38 @@ internal static class EditorLifecycleErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClassValues.WaitThenRetry,
-            inspect: ["status", "payload.lifecycleState", UcliErrorInspectTargets.DaemonStatusCommand],
-            nextActions:
-            [
-                new UcliErrorNextActionDescriptor(
-                    When: null,
-                    Action: "Wait until lifecycleState=ready, then rerun the appropriate command."),
-            ],
-            relatedCodes: new[]
+            inspect: TransientInspectTargets(),
+            nextActions: TransientNextActions(),
+            relatedCodes: TransientRelatedCodes(code));
+    }
+
+    private static IReadOnlyList<string> TransientInspectTargets ()
+    {
+        return ["status", "payload.lifecycleState", UcliErrorInspectTargets.DaemonStatusCommand];
+    }
+
+    private static IReadOnlyList<UcliErrorNextActionDescriptor> TransientNextActions ()
+    {
+        return
+        [
+            new UcliErrorNextActionDescriptor(
+                When: null,
+                Action: "Wait until lifecycleState=ready, then rerun the appropriate command."),
+        ];
+    }
+
+    private static IReadOnlyList<UcliCode> TransientRelatedCodes (UcliCode code)
+    {
+        return
+        [
+            .. new[]
             {
                 EditorLifecycleErrorCodes.EditorBusy,
                 EditorLifecycleErrorCodes.EditorCompiling,
                 EditorLifecycleErrorCodes.EditorDomainReloading,
                 EditorLifecycleErrorCodes.EditorRecovering,
                 EditorLifecycleErrorCodes.EditorReimporting,
-            }.Where(relatedCode => relatedCode != code).ToArray());
+            }.Where(relatedCode => relatedCode != code),
+        ];
     }
 }

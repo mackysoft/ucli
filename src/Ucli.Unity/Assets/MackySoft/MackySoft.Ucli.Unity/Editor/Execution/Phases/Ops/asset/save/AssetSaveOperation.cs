@@ -1,9 +1,11 @@
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor;
+using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
 
@@ -21,8 +23,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 sideEffects: new[] { UcliOperationSideEffect.AssetSave },
                 touchedKinds: new[]
                 {
-                    IpcExecuteTouchedResourceKindNames.Asset,
-                    IpcExecuteTouchedResourceKindNames.ProjectSettings,
+                    UcliTouchedResourceKindNames.Asset,
+                    UcliTouchedResourceKindNames.ProjectSettings,
                 },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the asset target and observe whether this request dirtied the target.",

@@ -17,47 +17,80 @@ internal static class ExpectationConstraintHelper
         out ExpectationConstraintReadError error)
     {
         constraints = null;
-        error = ExpectationConstraintReadError.None;
+        if (!TryReadExpectationElement(operationElement, out var expectationElement, out error))
+        {
+            return false;
+        }
 
-        if (!operationElement.TryGetProperty(ExpectationConstraintSchema.ExpectationPropertyName, out var expectationElement))
+        if (expectationElement == null)
         {
             return true;
         }
 
-        if (expectationElement.ValueKind != JsonValueKind.Object)
+        if (!TryReadValues(expectationElement.Value, out var values, out error))
         {
-            error = new ExpectationConstraintReadError(
-                Kind: ExpectationConstraintReadErrorKind.ExpectationMustBeObject,
-                PropertyPath: ExpectationConstraintSchema.ExpectationPropertyName);
             return false;
         }
 
-        var unknownExpectationProperty = JsonObjectPropertyReader.FindUnknownProperty(
-            expectationElement,
-            ExpectationConstraintSchema.AllowedProperties);
-        if (unknownExpectationProperty is not null)
+        constraints = new ExpectationConstraints(
+            NonNull: values.NonNull,
+            Count: values.Count,
+            Min: values.Min,
+            Max: values.Max);
+        error = ExpectationConstraintReadError.None;
+        return true;
+    }
+
+    private static bool TryReadExpectationElement (
+        JsonElement operationElement,
+        out JsonElement? expectationElement,
+        out ExpectationConstraintReadError error)
+    {
+        expectationElement = null;
+        error = ExpectationConstraintReadError.None;
+        if (!operationElement.TryGetProperty(ExpectationConstraintSchema.ExpectationPropertyName, out var rawElement))
+        {
+            return true;
+        }
+
+        if (rawElement.ValueKind != JsonValueKind.Object)
+        {
+            error = CreateError(ExpectationConstraintReadErrorKind.ExpectationMustBeObject);
+            return false;
+        }
+
+        var unknownProperty = JsonObjectPropertyReader.FindUnknownProperty(rawElement, ExpectationConstraintSchema.AllowedProperties);
+        if (unknownProperty is not null)
         {
             error = new ExpectationConstraintReadError(
                 Kind: ExpectationConstraintReadErrorKind.ExpectationContainsUnknownProperty,
                 PropertyPath: ExpectationConstraintSchema.ExpectationPropertyName,
-                UnknownPropertyName: unknownExpectationProperty);
+                UnknownPropertyName: unknownProperty);
             return false;
         }
 
-        if (!expectationElement.EnumerateObject().MoveNext())
+        if (!rawElement.EnumerateObject().MoveNext())
         {
-            error = new ExpectationConstraintReadError(
-                Kind: ExpectationConstraintReadErrorKind.ExpectationMustContainAtLeastOneConstraint,
-                PropertyPath: ExpectationConstraintSchema.ExpectationPropertyName);
+            error = CreateError(ExpectationConstraintReadErrorKind.ExpectationMustContainAtLeastOneConstraint);
             return false;
         }
 
+        expectationElement = rawElement;
+        return true;
+    }
+
+    private static bool TryReadValues (
+        JsonElement expectationElement,
+        out ExpectationConstraintValues values,
+        out ExpectationConstraintReadError error)
+    {
         var nonNull = ExpectationConstraintValueReader.TryReadOptionalBoolean(
             expectationElement,
             ExpectationConstraintSchema.NonNullPropertyName,
             out error);
         if (error.Kind != ExpectationConstraintReadErrorKind.None)
         {
+            values = default;
             return false;
         }
 
@@ -67,6 +100,7 @@ internal static class ExpectationConstraintHelper
             out error);
         if (error.Kind != ExpectationConstraintReadErrorKind.None)
         {
+            values = default;
             return false;
         }
 
@@ -76,6 +110,7 @@ internal static class ExpectationConstraintHelper
             out error);
         if (error.Kind != ExpectationConstraintReadErrorKind.None)
         {
+            values = default;
             return false;
         }
 
@@ -85,30 +120,61 @@ internal static class ExpectationConstraintHelper
             out error);
         if (error.Kind != ExpectationConstraintReadErrorKind.None)
         {
+            values = default;
             return false;
         }
 
-        if (count.HasValue && (min.HasValue || max.HasValue))
+        values = new ExpectationConstraintValues(nonNull, count, min, max);
+        return TryValidateCombination(values, out error);
+    }
+
+    private static bool TryValidateCombination (
+        ExpectationConstraintValues values,
+        out ExpectationConstraintReadError error)
+    {
+        if (values.Count.HasValue && (values.Min.HasValue || values.Max.HasValue))
         {
-            error = new ExpectationConstraintReadError(
-                Kind: ExpectationConstraintReadErrorKind.CountCannotCombineWithMinOrMax,
-                PropertyPath: ExpectationConstraintSchema.ExpectationPropertyName);
+            error = CreateError(ExpectationConstraintReadErrorKind.CountCannotCombineWithMinOrMax);
             return false;
         }
 
-        if (min.HasValue && max.HasValue && min.Value > max.Value)
+        if (values.Min.HasValue && values.Max.HasValue && values.Min.Value > values.Max.Value)
         {
-            error = new ExpectationConstraintReadError(
-                Kind: ExpectationConstraintReadErrorKind.MinMustBeLessThanOrEqualToMax,
-                PropertyPath: ExpectationConstraintSchema.ExpectationPropertyName);
+            error = CreateError(ExpectationConstraintReadErrorKind.MinMustBeLessThanOrEqualToMax);
             return false;
         }
 
-        constraints = new ExpectationConstraints(
-            NonNull: nonNull,
-            Count: count,
-            Min: min,
-            Max: max);
+        error = ExpectationConstraintReadError.None;
         return true;
+    }
+
+    private static ExpectationConstraintReadError CreateError (ExpectationConstraintReadErrorKind kind)
+    {
+        return new ExpectationConstraintReadError(
+            Kind: kind,
+            PropertyPath: ExpectationConstraintSchema.ExpectationPropertyName);
+    }
+
+    private readonly struct ExpectationConstraintValues
+    {
+        public ExpectationConstraintValues (
+            bool? nonNull,
+            int? count,
+            int? min,
+            int? max)
+        {
+            NonNull = nonNull;
+            Count = count;
+            Min = min;
+            Max = max;
+        }
+
+        public bool? NonNull { get; }
+
+        public int? Count { get; }
+
+        public int? Min { get; }
+
+        public int? Max { get; }
     }
 }

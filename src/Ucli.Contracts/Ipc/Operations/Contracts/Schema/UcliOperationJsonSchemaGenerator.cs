@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -82,54 +83,18 @@ public static class UcliOperationJsonSchemaGenerator
         SchemaGenerationContext context)
     {
         var actualType = Nullable.GetUnderlyingType(contractType) ?? contractType;
-        if (actualType == StringType || UcliStringValue.IsAssignableFrom(actualType) || actualType.IsEnum)
+        if (TryWriteKnownSchemaObject(writer, actualType, includeNull: false))
         {
-            WriteType(writer, "string");
-            return;
-        }
-
-        if (actualType == typeof(bool))
-        {
-            WriteType(writer, "boolean");
-            return;
-        }
-
-        if (IsInteger(actualType))
-        {
-            WriteType(writer, "integer");
-            return;
-        }
-
-        if (IsNumber(actualType))
-        {
-            WriteType(writer, "number");
-            return;
-        }
-
-        if (actualType == JsonElementType || actualType == typeof(object))
-        {
-            writer.WriteStartObject();
-            writer.WriteEndObject();
             return;
         }
 
         if (TryGetArrayElementType(actualType, out var elementType))
         {
-            writer.WriteStartObject();
-            writer.WriteString("type", "array");
-            writer.WritePropertyName("items");
-            WriteSchemaReferenceOrInline(writer, elementType!, context);
-            WriteDefinitionsIfNeeded(writer, context);
-            writer.WriteEndObject();
+            WriteRootArraySchema(writer, elementType!, context);
             return;
         }
 
-        writer.WriteStartObject();
-        context.PushActive(actualType);
-        WriteObjectSchemaBody(writer, actualType, context);
-        context.PopActive(actualType);
-        WriteDefinitionsIfNeeded(writer, context);
-        writer.WriteEndObject();
+        WriteRootObjectSchema(writer, actualType, context);
     }
 
     private static void WriteObjectSchemaBody (
@@ -138,11 +103,11 @@ public static class UcliOperationJsonSchemaGenerator
         SchemaGenerationContext context,
         bool includeNull = false)
     {
-        var properties = UcliOperationSchemaPropertySelector.GetSchemaProperties(contractType);
         WriteTypeProperty(writer, "object", includeNull);
         writer.WriteBoolean("additionalProperties", false);
         writer.WritePropertyName("properties");
         writer.WriteStartObject();
+        var properties = UcliOperationSchemaPropertySelector.GetSchemaProperties(contractType);
         foreach (var property in properties)
         {
             writer.WritePropertyName(UcliOperationContractReflection.GetJsonPropertyName(property));
@@ -167,35 +132,29 @@ public static class UcliOperationJsonSchemaGenerator
 
         writer.WriteStartObject();
 
-        var propertyType = property.PropertyType;
-        var nullableUnderlyingType = Nullable.GetUnderlyingType(propertyType);
-        var actualType = nullableUnderlyingType ?? propertyType;
-        var includeNull = nullableUnderlyingType != null || property.GetCustomAttribute<UcliJsonAllowNullAttribute>() != null;
-
-        if (TryWriteScalarType(writer, actualType, includeNull))
+        var propertyType = SchemaPropertyType.Create(property);
+        if (TryWriteKnownSchemaBody(writer, propertyType.ActualType, propertyType.IncludeNull))
         {
             writer.WriteEndObject();
             return;
         }
 
-        if (TryGetArrayElementType(actualType, out var elementType))
+        if (TryGetArrayElementType(propertyType.ActualType, out var elementType))
         {
-            WriteTypeProperty(writer, "array", includeNull);
-            writer.WritePropertyName("items");
-            WriteSchemaReferenceOrInline(writer, elementType!, context);
+            WriteArraySchemaBody(writer, elementType!, context, propertyType.IncludeNull);
             writer.WriteEndObject();
             return;
         }
 
-        if (context.IsActive(actualType))
+        if (context.IsActive(propertyType.ActualType))
         {
-            WriteObjectReference(writer, actualType, context);
+            WriteObjectReference(writer, propertyType.ActualType, context);
         }
         else
         {
-            context.PushActive(actualType);
-            WriteObjectSchemaBody(writer, actualType, context, includeNull);
-            context.PopActive(actualType);
+            context.PushActive(propertyType.ActualType);
+            WriteObjectSchemaBody(writer, propertyType.ActualType, context, propertyType.IncludeNull);
+            context.PopActive(propertyType.ActualType);
         }
 
         writer.WriteEndObject();
@@ -207,44 +166,14 @@ public static class UcliOperationJsonSchemaGenerator
         SchemaGenerationContext context)
     {
         var actualType = Nullable.GetUnderlyingType(contractType) ?? contractType;
-        if (actualType == StringType || UcliStringValue.IsAssignableFrom(actualType) || actualType.IsEnum)
+        if (TryWriteKnownSchemaObject(writer, actualType, includeNull: false))
         {
-            WriteType(writer, "string");
-            return;
-        }
-
-        if (actualType == typeof(bool))
-        {
-            WriteType(writer, "boolean");
-            return;
-        }
-
-        if (IsInteger(actualType))
-        {
-            WriteType(writer, "integer");
-            return;
-        }
-
-        if (IsNumber(actualType))
-        {
-            WriteType(writer, "number");
-            return;
-        }
-
-        if (actualType == JsonElementType || actualType == typeof(object))
-        {
-            writer.WriteStartObject();
-            writer.WriteEndObject();
             return;
         }
 
         if (TryGetArrayElementType(actualType, out var elementType))
         {
-            writer.WriteStartObject();
-            WriteTypeProperty(writer, "array", includeNull: false);
-            writer.WritePropertyName("items");
-            WriteSchemaReferenceOrInline(writer, elementType!, context);
-            writer.WriteEndObject();
+            WriteArraySchemaObject(writer, elementType!, context, includeNull: false);
             return;
         }
 
@@ -260,6 +189,52 @@ public static class UcliOperationJsonSchemaGenerator
     {
         var definitionName = context.GetOrAddDefinition(contractType);
         writer.WriteString("$ref", "#/$defs/" + definitionName);
+    }
+
+    private static void WriteRootObjectSchema (
+        Utf8JsonWriter writer,
+        Type actualType,
+        SchemaGenerationContext context)
+    {
+        writer.WriteStartObject();
+        context.PushActive(actualType);
+        WriteObjectSchemaBody(writer, actualType, context);
+        context.PopActive(actualType);
+        WriteDefinitionsIfNeeded(writer, context);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteRootArraySchema (
+        Utf8JsonWriter writer,
+        Type elementType,
+        SchemaGenerationContext context)
+    {
+        writer.WriteStartObject();
+        WriteArraySchemaBody(writer, elementType, context, includeNull: false);
+        WriteDefinitionsIfNeeded(writer, context);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteArraySchemaObject (
+        Utf8JsonWriter writer,
+        Type elementType,
+        SchemaGenerationContext context,
+        bool includeNull)
+    {
+        writer.WriteStartObject();
+        WriteArraySchemaBody(writer, elementType, context, includeNull);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteArraySchemaBody (
+        Utf8JsonWriter writer,
+        Type elementType,
+        SchemaGenerationContext context,
+        bool includeNull)
+    {
+        WriteTypeProperty(writer, "array", includeNull);
+        writer.WritePropertyName("items");
+        WriteSchemaReferenceOrInline(writer, elementType, context);
     }
 
     private static void WriteDefinitionsIfNeeded (
@@ -289,42 +264,34 @@ public static class UcliOperationJsonSchemaGenerator
         writer.WriteEndObject();
     }
 
-    private static bool TryWriteScalarType (
+    private static bool TryWriteKnownSchemaObject (
         Utf8JsonWriter writer,
         Type actualType,
         bool includeNull)
     {
-        string? schemaType = null;
-        if (actualType == StringType || UcliStringValue.IsAssignableFrom(actualType) || actualType.IsEnum)
+        if (!CanWriteKnownSchema(actualType))
         {
-            schemaType = "string";
-        }
-        else if (actualType == typeof(bool))
-        {
-            schemaType = "boolean";
-        }
-        else if (IsInteger(actualType))
-        {
-            schemaType = "integer";
-        }
-        else if (IsNumber(actualType))
-        {
-            schemaType = "number";
-        }
-
-        if (schemaType == null)
-        {
-            if (actualType == JsonElementType || actualType == typeof(object))
-            {
-                return true;
-            }
-
             return false;
         }
 
-        WriteTypeProperty(writer, schemaType, includeNull);
-
+        writer.WriteStartObject();
+        TryWriteKnownSchemaBody(writer, actualType, includeNull);
+        writer.WriteEndObject();
         return true;
+    }
+
+    private static bool TryWriteKnownSchemaBody (
+        Utf8JsonWriter writer,
+        Type actualType,
+        bool includeNull)
+    {
+        if (TryGetSchemaType(actualType, out var schemaType))
+        {
+            WriteTypeProperty(writer, schemaType!, includeNull);
+            return true;
+        }
+
+        return actualType == JsonElementType || actualType == typeof(object);
     }
 
     private static void WriteRequiredProperties (
@@ -355,15 +322,6 @@ public static class UcliOperationJsonSchemaGenerator
         writer.WriteEndArray();
     }
 
-    private static void WriteType (
-        Utf8JsonWriter writer,
-        string schemaType)
-    {
-        writer.WriteStartObject();
-        WriteTypeProperty(writer, schemaType, includeNull: false);
-        writer.WriteEndObject();
-    }
-
     private static void WriteTypeProperty (
         Utf8JsonWriter writer,
         string schemaType,
@@ -380,6 +338,52 @@ public static class UcliOperationJsonSchemaGenerator
         }
 
         writer.WriteString("type", schemaType);
+    }
+
+    private static bool CanWriteKnownSchema (Type actualType)
+    {
+        return TryGetSchemaType(actualType, out _)
+            || actualType == JsonElementType
+            || actualType == typeof(object);
+    }
+
+    private static bool TryGetSchemaType (
+        Type actualType,
+        out string? schemaType)
+    {
+        if (actualType == StringType || UcliStringValue.IsAssignableFrom(actualType) || actualType.IsEnum)
+        {
+            schemaType = "string";
+            return true;
+        }
+
+        if (actualType == typeof(bool))
+        {
+            schemaType = "boolean";
+            return true;
+        }
+
+        return TryGetNumberSchemaType(actualType, out schemaType);
+    }
+
+    private static bool TryGetNumberSchemaType (
+        Type actualType,
+        out string? schemaType)
+    {
+        if (IsInteger(actualType))
+        {
+            schemaType = "integer";
+            return true;
+        }
+
+        if (IsNumber(actualType))
+        {
+            schemaType = "number";
+            return true;
+        }
+
+        schemaType = null;
+        return false;
     }
 
     private static bool TryGetArrayElementType (
@@ -519,5 +523,29 @@ public static class UcliOperationJsonSchemaGenerator
         public string Name { get; }
 
         public Type Type { get; }
+    }
+
+    private readonly struct SchemaPropertyType
+    {
+        private SchemaPropertyType (
+            Type actualType,
+            bool includeNull)
+        {
+            ActualType = actualType;
+            IncludeNull = includeNull;
+        }
+
+        public Type ActualType { get; }
+
+        public bool IncludeNull { get; }
+
+        public static SchemaPropertyType Create (PropertyInfo property)
+        {
+            var nullableUnderlyingType = Nullable.GetUnderlyingType(property.PropertyType);
+            var actualType = nullableUnderlyingType ?? property.PropertyType;
+            var includeNull = nullableUnderlyingType != null
+                || property.GetCustomAttribute<UcliJsonAllowNullAttribute>() != null;
+            return new SchemaPropertyType(actualType, includeNull);
+        }
     }
 }

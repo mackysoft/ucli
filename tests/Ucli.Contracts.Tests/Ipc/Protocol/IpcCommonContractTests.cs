@@ -384,6 +384,42 @@ public sealed class IpcCommonContractTests
         Assert.Null(errorMessage);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(0, null, null, "tail must be greater than zero. Actual: 0.")]
+    [InlineData(-1, null, null, "tail must be greater than zero. Actual: -1.")]
+    [InlineData(null, "invalid", null, "since must be an ISO 8601 timestamp with timezone offset. Actual: invalid.")]
+    [InlineData(null, null, "invalid", "until must be an ISO 8601 timestamp with timezone offset. Actual: invalid.")]
+    [InlineData(null, "2026-03-05T10:36:22.0000000+09:00", "2026-03-05T10:35:22.0000000+09:00", "since must be less than or equal to until. since=2026-03-05T10:36:22.0000000+09:00, until=2026-03-05T10:35:22.0000000+09:00.")]
+    public void IpcUnityLogsReadRequestNormalizer_TryNormalize_WhenWindowBoundsAreInvalid_ReturnsError (
+        int? tail,
+        string? since,
+        string? until,
+        string expectedErrorMessage)
+    {
+        var result = IpcUnityLogsReadRequestNormalizer.TryNormalize(
+            new IpcUnityLogsReadRequest(
+                Tail: tail,
+                After: null,
+                Since: since,
+                Until: until,
+                Level: null,
+                Query: null,
+                QueryTarget: null,
+                Source: null,
+                StackTrace: null,
+                StackTraceMaxFrames: null,
+                StackTraceMaxChars: null),
+            out var normalizedRequest,
+            out _,
+            out _,
+            out var errorMessage);
+
+        Assert.False(result);
+        Assert.Null(normalizedRequest);
+        Assert.Equal(expectedErrorMessage, errorMessage);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void IpcUnityLogsReadRequestNormalizer_TryNormalize_WhenStackTraceCharLimitIsTooSmall_ReturnsError ()
@@ -441,6 +477,39 @@ public sealed class IpcCommonContractTests
         Assert.True(sinceTimestamp.HasValue);
         Assert.True(untilTimestamp.HasValue);
         Assert.Null(errorMessage);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(0, null, null, "tail must be greater than zero. Actual: 0.")]
+    [InlineData(-1, null, null, "tail must be greater than zero. Actual: -1.")]
+    [InlineData(null, "invalid", null, "since must be an ISO 8601 timestamp with timezone offset. Actual: invalid.")]
+    [InlineData(null, null, "invalid", "until must be an ISO 8601 timestamp with timezone offset. Actual: invalid.")]
+    [InlineData(null, "2026-03-05T10:36:22.0000000+09:00", "2026-03-05T10:35:22.0000000+09:00", "since must be less than or equal to until. since=2026-03-05T10:36:22.0000000+09:00, until=2026-03-05T10:35:22.0000000+09:00.")]
+    public void IpcDaemonLogsReadRequestNormalizer_TryNormalize_WhenWindowBoundsAreInvalid_ReturnsError (
+        int? tail,
+        string? since,
+        string? until,
+        string expectedErrorMessage)
+    {
+        var result = IpcDaemonLogsReadRequestNormalizer.TryNormalize(
+            new IpcDaemonLogsReadRequest(
+                Tail: tail,
+                After: null,
+                Since: since,
+                Until: until,
+                Level: null,
+                Query: null,
+                QueryTarget: null,
+                Category: null),
+            out var normalizedRequest,
+            out _,
+            out _,
+            out var errorMessage);
+
+        Assert.False(result);
+        Assert.Null(normalizedRequest);
+        Assert.Equal(expectedErrorMessage, errorMessage);
     }
 
     [Fact]

@@ -435,10 +435,10 @@ internal static class VerifyFromInputReader
 
     private static bool IsKnownTouchedResourceKind (string kind)
     {
-        return kind is IpcExecuteTouchedResourceKindNames.Scene
-            or IpcExecuteTouchedResourceKindNames.Prefab
-            or IpcExecuteTouchedResourceKindNames.Asset
-            or IpcExecuteTouchedResourceKindNames.ProjectSettings;
+        return kind is UcliTouchedResourceKindNames.Scene
+            or UcliTouchedResourceKindNames.Prefab
+            or UcliTouchedResourceKindNames.Asset
+            or UcliTouchedResourceKindNames.ProjectSettings;
     }
 
     private static bool IsKnownReadPostconditionSurface (string surface)

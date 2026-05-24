@@ -105,6 +105,27 @@ public sealed class OpsDescribeResultMapperTests
         Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("argsSchema")]
+    [InlineData("resultSchema")]
+    public void Map_WhenSchemaJsonIsMalformed_ReturnsInternalError (string schemaField)
+    {
+        var mapper = new OpsDescribeResultMapper(new OpsReadIndexInfoMapper());
+        var argsSchemaJson = schemaField == "argsSchema" ? "{" : """{"type":"object"}""";
+        var resultSchemaJson = schemaField == "resultSchema" ? "{" : """{"type":"object"}""";
+
+        var result = mapper.Map(CreateReadOutput(CreateDescribedEntry(
+            name: UcliPrimitiveOperationNames.Resolve,
+            kind: "query",
+            policy: "safe",
+            argsSchemaJson: argsSchemaJson,
+            resultSchemaJson: resultSchemaJson)));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void Map_WhenEmittedResultMissesResultSchema_ReturnsInternalError ()
@@ -232,7 +253,7 @@ public sealed class OpsDescribeResultMapperTests
             sideEffects: isDangerousPolicy
                 ? [UcliOperationSideEffect.AssetSave, UcliOperationSideEffect.ArbitrarySourceExecution]
                 : isMutation ? [UcliOperationSideEffect.AssetSave] : [UcliOperationSideEffect.ObservesUnityState],
-            touchedKinds: isMutation ? [IpcExecuteTouchedResourceKindNames.Asset] : Array.Empty<string>(),
+            touchedKinds: isMutation ? [UcliTouchedResourceKindNames.Asset] : Array.Empty<string>(),
             planMode: UcliOperationPlanMode.ObservesLiveUnity,
             planSemantics: "Validate arguments and observe Unity state without applying mutation.",
             callSemantics: isMutation ? "Execute the mutation against live Unity state." : "Read Unity state without applying mutation.",

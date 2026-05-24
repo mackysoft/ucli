@@ -8,6 +8,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor;
 using UnityEngine;
+using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
 
@@ -23,7 +24,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Assigns serialized property values on a component target.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.SceneContentMutation, UcliOperationSideEffect.PrefabContentMutation },
-                touchedKinds: new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                touchedKinds: new[] { UcliTouchedResourceKindNames.Scene, UcliTouchedResourceKindNames.Prefab },
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Validate the component target and serialized property values, then compute preview changes without persisting project data.",
                 callSemantics: "Apply serialized property values to the live component and leave saving to explicit save operations.",

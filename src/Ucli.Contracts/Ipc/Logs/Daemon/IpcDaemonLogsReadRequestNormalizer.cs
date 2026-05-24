@@ -25,44 +25,18 @@ public static class IpcDaemonLogsReadRequestNormalizer
         }
 
         normalizedRequest = null;
-        if (request.Tail.HasValue && request.Tail.Value <= 0)
-        {
-            sinceTimestamp = null;
-            untilTimestamp = null;
-            errorMessage = $"tail must be greater than zero. Actual: {request.Tail.Value}.";
-            return false;
-        }
-
-        if (!IpcIso8601TimestampCodec.TryParseOptionalWithTimezoneOffset(request.Since, out sinceTimestamp))
-        {
-            untilTimestamp = null;
-            errorMessage = $"since must be an ISO 8601 timestamp with timezone offset. Actual: {request.Since}.";
-            return false;
-        }
-
-        if (!IpcIso8601TimestampCodec.TryParseOptionalWithTimezoneOffset(request.Until, out untilTimestamp))
-        {
-            errorMessage = $"until must be an ISO 8601 timestamp with timezone offset. Actual: {request.Until}.";
-            return false;
-        }
-
-        if (sinceTimestamp.HasValue
-            && untilTimestamp.HasValue
-            && sinceTimestamp.Value > untilTimestamp.Value)
-        {
-            errorMessage = $"since must be less than or equal to until. since={request.Since}, until={request.Until}.";
-            return false;
-        }
-
-        if (!TryResolveLevel(request.Level, out var level, out errorMessage))
-        {
-            return false;
-        }
-
-        if (!IpcDaemonLogsQueryTargetCodec.TryParseForDaemonLogs(
-                request.QueryTarget,
-                out var queryTarget,
+        if (!IpcLogsReadWindowNormalizer.TryNormalize(
+                request.Tail,
+                request.Since,
+                request.Until,
+                out sinceTimestamp,
+                out untilTimestamp,
                 out errorMessage))
+        {
+            return false;
+        }
+
+        if (!TryResolveFilters(request, out var filters, out errorMessage))
         {
             return false;
         }
@@ -72,11 +46,31 @@ public static class IpcDaemonLogsReadRequestNormalizer
             After: request.After,
             Since: request.Since,
             Until: request.Until,
-            Level: level,
+            Level: filters.Level,
             Query: StringValueNormalizer.TrimToNull(request.Query),
-            QueryTarget: queryTarget,
+            QueryTarget: filters.QueryTarget,
             Category: NormalizeCategory(request.Category));
         errorMessage = null;
+        return true;
+    }
+
+    private static bool TryResolveFilters (
+        IpcDaemonLogsReadRequest request,
+        out Filters filters,
+        out string? errorMessage)
+    {
+        filters = default;
+        if (!TryResolveLevel(request.Level, out var level, out errorMessage))
+        {
+            return false;
+        }
+
+        if (!IpcDaemonLogsQueryTargetCodec.TryParseForDaemonLogs(request.QueryTarget, out var queryTarget, out errorMessage))
+        {
+            return false;
+        }
+
+        filters = new Filters(level, queryTarget);
         return true;
     }
 
@@ -113,5 +107,20 @@ public static class IpcDaemonLogsReadRequestNormalizer
         errorMessage =
             $"level must be one of: {IpcDaemonLogsLevelCodec.All}, {IpcDaemonLogsLevelCodec.Error}, {IpcDaemonLogsLevelCodec.Warning}, {IpcDaemonLogsLevelCodec.Info}. Actual: {value}.";
         return false;
+    }
+
+    private readonly struct Filters
+    {
+        public Filters (
+            string level,
+            string queryTarget)
+        {
+            Level = level;
+            QueryTarget = queryTarget;
+        }
+
+        public string Level { get; }
+
+        public string QueryTarget { get; }
     }
 }

@@ -10,6 +10,7 @@ using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using NUnit.Framework;
 using UnityEngine.TestTools;
+using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
 
