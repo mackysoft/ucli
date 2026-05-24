@@ -574,7 +574,7 @@ public sealed class UcliConfigStoreTests
 
     private static void AssertDefaultIpcTimeouts (IReadOnlyDictionary<string, int?> actual)
     {
-        Assert.Equal(22, actual.Count);
+        Assert.Equal(23, actual.Count);
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandTest));
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandReady));
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandVerify));
@@ -582,6 +582,7 @@ public sealed class UcliConfigStoreTests
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandValidate));
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandPlan));
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandCall));
+        Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandEval));
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandResolve));
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandQuery));
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandRefresh));
@@ -604,6 +605,7 @@ public sealed class UcliConfigStoreTests
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultValidateMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandValidate]);
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultPlanMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandPlan]);
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultCallMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandCall]);
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultEvalMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandEval]);
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultResolveMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandResolve]);
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultQueryMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandQuery]);
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultRefreshMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandRefresh]);

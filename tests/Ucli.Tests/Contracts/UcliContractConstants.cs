@@ -40,6 +40,12 @@ internal static class UcliContractConstants
 
         public const string AllowDangerous = "--allowDangerous";
 
+        public const string AllowPlayMode = "--allowPlayMode";
+
+        public const string Source = "--source";
+
+        public const string File = "--file";
+
         public const string Unknown = "--unknown";
     }
 
@@ -78,6 +84,8 @@ internal static class UcliContractConstants
         public const int IpcTimeoutDefaultPlanMilliseconds = 20000;
 
         public const int IpcTimeoutDefaultCallMilliseconds = 60000;
+
+        public const int IpcTimeoutDefaultEvalMilliseconds = 60000;
 
         public const int IpcTimeoutDefaultResolveMilliseconds = 10000;
 
@@ -122,6 +130,8 @@ internal static class UcliContractConstants
         public const string IpcTimeoutCommandPlan = "plan";
 
         public const string IpcTimeoutCommandCall = "call";
+
+        public const string IpcTimeoutCommandEval = "eval";
 
         public const string IpcTimeoutCommandResolve = "resolve";
 

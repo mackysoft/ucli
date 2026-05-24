@@ -168,6 +168,89 @@ public sealed class CallServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenExecutionOwnerCommandIsProvided_UsesOwnerForWorkflowAndKeepsExecutePhaseCommands ()
+    {
+        var config = UcliConfig.CreateDefault() with
+        {
+            IpcTimeoutMillisecondsByCommand = new Dictionary<string, int?>(StringComparer.Ordinal)
+            {
+                ["call"] = 1111,
+                ["eval"] = 7777,
+            },
+        };
+        var preparedRequest = CreatePreparedRequest(
+            requestJson: CreateOpRequestJson(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe),
+            request: CreateOpRequest(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe),
+            operationsByName: CreateOperationsByName(
+                CreateOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, OperationPolicy.Safe)),
+            config: config);
+        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
+            UnityRequestExecutionResult.Success(
+                CreateResponse(
+                    status: IpcProtocol.StatusOk,
+                    opResults:
+                    [
+                        new IpcExecuteOperationResult(
+                            OpId: "step-1",
+                            Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
+                            Phase: IpcExecuteOperationPhaseNames.Plan,
+                            Applied: false,
+                            Changed: false,
+                            Touched: []),
+                    ],
+                    errors: [],
+                    planToken: "issued-plan-token")),
+            UnityRequestExecutionResult.Success(
+                CreateResponse(
+                    status: IpcProtocol.StatusOk,
+                    opResults:
+                    [
+                        new IpcExecuteOperationResult(
+                            OpId: "step-1",
+                            Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
+                            Phase: IpcExecuteOperationPhaseNames.Call,
+                            Applied: true,
+                            Changed: false,
+                            Touched: []),
+                    ],
+                    errors: [],
+                    planToken: null)));
+        var timeProvider = new ManualTimeProvider();
+        var service = CreateService(
+            PhaseExecutionPreflightResult.Success(preparedRequest),
+            ipcRequestExecutor,
+            timeProvider);
+
+        var result = await service.ExecuteAsync(
+            new CallCommandInput(
+                ProjectPath: "/repo/UnityProject",
+                Mode: NormalizeMode("daemon"),
+                TimeoutMilliseconds: null,
+                PlanToken: null,
+                WithPlan: true,
+                AllowDangerous: false,
+                FailFast: false,
+                RequestJson: """{"steps":[]}""")
+            {
+                ExecutionOwnerCommand = UcliCommandIds.Eval,
+            },
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("uCLI eval completed.", result.Message);
+        Assert.Equal(2, ipcRequestExecutor.CallCount);
+        Assert.Equal(UcliCommandIds.Eval, ipcRequestExecutor.Invocations[0].Command);
+        Assert.Equal(UcliCommandIds.Eval, ipcRequestExecutor.Invocations[1].Command);
+        Assert.Equal(TimeSpan.FromMilliseconds(7777), ipcRequestExecutor.Invocations[0].Timeout);
+        Assert.Equal(TimeSpan.FromMilliseconds(7777), ipcRequestExecutor.Invocations[1].Timeout);
+        var planRequest = Assert.IsType<UnityRequestPayload.ExecuteJson>(ipcRequestExecutor.Invocations[0].Payload);
+        var callRequest = Assert.IsType<UnityRequestPayload.ExecuteJson>(ipcRequestExecutor.Invocations[1].Payload);
+        Assert.Equal(UcliCommandIds.Plan, planRequest.Command);
+        Assert.Equal(UcliCommandIds.Call, callRequest.Command);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenWithPlanAndDangerousFlagEnabled_PassesAllowDangerousToPlanAndCall ()
     {
         var dangerousOperationName = "ucli.test.dangerous";
@@ -871,7 +954,8 @@ public sealed class CallServiceTests
     private static PhaseExecutionPreparedRequest CreatePreparedRequest (
         string requestJson,
         ValidateRequest request,
-        IReadOnlyDictionary<string, UcliOperationDescriptor> operationsByName)
+        IReadOnlyDictionary<string, UcliOperationDescriptor> operationsByName,
+        UcliConfig? config = null)
     {
         return new PhaseExecutionPreparedRequest(
             PreparedRequest: new PreparedRequestContext(
@@ -883,7 +967,7 @@ public sealed class CallServiceTests
                         RepositoryRoot: "/repo",
                         ProjectFingerprint: "project-fingerprint",
                         PathSource: UnityProjectPathSource.CommandOption),
-                    UcliConfig.CreateDefault(),
+                    config ?? UcliConfig.CreateDefault(),
                     ConfigSource.Default)),
             OperationsByName: operationsByName);
     }

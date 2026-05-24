@@ -13,6 +13,7 @@ internal static class ExecuteRequestErrorCodeDescriptors
             [
                 UcliCommandIds.Plan,
                 UcliCommandIds.Call,
+                UcliCommandIds.Eval,
                 UcliCommandIds.Resolve,
                 UcliCommandIds.Query,
                 UcliCommandIds.Refresh,
@@ -39,6 +40,7 @@ internal static class ExecuteRequestErrorCodeDescriptors
             [
                 UcliCommandIds.Call,
                 UcliCommandIds.Plan,
+                UcliCommandIds.Eval,
                 UcliCommandIds.Query,
                 UcliCommandIds.Resolve,
             ],
@@ -64,6 +66,7 @@ internal static class ExecuteRequestErrorCodeDescriptors
             [
                 UcliCommandIds.Plan,
                 UcliCommandIds.Call,
+                UcliCommandIds.Eval,
                 UcliCommandIds.Resolve,
                 UcliCommandIds.Query,
                 UcliCommandIds.Refresh,

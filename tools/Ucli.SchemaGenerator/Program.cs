@@ -99,6 +99,7 @@ internal static class Program
             CreatePayloadSchema(UcliCommandIds.Validate.Name, CreateValidatePayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.Plan.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: true, includePlanToken: true, includePlan: false, includePostReadSource: false)),
             CreatePayloadSchema(UcliCommandIds.Call.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: false, includePlanToken: false, includePlan: true, includePostReadSource: true)),
+            CreatePayloadSchema(UcliCommandIds.Eval.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: false, includePlanToken: false, includePlan: true, includePostReadSource: true)),
             CreatePayloadSchema(UcliCommandIds.Refresh.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: false, includePlanToken: false, includePlan: false, includePostReadSource: true)),
             CreatePayloadSchema(UcliCommandIds.Resolve.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: true, includePlanToken: false, includePlan: false, includePostReadSource: false)),
             CreatePayloadSchema(UcliCommandIds.QueryAssetsFind.Name, CreateRequestExecutionPayloadSchema(includeReadIndex: true, includePlanToken: false, includePlan: false, includePostReadSource: false)),

@@ -57,6 +57,9 @@ internal static class UcliCommandNames
     /// <summary> Gets the command name for call. </summary>
     public const string Call = "call";
 
+    /// <summary> Gets the command name for eval. </summary>
+    public const string Eval = "eval";
+
     /// <summary> Gets the top-level command name for daemon. </summary>
     public const string Daemon = "daemon";
 

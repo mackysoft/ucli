@@ -26,6 +26,7 @@ internal static class IpcTransportErrorCodeDescriptors
                 UcliCommandIds.TestRun,
                 UcliCommandIds.Plan,
                 UcliCommandIds.Call,
+                UcliCommandIds.Eval,
                 UcliCommandIds.Resolve,
                 UcliCommandIds.Query,
                 UcliCommandIds.Refresh,

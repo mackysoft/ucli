@@ -186,7 +186,7 @@ Use `--projectPath <path>` when a single command needs to override the environme
 - The CLI generates the internal request protocol metadata for automation workflows.
 - `MackySoft.Ucli.Contracts` is for direct IPC protocol and tooling consumers.
 - `MackySoft.Ucli.Infrastructure` is an advanced integration package for runtime support code.
-- Operations whose policy is `dangerous` are outside the normal guarded edit path and require an explicit `ucli call --allowDangerous`.
+- Operations whose policy is `dangerous` are outside the normal guarded edit path and require an explicit `ucli call --allowDangerous` or `ucli eval --allowDangerous`.
 
 ## 🔄 Typical Workflow
 
@@ -600,6 +600,16 @@ Use `ucli plan` and `ucli call --planToken` only when a human review step, CI ga
 
 > **IMPORTANT:** A timeout or disconnect does not prove that nothing was applied. Inspect the JSON result, `opResults`, touched units, Unity logs, and daemon logs before retrying.
 
+Use `ucli eval` when a local operator intentionally needs to run ad hoc C# inside the Unity Editor process without hand-writing a JSON request. It wraps `ucli.cs.eval`, returns the standard JSON envelope with `payload.plan` and `payload.opResults`, and still requires the dangerous-operation guards.
+
+```bash
+ucli eval --allowDangerous \
+  --source 'return UnityEngine.Application.unityVersion;'
+
+ucli eval --mode daemon --allowDangerous \
+  --file ./eval.cs
+```
+
 ## 🧩 Request DSL Core
 
 This section covers the core request shape used by common automation. Operation-specific arguments and policies come from the operation catalog exposed by `ucli ops list` and `ucli ops describe`.
@@ -896,7 +906,7 @@ Custom operations are not hidden shortcuts. Once they are in the catalog, they p
 
 ## ⚠️ Dangerous Operations
 
-> **WARNING:** `ucli call` blocks operations whose policy is `dangerous` unless every guard allows them: project policy, operation allowlist, and the explicit `--allowDangerous` flag. Prefer the normal `edit` flow and non-dangerous primitive operations.
+> **WARNING:** `ucli call` and `ucli eval` block operations whose policy is `dangerous` unless every guard allows them: project policy, operation allowlist, and the explicit `--allowDangerous` flag. Prefer the normal `edit` flow and non-dangerous primitive operations.
 
 uCLI keeps the normal edit path declarative, typed, planned, and reviewable.
 
@@ -951,6 +961,7 @@ ucli daemon stop
 | `ucli ops` | List and inspect available primitive operations. |
 | `ucli codes` | List and describe machine-readable code values used in JSON contracts. |
 | `ucli call` | Apply a request; use `--withPlan` for the normal planned write path. |
+| `ucli eval` | Run ad hoc C# through `ucli.cs.eval` without authoring a JSON request. |
 | `ucli plan` | Prepare a separated review gate and receive a `planToken`. |
 | `ucli validate` | Diagnose static request validation without running `plan` or `call`. |
 | `ucli verify` | Aggregate Unity-side verifier results into a claim packet. |
@@ -969,7 +980,8 @@ Common options:
 | `--failFast` | Unity-backed commands | Fail when the Unity editor lifecycle is not ready instead of waiting. |
 | `--withPlan` | `ucli call` | Run a plan pass inside `call` and include it in the result. |
 | `--planToken <token>` | `ucli call` | Apply a request using a token returned by `ucli plan`. |
-| `--allowDangerous` | `ucli call` | Allow operations whose catalog policy is `dangerous`. |
+| `--allowDangerous` | `ucli call`, `ucli eval` | Allow operations whose catalog policy is `dangerous`. |
+| `--allowPlayMode` | `ucli plan`, `ucli call`, `ucli eval` | Allow guarded Play Mode mutation in a GUI Editor session. |
 
 > **NOTE:** Project path resolution uses `--projectPath`, then `UCLI_PROJECT_PATH`, then the command default. The default is usually the current working directory.
 

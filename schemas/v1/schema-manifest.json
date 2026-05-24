@@ -124,6 +124,12 @@
       "command": "call"
     },
     {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/eval.schema.json",
+      "path": "cli-output/payload/eval.schema.json",
+      "kind": "cli-output-payload",
+      "command": "eval"
+    },
+    {
       "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/refresh.schema.json",
       "path": "cli-output/payload/refresh.schema.json",
       "kind": "cli-output-payload",

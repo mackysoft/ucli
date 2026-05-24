@@ -15,6 +15,7 @@ internal static class IpcTimeoutDefaults
         (UcliCommandIds.Validate, 10000),
         (UcliCommandIds.Plan, 20000),
         (UcliCommandIds.Call, 60000),
+        (UcliCommandIds.Eval, 60000),
         (UcliCommandIds.Resolve, 10000),
         (UcliCommandIds.Query, 10000),
         (UcliCommandIds.Refresh, 120000),

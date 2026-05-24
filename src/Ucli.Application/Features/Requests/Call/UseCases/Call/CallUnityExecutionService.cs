@@ -40,6 +40,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
 
         var baseOutput = CallExecutionOutputFactory.CreateBase(preparedRequest.PreparedRequest);
         var effectivePlanToken = StringValueNormalizer.TrimToNull(input.PlanToken);
+        var executionOwnerCommand = input.ExecutionOwnerCommand;
 
         if (input.WithPlan)
         {
@@ -53,7 +54,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             }
 
             var planExecutionResult = await unityIpcRequestExecutor.ExecuteAsync(
-                    UcliCommandIds.Call,
+                    executionOwnerCommand,
                     mode,
                     planTimeout,
                     preparedRequest.Config,
@@ -93,9 +94,10 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
 
             if (!convertedPlanResponse.IsSuccess)
             {
-                var failures = RequestFailureNormalizer.FromOperationErrors(convertedPlanResponse.Errors, "uCLI call pre-plan failed.");
+                var prePlanFailureMessage = CreatePrePlanFailureMessage(executionOwnerCommand);
+                var failures = RequestFailureNormalizer.FromOperationErrors(convertedPlanResponse.Errors, prePlanFailureMessage);
                 return CallServiceResult.Failure(
-                    RequestFailureNormalizer.ResolveMessage(failures, "uCLI call pre-plan failed."),
+                    RequestFailureNormalizer.ResolveMessage(failures, prePlanFailureMessage),
                     failures,
                     baseOutput);
             }
@@ -125,7 +127,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         }
 
         var callExecutionResult = await unityIpcRequestExecutor.ExecuteAsync(
-                UcliCommandIds.Call,
+                executionOwnerCommand,
                 mode,
                 callTimeout,
                 preparedRequest.Config,
@@ -168,7 +170,8 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         convertedCallResponse = postprocessedCallResponse.Response;
         if (postprocessedCallResponse.PersistenceError != null)
         {
-            var failures = RequestFailureNormalizer.FromOperationErrors(convertedCallResponse.Errors, "uCLI call failed.");
+            var callFailureMessage = CreateCallFailureMessage(executionOwnerCommand);
+            var failures = RequestFailureNormalizer.FromOperationErrors(convertedCallResponse.Errors, callFailureMessage);
             return CallServiceResult.Failure(
                 postprocessedCallResponse.PersistenceError.Message,
                 failures,
@@ -177,16 +180,32 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
 
         if (!convertedCallResponse.IsSuccess)
         {
-            var failures = RequestFailureNormalizer.FromOperationErrors(convertedCallResponse.Errors, "uCLI call failed.");
+            var callFailureMessage = CreateCallFailureMessage(executionOwnerCommand);
+            var failures = RequestFailureNormalizer.FromOperationErrors(convertedCallResponse.Errors, callFailureMessage);
             return CallServiceResult.Failure(
-                RequestFailureNormalizer.ResolveMessage(failures, "uCLI call failed."),
+                RequestFailureNormalizer.ResolveMessage(failures, callFailureMessage),
                 failures,
                 executionOutput);
         }
 
         return CallServiceResult.Success(
             executionOutput,
-            "uCLI call completed.");
+            CreateSuccessMessage(executionOwnerCommand));
+    }
+
+    private static string CreatePrePlanFailureMessage (UcliCommand command)
+    {
+        return $"uCLI {command.Name} pre-plan failed.";
+    }
+
+    private static string CreateCallFailureMessage (UcliCommand command)
+    {
+        return $"uCLI {command.Name} failed.";
+    }
+
+    private static string CreateSuccessMessage (UcliCommand command)
+    {
+        return $"uCLI {command.Name} completed.";
     }
 
     private static UnityRequestPayload CreateExecuteRequestPayload (

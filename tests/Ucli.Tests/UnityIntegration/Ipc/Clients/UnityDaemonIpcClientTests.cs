@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
@@ -100,6 +101,30 @@ public sealed class UnityDaemonIpcClientTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task SendAsync_WhenNonRecoverableDispatchConnectionIsRefused_ReturnsDaemonNotRunningWithoutRetry ()
+    {
+        var transportClient = new StubUnityIpcTransportClient
+        {
+            Exception = new SocketException((int)SocketError.ConnectionRefused),
+        };
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
+            DaemonSessionTokenResolutionResult.Success("daemon-token"));
+        var client = new UnityDaemonIpcClient(transportClient, sessionTokenProvider);
+
+        var result = await client.SendAsync(
+            CreateContext(),
+            CreateDispatchRequest(),
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.ErrorCode);
+        Assert.Equal(1, sessionTokenProvider.CallCount);
+        Assert.Equal(1, transportClient.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task SendAsync_WhenRecoverableDispatchLosesResponse_RetriesWithSameRequestIdAndReloadedSessionToken ()
     {
         var transportClient = new StubUnityIpcTransportClient();
@@ -123,6 +148,81 @@ public sealed class UnityDaemonIpcClientTests
         Assert.Equal("daemon-token-2", transportClient.Requests[1].SessionToken);
         Assert.Equal(transportClient.Requests[0].RequestId, transportClient.Requests[1].RequestId);
         Assert.StartsWith($"{IpcMethodNames.PlayEnter}-", transportClient.Requests[0].RequestId, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenRecoverableDispatchConnectionIsRefused_RetriesWithSameRequestIdAndReloadedSessionToken ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var transportClient = new StubUnityIpcTransportClient();
+        transportClient.EnqueueException(new SocketException((int)SocketError.ConnectionRefused));
+        transportClient.EnqueueResponse(CreateResponse("req-recovered"));
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
+            DaemonSessionTokenResolutionResult.Success("daemon-token-1"),
+            DaemonSessionTokenResolutionResult.Success("daemon-token-2"));
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            sessionTokenProvider,
+            timeProvider: timeProvider);
+
+        var sendTask = client.SendAsync(
+                CreateContext(),
+                new UnityIpcDispatchRequest(IpcMethodNames.Compile, CreateDispatchPayload(), isRecoverable: true),
+                TimeSpan.FromSeconds(5),
+                CancellationToken.None)
+            .AsTask();
+        Assert.False(sendTask.IsCompleted);
+
+        timeProvider.Advance(TimeSpan.FromMilliseconds(100));
+        var result = await sendTask;
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, sessionTokenProvider.CallCount);
+        Assert.Equal(2, transportClient.CallCount);
+        Assert.Equal("daemon-token-1", transportClient.Requests[0].SessionToken);
+        Assert.Equal("daemon-token-2", transportClient.Requests[1].SessionToken);
+        Assert.Equal(transportClient.Requests[0].RequestId, transportClient.Requests[1].RequestId);
+        Assert.StartsWith($"{IpcMethodNames.Compile}-", transportClient.Requests[0].RequestId, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenRecoverableDispatchConnectionRefusalOutlivesEndpointAbsenceGrace_ReturnsDaemonNotRunning ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var transportClient = new StubUnityIpcTransportClient
+        {
+            Exception = new SocketException((int)SocketError.ConnectionRefused),
+        };
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
+            DaemonSessionTokenResolutionResult.Success("daemon-token"));
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            sessionTokenProvider,
+            timeProvider: timeProvider);
+
+        var sendTask = client.SendAsync(
+                CreateContext(),
+                new UnityIpcDispatchRequest(IpcMethodNames.Compile, CreateDispatchPayload(), isRecoverable: true),
+                TimeSpan.FromSeconds(5),
+                CancellationToken.None)
+            .AsTask();
+        Assert.False(sendTask.IsCompleted);
+
+        await AdvanceUntilCompletedAsync(
+            timeProvider,
+            sendTask,
+            TimeSpan.FromSeconds(2),
+            TimeSpan.FromMilliseconds(100));
+
+        Assert.True(sendTask.IsCompleted);
+        var result = await sendTask;
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.ErrorCode);
+        Assert.True(transportClient.CallCount > 1);
+        Assert.True(transportClient.CallCount < 20);
+        Assert.Equal(transportClient.Requests[0].RequestId, transportClient.Requests[^1].RequestId);
     }
 
     [Fact]
@@ -261,6 +361,21 @@ public sealed class UnityDaemonIpcClientTests
         Assert.Single(transportClient.Requests);
         Assert.Equal("daemon-token-2", transportClient.Requests[0].SessionToken);
         Assert.StartsWith($"{IpcMethodNames.PlayEnter}-", transportClient.Requests[0].RequestId, StringComparison.Ordinal);
+    }
+
+    private static async ValueTask AdvanceUntilCompletedAsync (
+        ManualTimeProvider timeProvider,
+        Task task,
+        TimeSpan totalTime,
+        TimeSpan step)
+    {
+        var elapsed = TimeSpan.Zero;
+        while (!task.IsCompleted && elapsed < totalTime)
+        {
+            timeProvider.Advance(step);
+            elapsed += step;
+            await Task.Yield();
+        }
     }
 
     private static ResolvedUnityProjectContext CreateContext ()
