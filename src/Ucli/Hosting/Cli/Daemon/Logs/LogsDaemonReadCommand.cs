@@ -86,16 +86,16 @@ internal sealed class LogsDaemonReadCommand
 
     /// <summary> Writes one daemon log event to standard error by selected format. </summary>
     /// <param name="entryWriter"> The stream-entry writer. </param>
-    /// <param name="format"> The normalized output format. </param>
+    /// <param name="format"> The parsed output format. </param>
     /// <param name="daemonLogEvent"> The daemon log event payload. </param>
     /// <param name="nextCursor"> The next cursor value returned by daemon. </param>
     private static string WriteLogEvent (
         CliStreamEntryWriter entryWriter,
-        string format,
+        CliStreamEntryFormat format,
         IpcDaemonLogEvent daemonLogEvent,
         string nextCursor)
     {
-        if (string.Equals(format, CliStreamEntryFormatCodec.Json, StringComparison.Ordinal))
+        if (format == CliStreamEntryFormat.Json)
         {
             entryWriter.WriteJsonEntry(
                 "logs.daemon.entry",

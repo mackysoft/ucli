@@ -110,7 +110,7 @@ internal sealed class TestRunCommand
 
             ITestRunProgressSink? progressSink = stream
                 ? new CliTestRunProgressSink(
-                    normalizedFormat!,
+                    normalizedFormat,
                     new CliStreamEntryWriter(UcliCommandNames.TestRun))
                 : null;
             var serviceResult = await testRunService.ExecuteAsync(

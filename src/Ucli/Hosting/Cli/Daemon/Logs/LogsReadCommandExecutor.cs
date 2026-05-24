@@ -23,7 +23,7 @@ internal static class LogsReadCommandExecutor
         string? format,
         ICommandResultWriter commandResultWriter,
         Func<Func<TLogEvent, string, CancellationToken, ValueTask>, CancellationToken, ValueTask<LogsReadServiceResult>> executeAsync,
-        Func<CliStreamEntryWriter, string, TLogEvent, string, string> writeLogEvent,
+        Func<CliStreamEntryWriter, CliStreamEntryFormat, TLogEvent, string, string> writeLogEvent,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
@@ -48,13 +48,12 @@ internal static class LogsReadCommandExecutor
                 return invalidFormatResult.ExitCode;
             }
 
-            var normalizedOutputFormat = outputFormat!;
             var entryWriter = new CliStreamEntryWriter(commandName);
             var serviceResult = await executeAsync(
                     (logEvent, nextCursor, callbackCancellationToken) =>
                     {
                         callbackCancellationToken.ThrowIfCancellationRequested();
-                        var confirmedCursor = writeLogEvent(entryWriter, normalizedOutputFormat, logEvent, nextCursor);
+                        var confirmedCursor = writeLogEvent(entryWriter, outputFormat, logEvent, nextCursor);
                         emittedCount++;
                         latestNextCursor = confirmedCursor;
                         return ValueTask.CompletedTask;

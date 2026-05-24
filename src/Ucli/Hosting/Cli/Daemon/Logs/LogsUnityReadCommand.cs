@@ -95,11 +95,11 @@ internal sealed class LogsUnityReadCommand
 
     private static string WriteLogEvent (
         CliStreamEntryWriter entryWriter,
-        string format,
+        CliStreamEntryFormat format,
         IpcUnityLogEvent unityLogEvent,
         string nextCursor)
     {
-        if (string.Equals(format, CliStreamEntryFormatCodec.Json, StringComparison.Ordinal))
+        if (format == CliStreamEntryFormat.Json)
         {
             entryWriter.WriteJsonEntry(
                 "logs.unity.entry",

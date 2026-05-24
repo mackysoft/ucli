@@ -9,16 +9,14 @@ namespace MackySoft.Ucli.Hosting.Cli.Testing;
 /// <summary> Projects test-run progress entries to the public CLI entry stream. </summary>
 internal sealed class CliTestRunProgressSink : ITestRunProgressSink
 {
-    private readonly string format;
+    private readonly CliStreamEntryFormat format;
     private readonly CliStreamEntryWriter entryWriter;
 
     /// <summary> Initializes a new instance of the <see cref="CliTestRunProgressSink" /> class. </summary>
     public CliTestRunProgressSink (
-        string format,
+        CliStreamEntryFormat format,
         CliStreamEntryWriter entryWriter)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(format);
-
         this.format = format;
         this.entryWriter = entryWriter ?? throw new ArgumentNullException(nameof(entryWriter));
     }
@@ -33,7 +31,7 @@ internal sealed class CliTestRunProgressSink : ITestRunProgressSink
         ArgumentException.ThrowIfNullOrWhiteSpace(eventName);
         ArgumentNullException.ThrowIfNull(payload);
 
-        if (string.Equals(format, CliStreamEntryFormatCodec.Json, StringComparison.Ordinal))
+        if (format == CliStreamEntryFormat.Json)
         {
             entryWriter.WriteJsonEntry(eventName, payload);
             return ValueTask.CompletedTask;
