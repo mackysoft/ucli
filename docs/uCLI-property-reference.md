@@ -538,14 +538,14 @@ Transition result fields は次を使う。
 
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
-| `transition` | `enter \| exit \| wait` | transition command: yes | 要求した transition または wait の種類 |
-| `result` | `entered \| alreadyEntered \| exited \| alreadyExited \| waited \| timeout \| blocked` | transition command: yes | command 結果 |
+| `transition` | `enter \| exit` | transition command: yes | 要求した transition の種類 |
+| `result` | `entered \| alreadyEntered \| exited \| alreadyExited \| timeout \| blocked` | transition command: yes | command 結果 |
 | `applicationState` | `notApplied \| applied \| indeterminate \| unknown` | transition error: yes | retry 判断用の適用状態。timeout では `indeterminate`。`notApplied` は transition request を発行していないことを断定できる場合だけ使う |
 | `before` | object | transition command: yes | command 開始前の lifecycle snapshot |
 | `after` | `object \| null` | successful transition: yes | successful transition 後の lifecycle snapshot |
 | `observed` | `object \| null` | transition error: yes | error または timeout 時点の latest observed lifecycle snapshot |
 
-`play status` は状態変更を行わないため、transition result fields を返さない。`play enter` / `play exit` は成功時に `result=entered|alreadyEntered|exited|alreadyExited` を返す。successful transition payload は `transition`、`result`、`before`、`after` を必須とし、`applicationState` は省略する。transition error payload は `transition`、`result`、`before`、`observed`、`applicationState` を必須とし、`after` は省略または `null` とする。timeout 時は `status=error`、`errors[].code=PLAYMODE_TRANSITION_TIMEOUT`、`result=timeout`、`applicationState=indeterminate` とし、payload に最新の `observed` snapshot を返す。`play wait` は `--until` の待機対象と最新 snapshot を返し、暗黙の Play Mode enter / exit は行わない。
+`play status` は状態変更を行わないため、transition result fields を返さない。`play enter` / `play exit` は成功時に `result=entered|alreadyEntered|exited|alreadyExited` を返す。successful transition payload は `transition`、`result`、`before`、`after` を必須とし、`applicationState` は省略する。transition error payload は `transition`、`result`、`before`、`observed`、`applicationState` を必須とし、`after` は省略または `null` とする。timeout 時は `status=error`、`errors[].code=PLAYMODE_TRANSITION_TIMEOUT`、`result=timeout`、`applicationState=indeterminate` とし、payload に最新の `observed` snapshot を返す。
 
 ### `ucli daemon`
 `ucli daemon` はサブコマンドにかかわらず `payload.timeoutMilliseconds` を常に含む。
