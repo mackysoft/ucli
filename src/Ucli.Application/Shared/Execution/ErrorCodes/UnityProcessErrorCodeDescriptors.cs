@@ -7,6 +7,7 @@ internal static class UnityProcessErrorCodeDescriptors
         UcliCommandIds.DaemonStart,
         UcliCommandIds.Plan,
         UcliCommandIds.Call,
+        UcliCommandIds.Eval,
         UcliCommandIds.Resolve,
         UcliCommandIds.Query,
         UcliCommandIds.Refresh,

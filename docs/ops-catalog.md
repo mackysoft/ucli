@@ -135,6 +135,7 @@ catalog validation、golden、contract tests は、少なくとも次の matrix 
 - 新しい `sideEffects` value は descriptor と contract test fixture を同時に持つ
 - execution result validation は `assurance` と `opResults[]` の不整合を contract violation として検出する
 - `dangerous` policy の raw operation は `--allowDangerous` 無しでは拒否し、`--allowDangerous` 有りでは policy gate だけを通過する
+- `ucli.cs.eval` は Play Mode 変更における唯一の raw `kind:"op"` 明示例外であり、`--allowPlayMode` と dangerous guard の両方を通過した場合に限り実行できる
 - `--allowDangerous` は exposure gate を解除しない。`editLoweringOnly` は `--allowDangerous` があっても public raw `kind:"op"` から呼べない
 
 ## Play Mode 変更での扱い
@@ -146,7 +147,7 @@ Play Mode enter / exit は primitive operation ではない。Editor lifecycle s
 - Scene context は Play Mode の live object への変更だけを許可し、`ucli.scene.save` へ lower される形は許可しない
 - Prefab / asset / project context は通常の `edit` と同じ primitive、commit、dangerous guard を適用し、明示 `commit` に従って保存できる
 - `commit:"project"` は project-wide save であるため Play Mode 変更では許可しない
-- Play Mode 変更では raw `kind:"op"` を許可せず、Prefab apply / revert primitive は `edit` lowering から発生した場合だけ許可する
+- Play Mode 変更では raw `kind:"op"` を原則許可せず、Prefab apply / revert primitive は `edit` lowering から発生した場合だけ許可する。`ucli.cs.eval` は dangerous guard と `--allowPlayMode` を通過した場合に限る明示例外である
 - Scene context の Prefab instance override を Prefab asset へ反映する場合は `applyPrefabOverrides(targetAssetPath:"...", propertyPaths:[...])` から `ucli.prefab.applyOverrides` へ lower する
 - Scene context の Prefab instance override を Prefab asset 値へ戻す場合は `revertPrefabOverrides(targetAssetPath:"...", propertyPaths:[...])` から `ucli.prefab.revertOverrides` へ lower する
 - Prefab / asset / project の保存は対象永続化単位に限定し、open Scene を巻き込む一括 project save は使わない
@@ -196,7 +197,7 @@ Play Mode enter / exit は primitive operation ではない。Editor lifecycle s
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `ucli.cs.eval` | mutation | dangerous | v1.0 | C# source を Unity Editor process 内で Roslyn によりインメモリコンパイルし、同期 entry point を呼び出す。 | `CsEvalArgs` | `CsEvalResult` | compile 情報、digest、call 時のログ、戻り値、touched resource 宣言 |
 
-`ucli.cs.eval` は public raw `kind:"op"` として `ops list` / `ops describe` / public request validation の対象に含める。`arbitrarySourceExecution` を持つため `policy=dangerous` とし、`call` は project config の dangerous 許可と `--allowDangerous` の明示 opt-in を要求する。
+`ucli.cs.eval` は public raw `kind:"op"` として `ops list` / `ops describe` / public request validation の対象に含める。`arbitrarySourceExecution` を持つため `policy=dangerous` とし、`call` は project config の dangerous 許可と `--allowDangerous` の明示 opt-in を要求する。Play Mode 変更では唯一の raw `kind:"op"` 例外として、`--allowPlayMode` と dangerous guard の両方を通過した場合だけ実行できる。
 
 - `args.source` は完全な C# コンパイル単位、または `Run` method body だけを書く snippet のどちらかである
 - 完全なコンパイル単位では source 内の `public static object? Run(UcliCsEvalContext context)` に一致するメソッドを自動解決する。一致数が 1 件以外の場合は失敗する

@@ -30,6 +30,7 @@
       "test.run",
       "plan",
       "call",
+      "eval",
       "resolve",
       "query",
       "refresh",

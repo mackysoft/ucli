@@ -27,6 +27,7 @@ public static class UcliPublicCommandCatalog
         UcliCommandIds.Validate,
         UcliCommandIds.Plan,
         UcliCommandIds.Call,
+        UcliCommandIds.Eval,
         UcliCommandIds.Daemon,
         UcliCommandIds.DaemonStart,
         UcliCommandIds.DaemonStop,

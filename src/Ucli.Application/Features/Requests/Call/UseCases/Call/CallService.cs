@@ -60,7 +60,7 @@ internal sealed class CallService : ICallService
         preparedRequestContext = requestPreparationResult.PreparedRequest!;
         var timeoutResolutionResult = IpcCommandTimeoutResolver.ResolveNormalized(
             input.TimeoutMilliseconds,
-            UcliCommandIds.Call,
+            input.ExecutionOwnerCommand,
             preparedRequestContext.ProjectContext.Config);
         if (!timeoutResolutionResult.IsSuccess)
         {

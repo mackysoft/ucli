@@ -21,4 +21,7 @@ internal sealed record CallCommandInput (
 {
     /// <summary> Gets a value indicating whether Play Mode mutation is explicitly allowed by CLI input. </summary>
     public bool AllowPlayMode { get; init; }
+
+    /// <summary> Gets the public command that owns timeout resolution and user-facing workflow messages. </summary>
+    public UcliCommand ExecutionOwnerCommand { get; init; } = UcliCommandIds.Call;
 }

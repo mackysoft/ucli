@@ -76,6 +76,7 @@ public sealed class UcliCommandCatalogTests
     [InlineData(UcliCommandNames.Validate)]
     [InlineData(UcliCommandNames.Plan)]
     [InlineData(UcliCommandNames.Call)]
+    [InlineData(UcliCommandNames.Eval)]
     [InlineData(UcliCommandNames.Daemon)]
     [InlineData(UcliCommandNames.Logs)]
     [InlineData(UcliCommandNames.Ops)]

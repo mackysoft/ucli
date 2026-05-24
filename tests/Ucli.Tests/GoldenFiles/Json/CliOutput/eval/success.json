@@ -1,0 +1,78 @@
+{
+  "protocolVersion": 1,
+  "command": "eval",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "uCLI eval completed.",
+  "payload": {
+    "requestId": "<requestId>",
+    "project": {
+      "projectPath": "<projectPath>",
+      "projectFingerprint": "<projectFingerprint>",
+      "unityVersion": "<unityVersion>"
+    },
+    "opResults": [
+      {
+        "opId": "eval",
+        "op": "ucli.cs.eval",
+        "phase": "call",
+        "applied": true,
+        "changed": false,
+        "touched": [],
+        "result": {
+          "sourceDigest": "sha256:source",
+          "sourceKind": "snippet",
+          "resolvedEntryPoint": "Snippet.Run",
+          "executionDigest": "sha256:execution",
+          "compile": {
+            "status": "succeeded",
+            "diagnostics": []
+          },
+          "durationMilliseconds": 7,
+          "logs": [],
+          "returnValue": {
+            "kind": "json",
+            "value": {
+              "ok": true
+            }
+          },
+          "touchedResources": {
+            "state": "none"
+          }
+        },
+        "diagnostics": []
+      }
+    ],
+    "plan": {
+      "requestId": "<requestId>",
+      "project": {
+        "projectPath": "<projectPath>",
+        "projectFingerprint": "<projectFingerprint>",
+        "unityVersion": "<unityVersion>"
+      },
+      "opResults": [
+        {
+          "opId": "eval",
+          "op": "ucli.cs.eval",
+          "phase": "plan",
+          "applied": false,
+          "changed": false,
+          "touched": [],
+          "result": {
+            "sourceDigest": "sha256:source",
+            "sourceKind": "snippet",
+            "resolvedEntryPoint": "Snippet.Run",
+            "executionDigest": "sha256:execution",
+            "compile": {
+              "status": "succeeded",
+              "diagnostics": []
+            }
+          },
+          "diagnostics": []
+        }
+      ],
+      "planToken": "plan-token-1"
+    }
+  },
+  "errors": []
+}

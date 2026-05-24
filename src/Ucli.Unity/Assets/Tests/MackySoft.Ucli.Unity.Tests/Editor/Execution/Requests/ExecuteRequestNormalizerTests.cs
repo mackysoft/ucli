@@ -1925,7 +1925,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Normalize_WhenAllowPlayModeIsSpecified_RejectsRawOperationStep ()
+        public void Normalize_WhenAllowPlayModeIsSpecified_RejectsNonEvalRawOperationStep ()
         {
             var request = CreateExecuteRequest(
                 UcliCommandIds.Plan,
@@ -1952,6 +1952,47 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertInvalidArgument(result, "rawSet");
             Assert.That(result.Error!.Message, Is.EqualTo("Play Mode mutation requests support only public edit steps."));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenAllowPlayModeIsSpecified_AllowsCsEvalRawOperationStep ()
+        {
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new[]
+                    {
+                        new
+                        {
+                            kind = "op",
+                            id = "eval",
+                            op = UcliPrimitiveOperationNames.CsEval,
+                            args = new
+                            {
+                                source = "context.DeclareNoTouchedResources(); return 1;",
+                            },
+                        },
+                    },
+                }) with
+                {
+                    AllowPlayMode = true,
+                };
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, new OperationExecutionContext(), allowPlayMode: true);
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasLoweredOperations(IpcRequestStepKind.Op, UcliPrimitiveOperationNames.CsEval, UcliPrimitiveOperationNames.CsEval)
+                .HasPostReadSourceStep(
+                    IpcExecutePostReadSourceKindNames.Operation,
+                    null,
+                    false,
+                    IpcExecuteExpectedPostStateNames.Unavailable);
         }
 
         [Test]
