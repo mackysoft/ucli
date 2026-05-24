@@ -25,6 +25,7 @@ internal static class HostingServiceCollectionExtensions
         services.AddSingleton<IJsonContractWriter<CommandResult>, CommandResultJsonContractWriter>();
         services.AddSingleton<ICommandResultWriter, CommandResultWriter>();
         services.AddSingleton<IUserRequestJsonNormalizer, UserRequestJsonNormalizer>();
+        services.AddSingleton<IEvalSourceInputReader, EvalSourceInputReader>();
         services.AddSingleton<ICallCommandPreflightService, CallCommandPreflightService>();
         services.AddSingleton<IPlanCommandPreflightService, PlanCommandPreflightService>();
         return services;

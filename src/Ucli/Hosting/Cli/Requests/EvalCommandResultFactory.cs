@@ -4,11 +4,13 @@ using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
-/// <summary> Creates command-level JSON results from <c>call</c> service results. </summary>
-internal static class CallCommandResultFactory
+/// <summary> Creates command-level JSON results from <c>eval</c> service results. </summary>
+internal static class EvalCommandResultFactory
 {
-    /// <summary> Creates one command result for <c>call</c>. </summary>
-    /// <param name="serviceResult"> The service result. </param>
+    private const string SuccessMessage = "uCLI eval completed.";
+
+    /// <summary> Creates one command result for <c>eval</c>. </summary>
+    /// <param name="serviceResult"> The call workflow result used by eval. </param>
     /// <returns> The command result serialized to stdout. </returns>
     public static CommandResult Create (CallServiceResult serviceResult)
     {
@@ -23,13 +25,13 @@ internal static class CallCommandResultFactory
         if (serviceResult.IsSuccess)
         {
             return CommandResult.Success(
-                command: UcliCommandNames.Call,
-                message: serviceResult.Message,
+                command: UcliCommandNames.Eval,
+                message: SuccessMessage,
                 payload: payload);
         }
 
         return CommandFailureProjector.Create(
-            UcliCommandNames.Call,
+            UcliCommandNames.Eval,
             serviceResult.Message,
             payload,
             serviceResult.Errors);

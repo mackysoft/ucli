@@ -96,6 +96,9 @@ public static class UcliCommandIds
     /// <summary> Gets command identifier for <c>call</c>. </summary>
     public static UcliCommand Call { get; } = new("call");
 
+    /// <summary> Gets command identifier for <c>eval</c>. </summary>
+    public static UcliCommand Eval { get; } = new("eval");
+
     /// <summary> Gets command identifier for <c>resolve</c>. </summary>
     public static UcliCommand Resolve { get; } = new("resolve");
 

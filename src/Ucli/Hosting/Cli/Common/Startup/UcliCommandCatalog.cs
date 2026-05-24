@@ -30,6 +30,7 @@ internal static class UcliCommandCatalog
         UcliCommandNames.Validate,
         UcliCommandNames.Plan,
         UcliCommandNames.Call,
+        UcliCommandNames.Eval,
     ];
 
     private static readonly CommandGroupEntry DaemonCommandGroup = new(
@@ -177,6 +178,7 @@ internal static class UcliCommandCatalog
         app.Add<ValidateCommand>();
         app.Add<PlanCommand>();
         app.Add<CallCommand>();
+        app.Add<EvalCommand>();
         app.Add<DaemonStartCommand>("daemon");
         app.Add<DaemonStopCommand>("daemon");
         app.Add<DaemonCleanupCommand>("daemon");
