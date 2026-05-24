@@ -231,7 +231,7 @@ The request protocol does not change between these modes. Runtime choice is oper
 Automation should parse standard output as the final `CommandResult`. Commands with entry streams, such as `ucli logs unity read`, `ucli logs daemon read`, and `ucli test run --stream`, write entries to standard error before the final result.
 
 Use `--format json` when a runner needs newline-delimited JSON entries from standard error. Without `--format json`, standard error is diagnostic or human-readable output and is not a stable parse target.
-When a runner enables streaming, it must drain standard error concurrently while it waits for the final standard output result.
+When a runner invokes a command that can write entries, it must drain standard error concurrently while it waits for the final standard output result.
 
 The common JSON envelope contains `protocolVersion`, `command`, `status`, `exitCode`, `message`, `payload`, and `errors`.
 Use `status` and `errors[]` for command-level success or failure.

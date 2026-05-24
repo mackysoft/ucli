@@ -24,7 +24,7 @@ CLI 契約コマンドは、最後に `stdout` へ次の共通エンベロープ
 `requestId` は CLI 共通エンベロープには含めない。必要な場合だけ各コマンドの `payload` に含める。
 
 ### JSON entry の共通エンベロープ
-entry stream を持つコマンドで `--format json` を指定した場合、`stderr` に1行1JSONオブジェクトの NDJSON を出力する。`--format text` の entry は人間向け表示であり、安定パース対象にしない。
+entry stream を持つコマンドで `--format json` を指定した場合、`stderr` に1行1JSONオブジェクトの NDJSON を出力する。`--format text` の entry は人間向け表示であり、安定パース対象にしない。text entry は物理1行を維持し、未信頼文字列に含まれる CR / LF / ANSI escape / OSC sequence / その他 C0 制御文字を端末制御として解釈されない形にエスケープまたは置換する。
 
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
@@ -33,7 +33,7 @@ entry stream を持つコマンドで `--format json` を指定した場合、`s
 | `streamId` | string | yes | 1回の CLI invocation 内で entry stream を識別する ID |
 | `sequence` | integer | yes | 同一 `streamId` 内で1から始まる gap-free / duplicate-free な連番。CLI の出力順を表す |
 | `timestamp` | string | yes | entry を CLI が出力した時刻。ISO 8601 形式 |
-| `event` | string | yes | command-specific event 名。code catalog の対象ではなく、entry schema と command reference の enum で固定する |
+| `event` | string | yes | command-specific event 名。code catalog の対象ではなく、entry schema とこの property reference の command-specific entry events で固定する |
 | `payload` | object | yes | command-specific entry payload |
 
 uCLI v1 は entry stream の JSONL artifact を自動保存しない。`entryLogJsonlPath` のような保存先 field は公開 `CommandResult` payload に含めない。将来 work journal が raw `stderr` や stream NDJSON を保存する場合も、それは公開 payload ではなく作業 artifact として扱う。
@@ -806,9 +806,18 @@ final `daemon start` failure payload では原則として `retryDisposition=wai
 | `nextCursor` | `string \| null` | yes | 次回増分取得に渡す cursor。取得前に失敗した場合や cursor を確定できない場合は `null` |
 | `completionReason` | `completed \| idleTimeout \| untilReached \| canceled \| error` | yes | 読み取り終了理由 |
 
-`status=error` の場合も同じ payload shape を返す。読み取り前に失敗した場合は `count=0`、`nextCursor=null`、`completionReason=error` とする。
+`status=error` の場合も同じ payload shape を返す。読み取り前に失敗した場合は `count=0`、`nextCursor=null`、`completionReason=error` とする。制御可能なキャンセルの場合は `status=error`、`exitCode=4`、`errors[].code=CANCELED`、`completionReason=canceled` とし、`count` と `nextCursor` はキャンセル前に CLI が出力または確定した範囲を表す。
 
-#### `logs.unity.entry`
+#### `logs read` entry events
+
+v1 の `logs read` JSON entry event は closed enum とし、次だけを出力する。
+
+| Event | Payload | Description |
+| --- | --- | --- |
+| `logs.unity.entry` | `LogsUnityEntry` | Unity log entry を観測した |
+| `logs.daemon.entry` | `LogsDaemonEntry` | daemon log entry を観測した |
+
+##### `LogsUnityEntry`
 
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
@@ -820,7 +829,7 @@ final `daemon start` failure payload では原則として `retryDisposition=wai
 | `cursor` | string | yes | このログ event の cursor |
 | `nextCursor` | string | yes | この batch の次回取得 cursor |
 
-#### `logs.daemon.entry`
+##### `LogsDaemonEntry`
 
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
@@ -1879,7 +1888,7 @@ schema の property に説明文や意味制約を置かない。説明は `inpu
 
 ### `ucli test run`
 
-`ucli test run` は、最後に `stdout` へ `CommandResult` を返す。`--stream` 指定時は、最終 `CommandResult` の前にテスト進捗 entry を `stderr` に出力してよい。進捗 entry は progress view であり、最終判定は常に `CommandResult.payload` と artifacts を正とする。
+`ucli test run` は、最後に `stdout` へ `CommandResult` を返す。`--stream` 指定時は、最終 `CommandResult` の前にテスト進捗 entry を `stderr` に出力する。`runId` が確定した場合は最初の entry として `test.run.started` を出力し、`runId` 確定前に失敗した場合はテスト進捗 entry を出力せず、最後の `CommandResult` で失敗を説明する。進捗 entry は progress view であり、最終判定は常に `CommandResult.payload` と artifacts を正とする。
 
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |

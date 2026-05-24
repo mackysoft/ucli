@@ -116,10 +116,11 @@ Project context resolution 由来の入力不正は、公開 CLI JSON の envelo
 - entry stream は `stderr` に逐次出力する
 - `--format json` は entry を NDJSON（1行1JSONオブジェクト）として出力する
 - `--format text` は entry を人間向けの1行テキストとして出力する
+- `--format text` の entry は物理1行を維持する。ログ本文、test name、message、stack trace、raw payload などの未信頼文字列に含まれる CR / LF / ANSI escape / OSC sequence / その他 C0 制御文字は、端末制御として解釈されない形にエスケープまたは置換する
 - `--format` は entry stream の表示形式だけを制御し、最終 `CommandResult` は常に JSON とする
 - entry stream を出力しない通常時の `stderr` は diagnostic / human-readable output とし、安定パース対象にしない
 - `--format json` で entry を出力している間は、同じ `stderr` に非構造化診断を混ぜない。診断が必要な場合は JSON entry または最終 `CommandResult` の `errors` / `payload` へ投影する
-- `--stream` 有効時、呼び出し側は `stderr` を並行して読み出さなければならない。`stdout` だけを待機する runner は `stderr` pipe の詰まりで停止し得る
+- entry stream を出力する invocation では、呼び出し側は `stderr` を並行して読み出さなければならない。`stdout` だけを待機する runner は `stderr` pipe の詰まりで停止し得る
 - entry stream は進捗表示と早期観測のための progress view であり、最終判定や assurance evidence の正本ではない。正本は最終 `CommandResult.payload` と保存された artifacts とする
 - uCLI v1 は entry stream の JSONL artifact を自動保存しない。保存が必要な呼び出し側は `stderr` をリダイレクトする
 - 将来 work journal が raw `stderr` や stream NDJSON を保存する場合も、それは公開 `CommandResult.payload` ではなく作業 artifact として扱う
