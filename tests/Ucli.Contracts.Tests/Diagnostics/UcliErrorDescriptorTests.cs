@@ -156,7 +156,6 @@ public sealed class UcliErrorDescriptorTests
             Assert.Contains(UcliCommandIds.PlayStatus, descriptor.AppliesTo);
             Assert.Contains(UcliCommandIds.PlayEnter, descriptor.AppliesTo);
             Assert.Contains(UcliCommandIds.PlayExit, descriptor.AppliesTo);
-            Assert.Contains(UcliCommandIds.PlayWait, descriptor.AppliesTo);
         }
     }
 
@@ -176,7 +175,6 @@ public sealed class UcliErrorDescriptorTests
 
             Assert.Contains(UcliCommandIds.PlayEnter, descriptor.AppliesTo);
             Assert.Contains(UcliCommandIds.PlayExit, descriptor.AppliesTo);
-            Assert.Contains(UcliCommandIds.PlayWait, descriptor.AppliesTo);
             Assert.DoesNotContain(UcliCommandIds.PlayStatus, descriptor.AppliesTo);
         }
     }
@@ -192,7 +190,6 @@ public sealed class UcliErrorDescriptorTests
         Assert.Contains(UcliCommandIds.PlayEnter, alreadyChangingDescriptor.AppliesTo);
         Assert.Contains(UcliCommandIds.PlayExit, alreadyChangingDescriptor.AppliesTo);
         Assert.DoesNotContain(UcliCommandIds.PlayStatus, alreadyChangingDescriptor.AppliesTo);
-        Assert.DoesNotContain(UcliCommandIds.PlayWait, alreadyChangingDescriptor.AppliesTo);
 
         Assert.Equal([UcliCommandIds.PlayEnter], enterRejectedDescriptor.AppliesTo);
         Assert.Equal([UcliCommandIds.PlayExit], exitRejectedDescriptor.AppliesTo);
@@ -209,7 +206,6 @@ public sealed class UcliErrorDescriptorTests
         Assert.Contains(UcliCommandIds.PlayStatus, descriptor.AppliesTo);
         Assert.Contains(UcliCommandIds.PlayEnter, descriptor.AppliesTo);
         Assert.Contains(UcliCommandIds.PlayExit, descriptor.AppliesTo);
-        Assert.Contains(UcliCommandIds.PlayWait, descriptor.AppliesTo);
         Assert.DoesNotContain(
             descriptor.NextActions,
             static action => action.Action.Contains("in Play Mode", StringComparison.Ordinal));

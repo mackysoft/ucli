@@ -46,8 +46,6 @@ public static class IpcMethodNames
     public const string PlayExit = "play.exit";
 
     /// <summary> Gets the method name used for Play Mode wait requests. </summary>
-    public const string PlayWait = "play.wait";
-
     /// <summary> Gets the method name used to rebootstrap a stopped GUI daemon endpoint. </summary>
     public const string GuiRebootstrap = "gui.rebootstrap";
 }

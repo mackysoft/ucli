@@ -124,27 +124,17 @@
 | `ucli play status` | 現在の Play Mode snapshot を返す。状態変更は行わない |
 | `ucli play enter` | GUI Editor session を Play Mode に入れ、`EditorApplication.isPlaying == true` まで待つ |
 | `ucli play exit` | Play Mode を終了し、通常 execution が再び可能な `lifecycleState=ready` まで待つ |
-| `ucli play wait` | 指定した Play Mode transition / readiness の完了を待つ。暗黙の enter / exit は行わない |
 
 | Argument / Option | Short | Description |
 | --- | --- | --- |
 | `--projectPath <string?>` | `-p` | 対象 Unity project path |
 | `--timeout <int>` | - | 状態観測または transition wait の timeout milliseconds |
-| `--until <entered\|exited\|ready>` | - | `play wait` の待機対象 |
 
 `ucli play` は Unity Editor process を起動しない。対象 project に既存の registered GUI daemon session が存在することを要求する。GUI daemon session が見つからない場合は `PLAYMODE_SESSION_NOT_AVAILABLE` を返す。GUI daemon session を起動または attach したい呼び出し側は、`ucli daemon start --editorMode gui` を明示的に実行する。
 
 `ucli play` は GUI Editor session 専用であり、batchmode session では `PLAYMODE_REQUIRES_GUI_EDITOR` を返す。batchmode session の lifecycle 観測は `ucli status` または `ucli daemon status` で行う。
 
 `play enter` の成功条件は `lifecycleState=playmode` だけではなく、Unity が `EditorApplication.isPlaying == true` を返すこととする。すでに Playing の場合は idempotent success として `alreadyEntered` を返す。`play exit` はすでに Edit Mode の場合に `alreadyExited` を返し、Play Mode から出る場合は exit 後の compile / domain reload / startup / busy を待って `ready` に戻るまでを command の成功条件とする。
-
-`play wait` は状態観測と bounded wait だけを行い、Play Mode enter / exit 要求を発行しない。
-
-| `play wait --until` | Completion condition |
-| --- | --- |
-| `entered` | `playMode.state=playing`, `playMode.transition=none`, `playMode.isPlaying=true` |
-| `exited` | `playMode.state=stopped`, `playMode.transition=none`, `playMode.isPlaying=false`, `playMode.isPlayingOrWillChangePlaymode=false` |
-| `ready` | `--until exited` の条件に加えて、`lifecycleState=ready`, `blockingReason=null`, `canAcceptExecutionRequests=true` |
 
 Play Mode transition timeout は `PLAYMODE_TRANSITION_TIMEOUT` とし、transport timeout の `IPC_TIMEOUT` と区別する。timeout は no-op を意味しないため、可能な場合は latest observed lifecycle snapshot、`playMode`、transition result、application state を payload に含める。
 

@@ -411,33 +411,6 @@ public sealed class PlayEnterServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenEnterTransitionContainsWaitTarget_ReturnsStateUnknown ()
-    {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("2"));
-        var after = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Playmode,
-            IpcEditorBlockingReasonCodec.PlayMode,
-            false,
-            CreatePlayMode(IpcPlayModeStateNames.Playing, IpcPlayModeTransitionNames.None, true, true, "3"));
-        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Enter,
-            IpcPlayTransitionResultNames.Entered,
-            before)
-        {
-            Until = IpcPlayWaitTargetNames.Entered,
-            After = after,
-        });
-        var requestExecutor = new StubUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
-        var service = CreateService(CreateContext(), CreateGuiSessionStore(), requestExecutor);
-
-        var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, null), CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(PlayModeErrorCodes.PlayModeStateUnknown, result.Error!.Code);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public async Task Execute_WhenBlockedApplicationStateIsInvalid_ReturnsStateUnknown ()
     {
         var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Compiling, IpcEditorBlockingReasonCodec.Compile, false, CreateStoppedPlayMode("2"));

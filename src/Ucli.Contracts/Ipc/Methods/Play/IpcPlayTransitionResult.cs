@@ -11,10 +11,6 @@ public sealed record IpcPlayTransitionResult (
     string Result,
     IpcPlayLifecycleSnapshot Before)
 {
-    /// <summary> Gets the wait target for <c>play.wait</c> requests. </summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Until { get; init; }
-
     /// <summary> Gets the lifecycle snapshot observed after a successful transition. </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IpcPlayLifecycleSnapshot? After { get; init; }

@@ -37,7 +37,6 @@ public sealed class UcliCommandCatalogTests
     [InlineData(UcliCommandNames.Play, UcliCommandNames.Status, null, UcliCommandNames.PlayStatus)]
     [InlineData(UcliCommandNames.Play, UcliCommandNames.EnterSubcommand, null, UcliCommandNames.PlayEnter)]
     [InlineData(UcliCommandNames.Play, UcliCommandNames.ExitSubcommand, null, UcliCommandNames.PlayExit)]
-    [InlineData(UcliCommandNames.Play, UcliCommandNames.WaitSubcommand, null, UcliCommandNames.PlayWait)]
     [InlineData(UcliCommandNames.Skills, UcliCommandNames.ListSubcommand, null, UcliCommandNames.SkillsList)]
     [InlineData(UcliCommandNames.Skills, UcliCommandNames.ExportSubcommand, null, UcliCommandNames.SkillsExport)]
     [InlineData(UcliCommandNames.Skills, UcliCommandNames.InstallSubcommand, null, UcliCommandNames.SkillsInstall)]
@@ -148,7 +147,6 @@ public sealed class UcliCommandCatalogTests
                 UcliCommandNames.Status,
                 UcliCommandNames.EnterSubcommand,
                 UcliCommandNames.ExitSubcommand,
-                UcliCommandNames.WaitSubcommand,
             ],
             subcommands);
     }
