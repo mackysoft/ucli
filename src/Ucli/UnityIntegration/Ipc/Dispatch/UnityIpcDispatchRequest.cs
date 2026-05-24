@@ -13,13 +13,15 @@ internal sealed record UnityIpcDispatchRequest
     /// <param name="isRecoverable"> Whether daemon dispatch may replay this request with the same request id after endpoint recovery. </param>
     /// <param name="recoverableResponseAttemptTimeout"> The bounded response wait for one recoverable dispatch attempt, or <see langword="null" /> to use the full remaining timeout. </param>
     /// <param name="responseMode"> The IPC response framing mode. </param>
+    /// <param name="dispatchTimeoutPayloadTransformer"> Optional method-owned transformer that projects the final dispatch timeout into the payload. </param>
     public UnityIpcDispatchRequest (
         string method,
         JsonElement payload,
         IReadOnlyList<string>? allowedStartupLifecycleStates = null,
         bool isRecoverable = false,
         TimeSpan? recoverableResponseAttemptTimeout = null,
-        string responseMode = IpcResponseModes.Single)
+        string responseMode = IpcResponseModes.Single,
+        Func<JsonElement, TimeSpan, JsonElement>? dispatchTimeoutPayloadTransformer = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(method);
         if (recoverableResponseAttemptTimeout.HasValue)
@@ -38,6 +40,7 @@ internal sealed record UnityIpcDispatchRequest
         IsRecoverable = isRecoverable;
         RecoverableResponseAttemptTimeout = recoverableResponseAttemptTimeout;
         ResponseMode = responseMode;
+        DispatchTimeoutPayloadTransformer = dispatchTimeoutPayloadTransformer;
     }
 
     /// <summary> Gets the IPC method name. </summary>
@@ -58,6 +61,8 @@ internal sealed record UnityIpcDispatchRequest
     /// <summary> Gets the IPC response framing mode requested for this dispatch. </summary>
     public string ResponseMode { get; }
 
+    private Func<JsonElement, TimeSpan, JsonElement>? DispatchTimeoutPayloadTransformer { get; }
+
     /// <summary> Creates a copy of this request with a different response framing mode. </summary>
     /// <param name="responseMode"> The response framing mode. </param>
     /// <returns> The copied request. </returns>
@@ -69,6 +74,17 @@ internal sealed record UnityIpcDispatchRequest
             AllowedStartupLifecycleStates,
             IsRecoverable,
             RecoverableResponseAttemptTimeout,
-            responseMode);
+            responseMode,
+            DispatchTimeoutPayloadTransformer);
+    }
+
+    /// <summary> Creates the payload element for one concrete dispatch attempt. </summary>
+    /// <param name="dispatchTimeout"> The final dispatch timeout budget when the method needs server-side cancellation. </param>
+    /// <returns> The original or timeout-projected payload element. </returns>
+    public JsonElement CreatePayload (TimeSpan? dispatchTimeout)
+    {
+        return dispatchTimeout.HasValue && DispatchTimeoutPayloadTransformer != null
+            ? DispatchTimeoutPayloadTransformer(Payload, dispatchTimeout.Value)
+            : Payload;
     }
 }

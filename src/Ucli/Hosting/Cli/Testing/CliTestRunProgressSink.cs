@@ -1,6 +1,5 @@
-using System.Text.Json;
+using System.Globalization;
 using MackySoft.Ucli.Application.Features.Testing.Run.Progress;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 
@@ -45,58 +44,45 @@ internal sealed class CliTestRunProgressSink : ITestRunProgressSink
         string eventName,
         object payload)
     {
-        var payloadElement = ToJsonElement(payload);
-        return eventName switch
+        return (eventName, payload) switch
         {
-            TestRunProgressEventNames.RunStarted => string.Concat(
+            (TestRunProgressEventNames.RunStarted, TestRunStartedEntry entry) => string.Concat(
                 "test run started",
-                FormatProperty(payloadElement, "runId", " runId="),
-                FormatProperty(payloadElement, "testPlatform", " platform="),
-                FormatProperty(payloadElement, "testFilter", " filter=")),
-            TestRunProgressEventNames.CaseStarted => string.Concat(
+                FormatProperty(entry.RunId, " runId="),
+                FormatProperty(entry.TestPlatform, " platform="),
+                FormatProperty(entry.TestFilter, " filter=")),
+            (TestRunProgressEventNames.CaseStarted, TestCaseStartedEntry entry) => string.Concat(
                 "test case started",
-                FormatProperty(payloadElement, "testName", " name="),
-                FormatProperty(payloadElement, "testId", " id="),
-                FormatProperty(payloadElement, "assemblyName", " assembly=")),
-            TestRunProgressEventNames.CaseFinished => string.Concat(
+                FormatProperty(entry.TestName, " name="),
+                FormatProperty(entry.TestId, " id="),
+                FormatProperty(entry.AssemblyName, " assembly=")),
+            (TestRunProgressEventNames.CaseFinished, TestCaseFinishedEntry entry) => string.Concat(
                 "test case finished",
-                FormatProperty(payloadElement, "testName", " name="),
-                FormatProperty(payloadElement, "result", " result="),
-                FormatProperty(payloadElement, "durationMilliseconds", " durationMs=")),
-            TestRunProgressEventNames.RunDiagnostic => string.Concat(
+                FormatProperty(entry.TestName, " name="),
+                FormatProperty(entry.Result, " result="),
+                FormatProperty(entry.DurationMilliseconds, " durationMs=")),
+            (TestRunProgressEventNames.RunDiagnostic, TestRunDiagnosticEntry entry) => string.Concat(
                 "test run diagnostic",
-                FormatProperty(payloadElement, "severity", " severity="),
-                FormatProperty(payloadElement, "code", " code="),
-                FormatProperty(payloadElement, "message", " message=")),
-            _ => string.Concat(eventName, " ", payloadElement.GetRawText()),
+                FormatProperty(entry.Severity, " severity="),
+                FormatProperty(entry.Code, " code="),
+                FormatProperty(entry.Message, " message=")),
+            _ => string.Concat(eventName, " ", payload),
         };
     }
 
-    private static JsonElement ToJsonElement (object payload)
-    {
-        return payload is JsonElement payloadElement
-            ? payloadElement
-            : JsonSerializer.SerializeToElement(payload, IpcJsonSerializerOptions.Default);
-    }
-
     private static string FormatProperty (
-        JsonElement payload,
-        string propertyName,
+        string? value,
         string prefix)
     {
-        if (payload.ValueKind != JsonValueKind.Object
-            || !payload.TryGetProperty(propertyName, out var property)
-            || property.ValueKind == JsonValueKind.Null
-            || property.ValueKind == JsonValueKind.Undefined)
-        {
-            return string.Empty;
-        }
-
-        var value = property.ValueKind == JsonValueKind.String
-            ? property.GetString()
-            : property.GetRawText();
         return string.IsNullOrWhiteSpace(value)
             ? string.Empty
             : string.Concat(prefix, value);
+    }
+
+    private static string FormatProperty (
+        long value,
+        string prefix)
+    {
+        return string.Concat(prefix, value.ToString(CultureInfo.InvariantCulture));
     }
 }

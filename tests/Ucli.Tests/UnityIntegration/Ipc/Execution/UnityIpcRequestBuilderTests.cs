@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 
@@ -105,17 +106,41 @@ public sealed class UnityIpcRequestBuilderTests
     [Trait("Size", "Small")]
     public void UnityIpcRequestFactory_WithCompileDispatchTimeout_InjectsTimeoutPayload ()
     {
-        var payload = IpcPayloadCodec.SerializeToElement(new IpcCompileRequest("run-1"));
+        var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.Compile("run-1"));
 
         var request = UnityIpcRequestFactory.Create(
             "session-token",
-            IpcMethodNames.Compile,
-            payload,
+            dispatchRequest,
             TimeSpan.FromMilliseconds(1234));
 
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcCompileRequest compileRequest, out _));
         Assert.Equal("run-1", compileRequest.RunId);
         Assert.Equal(1234, compileRequest.TimeoutMilliseconds);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UnityIpcRequestFactory_WithTestRunDispatchTimeout_InjectsTimeoutPayload ()
+    {
+        var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.TestRun(
+            TestRunPlatformCodec.EditMode,
+            TestFilter: null,
+            TestCategories: [],
+            AssemblyNames: [],
+            TestSettingsPath: null,
+            ResultsXmlPath: "/tmp/results.xml",
+            EditorLogPath: "/tmp/editor.log",
+            FailFast: false,
+            RunId: "run-1"));
+
+        var request = UnityIpcRequestFactory.Create(
+            "session-token",
+            dispatchRequest,
+            TimeSpan.FromMilliseconds(1234));
+
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcTestRunRequest testRunRequest, out _));
+        Assert.Equal("run-1", testRunRequest.RunId);
+        Assert.Equal(1234, testRunRequest.TimeoutMilliseconds);
     }
 
     [Fact]

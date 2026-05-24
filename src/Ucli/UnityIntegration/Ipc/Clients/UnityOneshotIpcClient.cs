@@ -25,6 +25,12 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 {
     private const string CleanupShutdownRequestedBy = "ucli-oneshot-cleanup";
 
+    private delegate ValueTask<IpcResponse> SendPreparedIpcRequestAsync (
+        ResolvedUnityProjectContext unityProject,
+        IpcRequest request,
+        TimeSpan timeout,
+        CancellationToken cancellationToken);
+
     private static readonly TimeSpan StartupRetryDelay = TimeSpan.FromMilliseconds(50);
     private static readonly TimeSpan DefaultCleanupTimeout = TimeSpan.FromSeconds(30);
 
@@ -131,7 +137,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             unityProject,
             dispatchRequest,
             timeout,
-            onProgressFrame: null,
+            SendPreparedSingleRequestAsync,
             cancellationToken);
     }
 
@@ -148,7 +154,13 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             unityProject,
             dispatchRequest,
             timeout,
-            onProgressFrame,
+            (preparedUnityProject, request, requestTimeout, requestCancellationToken) =>
+                SendPreparedStreamingRequestAsync(
+                    preparedUnityProject,
+                    request,
+                    requestTimeout,
+                    onProgressFrame,
+                    requestCancellationToken),
             cancellationToken);
     }
 
@@ -156,7 +168,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         ResolvedUnityProjectContext unityProject,
         UnityIpcDispatchRequest dispatchRequest,
         TimeSpan timeout,
-        Func<IpcStreamFrame, CancellationToken, ValueTask>? onProgressFrame,
+        SendPreparedIpcRequestAsync sendPreparedRequestAsync,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
@@ -164,6 +176,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         ArgumentException.ThrowIfNullOrWhiteSpace(unityProject.RepositoryRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(unityProject.ProjectFingerprint);
         ArgumentNullException.ThrowIfNull(dispatchRequest);
+        ArgumentNullException.ThrowIfNull(sendPreparedRequestAsync);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -246,26 +259,14 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 {
                     var request = UnityIpcRequestFactory.Create(
                         sessionToken,
-                        dispatchRequest.Method,
-                        dispatchRequest.Payload,
-                        requestTimeout,
-                        dispatchRequest.ResponseMode);
-                    var response = onProgressFrame is null
-                        ? await transportClient.SendAsync(
-                            unityProject.RepositoryRoot,
-                            unityProject.ProjectFingerprint,
+                        dispatchRequest,
+                        requestTimeout);
+                    var response = await sendPreparedRequestAsync(
+                            unityProject,
                             request,
                             requestTimeout,
                             cancellationToken)
-                            .ConfigureAwait(false)
-                        : await transportClient.SendStreamingAsync(
-                            unityProject.RepositoryRoot,
-                            unityProject.ProjectFingerprint,
-                            request,
-                            requestTimeout,
-                            onProgressFrame,
-                            cancellationToken)
-                            .ConfigureAwait(false);
+                        .ConfigureAwait(false);
                     var terminalPingShutdownError = await RequestTerminalPingShutdownAsync(
                             unityProject,
                             sessionToken,
@@ -330,6 +331,36 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             return UnityRequestExecutionResult.Failure(
                 UnityIpcFailureClassifier.FromOneshotDispatchException(exception, timeout));
         }
+    }
+
+    private ValueTask<IpcResponse> SendPreparedSingleRequestAsync (
+        ResolvedUnityProjectContext unityProject,
+        IpcRequest request,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        return transportClient.SendAsync(
+            unityProject.RepositoryRoot,
+            unityProject.ProjectFingerprint,
+            request,
+            timeout,
+            cancellationToken);
+    }
+
+    private ValueTask<IpcResponse> SendPreparedStreamingRequestAsync (
+        ResolvedUnityProjectContext unityProject,
+        IpcRequest request,
+        TimeSpan timeout,
+        Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+        CancellationToken cancellationToken)
+    {
+        return transportClient.SendStreamingAsync(
+            unityProject.RepositoryRoot,
+            unityProject.ProjectFingerprint,
+            request,
+            timeout,
+            onProgressFrame,
+            cancellationToken);
     }
 
     private async ValueTask<ExecutionError?> RequestTerminalPingShutdownAsync (

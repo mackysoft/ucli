@@ -7,7 +7,7 @@ using MackySoft.Ucli.Unity.Runtime;
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Processes IPC requests on the Unity main thread through the shared request handler. </summary>
-    internal sealed class UnityIpcRequestProcessor : IUnityIpcRequestProcessor, IUnityIpcStreamingRequestProcessor
+    internal sealed class UnityIpcRequestProcessor : IUnityIpcRequestProcessor
     {
         private readonly IUnityIpcRequestHandler requestHandler;
 
@@ -61,14 +61,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(streamWriter));
             }
 
-            if (requestHandler is not IUnityIpcStreamingRequestHandler streamingRequestHandler)
-            {
-                throw new InvalidOperationException("Streaming IPC request handler is not registered.");
-            }
-
             cancellationToken.ThrowIfCancellationRequested();
             return mainThreadRequestExecutor.ExecuteAsync(
-                () => streamingRequestHandler.HandleStreamingAsync(request, streamWriter, cancellationToken),
+                () => requestHandler.HandleStreamingAsync(request, streamWriter, cancellationToken),
                 cancellationToken);
         }
     }

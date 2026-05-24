@@ -425,6 +425,133 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator TestRunHandler_WhenRequestTimeoutElapses_ReturnsIpcTimeoutAndCancelsService () => UniTask.ToCoroutine(async () =>
+        {
+            var serviceObservedCancellation = false;
+            var service = new StubUnityTestRunService(async (request, _, cancellationToken) =>
+            {
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    serviceObservedCancellation = true;
+                    throw;
+                }
+
+                return UnityTestRunServiceResult.Success(new IpcTestRunResponse(0));
+            });
+            var handler = new TestRunUnityIpcMethodHandler(service);
+            var request = CreateTestRunRequest(
+                "req-test-run-timeout",
+                CreateValidTestRunPayload(timeoutMilliseconds: 1));
+
+            var response = await handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcTransportErrorCodes.IpcTimeout));
+            Assert.That(serviceObservedCancellation, Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator TestRunHandler_WhenStreamingRequestTimeoutElapsesWithPendingProgress_WaitsForFrameAndReturnsIpcTimeout () => UniTask.ToCoroutine(async () =>
+        {
+            var serviceObservedCancellation = false;
+            var serviceCancellationObservedSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var service = new StubUnityTestRunService(async (request, progressSink, cancellationToken) =>
+            {
+                progressSink.Publish(
+                    TestRunProgressEventNames.CaseStarted,
+                    new TestCaseStartedEntry(
+                        request.RunId,
+                        "test-id",
+                        "SampleTest",
+                        "Assembly-CSharp-Editor",
+                        TestRunPlatformCodec.EditMode,
+                        Array.Empty<string>()));
+
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    serviceObservedCancellation = true;
+                    serviceCancellationObservedSource.TrySetResult(true);
+                    throw;
+                }
+
+                return UnityTestRunServiceResult.Success(new IpcTestRunResponse(0));
+            });
+            var handler = new TestRunUnityIpcMethodHandler(service);
+            var streamWriter = new BlockingUnityIpcStreamFrameWriter("req-test-run-stream-timeout");
+            var request = CreateTestRunRequest(
+                "req-test-run-stream-timeout",
+                CreateValidTestRunPayload(timeoutMilliseconds: 10));
+
+            var responseTask = handler.HandleStreamingAsync(request, streamWriter, CancellationToken.None).AsTask();
+            await TestAwaiter.WaitAsync(streamWriter.FirstWriteObserved, "first blocked progress write", SignalWaitTimeout);
+            await TestAwaiter.WaitAsync(serviceCancellationObservedSource.Task, "streaming test-run request timeout", SignalWaitTimeout);
+
+            Assert.That(responseTask.IsCompleted, Is.False);
+            Assert.That(streamWriter.LastWriteCancellationToken.IsCancellationRequested, Is.False);
+
+            streamWriter.ReleaseWrites();
+
+            var response = await TestAwaiter.WaitAsync(responseTask, "streaming test-run timeout response", SignalWaitTimeout);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcTransportErrorCodes.IpcTimeout));
+            Assert.That(serviceObservedCancellation, Is.True);
+            Assert.That(streamWriter.ProgressFrames.Count, Is.EqualTo(1));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator TestRunProgressSink_WhenPendingFrameLimitIsExceeded_QueuesOneDropDiagnosticAndFlushWaits () => UniTask.ToCoroutine(async () =>
+        {
+            var streamWriter = new BlockingUnityIpcStreamFrameWriter("req-test-run-progress-backpressure");
+            var progressSink = new UnityIpcTestRunProgressSink(
+                streamWriter,
+                "run-id",
+                CancellationToken.None,
+                CancellationToken.None);
+
+            for (var i = 0; i < 1026; i++)
+            {
+                progressSink.Publish(
+                    TestRunProgressEventNames.CaseStarted,
+                    new TestCaseStartedEntry(
+                        "run-id",
+                        $"test-{i}",
+                        $"Test {i}",
+                        "Assembly-CSharp-Editor",
+                        TestRunPlatformCodec.EditMode,
+                        Array.Empty<string>()));
+            }
+
+            var flushTask = progressSink.FlushAsync(CancellationToken.None);
+
+            Assert.That(flushTask.IsCompleted, Is.False);
+
+            streamWriter.ReleaseWrites();
+            await flushTask;
+
+            Assert.That(streamWriter.ProgressFrames.Count, Is.EqualTo(1025));
+            Assert.That(streamWriter.ProgressFrames[0].Event, Is.EqualTo(TestRunProgressEventNames.CaseStarted));
+            Assert.That(streamWriter.ProgressFrames[1023].Event, Is.EqualTo(TestRunProgressEventNames.CaseStarted));
+            Assert.That(streamWriter.ProgressFrames[1024].Event, Is.EqualTo(TestRunProgressEventNames.RunDiagnostic));
+            Assert.That(IpcPayloadCodec.TryDeserialize(streamWriter.ProgressFrames[1024].Payload, out TestRunDiagnosticEntry diagnostic, out _), Is.True);
+            Assert.That(diagnostic.Code, Is.EqualTo("TEST_PROGRESS_DROPPED"));
+            Assert.That(diagnostic.Severity, Is.EqualTo("warning"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator TestRunHandler_WhenServiceReturnsLifecycleFailure_PreservesErrorCode () => UniTask.ToCoroutine(async () =>
         {
             var service = new StubUnityTestRunService(_ => Task.FromResult(UnityTestRunServiceResult.Failure(
@@ -1164,7 +1291,9 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(payload.Events[0].Message, Is.EqualTo("after"));
         });
 
-        private static object CreateValidTestRunPayload (bool failFast = false)
+        private static object CreateValidTestRunPayload (
+            bool failFast = false,
+            int? timeoutMilliseconds = null)
         {
             return new IpcTestRunRequest(
                 TestPlatform: TestRunPlatformCodec.EditMode,
@@ -1175,7 +1304,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 ResultsXmlPath: "/tmp/results.xml",
                 EditorLogPath: "/tmp/editor.log",
                 FailFast: failFast,
-                RunId: "run-id");
+                RunId: "run-id",
+                TimeoutMilliseconds: timeoutMilliseconds);
         }
 
         private static IpcRequest CreatePingRequest (
@@ -1452,14 +1582,19 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class StubUnityTestRunService : IUnityTestRunService
         {
-            private readonly Func<IpcTestRunRequest, IUnityTestRunProgressSink, Task<UnityTestRunServiceResult>> execute;
+            private readonly Func<IpcTestRunRequest, IUnityTestRunProgressSink, CancellationToken, Task<UnityTestRunServiceResult>> execute;
 
             public StubUnityTestRunService (Func<IpcTestRunRequest, Task<UnityTestRunServiceResult>> execute)
-                : this((request, _) => execute(request))
+                : this((request, _, _) => execute(request))
             {
             }
 
             public StubUnityTestRunService (Func<IpcTestRunRequest, IUnityTestRunProgressSink, Task<UnityTestRunServiceResult>> execute)
+                : this((request, progressSink, _) => execute(request, progressSink))
+            {
+            }
+
+            public StubUnityTestRunService (Func<IpcTestRunRequest, IUnityTestRunProgressSink, CancellationToken, Task<UnityTestRunServiceResult>> execute)
             {
                 this.execute = execute;
             }
@@ -1479,7 +1614,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 CallCount++;
                 LastRequest = request;
                 LastProgressSink = progressSink;
-                return execute(request, progressSink);
+                return execute(request, progressSink, cancellationToken);
             }
         }
 
@@ -1531,6 +1666,61 @@ namespace MackySoft.Ucli.Unity.Tests
                 cancellationToken.ThrowIfCancellationRequested();
                 TerminalResponse = response;
                 return Task.CompletedTask;
+            }
+        }
+
+        private sealed class BlockingUnityIpcStreamFrameWriter : IUnityIpcStreamFrameWriter
+        {
+            private readonly string requestId;
+            private readonly TaskCompletionSource<bool> writeReleaseSource =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            private readonly TaskCompletionSource<bool> firstWriteObservedSource =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public BlockingUnityIpcStreamFrameWriter (string requestId)
+            {
+                this.requestId = requestId;
+            }
+
+            public List<IpcStreamFrame> ProgressFrames { get; } = new List<IpcStreamFrame>();
+
+            public Task FirstWriteObserved => firstWriteObservedSource.Task;
+
+            public CancellationToken LastWriteCancellationToken { get; private set; }
+
+            public async Task WriteProgressAsync (
+                string eventName,
+                object payload,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                LastWriteCancellationToken = cancellationToken;
+                ProgressFrames.Add(new IpcStreamFrame(
+                    IpcProtocol.CurrentVersion,
+                    requestId,
+                    IpcStreamFrameKinds.Progress,
+                    eventName,
+                    IpcPayloadCodec.SerializeToElement(payload),
+                    null));
+                firstWriteObservedSource.TrySetResult(true);
+                var cancellationSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                using var cancellationRegistration = cancellationToken.Register(static state =>
+                {
+                    ((TaskCompletionSource<bool>)state).TrySetResult(true);
+                }, cancellationSource);
+                var completedTask = await Task.WhenAny(writeReleaseSource.Task, cancellationSource.Task);
+                if (!ReferenceEquals(completedTask, writeReleaseSource.Task))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+
+                await writeReleaseSource.Task;
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            public void ReleaseWrites ()
+            {
+                writeReleaseSource.TrySetResult(true);
             }
         }
 

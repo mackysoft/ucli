@@ -146,6 +146,53 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(terminalFrameResult.Value.Response.Status, Is.EqualTo(IpcProtocol.StatusOk));
         });
 
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator RequestHandler_WhenStreamRequestUsesSinglePath_ReturnsInvalidArgumentWithoutDispatch () => UniTask.ToCoroutine(async () =>
+        {
+            var dispatcher = new StubMethodDispatcher();
+            var handler = new UnityIpcRequestHandler(new StubSessionTokenValidator(true), dispatcher);
+            var request = CreateShutdownRequest("req-mode-mismatch-single", IpcResponseModes.Stream);
+
+            var response = await handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(dispatcher.DispatchCallCount, Is.EqualTo(0));
+            Assert.That(dispatcher.StreamingDispatchCallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator RequestHandler_WhenSingleRequestUsesStreamingPath_ReturnsInvalidArgumentWithoutDispatch () => UniTask.ToCoroutine(async () =>
+        {
+            var dispatcher = new StubMethodDispatcher();
+            var handler = new UnityIpcRequestHandler(new StubSessionTokenValidator(true), dispatcher);
+            var request = CreateShutdownRequest("req-mode-mismatch-stream", IpcResponseModes.Single);
+
+            var response = await handler.HandleStreamingAsync(request, new NoOpStreamFrameWriter(), CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(dispatcher.DispatchCallCount, Is.EqualTo(0));
+            Assert.That(dispatcher.StreamingDispatchCallCount, Is.EqualTo(0));
+        });
+
+        private static IpcRequest CreateShutdownRequest (
+            string requestId,
+            string responseMode)
+        {
+            return new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: requestId,
+                SessionToken: "token",
+                Method: IpcMethodNames.Shutdown,
+                Payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
+                ResponseMode: responseMode);
+        }
+
         private sealed class StubRequestProcessor : IUnityIpcRequestProcessor
         {
             public int CallCount { get; private set; }
@@ -162,9 +209,83 @@ namespace MackySoft.Ucli.Unity.Tests
                     Payload: JsonSerializer.SerializeToElement(new IpcShutdownResponse(true, "ok")),
                     Errors: Array.Empty<IpcError>()));
             }
+
+            public Task<IpcResponse> ProcessStreamingAsync (
+                IpcRequest request,
+                IUnityIpcStreamFrameWriter streamWriter,
+                CancellationToken cancellationToken = default)
+            {
+                throw new NotSupportedException();
+            }
         }
 
-        private sealed class StubStreamingRequestProcessor : IUnityIpcRequestProcessor, IUnityIpcStreamingRequestProcessor
+        private sealed class StubMethodDispatcher : IUnityIpcMethodDispatcher
+        {
+            public int DispatchCallCount { get; private set; }
+
+            public int StreamingDispatchCallCount { get; private set; }
+
+            public Task<IpcResponse> DispatchAsync (
+                IpcRequest request,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                DispatchCallCount++;
+                return Task.FromResult(CreateResponse(request));
+            }
+
+            public Task<IpcResponse> DispatchStreamingAsync (
+                IpcRequest request,
+                IUnityIpcStreamFrameWriter streamWriter,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                StreamingDispatchCallCount++;
+                return Task.FromResult(CreateResponse(request));
+            }
+
+            private static IpcResponse CreateResponse (IpcRequest request)
+            {
+                return new IpcResponse(
+                    ProtocolVersion: IpcProtocol.CurrentVersion,
+                    RequestId: request.RequestId,
+                    Status: IpcProtocol.StatusOk,
+                    Payload: JsonSerializer.SerializeToElement(new IpcShutdownResponse(true, "ok")),
+                    Errors: Array.Empty<IpcError>());
+            }
+        }
+
+        private sealed class StubSessionTokenValidator : ISessionTokenValidator
+        {
+            private readonly bool result;
+
+            public StubSessionTokenValidator (bool result)
+            {
+                this.result = result;
+            }
+
+            public Task<bool> ValidateAsync (
+                string sessionToken,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return Task.FromResult(result);
+            }
+        }
+
+        private sealed class NoOpStreamFrameWriter : IUnityIpcStreamFrameWriter
+        {
+            public Task WriteProgressAsync (
+                string eventName,
+                object payload,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return Task.CompletedTask;
+            }
+        }
+
+        private sealed class StubStreamingRequestProcessor : IUnityIpcRequestProcessor
         {
             public int CallCount { get; private set; }
 

@@ -102,16 +102,10 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             try
             {
-                return requestProcessor is IUnityIpcStreamingRequestProcessor streamingRequestProcessor
-                    ? await streamingRequestProcessor.ProcessStreamingAsync(
-                        request,
-                        streamWriter,
-                        requestCancellationTokenSource.Token)
-                    : UnityIpcResponseFactory.CreateErrorResponse(
-                        request,
-                        UcliCoreErrorCodes.InternalError,
-                        "Streaming IPC request processor is not registered.",
-                        null);
+                return await requestProcessor.ProcessStreamingAsync(
+                    request,
+                    streamWriter,
+                    requestCancellationTokenSource.Token);
             }
             catch (OperationCanceledException) when (!connectionCancellationToken.IsCancellationRequested
                 && requestCancellationTokenSource.IsCancellationRequested)
@@ -137,7 +131,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static async Task WriteTerminalSafelyAsync (
-            IUnityIpcStreamFrameWriter streamWriter,
+            UnityIpcStreamFrameWriter streamWriter,
             IpcResponse response,
             CancellationToken cancellationToken)
         {

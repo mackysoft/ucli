@@ -556,7 +556,7 @@ ucli daemon list --projectPath ./UnityProject
 - `ucli logs unity read` と `ucli logs daemon read` はログ entry を `stderr` に逐次出力し、最後に `stdout` へ共通 `CommandResult` を1件出力する。
 - `--format json` はログ entry を NDJSON とし、1 entry を1行のJSONオブジェクトで `stderr` に出力する。
 - `--format text` はログ entry を1行の人間向けテキストで `stderr` に出力する。
-- `--format text` のログ entry は物理1行を維持する。ログ本文、stack trace、raw payload などに含まれる CR / LF / ANSI escape / OSC sequence / その他 C0 制御文字は、端末制御として解釈されない形にエスケープまたは置換する。
+- `--format text` のログ entry は物理1行を維持する。ログ本文、stack trace、raw payload などに含まれる CR / LF / ANSI escape / OSC sequence / その他制御文字 / Unicode format・line separator・paragraph separator は、端末制御や表示方向制御として解釈されない形にエスケープまたは置換する。
 - `--format` はログ entry の表示形式だけを制御し、最後の `CommandResult` は常に JSON とする。
 - `--format json` の event 名と payload shape は [uCLI-property-reference.md](uCLI-property-reference.md) の `logs read` entry events を正とし、v1 では `logs.unity.entry` と `logs.daemon.entry` だけを出力する。
 - ログ entry を出力する invocation では、`--stream` の有無にかかわらず、呼び出し側は `stderr` を並行して読み出さなければならない。
@@ -1026,7 +1026,7 @@ ucli test run \
 - `--stream` 指定時は、最終 `CommandResult` の前にテスト進捗 entry を `stderr` に出力する。
 - `--format json` はテスト進捗 entry を NDJSON とし、1 entry を1行のJSONオブジェクトで `stderr` に出力する。
 - `--format text` はテスト進捗 entry を人間向けテキストで `stderr` に出力する。
-- `--format text` のテスト進捗 entry は物理1行を維持する。test name、message、stack trace などに含まれる CR / LF / ANSI escape / OSC sequence / その他 C0 制御文字は、端末制御として解釈されない形にエスケープまたは置換する。
+- `--format text` のテスト進捗 entry は物理1行を維持する。test name、message、stack trace などに含まれる CR / LF / ANSI escape / OSC sequence / その他制御文字 / Unicode format・line separator・paragraph separator は、端末制御や表示方向制御として解釈されない形にエスケープまたは置換する。
 - `--format` はテスト進捗 entry の表示形式だけを制御し、最後の `CommandResult` は常に JSON とする。
 - `--format json` の event 名と payload shape は [uCLI-property-reference.md](uCLI-property-reference.md) の `test.run` entry events を正とし、v1 では `test.run.started`、`test.case.started`、`test.case.finished`、`test.run.diagnostic` だけを出力する。
 - `runId` が確定した場合、最初のテスト進捗 entry として `test.run.started` を出力する。`runId` 確定前に失敗した場合はテスト進捗 entry を出力せず、最後の `CommandResult` で失敗を説明する。

@@ -34,7 +34,8 @@ internal sealed class UnityIpcRequestBuilder
                 IpcMethodNames.Compile,
                 IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(compile.RunId)),
                 CompileAllowedStartupLifecycleStates,
-                isRecoverable: true),
+                isRecoverable: true,
+                dispatchTimeoutPayloadTransformer: ApplyCompileDispatchTimeout),
             UnityRequestPayload.TestRun testRun => new UnityIpcDispatchRequest(
                 IpcMethodNames.TestRun,
                 IpcPayloadCodec.SerializeToElement(new IpcTestRunRequest(
@@ -46,7 +47,8 @@ internal sealed class UnityIpcRequestBuilder
                     ResultsXmlPath: testRun.ResultsXmlPath,
                     EditorLogPath: testRun.EditorLogPath,
                     FailFast: testRun.FailFast,
-                    RunId: testRun.RunId))),
+                    RunId: testRun.RunId)),
+                dispatchTimeoutPayloadTransformer: ApplyTestRunDispatchTimeout),
             UnityRequestPayload.PlayStatus => new UnityIpcDispatchRequest(
                 IpcMethodNames.PlayStatus,
                 IpcPayloadCodec.SerializeToElement(new IpcPlayStatusRequest())),
@@ -89,6 +91,41 @@ internal sealed class UnityIpcRequestBuilder
                     allowPlayMode: false)),
             _ => throw new ArgumentOutOfRangeException(nameof(request), request, "Unsupported Unity request payload."),
         };
+    }
+
+    private static JsonElement ApplyCompileDispatchTimeout (
+        JsonElement payload,
+        TimeSpan dispatchTimeout)
+    {
+        if (!IpcPayloadCodec.TryDeserialize(payload, out IpcCompileRequest compileRequest, out _))
+        {
+            return payload;
+        }
+
+        return IpcPayloadCodec.SerializeToElement(compileRequest with
+        {
+            TimeoutMilliseconds = ToTimeoutMilliseconds(dispatchTimeout),
+        });
+    }
+
+    private static JsonElement ApplyTestRunDispatchTimeout (
+        JsonElement payload,
+        TimeSpan dispatchTimeout)
+    {
+        if (!IpcPayloadCodec.TryDeserialize(payload, out IpcTestRunRequest testRunRequest, out _))
+        {
+            return payload;
+        }
+
+        return IpcPayloadCodec.SerializeToElement(testRunRequest with
+        {
+            TimeoutMilliseconds = ToTimeoutMilliseconds(dispatchTimeout),
+        });
+    }
+
+    private static int ToTimeoutMilliseconds (TimeSpan timeout)
+    {
+        return checked((int)Math.Ceiling(timeout.TotalMilliseconds));
     }
 
     private static JsonElement CreateSingleOperationArguments (

@@ -132,17 +132,18 @@ public sealed class ApplicationOwnershipBoundaryTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Unity_request_port_does_not_expose_ipc_response_envelopes ()
+    public void Unity_request_port_does_not_expose_ipc_wire_envelopes ()
     {
-        var portFiles = new[]
-        {
-            "src/Ucli.Application/Shared/Execution/UnityRequest/IUnityRequestExecutor.cs",
-            "src/Ucli.Application/Shared/Execution/UnityRequest/UnityRequestExecutionResult.cs",
-            "src/Ucli.Application/Shared/Execution/UnityRequest/UnityRequestResponse.cs",
-        };
+        var portFiles = ArchitectureTestRepository.EnumerateCSharpSourceFiles(
+            "src/Ucli.Application/Shared/Execution/UnityRequest");
 
         SourceBoundaryAssertions.AssertNoMarkersInCode(
-            portFiles.Select(ArchitectureTestRepository.ToFullPath),
-            ["IpcResponse"]);
+            portFiles,
+            [
+                "IpcRequest",
+                "IpcResponse",
+                "IpcStreamFrame",
+                "IpcResponseModes",
+            ]);
     }
 }

@@ -83,6 +83,31 @@ public sealed class LogsDaemonReadCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Read_WhenFormatIsInvalid_WritesInvalidArgumentResultWithoutCallingService ()
+    {
+        var service = new StubLogsDaemonService((_, _, _) => throw new InvalidOperationException("service must not be called"));
+        var command = new LogsDaemonReadCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(format: "yaml"));
+
+        Assert.Equal(3, exitCode);
+        Assert.Equal(string.Empty, standardError);
+        Assert.Equal(0, service.CallCount);
+        using var commandResult = JsonDocument.Parse(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            commandResult.RootElement,
+            UcliCommandNames.LogsDaemonRead,
+            "error",
+            3);
+        CommandResultAssert.HasSingleError(commandResult.RootElement, UcliCoreErrorCodes.InvalidArgument);
+        var payload = commandResult.RootElement.GetProperty("payload");
+        Assert.Equal(0, payload.GetProperty("count").GetInt32());
+        Assert.Equal(JsonValueKind.Null, payload.GetProperty("nextCursor").ValueKind);
+        Assert.Equal("error", payload.GetProperty("completionReason").GetString());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Read_WhenServiceThrowsAfterEntry_WritesFinalErrorResultWithPartialMetadata ()
     {
         var command = new LogsDaemonReadCommand(new StubLogsDaemonService(async (_, onEvent, cancellationToken) =>
@@ -235,11 +260,14 @@ public sealed class LogsDaemonReadCommandTests
             this.handler = handler;
         }
 
+        public int CallCount { get; private set; }
+
         public ValueTask<LogsReadServiceResult> ExecuteAsync (
             LogsDaemonServiceRequest request,
             Func<IpcDaemonLogEvent, string, CancellationToken, ValueTask> onEvent,
             CancellationToken cancellationToken = default)
         {
+            CallCount++;
             return handler(request, onEvent, cancellationToken);
         }
     }

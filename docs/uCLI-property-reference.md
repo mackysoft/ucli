@@ -24,7 +24,7 @@ CLI 契約コマンドは、最後に `stdout` へ次の共通エンベロープ
 `requestId` は CLI 共通エンベロープには含めない。必要な場合だけ各コマンドの `payload` に含める。
 
 ### JSON entry の共通エンベロープ
-entry stream を持つコマンドで `--format json` を指定した場合、`stderr` に1行1JSONオブジェクトの NDJSON を出力する。`--format text` の entry は人間向け表示であり、安定パース対象にしない。text entry は物理1行を維持し、未信頼文字列に含まれる CR / LF / ANSI escape / OSC sequence / その他 C0 制御文字を端末制御として解釈されない形にエスケープまたは置換する。
+entry stream を持つコマンドで `--format json` を指定した場合、`stderr` に1行1JSONオブジェクトの NDJSON を出力する。`--format text` の entry は人間向け表示であり、安定パース対象にしない。text entry は物理1行を維持し、未信頼文字列に含まれる CR / LF / ANSI escape / OSC sequence / その他制御文字 / Unicode format・line separator・paragraph separator を端末制御や表示方向制御として解釈されない形にエスケープまたは置換する。
 
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |

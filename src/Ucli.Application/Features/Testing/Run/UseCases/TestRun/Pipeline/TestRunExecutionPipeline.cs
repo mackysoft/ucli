@@ -328,30 +328,12 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
                 $"Unity test-run progress payload is invalid for event '{frame.Event}'. {error}");
         }
 
-        var actualRunId = GetProgressPayloadRunId(payload!);
-        if (!string.Equals(actualRunId, expectedRunId, StringComparison.Ordinal))
-        {
-            throw new TestRunProgressProtocolException(
-                $"Unity test-run progress payload runId mismatch for event '{frame.Event}'. Expected={expectedRunId}, Actual={actualRunId}.");
-        }
-
+        TestRunProgressPayloadValidator.Validate(frame.Event, payload!, expectedRunId);
         await progressSink.OnEntryAsync(
                 frame.Event,
                 payload!,
                 cancellationToken)
             .ConfigureAwait(false);
-    }
-
-    private static string GetProgressPayloadRunId (object payload)
-    {
-        return payload switch
-        {
-            TestRunStartedEntry entry => entry.RunId,
-            TestCaseStartedEntry entry => entry.RunId,
-            TestCaseFinishedEntry entry => entry.RunId,
-            TestRunDiagnosticEntry entry => entry.RunId,
-            _ => throw new TestRunProgressProtocolException($"Unity test-run progress payload type is not supported: {payload.GetType().Name}."),
-        };
     }
 
     private UnityTestExecutionResult CreateUnityExecutionResult (
@@ -371,7 +353,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
                 out var errorMessage))
         {
             return UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.AbnormalExit,
+                MapResponseFailureKind(errorCode, target),
                 errorMessage!,
                 errorCode);
         }
@@ -425,6 +407,28 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
             && failure.Message.StartsWith("Daemon session token could not be resolved.", StringComparison.Ordinal))
         {
             return UnityTestExecutionFailureKind.ClientSetupFailed;
+        }
+
+        return UnityTestExecutionFailureKind.AbnormalExit;
+    }
+
+    private static UnityTestExecutionFailureKind MapResponseFailureKind (
+        UcliCode? errorCode,
+        UnityExecutionTarget target)
+    {
+        if (errorCode is { IsValid: true } code)
+        {
+            if (code == IpcTransportErrorCodes.IpcTimeout || code == ExecutionErrorCodes.IpcTimeout)
+            {
+                return target == UnityExecutionTarget.Oneshot
+                    ? UnityTestExecutionFailureKind.ProcessTimedOut
+                    : UnityTestExecutionFailureKind.IpcTimedOut;
+            }
+
+            if (code == ExecutionErrorCodes.Canceled)
+            {
+                return UnityTestExecutionFailureKind.Canceled;
+            }
         }
 
         return UnityTestExecutionFailureKind.AbnormalExit;

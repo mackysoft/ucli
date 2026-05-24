@@ -8,7 +8,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Implements method-based dispatch for authorized Unity IPC requests. </summary>
-    internal sealed class UnityIpcMethodDispatcher : IUnityIpcMethodDispatcher, IUnityIpcStreamingMethodDispatcher
+    internal sealed class UnityIpcMethodDispatcher : IUnityIpcMethodDispatcher
     {
         private readonly IReadOnlyDictionary<string, IUnityIpcMethodHandler> methodHandlers;
 

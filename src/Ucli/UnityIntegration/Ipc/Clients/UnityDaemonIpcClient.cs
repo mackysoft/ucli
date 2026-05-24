@@ -102,11 +102,9 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                         unityProject.ProjectFingerprint,
                         UnityIpcRequestFactory.Create(
                             sessionTokenResult.Token!,
-                            dispatchRequest.Method,
-                            dispatchRequest.Payload,
+                            dispatchRequest,
                             requestId,
-                            remainingTimeout,
-                            dispatchRequest.ResponseMode),
+                            remainingTimeout),
                         attemptTimeout,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -184,6 +182,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
 
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         var requestId = UnityIpcRequestFactory.CreateRequestId(dispatchRequest.Method);
+        ExecutionDeadline? endpointAbsenceRetryDeadline = null;
 
         while (true)
         {
@@ -197,8 +196,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
             var sessionTokenResult = await daemonSessionTokenProvider.ResolveAsync(unityProject, cancellationToken).ConfigureAwait(false);
             if (!sessionTokenResult.IsSuccess)
             {
-                if (dispatchRequest.IsRecoverable
-                    && recoveryWaiter != null
+                if (recoveryWaiter != null
                     && await recoveryWaiter.DelayIfRecoveringAsync(unityProject, deadline, cancellationToken).ConfigureAwait(false))
                 {
                     continue;
@@ -223,11 +221,9 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                         unityProject.ProjectFingerprint,
                         UnityIpcRequestFactory.Create(
                             sessionTokenResult.Token!,
-                            dispatchRequest.Method,
-                            dispatchRequest.Payload,
+                            dispatchRequest,
                             requestId,
-                            remainingTimeout,
-                            dispatchRequest.ResponseMode),
+                            remainingTimeout),
                         attemptTimeout,
                         onProgressFrame,
                         cancellationToken)
@@ -245,6 +241,19 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
             }
             catch (Exception exception)
             {
+                var retryDecision = await ShouldRetryEndpointAbsenceAsync(
+                        unityProject,
+                        deadline,
+                        endpointAbsenceRetryDeadline,
+                        exception,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                endpointAbsenceRetryDeadline = retryDecision.EndpointAbsenceRetryDeadline;
+                if (retryDecision.ShouldRetry)
+                {
+                    continue;
+                }
+
                 return UnityRequestExecutionResult.Failure(
                     UnityIpcFailureClassifier.FromDaemonDispatchException(exception, remainingTimeout));
             }
@@ -297,6 +306,47 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                 cancellationToken)
             .ConfigureAwait(false);
         return (true, endpointAbsenceRetryDeadline);
+    }
+
+    private async ValueTask<(bool ShouldRetry, ExecutionDeadline? EndpointAbsenceRetryDeadline)> ShouldRetryEndpointAbsenceAsync (
+        ResolvedUnityProjectContext unityProject,
+        ExecutionDeadline deadline,
+        ExecutionDeadline? endpointAbsenceRetryDeadline,
+        Exception exception,
+        CancellationToken cancellationToken)
+    {
+        if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
+        {
+            return (false, endpointAbsenceRetryDeadline);
+        }
+
+        if (!IsRecoverableEndpointAbsence(exception))
+        {
+            return (false, endpointAbsenceRetryDeadline);
+        }
+
+        if (recoveryWaiter != null
+            && await recoveryWaiter.DelayIfRecoveringAsync(
+                unityProject,
+                deadline,
+                cancellationToken).ConfigureAwait(false))
+        {
+            return (true, endpointAbsenceRetryDeadline);
+        }
+
+        var effectiveEndpointAbsenceRetryDeadline = endpointAbsenceRetryDeadline
+            ?? ExecutionDeadline.Start(GetEndpointAbsenceRetryTimeout(remainingTimeout), timeProvider);
+        if (!effectiveEndpointAbsenceRetryDeadline.TryGetRemainingTimeout(out var endpointAbsenceRemainingTimeout))
+        {
+            return (false, effectiveEndpointAbsenceRetryDeadline);
+        }
+
+        await TimeProviderDelay.DelayAsync(
+                GetRetryDelay(GetShorterTimeout(remainingTimeout, endpointAbsenceRemainingTimeout)),
+                timeProvider,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return (true, effectiveEndpointAbsenceRetryDeadline);
     }
 
     private static bool IsRecoverableResponseInterruption (Exception exception)

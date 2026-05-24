@@ -363,6 +363,100 @@ public sealed class UnityDaemonIpcClientTests
         Assert.StartsWith($"{IpcMethodNames.PlayEnter}-", transportClient.Requests[0].RequestId, StringComparison.Ordinal);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendStreamingAsync_WhenSessionTokenIsTemporarilyUnavailableDuringRecovery_WaitsAndSendsRecoveredSessionToken ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var transportClient = new StubUnityIpcTransportClient();
+        transportClient.EnqueueResponse(CreateResponse("req-recovered-stream"));
+        var session = CreateRecoveringSession();
+        var recoveryWaiter = new UnityDaemonRecoveryWaiter(
+            new StubDaemonSessionStore(DaemonSessionReadResult.Success(session)),
+            new StubDaemonLifecycleStore(DaemonLifecycleObservationReadResult.Success(CreateRecoveringObservation(session))),
+            new StubDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess),
+            timeProvider);
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
+            DaemonSessionTokenResolutionResult.SessionNotAvailable(),
+            DaemonSessionTokenResolutionResult.Success("daemon-token-2"));
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            sessionTokenProvider,
+            recoveryWaiter,
+            timeProvider);
+
+        var sendTask = client.SendStreamingAsync(
+                CreateContext(),
+                new UnityIpcDispatchRequest(
+                    IpcMethodNames.TestRun,
+                    CreateDispatchPayload(),
+                    responseMode: IpcResponseModes.Stream),
+                TimeSpan.FromSeconds(5),
+                (_, _) => ValueTask.CompletedTask,
+                CancellationToken.None)
+            .AsTask();
+        Assert.False(sendTask.IsCompleted);
+
+        timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        var result = await sendTask;
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, sessionTokenProvider.CallCount);
+        Assert.Single(transportClient.Requests);
+        Assert.Equal("daemon-token-2", transportClient.Requests[0].SessionToken);
+        Assert.Equal(IpcResponseModes.Stream, transportClient.Requests[0].ResponseMode);
+        Assert.StartsWith($"{IpcMethodNames.TestRun}-", transportClient.Requests[0].RequestId, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendStreamingAsync_WhenConnectionIsRefusedDuringRecovery_RetriesWithSameRequestIdAndReloadedSessionToken ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var transportClient = new StubUnityIpcTransportClient();
+        transportClient.EnqueueException(new SocketException((int)SocketError.ConnectionRefused));
+        transportClient.EnqueueResponse(CreateResponse("req-recovered-stream"));
+        var session = CreateRecoveringSession();
+        var recoveryWaiter = new UnityDaemonRecoveryWaiter(
+            new StubDaemonSessionStore(DaemonSessionReadResult.Success(session)),
+            new StubDaemonLifecycleStore(DaemonLifecycleObservationReadResult.Success(CreateRecoveringObservation(session))),
+            new StubDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess),
+            timeProvider);
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
+            DaemonSessionTokenResolutionResult.Success("daemon-token-1"),
+            DaemonSessionTokenResolutionResult.Success("daemon-token-2"));
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            sessionTokenProvider,
+            recoveryWaiter,
+            timeProvider);
+
+        var sendTask = client.SendStreamingAsync(
+                CreateContext(),
+                new UnityIpcDispatchRequest(
+                    IpcMethodNames.TestRun,
+                    CreateDispatchPayload(),
+                    responseMode: IpcResponseModes.Stream),
+                TimeSpan.FromSeconds(5),
+                (_, _) => ValueTask.CompletedTask,
+                CancellationToken.None)
+            .AsTask();
+        Assert.False(sendTask.IsCompleted);
+
+        timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        var result = await sendTask;
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, sessionTokenProvider.CallCount);
+        Assert.Equal(2, transportClient.CallCount);
+        Assert.Equal("daemon-token-1", transportClient.Requests[0].SessionToken);
+        Assert.Equal("daemon-token-2", transportClient.Requests[1].SessionToken);
+        Assert.Equal(transportClient.Requests[0].RequestId, transportClient.Requests[1].RequestId);
+        Assert.Equal(IpcResponseModes.Stream, transportClient.Requests[0].ResponseMode);
+        Assert.Equal(IpcResponseModes.Stream, transportClient.Requests[1].ResponseMode);
+        Assert.StartsWith($"{IpcMethodNames.TestRun}-", transportClient.Requests[0].RequestId, StringComparison.Ordinal);
+    }
+
     private static async ValueTask AdvanceUntilCompletedAsync (
         ManualTimeProvider timeProvider,
         Task task,

@@ -19,14 +19,12 @@ internal static class UnityIpcRequestFactory
     /// <param name="sessionToken"> The session token written into the request envelope. </param>
     /// <param name="method"> The IPC method name. </param>
     /// <param name="payload"> The payload element. </param>
-    /// <param name="dispatchTimeout"> The final dispatch timeout budget when the method needs server-side cancellation. </param>
     /// <param name="responseMode"> The response framing mode requested by the caller. </param>
     /// <returns> The created request envelope. </returns>
     public static IpcRequest Create (
         string sessionToken,
         string method,
         JsonElement payload,
-        TimeSpan? dispatchTimeout = null,
         string responseMode = IpcResponseModes.Single)
     {
         return Create(
@@ -34,8 +32,25 @@ internal static class UnityIpcRequestFactory
             method,
             payload,
             CreateRequestId(method),
-            dispatchTimeout,
             responseMode);
+    }
+
+    /// <summary> Creates one request envelope from a dispatch request with a generated request identifier. </summary>
+    /// <param name="sessionToken"> The session token written into the request envelope. </param>
+    /// <param name="dispatchRequest"> The dispatch request that owns method, payload, and response mode. </param>
+    /// <param name="dispatchTimeout"> The final dispatch timeout budget when the method needs server-side cancellation. </param>
+    /// <returns> The created request envelope. </returns>
+    public static IpcRequest Create (
+        string sessionToken,
+        UnityIpcDispatchRequest dispatchRequest,
+        TimeSpan? dispatchTimeout = null)
+    {
+        ArgumentNullException.ThrowIfNull(dispatchRequest);
+        return Create(
+            sessionToken,
+            dispatchRequest,
+            CreateRequestId(dispatchRequest.Method),
+            dispatchTimeout);
     }
 
     /// <summary> Creates one request envelope with the supplied request identifier. </summary>
@@ -43,7 +58,6 @@ internal static class UnityIpcRequestFactory
     /// <param name="method"> The IPC method name. </param>
     /// <param name="payload"> The payload element. </param>
     /// <param name="requestId"> The stable request identifier. </param>
-    /// <param name="dispatchTimeout"> The final dispatch timeout budget when the method needs server-side cancellation. </param>
     /// <param name="responseMode"> The response framing mode requested by the caller. </param>
     /// <returns> The created request envelope. </returns>
     public static IpcRequest Create (
@@ -51,7 +65,6 @@ internal static class UnityIpcRequestFactory
         string method,
         JsonElement payload,
         string requestId,
-        TimeSpan? dispatchTimeout = null,
         string responseMode = IpcResponseModes.Single)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionToken);
@@ -67,25 +80,28 @@ internal static class UnityIpcRequestFactory
             RequestId: requestId,
             SessionToken: sessionToken,
             Method: method,
-            Payload: ApplyDispatchTimeout(method, payload, dispatchTimeout),
+            Payload: payload,
             ResponseMode: responseMode);
     }
 
-    private static JsonElement ApplyDispatchTimeout (
-        string method,
-        JsonElement payload,
-        TimeSpan? dispatchTimeout)
+    /// <summary> Creates one request envelope from a dispatch request with the supplied request identifier. </summary>
+    /// <param name="sessionToken"> The session token written into the request envelope. </param>
+    /// <param name="dispatchRequest"> The dispatch request that owns method, payload, and response mode. </param>
+    /// <param name="requestId"> The stable request identifier. </param>
+    /// <param name="dispatchTimeout"> The final dispatch timeout budget when the method needs server-side cancellation. </param>
+    /// <returns> The created request envelope. </returns>
+    public static IpcRequest Create (
+        string sessionToken,
+        UnityIpcDispatchRequest dispatchRequest,
+        string requestId,
+        TimeSpan? dispatchTimeout = null)
     {
-        if (!dispatchTimeout.HasValue
-            || !string.Equals(method, IpcMethodNames.Compile, StringComparison.Ordinal)
-            || !IpcPayloadCodec.TryDeserialize(payload, out IpcCompileRequest compileRequest, out _))
-        {
-            return payload;
-        }
-
-        return IpcPayloadCodec.SerializeToElement(compileRequest with
-        {
-            TimeoutMilliseconds = checked((int)Math.Ceiling(dispatchTimeout.Value.TotalMilliseconds)),
-        });
+        ArgumentNullException.ThrowIfNull(dispatchRequest);
+        return Create(
+            sessionToken,
+            dispatchRequest.Method,
+            dispatchRequest.CreatePayload(dispatchTimeout),
+            requestId,
+            responseMode: dispatchRequest.ResponseMode);
     }
 }

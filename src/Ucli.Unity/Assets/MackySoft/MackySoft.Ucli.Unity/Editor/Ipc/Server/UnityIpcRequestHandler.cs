@@ -1,13 +1,13 @@
 using System;
-using MackySoft.Ucli.Contracts;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Authorizes and dispatches Unity IPC request methods. </summary>
-    internal sealed class UnityIpcRequestHandler : IUnityIpcRequestHandler, IUnityIpcStreamingRequestHandler
+    internal sealed class UnityIpcRequestHandler : IUnityIpcRequestHandler
     {
         private readonly ISessionTokenValidator sessionTokenValidator;
         private readonly IUnityIpcMethodDispatcher methodDispatcher;
@@ -36,7 +36,18 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcRequest request,
             CancellationToken cancellationToken = default)
         {
-            return await HandleCoreAsync(request, streamWriter: null, cancellationToken);
+            var validationErrorResponse = await ValidateCommonAsync(request, cancellationToken);
+            if (validationErrorResponse != null)
+            {
+                return validationErrorResponse;
+            }
+
+            if (!string.Equals(request.ResponseMode, IpcResponseModes.Single, StringComparison.Ordinal))
+            {
+                return CreateResponseModeMismatchResponse(request, IpcResponseModes.Single);
+            }
+
+            return await methodDispatcher.DispatchAsync(request, cancellationToken);
         }
 
         /// <inheritdoc />
@@ -50,12 +61,22 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(streamWriter));
             }
 
-            return await HandleCoreAsync(request, streamWriter, cancellationToken);
+            var validationErrorResponse = await ValidateCommonAsync(request, cancellationToken);
+            if (validationErrorResponse != null)
+            {
+                return validationErrorResponse;
+            }
+
+            if (!string.Equals(request.ResponseMode, IpcResponseModes.Stream, StringComparison.Ordinal))
+            {
+                return CreateResponseModeMismatchResponse(request, IpcResponseModes.Stream);
+            }
+
+            return await methodDispatcher.DispatchStreamingAsync(request, streamWriter, cancellationToken);
         }
 
-        private async Task<IpcResponse> HandleCoreAsync (
+        private async Task<IpcResponse> ValidateCommonAsync (
             IpcRequest request,
-            IUnityIpcStreamFrameWriter streamWriter,
             CancellationToken cancellationToken)
         {
             if (request == null)
@@ -139,21 +160,18 @@ namespace MackySoft.Ucli.Unity.Ipc
                     null);
             }
 
-            if (streamWriter != null)
-            {
-                if (methodDispatcher is not IUnityIpcStreamingMethodDispatcher streamingMethodDispatcher)
-                {
-                    return UnityIpcResponseFactory.CreateErrorResponse(
-                        request,
-                        UcliCoreErrorCodes.InternalError,
-                        "Streaming IPC method dispatcher is not registered.",
-                        null);
-                }
+            return null;
+        }
 
-                return await streamingMethodDispatcher.DispatchStreamingAsync(request, streamWriter, cancellationToken);
-            }
-
-            return await methodDispatcher.DispatchAsync(request, cancellationToken);
+        private static IpcResponse CreateResponseModeMismatchResponse (
+            IpcRequest request,
+            string expectedResponseMode)
+        {
+            return UnityIpcResponseFactory.CreateErrorResponse(
+                request,
+                UcliCoreErrorCodes.InvalidArgument,
+                $"IPC responseMode must be '{expectedResponseMode}' for this request path. Actual: {request.ResponseMode}.",
+                null);
         }
     }
 }

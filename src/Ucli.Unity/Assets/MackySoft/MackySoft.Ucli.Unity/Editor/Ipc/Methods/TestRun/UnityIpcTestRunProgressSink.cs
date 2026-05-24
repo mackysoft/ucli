@@ -12,7 +12,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IUnityIpcStreamFrameWriter streamWriter;
         private readonly string runId;
-        private readonly CancellationToken requestCancellationToken;
+        private readonly CancellationToken progressAcceptanceCancellationToken;
+        private readonly CancellationToken frameWriteCancellationToken;
 
         private readonly object syncRoot = new object();
 
@@ -24,11 +25,13 @@ namespace MackySoft.Ucli.Unity.Ipc
         public UnityIpcTestRunProgressSink (
             IUnityIpcStreamFrameWriter streamWriter,
             string runId,
-            CancellationToken requestCancellationToken)
+            CancellationToken progressAcceptanceCancellationToken,
+            CancellationToken frameWriteCancellationToken)
         {
             this.streamWriter = streamWriter ?? throw new ArgumentNullException(nameof(streamWriter));
             this.runId = string.IsNullOrWhiteSpace(runId) ? "unknown" : runId;
-            this.requestCancellationToken = requestCancellationToken;
+            this.progressAcceptanceCancellationToken = progressAcceptanceCancellationToken;
+            this.frameWriteCancellationToken = frameWriteCancellationToken;
         }
 
         /// <inheritdoc />
@@ -36,7 +39,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string eventName,
             object payload)
         {
-            requestCancellationToken.ThrowIfCancellationRequested();
+            progressAcceptanceCancellationToken.ThrowIfCancellationRequested();
             if (string.IsNullOrWhiteSpace(eventName))
             {
                 throw new ArgumentException("Progress event name must not be empty.", nameof(eventName));
@@ -66,7 +69,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 pendingFrameCount++;
-                tail = WriteAfterPreviousAsync(tail, streamWriter, eventName, payload, ReleasePendingFrame, requestCancellationToken);
+                tail = WriteAfterPreviousAsync(tail, streamWriter, eventName, payload, ReleasePendingFrame, frameWriteCancellationToken);
             }
         }
 

@@ -258,6 +258,49 @@ public sealed class TestRunServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WithContractInvalidUnityProgressPayload_ReturnsToolError ()
+    {
+        var configuration = CreateResolvedConfiguration();
+        var session = CreateArtifactsSession(configuration);
+        var progressSink = new CollectingProgressSink();
+
+        var service = CreateService(
+            configurationResolver: new StubConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
+            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
+            artifactsService: new StubArtifactsService(
+                prepare: _ => ArtifactsPreparationResult.Success(session),
+                complete: (_, _) => ArtifactsCompletionResult.Success()),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+            resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
+            streamingProgressFrame: new UnityRequestProgressFrame(
+                TestRunProgressEventNames.CaseFinished,
+                IpcPayloadCodec.SerializeToElement(new TestCaseFinishedEntry(
+                    session.RunId,
+                    "test-id",
+                    "SmokeTest.Passes",
+                    "MyGame.Tests",
+                    "editmode",
+                    ["smoke"],
+                    "unknown",
+                    42,
+                    null,
+                    null))));
+
+        var result = await service.ExecuteAsync(CreateInput(), progressSink, CancellationToken.None);
+
+        Assert.Null(result.Result);
+        Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
+        Assert.Equal(TestRunErrorCodes.UnityTestExecutionFailed, result.ErrorCode);
+        Assert.Contains("progress payload violates contract", result.Message, StringComparison.Ordinal);
+        Assert.Contains("result", result.Message, StringComparison.Ordinal);
+        Assert.Single(progressSink.Entries);
+        Assert.Equal(TestRunProgressEventNames.RunStarted, progressSink.Entries[0].EventName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WithConfigurationInvalidArgumentFailure_ReturnsInvalidInput ()
     {
         var service = CreateService(
@@ -452,6 +495,36 @@ public sealed class TestRunServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenDaemonResponseReportsIpcTimeout_ReturnsIpcTimeoutErrorCode ()
+    {
+        var configuration = CreateResolvedConfiguration();
+
+        var service = CreateService(
+            configurationResolver: new StubConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
+            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon, TimeSpan.FromSeconds(30)))),
+            artifactsService: new StubArtifactsService(
+                prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession(configuration)),
+                complete: (_, _) => ArtifactsCompletionResult.Success()),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
+                ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+            resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
+            daemonTestRunClient: new StubDaemonTestRunClient((_, _, _, _, _) =>
+                ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+            unityRequestResponse: CreateFailureUnityRequestResponse(
+                IpcTransportErrorCodes.IpcTimeout,
+                "Unity test run timed out after 30000 milliseconds."));
+
+        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+
+        Assert.Null(result.Result);
+        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenDaemonSessionDisappearsAfterModeResolution_PreservesDaemonNotRunningCode ()
     {
         var configuration = CreateResolvedConfiguration();
@@ -562,6 +635,34 @@ public sealed class TestRunServiceTests
                     UnityTestExecutionFailureKind.ProcessTimedOut,
                     "Unity process timed out after 30000 milliseconds."))),
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))));
+
+        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+
+        Assert.Null(result.Result);
+        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
+        Assert.Equal(TestRunErrorCodes.UnityTestExecutionTimeout, result.ErrorCode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenOneshotResponseReportsIpcTimeout_ReturnsExecutionTimeoutErrorCode ()
+    {
+        var configuration = CreateResolvedConfiguration();
+
+        var service = CreateService(
+            configurationResolver: new StubConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
+            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(UnityExecutionMode.Auto, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
+            artifactsService: new StubArtifactsService(
+                prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession(configuration)),
+                complete: (_, _) => ArtifactsCompletionResult.Success()),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
+                ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+            resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
+            unityRequestResponse: CreateFailureUnityRequestResponse(
+                IpcTransportErrorCodes.IpcTimeout,
+                "Unity test run timed out after 30000 milliseconds."));
 
         var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
 
@@ -800,6 +901,24 @@ public sealed class TestRunServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void TestRunProgressPayloadValidator_WithMismatchedEventAndPayloadType_ThrowsProtocolViolation ()
+    {
+        var exception = Assert.Throws<TestRunProgressProtocolException>(() =>
+            TestRunProgressPayloadValidator.Validate(
+                TestRunProgressEventNames.CaseStarted,
+                new TestRunDiagnosticEntry(
+                    "run-id",
+                    "TEST_PROGRESS_STUB",
+                    "stub progress",
+                    "info"),
+                "run-id"));
+
+        Assert.Contains("payload type violates contract", exception.Message, StringComparison.Ordinal);
+        Assert.Contains(TestRunProgressEventNames.CaseStarted, exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WithCallerCancellationDuringUnityExecution_ReturnsCanceledToolErrorWithRunContext ()
     {
         var configuration = CreateResolvedConfiguration();
@@ -842,7 +961,8 @@ public sealed class TestRunServiceTests
         IUcliConfigStore? configStore = null,
         StubDaemonTestRunClient? daemonTestRunClient = null,
         UnityRequestProgressFrame? streamingProgressFrame = null,
-        IReadOnlyList<UnityRequestProgressFrame>? streamingProgressFrames = null)
+        IReadOnlyList<UnityRequestProgressFrame>? streamingProgressFrames = null,
+        UnityRequestResponse? unityRequestResponse = null)
     {
         var preflightService = new TestRunPreflightService(
             configurationResolver,
@@ -851,7 +971,8 @@ public sealed class TestRunServiceTests
         var unityRequestExecutor = new StubUnityRequestExecutor(
             unityTestExecutor,
             daemonTestRunClient,
-            streamingProgressFrames ?? (streamingProgressFrame is null ? null : [streamingProgressFrame]));
+            streamingProgressFrames ?? (streamingProgressFrame is null ? null : [streamingProgressFrame]),
+            unityRequestResponse);
         var executionPipeline = new TestRunExecutionPipeline(
             artifactsService,
             unityRequestExecutor,
@@ -909,6 +1030,20 @@ public sealed class TestRunServiceTests
             RunId: "run-id",
             Paths: TestArtifactPaths.Create(artifactsDir),
             StartedAtUtc: DateTimeOffset.UtcNow);
+    }
+
+    private static UnityRequestResponse CreateFailureUnityRequestResponse (
+        UcliCode code,
+        string message)
+    {
+        return new UnityRequestResponse(
+            Payload: IpcPayloadCodec.SerializeToElement(new { }),
+            Errors:
+            [
+                new OperationExecutionError(code, message, OpId: null),
+            ],
+            HasFailureStatus: true,
+            FailureStatus: IpcProtocol.StatusError);
     }
 
     private sealed class StubConfigurationResolver : ITestRunConfigurationResolver
@@ -1068,15 +1203,18 @@ public sealed class TestRunServiceTests
         private readonly StubUnityTestExecutor unityTestExecutor;
         private readonly StubDaemonTestRunClient? daemonTestRunClient;
         private readonly IReadOnlyList<UnityRequestProgressFrame>? streamingProgressFrames;
+        private readonly UnityRequestResponse? responseOverride;
 
         public StubUnityRequestExecutor (
             StubUnityTestExecutor unityTestExecutor,
             StubDaemonTestRunClient? daemonTestRunClient,
-            IReadOnlyList<UnityRequestProgressFrame>? streamingProgressFrames)
+            IReadOnlyList<UnityRequestProgressFrame>? streamingProgressFrames,
+            UnityRequestResponse? responseOverride)
         {
             this.unityTestExecutor = unityTestExecutor;
             this.daemonTestRunClient = daemonTestRunClient;
             this.streamingProgressFrames = streamingProgressFrames;
+            this.responseOverride = responseOverride;
         }
 
         public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
@@ -1111,6 +1249,11 @@ public sealed class TestRunServiceTests
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (responseOverride is not null)
+            {
+                return UnityRequestExecutionResult.Success(responseOverride);
+            }
+
             var testRunRequest = ReadTestRunRequest(payload);
             var artifactPaths = CreateArtifactPaths(testRunRequest);
             var configuration = CreateResolvedConfiguration();
