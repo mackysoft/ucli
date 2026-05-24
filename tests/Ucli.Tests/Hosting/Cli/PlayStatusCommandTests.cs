@@ -4,7 +4,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Status;
 using MackySoft.Ucli.Application.Shared.CommandContracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Play;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 

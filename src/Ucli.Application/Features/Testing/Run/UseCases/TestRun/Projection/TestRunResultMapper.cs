@@ -1,8 +1,6 @@
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
-using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
-using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Pipeline;
 
 namespace MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Projection;
 

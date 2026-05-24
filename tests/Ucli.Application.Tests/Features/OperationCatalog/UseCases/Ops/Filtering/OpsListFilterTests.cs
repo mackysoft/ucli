@@ -1,6 +1,5 @@
 using System.Text.RegularExpressions;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
-using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Filtering;
 using MackySoft.Ucli.Contracts.Configuration;
 using static MackySoft.Ucli.Application.Tests.Helpers.OperationCatalog.OperationCatalogTestFixtures;

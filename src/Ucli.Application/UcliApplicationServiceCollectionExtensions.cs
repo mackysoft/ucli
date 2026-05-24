@@ -62,6 +62,8 @@ using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Pipeline;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Preflight;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Projection;
 using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli.Application;

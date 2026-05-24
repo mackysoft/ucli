@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Shared.Execution;
-
 namespace MackySoft.Ucli.Application.Features.Assurance.Verify.Input;
 
 /// <summary> Represents one <c>verify --from</c> input file read result. </summary>

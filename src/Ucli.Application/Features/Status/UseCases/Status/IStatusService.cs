@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Features.Status.Common.Contracts;
-
 namespace MackySoft.Ucli.Application.Features.Status.UseCases.Status;
 
 /// <summary> Executes the status command workflow and produces one normalized status result. </summary>

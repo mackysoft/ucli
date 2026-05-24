@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
-
 namespace MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun;
 
 /// <summary> Executes core test-run flow and returns normalized result payload values. </summary>

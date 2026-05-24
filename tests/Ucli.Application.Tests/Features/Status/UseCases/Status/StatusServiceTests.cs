@@ -1,7 +1,6 @@
 using System.Net.Sockets;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
-using MackySoft.Ucli.Application.Features.Status.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Observation;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Preflight;

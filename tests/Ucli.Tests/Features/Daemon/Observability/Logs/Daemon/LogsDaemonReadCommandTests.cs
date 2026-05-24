@@ -3,7 +3,6 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 

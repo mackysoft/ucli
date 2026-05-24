@@ -37,16 +37,16 @@ internal sealed class UnityUcliPluginMarkerValidator
                     $"uCLI Unity plugin marker is invalid. Path='{markerPath}'. Reason=Marker JSON is empty.");
             }
 
-            if (!string.Equals(marker.PluginId, UnityUcliPluginLocator.ExpectedPluginId, StringComparison.Ordinal))
+            if (!string.Equals(marker.PluginId, UnityUcliPluginMarkerContract.ExpectedPluginId, StringComparison.Ordinal))
             {
                 return ExecutionError.InvalidArgument(
-                    $"uCLI Unity plugin marker is invalid. Path='{markerPath}'. Reason=pluginId must be '{UnityUcliPluginLocator.ExpectedPluginId}'.");
+                    $"uCLI Unity plugin marker is invalid. Path='{markerPath}'. Reason=pluginId must be '{UnityUcliPluginMarkerContract.ExpectedPluginId}'.");
             }
 
-            if (marker.ProtocolVersion != UnityUcliPluginLocator.ExpectedProtocolVersion)
+            if (marker.ProtocolVersion != UnityUcliPluginMarkerContract.ExpectedProtocolVersion)
             {
                 return ExecutionError.InvalidArgument(
-                    $"uCLI Unity plugin marker is invalid. Path='{markerPath}'. Reason=protocolVersion must be '{UnityUcliPluginLocator.ExpectedProtocolVersion}'.");
+                    $"uCLI Unity plugin marker is invalid. Path='{markerPath}'. Reason=protocolVersion must be '{UnityUcliPluginMarkerContract.ExpectedProtocolVersion}'.");
             }
 
             return null;

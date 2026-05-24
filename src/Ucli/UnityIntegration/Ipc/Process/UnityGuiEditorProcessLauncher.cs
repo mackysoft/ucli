@@ -6,7 +6,6 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
-using MackySoft.Ucli.UnityIntegration.Project.Plugin;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Process;
 

@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
-
 namespace MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Preflight;
 
 /// <summary> Represents one preflight outcome for test-run execution. </summary>

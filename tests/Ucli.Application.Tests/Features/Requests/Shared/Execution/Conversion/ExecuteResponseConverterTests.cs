@@ -1,7 +1,6 @@
 using System.Text.Json;
 
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Requests.Shared.Execution.Conversion;

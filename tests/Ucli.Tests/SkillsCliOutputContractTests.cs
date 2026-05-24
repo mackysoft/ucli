@@ -4,7 +4,6 @@ using MackySoft.AgentSkills.Digests;
 using MackySoft.AgentSkills.Installation.Validation;
 using MackySoft.AgentSkills.Manifests;
 using MackySoft.Tests;
-using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 
 namespace MackySoft.Ucli.Tests;
 

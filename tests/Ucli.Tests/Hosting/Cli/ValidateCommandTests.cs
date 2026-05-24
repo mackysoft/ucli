@@ -3,7 +3,6 @@ using MackySoft.Ucli.Application.Features.Requests.Validate.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Validate.UseCases.Validate;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Hosting.Cli.Requests.Input;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;

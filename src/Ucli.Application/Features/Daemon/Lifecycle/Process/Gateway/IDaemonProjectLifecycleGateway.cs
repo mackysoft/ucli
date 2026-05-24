@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Gateway;

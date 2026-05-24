@@ -13,7 +13,6 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
-using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 using MackySoft.Ucli.UnityIntegration.Ipc.Failures;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;

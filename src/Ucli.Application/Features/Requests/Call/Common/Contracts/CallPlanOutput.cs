@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
-
 namespace MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 
 /// <summary> Represents the optional nested plan payload emitted by one <c>call --withPlan</c> execution. </summary>

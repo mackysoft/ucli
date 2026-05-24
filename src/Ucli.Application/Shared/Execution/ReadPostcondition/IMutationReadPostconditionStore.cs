@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
-
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 
 /// <summary> Persists fingerprint-scoped mutation read-postcondition state. </summary>

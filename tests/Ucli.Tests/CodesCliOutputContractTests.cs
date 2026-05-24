@@ -1,7 +1,6 @@
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
-using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 
 namespace MackySoft.Ucli.Tests;
 

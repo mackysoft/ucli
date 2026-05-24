@@ -1,5 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
 
 namespace MackySoft.Ucli.Features.Daemon.Common.CommandContracts;
 

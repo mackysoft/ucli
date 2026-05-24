@@ -23,6 +23,7 @@ using MackySoft.Ucli.Features.Daemon.Lifecycle.Inventory;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiEndpoint;
+using MackySoft.Ucli.Features.Daemon.Supervisor.Host;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 using Microsoft.Extensions.DependencyInjection;
 

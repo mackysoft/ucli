@@ -1,6 +1,5 @@
-using MackySoft.Ucli.Application.Features.Assurance.Verify.Catalog;
+using MackySoft.Ucli.Application.Features.Assurance.Verify.Diagnostics;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
-using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 
 namespace MackySoft.Ucli.Application.Diagnostics;
 

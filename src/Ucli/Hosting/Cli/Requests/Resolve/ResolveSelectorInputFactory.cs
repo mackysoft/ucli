@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
+using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve.Contracts;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;

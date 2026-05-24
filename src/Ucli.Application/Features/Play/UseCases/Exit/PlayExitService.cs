@@ -2,7 +2,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Play.Common;
 using MackySoft.Ucli.Application.Features.Play.Common.Projection;
 using MackySoft.Ucli.Application.Shared.CommandContracts.Projection;
-using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Play.UseCases.Exit;

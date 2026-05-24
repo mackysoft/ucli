@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Features.Daemon.Supervisor.Host;
 using MackySoft.Ucli.Hosting.Composition.Common;
 using Microsoft.Extensions.DependencyInjection;
 
