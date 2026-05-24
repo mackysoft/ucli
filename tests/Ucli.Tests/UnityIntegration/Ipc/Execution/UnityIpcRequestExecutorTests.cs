@@ -195,6 +195,66 @@ public sealed class UnityIpcRequestExecutorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task ExecuteStreaming_WhenTargetIsDaemon_SendsStreamResponseModeAndForwardsProgress ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "daemon-stream");
+        var response = CreateResponse("req-daemon-stream");
+        var daemonTransportClient = new StubUnityIpcTransportClient(
+            _ => response,
+            request => new IpcStreamFrame(
+                IpcProtocol.CurrentVersion,
+                request.RequestId,
+                IpcStreamFrameKinds.Progress,
+                "ops.progress",
+                EmptyPayload(),
+                Response: null));
+        var oneshotTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider
+        {
+            Result = DaemonSessionTokenResolutionResult.Success("daemon-token"),
+        };
+        var progressFrames = new List<UnityRequestProgressFrame>();
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
+        var executor = CreateExecutor(
+            new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(
+                    UnityExecutionMode.Auto,
+                    true,
+                    UnityExecutionTarget.Daemon,
+                    DefaultTimeout))),
+            new StubDaemonPingInfoClient(),
+            new StubUnityUcliPluginLocator(),
+            CreateClients(daemonTransportClient, oneshotTransportClient, sessionTokenProvider, launcher));
+
+        var result = await executor.ExecuteAsync(
+            UcliCommandIds.Ops,
+            UnityExecutionMode.Auto,
+            DefaultTimeout,
+            UcliConfig.CreateDefault(),
+            CreateContext(scope),
+            new UnityRequestPayload.Raw(
+                IpcMethodNames.OpsRead,
+                EmptyPayload()),
+            (frame, cancellationToken) =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                progressFrames.Add(frame);
+                return ValueTask.CompletedTask;
+            });
+
+        Assert.True(result.IsSuccess);
+        AssertUnityResponse(response, result.Response);
+        Assert.Equal(1, daemonTransportClient.CallCount);
+        Assert.Equal(IpcResponseModes.Stream, daemonTransportClient.Requests[0].ResponseMode);
+        var progressFrame = Assert.Single(progressFrames);
+        Assert.Equal("ops.progress", progressFrame.Event);
+        Assert.Equal(JsonValueKind.Object, progressFrame.Payload.ValueKind);
+        Assert.Equal(0, oneshotTransportClient.CallCount);
+        Assert.Equal(0, launcher.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenDaemonOpsReadRequiresReadinessGate_ConvertsDispatchToFailFastGate ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "daemon-ops-readiness");
@@ -729,10 +789,14 @@ public sealed class UnityIpcRequestExecutorTests
     private sealed class StubUnityIpcTransportClient : IUnityIpcTransportClient
     {
         private readonly Func<IpcRequest, IpcResponse> responseFactory;
+        private readonly Func<IpcRequest, IpcStreamFrame?>? progressFrameFactory;
 
-        public StubUnityIpcTransportClient (Func<IpcRequest, IpcResponse> responseFactory)
+        public StubUnityIpcTransportClient (
+            Func<IpcRequest, IpcResponse> responseFactory,
+            Func<IpcRequest, IpcStreamFrame?>? progressFrameFactory = null)
         {
             this.responseFactory = responseFactory;
+            this.progressFrameFactory = progressFrameFactory;
         }
 
         public int CallCount { get; private set; }
@@ -750,6 +814,22 @@ public sealed class UnityIpcRequestExecutorTests
             CallCount++;
             Requests.Add(request);
             return ValueTask.FromResult(responseFactory(request));
+        }
+
+        public async ValueTask<IpcResponse> SendStreamingAsync (
+            string storageRoot,
+            string projectFingerprint,
+            IpcRequest request,
+            TimeSpan timeout,
+            Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+            CancellationToken cancellationToken = default)
+        {
+            if (progressFrameFactory?.Invoke(request) is { } progressFrame)
+            {
+                await onProgressFrame(progressFrame, cancellationToken).ConfigureAwait(false);
+            }
+
+            return await SendAsync(storageRoot, projectFingerprint, request, timeout, cancellationToken);
         }
     }
 

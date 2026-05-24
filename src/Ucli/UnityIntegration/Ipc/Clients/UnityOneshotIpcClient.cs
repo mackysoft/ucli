@@ -120,11 +120,43 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     public UnityExecutionTarget Target => UnityExecutionTarget.Oneshot;
 
     /// <inheritdoc />
-    public async ValueTask<UnityRequestExecutionResult> SendAsync (
+    public ValueTask<UnityRequestExecutionResult> SendAsync (
         ResolvedUnityProjectContext unityProject,
         UnityIpcDispatchRequest dispatchRequest,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
+    {
+        return SendCoreAsync(
+            unityProject,
+            dispatchRequest,
+            timeout,
+            onProgressFrame: null,
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public ValueTask<UnityRequestExecutionResult> SendStreamingAsync (
+        ResolvedUnityProjectContext unityProject,
+        UnityIpcDispatchRequest dispatchRequest,
+        TimeSpan timeout,
+        Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(onProgressFrame);
+        return SendCoreAsync(
+            unityProject,
+            dispatchRequest,
+            timeout,
+            onProgressFrame,
+            cancellationToken);
+    }
+
+    private async ValueTask<UnityRequestExecutionResult> SendCoreAsync (
+        ResolvedUnityProjectContext unityProject,
+        UnityIpcDispatchRequest dispatchRequest,
+        TimeSpan timeout,
+        Func<IpcStreamFrame, CancellationToken, ValueTask>? onProgressFrame,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentException.ThrowIfNullOrWhiteSpace(unityProject.UnityProjectRoot);
@@ -211,17 +243,28 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 }
                 else
                 {
-                    var response = await transportClient.SendAsync(
+                    var request = UnityIpcRequestFactory.Create(
+                        sessionToken,
+                        dispatchRequest.Method,
+                        dispatchRequest.Payload,
+                        requestTimeout,
+                        dispatchRequest.ResponseMode);
+                    var response = onProgressFrame is null
+                        ? await transportClient.SendAsync(
                             unityProject.RepositoryRoot,
                             unityProject.ProjectFingerprint,
-                            UnityIpcRequestFactory.Create(
-                                sessionToken,
-                                dispatchRequest.Method,
-                                dispatchRequest.Payload,
-                                requestTimeout),
+                            request,
                             requestTimeout,
                             cancellationToken)
-                        .ConfigureAwait(false);
+                            .ConfigureAwait(false)
+                        : await transportClient.SendStreamingAsync(
+                            unityProject.RepositoryRoot,
+                            unityProject.ProjectFingerprint,
+                            request,
+                            requestTimeout,
+                            onProgressFrame,
+                            cancellationToken)
+                            .ConfigureAwait(false);
                     var terminalPingShutdownError = await RequestTerminalPingShutdownAsync(
                             unityProject,
                             sessionToken,

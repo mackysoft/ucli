@@ -90,6 +90,7 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
 
         var context = new TestRunExecutionContext(
             Configuration: configuration,
+            Config: configLoadResult.Config!,
             Target: modeDecisionResult.Decision!.Target,
             Timeout: timeoutResolutionResult.Timeout!.Value,
             FailFast: input.FailFast);

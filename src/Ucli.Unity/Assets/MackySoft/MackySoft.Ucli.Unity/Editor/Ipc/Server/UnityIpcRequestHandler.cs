@@ -7,7 +7,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Authorizes and dispatches Unity IPC request methods. </summary>
-    internal sealed class UnityIpcRequestHandler : IUnityIpcRequestHandler
+    internal sealed class UnityIpcRequestHandler : IUnityIpcRequestHandler, IUnityIpcStreamingRequestHandler
     {
         private readonly ISessionTokenValidator sessionTokenValidator;
         private readonly IUnityIpcMethodDispatcher methodDispatcher;
@@ -35,6 +35,28 @@ namespace MackySoft.Ucli.Unity.Ipc
         public async Task<IpcResponse> HandleAsync (
             IpcRequest request,
             CancellationToken cancellationToken = default)
+        {
+            return await HandleCoreAsync(request, streamWriter: null, cancellationToken);
+        }
+
+        /// <inheritdoc />
+        public async Task<IpcResponse> HandleStreamingAsync (
+            IpcRequest request,
+            IUnityIpcStreamFrameWriter streamWriter,
+            CancellationToken cancellationToken = default)
+        {
+            if (streamWriter == null)
+            {
+                throw new ArgumentNullException(nameof(streamWriter));
+            }
+
+            return await HandleCoreAsync(request, streamWriter, cancellationToken);
+        }
+
+        private async Task<IpcResponse> HandleCoreAsync (
+            IpcRequest request,
+            IUnityIpcStreamFrameWriter streamWriter,
+            CancellationToken cancellationToken)
         {
             if (request == null)
             {
@@ -102,6 +124,33 @@ namespace MackySoft.Ucli.Unity.Ipc
                     IpcProtocolErrorCodes.ProtocolVersionMismatch,
                     $"Protocol version mismatch. Requested={request.ProtocolVersion}, Supported={IpcProtocol.CurrentVersion}.",
                     null);
+            }
+
+            if (!IpcResponseModes.IsDefined(request.ResponseMode))
+            {
+                daemonLogger.Warning(
+                    DaemonLogCategories.Ipc,
+                    $"Unsupported IPC response mode. responseMode={request.ResponseMode}.",
+                    $"requestId={request.RequestId}, method={request.Method}");
+                return UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    UcliCoreErrorCodes.InvalidArgument,
+                    $"Unsupported IPC response mode: {request.ResponseMode}.",
+                    null);
+            }
+
+            if (streamWriter != null)
+            {
+                if (methodDispatcher is not IUnityIpcStreamingMethodDispatcher streamingMethodDispatcher)
+                {
+                    return UnityIpcResponseFactory.CreateErrorResponse(
+                        request,
+                        UcliCoreErrorCodes.InternalError,
+                        "Streaming IPC method dispatcher is not registered.",
+                        null);
+                }
+
+                return await streamingMethodDispatcher.DispatchStreamingAsync(request, streamWriter, cancellationToken);
             }
 
             return await methodDispatcher.DispatchAsync(request, cancellationToken);

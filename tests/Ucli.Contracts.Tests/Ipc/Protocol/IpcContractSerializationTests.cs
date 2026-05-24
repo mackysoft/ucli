@@ -43,6 +43,7 @@ public sealed class IpcContractSerializationTests
             .HasString("requestId", "req-1")
             .HasString("sessionToken", "token")
             .HasString("method", "execute")
+            .HasString("responseMode", IpcResponseModes.Single)
             .HasValueKind("payload", JsonValueKind.Object);
     }
 

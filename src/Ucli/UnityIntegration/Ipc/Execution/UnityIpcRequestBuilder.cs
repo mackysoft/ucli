@@ -35,6 +35,18 @@ internal sealed class UnityIpcRequestBuilder
                 IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(compile.RunId)),
                 CompileAllowedStartupLifecycleStates,
                 isRecoverable: true),
+            UnityRequestPayload.TestRun testRun => new UnityIpcDispatchRequest(
+                IpcMethodNames.TestRun,
+                IpcPayloadCodec.SerializeToElement(new IpcTestRunRequest(
+                    TestPlatform: testRun.TestPlatform,
+                    TestFilter: testRun.TestFilter,
+                    TestCategories: testRun.TestCategories,
+                    AssemblyNames: testRun.AssemblyNames,
+                    TestSettingsPath: testRun.TestSettingsPath,
+                    ResultsXmlPath: testRun.ResultsXmlPath,
+                    EditorLogPath: testRun.EditorLogPath,
+                    FailFast: testRun.FailFast,
+                    RunId: testRun.RunId))),
             UnityRequestPayload.PlayStatus => new UnityIpcDispatchRequest(
                 IpcMethodNames.PlayStatus,
                 IpcPayloadCodec.SerializeToElement(new IpcPlayStatusRequest())),

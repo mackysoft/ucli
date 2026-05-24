@@ -170,6 +170,32 @@ public sealed class UnityDaemonIpcClientTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task SendStreamingAsync_WhenDispatchIsRecoverable_ReturnsFailureWithoutCallingTransport ()
+    {
+        var transportClient = new StubUnityIpcTransportClient();
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
+            DaemonSessionTokenResolutionResult.Success("daemon-token"));
+        var client = new UnityDaemonIpcClient(transportClient, sessionTokenProvider);
+
+        var result = await client.SendStreamingAsync(
+            CreateContext(),
+            new UnityIpcDispatchRequest(
+                IpcMethodNames.PlayEnter,
+                CreateDispatchPayload(),
+                isRecoverable: true,
+                responseMode: IpcResponseModes.Stream),
+            TimeSpan.FromSeconds(30),
+            (_, _) => ValueTask.CompletedTask,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(0, sessionTokenProvider.CallCount);
+        Assert.Equal(0, transportClient.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task SendAsync_WhenRecoverableSessionTokenIsTemporarilyUnavailableDuringRecovery_WaitsAndSendsRecoveredSessionToken ()
     {
         var timeProvider = new ManualTimeProvider();
@@ -333,6 +359,17 @@ public sealed class UnityDaemonIpcClientTests
             }
 
             return ValueTask.FromResult(QueuedResponses.Count == 0 ? Response : QueuedResponses.Dequeue());
+        }
+
+        public async ValueTask<IpcResponse> SendStreamingAsync (
+            string storageRoot,
+            string projectFingerprint,
+            IpcRequest request,
+            TimeSpan timeout,
+            Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+            CancellationToken cancellationToken = default)
+        {
+            return await SendAsync(storageRoot, projectFingerprint, request, timeout, cancellationToken);
         }
     }
 

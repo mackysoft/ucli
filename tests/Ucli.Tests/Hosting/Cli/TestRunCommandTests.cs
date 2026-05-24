@@ -1,4 +1,6 @@
+using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Testing.Run.Progress;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -144,11 +146,243 @@ public sealed class TestRunCommandTests
                 .IsNull("summaryJsonPath"));
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Run_WithStreamJson_WritesProgressEntriesToStandardErrorAndFinalResultToStandardOutput ()
+    {
+        var artifactsDir = Path.Combine(Path.GetTempPath(), "ucli-test-run-artifacts");
+        var summaryJsonPath = Path.Combine(artifactsDir, "summary.json");
+        var service = new StubTestRunService(async (_, progressSink, cancellationToken) =>
+        {
+            Assert.NotNull(progressSink);
+            await progressSink!.OnEntryAsync(
+                TestRunProgressEventNames.RunStarted,
+                new TestRunStartedEntry(
+                    "run-id",
+                    "editmode",
+                    "Name~Smoke",
+                    ["MyGame.Tests"],
+                    ["smoke"]),
+                cancellationToken);
+            await progressSink.OnEntryAsync(
+                TestRunProgressEventNames.CaseFinished,
+                new TestCaseFinishedEntry(
+                    "run-id",
+                    "test-id",
+                    "SmokeTest.Passes",
+                    "MyGame.Tests",
+                    "editmode",
+                    ["smoke"],
+                    "pass",
+                    42,
+                    null,
+                    null),
+                cancellationToken);
+            return TestRunServiceResult.Pass(
+                message: "Unity test execution completed.",
+                runId: "run-id",
+                artifactsDir: artifactsDir,
+                summaryJsonPath: summaryJsonPath);
+        });
+        var command = new TestRunCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.RunAsync(
+            stream: true,
+            format: "json",
+            testFilter: "Name~Smoke",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.TestRun,
+            IpcProtocol.StatusOk,
+            (int)CliExitCode.Success);
+        var lines = standardError.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(2, lines.Length);
+        using var startedEntry = JsonDocument.Parse(lines[0]);
+        using var finishedEntry = JsonDocument.Parse(lines[1]);
+        AssertTestStreamEnvelope(startedEntry.RootElement, sequence: 1, TestRunProgressEventNames.RunStarted);
+        AssertTestStreamEnvelope(finishedEntry.RootElement, sequence: 2, TestRunProgressEventNames.CaseFinished);
+        Assert.Equal("run-id", startedEntry.RootElement.GetProperty("payload").GetProperty("runId").GetString());
+        Assert.Equal("SmokeTest.Passes", finishedEntry.RootElement.GetProperty("payload").GetProperty("testName").GetString());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Run_WithStreamDefaultFormat_WritesTextProgressToStandardError ()
+    {
+        var service = new StubTestRunService(async (_, progressSink, cancellationToken) =>
+        {
+            Assert.NotNull(progressSink);
+            await progressSink!.OnEntryAsync(
+                TestRunProgressEventNames.RunDiagnostic,
+                new TestRunDiagnosticEntry(
+                    "run-id",
+                    "TEST_PROGRESS_STUB",
+                    "line 1\nline 2",
+                    "info"),
+                cancellationToken);
+            return TestRunServiceResult.Pass(
+                message: "Unity test execution completed.",
+                runId: "run-id",
+                artifactsDir: "/tmp/ucli-test-run-artifacts",
+                summaryJsonPath: "/tmp/ucli-test-run-artifacts/summary.json");
+        });
+        var command = new TestRunCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.RunAsync(
+            stream: true,
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.TestRun,
+            IpcProtocol.StatusOk,
+            (int)CliExitCode.Success);
+        Assert.Equal(
+            "test run diagnostic severity=info code=TEST_PROGRESS_STUB message=line 1\\nline 2" + Environment.NewLine,
+            standardError);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Run_WithStreamTextFormat_WritesTextProgressToStandardError ()
+    {
+        var service = new StubTestRunService(async (_, progressSink, cancellationToken) =>
+        {
+            Assert.NotNull(progressSink);
+            await progressSink!.OnEntryAsync(
+                TestRunProgressEventNames.CaseStarted,
+                new TestCaseStartedEntry(
+                    "run-id",
+                    "test-id",
+                    "SmokeTest.Passes",
+                    "MyGame.Tests",
+                    "editmode",
+                    ["smoke"]),
+                cancellationToken);
+            return TestRunServiceResult.Pass(
+                message: "Unity test execution completed.",
+                runId: "run-id",
+                artifactsDir: "/tmp/ucli-test-run-artifacts",
+                summaryJsonPath: "/tmp/ucli-test-run-artifacts/summary.json");
+        });
+        var command = new TestRunCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.RunAsync(
+            stream: true,
+            format: "text",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.TestRun,
+            IpcProtocol.StatusOk,
+            (int)CliExitCode.Success);
+        Assert.Equal(
+            "test case started name=SmokeTest.Passes id=test-id assembly=MyGame.Tests" + Environment.NewLine,
+            standardError);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Run_WithFormatWithoutStream_ReturnsInvalidArgumentWithoutCallingService ()
+    {
+        var service = new StubTestRunService((_, _) => throw new InvalidOperationException("Service should not be called."));
+        var command = new TestRunCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.RunAsync(
+            format: "json",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
+        Assert.Equal(string.Empty, standardError);
+        Assert.Null(service.CapturedInput);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.TestRun,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Run_WithUnsupportedStreamFormat_ReturnsInvalidArgumentWithoutCallingService ()
+    {
+        var service = new StubTestRunService((_, _) => throw new InvalidOperationException("Service should not be called."));
+        var command = new TestRunCommand(service, CommandResultTestWriter.Create());
+
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.RunAsync(
+            stream: true,
+            format: "yaml",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
+        Assert.Equal(string.Empty, standardError);
+        Assert.Null(service.CapturedInput);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.TestRun,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UcliCoreErrorCodes.InvalidArgument);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Run_WhenCancellationIsRequested_WritesTestRunCommandResult ()
+    {
+        var service = new StubTestRunService((_, _) => throw new InvalidOperationException("Service should not be called."));
+        var command = new TestRunCommand(service, CommandResultTestWriter.Create());
+        using var cancellationTokenSource = new CancellationTokenSource();
+        await cancellationTokenSource.CancelAsync();
+
+        var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.RunAsync(
+            cancellationToken: cancellationTokenSource.Token));
+
+        Assert.Equal((int)CliExitCode.ToolError, exitCode);
+        Assert.Equal(string.Empty, standardError);
+        Assert.Null(service.CapturedInput);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.TestRun,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.ToolError);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, ExecutionErrorCodes.Canceled);
+    }
+
+    private static void AssertTestStreamEnvelope (
+        JsonElement root,
+        int sequence,
+        string eventName)
+    {
+        Assert.Equal(1, root.GetProperty("protocolVersion").GetInt32());
+        Assert.Equal(UcliCommandNames.TestRun, root.GetProperty("command").GetString());
+        Assert.Equal(sequence, root.GetProperty("sequence").GetInt32());
+        Assert.Equal(eventName, root.GetProperty("event").GetString());
+        Assert.Equal(JsonValueKind.Object, root.GetProperty("payload").ValueKind);
+    }
+
     private sealed class StubTestRunService : ITestRunService
     {
-        private readonly Func<TestRunCommandInput, CancellationToken, ValueTask<TestRunServiceResult>> handler;
+        private readonly Func<TestRunCommandInput, ITestRunProgressSink?, CancellationToken, ValueTask<TestRunServiceResult>> handler;
 
         public StubTestRunService (Func<TestRunCommandInput, CancellationToken, ValueTask<TestRunServiceResult>> handler)
+            : this((input, _, cancellationToken) => handler(input, cancellationToken))
+        {
+        }
+
+        public StubTestRunService (Func<TestRunCommandInput, ITestRunProgressSink?, CancellationToken, ValueTask<TestRunServiceResult>> handler)
         {
             this.handler = handler ?? throw new ArgumentNullException(nameof(handler));
         }
@@ -159,11 +393,12 @@ public sealed class TestRunCommandTests
 
         public ValueTask<TestRunServiceResult> ExecuteAsync (
             TestRunCommandInput input,
+            ITestRunProgressSink? progressSink = null,
             CancellationToken cancellationToken = default)
         {
             CapturedInput = input;
             CapturedCancellationToken = cancellationToken;
-            return handler(input, cancellationToken);
+            return handler(input, progressSink, cancellationToken);
         }
     }
 }

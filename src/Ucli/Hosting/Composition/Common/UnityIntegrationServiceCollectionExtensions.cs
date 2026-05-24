@@ -76,7 +76,9 @@ internal static class UnityIntegrationServiceCollectionExtensions
         services.AddSingleton<UnityIpcExecutionTargetResolver>();
         services.AddSingleton<UnityIpcClientSelector>();
         services.AddSingleton<UnityDaemonReadinessGate>();
-        services.AddSingleton<IUnityRequestExecutor, UnityIpcRequestExecutor>();
+        services.AddSingleton<UnityIpcRequestExecutor>();
+        services.AddSingleton<IUnityRequestExecutor>(serviceProvider => serviceProvider.GetRequiredService<UnityIpcRequestExecutor>());
+        services.AddSingleton<IUnityStreamingRequestExecutor>(serviceProvider => serviceProvider.GetRequiredService<UnityIpcRequestExecutor>());
         return services;
     }
 }

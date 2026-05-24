@@ -7,7 +7,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Handles <c>test.run</c> IPC method requests. </summary>
-    internal sealed class TestRunUnityIpcMethodHandler : IUnityIpcMethodHandler
+    internal sealed class TestRunUnityIpcMethodHandler : IStreamingUnityIpcMethodHandler
     {
         private readonly IUnityTestRunService testRunService;
 
@@ -26,6 +26,31 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcRequest request,
             CancellationToken cancellationToken)
         {
+            return await HandleCoreAsync(request, progressSink: null, cancellationToken);
+        }
+
+        /// <inheritdoc />
+        public async ValueTask<IpcResponse> HandleStreamingAsync (
+            IpcRequest request,
+            IUnityIpcStreamFrameWriter streamWriter,
+            CancellationToken cancellationToken)
+        {
+            if (streamWriter == null)
+            {
+                throw new ArgumentNullException(nameof(streamWriter));
+            }
+
+            return await HandleCoreAsync(
+                request,
+                new UnityIpcTestRunProgressSink(streamWriter, cancellationToken),
+                cancellationToken);
+        }
+
+        private async ValueTask<IpcResponse> HandleCoreAsync (
+            IpcRequest request,
+            IUnityTestRunProgressSink progressSink,
+            CancellationToken cancellationToken)
+        {
             cancellationToken.ThrowIfCancellationRequested();
             if (request == null)
             {
@@ -40,20 +65,27 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return errorResponse!;
             }
 
+            IpcResponse response;
             try
             {
-                var result = await testRunService.ExecuteAsync(testRunRequest!, cancellationToken);
+                var result = await testRunService.ExecuteAsync(
+                    testRunRequest!,
+                    progressSink,
+                    cancellationToken);
+
                 if (!result.IsSuccess)
                 {
                     var error = result.Error!;
-                    return UnityIpcResponseFactory.CreateErrorResponse(
+                    response = UnityIpcResponseFactory.CreateErrorResponse(
                         request,
                         error.Code,
                         error.Message,
                         error.OpId);
+                    return await FlushAndReturnAsync(response, progressSink, cancellationToken);
                 }
 
-                return UnityIpcResponseFactory.CreateSuccessResponse(request, result.Payload!);
+                response = UnityIpcResponseFactory.CreateSuccessResponse(request, result.Payload!);
+                return await FlushAndReturnAsync(response, progressSink, cancellationToken);
             }
             catch (OperationCanceledException)
             {
@@ -61,20 +93,35 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
             catch (ArgumentException exception)
             {
-                return UnityIpcResponseFactory.CreateErrorResponse(
+                response = UnityIpcResponseFactory.CreateErrorResponse(
                     request,
                     UcliCoreErrorCodes.InvalidArgument,
                     exception.Message,
                     null);
+                return await FlushAndReturnAsync(response, progressSink, cancellationToken);
             }
             catch (Exception exception)
             {
-                return UnityIpcResponseFactory.CreateErrorResponse(
+                response = UnityIpcResponseFactory.CreateErrorResponse(
                     request,
                     UcliCoreErrorCodes.InternalError,
                     $"Unity test run failed. {exception.Message}",
                     null);
+                return await FlushAndReturnAsync(response, progressSink, cancellationToken);
             }
+        }
+
+        private static async ValueTask<IpcResponse> FlushAndReturnAsync (
+            IpcResponse response,
+            IUnityTestRunProgressSink progressSink,
+            CancellationToken cancellationToken)
+        {
+            if (progressSink != null)
+            {
+                await progressSink.FlushAsync(cancellationToken);
+            }
+
+            return response;
         }
     }
 }

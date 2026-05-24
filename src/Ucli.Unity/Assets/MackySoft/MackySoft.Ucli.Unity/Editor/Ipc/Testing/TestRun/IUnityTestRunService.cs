@@ -9,10 +9,12 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         /// <summary> Executes one daemon <c>test.run</c> request and returns IPC response payload. </summary>
         /// <param name="request"> The decoded request payload. </param>
+        /// <param name="progressSink"> The optional sink that receives live test progress entries. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by caller. </param>
         /// <returns> The response payload. </returns>
         Task<UnityTestRunServiceResult> ExecuteAsync (
             IpcTestRunRequest request,
+            IUnityTestRunProgressSink progressSink = null,
             CancellationToken cancellationToken = default);
     }
 }

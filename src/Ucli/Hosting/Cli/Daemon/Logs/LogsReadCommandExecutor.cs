@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 
 namespace MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 
@@ -22,13 +23,16 @@ internal static class LogsReadCommandExecutor
         string? format,
         ICommandResultWriter commandResultWriter,
         Func<Func<TLogEvent, string, CancellationToken, ValueTask>, CancellationToken, ValueTask<LogsReadServiceResult>> executeAsync,
-        Action<string, TLogEvent, string> writeLogEvent,
+        Func<CliStreamEntryWriter, string, TLogEvent, string, string> writeLogEvent,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
         ArgumentNullException.ThrowIfNull(commandResultWriter);
         ArgumentNullException.ThrowIfNull(executeAsync);
         ArgumentNullException.ThrowIfNull(writeLogEvent);
+
+        var emittedCount = 0;
+        string? latestNextCursor = null;
 
         try
         {
@@ -37,35 +41,47 @@ internal static class LogsReadCommandExecutor
 
             if (!LogsOutputFormatCodec.TryParse(format, out var outputFormat, out var formatErrorMessage))
             {
-                var invalidFormatResult = CommandResultFactory.FromExecutionError(
+                var invalidFormatResult = LogsReadCommandResultFactory.Create(
                     commandName,
-                    ExecutionError.InvalidArgument(formatErrorMessage!));
+                    LogsReadServiceResult.Failure(ExecutionError.InvalidArgument(formatErrorMessage!)));
                 commandResultWriter.WriteToStandardOutput(invalidFormatResult);
                 return invalidFormatResult.ExitCode;
             }
 
             var normalizedOutputFormat = outputFormat!;
+            var entryWriter = new CliStreamEntryWriter(commandName);
             var serviceResult = await executeAsync(
                     (logEvent, nextCursor, callbackCancellationToken) =>
                     {
                         callbackCancellationToken.ThrowIfCancellationRequested();
-                        writeLogEvent(normalizedOutputFormat, logEvent, nextCursor);
+                        var confirmedCursor = writeLogEvent(entryWriter, normalizedOutputFormat, logEvent, nextCursor);
+                        emittedCount++;
+                        latestNextCursor = confirmedCursor;
                         return ValueTask.CompletedTask;
                     },
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (!serviceResult.IsSuccess)
-            {
-                var commandResult = CommandResultFactory.FromExecutionError(commandName, serviceResult.Error!);
-                commandResultWriter.WriteToStandardOutput(commandResult);
-                return commandResult.ExitCode;
-            }
 
-            return (int)CliExitCode.Success;
+            var commandResult = LogsReadCommandResultFactory.Create(commandName, serviceResult);
+            commandResultWriter.WriteToStandardOutput(commandResult);
+            return commandResult.ExitCode;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return (int)CliExitCode.Success;
+            var commandResult = LogsReadCommandResultFactory.Create(commandName, LogsReadServiceResult.Canceled());
+            commandResultWriter.WriteToStandardOutput(commandResult);
+            return commandResult.ExitCode;
+        }
+        catch (Exception exception)
+        {
+            var commandResult = LogsReadCommandResultFactory.Create(
+                commandName,
+                LogsReadServiceResult.Failure(
+                    ExecutionError.InternalError($"Unexpected error during log read execution: {exception.Message}"),
+                    emittedCount,
+                    latestNextCursor));
+            commandResultWriter.WriteToStandardOutput(commandResult);
+            return commandResult.ExitCode;
         }
     }
 }

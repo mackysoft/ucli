@@ -1,22 +1,16 @@
-using System.Text.Json;
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 
 namespace MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 
 /// <summary> Provides the logs unity read CLI command entry point. </summary>
 internal sealed class LogsUnityReadCommand
 {
-    private static readonly JsonSerializerOptions JsonLineSerializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = false,
-    };
-
     private readonly ILogsUnityService logsUnityService;
 
     private readonly ICommandResultWriter commandResultWriter;
@@ -99,14 +93,16 @@ internal sealed class LogsUnityReadCommand
             .ConfigureAwait(false);
     }
 
-    private static void WriteLogEvent (
+    private static string WriteLogEvent (
+        CliStreamEntryWriter entryWriter,
         string format,
         IpcUnityLogEvent unityLogEvent,
         string nextCursor)
     {
         if (string.Equals(format, LogsOutputFormatCodec.Json, StringComparison.Ordinal))
         {
-            var jsonLine = JsonSerializer.Serialize(
+            entryWriter.WriteJsonEntry(
+                "logs.unity.entry",
                 new JsonLinePayload(
                     Timestamp: unityLogEvent.Timestamp,
                     Level: unityLogEvent.Level,
@@ -114,10 +110,8 @@ internal sealed class LogsUnityReadCommand
                     Message: unityLogEvent.Message,
                     StackTrace: unityLogEvent.StackTrace,
                     Cursor: unityLogEvent.Cursor,
-                    NextCursor: nextCursor),
-                JsonLineSerializerOptions);
-            Console.Out.WriteLine(jsonLine);
-            return;
+                    NextCursor: nextCursor));
+            return unityLogEvent.Cursor;
         }
 
         var line = string.Concat(
@@ -130,14 +124,15 @@ internal sealed class LogsUnityReadCommand
             LogsTextUtilities.NormalizeSingleLine(unityLogEvent.Message));
         if (string.IsNullOrWhiteSpace(unityLogEvent.StackTrace))
         {
-            Console.Out.WriteLine(line);
-            return;
+            entryWriter.WriteTextEntry(line);
+            return unityLogEvent.Cursor;
         }
 
-        Console.Out.WriteLine(string.Concat(
+        entryWriter.WriteTextEntry(string.Concat(
             line,
             " | ",
             LogsTextUtilities.NormalizeSingleLine(unityLogEvent.StackTrace)));
+        return unityLogEvent.Cursor;
     }
 
     /// <summary> Represents one NDJSON output line for Unity log events. </summary>

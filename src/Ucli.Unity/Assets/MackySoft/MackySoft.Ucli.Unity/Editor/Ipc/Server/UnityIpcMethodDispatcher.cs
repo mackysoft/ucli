@@ -8,7 +8,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Implements method-based dispatch for authorized Unity IPC requests. </summary>
-    internal sealed class UnityIpcMethodDispatcher : IUnityIpcMethodDispatcher
+    internal sealed class UnityIpcMethodDispatcher : IUnityIpcMethodDispatcher, IUnityIpcStreamingMethodDispatcher
     {
         private readonly IReadOnlyDictionary<string, IUnityIpcMethodHandler> methodHandlers;
 
@@ -83,6 +83,60 @@ namespace MackySoft.Ucli.Unity.Ipc
                     request,
                     UcliCoreErrorCodes.InternalError,
                     $"Unexpected error occurred while handling IPC request. {exception.Message}",
+                    null);
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<IpcResponse> DispatchStreamingAsync (
+            IpcRequest request,
+            IUnityIpcStreamFrameWriter streamWriter,
+            CancellationToken cancellationToken = default)
+        {
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
+            if (streamWriter == null)
+            {
+                throw new ArgumentNullException(nameof(streamWriter));
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                if (!methodHandlers.TryGetValue(request.Method, out var methodHandler))
+                {
+                    return UnityIpcResponseFactory.CreateErrorResponse(
+                        request,
+                        IpcProtocolErrorCodes.IpcMethodNotSupported,
+                        $"IPC method is not supported: {request.Method}.",
+                        null);
+                }
+
+                if (methodHandler is not IStreamingUnityIpcMethodHandler streamingMethodHandler)
+                {
+                    return UnityIpcResponseFactory.CreateErrorResponse(
+                        request,
+                        IpcProtocolErrorCodes.IpcMethodNotSupported,
+                        $"IPC method does not support streaming: {request.Method}.",
+                        null);
+                }
+
+                return await streamingMethodHandler.HandleStreamingAsync(request, streamWriter, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                return UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    UcliCoreErrorCodes.InternalError,
+                    $"Unexpected error occurred while handling streaming IPC request. {exception.Message}",
                     null);
             }
         }

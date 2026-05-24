@@ -30,4 +30,35 @@ internal static class StandardOutputCapture
             CaptureLock.Release();
         }
     }
+
+    /// <summary> Executes one asynchronous action while redirecting standard output and standard error to in-memory writers. </summary>
+    /// <param name="action"> The asynchronous action that writes to standard output or standard error. </param>
+    /// <returns> The action exit code together with captured standard-output and standard-error text. </returns>
+    internal static async Task<(int ExitCode, string StandardOutput, string StandardError)> ExecuteWithErrorAsync (
+        Func<Task<int>> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+
+        await CaptureLock.WaitAsync();
+        var originalOutput = Console.Out;
+        var originalError = Console.Error;
+
+        try
+        {
+            using var outputWriter = new StringWriter();
+            using var errorWriter = new StringWriter();
+            Console.SetOut(outputWriter);
+            Console.SetError(errorWriter);
+            var exitCode = await action();
+            await outputWriter.FlushAsync();
+            await errorWriter.FlushAsync();
+            return (exitCode, outputWriter.ToString(), errorWriter.ToString());
+        }
+        finally
+        {
+            Console.SetOut(originalOutput);
+            Console.SetError(originalError);
+            CaptureLock.Release();
+        }
+    }
 }

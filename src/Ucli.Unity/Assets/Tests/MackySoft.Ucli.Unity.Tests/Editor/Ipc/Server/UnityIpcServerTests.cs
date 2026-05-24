@@ -797,7 +797,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     TestSettingsPath: null,
                     ResultsXmlPath: "/tmp/results.xml",
                     EditorLogPath: "/tmp/editor.log",
-                    FailFast: failFast),
+                    FailFast: failFast,
+                    RunId: "run-id"),
                 SerializerOptions);
             return new IpcRequest(
                 ProtocolVersion: IpcProtocol.CurrentVersion,
@@ -1195,6 +1196,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public Task<UnityTestRunServiceResult> ExecuteAsync (
                 IpcTestRunRequest request,
+                IUnityTestRunProgressSink progressSink = null,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();

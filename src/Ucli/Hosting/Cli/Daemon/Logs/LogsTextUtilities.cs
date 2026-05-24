@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
+
 namespace MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 
 /// <summary> Provides text-output helpers shared by logs commands. </summary>
@@ -8,13 +10,6 @@ internal static class LogsTextUtilities
     /// <returns> Single-line normalized text. </returns>
     public static string NormalizeSingleLine (string? value)
     {
-        if (string.IsNullOrEmpty(value))
-        {
-            return string.Empty;
-        }
-
-        return value
-            .Replace('\r', ' ')
-            .Replace('\n', ' ');
+        return CliTextEntrySanitizer.Sanitize(value);
     }
 }

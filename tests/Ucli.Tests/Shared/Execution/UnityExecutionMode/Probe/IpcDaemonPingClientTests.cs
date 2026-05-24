@@ -380,6 +380,17 @@ public sealed class IpcDaemonPingClientTests
 
             return ValueTask.FromResult(responseFactory(request));
         }
+
+        public async ValueTask<IpcResponse> SendStreamingAsync (
+            string storageRoot,
+            string projectFingerprint,
+            IpcRequest request,
+            TimeSpan timeout,
+            Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+            CancellationToken cancellationToken = default)
+        {
+            return await SendAsync(storageRoot, projectFingerprint, request, timeout, cancellationToken);
+        }
     }
 
     private sealed class StubDaemonSessionTokenProvider : IDaemonSessionTokenProvider

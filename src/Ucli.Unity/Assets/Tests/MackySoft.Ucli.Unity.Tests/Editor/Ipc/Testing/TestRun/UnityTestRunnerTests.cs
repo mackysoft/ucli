@@ -14,6 +14,8 @@ namespace MackySoft.Ucli.Unity.Tests
         public void CreateExecutionSettings_WhenEditModeRequest_DoesNotEnableSynchronousRun ()
         {
             var requestContext = new UnityTestRunRequestContext(
+                RunId: "run-id",
+                TestPlatform: "editmode",
                 TestMode: TestMode.EditMode,
                 TargetPlatform: null,
                 TestFilter: "^MackySoft\\.Ucli\\.Unity\\.Tests\\.ExecuteRequestIdempotencyCoordinatorTests$",
@@ -38,6 +40,8 @@ namespace MackySoft.Ucli.Unity.Tests
         public void CreateExecutionSettings_WhenPlayerTargetRequest_SetsTargetPlatform ()
         {
             var requestContext = new UnityTestRunRequestContext(
+                RunId: "run-id",
+                TestPlatform: "Android",
                 TestMode: TestMode.PlayMode,
                 TargetPlatform: BuildTarget.Android,
                 TestFilter: null,
@@ -69,7 +73,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 TestSettingsPath: null,
                 ResultsXmlPath: "results.xml",
                 EditorLogPath: "editor.log",
-                FailFast: false);
+                FailFast: false,
+                RunId: "run-id");
 
             var context = factory.Create(request);
 

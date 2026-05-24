@@ -1,6 +1,8 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Testing;
 using UnityEditor.TestTools.TestRunner.Api;
 using UnityEngine;
 
@@ -11,11 +13,13 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         /// <summary> Executes one Unity Test Framework run and returns the result adaptor. </summary>
         /// <param name="requestContext"> The normalized test-run request context. </param>
+        /// <param name="progressSink"> The optional sink that receives live test progress entries. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by caller. </param>
         /// <returns> The completed test result adaptor. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestContext" /> is <see langword="null" />. </exception>
         public async Task<ITestResultAdaptor> RunAsync (
             UnityTestRunRequestContext requestContext,
+            IUnityTestRunProgressSink progressSink = null,
             CancellationToken cancellationToken = default)
         {
             if (requestContext == null)
@@ -26,7 +30,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             cancellationToken.ThrowIfCancellationRequested();
 
             var executionSettings = CreateExecutionSettings(requestContext);
-            var callbacks = new TestRunCallbacks();
+            var callbacks = new TestRunCallbacks(requestContext, progressSink);
             var testRunnerApi = ScriptableObject.CreateInstance<TestRunnerApi>();
             var cancellationRegistration = default(CancellationTokenRegistration);
             try
@@ -125,8 +129,20 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Receives Unity Test Framework callbacks and exposes completion task. </summary>
         private sealed class TestRunCallbacks : ICallbacks
         {
+            private readonly UnityTestRunRequestContext requestContext;
+            private readonly IUnityTestRunProgressSink progressSink;
+
             private readonly TaskCompletionSource<ITestResultAdaptor> completionSource =
                 new TaskCompletionSource<ITestResultAdaptor>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            /// <summary> Initializes a new instance of the <see cref="TestRunCallbacks" /> class. </summary>
+            public TestRunCallbacks (
+                UnityTestRunRequestContext requestContext,
+                IUnityTestRunProgressSink progressSink)
+            {
+                this.requestContext = requestContext ?? throw new ArgumentNullException(nameof(requestContext));
+                this.progressSink = progressSink;
+            }
 
             /// <summary> Waits for run completion and supports cancellation token. </summary>
             /// <param name="cancellationToken"> The cancellation token propagated by caller. </param>
@@ -172,12 +188,76 @@ namespace MackySoft.Ucli.Unity.Ipc
             /// <param name="test"> The started test node. </param>
             public void TestStarted (ITestAdaptor test)
             {
+                if (!ShouldPublish(test))
+                {
+                    return;
+                }
+
+                progressSink.Publish(
+                    TestRunProgressEventNames.CaseStarted,
+                    CreateStartedEntry(requestContext, test));
             }
 
             /// <summary> Handles test-finished callback. </summary>
             /// <param name="result"> The finished test node result. </param>
             public void TestFinished (ITestResultAdaptor result)
             {
+                if (result == null || !ShouldPublish(result.Test))
+                {
+                    return;
+                }
+
+                var test = result.Test;
+                progressSink.Publish(
+                    TestRunProgressEventNames.CaseFinished,
+                    new TestCaseFinishedEntry(
+                        requestContext.RunId,
+                        test.Id,
+                        test.Name,
+                        AssemblyName: null,
+                        requestContext.TestPlatform,
+                        NormalizeCategories(test.Categories),
+                        NormalizeResult(result.TestStatus),
+                        checked((long)Math.Round(result.Duration * 1000d)),
+                        string.IsNullOrWhiteSpace(result.Message) ? null : result.Message,
+                        string.IsNullOrWhiteSpace(result.StackTrace) ? null : result.StackTrace));
+            }
+
+            private static TestCaseStartedEntry CreateStartedEntry (
+                UnityTestRunRequestContext requestContext,
+                ITestAdaptor test)
+            {
+                return new TestCaseStartedEntry(
+                    requestContext.RunId,
+                    test.Id,
+                    test.Name,
+                    AssemblyName: null,
+                    requestContext.TestPlatform,
+                    NormalizeCategories(test.Categories));
+            }
+
+            private bool ShouldPublish (ITestAdaptor test)
+            {
+                return progressSink != null
+                    && test != null
+                    && !test.IsSuite;
+            }
+
+            private static string[] NormalizeCategories (System.Collections.Generic.IEnumerable<string> categories)
+            {
+                return categories == null ? Array.Empty<string>() : categories.ToArray();
+            }
+
+            private static string NormalizeResult (TestStatus status)
+            {
+                return status switch
+                {
+                    TestStatus.Passed => "pass",
+                    TestStatus.Failed => "fail",
+                    TestStatus.Skipped => "skipped",
+                    TestStatus.Inconclusive => "inconclusive",
+                    _ => "inconclusive",
+                };
             }
         }
     }

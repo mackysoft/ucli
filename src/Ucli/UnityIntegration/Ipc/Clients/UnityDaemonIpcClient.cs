@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Failures;
 using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
@@ -100,8 +101,116 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                             dispatchRequest.Method,
                             dispatchRequest.Payload,
                             requestId,
-                            remainingTimeout),
+                            remainingTimeout,
+                            dispatchRequest.ResponseMode),
                         attemptTimeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                return UnityRequestExecutionResult.Success(UnityRequestResponseFactory.Create(response));
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                if (dispatchRequest.IsRecoverable
+                    && await ShouldRetryRecoverableDispatchAsync(unityProject, deadline, exception, cancellationToken).ConfigureAwait(false))
+                {
+                    continue;
+                }
+
+                return UnityRequestExecutionResult.Failure(
+                    UnityIpcFailureClassifier.FromDaemonDispatchException(exception, remainingTimeout));
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<UnityRequestExecutionResult> SendStreamingAsync (
+        ResolvedUnityProjectContext unityProject,
+        UnityIpcDispatchRequest dispatchRequest,
+        TimeSpan timeout,
+        Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(onProgressFrame);
+        ArgumentNullException.ThrowIfNull(dispatchRequest);
+        if (dispatchRequest.IsRecoverable)
+        {
+            return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.InternalError(
+                $"Streaming IPC dispatch does not support recoverable request replay: {dispatchRequest.Method}."));
+        }
+
+        return await SendCoreAsync(
+                unityProject,
+                dispatchRequest,
+                timeout,
+                onProgressFrame,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async ValueTask<UnityRequestExecutionResult> SendCoreAsync (
+        ResolvedUnityProjectContext unityProject,
+        UnityIpcDispatchRequest dispatchRequest,
+        TimeSpan timeout,
+        Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(dispatchRequest);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
+        var requestId = UnityIpcRequestFactory.CreateRequestId(dispatchRequest.Method);
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
+            {
+                return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.Timeout(
+                    $"Unity daemon IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds."));
+            }
+
+            var sessionTokenResult = await daemonSessionTokenProvider.ResolveAsync(unityProject, cancellationToken).ConfigureAwait(false);
+            if (!sessionTokenResult.IsSuccess)
+            {
+                if (dispatchRequest.IsRecoverable
+                    && recoveryWaiter != null
+                    && await recoveryWaiter.DelayIfRecoveringAsync(unityProject, deadline, cancellationToken).ConfigureAwait(false))
+                {
+                    continue;
+                }
+
+                if (sessionTokenResult.IsSessionNotAvailable)
+                {
+                    return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.FromCodeAndMessage(
+                        UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
+                        "Daemon session token is not available."));
+                }
+
+                return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.InternalError(
+                    $"Daemon session token could not be resolved. {sessionTokenResult.Error!.Message}"));
+            }
+
+            try
+            {
+                var attemptTimeout = ResolveAttemptTimeout(dispatchRequest, remainingTimeout);
+                var response = await transportClient.SendStreamingAsync(
+                        unityProject.RepositoryRoot,
+                        unityProject.ProjectFingerprint,
+                        UnityIpcRequestFactory.Create(
+                            sessionTokenResult.Token!,
+                            dispatchRequest.Method,
+                            dispatchRequest.Payload,
+                            requestId,
+                            remainingTimeout,
+                            dispatchRequest.ResponseMode),
+                        attemptTimeout,
+                        onProgressFrame,
                         cancellationToken)
                     .ConfigureAwait(false);
                 return UnityRequestExecutionResult.Success(UnityRequestResponseFactory.Create(response));

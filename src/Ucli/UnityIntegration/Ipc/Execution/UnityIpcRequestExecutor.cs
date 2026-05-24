@@ -2,13 +2,14 @@ using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Failures;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 
-/// <summary> Orchestrates one IPC request through the resolved Unity daemon or oneshot host. </summary>
-internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
+/// <summary> Orchestrates IPC requests through the resolved Unity daemon or oneshot host. </summary>
+internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor, IUnityStreamingRequestExecutor
 {
     private readonly UnityIpcRequestBuilder requestBuilder;
 
@@ -50,6 +51,52 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
         UnityRequestPayload payload,
         CancellationToken cancellationToken = default)
     {
+        return await ExecuteCoreAsync(
+                command,
+                mode,
+                timeout,
+                config,
+                unityProject,
+                payload,
+                onProgressFrame: null,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<UnityRequestExecutionResult> ExecuteAsync (
+        UcliCommand command,
+        UnityExecutionMode mode,
+        TimeSpan timeout,
+        UcliConfig config,
+        ResolvedUnityProjectContext unityProject,
+        UnityRequestPayload payload,
+        Func<UnityRequestProgressFrame, CancellationToken, ValueTask> onProgressFrame,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(onProgressFrame);
+        return await ExecuteCoreAsync(
+                command,
+                mode,
+                timeout,
+                config,
+                unityProject,
+                payload,
+                onProgressFrame,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async ValueTask<UnityRequestExecutionResult> ExecuteCoreAsync (
+        UcliCommand command,
+        UnityExecutionMode mode,
+        TimeSpan timeout,
+        UcliConfig config,
+        ResolvedUnityProjectContext unityProject,
+        UnityRequestPayload payload,
+        Func<UnityRequestProgressFrame, CancellationToken, ValueTask>? onProgressFrame,
+        CancellationToken cancellationToken)
+    {
         if (!command.IsValid)
         {
             throw new ArgumentException("Command name is invalid.", nameof(command));
@@ -62,6 +109,11 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
         cancellationToken.ThrowIfCancellationRequested();
 
         var dispatchRequest = requestBuilder.Build(payload);
+        if (onProgressFrame is not null)
+        {
+            dispatchRequest = dispatchRequest.WithResponseMode(IpcResponseModes.Stream);
+        }
+
         var budget = UnityIpcExecutionBudget.Start(timeout, timeProvider);
         var targetResolution = await targetResolver.ResolveAsync(
                 mode,
@@ -75,7 +127,8 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
         }
 
         var unityIpcClient = clientSelector.Select(targetResolution.Target);
-        if (targetResolution.Target == UnityExecutionTarget.Daemon
+        if (onProgressFrame is null
+            && targetResolution.Target == UnityExecutionTarget.Daemon
             && daemonReadinessGate.TryReadReadinessGatedOpsRead(dispatchRequest, out var opsReadRequest))
         {
             return await daemonReadinessGate.ExecuteAsync(
@@ -88,10 +141,30 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
                 .ConfigureAwait(false);
         }
 
+        if (onProgressFrame is not null
+            && dispatchRequest.IsRecoverable)
+        {
+            return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.InternalError(
+                $"Streaming IPC dispatch does not support recoverable request replay: {dispatchRequest.Method}."));
+        }
+
         if (!budget.TryGetRemainingTimeout(out var requestTimeout))
         {
             return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.Timeout(
                 "Timed out before Unity IPC request dispatch could begin."));
+        }
+
+        if (onProgressFrame is not null)
+        {
+            return await unityIpcClient.SendStreamingAsync(
+                    unityProject,
+                    dispatchRequest,
+                    requestTimeout,
+                    (frame, progressCancellationToken) => onProgressFrame(
+                        new UnityRequestProgressFrame(frame.Event!, frame.Payload),
+                        progressCancellationToken),
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
 
         return await unityIpcClient.SendAsync(

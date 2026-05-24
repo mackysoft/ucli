@@ -1055,6 +1055,17 @@ public sealed class UnityOneshotIpcClientTests
             Requests.Add(request);
             return ValueTask.FromResult(responseFactory(request));
         }
+
+        public async ValueTask<IpcResponse> SendStreamingAsync (
+            string storageRoot,
+            string projectFingerprint,
+            IpcRequest request,
+            TimeSpan timeout,
+            Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+            CancellationToken cancellationToken = default)
+        {
+            return await SendAsync(storageRoot, projectFingerprint, request, timeout, cancellationToken);
+        }
     }
 
     private sealed class StubIpcEndpointResolver : IIpcEndpointResolver

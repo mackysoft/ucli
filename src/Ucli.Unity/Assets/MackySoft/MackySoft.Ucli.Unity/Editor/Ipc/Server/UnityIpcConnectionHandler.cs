@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
@@ -62,6 +63,23 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var request = readResult.Value;
+            if (IsStreamingResponse(request))
+            {
+                var streamWriter = new UnityIpcStreamFrameWriter(stream, request);
+                var streamingResponse = requestProcessor is IUnityIpcStreamingRequestProcessor streamingRequestProcessor
+                    ? await streamingRequestProcessor.ProcessStreamingAsync(
+                        request,
+                        streamWriter,
+                        cancellationToken)
+                    : UnityIpcResponseFactory.CreateErrorResponse(
+                        request,
+                        UcliCoreErrorCodes.InternalError,
+                        "Streaming IPC request processor is not registered.",
+                        null);
+                await streamWriter.WriteTerminalAsync(streamingResponse, cancellationToken);
+                return new UnityIpcConnectionHandleResult(request, streamingResponse);
+            }
+
             var response = await requestProcessor.ProcessAsync(request, cancellationToken);
             await IpcFrameCodec.WriteModelAsync(
                 stream,
@@ -70,6 +88,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                 cancellationToken: cancellationToken);
 
             return new UnityIpcConnectionHandleResult(request, response);
+        }
+
+        private static bool IsStreamingResponse (IpcRequest request)
+        {
+            return string.Equals(request.ResponseMode, IpcResponseModes.Stream, StringComparison.Ordinal);
         }
     }
 }

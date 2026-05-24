@@ -138,5 +138,16 @@ public sealed class DaemonShutdownClientTests
             var response = responseFactory(request);
             return ValueTask.FromResult(response);
         }
+
+        public async ValueTask<IpcResponse> SendStreamingAsync (
+            string storageRoot,
+            string projectFingerprint,
+            IpcRequest request,
+            TimeSpan timeout,
+            Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+            CancellationToken cancellationToken = default)
+        {
+            return await SendAsync(storageRoot, projectFingerprint, request, timeout, cancellationToken);
+        }
     }
 }

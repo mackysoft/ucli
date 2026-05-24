@@ -20,19 +20,22 @@ internal static class UnityIpcRequestFactory
     /// <param name="method"> The IPC method name. </param>
     /// <param name="payload"> The payload element. </param>
     /// <param name="dispatchTimeout"> The final dispatch timeout budget when the method needs server-side cancellation. </param>
+    /// <param name="responseMode"> The response framing mode requested by the caller. </param>
     /// <returns> The created request envelope. </returns>
     public static IpcRequest Create (
         string sessionToken,
         string method,
         JsonElement payload,
-        TimeSpan? dispatchTimeout = null)
+        TimeSpan? dispatchTimeout = null,
+        string responseMode = IpcResponseModes.Single)
     {
         return Create(
             sessionToken,
             method,
             payload,
             CreateRequestId(method),
-            dispatchTimeout);
+            dispatchTimeout,
+            responseMode);
     }
 
     /// <summary> Creates one request envelope with the supplied request identifier. </summary>
@@ -41,24 +44,31 @@ internal static class UnityIpcRequestFactory
     /// <param name="payload"> The payload element. </param>
     /// <param name="requestId"> The stable request identifier. </param>
     /// <param name="dispatchTimeout"> The final dispatch timeout budget when the method needs server-side cancellation. </param>
+    /// <param name="responseMode"> The response framing mode requested by the caller. </param>
     /// <returns> The created request envelope. </returns>
     public static IpcRequest Create (
         string sessionToken,
         string method,
         JsonElement payload,
         string requestId,
-        TimeSpan? dispatchTimeout = null)
+        TimeSpan? dispatchTimeout = null,
+        string responseMode = IpcResponseModes.Single)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionToken);
         ArgumentException.ThrowIfNullOrWhiteSpace(method);
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
+        if (!IpcResponseModes.IsDefined(responseMode))
+        {
+            throw new ArgumentException($"Unsupported IPC response mode: {responseMode}.", nameof(responseMode));
+        }
 
         return new IpcRequest(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: requestId,
             SessionToken: sessionToken,
             Method: method,
-            Payload: ApplyDispatchTimeout(method, payload, dispatchTimeout));
+            Payload: ApplyDispatchTimeout(method, payload, dispatchTimeout),
+            ResponseMode: responseMode);
     }
 
     private static JsonElement ApplyDispatchTimeout (

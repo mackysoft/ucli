@@ -17,6 +17,20 @@ internal interface IIpcTransportClient
         TimeSpan timeout,
         CancellationToken cancellationToken = default);
 
+    /// <summary> Sends one IPC request and reads progress frames until the terminal response frame is received. </summary>
+    /// <param name="endpoint"> The explicit IPC endpoint. </param>
+    /// <param name="request"> The request envelope. </param>
+    /// <param name="timeout"> The timeout for one request. Must be greater than <see cref="TimeSpan.Zero" />. </param>
+    /// <param name="onProgressFrame"> The callback invoked for each progress frame. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> The terminal response envelope. </returns>
+    ValueTask<IpcResponse> SendStreamingAsync (
+        IpcEndpoint endpoint,
+        IpcRequest request,
+        TimeSpan timeout,
+        Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Sends one IPC request with timeout-limited connection and request write, then waits for the response
     /// until the caller cancels or the peer closes the connection.
