@@ -221,6 +221,30 @@ public sealed class PostReadClaimBuilderTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Build_WithHierarchyPathUnrepresentableDiagnostic_ReturnsPartialReadSurfaceClaim ()
+    {
+        var input = CreateInput(
+            CreateOperationResult(diagnostics:
+            [
+                new VerifyFromDiagnostic(
+                    Code: ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects.Value,
+                    Severity: IpcExecuteDiagnosticSeverityNames.Warning,
+                    CoverageImpact: IpcExecuteDiagnosticCoverageImpactNames.Partial,
+                    Message: "Hierarchy paths cannot represent every object.")
+            ]),
+            readPostconditionRequirementCount: 1);
+
+        var claimSet = PostReadClaimBuilder.Build(input, profileRequired: true);
+
+        var claim = Assert.Single(claimSet.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.ReadSurfaceSafe.Value, StringComparison.Ordinal));
+        Assert.Equal(VerifyClaimStatusValues.Passed, claim.Status);
+        Assert.Equal(VerifyCoverageValues.Partial, claim.Coverage);
+        Assert.Empty(claim.ResidualRisks);
+        Assert.Empty(claimSet.ResidualRisks);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Build_WithUnboundCoverageDiagnostic_ReturnsBlockingResidualRisk ()
     {
         var input = CreateInput(CreateOperationResult(
